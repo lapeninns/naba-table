@@ -436,6 +436,7 @@ export async function updateBookingRecord(
   client: DbClient,
   bookingId: string,
   payload: UpdateBookingPayload,
+  options: { restaurantId?: string | null } = {},
 ): Promise<BookingRecord> {
   const nextPayload: UpdateBookingPayload = { ...payload };
 
@@ -457,10 +458,16 @@ export async function updateBookingRecord(
     nextPayload.idempotency_key = null;
   }
 
-  const { data, error } = await client
+  let query = client
     .from("bookings")
     .update(nextPayload)
-    .eq("id", bookingId)
+    .eq("id", bookingId);
+
+  if (options.restaurantId) {
+    query = query.eq("restaurant_id", options.restaurantId);
+  }
+
+  const { data, error } = await query
     .select(BOOKING_SELECT)
     .single();
 

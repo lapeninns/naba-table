@@ -9,6 +9,45 @@ const normalizeOptionalUrl = (value: unknown) =>
 
 const appEnvSchema = z.enum(['development', 'staging', 'production', 'test']);
 
+export const PUBLIC_ENV_SECRET_PATTERNS = [
+  'SERVICE_ROLE',
+  'SECRET',
+  'TOKEN',
+  'PASSWORD',
+  'PRIVATE_KEY',
+  'DATABASE_URL',
+] as const;
+
+export const PUBLIC_ENV_ALLOWLIST = new Set([
+  'NEXT_PUBLIC_APP_URL',
+  'NEXT_PUBLIC_APP_VERSION',
+  'NEXT_PUBLIC_BOOKING_PENDING_GRACE_MINUTES',
+  'NEXT_PUBLIC_DEFAULT_RESTAURANT_ID',
+  'NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG',
+  'NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG_FALLBACK',
+  'NEXT_PUBLIC_FEATURE_MANUAL_SESSION_ENABLED',
+  'NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN',
+  'NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN',
+  'NEXT_PUBLIC_POSTHOG_HOST',
+  'NEXT_PUBLIC_POSTHOG_KEY',
+  'NEXT_PUBLIC_RESERVE_V2',
+  'NEXT_PUBLIC_ROOT_DOMAIN',
+  'NEXT_PUBLIC_SITE_ANALYTICS_WRITE_KEY',
+  'NEXT_PUBLIC_SITE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
+  'NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA',
+]);
+
+export function findBlockedPublicEnvKeys(input: Record<string, string | undefined>): string[] {
+  return Object.keys(input)
+    .filter((key) => key.startsWith('NEXT_PUBLIC_'))
+    .filter((key) => !PUBLIC_ENV_ALLOWLIST.has(key))
+    .filter((key) => PUBLIC_ENV_SECRET_PATTERNS.some((pattern) => key.includes(pattern)))
+    .sort();
+}
+
 const baseEnvSchema = z
   .object({
     APP_ENV: appEnvSchema.default('development'),
@@ -17,6 +56,12 @@ const baseEnvSchema = z
     ALLOW_MEMORY_RATE_LIMIT_IN_PROD: booleanStringOptional,
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+    /** Supabase read-replica API URL (same project keys). Service-role server client only; see supabase/AGENTS.md */
+    SUPABASE_READ_REPLICA_URL: z.string().url().optional(),
+    /** When true with SUPABASE_READ_REPLICA_URL, `getServiceSupabaseClient` uses the replica URL (non-production targets only). */
+    FEATURE_SERVICE_CLIENT_USE_READ_REPLICA: booleanStringOptional,
+    /** Optional banner text shown at the top of the Ops app (e.g. "Preview: production read replica"). */
+    OPS_ENV_BANNER: z.string().max(500).optional(),
     PRODUCTION_SUPABASE_URL: z.string().url().optional(),
     PRODUCTION_SUPABASE_ANON_KEY: z.string().min(1).optional(),
     PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
@@ -123,10 +168,18 @@ const baseEnvSchema = z
       .optional(),
     NEXT_PUBLIC_SITE_ANALYTICS_WRITE_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
+    GOOGLE_BUSINESS_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_BUSINESS_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_BUSINESS_REDIRECT_URI: z.string().url().optional(),
+    GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
+    GOOGLE_BUSINESS_PROFILE_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_BUSINESS_PROFILE_REDIRECT_URI: z.string().url().optional(),
+    GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
+    GOOGLE_CLOUD_QUOTA_PROJECT: z.string().min(1).optional(),
     SITE_URL: z.preprocess(normalizeOptionalUrl, z.string().url().optional()),
     BASE_URL: z.preprocess(normalizeOptionalUrl, z.string().url().optional()),
     ANALYZE: booleanStringOptional,
-    NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
     CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL: z.string().url().optional(),
     CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN: z.string().min(1).optional(),
     BOOKING_SHORT_LINKS_BASE_URL: z.string().url().optional(),

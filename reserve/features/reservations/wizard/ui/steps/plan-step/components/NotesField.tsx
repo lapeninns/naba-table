@@ -3,8 +3,14 @@
 import { MessageSquareIcon } from 'lucide-react';
 import React, { useId, useMemo } from 'react';
 
-import { FormControl, FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
-import { Textarea } from '@shared/ui/textarea';
+import {
+  FormControl,
+  FormDescription,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 
 const DESCRIPTION = 'Optional. Share anything we should know before you arrive.';
 const MAX_LENGTH = 500;
@@ -27,12 +33,13 @@ export function NotesField({ value, onChange, onBlur, error }: NotesFieldProps) 
         htmlFor={notesId}
         className="flex items-center gap-1.5 text-sm font-semibold sm:text-base"
       >
-        <MessageSquareIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <MessageSquareIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Notes</span>
       </FormLabel>
       <FormControl>
         <Textarea
           id={notesId}
+          name="reservation-notes"
           placeholder="Birthday, accessibility needs, allergies…"
           value={value}
           onChange={(event) => onChange(event.target.value)}

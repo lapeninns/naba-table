@@ -20,24 +20,24 @@ export function GuestNotesCard({ bookingNotes, profileNotes }: GuestNotesCardPro
   if (!bookingNotes && !profileNotes) return null;
 
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
-      <CardContent className="p-4">
-        <Accordion type="single" collapsible>
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="p-0">
+        <Accordion type="single" collapsible className="w-full">
           {bookingNotes ? (
-            <AccordionItem value="notes" className="border-none">
-              <AccordionTrigger className="py-2 hover:no-underline">
+            <AccordionItem value="notes" className="border-none px-3">
+              <AccordionTrigger className="py-2.5 hover:no-underline">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Notes & requests
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    Booking Notes
                   </span>
-                  <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+                  <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-bold">
                     1
                   </Badge>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="pt-2">
+              <AccordionContent className="pb-3 pt-0">
                 <div className="space-y-2">
-                  <div className="rounded-lg border bg-muted/30 p-3 text-sm text-foreground">
+                  <div className="rounded-md border border-border/50 bg-muted/30 p-2.5 text-xs leading-relaxed text-foreground">
                     {bookingNotes}
                   </div>
                   <ClickToCopy text={bookingNotes} label="notes" compact />
@@ -47,14 +47,14 @@ export function GuestNotesCard({ bookingNotes, profileNotes }: GuestNotesCardPro
           ) : null}
 
           {profileNotes ? (
-            <AccordionItem value="profile" className="border-none">
-              <AccordionTrigger className="py-2 hover:no-underline">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Guest profile notes
+            <AccordionItem value="profile" className="border-none px-3">
+              <AccordionTrigger className="py-2.5 hover:no-underline">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                  Profile History
                 </span>
               </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                <div className="rounded-lg border bg-muted/30 p-3 text-sm text-foreground">
+              <AccordionContent className="pb-3 pt-0">
+                <div className="rounded-md border border-border/50 bg-muted/30 p-2.5 text-xs leading-relaxed text-foreground">
                   {profileNotes}
                 </div>
               </AccordionContent>

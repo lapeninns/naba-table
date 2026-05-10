@@ -1,12 +1,15 @@
-import { redirect } from 'next/navigation';
+import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
 
 import type { Metadata } from 'next';
 
+const route = RESTAURANT_SETTINGS_ROUTE_MAP.overview;
+
 export const metadata: Metadata = {
-  title: 'Restaurant Settings · Nab a Table Ops',
-  description: 'Configure restaurant profile, operating hours, service periods, reservation durations, and occasions',
+  title: `${route.title} · Nab a Table Ops`,
+  description: route.description,
 };
 
-export default function OpsSettingsRestaurantPage() {
-  redirect('/settings/restaurant/profile');
+export default function RestaurantSetupSettingsPage() {
+  return <OpsRestaurantSettingsClient view="overview" />;
 }

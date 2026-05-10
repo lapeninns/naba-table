@@ -1,12 +1,21 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { ServicePeriodRow } from '@/services/ops/restaurants';
+import type {
+  GoogleBusinessProfileServicePeriodsSyncPayload,
+  ServicePeriodRow,
+} from '@/services/ops/restaurants';
 
 export function useOpsServicePeriods(
   restaurantId?: string | null,
@@ -14,7 +23,9 @@ export function useOpsServicePeriods(
   const restaurantService = useRestaurantService();
 
   return useQuery<ServicePeriodRow[], HttpError>({
-    queryKey: restaurantId ? queryKeys.opsRestaurants.servicePeriods(restaurantId) : queryKeys.opsRestaurants.servicePeriods('none'),
+    queryKey: restaurantId
+      ? queryKeys.opsRestaurants.servicePeriods(restaurantId)
+      : queryKeys.opsRestaurants.servicePeriods('none'),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -28,7 +39,12 @@ export function useOpsServicePeriods(
 
 export function useOpsUpdateServicePeriods(
   restaurantId?: string | null,
-): UseMutationResult<ServicePeriodRow[], HttpError | Error, ServicePeriodRow[], { previous?: ServicePeriodRow[] }> {
+): UseMutationResult<
+  ServicePeriodRow[],
+  HttpError | Error,
+  ServicePeriodRow[],
+  { previous?: ServicePeriodRow[] }
+> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
 
@@ -46,7 +62,9 @@ export function useOpsUpdateServicePeriods(
     },
     onMutate: async (rows) => {
       if (!restaurantId) return { previous: undefined };
-      await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId),
+      });
       const previous = queryClient.getQueryData<ServicePeriodRow[]>(
         queryKeys.opsRestaurants.servicePeriods(restaurantId),
       );
@@ -55,7 +73,10 @@ export function useOpsUpdateServicePeriods(
     },
     onError: (_error, _rows, context) => {
       if (!restaurantId || !context?.previous) return;
-      queryClient.setQueryData(queryKeys.opsRestaurants.servicePeriods(restaurantId), context.previous);
+      queryClient.setQueryData(
+        queryKeys.opsRestaurants.servicePeriods(restaurantId),
+        context.previous,
+      );
     },
     onSuccess: (periods) => {
       if (!restaurantId) return;
@@ -63,7 +84,36 @@ export function useOpsUpdateServicePeriods(
     },
     onSettled: () => {
       if (!restaurantId) return;
-      void queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId),
+      });
+    },
+  });
+}
+
+export function useOpsSyncServicePeriodsWithGoogleBusinessProfile(
+  restaurantId?: string | null,
+): UseMutationResult<
+  ServicePeriodRow[],
+  HttpError | Error,
+  GoogleBusinessProfileServicePeriodsSyncPayload
+> {
+  const restaurantService = useRestaurantService();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => {
+      if (!restaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return restaurantService.syncServicePeriodsWithGoogleBusinessProfile(restaurantId, payload);
+    },
+    onSuccess: (periods) => {
+      if (!restaurantId) return;
+      queryClient.setQueryData(queryKeys.opsRestaurants.servicePeriods(restaurantId), periods);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+      });
     },
   });
 }

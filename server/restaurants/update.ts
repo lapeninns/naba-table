@@ -1,4 +1,5 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -156,17 +157,17 @@ export async function updateRestaurant(
   }
 
   if (updateData.manager_daily_summary_enabled === true && !updateData.manager_notification_phone) {
-    throw new Error('A manager notification phone is required when daily SMS summaries are enabled.');
+    throw new Error(
+      'A manager notification phone is required when daily SMS summaries are enabled.',
+    );
   }
 
   if (input.googleMapUrl !== undefined) {
-    const trimmed = input.googleMapUrl?.trim();
-    updateData.google_map_url = trimmed && trimmed.length > 0 ? trimmed : null;
+    updateData.google_map_url = safeGoogleMapsUrl(input.googleMapUrl);
   }
 
   if (input.googleReviewUrl !== undefined) {
-    const trimmed = input.googleReviewUrl?.trim();
-    updateData.google_review_url = trimmed && trimmed.length > 0 ? trimmed : null;
+    updateData.google_review_url = safeGoogleReviewUrl(input.googleReviewUrl);
   }
 
   if (input.bookingPolicy !== undefined) {
@@ -261,8 +262,8 @@ export async function updateRestaurant(
     address: data.address,
     managerDailySummaryEnabled: data.manager_daily_summary_enabled ?? false,
     managerNotificationPhone: data.manager_notification_phone,
-    googleMapUrl: data.google_map_url,
-    googleReviewUrl: data.google_review_url ?? null,
+    googleMapUrl: safeGoogleMapsUrl(data.google_map_url),
+    googleReviewUrl: safeGoogleReviewUrl(data.google_review_url),
     bookingPolicy: data.booking_policy,
     logoUrl: data.logo_url,
     emailSendReminder24h: data.email_send_reminder_24h ?? true,

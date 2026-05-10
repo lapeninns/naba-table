@@ -1,12 +1,21 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { OperatingHoursSnapshot } from '@/services/ops/restaurants';
+import type {
+  GoogleBusinessProfileOperatingHoursSyncPayload,
+  OperatingHoursSnapshot,
+} from '@/services/ops/restaurants';
 
 export function useOpsOperatingHours(
   restaurantId?: string | null,
@@ -14,7 +23,9 @@ export function useOpsOperatingHours(
   const restaurantService = useRestaurantService();
 
   return useQuery<OperatingHoursSnapshot, HttpError>({
-    queryKey: restaurantId ? queryKeys.opsRestaurants.hours(restaurantId) : queryKeys.opsRestaurants.hours('none'),
+    queryKey: restaurantId
+      ? queryKeys.opsRestaurants.hours(restaurantId)
+      : queryKeys.opsRestaurants.hours('none'),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -28,7 +39,12 @@ export function useOpsOperatingHours(
 
 export function useOpsUpdateOperatingHours(
   restaurantId?: string | null,
-): UseMutationResult<OperatingHoursSnapshot, HttpError | Error, OperatingHoursSnapshot, { previous?: OperatingHoursSnapshot }> {
+): UseMutationResult<
+  OperatingHoursSnapshot,
+  HttpError | Error,
+  OperatingHoursSnapshot,
+  { previous?: OperatingHoursSnapshot }
+> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
 
@@ -47,7 +63,9 @@ export function useOpsUpdateOperatingHours(
     onMutate: async (payload) => {
       if (!restaurantId) return { previous: undefined };
       await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.hours(restaurantId) });
-      const previous = queryClient.getQueryData<OperatingHoursSnapshot>(queryKeys.opsRestaurants.hours(restaurantId));
+      const previous = queryClient.getQueryData<OperatingHoursSnapshot>(
+        queryKeys.opsRestaurants.hours(restaurantId),
+      );
       queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), payload);
       return { previous };
     },
@@ -61,7 +79,36 @@ export function useOpsUpdateOperatingHours(
     },
     onSettled: () => {
       if (!restaurantId) return;
-      void queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.hours(restaurantId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.hours(restaurantId),
+      });
+    },
+  });
+}
+
+export function useOpsSyncOperatingHoursWithGoogleBusinessProfile(
+  restaurantId?: string | null,
+): UseMutationResult<
+  OperatingHoursSnapshot,
+  HttpError | Error,
+  GoogleBusinessProfileOperatingHoursSyncPayload
+> {
+  const restaurantService = useRestaurantService();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => {
+      if (!restaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return restaurantService.syncOperatingHoursWithGoogleBusinessProfile(restaurantId, payload);
+    },
+    onSuccess: (snapshot) => {
+      if (!restaurantId) return;
+      queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), snapshot);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+      });
     },
   });
 }

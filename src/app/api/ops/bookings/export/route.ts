@@ -1,14 +1,16 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { generateCSV } from "@/lib/export/csv";
-import { formatTimeRange } from "@/lib/utils/datetime";
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getTodayBookingsSummary } from "@/server/ops/bookings";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant } from "@/server/team/access";
+import { firstString, safeDate } from '@/lib/api/query-params';
+import { generateCSV } from '@/lib/export/csv';
+import { formatTimeRange } from '@/lib/utils/datetime';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { getTodayBookingsSummary } from '@/server/ops/bookings';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { requireMembershipForRestaurant } from '@/server/team/access';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
 const exportQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -21,8 +23,12 @@ const exportQuerySchema = z.object({
 type ExportQuery = z.infer<typeof exportQuerySchema>;
 
 function parseQuery(request: NextRequest): ExportQuery | null {
-  const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const result = exportQuerySchema.safeParse(entries);
+  const params = request.nextUrl.searchParams;
+  const rawDate = firstString(params, 'date');
+  const result = exportQuerySchema.safeParse({
+    restaurantId: firstString(params, 'restaurantId'),
+    date: rawDate === undefined ? undefined : (safeDate(params, 'date') ?? '__invalid_date__'),
+  });
   if (!result.success) {
     return null;
   }
@@ -31,27 +37,27 @@ function parseQuery(request: NextRequest): ExportQuery | null {
 
 function normalizeText(value: unknown): string {
   if (value === null || value === undefined) {
-    return "";
+    return '';
   }
   if (Array.isArray(value)) {
-    return value.filter(Boolean).join("; ");
+    return value.filter(Boolean).join('; ');
   }
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     return JSON.stringify(value);
   }
   return String(value);
 }
 
 function buildFilename(restaurantName: string | null | undefined, date: string): string {
-  const baseName = restaurantName?.trim().toLowerCase() ?? "restaurant";
-  const safeName = baseName.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "") || "restaurant";
+  const baseName = restaurantName?.trim().toLowerCase() ?? 'restaurant';
+  const safeName = baseName.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'restaurant';
   return `bookings-${safeName}-${date}.csv`;
 }
 
 export async function GET(request: NextRequest) {
   const query = parseQuery(request);
   if (!query) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
   }
 
   const supabase = await getRouteHandlerSupabaseClient();
@@ -61,21 +67,40 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error("[ops/bookings/export][GET] failed to resolve auth", error.message);
+    console.error('[ops/bookings/export][GET] failed to resolve auth', error.message);
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   let membership;
   try {
-    membership = await requireMembershipForRestaurant({ userId: user.id, restaurantId: query.restaurantId });
+    membership = await requireMembershipForRestaurant({
+      userId: user.id,
+      restaurantId: query.restaurantId,
+    });
   } catch (membershipError) {
-    console.error("[ops/bookings/export][GET] membership validation failed", membershipError);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    console.error('[ops/bookings/export][GET] membership validation failed', membershipError);
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request,
+    scope: 'ops-bookings:export',
+    tenantId: query.restaurantId,
+    userId: user.id,
+    limit: 10,
+    windowMs: 60_000,
+    message: 'Too many export requests. Please try again later.',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {
@@ -88,29 +113,32 @@ export async function GET(request: NextRequest) {
 
     const csv = generateCSV(summary.bookings, [
       {
-        header: "Service Time",
+        header: 'Service Time',
         accessor: (booking) => formatTimeRange(booking.startTime, booking.endTime, timezone),
       },
-      { header: "Guest", accessor: (booking) => booking.customerName },
-      { header: "Party Size", accessor: (booking) => booking.partySize },
-      { header: "Status", accessor: (booking) => booking.status },
-      { header: "Email", accessor: (booking) => booking.customerEmail ?? "" },
-      { header: "Phone", accessor: (booking) => booking.customerPhone ?? "" },
-      { header: "Reference", accessor: (booking) => booking.reference ?? "" },
-      { header: "Source", accessor: (booking) => booking.source ?? "" },
-      { header: "Allergies", accessor: (booking) => normalizeText(booking.allergies) },
-      { header: "Dietary Restrictions", accessor: (booking) => normalizeText(booking.dietaryRestrictions) },
-      { header: "Seating Preference", accessor: (booking) => booking.seatingPreference ?? "" },
+      { header: 'Guest', accessor: (booking) => booking.customerName },
+      { header: 'Party Size', accessor: (booking) => booking.partySize },
+      { header: 'Status', accessor: (booking) => booking.status },
+      { header: 'Email', accessor: (booking) => booking.customerEmail ?? '' },
+      { header: 'Phone', accessor: (booking) => booking.customerPhone ?? '' },
+      { header: 'Reference', accessor: (booking) => booking.reference ?? '' },
+      { header: 'Source', accessor: (booking) => booking.source ?? '' },
+      { header: 'Allergies', accessor: (booking) => normalizeText(booking.allergies) },
       {
-        header: "Marketing Opt-in",
+        header: 'Dietary Restrictions',
+        accessor: (booking) => normalizeText(booking.dietaryRestrictions),
+      },
+      { header: 'Seating Preference', accessor: (booking) => booking.seatingPreference ?? '' },
+      {
+        header: 'Marketing Opt-in',
         accessor: (booking) => {
-          if (booking.marketingOptIn === true) return "Yes";
-          if (booking.marketingOptIn === false) return "No";
-          return "";
+          if (booking.marketingOptIn === true) return 'Yes';
+          if (booking.marketingOptIn === false) return 'No';
+          return '';
         },
       },
-      { header: "Profile Notes", accessor: (booking) => booking.profileNotes ?? "" },
-      { header: "Booking Notes", accessor: (booking) => booking.notes ?? "" },
+      { header: 'Profile Notes', accessor: (booking) => booking.profileNotes ?? '' },
+      { header: 'Booking Notes', accessor: (booking) => booking.notes ?? '' },
     ]);
 
     const withBom = `\uFEFF${csv}`;
@@ -119,13 +147,13 @@ export async function GET(request: NextRequest) {
     return new NextResponse(withBom, {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-        "Cache-Control": "no-store",
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Cache-Control': 'no-store',
       },
     });
   } catch (summaryError) {
-    console.error("[ops/bookings/export][GET] failed to build export", summaryError);
-    return NextResponse.json({ error: "Unable to export bookings" }, { status: 500 });
+    console.error('[ops/bookings/export][GET] failed to build export', summaryError);
+    return NextResponse.json({ error: 'Unable to export bookings' }, { status: 500 });
   }
 }

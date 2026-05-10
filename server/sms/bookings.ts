@@ -1,4 +1,5 @@
 import { env } from '@/lib/env';
+import { redactSmsRecipientPhone } from '@/lib/sms/phone-redaction';
 import {
   mapTwilioMessageStatusToDeliveryStatus,
   sendTwilioSmsMessage,
@@ -25,7 +26,7 @@ type SmsResult = {
   status: string | null;
 };
 
-type SmsDeliveryType =
+export type SmsDeliveryType =
   | 'booking_confirmation'
   | 'booking_update'
   | 'booking_cancellation'
@@ -121,6 +122,19 @@ export function hasGuestConfirmationSmsConfig(): boolean {
   return env.twilio.configured && !SUPPRESS_SMS;
 }
 
+export function buildSmsStatusCallbackUrl(params: {
+  appUrl: string;
+  bookingId: string;
+  restaurantId: string;
+  smsType: SmsDeliveryType;
+}): string {
+  const url = new URL('/api/webhook/twilio/sms-status', params.appUrl);
+  url.searchParams.set('bookingId', params.bookingId);
+  url.searchParams.set('restaurantId', params.restaurantId);
+  url.searchParams.set('smsType', params.smsType);
+  return url.toString();
+}
+
 export function buildGuestBookingConfirmationSms(params: {
   booking: BookingRecord;
   venue: SmsVenue;
@@ -192,7 +206,12 @@ async function sendGuestBookingSms(params: {
 
   const statusCallback =
     env.twilio.authToken && env.app.url
-      ? new URL('/api/webhook/twilio/sms-status', env.app.url).toString()
+      ? buildSmsStatusCallbackUrl({
+          appUrl: env.app.url,
+          bookingId: params.booking.id,
+          restaurantId: params.booking.restaurant_id,
+          smsType: params.smsType,
+        })
       : undefined;
 
   const result = await sendTwilioSmsMessage({
@@ -215,7 +234,7 @@ async function sendGuestBookingSms(params: {
     context: {
       messageSid: result.messageSid,
       status: result.status,
-      to: recipient,
+      to: redactSmsRecipientPhone(recipient),
     },
   });
 

@@ -106,7 +106,9 @@ function toIsoString(value?: Date | string | null): string | undefined {
   return date.toISOString();
 }
 
-export function useBookings(filters: BookingsFilters = {}): UseQueryResult<BookingsPage, HttpError> {
+export function useBookings(
+  filters: BookingsFilters = {},
+): UseQueryResult<BookingsPage, HttpError> {
   const searchParams = useMemo(() => {
     const params = new URLSearchParams({ me: '1' });
 
@@ -138,7 +140,15 @@ export function useBookings(filters: BookingsFilters = {}): UseQueryResult<Booki
     }
 
     return params;
-  }, [filters.from, filters.page, filters.pageSize, filters.restaurantId, filters.sort, filters.status, filters.to]);
+  }, [
+    filters.from,
+    filters.page,
+    filters.pageSize,
+    filters.restaurantId,
+    filters.sort,
+    filters.status,
+    filters.to,
+  ]);
 
   const queryKeyParams = useMemo(() => Object.fromEntries(searchParams.entries()), [searchParams]);
   const search = searchParams.toString();
@@ -149,5 +159,7 @@ export function useBookings(filters: BookingsFilters = {}): UseQueryResult<Booki
     queryKey: queryKeys.bookings.list(queryKeyParams),
     queryFn: () => fetchJson<BookingsPage>(`/api/bookings?${search}`),
     placeholderData: keepPreviousData,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }

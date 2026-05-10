@@ -3,24 +3,30 @@
  * Story 4: Ops Dashboard - Table CRUD (Update, Delete)
  */
 
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { fetchTableById, updateTable as updateTableRecord, deleteTable as deleteTableRecord } from "@/server/ops/tables";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
+import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
+import {
+  fetchTableById,
+  updateTable as updateTableRecord,
+  deleteTable as deleteTableRecord,
+} from '@/server/ops/tables';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
-import type { TablesUpdate } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { TablesUpdate } from '@/types/supabase';
+import type { NextRequest } from 'next/server';
 
-const tableStatusEnum = z.enum(["available", "reserved", "occupied", "out_of_service"]);
-const tableCategoryEnum = z.enum(["bar", "dining", "lounge", "patio", "private"]);
-const tableSeatingEnum = z.enum(["standard", "sofa", "booth", "high_top"]);
-const tableMobilityEnum = z.enum(["movable", "fixed"]);
+const tableStatusEnum = z.enum(['available', 'reserved', 'occupied', 'out_of_service']);
+const tableCategoryEnum = z.enum(['bar', 'dining', 'lounge', 'patio', 'private']);
+const tableSeatingEnum = z.enum(['standard', 'sofa', 'booth', 'high_top']);
+const tableMobilityEnum = z.enum(['movable', 'fixed']);
 
 const isoDateTimeString = z
   .string()
-  .refine((value) => typeof value === "string" && !Number.isNaN(Date.parse(value)), {
-    message: "Invalid ISO datetime",
+  .refine((value) => typeof value === 'string' && !Number.isNaN(Date.parse(value)), {
+    message: 'Invalid ISO datetime',
   });
 
 const maintenanceSchema = z
@@ -30,7 +36,7 @@ const maintenanceSchema = z
     reason: z.string().max(200).optional().nullable(),
   })
   .refine((value) => new Date(value.endIso).getTime() > new Date(value.startIso).getTime(), {
-    message: "endIso must be after startIso",
+    message: 'endIso must be after startIso',
   });
 
 const updateTableSchema = z.object({
@@ -62,7 +68,7 @@ type RouteContext = {
 };
 
 function coerceNullableString(value: string | null | undefined): string | null {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
   const trimmed = value.trim();
@@ -74,6 +80,10 @@ function coerceNullableString(value: string | null | undefined): string | null {
 // =====================================================
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(req, () => patchTable(req, context));
+}
+
+async function patchTable(req: NextRequest, context: RouteContext) {
   try {
     const supabase = await getRouteHandlerSupabaseClient();
 
@@ -83,25 +93,32 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id: tableId } = await context.params;
     const existingTable = await fetchTableById(supabase, tableId);
 
     if (!existingTable) {
-      return NextResponse.json({ error: "Table not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
     }
 
     const { data: membership, error: membershipError } = await supabase
-      .from("restaurant_memberships")
-      .select("role")
-      .eq("restaurant_id", existingTable.restaurant_id)
-      .eq("user_id", user.id)
+      .from('restaurant_memberships')
+      .select('role')
+      .eq('restaurant_id', existingTable.restaurant_id)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (membershipError || !membership) {
-      return NextResponse.json({ error: "Access denied to this restaurant" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
+    }
+
+    if (!isRestaurantAdminRole(membership.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions for table management' },
+        { status: 403 },
+      );
     }
 
     const body = await req.json().catch(() => null);
@@ -109,7 +126,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request body", details: parsed.error.flatten() },
+        { error: 'Invalid request body', details: parsed.error.flatten() },
         { status: 400 },
       );
     }
@@ -125,17 +142,20 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     if (updates.zoneId && updates.zoneId !== existingTable.zone_id) {
       const { data: zone, error: zoneError } = await supabase
-        .from("zones")
-        .select("id, restaurant_id")
-        .eq("id", updates.zoneId)
+        .from('zones')
+        .select('id, restaurant_id')
+        .eq('id', updates.zoneId)
         .maybeSingle();
 
       if (zoneError || !zone) {
-        return NextResponse.json({ error: "Zone not found" }, { status: 404 });
+        return NextResponse.json({ error: 'Zone not found' }, { status: 404 });
       }
 
       if (zone.restaurant_id !== existingTable.restaurant_id) {
-        return NextResponse.json({ error: "Zone belongs to a different restaurant" }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Zone belongs to a different restaurant' },
+          { status: 400 },
+        );
       }
     }
 
@@ -144,11 +164,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       updates.maxPartySize !== undefined ? updates.maxPartySize : existingTable.max_party_size;
 
     if (desiredMaxPartySize !== null && desiredMaxPartySize < desiredMinPartySize) {
-      return NextResponse.json({ error: "maxPartySize must be >= minPartySize" }, { status: 400 });
+      return NextResponse.json({ error: 'maxPartySize must be >= minPartySize' }, { status: 400 });
     }
 
-
-    const updatePayload: TablesUpdate<"table_inventory"> = {};
+    const updatePayload: TablesUpdate<'table_inventory'> = {};
 
     if (updates.tableNumber !== undefined) {
       updatePayload.table_number = updates.tableNumber.trim();
@@ -191,7 +210,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     }
 
     if (Object.keys(updatePayload).length === 0 && !maintenanceRange) {
-      return NextResponse.json({ message: "No changes supplied" });
+      return NextResponse.json({ message: 'No changes supplied' });
     }
 
     let updatedTable;
@@ -201,44 +220,47 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         : await fetchTableById(supabase, tableId);
     } catch (updateError) {
       const errorCode =
-        typeof updateError === "object" && updateError && "code" in updateError
+        typeof updateError === 'object' && updateError && 'code' in updateError
           ? (updateError as { code?: string }).code
           : undefined;
 
-      if (errorCode === "23503") {
+      if (errorCode === '23503') {
         return NextResponse.json(
-          { error: "Capacity is not configured for this restaurant" },
+          { error: 'Capacity is not configured for this restaurant' },
           { status: 422 },
         );
       }
 
-      console.error("[ops/tables/[id]][PATCH] Update error", { error: updateError });
-      return NextResponse.json({ error: "Failed to update table" }, { status: 500 });
+      console.error('[ops/tables/[id]][PATCH] Update error', { error: updateError });
+      return NextResponse.json({ error: 'Failed to update table' }, { status: 500 });
     }
 
     if (!updatedTable) {
-      return NextResponse.json({ error: "Table not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
     }
 
     const serviceClient = getServiceSupabaseClient();
 
-    if (updates.status === "out_of_service" && maintenanceRange) {
+    if (updates.status === 'out_of_service' && maintenanceRange) {
       const removeExisting = await serviceClient
-        .from("allocations")
+        .from('allocations')
         .delete()
-        .eq("resource_type", "table")
-        .eq("resource_id", tableId)
-        .eq("is_maintenance", true);
+        .eq('resource_type', 'table')
+        .eq('resource_id', tableId)
+        .eq('is_maintenance', true);
 
       if (removeExisting.error) {
-        console.error("[ops/tables/[id]][PATCH] Failed to reset maintenance allocation", removeExisting.error);
-        return NextResponse.json({ error: "Failed to schedule maintenance" }, { status: 500 });
+        console.error(
+          '[ops/tables/[id]][PATCH] Failed to reset maintenance allocation',
+          removeExisting.error,
+        );
+        return NextResponse.json({ error: 'Failed to schedule maintenance' }, { status: 500 });
       }
 
-      const maintenanceInsert = await serviceClient.from("allocations").insert({
+      const maintenanceInsert = await serviceClient.from('allocations').insert({
         booking_id: null,
         restaurant_id: existingTable.restaurant_id,
-        resource_type: "table",
+        resource_type: 'table',
         resource_id: tableId,
         window: maintenanceRange,
         created_by: user.id,
@@ -247,32 +269,38 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       });
 
       if (maintenanceInsert.error) {
-        console.error("[ops/tables/[id]][PATCH] Failed to create maintenance allocation", maintenanceInsert.error);
+        console.error(
+          '[ops/tables/[id]][PATCH] Failed to create maintenance allocation',
+          maintenanceInsert.error,
+        );
         if (updates.status !== existingTable.status) {
           await supabase
-            .from("table_inventory")
+            .from('table_inventory')
             .update({ status: existingTable.status })
-            .eq("id", tableId);
+            .eq('id', tableId);
         }
-        return NextResponse.json({ error: "Failed to schedule maintenance" }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to schedule maintenance' }, { status: 500 });
       }
-    } else if (typeof updates.status === "string" && updates.status !== "out_of_service") {
+    } else if (typeof updates.status === 'string' && updates.status !== 'out_of_service') {
       const removeExisting = await serviceClient
-        .from("allocations")
+        .from('allocations')
         .delete()
-        .eq("resource_type", "table")
-        .eq("resource_id", tableId)
-        .eq("is_maintenance", true);
+        .eq('resource_type', 'table')
+        .eq('resource_id', tableId)
+        .eq('is_maintenance', true);
 
       if (removeExisting.error) {
-        console.error("[ops/tables/[id]][PATCH] Failed to clear maintenance allocation", removeExisting.error);
+        console.error(
+          '[ops/tables/[id]][PATCH] Failed to clear maintenance allocation',
+          removeExisting.error,
+        );
         if (updates.status !== existingTable.status) {
           await supabase
-            .from("table_inventory")
+            .from('table_inventory')
             .update({ status: existingTable.status })
-            .eq("id", tableId);
+            .eq('id', tableId);
         }
-        return NextResponse.json({ error: "Failed to clear maintenance window" }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to clear maintenance window' }, { status: 500 });
       }
     }
 
@@ -282,8 +310,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error("[ops/tables/[id]][PATCH] Unexpected error", { error });
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    console.error('[ops/tables/[id]][PATCH] Unexpected error', { error });
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -293,6 +321,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 // =====================================================
 
 export async function DELETE(_req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(_req, () => deleteTable(_req, context));
+}
+
+async function deleteTable(_req: NextRequest, context: RouteContext) {
   try {
     const supabase = await getRouteHandlerSupabaseClient();
 
@@ -302,55 +334,57 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { id: tableId } = await context.params;
     const table = await fetchTableById(supabase, tableId);
 
     if (!table) {
-      return NextResponse.json({ error: "Table not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
     }
 
     const { data: membership, error: membershipError } = await supabase
-      .from("restaurant_memberships")
-      .select("role")
-      .eq("restaurant_id", table.restaurant_id)
-      .eq("user_id", user.id)
+      .from('restaurant_memberships')
+      .select('role')
+      .eq('restaurant_id', table.restaurant_id)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (membershipError || !membership) {
-      return NextResponse.json({ error: "Access denied to this restaurant" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
     }
 
-    if (!["owner", "admin"].includes(membership.role)) {
+    if (!isRestaurantAdminRole(membership.role)) {
       return NextResponse.json(
-        { error: "Only owners and admins can delete tables" },
+        { error: 'Only owners and managers can delete tables' },
         { status: 403 },
       );
     }
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowDate = tomorrow.toISOString().split("T")[0];
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
 
     const { data: futureAssignments, error: futureError } = await supabase
-      .from("booking_table_assignments")
-      .select("id, bookings!inner(booking_date)")
-      .eq("table_id", tableId)
-      .gte("bookings.booking_date", tomorrowDate ?? "")
+      .from('booking_table_assignments')
+      .select('id, bookings!inner(booking_date)')
+      .eq('table_id', tableId)
+      .gte('bookings.booking_date', tomorrowDate ?? '')
       .limit(1);
 
     if (futureError) {
-      console.error("[ops/tables/[id]][DELETE] Future assignment lookup failed", { error: futureError });
-      return NextResponse.json({ error: "Failed to verify future assignments" }, { status: 500 });
+      console.error('[ops/tables/[id]][DELETE] Future assignment lookup failed', {
+        error: futureError,
+      });
+      return NextResponse.json({ error: 'Failed to verify future assignments' }, { status: 500 });
     }
 
     if (futureAssignments && futureAssignments.length > 0) {
       return NextResponse.json(
         {
-          error: "Cannot delete table with future booking assignments",
-          message: "Please reassign or cancel future bookings first",
+          error: 'Cannot delete table with future booking assignments',
+          message: 'Please reassign or cancel future bookings first',
         },
         { status: 409 },
       );
@@ -359,14 +393,14 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
     try {
       await deleteTableRecord(supabase, tableId);
     } catch (deleteError) {
-      console.error("[ops/tables/[id]][DELETE] Delete error", { error: deleteError });
-      return NextResponse.json({ error: "Failed to delete table" }, { status: 500 });
+      console.error('[ops/tables/[id]][DELETE] Delete error', { error: deleteError });
+      return NextResponse.json({ error: 'Failed to delete table' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, deletedTableNumber: table.table_number });
   } catch (error) {
-    console.error("[ops/tables/[id]][DELETE] Unexpected error", { error });
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    console.error('[ops/tables/[id]][DELETE] Unexpected error', { error });
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -2,9 +2,11 @@
 
 import { Mail, Monitor, Search, Smartphone } from 'lucide-react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Iframe } from '@/components/ui/iframe';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
@@ -19,11 +21,23 @@ type EmailTemplatesPreviewPaneProps = {
   errorMessage: string | null;
 };
 
-function DetailBlock({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+function DetailBlock({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="space-y-1 rounded-2xl border border-zinc-200 bg-zinc-50/70 px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">{label}</div>
-      <div className={cn('text-sm text-zinc-900 break-words', mono && 'font-mono text-xs')}>{value}</div>
+    <div className="space-y-1 rounded-2xl border border-border bg-muted/40 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+        {label}
+      </div>
+      <div className={cn('break-words text-sm text-foreground', mono && 'font-mono text-xs')}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -38,24 +52,26 @@ export function EmailTemplatesPreviewPane({
   const isMobile = previewDevice === 'mobile';
 
   return (
-    <section className="overflow-hidden rounded-[1.5rem] border border-zinc-200 bg-white shadow-sm">
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50/80 px-5 py-3.5">
+    <section className="overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-sm">
+      <header className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <Mail className="size-4 text-zinc-400" />
+          <Mail className="size-4 text-muted-foreground" />
           <div className="min-w-0">
-            <div className="text-sm font-bold text-zinc-800">Live Preview</div>
-            <div className="text-xs text-zinc-500">Rendered using the current draft variant.</div>
+            <div className="text-sm font-bold text-foreground">Live Preview</div>
+            <div className="text-xs text-muted-foreground">
+              Rendered using the current draft variant.
+            </div>
           </div>
         </div>
 
-        <div className="inline-flex items-center rounded-lg bg-zinc-200/60 p-1">
+        <div className="inline-flex items-center rounded-lg bg-muted p-1">
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
             className={cn(
-              'rounded-md text-zinc-500 hover:text-zinc-900',
-              previewDevice === 'desktop' && 'bg-white text-indigo-700 shadow-sm',
+              'rounded-md text-muted-foreground hover:text-foreground',
+              previewDevice === 'desktop' && 'bg-background text-primary shadow-sm',
             )}
             onClick={() => onPreviewDeviceChange('desktop')}
             aria-label="Desktop preview"
@@ -67,8 +83,8 @@ export function EmailTemplatesPreviewPane({
             size="icon-sm"
             variant="ghost"
             className={cn(
-              'rounded-md text-zinc-500 hover:text-zinc-900',
-              previewDevice === 'mobile' && 'bg-white text-indigo-700 shadow-sm',
+              'rounded-md text-muted-foreground hover:text-foreground',
+              previewDevice === 'mobile' && 'bg-background text-primary shadow-sm',
             )}
             onClick={() => onPreviewDeviceChange('mobile')}
             aria-label="Mobile preview"
@@ -78,7 +94,7 @@ export function EmailTemplatesPreviewPane({
         </div>
       </header>
 
-      <div className="min-h-[36rem] overflow-y-auto bg-[radial-gradient(circle_at_1px_1px,rgba(39,39,42,0.04)_1px,transparent_0)] bg-[length:18px_18px] p-6">
+      <div className="min-h-[36rem] overflow-y-auto bg-muted/30 p-[var(--pg-gutter)]">
         <div className="flex flex-col gap-6">
           {errorMessage ? (
             <Alert variant="destructive" className="w-full">
@@ -94,13 +110,18 @@ export function EmailTemplatesPreviewPane({
           ) : preview ? (
             <>
               <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-4 shadow-sm">
+                <div className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-zinc-900">Delivery summary</div>
-                      <p className="text-xs text-zinc-500">Exactly what the inbox and recipient will see.</p>
+                      <div className="text-sm font-semibold text-foreground">Delivery summary</div>
+                      <p className="text-xs text-muted-foreground">
+                        Exactly what the inbox and recipient will see.
+                      </p>
                     </div>
-                    <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700">
+                    <Badge
+                      variant="outline"
+                      className="border-primary/30 bg-primary/10 text-primary"
+                    >
                       {preview.selectedVariantName}
                     </Badge>
                   </div>
@@ -113,10 +134,12 @@ export function EmailTemplatesPreviewPane({
                   </div>
                 </div>
 
-                <div className="rounded-[1.5rem] border border-zinc-200 bg-white p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-zinc-900">Plain text fallback</div>
-                  <p className="mt-1 text-xs text-zinc-500">Used by clients that block HTML or for deliverability spot checks.</p>
-                  <pre className="mt-4 max-h-48 overflow-auto rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 text-xs leading-6 text-zinc-700 whitespace-pre-wrap">
+                <div className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-foreground">Plain text fallback</div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Used by clients that block HTML or for deliverability spot checks.
+                  </p>
+                  <pre className="mt-4 max-h-48 overflow-auto rounded-2xl border border-border bg-muted/40 p-4 text-xs leading-6 whitespace-pre-wrap text-muted-foreground">
                     {preview.text}
                   </pre>
                 </div>
@@ -126,42 +149,53 @@ export function EmailTemplatesPreviewPane({
                 <div
                   className={cn(
                     'transition-all duration-500 ease-in-out',
-                    isMobile ? 'w-[320px] max-w-full min-h-[600px]' : 'w-full max-w-[600px] min-h-[500px]',
+                    isMobile
+                      ? 'w-[320px] max-w-full min-h-[600px]'
+                      : 'w-full max-w-[600px] min-h-[500px]',
                   )}
                 >
                   <div
                     className={cn(
-                      'flex h-full w-full flex-col overflow-hidden bg-white shadow-xl ring-1 ring-zinc-950/5',
-                      isMobile ? 'rounded-[2.5rem] border-[8px] border-zinc-950' : 'rounded-[1rem]',
+                      'flex h-full w-full flex-col overflow-hidden bg-background shadow-xl ring-1 ring-border',
+                      isMobile
+                        ? 'rounded-[2.5rem] border-[8px] border-foreground'
+                        : 'rounded-[1rem]',
                     )}
                   >
                     {!isMobile ? (
-                      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200 bg-zinc-100 px-4">
+                      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-muted px-4">
                         <div className="hidden gap-2 sm:flex">
-                          <span className="size-3 rounded-full bg-red-400" />
-                          <span className="size-3 rounded-full bg-amber-400" />
-                          <span className="size-3 rounded-full bg-emerald-400" />
+                          <span className="size-3 rounded-full bg-destructive" />
+                          <span className="size-3 rounded-full bg-primary" />
+                          <span className="size-3 rounded-full bg-muted-foreground" />
                         </div>
-                        <div className="mx-auto flex w-full items-center justify-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-zinc-500 shadow-sm sm:w-auto">
-                          <Search className="size-3 text-zinc-400" />
+                        <div className="mx-auto flex w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-[11px] font-semibold text-muted-foreground shadow-sm sm:w-auto">
+                          <Search className="size-3 text-muted-foreground" />
                           mail.google.com
                         </div>
                       </div>
                     ) : null}
 
-                    <iframe
+                    <Iframe
                       title={`${previewDevice} email preview`}
+                      sandbox=""
+                      referrerPolicy="no-referrer"
                       srcDoc={preview.html}
-                      className={cn('w-full flex-1 bg-white', isMobile ? 'min-h-[640px]' : 'min-h-[720px]')}
+                      className={cn(
+                        'w-full flex-1 bg-background',
+                        isMobile ? 'min-h-[640px]' : 'min-h-[720px]',
+                      )}
                     />
                   </div>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex min-h-[30rem] w-full items-center justify-center rounded-[1.5rem] border border-dashed border-zinc-300 bg-white/80 px-6 text-center text-sm text-zinc-500 shadow-sm">
-              Start editing a template to render the preview here.
-            </div>
+            <OpsEmptyState
+              title="Preview not ready"
+              description="Start editing a template to render the preview here."
+              className="min-h-[30rem] w-full rounded-[1.5rem] bg-background/80 px-6 shadow-sm"
+            />
           )}
         </div>
       </div>

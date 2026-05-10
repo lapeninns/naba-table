@@ -4,12 +4,10 @@ import { Ban, Calendar, CheckCircle2, LogIn, LogOut, UserX } from 'lucide-react'
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 
-
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import type { OpsBookingStatus, OpsTodayBooking } from '@/types/ops';
-import type { CSSProperties } from 'react';
 
 export type GuestTimelineCardProps = {
   status: OpsBookingStatus;
@@ -33,11 +31,6 @@ function formatTime(iso: string | null, timezone: string) {
 }
 
 export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCardProps) {
-  const heavyPanelStyle = {
-    contentVisibility: 'auto',
-    containIntrinsicSize: '1px 400px',
-  } as CSSProperties;
-
   const steps = useMemo<Step[]>(() => {
     const base: Step[] = [
       { key: 'created', label: 'Booked', done: true, icon: Calendar, tone: 'neutral' },
@@ -50,7 +43,7 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
       },
       {
         key: 'checked_in',
-        label: 'Checked in',
+        label: 'Arrived',
         done: ['checked_in', 'completed'].includes(status),
         icon: LogIn,
         time: formatTime(booking.checkedInAt, timezone),
@@ -58,7 +51,7 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
       },
       {
         key: 'completed',
-        label: 'Completed',
+        label: 'Finished',
         done: status === 'completed',
         icon: LogOut,
         time: formatTime(booking.checkedOutAt, timezone),
@@ -76,70 +69,73 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
     return base;
   }, [booking.checkedInAt, booking.checkedOutAt, status, timezone]);
 
-  const srSummary = useMemo(() => {
-    const time = status === 'checked_in' ? formatTime(booking.checkedInAt, timezone) : null;
-    const time2 = status === 'completed' ? formatTime(booking.checkedOutAt, timezone) : null;
-    const suffix = time ? ` at ${time}` : time2 ? ` at ${time2}` : '';
-    return `Current status: ${status.replace(/_/g, ' ')}${suffix}.`;
-  }, [booking.checkedInAt, booking.checkedOutAt, status, timezone]);
-
   return (
-    <div style={heavyPanelStyle}>
-      <Card className="border-slate-200/60 bg-white shadow-sm">
-        <CardContent className="space-y-3 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            History
-          </div>
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="space-y-4 p-3">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+          Operation History
+        </div>
 
-          <div className="sr-only">{srSummary}</div>
+        <div className="space-y-1">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isLast = index === steps.length - 1;
+            const isDone = step.done;
 
-          <div className="space-y-3">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              const isLast = index === steps.length - 1;
-              const isDone = step.done;
+            const dotTone =
+              step.tone === 'danger'
+                ? isDone
+                  ? 'bg-destructive/10 text-destructive border-destructive/20'
+                  : 'bg-muted text-muted-foreground/40 border-border/50'
+                : isDone
+                  ? 'bg-primary/10 text-primary border-primary/20'
+                  : 'bg-muted text-muted-foreground/40 border-border/50';
 
-              const dotTone =
-                step.tone === 'danger'
-                  ? isDone
-                    ? 'bg-rose-600 text-white'
-                    : 'bg-muted text-muted-foreground'
-                  : isDone
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-muted text-muted-foreground';
+            const lineTone =
+              step.tone === 'danger'
+                ? isDone
+                  ? 'bg-destructive/20'
+                  : 'bg-border/40'
+                : isDone
+                  ? 'bg-primary/20'
+                  : 'bg-border/40';
 
-              const lineTone =
-                step.tone === 'danger'
-                  ? isDone
-                    ? 'bg-rose-200'
-                    : 'bg-border'
-                  : isDone
-                    ? 'bg-emerald-200'
-                    : 'bg-border';
-
-              return (
-                <div key={step.key} className="flex items-start gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className={cn('flex h-8 w-8 items-center justify-center rounded-full', dotTone)}>
-                      <Icon className="h-4 w-4" aria-hidden />
-                    </div>
-                    {!isLast ? <div className={cn('h-6 w-0.5', lineTone)} aria-hidden /> : null}
+            return (
+              <div key={step.key} className="flex items-start gap-3">
+                <div className="flex flex-col items-center">
+                  <div
+                    className={cn(
+                      'flex h-6 w-6 items-center justify-center rounded-full border shadow-sm',
+                      dotTone,
+                    )}
+                  >
+                    <Icon className="size-3" aria-hidden />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className={cn('text-sm font-medium', isDone ? 'text-foreground' : 'text-muted-foreground')}>
+                  {!isLast ? <div className={cn('h-3 w-px', lineTone)} aria-hidden /> : null}
+                </div>
+                <div className="min-w-0 flex-1 py-0.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={cn(
+                        'text-[11px] font-bold tracking-tight',
+                        isDone ? 'text-foreground' : 'text-muted-foreground/60',
+                      )}
+                    >
                       {step.label}
-                    </div>
+                    </span>
                     {step.time ? (
-                      <div className="mt-0.5 text-xs text-muted-foreground">{step.time}</div>
+                      <span className="text-[10px] font-bold text-muted-foreground/50">
+                        {step.time}
+                      </span>
                     ) : null}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -3,8 +3,8 @@
 import { Loader2 } from 'lucide-react';
 import * as React from 'react';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@shared/lib/cn';
-import { Button } from '@shared/ui/button';
 
 import { wizardIconMap } from './wizardIcons';
 import { WizardProgress, type WizardStepMeta, type WizardSummary } from './WizardProgress';
@@ -137,21 +137,15 @@ const ActionButton = React.memo(function ActionButton({ action, role }: ActionBu
       aria-busy={isLoading}
       data-testid={`wizard-action-${action.id}`}
       className={cn(
-        // Base: Equal flex distribution, 44px height on mobile, 48px on desktop
-        'flex-1 h-11 rounded-full sm:flex-none sm:h-12',
+        // Base: 44px height on mobile, 48px on desktop
+        'pg-action pg-focus-ring h-11 min-w-[7.25rem] flex-none rounded-full sm:h-12',
         // Typography - responsive sizing (smaller on mobile to fit)
         'text-xs font-semibold sm:text-sm',
-        // Focus ring (2px offset for visibility)
-        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         // GPU-accelerated transitions (transform + opacity only)
-        'transition-all duration-200 ease-out',
+        'transition-transform duration-200 ease-out',
         // Role-specific styling
         isPrimary && [
           'px-3 sm:px-6',
-          // Layered shadows: neutral base + primary tint (fallback-safe)
-          'shadow-lg',
-          'shadow-primary/20 dark:shadow-primary/10',
-          'hover:shadow-xl hover:shadow-primary/30',
           // Micro-interaction: scale on hover/press
           'hover:scale-[1.02] active:scale-[0.98]',
         ],
@@ -206,8 +200,10 @@ const OUTER_CONTAINER_CLASSES = cn(
   'pb-[env(safe-area-inset-bottom,0px)]',
   // Mobile: No horizontal padding (edge-to-edge)
   // Desktop: Horizontal padding + bottom margin for floating effect
-  'px-0 sm:px-4 lg:px-6',
+  'px-0 sm:px-[var(--pg-gutter)]',
   'sm:pb-4',
+  // Guest drawer state hides this fixed bar with compositor-only properties.
+  'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
   // Pointer events pass through (nav re-enables them)
   'pointer-events-none',
 );
@@ -231,25 +227,17 @@ const NAV_CAPSULE_CLASSES = cn(
   // Centering and max-width
   'mx-auto w-full',
 
-  // ─── GLASSMORPHISM ───────────────────────────────────────────────────────
-  // Light mode: White with 90% opacity
-  'bg-white/90 backdrop-blur-xl',
-  'supports-[backdrop-filter]:bg-white/80',
-  // Dark mode: Dark slate with reduced opacity
-  'dark:bg-slate-950/90 dark:supports-[backdrop-filter]:bg-slate-950/80',
-
-  // ─── BORDER & SHADOW ─────────────────────────────────────────────────────
-  'border border-white/40 dark:border-slate-700/50',
-  // More prominent shadow for floating effect
-  'shadow-2xl shadow-black/15 dark:shadow-black/50',
+  'pg-panel backdrop-blur-xl',
+  // Reserve the settled summary + action height so the fixed bar does not grow after hydration.
+  'min-h-[5.375rem] sm:min-h-[6.125rem]',
 
   // ─── SHAPE ───────────────────────────────────────────────────────────────
   // Mobile: Attached to viewport bottom, rounded top corners
-  'rounded-t-3xl',
+  'rounded-t-[var(--pg-radius-lg)]',
   // Desktop: Floating capsule with graceful rounding
   // Using rounded-3xl (24px) instead of rounded-full to prevent
   // "stretched pill" appearance on wide screens
-  'sm:max-w-4xl sm:rounded-3xl',
+  'sm:max-w-4xl sm:rounded-[var(--pg-radius-lg)]',
 
   // ─── TEXT ────────────────────────────────────────────────────────────────
   'text-foreground',
@@ -288,7 +276,7 @@ export function WizardNavigation({
   const hasSupport = support.length > 0;
 
   return (
-    <div className={cn(OUTER_CONTAINER_CLASSES, className)}>
+    <div data-booking-wizard-navigation className={cn(OUTER_CONTAINER_CLASSES, className)}>
       <nav
         ref={navRef}
         role="navigation"
@@ -308,34 +296,44 @@ export function WizardNavigation({
           {/* ─────────────────────────────────────────────────────────────────
               TOP: Centered Booking Summary
           ───────────────────────────────────────────────────────────────── */}
-          {summary.details && summary.details.length >= 3 && (
-            <p className="text-center text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{summary.details[0]}</span>
-              {' at '}
-              <span className="font-medium text-foreground">{summary.details[1]}</span>
-              {' on '}
-              <span className="font-medium text-foreground">{summary.details[2]}</span>
-            </p>
-          )}
+          <p
+            className={cn(
+              'min-h-4 text-center text-xs text-muted-foreground',
+              !(summary.details && summary.details.length >= 3) && 'invisible',
+            )}
+            aria-hidden={!(summary.details && summary.details.length >= 3)}
+          >
+            {summary.details && summary.details.length >= 3 ? (
+              <>
+                <span className="font-medium text-foreground">{summary.details[0]}</span>
+                {' at '}
+                <span className="font-medium text-foreground">{summary.details[1]}</span>
+                {' on '}
+                <span className="font-medium text-foreground">{summary.details[2]}</span>
+              </>
+            ) : (
+              'Selection summary'
+            )}
+          </p>
 
           {/* ─────────────────────────────────────────────────────────────────
               MIDDLE/BOTTOM: Progress + Buttons
-              Mobile: Stacked (progress row, then buttons row)
-              Desktop: Inline (progress expands, buttons on right)
+              Mobile: Compact inline controls
+              Desktop: Inline with full progress treatment
           ───────────────────────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Progress indicator with progress bar */}
             <WizardProgress
               steps={steps}
               currentStep={currentStep}
               summary={summary}
-              className="min-w-0 flex-1"
+              className="min-w-0 flex-1 [&_[role=progressbar]]:hidden [&_.tabular-nums]:hidden sm:[&_[role=progressbar]]:block sm:[&_.tabular-nums]:inline"
             />
 
-            {/* Action Buttons - fill width equally on mobile */}
+            {/* Action Buttons */}
             {hasActions && (
               <div
-                className="flex w-full items-stretch gap-2 sm:w-auto sm:shrink-0"
+                className="flex w-auto shrink-0 items-stretch gap-2"
                 role="group"
                 aria-label="Step actions"
               >

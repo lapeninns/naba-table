@@ -21,7 +21,6 @@ describe('buildCalendarEvent', () => {
       venueEmail: 'bookings@oldcrowngirton.co.uk',
       venuePhone: '+441223000000',
       bookingType: 'dinner',
-      seatingPreference: 'window',
       notes: 'Birthday table, if available.',
       manageUrl: 'https://www.nabatable.com/bookings/recover?token=abc',
       status: 'confirmed',
@@ -31,7 +30,6 @@ describe('buildCalendarEvent', () => {
     expect(event).toContain('Reference: REF123');
     expect(event).toContain('Party size: 4');
     expect(event).toContain('Booking type: dinner');
-    expect(event).toContain('Seating preference: window');
     expect(event).toContain('Notes: Birthday table\\, if available.');
     expect(event).toContain('Manage booking: https://www.nabatable.com/bookings/recover?token=abc');
     expect(event).toContain('Venue phone: +441223000000');

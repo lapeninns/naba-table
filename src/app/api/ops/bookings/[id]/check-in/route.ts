@@ -1,26 +1,22 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { prepareCheckInTransition } from "@/server/ops/booking-lifecycle/actions";
-import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
-import { invalidateOpsDashboardCaches } from "@/server/ops/bookings";
+import { prepareCheckInTransition } from '@/server/ops/booking-lifecycle/actions';
+import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
+import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 
 import {
   loadLifecycleRouteContext,
   parseOptionalRouteBody,
   persistLifecycleTransition,
   resolveBookingId,
-} from "../_shared/lifecycleRoute";
+} from '../_shared/lifecycleRoute';
 
-import type { NextRequest } from "next/server";
-
+import type { NextRequest } from 'next/server';
 
 const bodySchema = z
   .object({
-    performedAt: z
-      .string()
-      .datetime({ offset: true })
-      .optional(),
+    performedAt: z.string().datetime({ offset: true }).optional(),
   })
   .optional()
   .transform((value) => value ?? {});
@@ -32,7 +28,7 @@ type RouteParams = {
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: "Missing booking id" }, { status: 400 });
+    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
   const parsedBody = await parseOptionalRouteBody(req, bodySchema);
@@ -42,8 +38,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const payload = parsedBody.data;
 
   const contextResult = await loadLifecycleRouteContext({
+    req,
     bookingId: id,
-    logLabel: "booking-check-in",
+    logLabel: 'booking-check-in',
   });
   if (contextResult.response) {
     return contextResult.response;
@@ -68,19 +65,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
   } catch (validationError) {
     if (validationError instanceof BookingLifecycleError) {
-      const status = validationError.code === "TIMESTAMP_INVALID" ? 400 : 409;
+      const status = validationError.code === 'TIMESTAMP_INVALID' ? 400 : 409;
       return NextResponse.json({ error: validationError.message }, { status });
     }
-    console.error("[ops][booking-check-in] unexpected validation error", validationError);
-    return NextResponse.json({ error: "Unable to process booking" }, { status: 500 });
+    console.error('[ops][booking-check-in] unexpected validation error', validationError);
+    return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 
   const persistResult = await persistLifecycleTransition({
     booking,
     transition,
     serviceSupabase,
-    logLabel: "booking-check-in",
-    failureMessage: "Unable to check in booking",
+    logLabel: 'booking-check-in',
+    failureMessage: 'Unable to check in booking',
   });
   if (persistResult.response) {
     return persistResult.response;

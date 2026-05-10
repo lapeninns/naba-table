@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { X } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { X } from 'lucide-react';
+import { useMemo, useRef } from 'react';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
-import { OPS_BOOKING_STATUS_ORDER, getOpsBookingStatusUi } from "@/lib/ops/booking-status";
-import { cn } from "@/lib/utils";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
+import { OPS_BOOKING_STATUS_ORDER, getOpsBookingStatusUi } from '@/lib/ops/booking-status';
+import { cn } from '@/lib/utils';
 
-import type { OpsBookingStatus } from "@/types/ops";
+import type { OpsBookingStatus } from '@/types/ops';
 
 type StatusOption = {
   status: OpsBookingStatus;
@@ -26,7 +26,14 @@ type OpsStatusFilterProps = {
   order?: OpsBookingStatus[];
 };
 
-export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoading = false, order }: OpsStatusFilterProps) {
+export function OpsStatusFilter({
+  options,
+  selected,
+  onToggle,
+  onClear,
+  isLoading = false,
+  order,
+}: OpsStatusFilterProps) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const resolvedOrder = order ?? OPS_BOOKING_STATUS_ORDER;
 
@@ -42,27 +49,31 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
 
   buttonRefs.current = buttonRefs.current.slice(0, orderedOptions.length);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number, status: OpsBookingStatus) => {
-    if (event.key === " " || event.key === "Enter") {
+  const handleKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+    status: OpsBookingStatus,
+  ) => {
+    if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
       onToggle(status);
       return;
     }
 
     const refs = buttonRefs.current;
-    if (event.key === "ArrowDown") {
+    if (event.key === 'ArrowDown') {
       event.preventDefault();
       const next = (index + 1) % refs.length;
       refs[next]?.focus();
     }
-    if (event.key === "ArrowUp") {
+    if (event.key === 'ArrowUp') {
       event.preventDefault();
       const prev = (index - 1 + refs.length) % refs.length;
       refs[prev]?.focus();
     }
   };
 
-  const selectedLabel = selected.length > 0 ? `${selected.length} selected` : "All statuses";
+  const selectedLabel = selected.length > 0 ? `${selected.length} selected` : 'All statuses';
 
   return (
     <div className="flex flex-col gap-3">
@@ -75,7 +86,9 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
           </PopoverTrigger>
           <PopoverContent className="w-64 space-y-3 p-3" align="start">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filter by status</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Filter by status
+              </p>
               <Button
                 type="button"
                 variant="ghost"
@@ -87,22 +100,30 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                 Clear
               </Button>
             </div>
-            <div className="flex flex-col gap-1" role="menu" aria-label="Booking status filters" aria-busy={isLoading}>
+            <div
+              className="flex flex-col gap-1"
+              role="menu"
+              aria-label="Booking status filters"
+              aria-busy={isLoading}
+            >
               {orderedOptions.map((option, index) => {
                 const config = getOpsBookingStatusUi(option.status);
                 const isSelected = selectedSet.has(option.status);
                 return (
-                  <button
+                  <Button
                     key={option.status}
                     type="button"
+                    variant="ghost"
                     ref={(element) => {
                       buttonRefs.current[index] = element;
                     }}
                     role="menuitemcheckbox"
                     aria-checked={isSelected}
                     className={cn(
-                      'flex items-center justify-between rounded-lg border px-3 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:py-2',
-                      isSelected ? 'border-primary bg-primary/5 text-primary' : 'border-border bg-background text-foreground',
+                      'h-auto w-full justify-between whitespace-normal rounded-lg border px-3 py-3 text-left text-sm sm:py-2',
+                      isSelected
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border bg-background text-foreground',
                     )}
                     onClick={() => onToggle(option.status)}
                     onKeyDown={(event) => handleKeyDown(event, index, option.status)}
@@ -116,7 +137,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                     ) : (
                       <Badge variant={isSelected ? 'default' : 'secondary'}>{option.count}</Badge>
                     )}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -124,7 +145,7 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
         </Popover>
         {selected.length > 0 ? (
           <Button type="button" variant="ghost" size="sm" className="h-11 sm:h-9" onClick={onClear}>
-            <X className="mr-1 h-4 w-4" aria-hidden />
+            <X className="mr-1 size-4" aria-hidden />
             Clear filters
           </Button>
         ) : null}
@@ -141,14 +162,16 @@ export function OpsStatusFilter({ options, selected, onToggle, onClear, isLoadin
                 className="flex items-center gap-1.5 border-primary/40 bg-primary/5 text-primary"
               >
                 <span>{config.label}</span>
-                <button
+                <Button
                   type="button"
-                  className="rounded-full p-0.5 text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-5 rounded-full p-0 text-primary hover:bg-primary/10"
                   onClick={() => onToggle(status)}
                   aria-label={`Remove ${config.label} filter`}
                 >
-                  <X className="h-3 w-3" aria-hidden />
-                </button>
+                  <X aria-hidden />
+                </Button>
               </Badge>
             );
           })}

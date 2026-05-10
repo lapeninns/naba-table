@@ -1,101 +1,112 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import { Icon } from '../shared/Icons';
 
 const BENEFITS = [
   {
-    title: 'The Core Engine',
+    title: 'Your pub stays bookable after the phone stops being answered.',
     description:
-      'Automated bookings and email confirmations. No-shows drop to near zero immediately.',
-    value: '£5,000 Value',
+      'Guests can choose the right party size and time while your rules protect capacity.',
+    value: 'Capture',
     icon: 'check' as const,
   },
   {
-    title: 'Sunday Roast Capacity Calc',
-    description:
-      'An algorithm that stops kitchen meltdowns by pacing covers perfectly during peak service.',
-    value: '£1,500 Value',
+    title: 'Every booking gets a confirmation rhythm.',
+    description: 'SMS and email prompts reduce the manual chasing that steals time before service.',
+    value: 'Remind',
     icon: 'clock' as const,
   },
   {
-    title: 'No-Show Prevention Pack',
-    description:
-      'Email reminder sequences and confirmation copy designed specifically for UK pubs.',
-    value: '£1,000 Value',
+    title: 'The floor plan follows your actual trading rules.',
+    description: 'Turn times, service periods, and table joins are configured around your venue.',
+    value: 'Control',
     icon: 'shield' as const,
   },
   {
-    title: 'Host Stand Playbook',
-    description:
-      '10-minute pre-shift checklist and scripts so staff stop "playing Tetris" with your floor.',
-    value: '£2,000 Value',
+    title: 'Managers see pressure before it becomes a problem.',
+    description: 'Daily summaries and service views surface the risks worth acting on.',
+    value: 'Visibility',
     icon: 'user' as const,
   },
   {
-    title: 'Whale-Watcher CRM',
-    description:
-      'Identify high-spenders instantly. Ensure VIPs get the treatment that drives 3x loyalty.',
-    value: '£2,000 Value',
+    title: 'The waitlist becomes useful, not decorative.',
+    description: 'Last-minute gaps can be filled from guests who already want the table.',
+    value: 'Recover',
     icon: 'chart' as const,
   },
   {
-    title: 'White Glove Migration',
+    title: 'White-Glove setup means your team does not inherit a configuration project.',
     description:
-      'We handle the entire tech switch from old systems or spreadsheets. You do zero work.',
-    value: 'PRICELESS',
+      'We configure the booking rules, table logic, messages, and manager views around the way your pub runs.',
+    value: 'Installed',
     icon: 'zap' as const,
   },
 ];
 
 export function BenefitsSection() {
   return (
-    <section id="features" className="py-24 bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto mb-16 space-y-4 motion-safe:reveal-up">
-          <Badge variant="secondary" className="bg-blue-50 text-blue-700 ring-1 ring-blue-700/10">
-            The UK Pub Profit Stack
+    <section id="value-stack" className="pg-section border-b border-border/70 bg-muted/30">
+      <div className="pg-container">
+        <div className="pg-panel mb-6 flex flex-col items-start gap-4 rounded-[var(--pg-radius-xl)] border-primary/15 bg-background/92 p-5 text-left sm:mb-8 sm:p-6 md:p-7 motion-safe:reveal-up">
+          <Badge variant="guest-chip" className="pg-chip">
+            What changes operationally
           </Badge>
-          <h2 className="text-4xl font-bold text-slate-900">The Total Lockdown Bundle</h2>
-          <p className="text-lg text-slate-600">
-            Total Value: £12,500+ / Yours for less than a missed 4-top.
-          </p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[7fr_5fr] lg:gap-8">
+            <div>
+              <h2 className="pg-section-title">
+                Nabatable is the layer between online demand and a calm service.
+              </h2>
+              <p className="pg-lead mt-3">
+                The value is not another booking form. It is the operating discipline around the
+                booking.
+              </p>
+            </div>
+            <div className="flex flex-wrap content-start gap-2 pt-1 lg:justify-end">
+              {['No lock-in contracts', 'Transparent service logs', 'White-Glove setup'].map(
+                (item) => (
+                  <Badge key={item} variant="guest-chip-outline" className="pg-chip bg-muted">
+                    {item}
+                  </Badge>
+                ),
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
           {BENEFITS.map((benefit, index) => {
             const isFeatured = index === BENEFITS.length - 1;
             return (
-              <div
+              <Card
                 key={benefit.title}
                 className={cn(
-                  'group p-6 rounded-2xl bg-slate-50 transition-all duration-200 ease-out border border-transparent hover:border-slate-100 hover:bg-white group-hover:-translate-y-2 group-hover:shadow-xl motion-safe:reveal-up',
+                  'group overflow-hidden border-border/70 bg-background/96 motion-safe:reveal-up',
                   isFeatured
-                    ? 'md:col-span-2 lg:col-span-3 bg-gradient-to-r from-slate-50 to-blue-50 border-blue-100'
-                    : '',
+                    ? 'pg-panel border-primary/20 bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),hsl(var(--background)))] sm:col-span-2 lg:col-span-6'
+                    : index < 2
+                      ? 'pg-card lg:col-span-3'
+                      : 'pg-card lg:col-span-2',
                 )}
-                style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <div className="flex justify-between items-start mb-6">
-                  <div className="w-12 h-12 bg-white text-blue-600 rounded-xl shadow-sm flex items-center justify-center transition-all duration-200 ease-out group-hover:bg-blue-600 group-hover:text-white group-hover:rotate-6 group-hover:scale-110">
-                    <Icon name={benefit.icon} className="w-6 h-6" />
+                <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 border-b border-border/60 bg-muted/25 p-4 sm:p-5 md:p-6">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-primary/15 bg-primary/10 text-primary transition duration-200 ease-out group-hover:bg-primary group-hover:text-primary-foreground">
+                    <Icon name={benefit.icon} className="size-6" />
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className={
-                      isFeatured
-                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-700/10'
-                        : 'bg-slate-100 text-slate-600'
-                    }
-                  >
+                  <Badge variant={isFeatured ? 'metric' : 'secondary'} className="shrink-0">
                     {benefit.value}
                   </Badge>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3">{benefit.title}</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">{benefit.description}</p>
-              </div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-4 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
+                  <CardTitle className="pg-card-title text-left">{benefit.title}</CardTitle>
+                  <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    {benefit.description}
+                  </p>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

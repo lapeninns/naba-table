@@ -31,7 +31,6 @@ function GuestBookingCapacityReviewHarness() {
     time: '19:00',
     party: 4,
     bookingType: 'dinner',
-    seating: 'indoor',
     name: 'Guest Booker',
     email: 'guest@example.com',
     phone: '+447467586751',
@@ -40,9 +39,7 @@ function GuestBookingCapacityReviewHarness() {
 
   useEffect(() => {
     actions.goToStep(3);
-    actions.setError(
-      'No capacity available for 19:00. Try 18:30, 20:00, or 20:30 instead.',
-    );
+    actions.setError('No capacity available for 19:00. Try 18:30, 20:00, or 20:30 instead.');
   }, [actions]);
 
   return (

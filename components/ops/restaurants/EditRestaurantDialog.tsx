@@ -58,6 +58,7 @@ export function EditRestaurantDialog({
             contactEmail: restaurant.contactEmail,
             contactPhone: restaurant.contactPhone,
             address: restaurant.address,
+            businessDescription: restaurant.businessDescription,
             managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
             managerNotificationPhone: restaurant.managerNotificationPhone,
             googleMapUrl: restaurant.googleMapUrl,

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useMemo, useReducer } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
@@ -16,6 +16,7 @@ import type {
 } from '../types';
 
 const DEFAULT_TIMEZONE = 'Europe/London';
+const STORAGE_KEY = 'nabatable:onboarding:draft:v1';
 
 const DEFAULT_STATE: OnboardingState = {
   step: 1,
@@ -90,6 +91,38 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
   }
 }
 
+function isOnboardingStep(value: unknown): value is OnboardingStep {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
+}
+
+function sanitizePersistedState(value: unknown): Partial<OnboardingState> {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+
+  const source = value as Partial<OnboardingState>;
+  return {
+    ...source,
+    step: isOnboardingStep(source.step) ? source.step : DEFAULT_STATE.step,
+    loading: false,
+    error: null,
+  };
+}
+
+function getInitialState(initialState?: Partial<OnboardingState>): OnboardingState {
+  if (typeof window === 'undefined') {
+    return { ...DEFAULT_STATE, ...initialState };
+  }
+
+  try {
+    const persistedRaw = window.sessionStorage.getItem(STORAGE_KEY);
+    const persisted = persistedRaw ? sanitizePersistedState(JSON.parse(persistedRaw)) : {};
+    return { ...DEFAULT_STATE, ...persisted, ...initialState };
+  } catch {
+    return { ...DEFAULT_STATE, ...initialState };
+  }
+}
+
 export type OnboardingContextValue = {
   state: OnboardingState;
   setStep: (step: OnboardingStep) => void;
@@ -114,7 +147,20 @@ export function OnboardingProvider({
   children: React.ReactNode;
   initialState?: Partial<OnboardingState>;
 }) {
-  const [state, dispatch] = useReducer(reducer, { ...DEFAULT_STATE, ...initialState });
+  const [state, dispatch] = useReducer(reducer, initialState, getInitialState);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const persistedState: OnboardingState = {
+      ...state,
+      loading: false,
+      error: null,
+    };
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+  }, [state]);
 
   const value = useMemo<OnboardingContextValue>(
     () => ({

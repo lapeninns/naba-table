@@ -1,0 +1,125 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "Nabatable logo Nabatable ^ beta" [ref=e5] [cursor=pointer]:
+          - /url: /auth?redirectedFrom=%2Fsettings%2Frestaurant%2Fprofile
+          - img "Nabatable logo" [ref=e6]
+          - generic [ref=e7]:
+            - generic [ref=e8]: Nabatable
+            - generic [ref=e9]: ^ beta
+        - generic [ref=e10]:
+          - link "Guest sign-in" [ref=e11] [cursor=pointer]:
+            - /url: /auth/signin?redirectedFrom=%2Fsettings%2Frestaurant%2Fprofile
+          - link "View demo" [ref=e12] [cursor=pointer]:
+            - /url: /#restaurants
+    - main [ref=e13]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - img [ref=e20]
+              - text: Trusted by 200+ restaurants
+            - heading "Streamline your restaurant operations" [level=1] [ref=e22]
+            - paragraph [ref=e23]: Access your operations console to manage bookings, optimize seating, and keep your team aligned—all in real-time.
+          - generic [ref=e24]:
+            - generic [ref=e26]:
+              - img [ref=e28]
+              - generic [ref=e30]:
+                - generic [ref=e31]: Real-time bookings
+                - generic [ref=e32]: Manage all reservations with live updates
+            - generic [ref=e34]:
+              - img [ref=e36]
+              - generic [ref=e38]:
+                - generic [ref=e39]: Powerful analytics
+                - generic [ref=e40]: Track covers, peak hours, and revenue trends
+            - generic [ref=e42]:
+              - img [ref=e44]
+              - generic [ref=e49]:
+                - generic [ref=e50]: Team collaboration
+                - generic [ref=e51]: Role-based access with activity logs
+          - alert [ref=e52]:
+            - img [ref=e53]
+            - paragraph [ref=e55]: Enterprise security
+            - generic [ref=e57]:
+              - generic [ref=e58]: SOC 2 Type II
+              - generic [ref=e59]: •
+              - generic [ref=e60]: 99.9% uptime
+              - generic [ref=e61]: •
+              - generic [ref=e62]: End-to-end encryption
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - generic [ref=e66]:
+              - generic [ref=e67]:
+                - heading "Restaurant operations" [level=2] [ref=e68]
+                - paragraph [ref=e69]: Sign in with a magic link or password to access your console
+              - generic [ref=e70]:
+                - tablist [ref=e71]:
+                  - tab "Magic link One-time secure link" [ref=e72]:
+                    - generic [ref=e73]: Magic link
+                    - generic [ref=e74]: One-time secure link
+                  - tab "Password Your credentials" [selected] [ref=e75]:
+                    - generic [ref=e76]: Password
+                    - generic [ref=e77]: Your credentials
+                - generic [ref=e78]:
+                  - generic [ref=e79]:
+                    - generic [ref=e80]: Email address
+                    - textbox "Email address" [ref=e81]:
+                      - /placeholder: you@example.com
+                  - tabpanel "Password Your credentials" [ref=e82]:
+                    - generic [ref=e83]:
+                      - generic [ref=e84]: Password
+                      - generic [ref=e85]:
+                        - textbox "Enter your password" [ref=e86]
+                        - button "Show password" [ref=e87]:
+                          - img
+                  - button "Sign in with password" [ref=e88]
+            - generic [ref=e91]: or
+            - generic [ref=e92]:
+              - paragraph [ref=e93]: Looking to make a reservation?
+              - link "Sign in as a guest" [ref=e94] [cursor=pointer]:
+                - /url: http://localhost:3000/auth/signin
+                - text: Sign in as a guest
+                - img
+          - paragraph [ref=e95]:
+            - text: Need help?
+            - link "Contact support" [ref=e96] [cursor=pointer]:
+              - /url: mailto:support@sajiloreserve.com
+    - contentinfo [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - link "Nabatable logo Nabatable ^ beta" [ref=e101] [cursor=pointer]:
+              - /url: /auth?redirectedFrom=%2Fsettings%2Frestaurant%2Fprofile
+              - img "Nabatable logo" [ref=e102]
+              - generic [ref=e103]:
+                - generic [ref=e104]: Nabatable
+                - generic [ref=e105]: ^ beta
+            - paragraph [ref=e106]: Streamline your restaurant operations with powerful booking tools.
+          - generic [ref=e107]:
+            - heading "Product" [level=3] [ref=e108]
+            - list [ref=e109]:
+              - listitem [ref=e110]:
+                - link "Browse restaurants" [ref=e111] [cursor=pointer]:
+                  - /url: /restaurants
+              - listitem [ref=e112]:
+                - link "Booking hub" [ref=e113] [cursor=pointer]:
+                  - /url: /bookings
+              - listitem [ref=e114]:
+                - link "Guest sign-in" [ref=e115] [cursor=pointer]:
+                  - /url: /auth/signin
+          - generic [ref=e116]:
+            - heading "Help" [level=3] [ref=e117]
+            - list [ref=e118]:
+              - listitem [ref=e119]:
+                - link "Contact" [ref=e120] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e121]:
+                - link "Privacy policy" [ref=e122] [cursor=pointer]:
+                  - /url: /privacy
+        - generic [ref=e124]:
+          - paragraph [ref=e125]: © 2026 Nab a Table. All rights reserved.
+          - generic [ref=e127]: All systems operational
+  - button "Open Next.js Dev Tools" [ref=e136] [cursor=pointer]:
+    - img [ref=e137]
+  - alert [ref=e140]

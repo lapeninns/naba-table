@@ -15,7 +15,7 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 
 type RouteParams = Promise<{ bookingId: string }>;
-type SearchParams = Promise<{ token?: string }>;
+type SearchParams = Promise<{ access_token?: string; accessToken?: string; token?: string }>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -31,16 +31,12 @@ const resolveOrigin = (): string => getTrustedSiteOrigin();
 async function prefetchReservation(
   queryClient: QueryClient,
   reservationId: string,
-  token?: string | null,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
 ) {
-  const cookieStore = await cookies();
   const cookieHeader = cookieHeaderFromStore(cookieStore);
   const origin = resolveOrigin();
 
   const url = new URL(`${origin}/api/bookings/${reservationId}`);
-  if (token) {
-    url.searchParams.set('token', token);
-  }
 
   try {
     const response = await fetch(url.toString(), {
@@ -88,23 +84,36 @@ export default async function GuestBookingReceiptPage({
   const { bookingId } = await params;
   const normalized = bookingId?.trim();
   const resolvedSearchParams = (await searchParams) ?? {};
-  const token = resolvedSearchParams.token ?? null;
+  const accessToken = resolvedSearchParams.access_token ?? resolvedSearchParams.accessToken ?? null;
+  const legacyToken = resolvedSearchParams.token ?? null;
 
   if (!normalized) {
     redirect('/guest/bookings');
   }
 
-  const supabase = await getServerComponentSupabaseClient();
-  const userResponse = await supabase.auth.getUser();
-  const user = userResponse.data.user;
+  if (legacyToken && !accessToken) {
+    redirect('/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED');
+  }
 
-  // Require either auth or token for receipt access
-  if (!user && !token) {
+  if (accessToken) {
+    const recoverUrl = new URL('/bookings/recover', resolveOrigin());
+    recoverUrl.searchParams.set('access_token', accessToken);
+    recoverUrl.searchParams.set('next', `/guest/bookings/${normalized}/receipt`);
+    redirect(`${recoverUrl.pathname}${recoverUrl.search}`);
+  }
+
+  const supabase = await getServerComponentSupabaseClient();
+  const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
+  const user = userResponse.data.user;
+  const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
+
+  // Require either auth or an established recovery cookie for receipt access.
+  if (!user && !hasRecoveryCookie) {
     redirect(withRedirectedFrom('/auth/signin', `/guest/bookings/${normalized}/receipt`));
   }
 
   const queryClient = new QueryClient();
-  const reservation = await prefetchReservation(queryClient, normalized, token);
+  const reservation = await prefetchReservation(queryClient, normalized, cookieStore);
   const dehydratedState = dehydrate(queryClient);
 
   return (

@@ -1,10 +1,10 @@
- 
-
 import {
+  ArrowLeft,
   ArrowRight,
-  BookOpenCheck,
   CalendarCheck2,
-  Compass,
+  CheckCircle2,
+  Clock3,
+  Mail,
   MapPin,
   Phone,
   Search,
@@ -15,396 +15,557 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { BookingMessageShell } from '@/components/features/booking/ui/BookingComponents';
+import {
+  GuestDetailList,
+  GuestInsetCard,
+  GuestMetricCard,
+  GuestPageFrame,
+  GuestPanel,
+  GuestPanelHeader,
+  GuestPrimaryButton,
+  GuestReferenceStrip,
+  GuestSecondaryButton,
+  GuestSectionHeader,
+  GuestSplitPanel,
+} from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { getReservationThankYouContent } from '@/guest/routes/auth-aware-content';
+import { safeGoogleMapsUrl, safePublicHref } from '@/lib/security/safe-url';
+
+import type { ReactNode } from 'react';
 
 type RestaurantListItem = {
   id: string | number;
   slug: string;
   name: string;
+  timezone?: string | null;
   address?: string | null;
   logoUrl?: string | null;
   capacity?: number | null;
-};
-
-type RestaurantDetail = RestaurantListItem & {
   contactPhone?: string | null;
   contactEmail?: string | null;
+  googleMapUrl?: string | null;
+  reservationIntervalMinutes?: number | null;
+  reservationDefaultDurationMinutes?: number | null;
 };
 
-const TAGS = ['Chef-led', 'Terrace', 'Live fire'];
+type RestaurantDetail = RestaurantListItem;
 
-export function RestaurantsHeroSection({ totalRestaurants }: { totalRestaurants: number }) {
-  return (
-    <section className="px-4 py-12 sm:px-6 lg:py-16" aria-labelledby="restaurants-hero-heading">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 rounded-[var(--guest-radius-2xl)] border border-slate-100 bg-white/90 p-6 shadow-[var(--guest-shadow-xl)] md:flex-row md:items-center md:justify-between">
-        <div className="flex-1 space-y-4">
-          <Badge variant="secondary" className="rounded-full px-4 py-1 text-blue-900">
-            Curated guest picks
-          </Badge>
-          <div className="space-y-3">
-            <h1
-              id="restaurants-hero-heading"
-              className="guest-heading-hero text-[clamp(2rem,4vw,3rem)] font-bold text-slate-900"
-            >
-              Find the right table fast.
-            </h1>
-            <p className="text-base text-slate-600 sm:text-lg">
-              Live-ready venues with the same flow guests see at checkout—no surprises between
-              browsing and booking.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
-              <label className="sr-only" htmlFor="restaurant-discovery">
-                Search restaurants
-              </label>
-              <Search
-                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                aria-hidden
-              />
-              <Input
-                id="restaurant-discovery"
-                name="restaurant-discovery"
-                type="search"
-                placeholder="Search by neighborhood, cuisine, or vibe"
-                className="h-12 rounded-[var(--guest-radius-lg)] border-slate-200 bg-slate-50 pl-11"
-              />
-            </div>
-            <Button size="lg" className="h-12 rounded-[var(--guest-radius-lg)] text-base" asChild>
-              <Link href="/auth/signin">
-                <ShieldCheck className="mr-2 h-5 w-5" aria-hidden />
-                Save favorites
-              </Link>
-            </Button>
-          </div>
-          <ul className="flex flex-wrap gap-3 text-sm text-slate-600" aria-label="Popular filters">
-            {TAGS.map((tag) => (
-              <li key={tag} className="rounded-full border border-slate-200 px-3 py-1">
-                {tag}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <Card className="flex flex-1 flex-col gap-4 rounded-[var(--guest-radius-xl)] border-blue-100 bg-gradient-to-br from-blue-600/90 via-blue-500/90 to-blue-700/90 p-6 text-white shadow-[var(--guest-shadow-lg)]">
-          <div className="space-y-1">
-            <p className="text-sm uppercase tracking-[0.28em] text-blue-100">Live venues</p>
-            <p className="text-4xl font-semibold">{totalRestaurants}</p>
-            <p className="text-sm text-blue-100">Ready to book right now.</p>
-          </div>
-          <div className="rounded-[var(--guest-radius-lg)] bg-white/10 p-4">
-            <p className="text-sm font-medium">Built for clarity</p>
-            <p className="text-sm text-blue-100">
-              Same cards and spacing you’ll see in the booking flow.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-blue-100">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-              <Compass className="h-4 w-4" aria-hidden />
-              Guided discovery
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-              <Sparkles className="h-4 w-4" aria-hidden />
-              Instant confirm
-            </span>
-            <ListingIllustration />
-          </div>
-        </Card>
-      </div>
-    </section>
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+}
+
+function getMapsHref(restaurant: RestaurantDetail) {
+  const safeStoredMapUrl = safeGoogleMapsUrl(restaurant.googleMapUrl);
+  if (safeStoredMapUrl) {
+    return safeStoredMapUrl;
+  }
+
+  const query = restaurant.address ?? restaurant.name;
+  return safePublicHref(
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
+    'https://www.google.com/maps',
   );
 }
 
-export function RestaurantsGridSection({ restaurants }: { restaurants: RestaurantListItem[] }) {
-  return (
-    <section className="px-4 pb-14 pt-4 sm:px-6" aria-labelledby="restaurants-grid-heading">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-blue-700">Carefully selected venues</p>
-            <h2
-              id="restaurants-grid-heading"
-              className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
-            >
-              Pick a spot
-            </h2>
-          </div>
-          <p className="text-sm text-slate-500">Tap a card for details and booking.</p>
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {restaurants.map((restaurant) => (
-            <article
-              key={restaurant.id}
-              className="group flex h-full flex-col gap-4 rounded-[var(--guest-radius-xl)] border border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-md)]"
-            >
-              <Link
-                href={`/restaurants/${restaurant.slug}`}
-                className="relative block h-48 w-full overflow-hidden rounded-[var(--guest-radius-lg)]"
-              >
-                {restaurant.logoUrl ? (
-                  <Image
-                    src={restaurant.logoUrl}
-                    alt={restaurant.name}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  />
-                ) : (
-                  <div className="flex h-48 items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600">
-                    <span className="text-4xl font-bold opacity-60">
-                      {restaurant.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-                <div className="absolute left-4 top-4 rounded-full bg-white/90 px-4 py-1 text-xs font-semibold text-blue-800 shadow">
-                  Instant confirm
-                </div>
-              </Link>
-              <div className="flex flex-1 flex-col gap-3">
-                <div>
-                  <Link
-                    href={`/restaurants/${restaurant.slug}`}
-                    className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900 hover:text-blue-700"
-                  >
-                    {restaurant.name}
-                    <ArrowRight className="h-4 w-4" aria-hidden />
-                  </Link>
-                  {restaurant.address ? (
-                    <p className="mt-1 flex items-start gap-2 text-sm text-slate-600">
-                      <MapPin className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden />
-                      <span className="line-clamp-2">{restaurant.address}</span>
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex items-center justify-between text-sm text-slate-600">
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-4 w-4" aria-hidden />
-                    {restaurant.capacity
-                      ? `Up to ${restaurant.capacity} guests`
-                      : 'Flexible seating'}
-                  </span>
-                  <Button variant="secondary" size="sm" className="rounded-full px-4" asChild>
-                    <Link href={`/restaurants/${restaurant.slug}`}>View</Link>
-                  </Button>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-        {restaurants.length === 0 ? (
-          <div className="rounded-[var(--guest-radius-xl)] border border-dashed border-slate-200 bg-white p-10 text-center text-slate-500">
-            <p className="text-lg font-semibold">No restaurants found</p>
-            <p className="text-sm">
-              Check back soon—we publish new venues as they pass our onboarding review.
-            </p>
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
+function formatCapacity(capacity?: number | null) {
+  return capacity ? `Up to ${capacity} guests` : 'Flexible seating';
 }
 
-export function RestaurantDetailHero({ restaurant }: { restaurant: RestaurantDetail }) {
-  return (
-    <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden rounded-b-[var(--guest-radius-2xl)]">
-      {restaurant.logoUrl ? (
-        <Image
-          src={restaurant.logoUrl}
-          alt={restaurant.name}
-          fill
-          className="object-cover"
-          priority
-          unoptimized
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
-        <div className="mx-auto flex max-w-5xl flex-col gap-3 text-white">
-          <Badge className="w-fit rounded-full bg-amber-400 text-amber-950">Featured partner</Badge>
-          <h1 className="guest-heading-hero text-[clamp(2.5rem,4vw,3.5rem)] font-semibold">
-            {restaurant.name}
-          </h1>
-          {restaurant.address ? (
-            <p className="flex items-center gap-2 text-base text-slate-100">
-              <MapPin className="h-5 w-5 text-amber-300" aria-hidden />
-              {restaurant.address}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function RestaurantDetailsSection({
+function VenueImage({
   restaurant,
-  mapEmbedUrl,
+  priority = false,
+  className,
+}: {
+  restaurant: RestaurantListItem;
+  priority?: boolean;
+  className?: string;
+}) {
+  if (restaurant.logoUrl) {
+    return (
+      <Image
+        src={restaurant.logoUrl}
+        alt=""
+        fill
+        className={className ?? 'object-cover'}
+        sizes="(max-width: 768px) 100vw, 50vw"
+        priority={priority}
+        unoptimized
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-muted text-primary">
+      <span
+        aria-hidden="true"
+        className="font-[var(--pg-font-display)] text-5xl font-bold tracking-tight opacity-70"
+      >
+        {getInitials(restaurant.name)}
+      </span>
+    </div>
+  );
+}
+
+function RouteCrumbs({ current }: { current: ReactNode }) {
+  return (
+    <nav aria-label="Restaurant route" className="flex flex-wrap items-center gap-2 text-sm">
+      <Link
+        href="/restaurants"
+        className="inline-flex min-h-11 items-center rounded-full text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Restaurants
+      </Link>
+      <ArrowRight className="size-4 text-muted-foreground/60" aria-hidden />
+      <span className="min-h-11 rounded-full py-3 font-medium text-foreground">{current}</span>
+    </nav>
+  );
+}
+
+export function RestaurantsHeroSection({
+  totalRestaurants,
+  searchQuery = '',
+}: {
+  totalRestaurants: number;
+  searchQuery?: string;
+}) {
+  const venueLabel = totalRestaurants === 1 ? 'venue' : 'venues';
+
+  return (
+    <section
+      className="pg-section-tight border-b border-border/70 bg-background"
+      aria-labelledby="restaurants-heading"
+    >
+      <div className="pg-container grid gap-6 lg:grid-cols-[7fr_5fr] lg:items-end">
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="guest-chip" className="pg-chip">
+              Restaurant discovery
+            </Badge>
+            <span className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              {totalRestaurants} {venueLabel}
+            </span>
+          </div>
+          <div className="space-y-3">
+            <h1 id="restaurants-heading" className="pg-hero-title max-w-[18ch]">
+              Pick the right table, then book without a detour.
+            </h1>
+            <p className="pg-lead max-w-[65ch]">
+              Compare guest-ready venues, scan the essentials, and move straight into live
+              availability for the restaurant you choose.
+            </p>
+          </div>
+        </div>
+
+        <GuestPanel className="p-4 sm:p-5">
+          <FormRoot action="/restaurants" className="space-y-3">
+            <Label className="pg-kicker" htmlFor="restaurant-search">
+              Search restaurants
+            </Label>
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <Input
+                  id="restaurant-search"
+                  name="q"
+                  type="search"
+                  defaultValue={searchQuery}
+                  placeholder="Restaurant name"
+                  className="h-11 rounded-full border-border bg-background pl-11 text-base sm:text-sm"
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="guest-primary"
+                size="guest-lg"
+                className="pg-action pg-touch"
+              >
+                Search
+              </Button>
+            </div>
+          </FormRoot>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <GuestInsetCard
+              icon={ShieldCheck}
+              value="Live booking"
+              detail="Same flow as checkout."
+            />
+            <GuestInsetCard icon={Clock3} value="Fast scan" detail="Address, capacity, contact." />
+            <GuestInsetCard icon={Sparkles} value="Clear next step" detail="One primary action." />
+          </div>
+        </GuestPanel>
+      </div>
+    </section>
+  );
+}
+
+export function RestaurantsGridSection({
+  restaurants,
+  searchQuery = '',
+}: {
+  restaurants: RestaurantListItem[];
+  searchQuery?: string;
+}) {
+  return (
+    <section className="pg-section-tight" aria-labelledby="restaurants-grid-heading">
+      <div className="pg-container space-y-6">
+        <GuestSectionHeader
+          eyebrow={searchQuery ? 'Filtered venues' : 'Available venues'}
+          title={<span id="restaurants-grid-heading">Choose a restaurant</span>}
+          description={
+            searchQuery
+              ? `Showing matches for "${searchQuery}".`
+              : 'Each card leads to restaurant details and a direct booking path.'
+          }
+          actions={
+            searchQuery ? (
+              <Button
+                variant="guest-outline"
+                size="guest-lg"
+                className="pg-action pg-touch"
+                asChild
+              >
+                <Link href="/restaurants">Clear search</Link>
+              </Button>
+            ) : null
+          }
+        />
+
+        {restaurants.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {restaurants.map((restaurant) => (
+              <GuestPanel
+                key={restaurant.id}
+                interactive
+                className="group flex h-full flex-col overflow-hidden"
+              >
+                <Link
+                  href={`/restaurants/${restaurant.slug}`}
+                  className="relative block aspect-[16/10] overflow-hidden bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`View details for ${restaurant.name}`}
+                >
+                  <VenueImage
+                    restaurant={restaurant}
+                    className="object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+                  />
+                  <div
+                    className="pg-image-scrim-strong absolute inset-x-0 bottom-0 h-24"
+                    aria-hidden
+                  />
+                  <Badge variant="guest-chip" className="absolute left-4 top-4 bg-background/95">
+                    View details
+                  </Badge>
+                </Link>
+
+                <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
+                  <div className="space-y-2">
+                    <Link
+                      href={`/restaurants/${restaurant.slug}`}
+                      className="group/title flex min-h-11 items-start justify-between gap-3 rounded-[var(--pg-radius-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="pg-card-title text-xl">{restaurant.name}</span>
+                      <ArrowRight
+                        className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover/title:translate-x-0.5"
+                        aria-hidden
+                      />
+                    </Link>
+                    {restaurant.address ? (
+                      <p className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                        <span className="line-clamp-2">{restaurant.address}</span>
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-auto grid gap-3 rounded-[var(--pg-radius-md)] border border-border/70 bg-muted/35 p-3">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users className="size-4" aria-hidden />
+                        {formatCapacity(restaurant.capacity)}
+                      </span>
+                      {restaurant.timezone ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock3 className="size-4" aria-hidden />
+                          {restaurant.timezone}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        variant="guest-outline"
+                        size="guest-sm"
+                        className="pg-action pg-touch"
+                        asChild
+                      >
+                        <Link href={`/restaurants/${restaurant.slug}`}>Details</Link>
+                      </Button>
+                      <Button
+                        variant="guest-primary"
+                        size="guest-sm"
+                        className="pg-action pg-touch"
+                        asChild
+                      >
+                        <Link href={`/restaurants/${restaurant.slug}/book`}>Book</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </GuestPanel>
+            ))}
+          </div>
+        ) : (
+          <GuestPanel className="border-dashed p-8 text-center sm:p-10">
+            <div className="mx-auto flex max-w-md flex-col items-center gap-4">
+              <span className="flex size-12 items-center justify-center rounded-full border border-border bg-background text-primary">
+                <Search className="size-5" aria-hidden />
+              </span>
+              <div className="space-y-2">
+                <h2 className="pg-card-title">No restaurants match that search</h2>
+                <p className="pg-body">
+                  Try the venue name again, or clear the search to see every restaurant that is
+                  ready to book.
+                </p>
+              </div>
+              <Button
+                variant="guest-primary"
+                size="guest-lg"
+                className="pg-action pg-touch"
+                asChild
+              >
+                <Link href="/restaurants">Show all restaurants</Link>
+              </Button>
+            </div>
+          </GuestPanel>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function RestaurantDetailPage({ restaurant }: { restaurant: RestaurantDetail }) {
+  const mapsHref = getMapsHref(restaurant);
+
+  return (
+    <GuestPageFrame>
+      <section className="pg-section-tight border-b border-border/70 bg-background">
+        <div className="pg-container space-y-6">
+          <RouteCrumbs current={restaurant.name} />
+          <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start">
+            <div className="min-w-0 space-y-5">
+              <Badge variant="guest-chip" className="pg-chip">
+                Restaurant detail
+              </Badge>
+              <div className="space-y-3">
+                <h1 className="pg-hero-title max-w-[18ch]">{restaurant.name}</h1>
+                <p className="pg-lead max-w-[65ch]">
+                  Check the essentials, then reserve through the same live booking flow guests use
+                  for confirmation and follow-up.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <GuestPrimaryButton href={`/restaurants/${restaurant.slug}/book`}>
+                  Book a table
+                </GuestPrimaryButton>
+                <GuestSecondaryButton href="/restaurants">Browse restaurants</GuestSecondaryButton>
+              </div>
+            </div>
+
+            <GuestPanel className="relative aspect-[4/3] min-h-56 w-full min-w-0 max-w-full overflow-hidden p-0 sm:min-h-72">
+              <VenueImage restaurant={restaurant} priority />
+              <div className="pg-image-caption-scrim absolute inset-x-0 bottom-0 p-5">
+                <p className="pg-image-caption-muted font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em]">
+                  Ready to book
+                </p>
+                <p className="mt-1 text-lg font-semibold">{formatCapacity(restaurant.capacity)}</p>
+              </div>
+            </GuestPanel>
+          </div>
+        </div>
+      </section>
+
+      <section className="pg-section-tight" aria-labelledby="restaurant-snapshot-heading">
+        <div className="pg-container">
+          <GuestSplitPanel
+            primary={
+              <div className="space-y-6">
+                <GuestSectionHeader
+                  eyebrow="Venue snapshot"
+                  title={
+                    <span id="restaurant-snapshot-heading">Everything needed before booking</span>
+                  }
+                  description="The page stays practical: location, contact, capacity, and the immediate path into availability."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <GuestMetricCard
+                    icon={Users}
+                    label="Capacity"
+                    value={restaurant.capacity ?? 'Flexible'}
+                    detail={formatCapacity(restaurant.capacity)}
+                  />
+                  <GuestMetricCard
+                    icon={Clock3}
+                    label="Time zone"
+                    value="Local"
+                    detail={
+                      restaurant.timezone
+                        ? `${restaurant.timezone} booking calendar.`
+                        : 'Booking times follow the restaurant calendar.'
+                    }
+                  />
+                </div>
+                <GuestDetailList
+                  title="Contact and arrival"
+                  items={[
+                    {
+                      icon: MapPin,
+                      label: 'Address',
+                      value: restaurant.address ?? 'Address shared during confirmation',
+                      detail: restaurant.address ? 'Use the map link for directions.' : undefined,
+                    },
+                    {
+                      icon: Phone,
+                      label: 'Phone',
+                      value: restaurant.contactPhone ?? 'Contact through booking updates',
+                    },
+                    {
+                      icon: Mail,
+                      label: 'Email',
+                      value: restaurant.contactEmail ?? 'Confirmation email after booking',
+                    },
+                  ]}
+                />
+              </div>
+            }
+            secondary={
+              <>
+                <GuestPanel className="space-y-4 p-5 sm:p-6">
+                  <GuestPanelHeader
+                    className="-mx-5 -mt-5 sm:-mx-6 sm:-mt-6"
+                    eyebrow="Next step"
+                    title="Reserve this restaurant"
+                    description="Start with party size, date, and time. The wizard checks the restaurant's live schedule."
+                  />
+                  <div className="space-y-3">
+                    <GuestInsetCard
+                      icon={CalendarCheck2}
+                      value="Instant booking flow"
+                      detail={
+                        restaurant.reservationIntervalMinutes
+                          ? `${restaurant.reservationIntervalMinutes}-minute slot rhythm.`
+                          : 'Live slots from the venue schedule.'
+                      }
+                    />
+                    <Button
+                      variant="guest-primary"
+                      size="guest-lg"
+                      className="pg-action pg-touch w-full"
+                      asChild
+                    >
+                      <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
+                    </Button>
+                  </div>
+                </GuestPanel>
+                <GuestReferenceStrip
+                  label="Map"
+                  value={restaurant.address ? 'Directions' : 'Search'}
+                >
+                  <Button
+                    variant="guest-outline"
+                    size="guest-sm"
+                    className="pg-action pg-touch"
+                    asChild
+                  >
+                    <a href={mapsHref} target="_blank" rel="noreferrer">
+                      Open map
+                    </a>
+                  </Button>
+                </GuestReferenceStrip>
+              </>
+            }
+          />
+        </div>
+      </section>
+    </GuestPageFrame>
+  );
+}
+
+export function RestaurantBookingShell({
+  children,
 }: {
   restaurant: RestaurantDetail;
-  mapEmbedUrl?: string | null;
+  children: ReactNode;
 }) {
-  const insights = [
-    {
-      title: 'Contact',
-      icon: Phone,
-      value: restaurant.contactPhone ?? 'Call concierge',
-      sub: 'Direct line for host desk',
-    },
-    {
-      title: 'Email',
-      icon: BookOpenCheck,
-      value: restaurant.contactEmail ?? 'team@nabatable.com',
-      sub: 'Replies within 15 minutes',
-    },
-    {
-      title: 'Arrivals',
-      icon: CalendarCheck2,
-      value: 'Instant confirmation',
-      sub: 'Status synced everywhere',
-    },
-  ];
-
-  return (
-    <section className="px-4 py-10 sm:px-6" aria-labelledby="restaurant-details-heading">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h2
-              id="restaurant-details-heading"
-              className="guest-heading-page text-[length:var(--guest-text-page)] font-semibold text-slate-900"
-            >
-              Experience snapshot
-            </h2>
-            <p className="text-sm text-slate-600">Same layout and cues you’ll see when you book.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {insights.map((insight) => (
-              <Card
-                key={insight.title}
-                className="space-y-2 rounded-[var(--guest-radius-lg)] border-slate-100 bg-white p-4 shadow-[var(--guest-shadow-sm)]"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
-                    <insight.icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <p className="text-sm text-slate-500">{insight.title}</p>
-                </div>
-                <p className="text-base font-semibold text-slate-900">{insight.value}</p>
-                <p className="text-sm text-slate-500">{insight.sub}</p>
-              </Card>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-4">
-          <Card className="space-y-4 rounded-[var(--guest-radius-xl)] border-slate-100 bg-white p-6 shadow-[var(--guest-shadow-md)]">
-            <div className="space-y-1">
-              <p className="text-sm text-blue-700">Powered by Nab a Table</p>
-              <p className="text-2xl font-semibold text-slate-900">Make a reservation</p>
-              <p className="text-sm text-slate-600">
-                Secure a table with the same wizard guests use after sign-in.
-              </p>
-            </div>
-            <Button size="lg" className="w-full rounded-full text-base" asChild>
-              <Link href={`/restaurants/${restaurant.slug}/book`}>Book a table</Link>
-            </Button>
-            <div className="rounded-[var(--guest-radius-lg)] border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600">
-              <p className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-500" aria-hidden />
-                Instant confirmation, synced everywhere.
-              </p>
-            </div>
-          </Card>
-          {mapEmbedUrl ? (
-            <iframe
-              title={`${restaurant.name} map`}
-              width="100%"
-              height="260"
-              className="rounded-[var(--guest-radius-xl)] border border-slate-100"
-              src={mapEmbedUrl}
-              allowFullScreen
-            />
-          ) : null}
-        </div>
-      </div>
-    </section>
-  );
+  return <div className="guest-theme min-h-[100dvh] bg-background">{children}</div>;
 }
 
 export function ReservationThankYouCard({
-  headline = 'Reservation confirmed!',
-  body = 'Confirmation email sent with your details and link.',
+  restaurant,
+  isAuthenticated,
 }: {
-  headline?: string;
-  body?: string;
+  restaurant: RestaurantDetail;
+  isAuthenticated: boolean;
 }) {
+  const content = getReservationThankYouContent(isAuthenticated, restaurant.name);
+
   return (
-    <BookingMessageShell
-      icon={Sparkles}
-      title={headline}
-      description={body}
-      tone="success"
-      actions={
-        <>
-          <Button size="lg" className="w-full rounded-full sm:w-auto" asChild>
-            <Link href="/guest/bookings">View my bookings</Link>
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full rounded-full border-white/30 text-white hover:bg-white/10 sm:w-auto"
-            asChild
-          >
-            <Link href="/restaurants">Explore restaurants</Link>
-          </Button>
-        </>
-      }
-    />
+    <GuestPageFrame>
+      <section className="pg-section-tight">
+        <div className="pg-container-sm">
+          <GuestPanel className="overflow-hidden">
+            <div className="border-b border-border/70 bg-muted/35 px-5 py-4 sm:px-6">
+              <Link
+                href={`/restaurants/${restaurant.slug}`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full text-sm font-medium text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+                Back to {restaurant.name}
+              </Link>
+            </div>
+            <div className="px-5 py-8 text-center sm:px-8 sm:py-10">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-primary/20 bg-primary/[0.08] text-primary">
+                <CheckCircle2 className="size-7" aria-hidden />
+              </div>
+              <div className="mx-auto mt-6 max-w-xl space-y-3">
+                <p className="pg-kicker">Request received</p>
+                <h1 className="pg-hero-title">Your table request is in.</h1>
+                <p className="pg-lead text-base">{content.description}</p>
+              </div>
+              <div className="mx-auto mt-8 grid max-w-lg gap-3 sm:grid-cols-2">
+                <Button
+                  variant="guest-primary"
+                  size="guest-lg"
+                  className="pg-action pg-touch"
+                  asChild
+                >
+                  <Link href={content.primaryAction.href}>{content.primaryAction.label}</Link>
+                </Button>
+                <Button
+                  variant="guest-outline"
+                  size="guest-lg"
+                  className="pg-action pg-touch"
+                  asChild
+                >
+                  <Link href="/restaurants">Explore restaurants</Link>
+                </Button>
+              </div>
+            </div>
+          </GuestPanel>
+        </div>
+      </section>
+    </GuestPageFrame>
   );
 }
 
 export type { RestaurantDetail, RestaurantListItem };
-
-function ListingIllustration() {
-  return (
-    <svg
-      role="img"
-      aria-label="Restaurants illustration"
-      className="h-14 w-20 text-blue-50"
-      width="80"
-      height="56"
-      viewBox="0 0 200 120"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect
-        x="14"
-        y="22"
-        width="172"
-        height="76"
-        rx="14"
-        fill="rgba(255,255,255,0.15)"
-        stroke="rgba(255,255,255,0.35)"
-      />
-      <rect x="30" y="36" width="70" height="14" rx="6" fill="white" opacity="0.65" />
-      <rect x="30" y="58" width="52" height="10" rx="5" fill="white" opacity="0.4" />
-      <rect x="30" y="76" width="86" height="10" rx="5" fill="white" opacity="0.25" />
-      <rect x="114" y="36" width="42" height="10" rx="5" fill="var(--primary)" opacity="0.25" />
-      <rect x="114" y="52" width="54" height="32" rx="8" fill="var(--primary)" opacity="0.18" />
-      <rect x="124" y="60" width="32" height="10" rx="5" fill="var(--primary)" opacity="0.65" />
-      <rect x="124" y="76" width="40" height="8" rx="4" fill="var(--primary)" opacity="0.35" />
-      <circle cx="168" cy="68" r="8" fill="white" opacity="0.9" />
-      <path
-        d="M164 68l2.8 3 5.2-6.5"
-        stroke="var(--primary)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}

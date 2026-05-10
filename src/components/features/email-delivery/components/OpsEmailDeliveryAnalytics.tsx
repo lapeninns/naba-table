@@ -52,13 +52,13 @@ function AnalyticsTile({
   return (
     <Card className={cn('border shadow-sm', toneClass)}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-        {hint ? <p className="mt-2 text-sm text-slate-600">{hint}</p> : null}
+        <p className="text-3xl font-semibold tracking-tight text-foreground">{value}</p>
+        {hint ? <p className="mt-2 text-sm text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
   );
@@ -66,9 +66,11 @@ function AnalyticsTile({
 
 function MetricPair({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 px-4 py-3">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-slate-950" data-testid={testId}>
+    <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-2 text-lg font-semibold text-foreground" data-testid={testId}>
         {value}
       </div>
     </div>
@@ -95,67 +97,83 @@ export function OpsEmailDeliveryAnalytics({
   lastUpdatedAt,
 }: OpsEmailDeliveryAnalyticsProps) {
   const total = summary?.total ?? 0;
-  const failureCount = (summary?.bounced ?? 0) + (summary?.complained ?? 0) + (summary?.failed ?? 0);
+  const failureCount =
+    (summary?.bounced ?? 0) + (summary?.complained ?? 0) + (summary?.failed ?? 0);
 
   const distributionSegments: DistributionSegment[] = [
     {
       key: 'delivered',
       label: EMAIL_DELIVERY_STATUS_LABELS.delivered,
       count: summary?.delivered ?? 0,
-      toneClass: 'bg-emerald-500',
+      toneClass: 'bg-primary',
     },
     {
       key: 'delivery_delayed',
       label: EMAIL_DELIVERY_STATUS_LABELS.delivery_delayed,
       count: summary?.deliveryDelayed ?? 0,
-      toneClass: 'bg-amber-500',
+      toneClass: 'bg-muted-foreground',
     },
     {
       key: 'bounced',
       label: EMAIL_DELIVERY_STATUS_LABELS.bounced,
       count: summary?.bounced ?? 0,
-      toneClass: 'bg-rose-400',
+      toneClass: 'bg-destructive/70',
     },
     {
       key: 'failed',
       label: EMAIL_DELIVERY_STATUS_LABELS.failed,
       count: (summary?.complained ?? 0) + (summary?.failed ?? 0),
-      toneClass: 'bg-rose-600',
+      toneClass: 'bg-destructive',
     },
     {
       key: 'sent',
       label: EMAIL_DELIVERY_STATUS_LABELS.sent,
       count: summary?.sent ?? 0,
-      toneClass: 'bg-slate-400',
+      toneClass: 'bg-muted',
     },
   ].filter((segment) => segment.count > 0 || total === 0);
 
   return (
     <section aria-label="Email delivery analytics" className="space-y-6">
-      <Card className="border-slate-200/60 bg-white shadow-sm">
-        <CardHeader className="flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-start sm:justify-between">
+      <Card className="border-border bg-background shadow-sm">
+        <CardHeader className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-slate-500" aria-hidden />
-              <CardTitle className="text-base font-semibold text-slate-900">Delivery analytics</CardTitle>
+              <BarChart3 className="size-4 text-muted-foreground" aria-hidden />
+              <CardTitle className="text-base font-semibold text-foreground">
+                Delivery analytics
+              </CardTitle>
               {lastUpdatedAt ? (
-                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-600">
-                  Updated {new Date(lastUpdatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                <Badge
+                  variant="outline"
+                  className="border-border bg-muted/40 text-xs text-muted-foreground"
+                >
+                  Updated{' '}
+                  {new Date(lastUpdatedAt).toLocaleTimeString([], {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
                 </Badge>
               ) : null}
               {isUpdating && !isLoading ? (
-                <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-600">
+                <Badge
+                  variant="outline"
+                  className="border-border bg-muted/40 text-xs text-muted-foreground"
+                >
                   Updating…
                 </Badge>
               ) : null}
             </div>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600">
-              Measure delivery health over time with independent summary metrics, distribution, and failure hotspots.
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Measure delivery health over time with independent summary metrics, distribution, and
+              failure hotspots.
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Time range</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Time range
+            </div>
             <ToggleGroup
               type="single"
               value={range}
@@ -164,14 +182,14 @@ export function OpsEmailDeliveryAnalytics({
                   onRangeChange(value);
                 }
               }}
-              className="justify-start rounded-full border border-slate-200 bg-slate-50/80 p-1"
+              className="justify-start rounded-full border border-border bg-muted/40 p-1"
               aria-label="Analytics time range"
             >
               {RANGE_OPTIONS.map((option) => (
                 <ToggleGroupItem
                   key={option}
                   value={option}
-                  className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+                  className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                   aria-label={`Analytics range ${option}`}
                 >
                   {option}
@@ -210,40 +228,48 @@ export function OpsEmailDeliveryAnalytics({
                   label="Total Attempts"
                   value={String(total)}
                   hint="Across the selected analytics window"
-                  toneClass="border-slate-200/70 bg-slate-50/70"
+                  toneClass="border-border bg-muted/40"
                 />
                 <AnalyticsTile
                   label="Delivered"
                   value={String(summary.delivered)}
                   hint={`${formatRate(summary.deliveredRate)} delivery rate`}
-                  toneClass="border-emerald-200/70 bg-emerald-50/80"
+                  toneClass="border-primary/20 bg-primary/10"
                 />
                 <AnalyticsTile
                   label="Delayed"
                   value={String(summary.deliveryDelayed)}
                   hint="Attempts waiting longer than expected"
-                  toneClass="border-amber-200/70 bg-amber-50/80"
+                  toneClass="border-border bg-muted/40"
                 />
                 <AnalyticsTile
                   label="Failures"
                   value={String(failureCount)}
                   hint={`${formatRate(summary.failureRate)} failure rate`}
-                  toneClass="border-rose-200/70 bg-rose-50/80"
+                  toneClass="border-destructive/20 bg-destructive/10"
                 />
               </div>
 
-              <div className="rounded-xl border border-slate-200/70 bg-slate-50/70 p-4" data-testid="analytics-distribution-bar">
+              <div
+                className="rounded-xl border border-border bg-muted/40 p-4"
+                data-testid="analytics-distribution-bar"
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">Status distribution</div>
-                    <p className="text-sm text-slate-600">Share of attempts by current delivery state.</p>
+                    <div className="text-sm font-semibold text-foreground">Status distribution</div>
+                    <p className="text-sm text-muted-foreground">
+                      Share of attempts by current delivery state.
+                    </p>
                   </div>
-                  <Badge variant="outline" className="border-slate-200 bg-white text-xs text-slate-600">
+                  <Badge
+                    variant="outline"
+                    className="border-border bg-background text-xs text-muted-foreground"
+                  >
                     {total} total attempts
                   </Badge>
                 </div>
 
-                <div className="mt-4 h-4 overflow-hidden rounded-full bg-slate-200">
+                <div className="mt-4 h-4 overflow-hidden rounded-full bg-muted">
                   <div className="flex h-full w-full">
                     {distributionSegments.map((segment) => {
                       const width = total > 0 ? (segment.count / total) * 100 : 0;
@@ -261,8 +287,18 @@ export function OpsEmailDeliveryAnalytics({
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {distributionSegments.map((segment) => (
-                    <Badge key={segment.key} variant="outline" className="border-slate-200 bg-white text-xs text-slate-700">
-                      <span className={cn('mr-2 inline-block h-2.5 w-2.5 rounded-full', segment.toneClass)} aria-hidden />
+                    <Badge
+                      key={segment.key}
+                      variant="outline"
+                      className="border-border bg-background text-xs text-muted-foreground"
+                    >
+                      <span
+                        className={cn(
+                          'mr-2 inline-block h-2.5 w-2.5 rounded-full',
+                          segment.toneClass,
+                        )}
+                        aria-hidden
+                      />
                       {segment.label}: {segment.count}
                     </Badge>
                   ))}
@@ -270,61 +306,99 @@ export function OpsEmailDeliveryAnalytics({
               </div>
 
               <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
-                <Card className="border-slate-200/70 bg-white shadow-sm">
+                <Card className="border-border bg-background shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-slate-900">Secondary metrics</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-foreground">
+                      Secondary metrics
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="grid gap-3 sm:grid-cols-2">
-                    <MetricPair label="p50 delivery time" value={formatDuration(summary.p50DeliverySeconds)} testId="analytics-p50" />
-                    <MetricPair label="p95 delivery time" value={formatDuration(summary.p95DeliverySeconds)} testId="analytics-p95" />
-                    <MetricPair label="Unique recipients" value={String(summary.uniqueRecipients)} testId="analytics-unique-recipients" />
-                    <MetricPair label="Unique bookings" value={String(summary.uniqueBookings)} testId="analytics-unique-bookings" />
+                    <MetricPair
+                      label="p50 delivery time"
+                      value={formatDuration(summary.p50DeliverySeconds)}
+                      testId="analytics-p50"
+                    />
+                    <MetricPair
+                      label="p95 delivery time"
+                      value={formatDuration(summary.p95DeliverySeconds)}
+                      testId="analytics-p95"
+                    />
+                    <MetricPair
+                      label="Unique recipients"
+                      value={String(summary.uniqueRecipients)}
+                      testId="analytics-unique-recipients"
+                    />
+                    <MetricPair
+                      label="Unique bookings"
+                      value={String(summary.uniqueBookings)}
+                      testId="analytics-unique-bookings"
+                    />
                   </CardContent>
                 </Card>
 
-                <Card className="border-slate-200/70 bg-white shadow-sm">
+                <Card className="border-border bg-background shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-slate-900">Top failed templates</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-foreground">
+                      Top failed templates
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {summary.topFailedTemplates.length > 0 ? (
                       summary.topFailedTemplates.map((entry) => (
-                        <div key={entry.templateType} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/60 bg-slate-50/70 px-3 py-2">
-                          <span className="truncate text-sm text-slate-900" title={entry.templateType}>
+                        <div
+                          key={entry.templateType}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2"
+                        >
+                          <span
+                            className="truncate text-sm text-foreground"
+                            title={entry.templateType}
+                          >
                             {entry.templateType}
                           </span>
                           <Badge variant="secondary">{entry.count}</Badge>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-slate-600">No failed templates in this range.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No failed templates in this range.
+                      </p>
                     )}
                   </CardContent>
                 </Card>
 
-                <Card className="border-slate-200/70 bg-white shadow-sm">
+                <Card className="border-border bg-background shadow-sm">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-sm font-semibold text-slate-900">Top failed email types</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-foreground">
+                      Top failed email types
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {summary.topFailedEmailTypes.length > 0 ? (
                       summary.topFailedEmailTypes.map((entry) => (
-                        <div key={entry.emailType} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200/60 bg-slate-50/70 px-3 py-2">
-                          <span className="truncate text-sm text-slate-900" title={entry.emailType}>
+                        <div
+                          key={entry.emailType}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2"
+                        >
+                          <span
+                            className="truncate text-sm text-foreground"
+                            title={entry.emailType}
+                          >
                             {entry.emailType}
                           </span>
                           <Badge variant="secondary">{entry.count}</Badge>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-slate-600">No failed email types in this range.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No failed email types in this range.
+                      </p>
                     )}
                   </CardContent>
                 </Card>
               </div>
             </>
           ) : !errorMessage ? (
-            <Alert className="border-slate-200/70 bg-slate-50/60">
+            <Alert className="border-border bg-muted/40">
               <AlertTitle>Analytics unavailable</AlertTitle>
               <AlertDescription>
                 Summary metrics could not be calculated for this range right now.

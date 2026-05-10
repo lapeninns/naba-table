@@ -1,6 +1,5 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -14,7 +13,12 @@ import { useReservationWizard } from '../hooks/useReservationWizard';
 import { ConfirmationStep } from './steps/ConfirmationStep';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
-import { DetailsStepSkeleton, PlanStepSkeleton, ReviewStepSkeleton } from './WizardSkeletons';
+import {
+  BookingWizardShellSkeleton,
+  DetailsStepSkeleton,
+  PlanStepSkeleton,
+  ReviewStepSkeleton,
+} from './WizardSkeletons';
 const PlanStep = React.lazy(() =>
   import('./steps/PlanStep').then((m) => ({ default: m.PlanStep })),
 );
@@ -29,18 +33,7 @@ import type { BookingDetails, BookingWizardMode } from '../model/reducer';
 import type { CalendarMask } from '@reserve/features/reservations/wizard/services/schedule';
 
 function LoadingFallback({ layoutElement = 'main' }: { layoutElement?: 'main' | 'div' }) {
-  const Container = layoutElement === 'div' ? 'div' : 'main';
-
-  return (
-    <Container className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="space-y-3 text-center text-slate-600">
-        <Loader2 className="mx-auto h-8 w-8 animate-spin" aria-hidden />
-        <p className="text-base" role="status">
-          Loading reservation flow…
-        </p>
-      </div>
-    </Container>
-  );
+  return <BookingWizardShellSkeleton layoutElement={layoutElement} />;
 }
 
 type BookingWizardContentProps = {
@@ -49,6 +42,7 @@ type BookingWizardContentProps = {
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
+  redirectOnSuccess?: boolean;
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
@@ -60,6 +54,7 @@ function BookingWizardContent({
   layoutElement = 'main',
   initialCalendarMask,
   returnPath,
+  redirectOnSuccess,
   navigationClassName,
   className,
   contentClassName,
@@ -79,7 +74,7 @@ function BookingWizardContent({
     handleNewBooking,
     handleClose,
     planAlert,
-  } = useReservationWizard(initialDetails, mode, { returnPath });
+  } = useReservationWizard(initialDetails, mode, { returnPath, redirectOnSuccess });
   const { analytics } = useWizardDependencies();
   const { user, status: sessionStatus } = useSupabaseSession();
   const isAuthenticated = sessionStatus === 'authenticated' && Boolean(user);
@@ -183,9 +178,11 @@ function BookingWizardContent({
     }
 
     if (isOffline && !wasOfflineRef.current) {
-      setTimeout(() => {
+      const focusTimer = setTimeout(() => {
         offlineBannerRef.current?.focus();
       }, 0);
+      wasOfflineRef.current = isOffline;
+      return () => clearTimeout(focusTimer);
     }
     wasOfflineRef.current = isOffline;
   }, [hasHydrated, isOffline]);
@@ -210,6 +207,7 @@ function BookingWizardContent({
         description="You’re offline. You can edit details, but confirming requires a connection."
       />
     ) : null;
+  const effectiveStickyVisible = state.step === 4 ? true : stickyVisible;
 
   const shouldShowSkeleton = state.loading && state.step !== 4;
 
@@ -254,12 +252,17 @@ function BookingWizardContent({
       case 3:
         return (
           <Suspense fallback={<ReviewStepSkeleton />}>
-            <ReviewStep onConfirm={handleConfirm} onActionsChange={handleActionsChange} />
+            <ReviewStep
+              mode={mode}
+              onConfirm={handleConfirm}
+              onActionsChange={handleActionsChange}
+            />
           </Suspense>
         );
       case 4:
         return (
           <ConfirmationStep
+            mode={mode}
             onNewBooking={handleNewBooking}
             onClose={handleClose}
             onActionsChange={handleActionsChange}
@@ -279,7 +282,7 @@ function BookingWizardContent({
         summary={selectionSummary}
         heroRef={heroRef}
         stickyHeight={stickyHeight}
-        stickyVisible={stickyVisible}
+        stickyVisible={effectiveStickyVisible}
         onStickyHeightChange={handleStickyHeightChange}
         restaurantName={state.details.restaurantName || undefined}
         banner={banner}
@@ -300,6 +303,7 @@ type BookingWizardProps = {
   layoutElement?: 'main' | 'div';
   initialCalendarMask?: CalendarMask | null;
   returnPath?: string;
+  redirectOnSuccess?: boolean;
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
@@ -311,6 +315,7 @@ export function BookingWizard({
   layoutElement = 'main',
   initialCalendarMask,
   returnPath,
+  redirectOnSuccess,
   navigationClassName,
   className,
   contentClassName,
@@ -323,6 +328,7 @@ export function BookingWizard({
         layoutElement={layoutElement}
         initialCalendarMask={initialCalendarMask}
         returnPath={returnPath}
+        redirectOnSuccess={redirectOnSuccess}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}

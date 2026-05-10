@@ -1,3 +1,5 @@
+import { opsHref } from '@/lib/url/opsHref';
+
 import type { RestaurantSettingsView } from './types';
 
 export type RestaurantSettingsRoute = {
@@ -9,44 +11,54 @@ export type RestaurantSettingsRoute = {
 
 export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
+    view: 'overview',
+    href: opsHref('/settings/restaurant'),
+    title: 'Restaurant setup',
+    description: 'Complete the essentials that make this restaurant ready for bookings.',
+  },
+  {
     view: 'profile',
-    href: '/settings/restaurant/profile',
-    title: 'Restaurant Profile',
-    description: 'Name, branding, contact details, booking policy, reminders.',
+    href: opsHref('/settings/restaurant/profile'),
+    title: 'Restaurant profile',
+    description: 'Public details, booking page URL, manager alerts, and optional discovery.',
   },
   {
-    view: 'operating-hours',
-    href: '/settings/restaurant/operating-hours',
-    title: 'Operating Hours',
-    description: 'Weekly schedule and one-off overrides for open/close times.',
+    view: 'google-business-profile',
+    href: opsHref('/settings/restaurant/google-business-profile'),
+    title: 'Google Business Profile',
+    description: 'Optional import and comparison support for public restaurant details.',
   },
   {
-    view: 'service-periods',
-    href: '/settings/restaurant/service-periods',
-    title: 'Service Periods',
-    description: 'Lunch/dinner booking windows within operating hours.',
+    view: 'availability',
+    href: opsHref('/settings/restaurant/availability'),
+    title: 'Availability & Booking types',
+    description:
+      'Booking rules, weekly hours, overrides, meal windows, booking types, and dining-duration bands.',
   },
   {
-    view: 'turn-durations',
-    href: '/settings/restaurant/turn-durations',
-    title: 'Reservation Durations',
-    description: 'Define dining duration bands by party size.',
+    view: 'menu',
+    href: opsHref('/settings/restaurant/menu'),
+    title: 'Menu',
+    description: 'Manage menus, sections, items, options, and Google-compatible publishing fields.',
   },
   {
-    view: 'occasions',
-    href: '/settings/restaurant/occasions',
-    title: 'Booking occasions',
-    description: 'Control available occasions and defaults.',
+    view: 'tables',
+    href: opsHref('/settings/restaurant/tables'),
+    title: 'Tables',
+    description: 'Manage table inventory, zones, and capacity.',
   },
   {
     view: 'team',
-    href: '/settings/restaurant/team',
+    href: opsHref('/settings/restaurant/team'),
     title: 'Team',
     description: 'Invite and manage restaurant staff access.',
   },
 ];
 
-export type RestaurantSettingsNavItem = Pick<RestaurantSettingsRoute, 'href' | 'title' | 'description'>;
+export type RestaurantSettingsNavItem = Pick<
+  RestaurantSettingsRoute,
+  'href' | 'title' | 'description'
+>;
 
 const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
   const route = RESTAURANT_SETTINGS_ROUTES.find((item) => item.view === view);
@@ -55,21 +67,22 @@ const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
 };
 
 export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
+  getRoute('overview'),
   getRoute('profile'),
-  getRoute('operating-hours'),
-  getRoute('service-periods'),
-  getRoute('turn-durations'),
-  {
-    href: '/settings/tables',
-    title: 'Tables',
-    description: 'Manage table inventory, zones, and capacity.',
-  },
-  getRoute('occasions'),
+  getRoute('google-business-profile'),
+  getRoute('availability'),
+  getRoute('menu'),
+  getRoute('tables'),
   getRoute('team'),
 ];
 
-export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<RestaurantSettingsView, RestaurantSettingsRoute> =
-  RESTAURANT_SETTINGS_ROUTES.reduce<Record<RestaurantSettingsView, RestaurantSettingsRoute>>((acc, route) => {
+export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<
+  RestaurantSettingsView,
+  RestaurantSettingsRoute
+> = RESTAURANT_SETTINGS_ROUTES.reduce<Record<RestaurantSettingsView, RestaurantSettingsRoute>>(
+  (acc, route) => {
     acc[route.view] = route;
     return acc;
-  }, {} as Record<RestaurantSettingsView, RestaurantSettingsRoute>);
+  },
+  {} as Record<RestaurantSettingsView, RestaurantSettingsRoute>,
+);

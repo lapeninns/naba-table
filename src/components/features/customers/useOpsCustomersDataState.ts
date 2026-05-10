@@ -7,12 +7,7 @@ import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 import { buildOpsGuestRowViewModels } from './opsCustomersSelectors';
 import { INFINITE_PAGE_SIZE, type OpsCustomersExportFilters } from './opsCustomersTypes';
 
-import type {
-  LastVisitFilter,
-  MarketingFilter,
-  SortBy,
-  SortDirection,
-} from './opsCustomersTypes';
+import type { LastVisitFilter, MarketingFilter, SortBy, SortDirection } from './opsCustomersTypes';
 
 type UseOpsCustomersDataStateArgs = {
   activeRestaurantId: string | null;
@@ -50,15 +45,7 @@ export function useOpsCustomersDataState({
       lastVisit,
       minBookings,
     };
-  }, [
-    activeRestaurantId,
-    lastVisit,
-    marketingOptIn,
-    minBookings,
-    normalizedSearch,
-    sort,
-    sortBy,
-  ]);
+  }, [activeRestaurantId, lastVisit, marketingOptIn, minBookings, normalizedSearch, sort, sortBy]);
 
   const {
     data,

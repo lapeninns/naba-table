@@ -4,19 +4,17 @@ import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/Op
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StaleBoundary } from '@/components/ui/stale-boundary';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { OpsDashboardToolbar } from './OpsDashboardToolbar';
 
-import type {
-  DashboardBookingActionHandlers,
-  DashboardListControls,
-} from './types';
+import type { DashboardBookingActionHandlers, DashboardListControls } from './types';
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 const NO_BOOKINGS_TITLE = 'Bookings unavailable';
 const NO_BOOKINGS_BODY =
-  'We could not load today’s reservations. Refresh the page or try again shortly.';
+  'We could not load today\u2019s reservations. Refresh the page or try again shortly.';
 
 type DashboardSummaryCardProps = {
   summary: OpsTodayBookingsSummary;
@@ -26,6 +24,7 @@ type DashboardSummaryCardProps = {
   initialNowIso: string;
   allowTableAssignments?: boolean;
   restaurantSlug?: string | null;
+  isStale?: boolean;
 };
 
 const BookingsList = dynamic(() => import('./BookingsList').then((mod) => mod.BookingsList), {
@@ -40,6 +39,7 @@ export function DashboardSummaryCard({
   initialNowIso,
   allowTableAssignments,
   restaurantSlug,
+  isStale,
 }: DashboardSummaryCardProps) {
   const canAssignTables =
     typeof allowTableAssignments === 'boolean'
@@ -69,6 +69,7 @@ export function DashboardSummaryCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
+        {/* Toolbar stays interactive during stale transitions (SWR golden rule) */}
         <OpsDashboardToolbar
           filter={controls.filter}
           tabCounts={controls.tabCounts}
@@ -79,23 +80,27 @@ export function DashboardSummaryCard({
           sticky={false}
         />
 
-        <BookingsList
-          bookings={summary.bookings}
-          controls={{
-            filter: controls.filter,
-            searchQuery: controls.deferredSearchQuery ?? controls.searchQuery,
-            sortKey: controls.sortKey,
-            sortDir: controls.sortDir,
-            onSortKeyChange: controls.onSortKeyChange,
-            onSortDirChange: controls.onSortDirChange,
-            isRefetching: controls.isRefetching,
-          }}
-          bookingActions={bookingActions}
-          summary={summary}
-          initialNowIso={initialNowIso}
-          allowTableAssignments={canAssignTables}
-          restaurantSlug={restaurantSlug}
-        />
+        {/* Only the list body is dimmed/blocked when content is stale */}
+        <StaleBoundary isStale={isStale ?? false}>
+          <BookingsList
+            bookings={summary.bookings}
+            controls={{
+              filter: controls.filter,
+              searchQuery: controls.deferredSearchQuery ?? controls.searchQuery,
+              sortKey: controls.sortKey,
+              sortDir: controls.sortDir,
+              onSortKeyChange: controls.onSortKeyChange,
+              onSortDirChange: controls.onSortDirChange,
+              isRefetching: controls.isRefetching,
+              dataUpdatedAt: controls.dataUpdatedAt,
+            }}
+            bookingActions={bookingActions}
+            summary={summary}
+            initialNowIso={initialNowIso}
+            allowTableAssignments={canAssignTables}
+            restaurantSlug={restaurantSlug}
+          />
+        </StaleBoundary>
       </CardContent>
     </Card>
   );

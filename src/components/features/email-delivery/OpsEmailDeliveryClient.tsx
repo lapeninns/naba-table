@@ -18,6 +18,7 @@ import { OPS_EMAIL_DELIVERY_PAGE_SIZE_OPTIONS } from '@/components/features/emai
 import { useOpsEmailDeliveryState } from '@/components/features/email-delivery/useOpsEmailDeliveryState';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import type { OpsEmailDeliveryClientProps } from '@/components/features/email-delivery/useOpsEmailDeliveryState';
@@ -49,8 +51,8 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           description="Ask an owner or manager to send you an invitation so you can manage bookings."
           action={
             <Button asChild variant="secondary">
-              <Link href="/guest/dashboard" prefetch={false}>
-                Back to dashboard
+              <Link href={opsHref('/dashboard')} prefetch={false}>
+                Return to ops home
               </Link>
             </Button>
           }
@@ -60,7 +62,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+    <OpsPageShell variant="standard" className="space-y-4">
       <OpsPageHeader
         title="Email Delivery"
         subtitle="Deliverability dashboard for booking emails (Resend)."
@@ -71,7 +73,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                 value={state.effectiveRestaurantId ?? ''}
                 onValueChange={state.handleRestaurantChange}
               >
-                <SelectTrigger className="h-8 w-[240px]" aria-label="Restaurant switcher">
+                <SelectTrigger className="h-8 w-full sm:w-[240px]" aria-label="Restaurant switcher">
                   <SelectValue placeholder="Select restaurant" />
                 </SelectTrigger>
                 <SelectContent>
@@ -101,31 +103,38 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
         }
       />
 
-      <Tabs value={state.queryState.tab} onValueChange={state.queryState.handleTabChange} className="mt-6">
-        <div className="mb-4 rounded-xl border border-slate-200/70 bg-slate-50/70 p-4">
+      <Tabs
+        value={state.queryState.tab}
+        onValueChange={state.queryState.handleTabChange}
+        className="mt-6"
+      >
+        <div className="mb-4 rounded-xl border border-border bg-muted/40 p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Auto-refresh
               </div>
               <ToggleGroup
                 type="single"
                 value={state.queryState.refresh}
                 onValueChange={(value) => {
-                  if (value !== 'off' && value !== '30s' && value !== '1m' && value !== '5m') return;
+                  if (value !== 'off' && value !== '30s' && value !== '1m' && value !== '5m')
+                    return;
                   state.queryState.applyRefresh(value);
                 }}
-                className="justify-start rounded-full border border-slate-200 bg-white p-1"
+                className="justify-start rounded-full border border-border bg-background p-1"
                 aria-label="Auto-refresh interval"
               >
                 {['off', '30s', '1m', '5m'].map((option) => (
                   <ToggleGroupItem
                     key={option}
                     value={option}
-                    className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-slate-900 data-[state=on]:text-white"
+                    className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
                     aria-label={`Refresh every ${state.formatRefreshLabel(option as 'off' | '30s' | '1m' | '5m')}`}
                   >
-                    {option === 'off' ? 'Off' : state.formatRefreshLabel(option as 'off' | '30s' | '1m' | '5m')}
+                    {option === 'off'
+                      ? 'Off'
+                      : state.formatRefreshLabel(option as 'off' | '30s' | '1m' | '5m')}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -134,25 +143,27 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
               {state.autoRefreshActive ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                  <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                     Auto-refresh {state.formatRefreshLabel(state.queryState.refresh)}
                   </Badge>
-                  <span className="text-sm text-slate-600">{state.refreshIndicatorText}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {state.refreshIndicatorText}
+                  </span>
                 </div>
               ) : (
-                <span className="text-sm text-slate-500">Auto-refresh is off.</span>
+                <span className="text-sm text-muted-foreground">Auto-refresh is off.</span>
               )}
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                className="border-border bg-background text-foreground hover:bg-muted"
                 onClick={state.handleManualRefresh}
                 disabled={state.manualRefreshBusy}
                 aria-label="Refresh current tab"
               >
                 <RefreshCw
-                  className={cn('mr-2 h-4 w-4', state.manualRefreshBusy && 'animate-spin')}
+                  className={cn('mr-2 size-4', state.manualRefreshBusy && 'animate-spin')}
                   aria-hidden
                 />
                 Refresh
@@ -169,17 +180,19 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
         <TabsContent value="delivery-log">
           <OpsPageToolbar className="space-y-4">
             {state.canInjectDeliveryLogError ? (
-              <Alert className="border-dashed border-slate-300/80 bg-slate-50/80">
-                <AlertCircle className="h-4 w-4" aria-hidden />
+              <Alert className="border-dashed border-border bg-muted/40">
+                <AlertCircle className="size-4" aria-hidden />
                 <AlertTitle>Dev/test validation control</AlertTitle>
                 <AlertDescription className="space-y-3">
                   <p>
                     To surface the Delivery Log error alert for validation, append{' '}
-                    <code>messageId={state.DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID}</code>{' '}
-                    to this dev harness URL or choose Message ID in the search field and submit that exact value.
+                    <code>messageId={state.DELIVERY_LOG_FAULT_INJECTION_MESSAGE_ID}</code> to this
+                    dev harness URL or choose Message ID in the search field and submit that exact
+                    value.
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    This fault injection path is only enabled for dev/test contexts and is ignored on production surfaces.
+                    This fault injection path is only enabled for dev/test contexts and is ignored
+                    on production surfaces.
                   </p>
                 </AlertDescription>
               </Alert>
@@ -206,16 +219,17 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
 
           <section className="mt-4 space-y-4">
             {state.dataState.feedQuery.unavailable ? (
-              <Alert className="border-amber-200/70 bg-amber-50/60">
-                <MailWarning className="h-4 w-4" aria-hidden />
+              <Alert className="border-border bg-muted/40">
+                <MailWarning className="size-4" aria-hidden />
                 <AlertTitle>Delivery tracking unavailable</AlertTitle>
                 <AlertDescription>
-                  This environment is not currently recording or exposing delivery events. Email sending can still work normally.
+                  This environment is not currently recording or exposing delivery events. Email
+                  sending can still work normally.
                 </AlertDescription>
               </Alert>
             ) : state.effectiveDeliveryLogErrorMessage ? (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" aria-hidden />
+                <AlertCircle className="size-4" aria-hidden />
                 <AlertTitle>Unable to load email delivery attempts</AlertTitle>
                 <AlertDescription className="space-y-3">
                   <p>{state.effectiveDeliveryLogErrorMessage}</p>
@@ -227,7 +241,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                       void state.dataState.feedQuery.refetch();
                     }}
                   >
-                    <RotateCcw className="mr-1 h-4 w-4" aria-hidden />
+                    <RotateCcw className="mr-1 size-4" aria-hidden />
                     Retry
                   </Button>
                 </AlertDescription>
@@ -248,18 +262,18 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             )}
 
             {state.shouldShowEmptyGuidance ? (
-              <div className="rounded-lg border border-slate-200/60 bg-white p-8 text-center">
-                <p className="text-base font-semibold text-slate-900">No email deliveries found</p>
-                <p className="mt-2 text-sm text-slate-600">
+              <div className="rounded-lg border border-border bg-background p-8 text-center">
+                <p className="text-base font-semibold text-foreground">No email deliveries found</p>
+                <p className="mt-2 text-sm text-muted-foreground">
                   Adjust the filters or try a wider date range to see more results.
                 </p>
               </div>
             ) : null}
 
             {state.shouldShowPagination ? (
-              <div className="flex flex-col gap-3 rounded-lg border border-slate-200/60 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-foreground">
                     Showing {state.startResult}-{state.endResult} of {state.totalResults} results
                   </p>
                   <p className="text-xs text-muted-foreground">Page {state.currentPage}</p>
@@ -272,11 +286,15 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                       value={String(state.currentPageSize)}
                       onValueChange={(value) => {
                         const nextPageSize = Number.parseInt(value, 10);
-                        if (!Number.isFinite(nextPageSize) || nextPageSize === state.queryState.pageSize) return;
+                        if (
+                          !Number.isFinite(nextPageSize) ||
+                          nextPageSize === state.queryState.pageSize
+                        )
+                          return;
                         state.queryState.applyPageSize(nextPageSize);
                       }}
                     >
-                      <SelectTrigger className="h-9 w-[88px]" aria-label="Rows per page">
+                      <SelectTrigger className="h-9 w-full sm:w-[88px]" aria-label="Rows per page">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -290,16 +308,26 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={state.handlePrev} disabled={!state.hasPrevPage}>
-                      <ChevronLeft className="h-4 w-4" aria-hidden />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={state.handlePrev}
+                      disabled={!state.hasPrevPage}
+                    >
+                      <ChevronLeft className="size-4" aria-hidden />
                       Prev
                     </Button>
                     <span className="min-w-16 text-center text-xs text-muted-foreground">
                       Page {state.currentPage}
                     </span>
-                    <Button variant="outline" size="sm" onClick={state.handleNext} disabled={!state.hasNextPage}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={state.handleNext}
+                      disabled={!state.hasNextPage}
+                    >
                       Next
-                      <ChevronRight className="h-4 w-4" aria-hidden />
+                      <ChevronRight className="size-4" aria-hidden />
                     </Button>
                   </div>
                 </div>
@@ -313,7 +341,9 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             restaurantId={state.effectiveRestaurantId}
             timezone={state.timezone}
             enabled={state.queryState.tab === 'queue'}
-            refetchIntervalMs={state.queryState.tab === 'queue' ? state.dataState.refreshIntervalMs : false}
+            refetchIntervalMs={
+              state.queryState.tab === 'queue' ? state.dataState.refreshIntervalMs : false
+            }
             refreshKey={state.queryState.tab === 'queue' ? state.manualRefreshNonce : 0}
             fixture={state.queryState.queueFixture}
             onRefreshStateChange={state.setQueueRefreshState}
@@ -324,7 +354,9 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           <OpsEmailDeliveryAnalytics
             summary={state.dataState.analyticsSummary}
             isLoading={state.dataState.analyticsQuery.isLoading}
-            isUpdating={state.dataState.analyticsQuery.isFetching && !state.dataState.analyticsQuery.isLoading}
+            isUpdating={
+              state.dataState.analyticsQuery.isFetching && !state.dataState.analyticsQuery.isLoading
+            }
             range={state.queryState.range}
             onRangeChange={state.queryState.applyRange}
             errorMessage={state.analyticsErrorMessage}
@@ -336,6 +368,6 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           />
         </TabsContent>
       </Tabs>
-    </main>
+    </OpsPageShell>
   );
 }

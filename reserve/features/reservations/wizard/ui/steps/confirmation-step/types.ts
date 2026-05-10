@@ -1,7 +1,8 @@
-import type { State, StepAction } from '../../../model/reducer';
+import type { BookingWizardMode, State, StepAction } from '../../../model/reducer';
 
 export interface ConfirmationStepProps {
   state?: State;
+  mode?: BookingWizardMode;
   onNewBooking: () => void;
   onClose: () => void;
   onActionsChange: (actions: StepAction[]) => void;

@@ -49,7 +49,6 @@ export function ImplicitAuthHandler({
 
     const log = (...args: unknown[]) => {
       if (process.env.NODE_ENV === 'development') {
-         
         console.log('[ImplicitAuthHandler]', ...args);
       }
     };
@@ -61,6 +60,20 @@ export function ImplicitAuthHandler({
       // Allow future implicit logins (even with the same link) after navigation settles
       handledHashSignature = null;
     };
+
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const scheduleTimer = (callback: () => void, delay: number) => {
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        callback();
+      }, delay);
+      timers.add(timer);
+    };
+
+    const waitForCookieFlush = () =>
+      new Promise<void>((resolve) => {
+        scheduleTimer(resolve, 50);
+      });
 
     const handleImplicitAuth = async () => {
       try {
@@ -114,13 +127,13 @@ export function ImplicitAuthHandler({
         log('Redirecting to:', destination);
 
         // Small delay to ensure cookies are flushed before navigation
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        await waitForCookieFlush();
 
         redirectInFlight = true;
         router.replace(destination);
 
         // Clear redirect guard after navigation kick-off so subsequent implicit logins work without reload
-        setTimeout(resetRedirectGuards, 200);
+        scheduleTimer(resetRedirectGuards, 200);
       } catch (err) {
         log('Unexpected error:', err);
         handledHashSignature = null;
@@ -138,6 +151,10 @@ export function ImplicitAuthHandler({
     void handleImplicitAuth();
 
     return () => {
+      for (const timer of timers) {
+        clearTimeout(timer);
+      }
+      timers.clear();
       // Ensure guards don't persist across unmounts
       resetRedirectGuards();
       processingRef.current = false;

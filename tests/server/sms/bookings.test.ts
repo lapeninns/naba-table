@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildSmsStatusCallbackUrl,
   buildGuestBookingCancellationSms,
   buildGuestBookingConfirmationSms,
   buildGuestBookingUpdateSms,
@@ -27,6 +28,19 @@ const venue = {
 } as const;
 
 describe('booking SMS builders', () => {
+  it('builds a signed-context status callback url for Twilio delivery events', () => {
+    const url = buildSmsStatusCallbackUrl({
+      appUrl: 'https://app.nabatable.com',
+      bookingId: '11111111-1111-4111-8111-111111111111',
+      restaurantId: '22222222-2222-4222-8222-222222222222',
+      smsType: 'booking_confirmation',
+    });
+
+    expect(url).toBe(
+      'https://app.nabatable.com/api/webhook/twilio/sms-status?bookingId=11111111-1111-4111-8111-111111111111&restaurantId=22222222-2222-4222-8222-222222222222&smsType=booking_confirmation',
+    );
+  });
+
   it('builds confirmation SMS copy', () => {
     const message = buildGuestBookingConfirmationSms({
       booking: booking as never,

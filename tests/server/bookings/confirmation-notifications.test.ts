@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hasRecentEmailDeliveryMock = vi.hoisted(() => vi.fn());
+const hasRecentSmsDeliveryMock = vi.hoisted(() => vi.fn());
 const sendBookingConfirmationEmailMock = vi.hoisted(() => vi.fn());
 const sendGuestBookingConfirmationSmsMock = vi.hoisted(() => vi.fn());
 
@@ -16,6 +17,10 @@ vi.mock('@/server/sms/bookings', () => ({
   sendGuestBookingConfirmationSms: sendGuestBookingConfirmationSmsMock,
 }));
 
+vi.mock('@/server/sms/delivery-log', () => ({
+  hasRecentSmsDelivery: hasRecentSmsDeliveryMock,
+}));
+
 import { sendFirstBookingConfirmationNotifications } from '@/server/bookings/confirmation-notifications';
 
 const booking = {
@@ -29,8 +34,10 @@ describe('sendFirstBookingConfirmationNotifications', () => {
   beforeEach(() => {
     hasRecentEmailDeliveryMock.mockReset();
     sendBookingConfirmationEmailMock.mockReset();
+    hasRecentSmsDeliveryMock.mockReset();
     sendGuestBookingConfirmationSmsMock.mockReset();
     hasRecentEmailDeliveryMock.mockResolvedValue(false);
+    hasRecentSmsDeliveryMock.mockResolvedValue(false);
     sendBookingConfirmationEmailMock.mockResolvedValue({ id: 'email-log-1' });
     sendGuestBookingConfirmationSmsMock.mockResolvedValue({
       messageSid: 'SM123',
@@ -49,6 +56,12 @@ describe('sendFirstBookingConfirmationNotifications', () => {
       smsSent: true,
     });
     expect(sendBookingConfirmationEmailMock).not.toHaveBeenCalled();
+    expect(hasRecentSmsDeliveryMock).toHaveBeenCalledWith({
+      bookingId: 'booking-1',
+      smsType: 'booking_confirmation',
+      recipientPhone: '+447700900000',
+      withinMs: 365 * 24 * 60 * 60 * 1000,
+    });
     expect(sendGuestBookingConfirmationSmsMock).toHaveBeenCalledWith(booking);
   });
 
@@ -58,6 +71,12 @@ describe('sendFirstBookingConfirmationNotifications', () => {
     expect(hasRecentEmailDeliveryMock).toHaveBeenCalledWith({
       bookingId: 'booking-1',
       templateType: 'confirmation',
+      withinMs: 365 * 24 * 60 * 60 * 1000,
+    });
+    expect(hasRecentSmsDeliveryMock).toHaveBeenCalledWith({
+      bookingId: 'booking-1',
+      smsType: 'booking_confirmation',
+      recipientPhone: '+447700900000',
       withinMs: 365 * 24 * 60 * 60 * 1000,
     });
     expect(sendBookingConfirmationEmailMock).toHaveBeenCalledWith(booking);
@@ -76,12 +95,27 @@ describe('sendFirstBookingConfirmationNotifications', () => {
     } as never);
 
     expect(hasRecentEmailDeliveryMock).not.toHaveBeenCalled();
+    expect(hasRecentSmsDeliveryMock).toHaveBeenCalled();
     expect(sendBookingConfirmationEmailMock).not.toHaveBeenCalled();
     expect(sendGuestBookingConfirmationSmsMock).toHaveBeenCalled();
     expect(result).toEqual({
       alreadySent: false,
       emailSent: false,
       smsSent: true,
+    });
+  });
+
+  it('does not send sms when a confirmation sms already exists', async () => {
+    hasRecentSmsDeliveryMock.mockResolvedValue(true);
+
+    const result = await sendFirstBookingConfirmationNotifications(booking as never);
+
+    expect(sendBookingConfirmationEmailMock).toHaveBeenCalledWith(booking);
+    expect(sendGuestBookingConfirmationSmsMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      alreadySent: true,
+      emailSent: true,
+      smsSent: false,
     });
   });
 });

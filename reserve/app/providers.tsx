@@ -12,13 +12,18 @@ const defaultQueryOptions = {
   },
 };
 
+const showQueryDevtools =
+  import.meta.env.DEV && import.meta.env.VITE_DISABLE_QUERY_DEVTOOLS !== '1';
+
 export function ReserveProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: defaultQueryOptions }));
 
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+      {showQueryDevtools ? (
+        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+      ) : null}
     </QueryClientProvider>
   );
 }

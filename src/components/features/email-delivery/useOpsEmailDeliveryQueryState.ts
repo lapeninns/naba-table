@@ -56,7 +56,10 @@ function parseStatuses(raw: string | null, fallback: EmailDeliveryStatus[]): Ema
   const allowed = new Set<string>(EMAIL_DELIVERY_STATUS_VALUES);
   const out: EmailDeliveryStatus[] = [];
 
-  for (const part of raw.split(',').map((value) => value.trim()).filter(Boolean)) {
+  for (const part of raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)) {
     if (allowed.has(part)) {
       out.push(part as EmailDeliveryStatus);
     }
@@ -97,11 +100,13 @@ function getTargetPath(pathname: string | null): string {
   return '/email-delivery';
 }
 
-export function useOpsEmailDeliveryQueryState(params: {
-  pathname: string | null;
-  searchParams: URLSearchParams | ReadonlyURLSearchParams | null;
-  effectiveRestaurantId: string | null;
-} & QueryDefaults) {
+export function useOpsEmailDeliveryQueryState(
+  params: {
+    pathname: string | null;
+    searchParams: URLSearchParams | ReadonlyURLSearchParams | null;
+    effectiveRestaurantId: string | null;
+  } & QueryDefaults,
+) {
   const router = useRouter();
   const targetPath = useMemo(() => getTargetPath(params.pathname), [params.pathname]);
   const searchKey = useMemo(() => params.searchParams?.toString() ?? '', [params.searchParams]);
@@ -182,7 +187,9 @@ export function useOpsEmailDeliveryQueryState(params: {
   );
   const [fixture, setFixture] = useState<string | null>(parsedFromQuery.fixture);
   const [queueFixture, setQueueFixture] = useState<string | null>(parsedFromQuery.queueFixture);
-  const [recipientEmail, setRecipientEmail] = useState<string | null>(parsedFromQuery.recipientEmail);
+  const [recipientEmail, setRecipientEmail] = useState<string | null>(
+    parsedFromQuery.recipientEmail,
+  );
   const [messageId, setMessageId] = useState<string | null>(parsedFromQuery.messageId);
   const [bookingRef, setBookingRef] = useState<string | null>(parsedFromQuery.bookingRef);
   const [templateType, setTemplateType] = useState<string | null>(parsedFromQuery.templateType);
@@ -235,12 +242,14 @@ export function useOpsEmailDeliveryQueryState(params: {
   }, [parsedFromQuery]);
 
   const syncQueryParams = useCallback(
-    (next: Partial<OpsEmailDeliveryClientStateParams> & {
-      restaurantId?: string | null;
-      statuses?: EmailDeliveryStatus[];
-      simulateEmailDeliveryError?: boolean;
-      simulateRetryMutationError?: boolean;
-    }) => {
+    (
+      next: Partial<OpsEmailDeliveryClientStateParams> & {
+        restaurantId?: string | null;
+        statuses?: EmailDeliveryStatus[];
+        simulateEmailDeliveryError?: boolean;
+        simulateRetryMutationError?: boolean;
+      },
+    ) => {
       const current = params.searchParams?.toString() ?? '';
       const nextParams = new URLSearchParams(current);
 
@@ -269,21 +278,27 @@ export function useOpsEmailDeliveryQueryState(params: {
       applyParam('refresh', next.refresh ?? refresh, 'off');
       applyParam(
         'simulateEmailDeliveryError',
-        next.simulateEmailDeliveryError ?? simulateEmailDeliveryError ? '1' : null,
+        (next.simulateEmailDeliveryError ?? simulateEmailDeliveryError) ? '1' : null,
       );
       applyParam(
         'simulateRetryMutationError',
-        next.simulateRetryMutationError ?? simulateRetryMutationError ? '1' : null,
+        (next.simulateRetryMutationError ?? simulateRetryMutationError) ? '1' : null,
       );
       applyParam('fixture', next.fixture !== undefined ? next.fixture : fixture);
-      applyParam('queueFixture', next.queueFixture !== undefined ? next.queueFixture : queueFixture);
+      applyParam(
+        'queueFixture',
+        next.queueFixture !== undefined ? next.queueFixture : queueFixture,
+      );
       applyParam(
         'recipientEmail',
         next.recipientEmail !== undefined ? next.recipientEmail : recipientEmail,
       );
       applyParam('messageId', next.messageId !== undefined ? next.messageId : messageId);
       applyParam('bookingRef', next.bookingRef !== undefined ? next.bookingRef : bookingRef);
-      applyParam('templateType', next.templateType !== undefined ? next.templateType : templateType);
+      applyParam(
+        'templateType',
+        next.templateType !== undefined ? next.templateType : templateType,
+      );
       applyParam('emailType', next.emailType !== undefined ? next.emailType : emailType);
 
       const nextStatuses = next.statuses ?? statuses;

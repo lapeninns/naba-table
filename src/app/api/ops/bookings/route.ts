@@ -44,11 +44,9 @@ import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships, requireMembershipForRestaurant } from '@/server/team/access';
-import {
-  CUSTOMER_PHONE_LENGTH_MAX,
-  CUSTOMER_PHONE_LENGTH_MIN,
-} from '@reserve/shared/validation';
+import { CUSTOMER_PHONE_LENGTH_MAX, CUSTOMER_PHONE_LENGTH_MIN } from '@reserve/shared/validation';
 
+import { createOpsBookingApiTiming } from './_shared/performance';
 import { opsWalkInBookingSchema, type OpsWalkInBookingPayload } from './schema';
 
 import type { BookingType } from '@/lib/enums';
@@ -126,6 +124,49 @@ function buildRequestDetails(params: {
       phone_value: params.phoneValue || null,
     },
   } as const;
+}
+
+async function recoverOpsBookingRecord(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  args: {
+    restaurantId: string;
+    idempotencyKey: string | null;
+    customerId: string;
+    bookingDate: string;
+    startTime: string;
+    endTime: string;
+  },
+): Promise<BookingRecord | null> {
+  if (args.idempotencyKey) {
+    const { data, error } = await client
+      .from('bookings')
+      .select('*')
+      .eq('restaurant_id', args.restaurantId)
+      .eq('idempotency_key', args.idempotencyKey)
+      .maybeSingle();
+
+    if (!error && data) {
+      return data as BookingRecord;
+    }
+  }
+
+  const { data, error } = await client
+    .from('bookings')
+    .select('*')
+    .eq('restaurant_id', args.restaurantId)
+    .eq('customer_id', args.customerId)
+    .eq('booking_date', args.bookingDate)
+    .eq('start_time', args.startTime)
+    .eq('end_time', args.endTime)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!error && data) {
+    return data as BookingRecord;
+  }
+
+  return null;
 }
 
 function digitizeHash(seed: string): string {
@@ -257,6 +298,7 @@ const opsBookingsQuerySchema = z.object({
   to: z.string().datetime({ offset: true }).optional(),
   sort: z.enum(['asc', 'desc']).default('asc'),
   sortBy: z.enum(['start_at', 'created_at']).default('start_at'),
+  countStrategy: z.enum(['exact', 'window']).default('exact'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(10),
   query: z
@@ -298,17 +340,15 @@ type OpsBookingRow = Pick<
         reservation_interval_minutes?: number | null;
       }[]
     | null;
-  booking_table_assignments?:
-    | Array<{
-        table_id: string | null;
-        merge_group_id: string | null;
-        table_inventory: {
-          table_number: string;
-          capacity: number | null;
-          section: string | null;
-        } | null;
-      }>
-    | null;
+  booking_table_assignments?: Array<{
+    table_id: string | null;
+    merge_group_id: string | null;
+    table_inventory: {
+      table_number: string;
+      capacity: number | null;
+      section: string | null;
+    } | null;
+  }> | null;
 };
 
 type BookingDTO = {
@@ -426,31 +466,32 @@ function mapTableAssignments(row: OpsBookingRow) {
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await getRouteHandlerSupabaseClient();
+  const timing = createOpsBookingApiTiming('ops.bookings.list');
+  const supabase = await timing.measure('route_client', getRouteHandlerSupabaseClient());
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await timing.measure('auth_get_user', supabase.auth.getUser());
 
   if (authError) {
     console.error('[ops/bookings][GET] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return timing.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return timing.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const clientIp = extractClientIp(req);
-  const listRateResult = await consumeRateLimit({
-    identifier: `ops:bookings:get:${user.id}`,
-    limit: 120,
-    windowMs: 60_000,
-  });
+  const listRateResult = await timing.measure(
+    'rate_limit',
+    consumeRateLimit({
+      identifier: `ops:bookings:get:${user.id}`,
+      limit: 120,
+      windowMs: 60_000,
+    }),
+  );
 
   if (!listRateResult.ok) {
     const retryAfterSeconds = Math.max(1, Math.ceil((listRateResult.resetAt - Date.now()) / 1000));
@@ -468,7 +509,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(
+    return timing.json(
       { error: 'Too many requests', code: 'RATE_LIMITED', retryAfter: retryAfterSeconds },
       {
         status: 429,
@@ -488,6 +529,7 @@ export async function GET(req: NextRequest) {
     to: req.nextUrl.searchParams.get('to') ?? undefined,
     sort: req.nextUrl.searchParams.get('sort') ?? undefined,
     sortBy: req.nextUrl.searchParams.get('sortBy') ?? undefined,
+    countStrategy: req.nextUrl.searchParams.get('countStrategy') ?? undefined,
     page: req.nextUrl.searchParams.get('page') ?? undefined,
     pageSize: req.nextUrl.searchParams.get('pageSize') ?? undefined,
     query: req.nextUrl.searchParams.get('query') ?? undefined,
@@ -495,7 +537,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = opsBookingsQuerySchema.safeParse(rawParams);
   if (!parsed.success) {
-    return NextResponse.json(
+    return timing.json(
       { error: 'Invalid query', details: parsed.error.flatten() },
       { status: 400 },
     );
@@ -505,10 +547,10 @@ export async function GET(req: NextRequest) {
 
   let memberships: Awaited<ReturnType<typeof fetchUserMemberships>>;
   try {
-    memberships = await fetchUserMemberships(user.id, supabase);
+    memberships = await timing.measure('memberships', fetchUserMemberships(user.id, supabase));
   } catch (error) {
     console.error('[ops/bookings][GET] membership lookup failed', error);
-    return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
+    return timing.json({ error: 'Unable to verify memberships' }, { status: 500 });
   }
 
   if (memberships.length === 0) {
@@ -521,7 +563,7 @@ export async function GET(req: NextRequest) {
         hasNext: false,
       },
     };
-    return NextResponse.json(empty);
+    return timing.json(empty, undefined, { result_count: 0, membership_count: 0 });
   }
 
   const membershipIds = memberships
@@ -533,7 +575,7 @@ export async function GET(req: NextRequest) {
   if (targetRestaurantId) {
     const allowed = membershipIds.includes(targetRestaurantId);
     if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return timing.json({ error: 'Forbidden' }, { status: 403 });
     }
   } else {
     targetRestaurantId = membershipIds[0] ?? null;
@@ -549,10 +591,15 @@ export async function GET(req: NextRequest) {
         hasNext: false,
       },
     };
-    return NextResponse.json(empty);
+    return timing.json(empty, undefined, {
+      result_count: 0,
+      membership_count: memberships.length,
+    });
   }
 
   const offset = (params.page - 1) * params.pageSize;
+  const isWindowCount = params.countStrategy === 'window';
+  const rangeEnd = isWindowCount ? offset + params.pageSize : offset + params.pageSize - 1;
   const serviceSupabase = getServiceSupabaseClient();
 
   let query = serviceSupabase
@@ -569,7 +616,7 @@ export async function GET(req: NextRequest) {
           section
         )
       )`,
-      { count: 'exact' },
+      { count: isWindowCount ? undefined : 'exact' },
     )
     .eq('restaurant_id', targetRestaurantId);
 
@@ -612,14 +659,19 @@ export async function GET(req: NextRequest) {
     query = query.or(`customer_name.ilike.${pattern},customer_email.ilike.${pattern}`);
   }
 
-  const { data, error, count } = await query.range(offset, offset + params.pageSize - 1);
+  const { data, error, count } = await timing.measure(
+    'bookings_query',
+    query.range(offset, rangeEnd),
+  );
 
   if (error) {
     console.error('[ops/bookings][GET] query failed', error);
-    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    return timing.json({ error: 'Unable to fetch bookings' }, { status: 500 });
   }
 
-  const rows: OpsBookingRow[] = (data ?? []) as OpsBookingRow[];
+  const fetchedRows: OpsBookingRow[] = (data ?? []) as OpsBookingRow[];
+  const hasWindowNext = isWindowCount && fetchedRows.length > params.pageSize;
+  const rows = isWindowCount ? fetchedRows.slice(0, params.pageSize) : fetchedRows;
 
   const items: BookingDTO[] = rows.map((row) => {
     const restaurantRelation = Array.isArray(row.restaurants)
@@ -661,14 +713,14 @@ export async function GET(req: NextRequest) {
       reservationIntervalMinutes: interval,
       tableAssignments,
       requiresTableAssignment:
-        tableAssignments.length === 0 &&
-        row.status !== 'cancelled' &&
-        row.status !== 'no_show',
+        tableAssignments.length === 0 && row.status !== 'cancelled' && row.status !== 'no_show',
     };
   });
 
-  const total = count ?? items.length;
-  const hasNext = offset + items.length < total;
+  const total = isWindowCount
+    ? offset + items.length + (hasWindowNext ? 1 : 0)
+    : (count ?? items.length);
+  const hasNext = isWindowCount ? hasWindowNext : offset + items.length < total;
 
   const response: PageResponse = {
     items,
@@ -691,7 +743,14 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(response);
+  return timing.json(response, undefined, {
+    restaurant_id: targetRestaurantId,
+    result_count: items.length,
+    total,
+    has_next: hasNext,
+    count_strategy: params.countStrategy,
+    membership_count: memberships.length,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -818,16 +877,17 @@ export async function POST(req: NextRequest) {
 
   const bookingType = payload.bookingType ?? inferMealTypeFromTime(startTime);
   const turnBandsByOption = await getRestaurantTurnBands(payload.restaurantId, service);
-  const { bookingOption: resolvedBookingOption, durationMinutes } = await resolveBookingDurationMinutes({
-    restaurantId: payload.restaurantId,
-    bookingDate: payload.date,
-    startTime,
-    partySize: payload.party,
-    bookingOption: bookingType,
-    timezone,
-    client: service,
-    turnBandsByOption,
-  });
+  const { bookingOption: resolvedBookingOption, durationMinutes } =
+    await resolveBookingDurationMinutes({
+      restaurantId: payload.restaurantId,
+      bookingDate: payload.date,
+      startTime,
+      partySize: payload.party,
+      bookingOption: bookingType,
+      timezone,
+      client: service,
+      turnBandsByOption,
+    });
   try {
     assertBookingWithinOperatingWindow({
       schedule,
@@ -835,10 +895,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     if (error instanceof OperatingHoursError) {
-      return NextResponse.json(
-        { error: error.message, reason: error.reason },
-        { status: 422 },
-      );
+      return NextResponse.json({ error: error.message, reason: error.reason }, { status: 422 });
     }
     throw error;
   }
@@ -939,34 +996,29 @@ export async function POST(req: NextRequest) {
     marketingOptIn: payload.marketingOptIn ?? false,
   });
 
-  if (normalizedIdempotencyKey) {
-    const { data: existing, error: existingError } = await service
-      .from('bookings')
-      .select('*')
-      .eq('restaurant_id', payload.restaurantId)
-      .eq('idempotency_key', normalizedIdempotencyKey)
-      .maybeSingle();
+  const recoveredExisting = await recoverOpsBookingRecord(service, {
+    restaurantId: payload.restaurantId,
+    idempotencyKey: normalizedIdempotencyKey,
+    customerId: customer.id,
+    bookingDate: payload.date,
+    startTime,
+    endTime,
+  });
 
-    if (existingError && existingError.code !== 'PGRST116') {
-      console.error('[ops/bookings] idempotency lookup failed', existingError.message);
-      return NextResponse.json({ error: 'Unable to verify idempotency' }, { status: 500 });
-    }
-
-    if (existing) {
-      const bookings = await fetchBookingsForContact(
-        service,
-        payload.restaurantId,
-        fallbackEmail,
-        fallbackPhone,
-      );
-      return NextResponse.json({
-        booking: existing,
-        bookings,
-        idempotencyKey: normalizedIdempotencyKey,
-        clientRequestId: (existing as BookingRecord).client_request_id,
-        duplicate: true,
-      });
-    }
+  if (recoveredExisting) {
+    const bookings = await fetchBookingsForContact(
+      service,
+      payload.restaurantId,
+      fallbackEmail,
+      fallbackPhone,
+    );
+    return NextResponse.json({
+      booking: recoveredExisting,
+      bookings,
+      idempotencyKey: normalizedIdempotencyKey,
+      clientRequestId: recoveredExisting.client_request_id,
+      duplicate: true,
+    });
   }
 
   let booking: BookingRecord | null = null;
@@ -1171,6 +1223,34 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     name: payload.name,
     marketingOptIn: payload.marketingOptIn ?? false,
   });
+
+  const recoveredExisting = await recoverOpsBookingRecord(service, {
+    restaurantId: payload.restaurantId,
+    idempotencyKey: normalizedIdempotencyKey,
+    customerId: customer.id,
+    bookingDate: payload.date,
+    startTime: payload.time,
+    endTime: deriveEndTimeFromDuration(payload.time, durationMinutes),
+  });
+
+  if (recoveredExisting) {
+    const bookings = await fetchBookingsForContact(
+      service,
+      payload.restaurantId,
+      fallbackEmail,
+      fallbackPhone,
+    );
+    return NextResponse.json(
+      {
+        booking: recoveredExisting,
+        bookings,
+        idempotencyKey: normalizedIdempotencyKey,
+        clientRequestId: recoveredExisting.client_request_id,
+        duplicate: true,
+      },
+      withValidationHeaders({ status: 200 }),
+    );
+  }
 
   const memberships = await fetchUserMemberships(user.id, service);
   const membership =

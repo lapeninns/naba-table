@@ -1,11 +1,20 @@
 'use client';
 
-import { LogOut, Loader2 } from 'lucide-react';
+import { Info, LogOut, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -25,13 +34,15 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
+import { OpsUnsavedChangesProvider, useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
 
-import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
+import { OPS_SUPPORT_ITEM, filterOpsNavigationSections, isNavItemActive } from './navigation';
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
+import { useOpsRoutePrefetch } from './useOpsRoutePrefetch';
 
 import type { OpsNavigationSection } from './navigation';
 
@@ -39,26 +50,29 @@ type OpsSidebarLayoutProps = {
   children: ReactNode;
   defaultSidebarOpen?: boolean;
   headerSlot?: ReactNode;
+  envBanner?: string | null;
 };
 
 export function OpsSidebarLayout({
   children,
   defaultSidebarOpen = true,
   headerSlot,
+  envBanner,
 }: OpsSidebarLayoutProps) {
   return (
-    <ThemeProvider theme="app">
+    <OpsUnsavedChangesProvider>
       <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
         <OpsSidebarPanel />
         <SidebarRail />
         <SidebarInset className="bg-background">
-          <a
-            href="#ops-content"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
+          <Button
+            asChild
+            variant="link"
+            className="sr-only h-auto p-0 focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[40] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
           >
-            Skip to content
-          </a>
-          <div className="flex h-14 items-center gap-3 border-b border-border/60 px-4 sm:px-6">
+            <a href="#ops-content">Skip to content</a>
+          </Button>
+          <div className="flex h-12 items-center gap-3 border-b border-border/60 px-[var(--pg-gutter)]">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
             {headerSlot ? (
               <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
@@ -66,6 +80,20 @@ export function OpsSidebarLayout({
               </div>
             ) : null}
           </div>
+          {envBanner ? (
+            <Alert
+              variant="warning"
+              className="mx-4 mt-3 shrink-0 sm:mx-6"
+              role="status"
+              aria-live="polite"
+            >
+              <AlertIcon>
+                <Info className="size-4" aria-hidden />
+              </AlertIcon>
+              <AlertTitle>Environment notice</AlertTitle>
+              <AlertDescription>{envBanner}</AlertDescription>
+            </Alert>
+          ) : null}
           {/* <OpsOfflineIndicator /> */}
           <div
             id="ops-content"
@@ -76,41 +104,36 @@ export function OpsSidebarLayout({
           </div>
         </SidebarInset>
       </SidebarProvider>
-    </ThemeProvider>
+    </OpsUnsavedChangesProvider>
   );
 }
 
 function OpsSidebarPanel() {
   const pathname = usePathname();
-  const { featureFlags } = useOpsSession();
+  const { featureFlags, permissions } = useOpsSession();
 
   const sections = useMemo<OpsNavigationSection[]>(() => {
-    return OPS_NAV_SECTIONS.map((section) => ({
-      label: section.label,
-      items: section.items.filter((item) =>
-        item.requiresFeatureFlag ? Boolean(featureFlags[item.requiresFeatureFlag]) : true,
-      ),
-    })).filter((section) => section.items.length > 0);
-  }, [featureFlags]);
+    return filterOpsNavigationSections({
+      featureFlags,
+      canViewAdminItems: permissions.canManageSettings,
+    });
+  }, [featureFlags, permissions.canManageSettings]);
 
   return (
-    <Sidebar
-      collapsible="icon"
-      className="border-r border-border/40 bg-sidebar text-sidebar-foreground"
-    >
-      <SidebarHeader className="px-3 pt-4">
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
         <OpsRestaurantSwitch />
       </SidebarHeader>
-      <SidebarContent className="gap-4 px-2">
+      <SidebarContent>
         {!pathname ? (
           <OpsSidebarSkeleton />
         ) : (
           <OpsSidebarNav sections={sections} pathname={pathname} />
         )}
       </SidebarContent>
-      <SidebarFooter className="px-3 pb-4">
+      <SidebarFooter>
         <OpsAccountActions />
-        <SidebarSeparator className="my-4 border-sidebar-border" />
+        <SidebarSeparator />
         <OpsSupportLink />
       </SidebarFooter>
     </Sidebar>
@@ -125,6 +148,33 @@ function OpsSidebarNav({
   pathname: string;
 }) {
   const isOnline = useOnlineStatus();
+  const { confirmNavigation } = useOpsUnsavedChanges();
+  const prefetchRoute = useOpsRoutePrefetch();
+
+  // Debounce hover/focus prefetch so quick pointer passes do not trigger
+  // network work. Click navigation goes through `<Link>` directly and is
+  // unaffected by this timer.
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (prefetchTimerRef.current) {
+        clearTimeout(prefetchTimerRef.current);
+        prefetchTimerRef.current = null;
+      }
+    };
+  }, []);
+  const schedulePrefetch = useCallback(
+    (href: string) => {
+      if (prefetchTimerRef.current) {
+        clearTimeout(prefetchTimerRef.current);
+      }
+      prefetchTimerRef.current = setTimeout(() => {
+        prefetchTimerRef.current = null;
+        prefetchRoute(href);
+      }, 200);
+    },
+    [prefetchRoute],
+  );
 
   const handleOfflineNavigation = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
@@ -134,13 +184,25 @@ function OpsSidebarNav({
     [isOnline],
   );
 
+  const handleNavigationIntent = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isOnline) {
+        event.preventDefault();
+        return;
+      }
+
+      if (!confirmNavigation()) {
+        event.preventDefault();
+      }
+    },
+    [confirmNavigation, isOnline],
+  );
+
   return (
     <>
       {sections.map((section) => (
-        <SidebarGroup key={section.label} className="gap-1">
-          <SidebarGroupLabel className="text-[0.68rem] uppercase tracking-wide text-sidebar-foreground/70">
-            {section.label}
-          </SidebarGroupLabel>
+        <SidebarGroup key={section.label}>
+          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {section.items.map((item) => {
@@ -152,19 +214,22 @@ function OpsSidebarNav({
                       asChild
                       isActive={active}
                       tooltip={item.title}
-                      className={cn('touch-manipulation', !isOnline && 'opacity-60')}
+                      className={cn(!isOnline && 'opacity-60')}
                     >
                       <Link
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         aria-disabled={!isOnline}
-                        prefetch={false}
-                        onClick={(event) => handleOfflineNavigation(event)}
+                        onMouseEnter={() => schedulePrefetch(item.href)}
+                        onFocus={() => schedulePrefetch(item.href)}
+                        onClick={(event) => {
+                          handleOfflineNavigation(event);
+                          if (!event.defaultPrevented) {
+                            handleNavigationIntent(event);
+                          }
+                        }}
                       >
-                        <Icon
-                          aria-hidden
-                          className={cn('size-4', active && 'text-sidebar-accent-foreground')}
-                        />
+                        <Icon aria-hidden />
                         <span className="truncate">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -181,10 +246,8 @@ function OpsSidebarNav({
 
 function OpsSidebarSkeleton() {
   return (
-    <SidebarGroup className="gap-2">
-      <SidebarGroupLabel className="text-[0.68rem] uppercase tracking-wide text-sidebar-foreground/50">
-        Loading
-      </SidebarGroupLabel>
+    <SidebarGroup>
+      <SidebarGroupLabel>Loading</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {Array.from({ length: 5 }).map((_, index) => (
@@ -200,9 +263,15 @@ function OpsSidebarSkeleton() {
 
 function OpsAccountActions() {
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const { confirmNavigation } = useOpsUnsavedChanges();
 
   const handleSignOut = useCallback(async () => {
     if (isSigningOut) return;
+    if (
+      !confirmNavigation('You have unsaved changes in this workspace. Log out and discard them?')
+    ) {
+      return;
+    }
     try {
       setIsSigningOut(true);
       await signOutFromSupabase();
@@ -214,29 +283,27 @@ function OpsAccountActions() {
       setIsSigningOut(false);
     }
     // Note: We don't reset isSigningOut on success since we're navigating away
-  }, [isSigningOut]);
+  }, [confirmNavigation, isSigningOut]);
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="p-0">
       <SidebarGroupLabel>Account</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sign out of operations">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 touch-manipulation"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-                aria-busy={isSigningOut}
-              >
-                {isSigningOut ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                ) : (
-                  <LogOut className="size-4" aria-hidden />
-                )}
-                <span className="truncate">{isSigningOut ? 'Signing out…' : 'Log out'}</span>
-              </button>
+            <SidebarMenuButton
+              type="button"
+              tooltip="Sign out of operations"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              aria-busy={isSigningOut}
+            >
+              {isSigningOut ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <LogOut className="size-4" aria-hidden />
+              )}
+              <span className="truncate">{isSigningOut ? 'Signing out…' : 'Log out'}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -249,18 +316,14 @@ function OpsSupportLink() {
   const SupportIcon = OPS_SUPPORT_ITEM.icon;
 
   return (
-    <SidebarGroup>
+    <SidebarGroup className="p-0">
       <SidebarGroupLabel>Need help?</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              tooltip="Contact Nab a Table support"
-              className="touch-manipulation"
-            >
+            <SidebarMenuButton asChild tooltip="Contact Nab a Table support">
               <a href={OPS_SUPPORT_ITEM.href}>
-                <SupportIcon className="size-4" aria-hidden />
+                <SupportIcon aria-hidden />
                 <span className="truncate">{OPS_SUPPORT_ITEM.title}</span>
               </a>
             </SidebarMenuButton>

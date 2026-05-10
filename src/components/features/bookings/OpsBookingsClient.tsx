@@ -19,6 +19,7 @@ import { OPS_STATUS_TABS } from '@/components/features/bookings/opsBookingsConst
 import { OpsStatusFilter as OpsStatusFilterPopover } from '@/components/features/bookings/OpsStatusFilter';
 import { useOpsBookingsState } from '@/components/features/bookings/useOpsBookingsState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -72,14 +73,14 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
   return (
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
       <BookingStateRegistrar bookings={dataState.derivedData.bookings} />
-      <div className="min-h-screen bg-background font-sans text-foreground">
-        <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-          <a
-            href="#ops-bookings-list"
-            className="sr-only focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      <OpsPageShell variant="standard" className="space-y-4">
+          <Button
+            asChild
+            variant="link"
+            className="sr-only h-auto p-0 focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            Skip to bookings list
-          </a>
+            <a href="#ops-bookings-list">Skip to bookings list</a>
+          </Button>
           <OpsPageHeader
             title="Manage bookings"
             meta={
@@ -113,9 +114,11 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
           <OpsPageToolbar
             sticky
             filters={
-              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto scrollbar-hide">
-                <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">View</span>
+              <div className="flex min-w-0 w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    View
+                  </span>
                   <StatusFilterGroup
                     value={queryState.view as StatusFilter}
                     options={OPS_STATUS_TABS}
@@ -123,20 +126,22 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
                     ariaLabel="View bookings"
                   />
                 </div>
-                <OpsBookingsDatePicker
-                  value={queryState.selectedDate}
-                  timezone={restaurantTimezone || 'UTC'}
-                  onSelectDate={queryState.handleSelectServiceDate}
-                  onClear={queryState.handleClearServiceDate}
-                  onToday={queryState.handleTodayServiceDate}
-                />
-                <OpsStatusFilterPopover
-                  options={dataState.statusFilterOptions}
-                  selected={queryState.visibleSelectedStatuses}
-                  onToggle={queryState.handleToggleStatus}
-                  onClear={queryState.handleClearStatuses}
-                  isLoading={dataState.statusSummaryQuery.isLoading}
-                />
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <OpsBookingsDatePicker
+                    value={queryState.selectedDate}
+                    timezone={restaurantTimezone || 'UTC'}
+                    onSelectDate={queryState.handleSelectServiceDate}
+                    onClear={queryState.handleClearServiceDate}
+                    onToday={queryState.handleTodayServiceDate}
+                  />
+                  <OpsStatusFilterPopover
+                    options={dataState.statusFilterOptions}
+                    selected={queryState.visibleSelectedStatuses}
+                    onToggle={queryState.handleToggleStatus}
+                    onClear={queryState.handleClearStatuses}
+                    isLoading={dataState.statusSummaryQuery.isLoading}
+                  />
+                </div>
               </div>
             }
             actions={
@@ -261,7 +266,9 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
             open={dialogs.isEditOpen}
             onOpenChange={dialogs.onEditOpenChange}
             restaurantSlug={restaurantSlug ?? dialogs.editBooking?.restaurantSlug ?? null}
-            restaurantTimezone={restaurantTimezone ?? dialogs.editBooking?.restaurantTimezone ?? null}
+            restaurantTimezone={
+              restaurantTimezone ?? dialogs.editBooking?.restaurantTimezone ?? null
+            }
             mode="ops"
           />
           <OpsCancelBookingAlertDialog
@@ -273,8 +280,7 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
             onConfirm={dialogs.onConfirmCancel}
             isPending={dialogs.isCancelling}
           />
-        </main>
-      </div>
+      </OpsPageShell>
     </BookingStateMachineProvider>
   );
 }

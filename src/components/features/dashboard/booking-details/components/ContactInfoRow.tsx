@@ -42,20 +42,22 @@ export function ContactInfoRow({
   const content = copyable ? (
     <ClickToCopy text={value} label={label} />
   ) : href ? (
-    <a href={href} className="text-sm text-slate-700 hover:text-blue-600 hover:underline">
-      {value}
-    </a>
+    <Button asChild variant="link" className="h-auto justify-start p-0 text-sm">
+      <a href={href}>{value}</a>
+    </Button>
   ) : (
-    <span className="text-sm text-slate-700">{value}</span>
+    <span className="text-sm text-muted-foreground">{value}</span>
   );
 
   return (
     <div className="flex items-start gap-3 py-2">
-      <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-        <Icon className="h-4 w-4 text-slate-500" />
+      <div className="size-8 rounded-lg bg-muted/40 flex items-center justify-center shrink-0">
+        <Icon className="size-4 text-muted-foreground" />
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          {label}
+        </span>
         {content}
       </div>
       {resolvedActions.length > 0 && (
@@ -74,12 +76,12 @@ export function ContactInfoRow({
               >
                 {item.href ? (
                   <a href={item.href} aria-label={item.label}>
-                    {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
+                    {ActionIcon ? <ActionIcon className="size-3.5 mr-1" /> : null}
                     {item.label}
                   </a>
                 ) : (
                   <>
-                    {ActionIcon ? <ActionIcon className="h-3.5 w-3.5 mr-1" /> : null}
+                    {ActionIcon ? <ActionIcon className="size-3.5 mr-1" /> : null}
                     {item.label}
                   </>
                 )}

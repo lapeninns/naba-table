@@ -1,0 +1,101 @@
+- generic:
+  - generic:
+    - tablist:
+      - tab [selected]:
+        - img
+        - text: Food menu
+      - tab:
+        - img
+        - text: Drinks menu
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: Food catalogue
+            - generic: Search, filter, and edit food items currently attached to this restaurant.
+          - generic:
+            - generic:
+              - button:
+                - img
+                - text: Import food CSV
+              - button:
+                - img
+                - text: New food item
+      - generic:
+        - generic:
+          - generic:
+            - text: Search
+            - textbox:
+              - /placeholder: Search name, category, subcategory
+          - generic:
+            - text: Category
+            - combobox
+          - generic:
+            - text: Subcategory
+            - combobox
+          - generic:
+            - text: Status
+            - combobox:
+              - generic: All
+              - img
+        - generic:
+          - generic:
+            - table:
+              - rowgroup:
+                - row:
+                  - columnheader: Item
+                  - columnheader: Category
+                  - columnheader: Price
+                  - columnheader: Service time
+                  - columnheader: Availability
+                  - columnheader: Modifiers
+                  - columnheader: Status
+                  - columnheader: Actions
+              - rowgroup:
+                - row:
+                  - cell:
+                    - generic: Burrata & Heritage Tomatoes
+                    - generic: starter-burrata
+                  - cell:
+                    - generic: Starters
+                    - generic: Cold
+                  - cell: GBP 9.50
+                  - cell: Lunch
+                  - cell:
+                    - generic: available
+                  - cell: "1"
+                  - cell:
+                    - generic:
+                      - generic: Active
+                  - cell:
+                    - button: Edit
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert
+  - generic:
+    - generic:
+      - img
+    - button:
+      - img
+  - dialog "Import menu CSVs" [ref=e170]:
+    - generic [ref=e171]:
+      - heading "Import menu CSVs" [level=2] [ref=e172]
+      - paragraph [ref=e173]: Upload the required items CSV and, if needed, the optional modifier group and modifier option CSVs.
+    - generic [ref=e174]:
+      - generic [ref=e175]:
+        - generic [ref=e176]: Items CSV
+        - button "Items CSV" [active] [ref=e177]
+      - generic [ref=e178]:
+        - generic [ref=e179]:
+          - generic [ref=e180]: Modifier groups CSV
+          - button "Modifier groups CSV" [ref=e181]
+        - generic [ref=e182]:
+          - generic [ref=e183]: Modifier options CSV
+          - button "Modifier options CSV" [ref=e184]
+    - generic [ref=e185]:
+      - button "Preview import" [disabled]
+      - button "Apply import" [disabled]
+    - button "Close" [ref=e186]:
+      - img [ref=e187]
+      - generic [ref=e190]: Close

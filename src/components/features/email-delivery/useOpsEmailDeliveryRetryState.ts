@@ -18,7 +18,7 @@ export function useOpsEmailDeliveryRetryState(params: {
   const [retryingAttemptKey, setRetryingAttemptKey] = useState<string | null>(null);
 
   const pendingRetryRow = useMemo(
-    () => (pendingRetryAttemptKey ? params.rowByKey.get(pendingRetryAttemptKey) ?? null : null),
+    () => (pendingRetryAttemptKey ? (params.rowByKey.get(pendingRetryAttemptKey) ?? null) : null),
     [params.rowByKey, pendingRetryAttemptKey],
   );
 

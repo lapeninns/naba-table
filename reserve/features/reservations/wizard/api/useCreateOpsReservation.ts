@@ -12,11 +12,44 @@ import { track } from '@shared/lib/analytics';
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
 
+const DEFAULT_OPS_SEATING_PREFERENCE = 'any';
+
 type OpsReservationError = {
   code?: string;
   message?: string;
   status?: number;
 };
+
+function isTerminalCreateError(error: OpsReservationError | null | undefined): boolean {
+  if (!error) return false;
+  if (
+    error.code === 'VALIDATION_ERROR' ||
+    error.code === 'UNAUTHENTICATED' ||
+    error.code === 'FORBIDDEN' ||
+    error.code === 'UNSUPPORTED_OPERATION'
+  ) {
+    return true;
+  }
+  return (
+    typeof error.status === 'number' && [400, 401, 403, 404, 409, 410, 422].includes(error.status)
+  );
+}
+
+export function buildOpsBookingPayload(draft: ReservationDraft) {
+  return {
+    restaurantId: draft.restaurantId,
+    date: draft.date,
+    time: draft.time,
+    party: draft.party,
+    bookingType: draft.bookingType,
+    seating: DEFAULT_OPS_SEATING_PREFERENCE,
+    notes: draft.notes ?? undefined,
+    name: draft.name,
+    email: draft.email ?? null,
+    phone: draft.phone ?? null,
+    marketingOptIn: draft.marketingOptIn,
+  } as const;
+}
 
 export function useCreateOpsReservation() {
   const queryClient = useQueryClient();
@@ -36,20 +69,7 @@ export function useCreateOpsReservation() {
         });
       }
 
-      const payload = {
-        restaurantId: draft.restaurantId,
-        restaurantSlug: draft.restaurantSlug,
-        date: draft.date,
-        time: draft.time,
-        party: draft.party,
-        bookingType: draft.bookingType,
-        seating: draft.seating,
-        notes: draft.notes ?? undefined,
-        name: draft.name,
-        email: draft.email ?? undefined,
-        phone: draft.phone ?? undefined,
-        marketingOptIn: draft.marketingOptIn,
-      } as const;
+      const payload = buildOpsBookingPayload(draft);
 
       const idempotencyKey =
         idempotencyKeyRef.current ??
@@ -67,17 +87,11 @@ export function useCreateOpsReservation() {
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
         },
-        body: JSON.stringify({
-          ...payload,
-          email: draft.email ?? null,
-          phone: draft.phone ?? null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const booking = response?.booking ? reservationAdapter(response.booking) : null;
       const bookings = response?.bookings ? reservationListAdapter(response.bookings) : [];
-
-      idempotencyKeyRef.current = null;
 
       return {
         booking,
@@ -85,13 +99,16 @@ export function useCreateOpsReservation() {
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
+      idempotencyKeyRef.current = null;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
     },
     onError: (error) => {
-      idempotencyKeyRef.current = null;
+      if (isTerminalCreateError(error)) {
+        idempotencyKeyRef.current = null;
+      }
       const payload = {
         code: error?.code ?? 'UNKNOWN',
         status: error?.status,

@@ -36,7 +36,6 @@ describe('useCreateReservation', () => {
       time: '19:00',
       party: 2,
       bookingType: 'dinner',
-      seating: 'indoor',
       notes: 'Window please',
       name: 'Guest Booker',
       email: 'guest@example.com',
@@ -64,7 +63,6 @@ describe('useCreateReservation', () => {
         time: '19:00',
         party: 2,
         bookingType: 'dinner',
-        seating: 'indoor',
         notes: 'Window please',
         name: 'Guest Booker',
         email: 'guest@example.com',
@@ -84,6 +82,41 @@ describe('useCreateReservation', () => {
     expect(queryClient.getQueryData(reservationKeys.detail('booking-1'))).toEqual(adapted);
   });
 
+  it('reuses the idempotency key after an ambiguous network failure', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const draft: ReservationDraft = {
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-fox',
+      date: '2026-02-10',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      notes: null,
+      name: 'Guest Booker',
+      email: 'guest@example.com',
+      phone: '+441234567890',
+      marketingOptIn: false,
+    };
+
+    const booking = { id: 'booking-1' };
+    vi.mocked(apiClient.post)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ booking, bookings: [booking] });
+    vi.mocked(reservationAdapter).mockReturnValue({ id: 'booking-1' } as never);
+    vi.mocked(reservationListAdapter).mockReturnValue([{ id: 'booking-1' }] as never);
+
+    const { result } = renderHook(() => useCreateReservation(), { wrapper });
+
+    await expect(result.current.mutateAsync({ draft })).rejects.toThrow('Failed to fetch');
+    await result.current.mutateAsync({ draft });
+
+    const firstOptions = vi.mocked(apiClient.post).mock.calls[0]?.[2];
+    const secondOptions = vi.mocked(apiClient.post).mock.calls[1]?.[2];
+    expect(firstOptions?.headers).toEqual(secondOptions?.headers);
+  });
+
   it('uses the update path when a booking id is provided', async () => {
     const queryClient = createTestQueryClient();
     const wrapper = createQueryWrapper(queryClient);
@@ -95,7 +128,6 @@ describe('useCreateReservation', () => {
       time: '19:00',
       party: 2,
       bookingType: 'dinner',
-      seating: 'indoor',
       notes: null,
       name: 'Guest Booker',
       email: 'guest@example.com',

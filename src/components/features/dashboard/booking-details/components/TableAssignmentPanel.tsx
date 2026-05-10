@@ -43,6 +43,14 @@ export interface TableAssignmentPanelProps {
   initialFocusRef?: React.RefObject<HTMLButtonElement | null>;
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
+  enabled?: boolean;
+  /**
+   * Forwarded to the underlying `useTableAssignment` hook. When `false`, the
+   * per-hook realtime subscription is suppressed because a parent (such as
+   * `useOpsBookingDialogBundle`) is already maintaining a consolidated
+   * channel for the same data.
+   */
+  realtime?: boolean;
 }
 
 type FitFilter = 'all' | 'perfect' | 'exact' | 'within' | 'oversized' | 'too_small';
@@ -58,6 +66,8 @@ export function TableAssignmentPanel({
   initialFocusRef,
   bookingStartTime,
   bookingEndTime,
+  enabled = true,
+  realtime = true,
 }: TableAssignmentPanelProps) {
   const {
     context,
@@ -84,6 +94,8 @@ export function TableAssignmentPanel({
     date,
     currentAssignments,
     onAssignmentComplete,
+    enabled,
+    realtime,
   });
 
   const parsedTimes = useMemo(() => {
@@ -180,15 +192,7 @@ export function TableAssignmentPanel({
     }
 
     return result;
-  }, [
-    availabilityOnly,
-    conflictedTableIds,
-    fitFilter,
-    partySize,
-    sortBy,
-    tables,
-    zoneFilter,
-  ]);
+  }, [availabilityOnly, conflictedTableIds, fitFilter, partySize, sortBy, tables, zoneFilter]);
 
   const groupedTables = useMemo(() => groupTablesBySection(filteredTables), [filteredTables]);
 
@@ -268,9 +272,9 @@ export function TableAssignmentPanel({
   if (isLoading) {
     return (
       <Card className="border-dashed">
-        <CardContent className="p-4 space-y-4">
+        <CardContent className="space-y-4 p-4">
           <div className="h-6 w-40 bg-muted rounded" />
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="h-20 bg-muted/60 rounded-lg" />
             <div className="h-20 bg-muted/60 rounded-lg" />
             <div className="h-20 bg-muted/60 rounded-lg" />
@@ -288,7 +292,7 @@ export function TableAssignmentPanel({
         <AlertDescription className="flex items-center justify-between gap-3">
           <span>{error instanceof Error ? error.message : 'Failed to load tables.'}</span>
           <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="size-4" />
             Retry
           </Button>
         </AlertDescription>
@@ -300,7 +304,7 @@ export function TableAssignmentPanel({
     return (
       <Card className="border-dashed">
         <CardContent className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-          <Grid3X3 className="h-8 w-8 text-muted-foreground" />
+          <Grid3X3 className="size-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No tables available right now.</p>
           <p className="text-xs text-muted-foreground">
             Try adjusting the booking time or split the party.
@@ -311,94 +315,110 @@ export function TableAssignmentPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <section className="space-y-6">
       <BookingOfflineBanner />
-
-      <TableAssignmentAlerts
-        applyError={applyError}
-        smartAssignError={smartAssignError}
-        validation={validation}
-        successMessage={successMessage}
-      />
 
       <div className="sr-only" role="status" aria-live="polite">
         {srStatusMessage}
       </div>
 
-      <TableAssignmentSummaryCard
-        partySize={partySize}
-        selectedCapacity={selectedCapacity}
-        assignedCapacity={assignedCapacity}
-        selectedCount={selectedTables.length}
-        assignedCount={assignedTableIds.size}
-        isPending={isPending}
-        isApplyBlocked={validation.errors.length > 0}
-        isApplyDisabled={selectedTables.length === 0 || validation.errors.length > 0}
-        applyDisabledReason={
-          validation.errors.length > 0 ? 'Resolve blocking issues above to continue.' : null
-        }
-        onSmartAssign={() => void handleSmartAssign()}
-        onClearSelected={() => setSelectedTables([])}
-        onResetAssigned={handleUnassign}
-        onConfirmApply={handleApply}
-        initialFocusRef={initialFocusRef}
-      />
-
-      <TableAssignmentFilters
-        zoneOptions={zoneOptions}
-        zoneFilter={zoneFilter}
-        onZoneFilterChange={setZoneFilter}
-        sortBy={sortBy}
-        onSortByChange={setSortBy}
-        availabilityOnly={availabilityOnly}
-        onAvailabilityOnlyChange={setAvailabilityOnly}
-        fitFilter={fitFilter}
-        onFitFilterChange={setFitFilter}
-        onResetFilters={() => {
-          setZoneFilter('all');
-          setFitFilter('all');
-          setAvailabilityOnly(false);
-          setSortBy('best');
-        }}
-      />
-
-      <SuggestedTablesSection
-        tables={suggestedTables}
-        partySize={partySize}
-        selectedTableIds={selectedTableIds}
-        assignedTableIds={assignedTableIds}
-        conflictedTableIds={conflictedTableIds}
-        disabled={isPending}
-        onToggle={handleToggleTable}
-        bookingStartTime={parsedTimes.bookingStart}
-        bookingEndTime={parsedTimes.bookingEnd}
-        serviceWindowStart={parsedTimes.windowStart}
-        serviceWindowEnd={parsedTimes.windowEnd}
-        parsedBookingStart={parsedTimes.parsedBookingStart}
-        parsedBookingEnd={parsedTimes.parsedBookingEnd}
-        parsedServiceStart={parsedTimes.parsedWindowStart}
-        parsedServiceEnd={parsedTimes.parsedWindowEnd}
-      />
-
-          <AllTablesSection
-            groupedTables={groupedTables}
-            filteredTables={filteredTables}
-            totalCount={filteredTables.length}
+      <div className="flex flex-col gap-5">
+        {/* Zone 1: Control Rail — full-width compact strip */}
+        <div className="space-y-3">
+          <TableAssignmentSummaryCard
             partySize={partySize}
-            selectedTableIds={selectedTableIds}
-        assignedTableIds={assignedTableIds}
-        conflictedTableIds={conflictedTableIds}
-        disabled={isPending}
-        onToggle={handleToggleTable}
-        bookingStartTime={parsedTimes.bookingStart}
-        bookingEndTime={parsedTimes.bookingEnd}
-        serviceWindowStart={parsedTimes.windowStart}
-        serviceWindowEnd={parsedTimes.windowEnd}
-        parsedBookingStart={parsedTimes.parsedBookingStart}
-        parsedBookingEnd={parsedTimes.parsedBookingEnd}
-        parsedServiceStart={parsedTimes.parsedWindowStart}
-        parsedServiceEnd={parsedTimes.parsedWindowEnd}
-      />
+            selectedCapacity={selectedCapacity}
+            assignedCapacity={assignedCapacity}
+            selectedCount={selectedTables.length}
+            assignedCount={assignedTableIds.size}
+            isPending={isPending}
+            isApplyBlocked={validation.errors.length > 0}
+            isApplyDisabled={selectedTables.length === 0 || validation.errors.length > 0}
+            applyDisabledReason={
+              validation.errors.length > 0 ? 'Resolve blocking issues above to continue.' : null
+            }
+            onSmartAssign={() => void handleSmartAssign()}
+            onClearSelected={() => setSelectedTables([])}
+            onResetAssigned={handleUnassign}
+            onConfirmApply={handleApply}
+            initialFocusRef={initialFocusRef}
+          />
+
+          <TableAssignmentFilters
+            zoneOptions={zoneOptions}
+            zoneFilter={zoneFilter}
+            onZoneFilterChange={setZoneFilter}
+            sortBy={sortBy}
+            onSortByChange={setSortBy}
+            availabilityOnly={availabilityOnly}
+            onAvailabilityOnlyChange={setAvailabilityOnly}
+            fitFilter={fitFilter}
+            onFitFilterChange={setFitFilter}
+            onResetFilters={() => {
+              setZoneFilter('all');
+              setFitFilter('all');
+              setAvailabilityOnly(false);
+              setSortBy('best');
+            }}
+          />
+
+          <TableAssignmentAlerts
+            applyError={applyError}
+            smartAssignError={smartAssignError}
+            validation={validation}
+            successMessage={successMessage}
+          />
+        </div>
+
+        {/* Zone 2: Table Canvas — always full-width */}
+        <div className="min-w-0 space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+              Table Inventory
+            </h3>
+            <span className="flex-1 h-px bg-border/30" />
+          </div>
+          <div className="space-y-6">
+            <SuggestedTablesSection
+              tables={suggestedTables}
+              partySize={partySize}
+              selectedTableIds={selectedTableIds}
+              assignedTableIds={assignedTableIds}
+              conflictedTableIds={conflictedTableIds}
+              disabled={isPending}
+              onToggle={handleToggleTable}
+              bookingStartTime={parsedTimes.bookingStart}
+              bookingEndTime={parsedTimes.bookingEnd}
+              serviceWindowStart={parsedTimes.windowStart}
+              serviceWindowEnd={parsedTimes.windowEnd}
+              parsedBookingStart={parsedTimes.parsedBookingStart}
+              parsedBookingEnd={parsedTimes.parsedBookingEnd}
+              parsedServiceStart={parsedTimes.parsedWindowStart}
+              parsedServiceEnd={parsedTimes.parsedWindowEnd}
+            />
+
+            <AllTablesSection
+              groupedTables={groupedTables}
+              filteredTables={filteredTables}
+              totalCount={filteredTables.length}
+              partySize={partySize}
+              selectedTableIds={selectedTableIds}
+              assignedTableIds={assignedTableIds}
+              conflictedTableIds={conflictedTableIds}
+              disabled={isPending}
+              onToggle={handleToggleTable}
+              bookingStartTime={parsedTimes.bookingStart}
+              bookingEndTime={parsedTimes.bookingEnd}
+              serviceWindowStart={parsedTimes.windowStart}
+              serviceWindowEnd={parsedTimes.windowEnd}
+              parsedBookingStart={parsedTimes.parsedBookingStart}
+              parsedBookingEnd={parsedTimes.parsedBookingEnd}
+              parsedServiceStart={parsedTimes.parsedWindowStart}
+              parsedServiceEnd={parsedTimes.parsedWindowEnd}
+            />
+          </div>
+        </div>
+      </div>
 
       <AlertDialog open={confirmApply} onOpenChange={setConfirmApply}>
         <AlertDialogContent>
@@ -410,9 +430,9 @@ export function TableAssignmentPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {validation.warnings.length > 0 && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
               <div className="flex items-center gap-2 font-semibold">
-                <AlertTriangle className="h-4 w-4 text-amber-700" aria-hidden />
+                <AlertTriangle className="size-4 text-primary" aria-hidden />
                 Warnings
               </div>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
@@ -426,7 +446,7 @@ export function TableAssignmentPanel({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmApply}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-primary/10 hover:bg-primary/10"
             >
               Confirm assignment
             </AlertDialogAction>
@@ -446,13 +466,13 @@ export function TableAssignmentPanel({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmUnassign}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="bg-destructive/10 hover:bg-destructive/10"
             >
               Remove tables
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </section>
   );
 }

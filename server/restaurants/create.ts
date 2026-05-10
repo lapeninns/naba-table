@@ -1,4 +1,5 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -154,9 +155,13 @@ export async function createRestaurant(
 
   const managerNotificationPhone = input.managerNotificationPhone?.trim() || null;
   const managerDailySummaryEnabled = input.managerDailySummaryEnabled ?? false;
+  const googleMapUrl = safeGoogleMapsUrl(input.googleMapUrl);
+  const googleReviewUrl = safeGoogleReviewUrl(input.googleReviewUrl);
 
   if (managerDailySummaryEnabled && !managerNotificationPhone) {
-    throw new Error('A manager notification phone is required when daily SMS summaries are enabled.');
+    throw new Error(
+      'A manager notification phone is required when daily SMS summaries are enabled.',
+    );
   }
 
   const insertPayload: Database['public']['Tables']['restaurants']['Insert'] = {
@@ -169,8 +174,8 @@ export async function createRestaurant(
     address: input.address ?? null,
     manager_daily_summary_enabled: managerDailySummaryEnabled,
     manager_notification_phone: managerNotificationPhone,
-    google_map_url: input.googleMapUrl ?? null,
-    google_review_url: input.googleReviewUrl ?? null,
+    google_map_url: googleMapUrl,
+    google_review_url: googleReviewUrl,
     booking_policy: input.bookingPolicy ?? null,
     logo_url: input.logoUrl ?? null,
     email_send_reminder_24h: input.emailSendReminder24h ?? true,
@@ -236,8 +241,8 @@ export async function createRestaurant(
     address: restaurant.address,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
     managerNotificationPhone: restaurant.manager_notification_phone,
-    googleMapUrl: restaurant.google_map_url,
-    googleReviewUrl: restaurant.google_review_url,
+    googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
+    googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
     emailSendReminder24h: restaurant.email_send_reminder_24h ?? true,

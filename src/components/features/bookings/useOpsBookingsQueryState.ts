@@ -8,10 +8,7 @@ import {
   type OpsStatusFilter,
 } from '@/hooks/ops/useOpsBookingsTableState';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
-import {
-  DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
-  sanitizeTimeParam,
-} from '@/utils/ops/bookings';
+import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES, sanitizeTimeParam } from '@/utils/ops/bookings';
 import { sanitizeDateParam } from '@/utils/ops/dashboard';
 
 import type { OpsBookingsClientStateParams, OpsBookingsWindowMode } from './opsBookingsTypes';
@@ -40,7 +37,9 @@ function parseStatusesParam(
   return value
     .split(',')
     .map((status) => status.trim())
-    .filter((status): status is OpsBookingStatus => listableStatuses.includes(status as OpsBookingStatus));
+    .filter((status): status is OpsBookingStatus =>
+      listableStatuses.includes(status as OpsBookingStatus),
+    );
 }
 
 export function useOpsBookingsQueryState(

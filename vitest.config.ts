@@ -8,6 +8,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      // The `server-only` Next.js runtime marker is a no-op module at runtime;
+      // vitest doesn't ship a resolver for it, so stub it to an empty file.
+      'server-only': path.resolve(rootDir, 'tests/stubs/server-only.ts'),
       // Keep vitest resolution aligned with tsconfig "paths" for this hook (implementation lives in src/).
       '@/hooks/useGlobalShortcuts': path.resolve(rootDir, 'src/hooks/useGlobalShortcuts.ts'),
       // Contexts live under src/ (no root-level contexts/ directory).
@@ -19,6 +22,10 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsBookingEmailDeliveryLog.ts',
       ),
+      '@/hooks/ops/useOpsBookingSmsDeliveryLog': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingSmsDeliveryLog.ts',
+      ),
       '@/hooks/ops/useOpsEmailDeliveryFeed': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsEmailDeliveryFeed.ts',
@@ -27,20 +34,53 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsRestaurantDetails.ts',
       ),
-      '@/hooks/ops/useOpsOperatingHours': path.resolve(rootDir, 'src/hooks/ops/useOpsOperatingHours.ts'),
-      '@/hooks/ops/useOpsServicePeriods': path.resolve(rootDir, 'src/hooks/ops/useOpsServicePeriods.ts'),
-      '@/hooks/ops/useOpsTableTimeline': path.resolve(rootDir, 'src/hooks/ops/useOpsTableTimeline.ts'),
+      '@/hooks/ops/useOpsRestaurantLogoUpload': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsRestaurantLogoUpload.ts',
+      ),
+      '@/hooks/ops/useOpsRestaurantBusinessContext': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsRestaurantBusinessContext.ts',
+      ),
+      '@/hooks/ops/useOpsTeamInvitations': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsTeamInvitations.ts',
+      ),
+      '@/hooks/ops/useOpsOperatingHours': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsOperatingHours.ts',
+      ),
+      '@/hooks/ops/useOpsServicePeriods': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsServicePeriods.ts',
+      ),
+      '@/hooks/ops/useOccasions': path.resolve(rootDir, 'src/hooks/ops/useOccasions.ts'),
+      '@/hooks/ops/useOpsTurnBands': path.resolve(rootDir, 'src/hooks/ops/useOpsTurnBands.ts'),
+      '@/hooks/ops/useOpsTableTimeline': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsTableTimeline.ts',
+      ),
       '@/hooks/ops/useOpsEmailQueueFeed': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsEmailQueueFeed.ts',
       ),
+      '@/hooks/ops/useOpsDrinksMenu': path.resolve(rootDir, 'src/hooks/ops/useOpsDrinksMenu.ts'),
+      '@/hooks/ops/useOpsGoogleBusinessProfile': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsGoogleBusinessProfile.ts',
+      ),
+      '@/hooks/ops/useOpsDualSync': path.resolve(rootDir, 'src/hooks/ops/useOpsDualSync.ts'),
       '@/hooks/useMediaQuery': path.resolve(rootDir, 'src/hooks/useMediaQuery.ts'),
-      'server-only': path.resolve(rootDir, 'tests/mocks/server-only.ts'),
       '@/utils': path.resolve(rootDir, 'src/utils'),
       '@/app': path.resolve(rootDir, 'src/app'),
       '@/guest': path.resolve(rootDir, 'src/guest'),
       '@/components/ui': path.resolve(rootDir, 'components/ui'),
       '@/components/features': path.resolve(rootDir, 'src/components/features'),
+      '@/components/dashboard': path.resolve(rootDir, 'components/dashboard'),
+      '@/components/ops/restaurants/RestaurantDetailsForm': path.resolve(
+        rootDir,
+        'components/ops/restaurants/RestaurantDetailsForm.tsx',
+      ),
       '@/components': path.resolve(rootDir, 'src/components'),
       '@': rootDir,
       '@src': path.resolve(rootDir, 'src'),

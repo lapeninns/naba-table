@@ -48,8 +48,7 @@ export function useOpsBookingsState(params: OpsBookingsClientStateParams) {
     selectedDate: queryState.selectedDate,
     resolvedTime: queryState.resolvedTime,
     resolvedWindowMode: queryState.resolvedWindowMode,
-    resolvedWindowMinutes:
-      queryState.resolvedWindowMinutes ?? DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
+    resolvedWindowMinutes: queryState.resolvedWindowMinutes ?? DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
     view: queryState.view,
     deferredSearch: queryState.deferredSearch,
     visibleSelectedStatuses: queryState.visibleSelectedStatuses,
@@ -58,7 +57,8 @@ export function useOpsBookingsState(params: OpsBookingsClientStateParams) {
   });
 
   const getBookingLabel = useCallback(
-    (bookingId: string) => dataState.derivedData.bookingLabelsById.get(bookingId) || 'Walk-in Guest',
+    (bookingId: string) =>
+      dataState.derivedData.bookingLabelsById.get(bookingId) || 'Walk-in Guest',
     [dataState.derivedData.bookingLabelsById],
   );
 
@@ -77,11 +77,7 @@ export function useOpsBookingsState(params: OpsBookingsClientStateParams) {
         now: new Date(),
         pendingActionsByBookingId: lifecycle.pendingActionsByBookingId,
       }),
-    [
-      dataState.derivedData.bookings,
-      lifecycle.pendingActionsByBookingId,
-      restaurantTimezone,
-    ],
+    [dataState.derivedData.bookings, lifecycle.pendingActionsByBookingId, restaurantTimezone],
   );
 
   const resolveBookingById = useCallback(

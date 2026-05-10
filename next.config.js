@@ -30,7 +30,8 @@ const imageRemotePatterns = imageDomains.map((hostname) => ({
 }));
 
 const aliasEntries = {
-  '@/app': './src/app',
+  // Do not map `@/app` -> `./src/app` here: Turbopack (Next 16) can mis-infer the workspace root as
+  // `src/app` and fail `next build`. Imports use `@/app/*` from tsconfig paths instead.
   '@/components/features': './src/components/features',
   '@/components': './components',
   '@/contexts': './src/contexts',
@@ -142,10 +143,10 @@ const nextConfig = {
     return redirects;
   },
   turbopack: {
-    // Avoid accidental workspace-root inference when unrelated lockfiles exist outside this repo.
-    // Next.js expects an absolute path here; __dirname is the directory containing this config file.
-    root: __dirname,
-    resolveAlias: aliasEntries,
+    root: path.resolve(__dirname),
+    // Used by `next dev --turbo`. Production `pnpm run build` uses webpack (see package.json) because
+    // Next 16.1.x Turbopack can still fail with: inferred workspace root `src/app`, next/package.json not found.
+    resolveAlias: webpackAliasMap,
   },
   webpack: (config) => {
     config.resolve.alias = {

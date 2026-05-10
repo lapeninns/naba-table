@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function TurnDurationsSettingsPage() {
-  return <OpsRestaurantSettingsClient view="turn-durations" />;
+  return <OpsRestaurantSettingsClient view="availability" />;
 }

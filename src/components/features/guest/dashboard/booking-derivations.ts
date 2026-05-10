@@ -60,8 +60,16 @@ export function deriveBookingState(bookings: BookingDTO[] = []): DerivedState {
   const favorites = Array.from(
     safeBookings.reduce<Map<string, FavoriteRestaurant>>((acc, booking) => {
       if (!booking.restaurantName) return acc;
-      const current = acc.get(booking.restaurantName) ?? { name: booking.restaurantName, count: 0, slug: booking.restaurantSlug ?? null };
-      acc.set(booking.restaurantName, { ...current, count: current.count + 1, slug: current.slug ?? booking.restaurantSlug ?? null });
+      const current = acc.get(booking.restaurantName) ?? {
+        name: booking.restaurantName,
+        count: 0,
+        slug: booking.restaurantSlug ?? null,
+      };
+      acc.set(booking.restaurantName, {
+        ...current,
+        count: current.count + 1,
+        slug: current.slug ?? booking.restaurantSlug ?? null,
+      });
       return acc;
     }, new Map()),
   )

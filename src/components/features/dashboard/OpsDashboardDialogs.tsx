@@ -2,9 +2,17 @@
 
 import dynamic from 'next/dynamic';
 
-import { OpsCancelBookingAlertDialog } from '@/components/features/bookings/components/OpsCancelBookingAlertDialog';
-
 import type { BookingDTO } from '@/hooks/useBookings';
+
+const OpsCancelBookingAlertDialog = dynamic(
+  () =>
+    import('@/components/features/bookings/components/OpsCancelBookingAlertDialog').then(
+      (m) => m.OpsCancelBookingAlertDialog,
+    ),
+  {
+    loading: () => null,
+  },
+);
 
 const EditBookingDialog = dynamic(
   () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),

@@ -1,18 +1,26 @@
-"use client";
+'use client';
 
-import { Component, type ErrorInfo, type ReactNode, createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { track } from "@/lib/analytics";
-import { emit } from "@/lib/analytics/emit";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
 
-import { ConflictResolver } from "./ConflictResolver";
+import { ConflictResolver } from './ConflictResolver';
 
-import type { OpsBookingStatus } from "@/types/ops";
+import type { OpsBookingStatus } from '@/types/ops';
 
-
-type ErrorKind = "network" | "permission" | "unknown";
+type ErrorKind = 'network' | 'permission' | 'unknown';
 
 type BookingErrorBoundaryProps = {
   children: ReactNode;
@@ -73,22 +81,22 @@ function normalizeError(error: unknown): Error {
   if (error instanceof Error) {
     return error;
   }
-  if (typeof error === "string") {
+  if (typeof error === 'string') {
     return new Error(error);
   }
-  return new Error("An unexpected error occurred while updating bookings.");
+  return new Error('An unexpected error occurred while updating bookings.');
 }
 
 function classifyError(error: Error): ErrorKind {
-  if ("status" in error && typeof (error as { status?: unknown }).status === "number") {
+  if ('status' in error && typeof (error as { status?: unknown }).status === 'number') {
     const status = (error as { status?: number }).status ?? 0;
-    if (status === 403) return "permission";
-    if (status >= 500 || status === 0) return "network";
+    if (status === 403) return 'permission';
+    if (status >= 500 || status === 0) return 'network';
   }
-  if (error.message.toLowerCase().includes("network")) {
-    return "network";
+  if (error.message.toLowerCase().includes('network')) {
+    return 'network';
   }
-  return "unknown";
+  return 'unknown';
 }
 
 type ErrorFallbackProps = {
@@ -100,17 +108,17 @@ type ErrorFallbackProps = {
 function ErrorFallback({ error, onRetry, onDismiss }: ErrorFallbackProps) {
   const kind = classifyError(error);
   const title =
-    kind === "network"
-      ? "We lost the connection"
-      : kind === "permission"
-        ? "You don’t have access"
-        : "Something went wrong";
+    kind === 'network'
+      ? 'We lost the connection'
+      : kind === 'permission'
+        ? 'You don’t have access'
+        : 'Something went wrong';
 
   const description =
-    kind === "network"
-      ? "Please check your connection and try again. Your previous changes were rolled back."
-      : kind === "permission"
-        ? "You don’t have the required permissions to perform this action. Ask an administrator to review your access."
+    kind === 'network'
+      ? 'Please check your connection and try again. Your previous changes were rolled back.'
+      : kind === 'permission'
+        ? 'You don’t have the required permissions to perform this action. Ask an administrator to review your access.'
         : error.message;
 
   return (
@@ -138,21 +146,24 @@ export function BookingErrorBoundary({ children, onRetry, className }: BookingEr
   const [conflict, setConflict] = useState<ConflictPayload | null>(null);
   const [boundaryKey, setBoundaryKey] = useState(0);
 
-  const reportBoundaryError = useCallback((source: "caught" | "reported", errorInput: unknown) => {
+  const reportBoundaryError = useCallback((source: 'caught' | 'reported', errorInput: unknown) => {
     const normalizedError = normalizeError(errorInput);
     const payload = {
       source,
       kind: classifyError(normalizedError),
       message: normalizedError.message,
     };
-    track("booking_error_boundary_triggered", payload);
-    emit("booking_error_boundary_triggered", payload);
+    track('booking_error_boundary_triggered', payload);
+    emit('booking_error_boundary_triggered', payload);
     setError(normalizedError);
   }, []);
 
-  const handleCaughtError = useCallback((caught: Error) => {
-    reportBoundaryError("caught", caught);
-  }, [reportBoundaryError]);
+  const handleCaughtError = useCallback(
+    (caught: Error) => {
+      reportBoundaryError('caught', caught);
+    },
+    [reportBoundaryError],
+  );
 
   const handleDismiss = useCallback(() => {
     setError(null);
@@ -172,7 +183,7 @@ export function BookingErrorBoundary({ children, onRetry, className }: BookingEr
   const contextValue = useMemo<BookingErrorBoundaryContextValue>(
     () => ({
       reportError: (err: unknown) => {
-        reportBoundaryError("reported", err);
+        reportBoundaryError('reported', err);
       },
       reportConflict: (payload: ConflictPayload) => {
         setConflict(payload);
@@ -189,7 +200,11 @@ export function BookingErrorBoundary({ children, onRetry, className }: BookingEr
     <BookingErrorBoundaryContext.Provider value={contextValue}>
       <div className={className}>
         {error ? (
-          <ErrorFallback error={error} onRetry={onRetry ? handleRetry : undefined} onDismiss={handleDismiss} />
+          <ErrorFallback
+            error={error}
+            onRetry={onRetry ? handleRetry : undefined}
+            onDismiss={handleDismiss}
+          />
         ) : null}
         <ErrorCatcher
           key={boundaryKey}

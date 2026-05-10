@@ -13,6 +13,20 @@ import { track } from '@shared/lib/analytics';
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
 
+function isTerminalCreateError(error: ApiError | null | undefined): boolean {
+  if (!error) return false;
+  if (
+    error.code === 'VALIDATION_ERROR' ||
+    error.code === 'UNAUTHENTICATED' ||
+    error.code === 'FORBIDDEN'
+  ) {
+    return true;
+  }
+  return (
+    typeof error.status === 'number' && [400, 401, 403, 404, 409, 410, 422].includes(error.status)
+  );
+}
+
 export function useCreateReservation() {
   const queryClient = useQueryClient();
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -32,7 +46,6 @@ export function useCreateReservation() {
         time: draft.time,
         party: draft.party,
         bookingType: draft.bookingType,
-        seating: draft.seating,
         notes: draft.notes ?? undefined,
         name: draft.name,
         email: draft.email ?? undefined,
@@ -73,7 +86,7 @@ export function useCreateReservation() {
       }
     },
     onError: (error, variables) => {
-      if (error?.code !== 'TIMEOUT') {
+      if (isTerminalCreateError(error)) {
         idempotencyKeyRef.current = null;
       }
       if (error?.code === 'REQUEST_ABORTED') {

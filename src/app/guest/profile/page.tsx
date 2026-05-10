@@ -13,7 +13,6 @@ export const metadata: Metadata = {
 };
 
 export default async function ProfilePage() {
-  console.log('👀 [ProfilePage] Initializing...');
   const services = await createGuestServerServices();
   const viewModel = await buildGuestProfileViewModel(services);
   return <GuestProfilePageView viewModel={viewModel} />;

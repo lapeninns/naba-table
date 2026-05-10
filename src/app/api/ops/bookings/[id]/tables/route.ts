@@ -5,6 +5,7 @@ import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
 import { assignTableToBooking, evaluateManualSelection, getBookingTableAssignments } from "@/server/capacity";
 import { AssignTablesRpcError } from "@/server/capacity/holds";
 import { invalidateOpsDashboardCaches } from "@/server/ops/bookings";
+import { withCsrfProtectedMutation } from "@/server/security/csrf";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 import { requireMembershipForRestaurant } from "@/server/team/access";
 
@@ -19,6 +20,10 @@ type RouteContext = {
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(request, () => postBookingTable(request, context));
+}
+
+async function postBookingTable(request: NextRequest, context: RouteContext) {
   const { id: bookingId } = await context.params;
 
   if (!bookingId || !z.string().uuid().safeParse(bookingId).success) {

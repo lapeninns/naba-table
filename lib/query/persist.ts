@@ -1,8 +1,12 @@
 'use client';
 
-import { persistQueryClient, type PersistedClient, type Persister } from '@tanstack/query-persist-client-core';
+import {
+  persistQueryClient,
+  type PersistedClient,
+  type Persister,
+} from '@tanstack/query-persist-client-core';
 
-import type { QueryClient } from '@tanstack/react-query';
+import type { Query, QueryClient, QueryKey } from '@tanstack/react-query';
 
 const STORAGE_PREFIX = 'query-cache';
 const DEFAULT_MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
@@ -13,6 +17,53 @@ type ConfigureOptions = {
   maxAge?: number;
   buster?: string;
 };
+
+function keyPart(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+export function isVolatileOpsIntegrationQueryKey(queryKey: QueryKey): boolean {
+  const first = keyPart(queryKey[0]);
+  if (!first) return false;
+
+  if (
+    first === 'dual-sync-state' ||
+    first === 'dual-sync-operations' ||
+    first === 'dual-sync-publish-jobs' ||
+    first === 'dual-sync-publish-job-detail'
+  ) {
+    return true;
+  }
+
+  if (first !== 'ops') {
+    return false;
+  }
+
+  if (queryKey[1] === 'restaurants' && queryKey[3] === 'google-business-profile') {
+    return true;
+  }
+
+  if (queryKey[1] === 'food-menus') {
+    return true;
+  }
+
+  if (queryKey[1] === 'sms-delivery') {
+    return true;
+  }
+
+  if (queryKey[1] === 'bookings' && queryKey[3] === 'sms-delivery') {
+    return true;
+  }
+
+  return false;
+}
+
+export function shouldPersistQuery(query: Query): boolean {
+  if (query.meta?.persist === false) {
+    return false;
+  }
+  return !isVolatileOpsIntegrationQueryKey(query.queryKey);
+}
 
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
@@ -74,7 +125,7 @@ export function configureQueryPersistence(
 ): () => void {
   const persister = createStoragePersister(storageKey);
   if (!persister) {
-    return () => { };
+    return () => {};
   }
 
   const [unsubscribe, restorePromise] = persistQueryClient({
@@ -82,9 +133,12 @@ export function configureQueryPersistence(
     persister,
     maxAge,
     buster,
+    dehydrateOptions: {
+      shouldDehydrateQuery: shouldPersistQuery,
+    },
   });
 
-  void restorePromise.catch(() => { });
+  void restorePromise.catch(() => {});
 
   return () => {
     unsubscribe();

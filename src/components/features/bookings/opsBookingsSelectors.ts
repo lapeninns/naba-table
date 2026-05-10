@@ -1,4 +1,7 @@
-import { buildOpsBookingCardViewModel, type OpsBookingCardViewModel } from '@/components/features/dashboard/cards/opsBookingCardUtils';
+import {
+  buildOpsBookingCardViewModel,
+  type OpsBookingCardViewModel,
+} from '@/components/features/dashboard/cards/opsBookingCardUtils';
 import { mapOpsBookingListItemToBookingDTO } from '@/utils/ops/mapOpsBookingListItemToBookingDTO';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';

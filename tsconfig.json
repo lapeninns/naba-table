@@ -16,10 +16,6 @@
     "noImplicitAny": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/components/ui/calendar": [
-        "./src/components/ui/calendar.tsx",
-        "./components/ui/calendar.tsx"
-      ],
       "@/app/*": ["./src/app/*"],
       "@/components/features": ["./src/components/features/index.ts"],
       "@/components/features/*": ["./src/components/features/*"],

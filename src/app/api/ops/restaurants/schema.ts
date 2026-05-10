@@ -11,6 +11,7 @@ import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -22,6 +23,65 @@ const INTERVAL_SCHEMA = z
   .max(RESERVATION_INTERVAL_MAX);
 const DURATION_SCHEMA = z.number().int().min(15).max(300);
 const GRACE_SCHEMA = z.number().int().min(0).max(120);
+const SCRIPT_DELIMITER_REGEX = /<\s*\/?\s*script\b/i;
+
+function hasUnsafeControlCharacter(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (
+      (code >= 0 && code <= 8) ||
+      code === 11 ||
+      code === 12 ||
+      (code >= 14 && code <= 31) ||
+      code === 127
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function normalizeNullableSafeUrl(
+  value: unknown,
+  sanitizer: (value: string | null | undefined) => string | null,
+) {
+  if (typeof value !== 'string') {
+    return value === undefined ? undefined : value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return sanitizer(trimmed) ?? trimmed;
+}
+
+function googleUrlSchema(
+  sanitizer: (value: string | null | undefined) => string | null,
+  message: string,
+) {
+  return z
+    .preprocess(
+      (value) => normalizeNullableSafeUrl(value, sanitizer),
+      z
+        .string()
+        .max(2048)
+        .refine((value) => sanitizer(value) === value, message)
+        .nullable(),
+    )
+    .optional();
+}
+
+function plainTextSchema(schema: z.ZodString, fieldLabel: string) {
+  return schema
+    .refine((value) => !SCRIPT_DELIMITER_REGEX.test(value), {
+      message: `${fieldLabel} cannot contain script markup`,
+    })
+    .refine((value) => !hasUnsafeControlCharacter(value), {
+      message: `${fieldLabel} cannot contain control characters`,
+    });
+}
 
 const optionalLogoUrlSchema = z
   .preprocess((value) => {
@@ -73,6 +133,13 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  businessDescription: z
+    .string()
+    .trim()
+    .max(4096, 'Business description must be 4096 characters or fewer')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   managerDailySummaryEnabled: z.boolean().optional(),
   managerNotificationPhone: z
     .string()
@@ -81,20 +148,14 @@ export const createRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
-  googleMapUrl: z
-    .string()
-    .trim()
-    .url('Google Map link must be a valid URL')
-    .nullable()
-    .optional()
-    .transform((val) => val || null),
-  googleReviewUrl: z
-    .string()
-    .trim()
-    .url('Google review link must be a valid URL')
-    .nullable()
-    .optional()
-    .transform((val) => val || null),
+  googleMapUrl: googleUrlSchema(
+    safeGoogleMapsUrl,
+    'Google Map link must be an HTTPS Google Maps URL',
+  ),
+  googleReviewUrl: googleUrlSchema(
+    safeGoogleReviewUrl,
+    'Google review link must be an HTTPS Google review URL',
+  ),
   bookingPolicy: z
     .string()
     .trim()
@@ -144,6 +205,13 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
+  businessDescription: z
+    .string()
+    .trim()
+    .max(4096, 'Business description must be 4096 characters or fewer')
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
   managerDailySummaryEnabled: z.boolean().optional(),
   managerNotificationPhone: z
     .string()
@@ -152,20 +220,14 @@ export const updateRestaurantSchema = z.object({
     .nullable()
     .optional()
     .transform((val) => val || null),
-  googleMapUrl: z
-    .string()
-    .trim()
-    .url('Google Map link must be a valid URL')
-    .nullable()
-    .optional()
-    .transform((val) => val || null),
-  googleReviewUrl: z
-    .string()
-    .trim()
-    .url('Google review link must be a valid URL')
-    .nullable()
-    .optional()
-    .transform((val) => val || null),
+  googleMapUrl: googleUrlSchema(
+    safeGoogleMapsUrl,
+    'Google Map link must be an HTTPS Google Maps URL',
+  ),
+  googleReviewUrl: googleUrlSchema(
+    safeGoogleReviewUrl,
+    'Google review link must be an HTTPS Google review URL',
+  ),
   bookingPolicy: z
     .string()
     .trim()
@@ -194,6 +256,7 @@ export type RestaurantDTO = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -235,10 +298,10 @@ export const restaurantEmailTemplateGroupKeySchema = z.enum(
   RESTAURANT_BOOKING_EMAIL_TEMPLATE_GROUP_KEYS,
 );
 
-const emailTemplateTextSchema = z.string().trim().min(1).max(280);
+const emailTemplateTextSchema = plainTextSchema(z.string().trim().min(1).max(280), 'Message body');
 const emailTemplateSupportTextSchema = z.string().trim().max(180);
-const emailTemplateHeadlineSchema = z.string().trim().min(1).max(140);
-const emailTemplateSubjectSchema = z.string().trim().min(1).max(140);
+const emailTemplateHeadlineSchema = plainTextSchema(z.string().trim().min(1).max(140), 'Headline');
+const emailTemplateSubjectSchema = plainTextSchema(z.string().trim().min(1).max(140), 'Subject');
 const emailTemplatePreheaderSchema = z.string().trim().min(1).max(180);
 
 function addUnknownTokenIssues(
@@ -268,7 +331,7 @@ const emailTemplateVariantSchema = z.object({
   intro: emailTemplateTextSchema,
   cue: emailTemplateSupportTextSchema.optional().transform((val) => val ?? ''),
   ask: emailTemplateSupportTextSchema.optional().transform((val) => val ?? ''),
-  ctaLabel: z.string().trim().min(1).max(60),
+  ctaLabel: plainTextSchema(z.string().trim().min(1).max(60), 'CTA label'),
   isActive: z.boolean(),
   order: z
     .number()

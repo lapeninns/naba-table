@@ -9,13 +9,29 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit, Loader2, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import {
+  ChevronDown,
+  ClipboardList,
+  Edit,
+  LayoutGrid,
+  Loader2,
+  Plus,
+  Table2,
+  Trash2,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { SettingsCard } from '@/components/features/restaurant-settings/shared';
+import {
+  SETTINGS_COMPACT_FILTER_BAR_CLASS,
+  SETTINGS_COMPACT_ROUTE_STACK_CLASS,
+  RestaurantSettingsCommandCenter,
+  SettingsCard,
+  SettingsSecondaryActions,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -37,74 +54,40 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
 
+import {
+  ALL_ZONES_VALUE,
+  CATEGORY_OPTIONS,
+  MOBILITY_OPTIONS,
+  SEATING_TYPE_OPTIONS,
+  STATUS_OPTIONS,
+  filterTablesByStatus,
+  filterZonesByStatus,
+  type TableFormState,
+  type TableStatusFilter,
+  type TableZone,
+  type ZoneStatusFilter,
+} from './tableInventoryModel';
 
-import type {
-  CreateTablePayload,
-  TableInventory,
-  UpdateTablePayload,
-} from '@/services/ops/tables';
+import type { CreateTablePayload, TableInventory, UpdateTablePayload } from '@/services/ops/tables';
 import type { Zone } from '@/services/ops/zones';
 
-type ZoneStatusFilter = 'all' | 'active' | 'inactive';
-type TableStatusFilter = 'all' | 'active' | 'inactive';
-
-export function filterZonesByStatus(zones: Zone[], filter: ZoneStatusFilter): Zone[] {
-  if (filter === 'active') return zones.filter((zone) => zone.active);
-  if (filter === 'inactive') return zones.filter((zone) => zone.active === false);
-  return zones;
-}
-
-export function filterTablesByStatus(tables: TableInventory[], filter: TableStatusFilter): TableInventory[] {
-  if (filter === 'active') {
-    return tables.filter((table) => table.active && table.zoneActive !== false);
-  }
-  if (filter === 'inactive') {
-    return tables.filter((table) => !table.active || table.zoneActive === false);
-  }
-  return tables;
-}
-
-
-const ALL_ZONES_VALUE = 'all-zones';
-
-// ... (Constants like CATEGORY_OPTIONS, SEATING_TYPE_OPTIONS, etc. remain unchanged)
-const CATEGORY_OPTIONS: { value: TableInventory['category']; label: string }[] = [
-  { value: 'dining', label: 'Dining' },
-  { value: 'patio', label: 'Patio' },
-  { value: 'bar', label: 'Bar' },
-  { value: 'lounge', label: 'Lounge' },
-  { value: 'private', label: 'Private' },
-];
-
-const SEATING_TYPE_OPTIONS: { value: TableInventory['seatingType']; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'sofa', label: 'Sofa' },
-  { value: 'booth', label: 'Booth' },
-  { value: 'high_top', label: 'High-top' },
-];
-
-const MOBILITY_OPTIONS: { value: TableInventory['mobility']; label: string }[] = [
-  { value: 'movable', label: 'Movable' },
-  { value: 'fixed', label: 'Fixed' },
-];
-
-const STATUS_OPTIONS: { value: TableInventory['status']; label: string }[] = [
-  { value: 'available', label: 'Available' },
-  { value: 'reserved', label: 'Reserved' },
-  { value: 'occupied', label: 'Occupied' },
-  { value: 'out_of_service', label: 'Out of service' },
-];
-
-
-type TableFormState = Omit<CreateTablePayload, 'position'>;
+type TableWorkspace = 'summary' | 'zones' | 'inventory';
 
 // A separate component for the form to manage its own state cleanly
 function TableForm({
@@ -114,19 +97,25 @@ function TableForm({
   isSaving,
   zones,
   isZonesLoading,
+  isFirstTable,
 }: {
   table: TableInventory | null;
   onClose: () => void;
   onSubmit: (payload: TableFormState) => void;
   isSaving: boolean;
-  zones: { id: string; name: string; active: boolean }[];
+  zones: Pick<TableZone, 'id' | 'name' | 'active'>[];
   isZonesLoading: boolean;
+  isFirstTable: boolean;
 }) {
   // REVISION: Use controlled components for all form fields to prevent data loss
   const [zoneId, setZoneId] = useState<string | undefined>(table?.zoneId);
   const [category, setCategory] = useState<TableInventory['category']>(table?.category ?? 'dining');
-  const [seatingType, setSeatingType] = useState<TableInventory['seatingType']>(table?.seatingType ?? 'standard');
-  const [mobility, setMobility] = useState<TableInventory['mobility']>(table?.mobility ?? 'movable');
+  const [seatingType, setSeatingType] = useState<TableInventory['seatingType']>(
+    table?.seatingType ?? 'standard',
+  );
+  const [mobility, setMobility] = useState<TableInventory['mobility']>(
+    table?.mobility ?? 'movable',
+  );
   const [status, setStatus] = useState<TableInventory['status']>(table?.status ?? 'available');
   const [active, setActive] = useState<boolean>(table?.active ?? true);
 
@@ -197,166 +186,237 @@ function TableForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <FormRoot onSubmit={handleSubmit} className="flex flex-col gap-6">
       <DialogHeader>
         <DialogTitle>{table ? 'Edit table' : 'Add new table'}</DialogTitle>
-        <DialogDescription>Configure seating capacity and availability for this table.</DialogDescription>
+        <DialogDescription>
+          {isFirstTable
+            ? 'Start with table number and capacity. You can add more zones and advanced details later.'
+            : 'Configure seating capacity and availability for this table.'}
+        </DialogDescription>
       </DialogHeader>
 
       <div className="grid gap-4 max-h-[70vh] overflow-y-auto pr-4">
-        {/* ... Other input fields like tableNumber, capacity, party size remain the same ... */}
         <div className="grid gap-2">
           <Label htmlFor="tableNumber">Table number *</Label>
-          <Input id="tableNumber" name="tableNumber" defaultValue={table?.tableNumber ?? ''} required />
+          <Input
+            id="tableNumber"
+            name="tableNumber"
+            defaultValue={table?.tableNumber ?? ''}
+            required
+          />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="capacity">Capacity *</Label>
-          <Input id="capacity" name="capacity" type="number" min={1} max={20} defaultValue={table?.capacity ?? 4} required />
+          <Input
+            id="capacity"
+            name="capacity"
+            type="number"
+            min={1}
+            max={20}
+            defaultValue={table?.capacity ?? 4}
+            required
+          />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="grid gap-2">
             <Label htmlFor="minPartySize">Min party size</Label>
-            <Input id="minPartySize" name="minPartySize" type="number" min={1} defaultValue={table?.minPartySize ?? 1} />
+            <Input
+              id="minPartySize"
+              name="minPartySize"
+              type="number"
+              min={1}
+              defaultValue={table?.minPartySize ?? 1}
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="maxPartySize">Max party size</Label>
-            <Input id="maxPartySize" name="maxPartySize" type="number" min={1} defaultValue={table?.maxPartySize ?? ''} placeholder="Same as capacity" />
+            <Input
+              id="maxPartySize"
+              name="maxPartySize"
+              type="number"
+              min={1}
+              defaultValue={table?.maxPartySize ?? ''}
+              placeholder="Same as capacity"
+            />
           </div>
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="section">Section</Label>
-          <Input
-            id="section"
-            name="section"
-            defaultValue={table?.section ?? ''}
-            placeholder="Main Dining, Patio, Bar"
-          />
+          <Label htmlFor="zoneId">Zone</Label>
+          <Select
+            value={zoneId}
+            onValueChange={setZoneId}
+            disabled={isZoneSelectDisabled || isZonesLoading}
+          >
+            <SelectTrigger id="zoneId">
+              <SelectValue placeholder="Select a zone" />
+            </SelectTrigger>
+            <SelectContent>
+              {isZonesLoading ? (
+                <SelectLabel>Loading zones...</SelectLabel>
+              ) : isZoneSelectDisabled ? (
+                <SelectGroup>
+                  <SelectLabel className="text-muted-foreground">No zones configured</SelectLabel>
+                </SelectGroup>
+              ) : (
+                zones.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
+                    {!zone.active ? ' (inactive)' : ''}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          {selectedZone && selectedZone.active === false && (
+            <p className="text-xs text-primary">
+              Zone is inactive. Reactivate it to bring these tables back into service.
+            </p>
+          )}
+          {!selectedZone && (
+            <p className="text-xs text-muted-foreground">
+              Choose the service area this table belongs to. Add more zones later if needed.
+            </p>
+          )}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="zoneId">Zone *</Label>
-            <Select
-              value={zoneId}
-              onValueChange={setZoneId}
-              disabled={isZoneSelectDisabled || isZonesLoading}
+        <div className="grid gap-2">
+          <Label htmlFor="active">Active</Label>
+          <div className="flex items-center gap-2 rounded-md border p-3">
+            <Switch id="active-switch" checked={active} onCheckedChange={setActive} />
+            <Label htmlFor="active-switch" className="flex-grow text-sm text-muted-foreground">
+              {active ? 'Active in service' : 'Inactive / decommissioned'}
+            </Label>
+          </div>
+        </div>
+
+        <Collapsible className="rounded-lg border border-border/60 bg-muted/20 p-3">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
             >
-              <SelectTrigger id="zoneId">
-                <SelectValue placeholder="Select a zone" />
-              </SelectTrigger>
-              <SelectContent>
-                {isZonesLoading ? (
-                  <SelectLabel>Loading zones...</SelectLabel>
-                ) : isZoneSelectDisabled ? (
-                  <SelectGroup>
-                    <SelectLabel className="text-muted-foreground">No zones configured</SelectLabel>
-                  </SelectGroup>
-                ) : (
-                  zones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id}>
-                      {zone.name}
-                      {!zone.active ? ' (inactive)' : ''}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {selectedZone && selectedZone.active === false && (
-              <p className="text-xs text-amber-600">Zone is inactive. Reactivate it to bring these tables back into service.</p>
-            )}
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="category">Category</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as TableInventory['category'])}>
-              <SelectTrigger id="category">
-                <SelectValue placeholder="Choose category" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* REVISION: Add helper text for clarity */}
-            <p className="text-xs text-muted-foreground">For organizational purposes only. Does not affect allocation.</p>
-          </div>
-        </div>
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="text-sm font-medium text-foreground">More table details</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Add section, classification, seating type, mobility, status, and notes when
+                  needed.
+                </span>
+              </span>
+              <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-4">
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="section">Section</Label>
+                <Input
+                  id="section"
+                  name="section"
+                  defaultValue={table?.section ?? ''}
+                  placeholder="Main Dining, Patio, Bar"
+                />
+              </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="seatingType">Seating</Label>
-            <Select value={seatingType} onValueChange={(v) => setSeatingType(v as TableInventory['seatingType'])}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose seating" />
-              </SelectTrigger>
-              <SelectContent>
-                {SEATING_TYPE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="mobility">Mobility</Label>
-            <Select value={mobility} onValueChange={(v) => setMobility(v as TableInventory['mobility'])}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose mobility" />
-              </SelectTrigger>
-              <SelectContent>
-                {MOBILITY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={category}
+                    onValueChange={(v) => setCategory(v as TableInventory['category'])}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Choose category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    For organizational purposes only. Does not affect allocation.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="seatingType">Seating</Label>
+                  <Select
+                    value={seatingType}
+                    onValueChange={(v) => setSeatingType(v as TableInventory['seatingType'])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose seating" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SEATING_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor="status">Status</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as TableInventory['status'])}>
-              <SelectTrigger>
-                <SelectValue placeholder="Set status" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* REVISION: Add helper text for clarity on status semantics */}
-            <p className="text-xs text-muted-foreground">&apos;Out of service&apos; blocks assignments. Other statuses are informational.</p>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="active">Service status</Label>
-            <div className="flex items-center space-x-2 rounded-md border p-3">
-              <Switch id="active-switch" checked={active} onCheckedChange={setActive} />
-              <Label htmlFor="active-switch" className="flex-grow text-sm text-muted-foreground">
-                {active ? 'Active in service' : 'Inactive / Decommissioned'}
-              </Label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="mobility">Mobility</Label>
+                  <Select
+                    value={mobility}
+                    onValueChange={(v) => setMobility(v as TableInventory['mobility'])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose mobility" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MOBILITY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={status}
+                    onValueChange={(v) => setStatus(v as TableInventory['status'])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Set status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    &apos;Out of service&apos; blocks assignments. Other statuses are informational.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  defaultValue={table?.notes ?? ''}
+                  placeholder="Optional internal notes about this table"
+                  rows={3}
+                />
+              </div>
             </div>
-          </div>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="notes">Notes</Label>
-          <Textarea
-            id="notes"
-            name="notes"
-            defaultValue={table?.notes ?? ''}
-            placeholder="Optional internal notes about this table"
-            rows={3}
-          />
-        </div>
-
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -367,10 +427,9 @@ function TableForm({
           {isSaving ? 'Saving…' : 'Save table'}
         </Button>
       </DialogFooter>
-    </form>
+    </FormRoot>
   );
 }
-
 
 export default function TableInventoryClient() {
   const { memberships, activeRestaurantId } = useOpsSession();
@@ -384,8 +443,9 @@ export default function TableInventoryClient() {
   const [filterZone, setFilterZone] = useState<string>(ALL_ZONES_VALUE);
   const [zoneStatusFilter, setZoneStatusFilter] = useState<ZoneStatusFilter>('active');
   const [tableStatusFilter, setTableStatusFilter] = useState<TableStatusFilter>('active');
+  const [activeWorkspace, setActiveWorkspace] = useState<TableWorkspace>('summary');
   const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
-  const [editingZone, setEditingZone] = useState<Zone | null>(null);
+  const [editingZone, setEditingZone] = useState<TableZone | null>(null);
 
   const canDeleteTables = Boolean(activeMembership && isRestaurantAdminRole(activeMembership.role));
 
@@ -401,11 +461,11 @@ export default function TableInventoryClient() {
 
   const tablesQueryKey = activeRestaurantId
     ? queryKeys.opsTables.list(activeRestaurantId)
-    : ['ops', 'tables', 'no-restaurant'] as const;
+    : (['ops', 'tables', 'no-restaurant'] as const);
 
   const zonesQueryKey = activeRestaurantId
     ? queryKeys.opsTables.zones(activeRestaurantId)
-    : ['ops', 'tables', 'no-restaurant', 'zones'] as const;
+    : (['ops', 'tables', 'no-restaurant', 'zones'] as const);
 
   const {
     data: tableQueryResult,
@@ -426,16 +486,21 @@ export default function TableInventoryClient() {
     staleTime: 30_000,
   });
 
-
   const tables = useMemo(() => tableQueryResult?.tables ?? [], [tableQueryResult?.tables]);
   const summary = tableQueryResult?.summary ?? null;
 
-  const {
-    data: zonesData,
-    isLoading: isLoadingZones,
-    isError: isZonesError,
-    error: zonesError,
-  } = useQuery({
+  const summaryZones = useMemo<TableZone[]>(
+    () =>
+      (summary?.zones ?? []).map((zone) => ({
+        id: zone.id,
+        name: zone.name,
+        active: zone.active,
+        sortOrder: zone.sortOrder,
+      })),
+    [summary?.zones],
+  );
+
+  const fallbackZonesQuery = useQuery({
     queryKey: zonesQueryKey,
     queryFn: async () => {
       if (!activeRestaurantId) {
@@ -443,13 +508,18 @@ export default function TableInventoryClient() {
       }
       return zoneService.list(activeRestaurantId);
     },
-    enabled: Boolean(activeRestaurantId),
+    enabled: Boolean(activeRestaurantId) && !isLoading && !summary,
     staleTime: 60_000,
   });
 
-  // REVISION: Ensure zones are always sorted consistently
+  const isLoadingZones = !summary && (isLoading || fallbackZonesQuery.isLoading);
+  const isZonesError = !summary && fallbackZonesQuery.isError;
+  const zonesError = fallbackZonesQuery.error;
+
   const zones = useMemo(() => {
-    return (zonesData ?? []).slice().sort((a, b) => {
+    // Use zones already embedded in the tables summary to avoid a duplicate initial /api/ops/zones request.
+    const source = summary ? summaryZones : (fallbackZonesQuery.data ?? []);
+    return source.slice().sort((a, b) => {
       const orderA = a.sortOrder ?? 0;
       const orderB = b.sortOrder ?? 0;
       if (orderA !== orderB) {
@@ -457,11 +527,11 @@ export default function TableInventoryClient() {
       }
       return a.name.localeCompare(b.name);
     });
-  }, [zonesData]);
+  }, [fallbackZonesQuery.data, summary, summaryZones]);
 
   const filteredZones = useMemo(
     () => filterZonesByStatus(zones, zoneStatusFilter),
-    [zones, zoneStatusFilter]
+    [zones, zoneStatusFilter],
   );
 
   const zoneOptions = useMemo(() => {
@@ -469,34 +539,55 @@ export default function TableInventoryClient() {
     return zones.map((zone) => ({ id: zone.id, name: zone.name, active: zone.active }));
   }, [zones]);
 
-  useGlobalShortcuts([
-    {
-      key: 'n',
-      metaOrCtrl: true,
-      preventDefault: true,
-      enabled: Boolean(activeRestaurantId),
-      handler: () => {
-        setEditingTable(null);
-        setIsDialogOpen(true);
+  const openNewTableDialog = useCallback(() => {
+    setEditingTable(null);
+    setIsDialogOpen(true);
+  }, []);
+
+  const closeOpenDialogs = useCallback(() => {
+    if (isDialogOpen) setIsDialogOpen(false);
+    if (isZoneDialogOpen) setIsZoneDialogOpen(false);
+  }, [isDialogOpen, isZoneDialogOpen]);
+
+  const tableShortcuts = useMemo(
+    () => [
+      {
+        key: 'n',
+        metaOrCtrl: true,
+        preventDefault: true,
+        enabled: Boolean(activeRestaurantId),
+        handler: openNewTableDialog,
       },
-    },
-    {
-      key: 'escape',
-      preventDefault: false,
-      enabled: isDialogOpen || isZoneDialogOpen,
-      handler: () => {
-        if (isDialogOpen) setIsDialogOpen(false);
-        if (isZoneDialogOpen) setIsZoneDialogOpen(false);
+      {
+        key: 'escape',
+        preventDefault: false,
+        enabled: isDialogOpen || isZoneDialogOpen,
+        handler: closeOpenDialogs,
       },
-    },
-  ]);
+    ],
+    [activeRestaurantId, closeOpenDialogs, isDialogOpen, isZoneDialogOpen, openNewTableDialog],
+  );
+
+  // Keep the shortcut array stable so useGlobalShortcuts does not rebind window listeners on every render.
+  useGlobalShortcuts(tableShortcuts);
 
   const isZoneSelectDisabled = zoneOptions.length === 0;
+  const selectWorkspace = useCallback((workspace: TableWorkspace) => {
+    setActiveWorkspace(workspace);
+    const hash =
+      workspace === 'summary'
+        ? 'table-capacity-summary'
+        : workspace === 'zones'
+          ? 'table-zones'
+          : 'table-inventory';
+    window.history.replaceState(null, '', `#${hash}`);
+  }, []);
 
   const filteredTables = useMemo(() => {
-    const zoneFiltered = filterZone === ALL_ZONES_VALUE
-      ? tables
-      : tables.filter((table) => table.zoneId === filterZone);
+    const zoneFiltered =
+      filterZone === ALL_ZONES_VALUE
+        ? tables
+        : tables.filter((table) => table.zoneId === filterZone);
     return filterTablesByStatus(zoneFiltered, tableStatusFilter);
   }, [filterZone, tableStatusFilter, tables]);
 
@@ -514,25 +605,32 @@ export default function TableInventoryClient() {
     };
 
     const serviceReadyTables = tables.filter((table) => table.active && table.zoneActive).length;
+    const serviceReadyCovers = tables
+      .filter((table) => table.active && table.zoneActive)
+      .reduce((total, table) => total + table.capacity, 0);
     const inactiveTables = Math.max(summary.totalTables - serviceReadyTables, 0);
     const inactiveZones = summary.zones.filter((zone) => zone.active === false).length;
 
     const cards: SummaryCardDescriptor[] = [
       {
-        key: 'total-tables',
-        label: 'Total tables configured',
-        value: summary.totalTables.toLocaleString(),
-        description: summary.totalTables === 1 ? 'Single seating resource' : `${summary.totalTables.toLocaleString()} entries in inventory`,
+        key: 'ready-for-bookings',
+        label: 'Ready for bookings',
+        value: `${serviceReadyTables.toLocaleString()} active tables, ${serviceReadyCovers.toLocaleString()} covers`,
+        description:
+          serviceReadyTables > 0
+            ? 'Active tables in active zones can be booked.'
+            : 'Add an active table before guests can book seats.',
       },
       {
-        key: 'total-capacity',
-        label: 'Total seats planned',
-        value: `${summary.totalCapacity.toLocaleString()} seats`,
+        key: 'inventory-total',
+        label: 'Inventory total',
+        value: `${summary.totalTables.toLocaleString()} tables`,
+        description: `${summary.totalCapacity.toLocaleString()} planned covers across all table records`,
       },
       {
-        key: 'active-tables',
-        label: 'Active for service',
-        value: `${serviceReadyTables.toLocaleString()} tables`,
+        key: 'inactive-tables',
+        label: 'Needs attention',
+        value: `${inactiveTables.toLocaleString()} tables`,
         description: inactiveTables > 0 ? `${inactiveTables.toLocaleString()} inactive` : undefined,
       },
       {
@@ -547,9 +645,10 @@ export default function TableInventoryClient() {
       summary.serviceCapacities.forEach((service) => {
         const capacityValue = `${service.capacity.toLocaleString()} covers`;
         const turns = service.turnsPerTable;
-        const description = turns > 0
-          ? `≈${turns} turns across ${service.tablesConsidered} tables`
-          : 'Insufficient window for additional turns';
+        const description =
+          turns > 0
+            ? `≈${turns} turns across ${service.tablesConsidered} tables`
+            : 'Insufficient window for additional turns';
 
         cards.push({
           key: `service-${service.key}`,
@@ -564,8 +663,13 @@ export default function TableInventoryClient() {
   }, [summary, tables]);
 
   const createMutation = useMutation({
-    mutationFn: ({ restaurantId, payload }: { restaurantId: string; payload: CreateTablePayload }) =>
-      tableService.create(restaurantId, payload),
+    mutationFn: ({
+      restaurantId,
+      payload,
+    }: {
+      restaurantId: string;
+      payload: CreateTablePayload;
+    }) => tableService.create(restaurantId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
       setIsDialogOpen(false);
@@ -573,7 +677,7 @@ export default function TableInventoryClient() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ tableId, payload }: { tableId: string; payload: UpdateTablePayload; }) =>
+    mutationFn: ({ tableId, payload }: { tableId: string; payload: UpdateTablePayload }) =>
       tableService.update(tableId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
@@ -591,8 +695,15 @@ export default function TableInventoryClient() {
 
   // ... (Zone mutations remain the same)
   const zoneCreateMutation = useMutation({
-    mutationFn: ({ restaurantId, name, sortOrder }: { restaurantId: string; name: string; sortOrder?: number }) =>
-      zoneService.create(restaurantId, name, sortOrder),
+    mutationFn: ({
+      restaurantId,
+      name,
+      sortOrder,
+    }: {
+      restaurantId: string;
+      name: string;
+      sortOrder?: number;
+    }) => zoneService.create(restaurantId, name, sortOrder),
     onSuccess: (zone) => {
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
@@ -608,7 +719,8 @@ export default function TableInventoryClient() {
     { zoneId: string; name?: string; sortOrder?: number; active?: boolean },
     { previousZones?: Zone[] }
   >({
-    mutationFn: ({ zoneId, name, sortOrder, active }) => zoneService.update(zoneId, { name, sortOrder, active }),
+    mutationFn: ({ zoneId, name, sortOrder, active }) =>
+      zoneService.update(zoneId, { name, sortOrder, active }),
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: zonesQueryKey });
       const previousZones = queryClient.getQueryData<Zone[]>(zonesQueryKey);
@@ -650,13 +762,17 @@ export default function TableInventoryClient() {
   });
 
   // REVISION: Safer zone delete handler
-  const handleZoneDelete = (zone: Zone) => {
+  const handleZoneDelete = (zone: TableZone) => {
     const tablesInZone = tables.filter((table) => table.zoneId === zone.id);
     if (tablesInZone.length > 0) {
       return;
     }
 
-    if (confirm(`Are you sure you want to delete the zone "${zone.name}"? This action cannot be undone.`)) {
+    if (
+      confirm(
+        `Are you sure you want to delete the zone "${zone.name}"? This action cannot be undone.`,
+      )
+    ) {
       zoneDeleteMutation.mutate({ zoneId: zone.id });
     }
   };
@@ -707,13 +823,13 @@ export default function TableInventoryClient() {
     zoneCreateMutation.mutate({ restaurantId: activeRestaurantId, name, sortOrder });
   };
 
-
   if (memberships.length === 0) {
     return (
       <Alert variant="destructive">
         <AlertTitle>No restaurant access</AlertTitle>
         <AlertDescription>
-          Your account is not linked to any restaurants yet. Ask an owner or manager to invite you before managing tables.
+          Your account is not linked to any restaurants yet. Ask an owner or manager to invite you
+          before managing tables.
         </AlertDescription>
       </Alert>
     );
@@ -739,389 +855,510 @@ export default function TableInventoryClient() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* ... (Summary card section remains the same) ... */}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryCards ? (
-          summaryCards.map((card) => (
-            <SummaryCard
-              key={card.key}
-              label={card.label}
-              value={card.value}
-              description={card.description}
-            />
-          ))
-        ) : (
-          <>
-            <Skeleton className="h-24 w-full rounded-lg" />
-            <Skeleton className="h-24 w-full rounded-lg" />
-            <Skeleton className="h-24 w-full rounded-lg" />
-            <Skeleton className="h-24 w-full rounded-lg" />
-          </>
-        )}
-      </section>
+    <RestaurantSettingsCommandCenter
+      eyebrow="Tables command center"
+      title="Tables"
+      description="Manage seating zones, table inventory, capacity, party-size rules, and service readiness from one route."
+      metrics={[
+        {
+          label: 'Bookable tables',
+          value: summary
+            ? `${tables.filter((table) => table.active && table.zoneActive).length} tables`
+            : 'Loading',
+          description: summary
+            ? `${tables
+                .filter((table) => table.active && table.zoneActive)
+                .reduce((total, table) => total + table.capacity, 0)} covers`
+            : 'capacity',
+          variant: 'secondary',
+          Icon: Table2,
+        },
+        {
+          label: 'Zones',
+          value: summary ? summary.zones.length.toLocaleString() : 'Loading',
+          description: 'floor-plan groups',
+          variant: 'outline',
+          Icon: LayoutGrid,
+        },
+        {
+          label: 'Inventory total',
+          value: summary ? `${summary.totalTables.toLocaleString()} tables` : 'Loading',
+          description: summary ? `${summary.totalCapacity.toLocaleString()} planned covers` : '',
+          variant: 'metric',
+          Icon: ClipboardList,
+        },
+      ]}
+      railTitle="Tables workflow"
+      railDescription="Set up zones first, then add or edit the tables guests can book."
+      railItems={[
+        {
+          label: 'Capacity summary',
+          description: 'Readiness, total inventory, inactive tables, and service capacities.',
+          href: '#table-capacity-summary',
+          Icon: ClipboardList,
+          isActive: activeWorkspace === 'summary',
+          onSelect: () => selectWorkspace('summary'),
+        },
+        {
+          label: 'Zones',
+          description: 'Floor-plan groups, seasonal toggles, and zone sorting.',
+          href: '#table-zones',
+          Icon: LayoutGrid,
+          isActive: activeWorkspace === 'zones',
+          onSelect: () => selectWorkspace('zones'),
+        },
+        {
+          label: 'Inventory',
+          description: 'Table numbers, covers, party sizes, seating type, and availability.',
+          href: '#table-inventory',
+          Icon: Table2,
+          isActive: activeWorkspace === 'inventory',
+          onSelect: () => selectWorkspace('inventory'),
+        },
+      ]}
+      footer="Only active tables in active zones count as service-ready capacity."
+    >
+      <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
+        {/* ... (Summary card section remains the same) ... */}
+        <section
+          id="table-capacity-summary"
+          hidden={activeWorkspace !== 'summary'}
+          className={cn(
+            'scroll-mt-28 grid gap-4 sm:grid-cols-2 xl:grid-cols-4',
+            activeWorkspace !== 'summary' && 'hidden',
+          )}
+        >
+          {summaryCards ? (
+            summaryCards.map((card) => (
+              <SummaryCard
+                key={card.key}
+                label={card.label}
+                value={card.value}
+                description={card.description}
+              />
+            ))
+          ) : (
+            <>
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
+              <Skeleton className="h-24 w-full rounded-lg" />
+            </>
+          )}
+        </section>
 
-      {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
-      <SettingsCard
-        title="Zones"
-        description="Group tables by areas of your floor plan. Add or rename zones as your layout changes."
-        headerAction={
-          <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
-              Show
-            </Label>
-            <Select
-              value={zoneStatusFilter}
-              onValueChange={(value) => setZoneStatusFilter(value as ZoneStatusFilter)}
-            >
-              <SelectTrigger id="zone-status-filter" className="w-[170px]">
-                <SelectValue placeholder="All zones" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active zones</SelectItem>
-                <SelectItem value="inactive">Inactive zones</SelectItem>
-                <SelectItem value="all">All zones</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setEditingZone(null);
-                setIsZoneDialogOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add zone
-            </Button>
-          </div>
-        }
-      >
-        {isLoadingZones ? (
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-9 w-32" />
-            <Skeleton className="h-9 w-28" />
-            <Skeleton className="h-9 w-24" />
-          </div>
-        ) : isZonesError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Zones unavailable</AlertTitle>
-            <AlertDescription>
-              {zonesError instanceof Error ? zonesError.message : 'Unable to load zones right now.'}
-            </AlertDescription>
-          </Alert>
-        ) : filteredZones.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {zones.length === 0
-              ? 'No zones configured yet. Create your first zone to start organizing tables.'
-              : 'No zones match this filter. Show all to view inactive zones.'}
-          </p>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {filteredZones.map((zone) => {
-              const isActiveFilter = filterZone === zone.id;
-              return (
-                <li key={zone.id}>
-                  <div
-                    className={`flex flex-col gap-2 rounded-md border px-3 py-2 ${zone.active ? 'bg-background' : 'bg-muted/60'
-                      }`}
+        {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
+        <div
+          id="table-zones"
+          hidden={activeWorkspace !== 'zones'}
+          className={cn('scroll-mt-28', activeWorkspace !== 'zones' && 'hidden')}
+        >
+          <SettingsCard
+            title="Zones"
+            description="Group tables by areas of your floor plan. Add or rename zones as your layout changes."
+            headerAction={
+              <SettingsSecondaryActions label="Zone options" contentClassName="sm:min-w-80">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
+                    Show
+                  </Label>
+                  <Select
+                    value={zoneStatusFilter}
+                    onValueChange={(value) => setZoneStatusFilter(value as ZoneStatusFilter)}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isActiveFilter ? 'default' : 'ghost'}
-                          onClick={() => setFilterZone(isActiveFilter ? ALL_ZONES_VALUE : zone.id)}
-                        >
-                          {zone.name}
-                        </Button>
-                        <Badge variant={zone.active ? 'outline' : 'secondary'}>
-                          {zone.active ? 'Active' : 'Inactive'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">#{zone.sortOrder ?? 0}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={zone.active}
-                          onCheckedChange={(checked) =>
-                            zoneUpdateMutation.mutate({ zoneId: zone.id, active: checked })
-                          }
-                          aria-label={`Toggle ${zone.name} zone availability`}
-                          disabled={zoneUpdateMutation.isPending}
-                        />
-                        <span className="hidden text-xs text-muted-foreground md:inline">Seasonal toggle</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {zone.active
-                        ? 'Included in capacity and assignments.'
-                        : 'Tables stay visible but are excluded from service until re-enabled.'}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setEditingZone(zone);
-                          setIsZoneDialogOpen(true);
-                        }}
-                        aria-label={`Edit zone ${zone.name}`}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={zoneDeleteMutation.isPending}
-                        onClick={() => handleZoneDelete(zone)}
-                        aria-label={`Delete zone ${zone.name}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </SettingsCard>
-
-      {/* ... (Filter and Add Table section remains the same) ... */}
-      <SettingsCard
-        title="Table Inventory"
-        description="Manage your tables, capacities, and settings."
-        headerAction={
-          <Button
-            onClick={() => {
-              setEditingTable(null);
-              setIsDialogOpen(true);
-            }}
-            disabled={isZoneSelectDisabled && !isLoadingZones}
+                    <SelectTrigger id="zone-status-filter">
+                      <SelectValue placeholder="All zones" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active zones</SelectItem>
+                      <SelectItem value="inactive">Inactive zones</SelectItem>
+                      <SelectItem value="all">All zones</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingZone(null);
+                    setIsZoneDialogOpen(true);
+                  }}
+                >
+                  <Plus data-icon="inline-start" aria-hidden />
+                  Add zone
+                </Button>
+              </SettingsSecondaryActions>
+            }
           >
-            <Plus className="mr-2 h-4 w-4" />
-            Add table
-          </Button>
-        }
-      >
-        <div className="space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
-            <div className="flex items-center gap-3">
-              <Label htmlFor="table-zone-filter" className="text-sm">Filter by Zone</Label>
-              <Select value={filterZone} onValueChange={setFilterZone}>
-                <SelectTrigger id="table-zone-filter" className="w-[220px]">
-                  <SelectValue placeholder="All zones" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
-                  {zoneOptions.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id}>
-                      {zone.name}
-                      {zone.active ? '' : ' (inactive)'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Label htmlFor="table-status-filter" className="text-sm">Show</Label>
-              <Select
-                value={tableStatusFilter}
-                onValueChange={(value) => setTableStatusFilter(value as TableStatusFilter)}
-              >
-                <SelectTrigger id="table-status-filter" className="w-[200px]">
-                  <SelectValue placeholder="All tables" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active tables only</SelectItem>
-                  <SelectItem value="inactive">Inactive tables only</SelectItem>
-                  <SelectItem value="all">All tables</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Table</TableHead>
-                  <TableHead>Zone</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Party size</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Seating</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading || isFetching ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Loading tables…</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : filteredTables.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                      {tables.length === 0
-                        ? 'No tables configured yet. Add your first table to get started.'
-                        : 'No tables match this filter. Try showing all zones or tables.'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTables.map((table) => (
-                    <TableRow key={table.id} className={table.zoneActive ? undefined : 'bg-muted/60'}>
-                      <TableCell className="font-medium">
-                        <span>{table.tableNumber}</span>
-                      </TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        <span>{table.zoneName ?? '—'}</span>
-                        {table.zoneActive === false && <Badge variant="secondary">Zone off</Badge>}
-                      </TableCell>
-                      <TableCell>{table.capacity}</TableCell>
-                      <TableCell>
-                        {table.minPartySize}
-                        {table.maxPartySize ? `–${table.maxPartySize}` : '+'}
-                      </TableCell>
-                      <TableCell className="capitalize">{table.category}</TableCell>
-                      <TableCell className="capitalize">
-                        {table.seatingType.replace('_', ' ')}
-                        <span className="text-muted-foreground"> · {table.mobility}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
-                          {table.status.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {table.active && table.zoneActive !== false ? (
-                          <Badge variant="outline">Active</Badge>
-                        ) : table.active ? (
-                          <Badge variant="secondary">Blocked by zone</Badge>
-                        ) : (
-                          <Badge variant="secondary">Inactive</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+            {isLoadingZones ? (
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-9 w-32" />
+                <Skeleton className="h-9 w-28" />
+                <Skeleton className="h-9 w-24" />
+              </div>
+            ) : isZonesError ? (
+              <Alert variant="destructive">
+                <AlertTitle>Zones unavailable</AlertTitle>
+                <AlertDescription>
+                  {zonesError instanceof Error
+                    ? zonesError.message
+                    : 'Unable to load zones right now.'}
+                </AlertDescription>
+              </Alert>
+            ) : filteredZones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {zones.length === 0
+                  ? 'No zones configured yet. Create your first zone to start organizing tables.'
+                  : 'No zones match this filter. Show all to view inactive zones.'}
+              </p>
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {filteredZones.map((zone) => {
+                  const isActiveFilter = filterZone === zone.id;
+                  return (
+                    <li key={zone.id}>
+                      <div
+                        className={`flex flex-col gap-2 rounded-md border px-3 py-2 ${
+                          zone.active ? 'bg-background' : 'bg-muted/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={isActiveFilter ? 'default' : 'ghost'}
+                              onClick={() =>
+                                setFilterZone(isActiveFilter ? ALL_ZONES_VALUE : zone.id)
+                              }
+                            >
+                              {zone.name}
+                            </Button>
+                            <Badge variant={zone.active ? 'outline' : 'secondary'}>
+                              {zone.active ? 'Active' : 'Inactive'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              #{zone.sortOrder ?? 0}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={zone.active}
+                              onCheckedChange={(checked) =>
+                                zoneUpdateMutation.mutate({ zoneId: zone.id, active: checked })
+                              }
+                              aria-label={`Toggle ${zone.name} zone availability`}
+                              disabled={zoneUpdateMutation.isPending}
+                            />
+                            <span className="hidden text-xs text-muted-foreground md:inline">
+                              Seasonal toggle
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {zone.active
+                            ? 'Included in capacity and assignments.'
+                            : 'Tables stay visible but are excluded from service until re-enabled.'}
+                        </p>
+                        <div className="flex items-center gap-1">
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => {
-                              setEditingTable(table);
-                              setIsDialogOpen(true);
+                              setEditingZone(zone);
+                              setIsZoneDialogOpen(true);
                             }}
+                            aria-label={`Edit zone ${zone.name}`}
                           >
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit table</span>
+                            <Edit aria-hidden />
                           </Button>
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            disabled={!canDeleteTables || deleteMutation.isPending}
-                            onClick={() => {
-                              if (confirm(`Delete table ${table.tableNumber}? This action cannot be undone.`)) {
-                                deleteMutation.mutate({ tableId: table.id });
-                              }
-                            }}
+                            size="icon"
+                            disabled={zoneDeleteMutation.isPending}
+                            onClick={() => handleZoneDelete(zone)}
+                            aria-label={`Delete zone ${zone.name}`}
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                            <span className="sr-only">Delete table</span>
+                            <Trash2 className="text-destructive" aria-hidden />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </SettingsCard>
         </div>
-      </SettingsCard>
 
-      {/* REVISION: The Dialog now renders the stateful TableForm component */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <TableForm
-            table={editingTable}
-            zones={zoneOptions}
-            isZonesLoading={isLoadingZones}
-            onClose={() => setIsDialogOpen(false)}
-            onSubmit={handleTableSubmit}
-            isSaving={createMutation.isPending || updateMutation.isPending}
-          />
-        </DialogContent>
-      </Dialog>
+        {/* ... (Filter and Add Table section remains the same) ... */}
+        <div
+          id="table-inventory"
+          hidden={activeWorkspace !== 'inventory'}
+          className={cn('scroll-mt-28', activeWorkspace !== 'inventory' && 'hidden')}
+        >
+          <SettingsCard
+            title="Table inventory"
+            description="Tables tell the booking system how many guests you can seat."
+            headerAction={
+              <Button
+                size="sm"
+                onClick={() => {
+                  openNewTableDialog();
+                }}
+                disabled={isZoneSelectDisabled && !isLoadingZones}
+              >
+                <Plus data-icon="inline-start" aria-hidden />
+                Add table
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-4">
+              <div
+                className={cn(
+                  SETTINGS_COMPACT_FILTER_BAR_CLASS,
+                  'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="table-zone-filter" className="text-sm">
+                    Filter by Zone
+                  </Label>
+                  <Select value={filterZone} onValueChange={setFilterZone}>
+                    <SelectTrigger id="table-zone-filter" className="w-full md:w-[220px]">
+                      <SelectValue placeholder="All zones" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_ZONES_VALUE}>All zones</SelectItem>
+                      {zoneOptions.map((zone) => (
+                        <SelectItem key={zone.id} value={zone.id}>
+                          {zone.name}
+                          {zone.active ? '' : ' (inactive)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-      {/* ... (Zone dialog remains the same) ... */}
-      <Dialog
-        open={isZoneDialogOpen}
-        onOpenChange={(open) => {
-          setIsZoneDialogOpen(open);
-          if (!open) {
-            setEditingZone(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <form onSubmit={handleZoneSubmit} className="space-y-5">
-            <DialogHeader>
-              <DialogTitle>{editingZone ? 'Edit zone' : 'Add zone'}</DialogTitle>
-              <DialogDescription>Zones help segment your dining room into manageable sections.</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="zoneName">Zone name *</Label>
-                <Input
-                  id="zoneName"
-                  name="zoneName"
-                  defaultValue={editingZone?.name ?? ''}
-                  placeholder="e.g. Main Dining"
-                  required
-                />
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="table-status-filter" className="text-sm">
+                    Show
+                  </Label>
+                  <Select
+                    value={tableStatusFilter}
+                    onValueChange={(value) => setTableStatusFilter(value as TableStatusFilter)}
+                  >
+                    <SelectTrigger id="table-status-filter" className="w-full md:w-[200px]">
+                      <SelectValue placeholder="All tables" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active tables only</SelectItem>
+                      <SelectItem value="inactive">Inactive tables only</SelectItem>
+                      <SelectItem value="all">All tables</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="zoneSortOrder">Sort order</Label>
-                <Input
-                  id="zoneSortOrder"
-                  name="sortOrder"
-                  type="number"
-                  defaultValue={editingZone?.sortOrder ?? 0}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Lower numbers appear first in the list. Defaults to 0.
-                </p>
+
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Table</TableHead>
+                      <TableHead>Zone</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Party size</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Seating</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Active</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading || isFetching ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="size-4 animate-spin" />
+                            <span>Loading tables…</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredTables.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                          {tables.length === 0
+                            ? 'Add your first tables. Start with table number and capacity; advanced details can come later.'
+                            : 'No tables match this filter. Try showing all zones or tables.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredTables.map((table) => (
+                        <TableRow
+                          key={table.id}
+                          className={table.zoneActive ? undefined : 'bg-muted/60'}
+                        >
+                          <TableCell className="font-medium">
+                            <span>{table.tableNumber}</span>
+                          </TableCell>
+                          <TableCell className="flex items-center gap-2">
+                            <span>{table.zoneName ?? '—'}</span>
+                            {table.zoneActive === false && (
+                              <Badge variant="secondary">Zone off</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{table.capacity}</TableCell>
+                          <TableCell>
+                            {table.minPartySize}
+                            {table.maxPartySize ? `–${table.maxPartySize}` : '+'}
+                          </TableCell>
+                          <TableCell className="capitalize">{table.category}</TableCell>
+                          <TableCell className="capitalize">
+                            {table.seatingType.replace('_', ' ')}
+                            <span className="text-muted-foreground"> · {table.mobility}</span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
+                              {table.status.replace('_', ' ')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {table.active && table.zoneActive !== false ? (
+                              <Badge variant="outline">Active</Badge>
+                            ) : table.active ? (
+                              <Badge variant="secondary">Blocked by zone</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inactive</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingTable(table);
+                                  setIsDialogOpen(true);
+                                }}
+                              >
+                                <Edit data-icon="inline-start" aria-hidden />
+                                <span className="sr-only">Edit table</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={!canDeleteTables || deleteMutation.isPending}
+                                onClick={() => {
+                                  if (
+                                    confirm(
+                                      `Delete table ${table.tableNumber}? This action cannot be undone.`,
+                                    )
+                                  ) {
+                                    deleteMutation.mutate({ tableId: table.id });
+                                  }
+                                }}
+                              >
+                                <Trash2
+                                  data-icon="inline-start"
+                                  className="text-destructive"
+                                  aria-hidden
+                                />
+                                <span className="sr-only">Delete table</span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </div>
+          </SettingsCard>
+        </div>
 
-            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setIsZoneDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={zoneCreateMutation.isPending || zoneUpdateMutation.isPending}
-              >
-                {zoneCreateMutation.isPending || zoneUpdateMutation.isPending ? 'Saving…' : 'Save zone'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+        {/* REVISION: The Dialog now renders the stateful TableForm component */}
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <TableForm
+              table={editingTable}
+              zones={zoneOptions}
+              isZonesLoading={isLoadingZones}
+              onClose={() => setIsDialogOpen(false)}
+              onSubmit={handleTableSubmit}
+              isSaving={createMutation.isPending || updateMutation.isPending}
+              isFirstTable={!editingTable && tables.length === 0}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* ... (Zone dialog remains the same) ... */}
+        <Dialog
+          open={isZoneDialogOpen}
+          onOpenChange={(open) => {
+            setIsZoneDialogOpen(open);
+            if (!open) {
+              setEditingZone(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <FormRoot onSubmit={handleZoneSubmit} className="flex flex-col gap-5">
+              <DialogHeader>
+                <DialogTitle>{editingZone ? 'Edit zone' : 'Add zone'}</DialogTitle>
+                <DialogDescription>
+                  Zones help segment your dining room into manageable sections.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3">
+                <div className="grid gap-2">
+                  <Label htmlFor="zoneName">Zone name *</Label>
+                  <Input
+                    id="zoneName"
+                    name="zoneName"
+                    defaultValue={editingZone?.name ?? ''}
+                    placeholder="e.g. Main Dining"
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="zoneSortOrder">Sort order</Label>
+                  <Input
+                    id="zoneSortOrder"
+                    name="sortOrder"
+                    type="number"
+                    defaultValue={editingZone?.sortOrder ?? 0}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lower numbers appear first in the list. Defaults to 0.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsZoneDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={zoneCreateMutation.isPending || zoneUpdateMutation.isPending}
+                >
+                  {zoneCreateMutation.isPending || zoneUpdateMutation.isPending
+                    ? 'Saving…'
+                    : 'Save zone'}
+                </Button>
+              </DialogFooter>
+            </FormRoot>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </RestaurantSettingsCommandCenter>
   );
 }
 
@@ -1139,9 +1376,7 @@ function SummaryCard({
     <div className="rounded-lg border bg-card p-4 shadow-sm">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-      {description ? (
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-      ) : null}
+      {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
     </div>
   );
 }

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Check,
-  Loader2,
-  LogIn,
-  LogOut,
-  MoreHorizontal,
-} from 'lucide-react';
+import { Check, Loader2, LogIn, LogOut, MoreHorizontal } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 
 import {
@@ -67,13 +61,14 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   }, [actions.bookingId, onMarkNoShow]);
 
   return (
-    <div className="px-4 pb-4">
-      <div className="flex flex-wrap items-center justify-between gap-y-3 border-t border-border/60 pt-3">
+    <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+      <div className="flex flex-col gap-2 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        {/* ── Utility row: Details + overflow menu ──────────────────── */}
         <div className="flex items-center gap-1">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="h-11 px-4 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
+            className="h-9 px-3 text-xs font-medium text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30 hover:text-foreground sm:h-8"
             onClick={onDetails}
             disabled={actions.details.disabled}
           >
@@ -84,16 +79,16 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-11 w-11 p-0 focus-visible:ring-2 focus-visible:ring-ring sm:h-8 sm:w-8"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30 hover:text-foreground sm:h-8 sm:w-8"
                 aria-label="More actions"
                 disabled={disableMenuTrigger}
               >
-                <MoreHorizontal className="h-4 w-4" aria-hidden />
+                <MoreHorizontal className="size-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Manage
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -119,17 +114,19 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           </DropdownMenu>
         </div>
 
-        <div>
+        {/* ── Primary CTA ───────────────────────────────────────────── */}
+        <div className="sm:ml-auto">
           {primaryButton ? (
             <Button
               size="sm"
               disabled={primaryButton.disabled}
               className={cn(
-                'h-11 min-w-[120px] px-6 font-semibold text-white shadow-sm transition-[box-shadow,background-color] duration-150 ease-out hover:shadow-sm motion-reduce:transition-none sm:h-9',
+                'h-9 w-full px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out motion-reduce:transition-none sm:w-auto sm:min-w-[140px]',
                 primaryButton.id === 'check-out'
-                  ? 'bg-slate-700 hover:bg-slate-800'
-                  : 'bg-emerald-600 hover:bg-emerald-700',
+                  ? 'border border-success/30 bg-transparent text-success hover:bg-success/10'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
               )}
+              variant={primaryButton.id === 'check-out' ? 'outline' : 'default'}
               onClick={() =>
                 primaryButton.id === 'check-out'
                   ? onCheckOut?.(actions.bookingId)
@@ -138,24 +135,24 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             >
               {primaryButton.pending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> Updating…
+                  <Loader2 className="mr-2 size-4 animate-spin" aria-hidden /> Updating…
                 </>
               ) : primaryButton.id === 'check-out' ? (
                 <>
-                  <LogOut className="mr-2 h-4 w-4" aria-hidden /> Finish
+                  <LogOut className="mr-2 size-4" aria-hidden /> Finish
                 </>
               ) : (
                 <>
-                  <LogIn className="mr-2 h-4 w-4" aria-hidden /> Seat Guest
+                  <LogIn className="mr-2 size-4" aria-hidden /> Seat Guest
                 </>
               )}
             </Button>
           ) : (
             <div
-              className="flex items-center gap-1.5 px-3 text-xs font-bold text-slate-400"
+              className="flex items-center gap-1.5 px-3 text-xs font-bold text-muted-foreground"
               role="status"
             >
-              <Check className="h-4 w-4 text-emerald-500" aria-hidden />
+              <Check className="size-4 text-primary" aria-hidden />
               {actions.primary.label}
             </div>
           )}
@@ -167,12 +164,11 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           <AlertDialogHeader>
             <AlertDialogTitle>{actions.noShowConfirmation.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              You’re about to mark{' '}
+              You&apos;re about to mark{' '}
               <span className="font-semibold text-foreground">
                 {actions.noShowConfirmation.description.customerLabel}
               </span>{' '}
-              as a no-show for{' '}
-              <span className="font-semibold text-foreground">{partySize}</span>{' '}
+              as a no-show for <span className="font-semibold text-foreground">{partySize}</span>{' '}
               cover{partySize === 1 ? '' : 's'} on{' '}
               <span className="font-semibold text-foreground">
                 {actions.noShowConfirmation.description.dateLabel} ·{' '}
@@ -187,7 +183,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleConfirmNoShow()}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="bg-destructive/10 text-destructive hover:bg-destructive/10"
               disabled={actions.noShowConfirmation.disabled || isNoShowPending}
             >
               {isNoShowPending ? 'Marking…' : actions.noShowConfirmation.confirmLabel}

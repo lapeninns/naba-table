@@ -1,18 +1,12 @@
-import { invalidateRestaurantCapacityCaches } from "@/server/ops/capacity-cache";
+import { invalidateRestaurantCapacityCaches } from '@/server/ops/capacity-cache';
 
-import type {
-  Database,
-  Tables,
-  TablesInsert,
-  TablesUpdate,
-} from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
+import type { Database, Tables, TablesInsert, TablesUpdate } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type PublicClient = SupabaseClient<Database>;
 
-export type TableRow = Tables<"table_inventory">;
-export type ZoneRow = Pick<Tables<"zones">, "id" | "name" | "active">;
+export type TableRow = Tables<'table_inventory'>;
+export type ZoneRow = Pick<Tables<'zones'>, 'id' | 'name' | 'active' | 'sort_order'>;
 export type TableRecord = TableRow & {
   zone?: ZoneRow | null;
 };
@@ -22,16 +16,16 @@ type RawTableRecord = TableRow & {
 
 export type TableListFilters = {
   section?: string | null;
-  status?: TableRow["status"] | null;
+  status?: TableRow['status'] | null;
   zoneId?: string | null;
 };
 
-const SERVICE_CAPACITY_KEYS = ["lunch", "dinner"] as const;
+const SERVICE_CAPACITY_KEYS = ['lunch', 'dinner'] as const;
 type ServiceCapacityKey = (typeof SERVICE_CAPACITY_KEYS)[number];
 
 const SERVICE_LABELS: Record<ServiceCapacityKey, string> = {
-  lunch: "Lunch service",
-  dinner: "Dinner service",
+  lunch: 'Lunch service',
+  dinner: 'Dinner service',
 };
 
 type ServiceWindowMinutes = {
@@ -81,7 +75,7 @@ export type TableSummary = {
   serviceCapacities: ServiceCapacitySummary[];
 };
 
-function normalizeZone(zone: RawTableRecord["zone"]): ZoneRow | null {
+function normalizeZone(zone: RawTableRecord['zone']): ZoneRow | null {
   if (!zone) {
     return null;
   }
@@ -96,6 +90,7 @@ function normalizeZone(zone: RawTableRecord["zone"]): ZoneRow | null {
     id: normalized.id,
     name: normalized.name,
     active: normalized.active ?? true,
+    sort_order: normalized.sort_order ?? 0,
   };
 }
 
@@ -130,7 +125,8 @@ const TABLE_SELECT = `
   zone:zones (
     id,
     name,
-    active
+    active,
+    sort_order
   )
 `;
 
@@ -151,7 +147,10 @@ function toMinutes(value: string | null | undefined): number | null {
   return hours * 60 + minutes + Math.floor(seconds / 60);
 }
 
-function windowMinutes(start: string | null | undefined, end: string | null | undefined): number | null {
+function windowMinutes(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): number | null {
   const startMinutes = toMinutes(start);
   const endMinutes = toMinutes(end);
   if (startMinutes === null || endMinutes === null) {
@@ -198,10 +197,10 @@ function derivePolicyWindows(policy: ServicePolicyRow | null): ServiceWindowMinu
   const dinner = windowMinutes(policy.dinner_start, policy.dinner_end);
   const result: ServiceWindowMinutes[] = [];
   if (lunch && lunch > 0) {
-    result.push({ key: "lunch", minutes: lunch });
+    result.push({ key: 'lunch', minutes: lunch });
   }
   if (dinner && dinner > 0) {
-    result.push({ key: "dinner", minutes: dinner });
+    result.push({ key: 'dinner', minutes: dinner });
   }
   return result;
 }
@@ -254,9 +253,9 @@ async function loadRestaurantTimingConfig(
   restaurantId: string,
 ): Promise<RestaurantTimingConfig> {
   const { data, error } = await client
-    .from("restaurants")
-    .select("reservation_default_duration_minutes, reservation_interval_minutes")
-    .eq("id", restaurantId)
+    .from('restaurants')
+    .select('reservation_default_duration_minutes, reservation_interval_minutes')
+    .eq('id', restaurantId)
     .maybeSingle();
 
   if (error) {
@@ -279,8 +278,8 @@ async function loadRestaurantTimingConfig(
 
 async function loadServicePolicy(client: PublicClient): Promise<ServicePolicyRow | null> {
   const { data, error } = await client
-    .from("service_policy")
-    .select("lunch_start, lunch_end, dinner_start, dinner_end, clean_buffer_minutes")
+    .from('service_policy')
+    .select('lunch_start, lunch_end, dinner_start, dinner_end, clean_buffer_minutes')
     .limit(1)
     .maybeSingle();
 
@@ -296,10 +295,10 @@ async function loadServicePeriods(
   restaurantId: string,
 ): Promise<ServicePeriodRow[]> {
   const { data, error } = await client
-    .from("restaurant_service_periods")
-    .select("booking_option, start_time, end_time")
-    .eq("restaurant_id", restaurantId)
-    .in("booking_option", Array.from(SERVICE_CAPACITY_KEYS));
+    .from('restaurant_service_periods')
+    .select('booking_option, start_time, end_time')
+    .eq('restaurant_id', restaurantId)
+    .in('booking_option', Array.from(SERVICE_CAPACITY_KEYS));
 
   if (error) {
     throw error;
@@ -315,11 +314,15 @@ async function computeSummary(
   zones: ZoneRow[],
 ): Promise<TableSummary> {
   const activeZoneIds = new Set(zones.filter((zone) => zone.active ?? true).map((zone) => zone.id));
-  const tablesInActiveZones = tables.filter((table) => !table.zone || activeZoneIds.has(table.zone.id));
+  const tablesInActiveZones = tables.filter(
+    (table) => !table.zone || activeZoneIds.has(table.zone.id),
+  );
 
   const totalTables = tablesInActiveZones.length;
   const totalCapacity = tablesInActiveZones.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
-  const availableTables = tablesInActiveZones.filter((table) => table.status === "available").length;
+  const availableTables = tablesInActiveZones.filter(
+    (table) => table.status === 'available',
+  ).length;
 
   if (totalTables === 0) {
     return {
@@ -332,9 +335,12 @@ async function computeSummary(
   }
 
   const eligibleTables = tablesInActiveZones.filter(
-    (table) => table.active && table.capacity > 0 && table.status !== "out_of_service",
+    (table) => table.active && table.capacity > 0 && table.status !== 'out_of_service',
   );
-  const seatsPerTurn = eligibleTables.reduce((sum, table) => sum + Math.max(table.capacity ?? 0, 0), 0);
+  const seatsPerTurn = eligibleTables.reduce(
+    (sum, table) => sum + Math.max(table.capacity ?? 0, 0),
+    0,
+  );
 
   if (eligibleTables.length === 0 || seatsPerTurn === 0) {
     return {
@@ -436,19 +442,19 @@ export async function listTables(
   filters: TableListFilters = {},
 ): Promise<TableRecord[]> {
   let tableQuery = client
-    .from("table_inventory")
+    .from('table_inventory')
     .select(TABLE_SELECT)
-    .eq("restaurant_id", restaurantId)
-    .order("table_number", { ascending: true });
+    .eq('restaurant_id', restaurantId)
+    .order('table_number', { ascending: true });
 
   if (filters.section) {
-    tableQuery = tableQuery.eq("section", filters.section);
+    tableQuery = tableQuery.eq('section', filters.section);
   }
   if (filters.status) {
-    tableQuery = tableQuery.eq("status", filters.status);
+    tableQuery = tableQuery.eq('status', filters.status);
   }
   if (filters.zoneId) {
-    tableQuery = tableQuery.eq("zone_id", filters.zoneId);
+    tableQuery = tableQuery.eq('zone_id', filters.zoneId);
   }
 
   const tablesResult = await tableQuery;
@@ -462,11 +468,11 @@ export async function listTables(
 
 export async function listZones(client: PublicClient, restaurantId: string): Promise<ZoneRow[]> {
   const zonesQuery = client
-    .from("zones")
-    .select("id, name, active")
-    .eq("restaurant_id", restaurantId)
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
+    .from('zones')
+    .select('id, name, active, sort_order')
+    .eq('restaurant_id', restaurantId)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
 
   const zonesResult = await zonesQuery;
 
@@ -478,6 +484,7 @@ export async function listZones(client: PublicClient, restaurantId: string): Pro
     id: zone.id,
     name: zone.name,
     active: zone.active ?? true,
+    sort_order: zone.sort_order ?? 0,
   })) as ZoneRow[];
 }
 
@@ -487,10 +494,10 @@ export async function findTableByNumber(
   tableNumber: string,
 ): Promise<TableRow | null> {
   const { data, error } = await client
-    .from("table_inventory")
-    .select("*")
-    .eq("restaurant_id", restaurantId)
-    .eq("table_number", tableNumber)
+    .from('table_inventory')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('table_number', tableNumber)
     .maybeSingle();
 
   if (error) {
@@ -500,8 +507,15 @@ export async function findTableByNumber(
   return data ?? null;
 }
 
-export async function fetchTableById(client: PublicClient, tableId: string): Promise<TableRow | null> {
-  const { data, error } = await client.from("table_inventory").select("*").eq("id", tableId).maybeSingle();
+export async function fetchTableById(
+  client: PublicClient,
+  tableId: string,
+): Promise<TableRow | null> {
+  const { data, error } = await client
+    .from('table_inventory')
+    .select('*')
+    .eq('id', tableId)
+    .maybeSingle();
 
   if (error) {
     throw error;
@@ -512,10 +526,10 @@ export async function fetchTableById(client: PublicClient, tableId: string): Pro
 
 export async function insertTable(
   client: PublicClient,
-  payload: TablesInsert<"table_inventory">,
+  payload: TablesInsert<'table_inventory'>,
 ): Promise<TableRecord> {
   const { data, error } = await client
-    .from("table_inventory")
+    .from('table_inventory')
     .insert(payload)
     .select(TABLE_SELECT)
     .single();
@@ -532,12 +546,12 @@ export async function insertTable(
 export async function updateTable(
   client: PublicClient,
   tableId: string,
-  payload: TablesUpdate<"table_inventory">,
+  payload: TablesUpdate<'table_inventory'>,
 ): Promise<TableRecord> {
   const { data, error } = await client
-    .from("table_inventory")
+    .from('table_inventory')
     .update(payload)
-    .eq("id", tableId)
+    .eq('id', tableId)
     .select(TABLE_SELECT)
     .single();
 
@@ -552,10 +566,10 @@ export async function updateTable(
 
 export async function deleteTable(client: PublicClient, tableId: string): Promise<void> {
   const { data, error } = await client
-    .from("table_inventory")
+    .from('table_inventory')
     .delete()
-    .eq("id", tableId)
-    .select("restaurant_id")
+    .eq('id', tableId)
+    .select('restaurant_id')
     .single();
   if (error) {
     throw error;

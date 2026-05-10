@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 
 import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDetailsDialog';
-import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
+import { useOpsBookingDialogBundle } from '@/hooks/ops/useOpsBookingDialogBundle';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
@@ -97,13 +97,15 @@ export function BookingDetailsDialogWrapper({
   open,
   onOpenChange,
 }: BookingDetailsDialogWrapperProps) {
+  const activeBookingId = open ? bookingId : null;
   const {
-    data: fetchedBooking,
+    data: dialogBundle,
     isLoading,
     isError,
     error,
     refetch,
-  } = useOpsBooking(open ? bookingId : null);
+  } = useOpsBookingDialogBundle(activeBookingId);
+  const fetchedBooking = dialogBundle?.booking ?? null;
   const bookingSource = fetchedBooking ?? initialData ?? null;
   const showSkeleton = useMinimumDelay(isLoading && !bookingSource, {
     delayMs: 120,
@@ -168,15 +170,22 @@ export function BookingDetailsDialogWrapper({
     };
   }, [booking?.status, summary]);
 
+  const refreshDialogBundle = async () => {
+    if (!activeBookingId) return;
+    await refetch();
+  };
+
   // Lifecycle handlers
   const handleCheckIn = async () => {
     if (!restaurantId || !bookingId) return;
     await checkIn.mutateAsync({ restaurantId, bookingId, targetDate: null });
+    await refreshDialogBundle();
   };
 
   const handleCheckOut = async () => {
     if (!restaurantId || !bookingId) return;
     await checkOut.mutateAsync({ restaurantId, bookingId, targetDate: null });
+    await refreshDialogBundle();
   };
 
   const handleMarkNoShow = async (options?: {
@@ -191,6 +200,7 @@ export function BookingDetailsDialogWrapper({
       performedAt: options?.performedAt ?? null,
       reason: options?.reason ?? null,
     });
+    await refreshDialogBundle();
   };
 
   const handleUndoNoShow = async (reason?: string | null) => {
@@ -201,6 +211,7 @@ export function BookingDetailsDialogWrapper({
       targetDate: null,
       reason: reason ?? null,
     });
+    await refreshDialogBundle();
   };
 
   // Determine lifecycle pending state
@@ -230,6 +241,7 @@ export function BookingDetailsDialogWrapper({
       restaurantId,
       targetDate: summary?.date ?? null,
     });
+    await refreshDialogBundle();
   };
 
   if (!open) return null;
@@ -245,9 +257,15 @@ export function BookingDetailsDialogWrapper({
       onMarkNoShow={handleMarkNoShow}
       onUndoNoShow={handleUndoNoShow}
       onCancel={handleCancel}
+      onDataRefresh={refreshDialogBundle}
       pendingLifecycleAction={pendingLifecycleAction}
       cancelPending={cancelBooking.isPending}
       allowTableAssignments={allowTableAssignments}
+      // The bundle hook seeds the assignment-context cache. Keep the legacy
+      // assignment hook network-disabled so opening the dialog stays one
+      // round-trip.
+      tableAssignmentQueryEnabled={false}
+      tableAssignmentRealtime={false}
       // Pass controlled props
       open={open}
       onOpenChange={onOpenChange}

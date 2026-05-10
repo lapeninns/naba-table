@@ -36,6 +36,7 @@ type GetCustomersOptions = {
   maxPageSize?: number;
   includeSummary?: boolean;
   now?: Date;
+  maxRows?: number;
 };
 
 type GetCustomersResult = {
@@ -51,7 +52,14 @@ type GetAllCustomersOptions = GetCustomersOptions;
 
 type CustomerIdentityRow = Pick<
   Tables<'customers'>,
-  'id' | 'restaurant_id' | 'full_name' | 'email' | 'phone' | 'marketing_opt_in' | 'created_at' | 'updated_at'
+  | 'id'
+  | 'restaurant_id'
+  | 'full_name'
+  | 'email'
+  | 'phone'
+  | 'marketing_opt_in'
+  | 'created_at'
+  | 'updated_at'
 >;
 
 type BookingHistoryRow = Pick<
@@ -73,7 +81,10 @@ function normalizePage(page: number | undefined): number {
   return Math.max(1, page ?? 1);
 }
 
-function normalizePageSize(requestedPageSize: number | undefined, maxPageSize: number | undefined): number {
+function normalizePageSize(
+  requestedPageSize: number | undefined,
+  maxPageSize: number | undefined,
+): number {
   const requested = requestedPageSize ?? 10;
   const maximum = Math.max(1, maxPageSize ?? 50);
   return Math.min(requested, maximum);
@@ -144,7 +155,9 @@ function emptyCustomersSummary(): OpsCustomersSummary {
   };
 }
 
-function mapCustomerHistorySummaryRow(row: CustomerHistorySummaryRow | null | undefined): OpsCustomersSummary {
+function mapCustomerHistorySummaryRow(
+  row: CustomerHistorySummaryRow | null | undefined,
+): OpsCustomersSummary {
   if (!row) {
     return emptyCustomersSummary();
   }
@@ -179,9 +192,7 @@ function buildCustomerIdentityQuery(
 ) {
   let query = client
     .from('customers')
-    .select(
-      'id, restaurant_id, full_name, email, phone, marketing_opt_in, created_at, updated_at',
-    )
+    .select('id, restaurant_id, full_name, email, phone, marketing_opt_in, created_at, updated_at')
     .eq('restaurant_id', restaurantId);
 
   if (options.marketingOptIn === 'opted_in') {
@@ -476,8 +487,9 @@ export async function getAllCustomersWithHistory(
   const customers: CustomerGuestRecord[] = [];
   let page = 1;
   let hasNext = true;
+  const maxRows = Math.max(1, options.maxRows ?? 5000);
 
-  while (hasNext) {
+  while (hasNext && customers.length < maxRows) {
     const result = await getCustomersWithHistory({
       ...options,
       page,
@@ -486,7 +498,7 @@ export async function getAllCustomersWithHistory(
       includeSummary: false,
     });
 
-    customers.push(...result.customers);
+    customers.push(...result.customers.slice(0, maxRows - customers.length));
     hasNext = result.hasNext && result.customers.length > 0;
     page += 1;
   }

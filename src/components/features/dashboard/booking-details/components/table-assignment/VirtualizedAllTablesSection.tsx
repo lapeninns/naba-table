@@ -36,9 +36,9 @@ type Row =
   | { kind: 'header'; section: string; conflictCount: number; tableCount: number }
   | { kind: 'tables'; tables: ManualAssignmentTable[]; startIndex: number };
 
-const ROW_ESTIMATE = 140;
+const ROW_ESTIMATE = 160;
 const HEADER_ESTIMATE = 34;
-const GRID_CLASS = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2';
+const GRID_CLASS = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3';
 
 function resolveColumnCount(el: HTMLElement | null): number {
   if (!el) return 1;
@@ -93,7 +93,9 @@ export function VirtualizedAllTablesSection({
     let rowIndex = 0;
 
     groupedTables.forEach((sectionTables, section) => {
-      const conflictCount = sectionTables.filter((table) => conflictedTableIds.has(table.id)).length;
+      const conflictCount = sectionTables.filter((table) =>
+        conflictedTableIds.has(table.id),
+      ).length;
       nextRows.push({
         kind: 'header',
         section,
@@ -212,11 +214,11 @@ export function VirtualizedAllTablesSection({
 
   if (totalCount === 0) {
     return (
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
+      <section className="space-y-3 rounded-xl border border-border/70 bg-background p-3.5 sm:p-4">
+        <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
           <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
-            <span className="text-sm font-semibold text-foreground">All tables</span>
+            <MapPin className="size-4 text-muted-foreground" aria-hidden />
+            <span className="text-sm font-semibold text-foreground">Full Inventory</span>
           </div>
           <span className="text-xs text-muted-foreground">0 tables</span>
         </div>
@@ -230,16 +232,16 @@ export function VirtualizedAllTablesSection({
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
+    <section className="space-y-3 rounded-xl border border-border/70 bg-background p-3.5 sm:p-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm font-semibold text-foreground">All tables</span>
+          <MapPin className="size-4 text-muted-foreground" aria-hidden />
+          <span className="text-sm font-semibold text-foreground">Full Inventory</span>
         </div>
         <span className="text-xs text-muted-foreground">{totalCount} tables</span>
       </div>
 
-      <ScrollArea className="h-[320px] pr-2" viewportRef={viewportRef}>
+      <ScrollArea className="h-[320px] pr-2 sm:h-[360px]" viewportRef={viewportRef}>
         <div ref={columnProbeRef} className={cn(GRID_CLASS, 'invisible h-0 w-full')} aria-hidden />
         <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
           {virtualRows.map((row) => {
@@ -265,9 +267,9 @@ export function VirtualizedAllTablesSection({
                     {item.conflictCount > 0 ? (
                       <Badge
                         variant="outline"
-                        className="gap-1 border-amber-300 bg-amber-50 text-amber-800"
+                        className="gap-1 border-primary/30 bg-primary/10 text-primary"
                       >
-                        <Clock className="h-3 w-3" aria-hidden />
+                        <Clock className="size-3" aria-hidden />
                         {item.conflictCount} conflict{item.conflictCount > 1 ? 's' : ''}
                       </Badge>
                     ) : null}

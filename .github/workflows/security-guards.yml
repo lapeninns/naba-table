@@ -1,0 +1,56 @@
+name: Security guards
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/security-guards.yml'
+      - 'config/env.schema.ts'
+      - 'docs/security/**'
+      - 'lib/api/**'
+      - 'lib/auth/**'
+      - 'lib/export/**'
+      - 'lib/security/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'scripts/security/**'
+      - 'server/**'
+      - 'src/app/api/**'
+      - 'src/app/**/route.ts'
+      - 'src/app/**/middleware.ts'
+      - 'supabase/migrations/**'
+      - 'tests/lib/security/**'
+      - 'tests/server/**'
+      - 'tests/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  service-role-routes:
+    name: Service-role route authorization
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check service-role route guards
+        run: pnpm run security:guard:service-role
+
+      - name: Run security regression pack
+        run: pnpm run security:regression

@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
+import { GuestPanel, GuestPanelHeader } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -10,18 +10,38 @@ import type { ElementType, ReactNode } from 'react';
 
 type StatusTone = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
-const toneClasses: Record<StatusTone, { badge: string; text: string }> = {
-  default: { badge: 'bg-muted text-foreground', text: 'text-muted-foreground' },
-  success: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-100', text: 'text-emerald-600' },
-  warning: { badge: 'bg-amber-50 text-amber-700 border-amber-100', text: 'text-amber-600' },
-  danger: { badge: 'bg-red-50 text-red-700 border-red-100', text: 'text-red-600' },
-  info: { badge: 'bg-blue-50 text-blue-700 border-blue-100', text: 'text-blue-600' },
+const toneClasses: Record<StatusTone, { badge: string; text: string; icon: string }> = {
+  default: {
+    badge: 'border-border bg-muted text-foreground',
+    text: 'text-muted-foreground',
+    icon: 'bg-muted text-muted-foreground',
+  },
+  success: {
+    badge: 'border-primary/20 bg-primary/10 text-primary',
+    text: 'text-primary',
+    icon: 'bg-primary/10 text-primary',
+  },
+  warning: {
+    badge: 'border-border bg-muted text-foreground',
+    text: 'text-foreground',
+    icon: 'bg-muted text-foreground',
+  },
+  danger: {
+    badge: 'pg-danger-badge',
+    text: 'pg-danger-text',
+    icon: 'pg-danger-icon',
+  },
+  info: {
+    badge: 'border-primary/20 bg-primary/10 text-primary',
+    text: 'text-primary',
+    icon: 'bg-primary/10 text-primary',
+  },
 };
 
 export function BookingDetailShell({ children }: { children: ReactNode }) {
   return (
-    <section className="min-h-screen bg-surface-warm py-8 sm:py-10 pb-20">
-      <div className="mx-auto w-full max-w-5xl space-y-6 sm:space-y-8 px-6">{children}</div>
+    <section className="pg-page pb-20">
+      <div className="pg-container space-y-6 py-6 sm:space-y-8 sm:py-8 lg:py-10">{children}</div>
     </section>
   );
 }
@@ -42,26 +62,23 @@ export function BookingMessageShell({
   const palette = toneClasses[tone];
 
   return (
-    <section className="bg-surface-warm px-5 py-10 sm:px-8 sm:py-14 lg:px-10">
-      <div className="mx-auto w-full max-w-2xl">
-        <Card
-          variant="featured"
-          className="animate-fade-in-up space-y-6 border border-border/60 bg-background/95 p-6 text-center shadow-sm sm:p-8"
-        >
+    <section className="pg-section-tight pg-page">
+      <div className="pg-container-sm">
+        <GuestPanel className="pg-appear space-y-6 p-6 text-center sm:p-8">
           <div
             className={cn(
               'mx-auto flex h-16 w-16 items-center justify-center rounded-full border',
               palette.badge,
             )}
           >
-            <Icon className="h-7 w-7" aria-hidden />
+            <Icon className="size-7" aria-hidden />
           </div>
           <div className="space-y-3">
-            <h1 className="heading-hero">{title}</h1>
-            <p className="text-body-warm mx-auto max-w-xl">{description}</p>
+            <h1 className="pg-hero-title">{title}</h1>
+            <p className="pg-body mx-auto max-w-xl">{description}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">{actions}</div>
-        </Card>
+        </GuestPanel>
       </div>
     </section>
   );
@@ -87,47 +104,51 @@ export function BookingSummaryCard({
   const Icon = status.icon;
   const tone = toneClasses[status.tone ?? 'default'];
   return (
-    <Card
-      variant="featured"
-      className="space-y-6 p-6 sm:p-8 bg-surface-elevated animate-fade-in-up"
-    >
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
+    <GuestPanel className="pg-appear overflow-hidden">
+      <div className="grid gap-0 lg:grid-cols-[1fr_18rem]">
+        <div className="space-y-5 p-6 sm:p-8">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href={backHref}
-              className="inline-flex items-center justify-center rounded-full bg-muted p-2 text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors min-h-[44px] min-w-[44px]"
+              className="pg-focus-ring inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <span className="sr-only">Back</span>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
                 <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
               </svg>
             </Link>
             <Badge
               className={cn(
-                'rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider border',
+                'rounded-full border px-3 py-1 text-xs uppercase tracking-[0.12em]',
                 tone.badge,
               )}
             >
-              <Icon className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              <Icon className="mr-1.5 size-3.5" aria-hidden />
               {status.label}
             </Badge>
           </div>
 
-          <div>
-            <h1 className="heading-hero">{title}</h1>
-            {description ? <p className="mt-2 text-body-warm">{description}</p> : null}
+          <div className="space-y-2">
+            <p className="pg-kicker">Reservation summary</p>
+            <h1 className="pg-hero-title">{title}</h1>
+            {description ? <p className="pg-body max-w-[65ch]">{description}</p> : null}
           </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-            <span>REF:</span>
-            <span className="font-bold text-foreground">{reference}</span>
-          </div>
+          {offlineNotice}
         </div>
-        {actions ? <div className="flex flex-col gap-3 sm:flex-row pt-2">{actions}</div> : null}
+
+        <div className="flex flex-col justify-between gap-5 border-t border-border bg-muted/35 p-6 lg:border-l lg:border-t-0">
+          <div className="rounded-[var(--pg-radius-lg)] border border-border/80 bg-background p-4 text-center shadow-[var(--pg-shadow-xs)]">
+            <p className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              Reference
+            </p>
+            <p className="mt-1 break-all font-[var(--pg-font-mono)] text-xl font-semibold tracking-[0.18em] text-foreground">
+              {reference}
+            </p>
+          </div>
+          {actions}
+        </div>
       </div>
-      {offlineNotice}
-    </Card>
+    </GuestPanel>
   );
 }
 
@@ -143,18 +164,16 @@ export function DetailStatCard({
   subtext?: ReactNode;
 }) {
   return (
-    <Card variant="interactive" className="flex flex-col gap-3 p-5">
-      <div className="flex justify-between items-start">
-        <div className="p-2.5 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
-          <Icon className="w-5 h-5" />
-        </div>
+    <GuestPanel className="flex h-full flex-col gap-3 p-5">
+      <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Icon className="size-5" aria-hidden />
       </div>
       <div>
-        <div className="text-subtle text-xs font-bold uppercase tracking-wider mb-1">{label}</div>
-        <div className="heading-subsection">{value}</div>
-        {subtext ? <div className="text-sm text-subtle mt-0.5 font-medium">{subtext}</div> : null}
+        <p className="pg-kicker text-[0.68rem]">{label}</p>
+        <div className="mt-1 text-base font-semibold text-foreground">{value}</div>
+        {subtext ? <p className="pg-caption mt-1">{subtext}</p> : null}
       </div>
-    </Card>
+    </GuestPanel>
   );
 }
 
@@ -166,26 +185,24 @@ export function InfoPanel({
   rows: Array<{ icon: ElementType; label: string; value: ReactNode }>;
 }) {
   return (
-    <Card className="overflow-hidden rounded-3xl border border-border bg-background shadow-sm">
-      <div className="border-b border-border/50 bg-muted/50 px-6 py-4">
-        <h3 className="heading-subsection">{title}</h3>
-      </div>
-      <div className="divide-y divide-border/50">
+    <GuestPanel className="overflow-hidden">
+      <GuestPanelHeader title={title} />
+      <div className="divide-y divide-border/60">
         {rows.map((row, index) => (
-          <div key={`${row.label}-${index}`} className="flex items-center gap-4 px-6 py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-              <row.icon className="h-5 w-5" />
-            </div>
+          <div key={`${row.label}-${index}`} className="flex items-start gap-4 px-5 py-4 sm:px-6">
+            <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
+              <row.icon className="size-4" aria-hidden />
+            </span>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
-                {row.label}
-              </p>
-              <p className="heading-subsection truncate">{row.value}</p>
+              <p className="pg-kicker text-[0.68rem]">{row.label}</p>
+              <div className="break-words text-sm font-semibold text-foreground sm:text-base">
+                {row.value}
+              </div>
             </div>
           </div>
         ))}
       </div>
-    </Card>
+    </GuestPanel>
   );
 }
 
@@ -194,11 +211,7 @@ export function ActionButtonRow({ children }: { children: ReactNode }) {
 }
 
 export function BookingSidebarCard({ children }: { children: ReactNode }) {
-  return (
-    <Card className="rounded-3xl border border-border bg-background shadow-sm overflow-hidden">
-      {children}
-    </Card>
-  );
+  return <GuestPanel className="overflow-hidden">{children}</GuestPanel>;
 }
 
 export function ManageBookingPanel({
@@ -212,8 +225,11 @@ export function ManageBookingPanel({
 }) {
   return (
     <BookingSidebarCard>
-      <div className="space-y-6 p-6">
-        <h3 className="heading-subsection">{title}</h3>
+      <div className="space-y-5 p-5 sm:p-6">
+        <div className="space-y-1">
+          <p className="pg-kicker">Booking actions</p>
+          <h3 className="pg-card-title">{title}</h3>
+        </div>
         {actions}
         {footer ? <Separator className="my-2" /> : null}
         {footer}
@@ -233,7 +249,7 @@ export function InlineAlert({
   return (
     <div
       className={cn(
-        'rounded-2xl border px-4 py-3 text-sm font-medium',
+        'rounded-[var(--pg-radius-md)] border px-4 py-3 text-sm font-medium',
         palette.badge,
         palette.text,
       )}
@@ -244,14 +260,14 @@ export function InlineAlert({
 }
 
 export function SummaryActions({ children }: { children: ReactNode }) {
-  return <div className="hidden items-center gap-3 md:flex">{children}</div>;
+  return <div className="flex flex-col gap-3">{children}</div>;
 }
 
 export function PrimaryButtonLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Button
       asChild
-      className="rounded-full bg-primary hover:bg-primary/90 text-white font-semibold px-6 min-h-[48px]"
+      className="pg-action pg-focus-ring pg-touch rounded-full bg-primary px-6 font-semibold text-primary-foreground hover:bg-primary/90"
     >
       <Link href={href}>{children}</Link>
     </Button>
@@ -270,7 +286,7 @@ export function SecondaryButton({
   return (
     <Button
       variant="outline"
-      className="min-h-[44px] w-full justify-center rounded-full border-border px-5 font-medium hover:bg-muted btn-tactile focus-ring touch-feedback sm:w-auto"
+      className="pg-action pg-focus-ring pg-touch w-full justify-center rounded-full border-border px-5 font-medium hover:bg-muted"
       onClick={onClick}
       disabled={disabled}
     >
@@ -291,7 +307,7 @@ export function GhostButton({
   return (
     <Button
       variant="ghost"
-      className="min-h-[44px] w-full justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground sm:w-auto"
+      className="pg-action pg-focus-ring pg-touch w-full justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
       onClick={onClick}
       disabled={disabled}
     >

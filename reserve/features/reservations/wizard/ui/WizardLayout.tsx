@@ -24,8 +24,8 @@ interface WizardLayoutProps {
 
 export function WizardLayout({
   heroRef,
-  stickyHeight: _stickyHeight = 0,
-  stickyVisible: _stickyVisible = false,
+  stickyHeight = 0,
+  stickyVisible = false,
   restaurantName,
   banner,
   children,
@@ -35,35 +35,48 @@ export function WizardLayout({
   contentClassName,
 }: WizardLayoutProps) {
   const Container = elementType === 'div' ? 'div' : 'main';
+  const footerOffset = stickyVisible ? stickyHeight : 0;
 
   return (
     <>
       <Container
+        style={{
+          paddingBottom: `calc(1.5rem + ${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+          scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+        }}
         className={cn(
           'w-full',
-          'bg-gradient-to-b from-blue-50/50 via-white to-white',
-          'px-4 pb-6 pt-4',
-          'sm:pt-5 sm:pb-8 md:px-6 lg:px-8',
+          'pg-page',
+          'px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
           'font-sans text-foreground',
           className,
         )}
       >
         <div
+          style={{
+            scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+          }}
           className={cn(
-            // Tighter max-width and reduced gaps
-            'mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6',
+            'mx-auto flex w-full max-w-6xl flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 p-[var(--pg-gutter)] shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5',
             contentClassName,
           )}
         >
           <span ref={heroRef} aria-hidden className="block h-px w-full" />
 
-          {/* Restaurant header */}
           {restaurantName && (
-            <header className="text-center">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground sm:text-sm">
-                Book at
-              </p>
-              <h1 className="text-xl font-bold text-foreground sm:text-2xl">{restaurantName}</h1>
+            <header className="pg-panel border-border/80 bg-background/90 px-4 py-4 text-center shadow-[var(--pg-shadow-edge)] sm:px-5">
+              <div className="mx-auto flex max-w-xl flex-col items-center gap-3">
+                <div className="space-y-1">
+                  <p className="pg-kicker text-[0.66rem]">Book at</p>
+                  <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                    {restaurantName}
+                  </h1>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <p className="pg-chip">Live availability</p>
+                  <p className="pg-chip">Instant confirmation</p>
+                </div>
+              </div>
             </header>
           )}
 

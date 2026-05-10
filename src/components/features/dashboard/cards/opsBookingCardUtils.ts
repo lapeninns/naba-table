@@ -274,7 +274,10 @@ export function getUrgencyBadge(
   return null;
 }
 
-function getTableDetails(tableLabel: string | null, isDone: boolean): OpsBookingCardDetailsViewModel['table'] {
+function getTableDetails(
+  tableLabel: string | null,
+  isDone: boolean,
+): OpsBookingCardDetailsViewModel['table'] {
   if (tableLabel) {
     return {
       state: 'assigned',

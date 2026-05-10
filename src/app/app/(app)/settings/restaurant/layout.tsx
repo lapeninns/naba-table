@@ -21,12 +21,5 @@ export default async function RestaurantSettingsLayout({ children }: { children:
     redirect(withRedirectedFrom('/app/auth/signin', '/app/settings/restaurant/profile'));
   }
 
-  return (
-    <RestaurantSettingsPageShell
-      title="Restaurant"
-      description="Configure the restaurant profile, operating hours, service periods, reservation durations, booking occasions, tables, and team access."
-    >
-      {children}
-    </RestaurantSettingsPageShell>
-  );
+  return <RestaurantSettingsPageShell>{children}</RestaurantSettingsPageShell>;
 }

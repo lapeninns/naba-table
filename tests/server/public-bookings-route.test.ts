@@ -153,6 +153,7 @@ vi.mock('@reserve/shared/validation', () => ({
 }));
 
 vi.mock('@/server/bookings', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('@/server/bookings')>();
   return {
     ...actual,
@@ -204,7 +205,6 @@ function buildRequest() {
       time: '19:00',
       party: 4,
       bookingType: 'dinner',
-      seating: 'indoor',
       notes: 'Window seat please',
       name: 'Alex Guest',
       email: 'alex@example.com',

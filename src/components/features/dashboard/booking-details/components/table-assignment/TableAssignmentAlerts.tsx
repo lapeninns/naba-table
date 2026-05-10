@@ -1,8 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 
 import type { AssignmentValidation } from '../../types';
 
@@ -19,63 +17,51 @@ export function TableAssignmentAlerts({
   validation,
   successMessage,
 }: TableAssignmentAlertsProps) {
+  const hasAlerts =
+    applyError ||
+    smartAssignError ||
+    successMessage ||
+    validation.errors.length > 0 ||
+    validation.warnings.length > 0;
+  if (!hasAlerts) return null;
+
   return (
-    <>
-      {successMessage ? (
-        <Alert variant="success" role="status" aria-live="polite">
-          <CheckCircle2 className="h-4 w-4" aria-hidden />
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>{successMessage}</AlertDescription>
-        </Alert>
-      ) : null}
+    <div className="grid gap-2">
+      {successMessage && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm">
+          <CheckCircle2 className="size-3" />
+          {successMessage}
+        </div>
+      )}
 
-      {applyError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Action failed</AlertTitle>
-          <AlertDescription>{applyError}</AlertDescription>
-        </Alert>
-      ) : null}
+      {(applyError || smartAssignError) && (
+        <div className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-destructive shadow-sm">
+          <AlertCircle className="size-3" />
+          <span className="truncate">{applyError || smartAssignError}</span>
+        </div>
+      )}
 
-      {smartAssignError ? (
-        <Alert>
-          <AlertTitle>Smart assign unavailable</AlertTitle>
-          <AlertDescription>{smartAssignError}</AlertDescription>
-        </Alert>
-      ) : null}
+      {validation.errors.map((errorText, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-destructive shadow-sm"
+        >
+          <AlertCircle className="size-3" />
+          <span className="truncate">{errorText}</span>
+        </div>
+      ))}
 
-      {validation.errors.length > 0 ? (
-        <Alert variant="destructive">
-          <AlertTitle>Table assignment blocked</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc space-y-1 pl-4 text-sm">
-              {validation.errors.map((errorText) => (
-                <li key={errorText}>{errorText}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {validation.warnings.length > 0 ? (
-        <Alert>
-          <AlertTitle>Review before assigning</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc space-y-1 pl-4 text-sm">
-              {validation.warnings.map((warning) => (
-                <li key={warning}>
-                  <span className="inline-flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />
-                    {warning}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-    </>
+      {validation.warnings.map((warning, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 p-2.5 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm"
+        >
+          <AlertTriangle className="size-3" />
+          <span className="truncate">{warning}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
 export default TableAssignmentAlerts;
-

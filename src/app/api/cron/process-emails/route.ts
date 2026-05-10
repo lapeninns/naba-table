@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { isEmailQueueEnabled } from '@/server/feature-flags';
 import { recordObservabilityEvent } from '@/server/observability';
+import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
 import {
   EMAIL_JOB_TYPE_VALUES,
   type EmailJobType,
@@ -11,11 +12,14 @@ import {
   processEmailJobs,
   processEmailJobsRequestSchema,
 } from '@/server/queue/email-processing';
+import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const CRON_SECRET = process.env.CRON_SECRET;
+const JOB_NAME = 'process-emails';
+const MAX_EMAIL_DRAIN_JOBS = 100;
+const MAX_EMAIL_POST_JOBS = 25;
 const ALLOWED_TYPES: ReadonlySet<EmailJobType> = new Set(EMAIL_JOB_TYPE_VALUES);
 
 function parseTypeFilter(typesParam: string | null): { types: Set<EmailJobType> | null; error?: string } {
@@ -43,150 +47,160 @@ function parseTypeFilter(typesParam: string | null): { types: Set<EmailJobType> 
   return { types: new Set(rawTypes as EmailJobType[]) };
 }
 
-function authorizeRequest(request: Request): NextResponse | null {
-  const authHeader = request.headers.get('authorization');
-  const hasValidBearerToken = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
-
-  if (CRON_SECRET && !hasValidBearerToken) {
-    console.warn('[cron][process-emails] Unauthorized request', {
-      hasAuthHeader: Boolean(authHeader),
-      hasCronSecret: Boolean(CRON_SECRET),
-    });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (!CRON_SECRET) {
-    console.warn('[cron][process-emails] CRON_SECRET not set - endpoint is unprotected');
-  }
-
-  return null;
+function clampLimit(value: number | null, max: number): number | null {
+  if (!Number.isFinite(value) || !value || value <= 0) return null;
+  return Math.min(Math.floor(value), max);
 }
 
 export async function GET(request: Request) {
-  const authFailure = authorizeRequest(request);
-  if (authFailure) {
-    return authFailure;
-  }
-
-  const url = new URL(request.url);
-  const { types: allowedTypes, error: typesError } = parseTypeFilter(url.searchParams.get('types'));
-  const maxJobsParam = url.searchParams.get('maxJobs');
-  const maxJobs =
-    typeof maxJobsParam === 'string' && maxJobsParam.trim().length > 0
-      ? Number.parseInt(maxJobsParam, 10)
-      : null;
-  if (typesError) {
-    return NextResponse.json({ error: typesError }, { status: 400 });
-  }
-
-  if (!isEmailQueueEnabled()) {
-    return NextResponse.json({
-      success: true,
-      message: 'Email queue is disabled',
-      processed: 0,
-      filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
-    });
-  }
-
-  try {
-    await recordObservabilityEvent({
-      source: 'cron.process-emails',
-      eventType: 'drain.triggered',
-      severity: 'info',
-      context: {
-        filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
-      },
-    });
-
-    const result = await triggerEmailQueueDrain({
-      types: allowedTypes,
-      maxJobs: Number.isFinite(maxJobs) && maxJobs && maxJobs > 0 ? maxJobs : null,
-    });
-
-    await recordObservabilityEvent({
-      source: 'cron.process-emails',
-      eventType: 'drain.completed',
-      severity: (result.stats?.failed ?? 0) > 0 ? 'warning' : 'info',
-      context: {
-        processed: result.processed ?? 0,
-        sent: result.stats?.sent ?? 0,
-        skipped: result.stats?.skipped ?? 0,
-        failed: result.stats?.failed ?? 0,
-        filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
-      },
-    });
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('[cron][process-emails] Error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
+  return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
+    const url = new URL(request.url);
+    const { types: allowedTypes, error: typesError } = parseTypeFilter(
+      url.searchParams.get('types'),
     );
-  }
-}
+    const maxJobsParam = url.searchParams.get('maxJobs');
+    const requestedMaxJobs =
+      typeof maxJobsParam === 'string' && maxJobsParam.trim().length > 0
+        ? Number.parseInt(maxJobsParam, 10)
+        : null;
+    const maxJobs = clampLimit(requestedMaxJobs, MAX_EMAIL_DRAIN_JOBS);
+    if (typesError) {
+      return NextResponse.json({ error: typesError }, { status: 400 });
+    }
 
-export async function POST(request: Request) {
-  const authFailure = authorizeRequest(request);
-  if (authFailure) {
-    return authFailure;
-  }
+    if (!isEmailQueueEnabled()) {
+      return NextResponse.json({
+        success: true,
+        message: 'Email queue is disabled',
+        processed: 0,
+        filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
+      });
+    }
 
-  try {
-    const raw = (await request.json()) as unknown;
-    const parsed = processEmailJobsRequestSchema.safeParse(raw);
+    try {
+      await recordObservabilityEvent({
+        source: 'cron.process-emails',
+        eventType: 'drain.triggered',
+        severity: 'info',
+        context: {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
+          maxJobs: maxJobs ?? null,
+        },
+      });
 
-    if (!parsed.success) {
+      const result = await triggerEmailQueueDrain({
+        types: allowedTypes,
+        maxJobs,
+      });
+
+      await recordObservabilityEvent({
+        source: 'cron.process-emails',
+        eventType: 'drain.completed',
+        severity: (result.stats?.failed ?? 0) > 0 ? 'warning' : 'info',
+        context: {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          processed: result.processed ?? 0,
+          sent: result.stats?.sent ?? 0,
+          skipped: result.stats?.skipped ?? 0,
+          failed: result.stats?.failed ?? 0,
+          filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
+          maxJobs: maxJobs ?? null,
+        },
+      });
+
+      let reconcileReport: Awaited<ReturnType<typeof reconcileDeliveryAnomalies>> | null = null;
+      try {
+        reconcileReport = await reconcileDeliveryAnomalies();
+      } catch (reconcileError) {
+        console.warn('[cron][process-emails] delivery reconciliation failed', {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          error: reconcileError instanceof Error ? reconcileError.message : String(reconcileError),
+        });
+      }
+
+      return NextResponse.json({ ...result, reconciliation: reconcileReport });
+    } catch (error) {
+      console.error('[cron][process-emails] Error:', {
+        jobName: auth.jobName,
+        runId: auth.runId,
+        error,
+      });
       return NextResponse.json(
         {
           success: false,
-          error: parsed.error.issues.map((issue) => issue.message).join('; '),
+          error: 'Cron email processing failed.',
         },
-        { status: 400 },
+        { status: 500 },
       );
     }
+  });
+}
 
-    await recordObservabilityEvent({
-      source: 'cron.process-emails',
-      eventType: 'batch.start',
-      severity: 'info',
-      context: {
-        jobs: parsed.data.jobs.length,
-      },
-    });
+export async function POST(request: Request) {
+  return requireCronAuthAndRun(request, `${JOB_NAME}:post`, async (auth) => {
+    try {
+      const raw = (await request.json()) as unknown;
+      const parsed = processEmailJobsRequestSchema.safeParse(raw);
 
-    const result = await processEmailJobs(parsed.data.jobs);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: parsed.error.issues.map((issue) => issue.message).join('; '),
+          },
+          { status: 400 },
+        );
+      }
 
-    await recordObservabilityEvent({
-      source: 'cron.process-emails',
-      eventType: 'batch.complete',
-      severity: result.stats.failed > 0 ? 'warning' : 'info',
-      context: {
+      const jobs = parsed.data.jobs.slice(0, MAX_EMAIL_POST_JOBS);
+      await recordObservabilityEvent({
+        source: 'cron.process-emails',
+        eventType: 'batch.start',
+        severity: 'info',
+        context: {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          jobs: jobs.length,
+          requestedJobs: parsed.data.jobs.length,
+        },
+      });
+
+      const result = await processEmailJobs(jobs);
+
+      await recordObservabilityEvent({
+        source: 'cron.process-emails',
+        eventType: 'batch.complete',
+        severity: result.stats.failed > 0 ? 'warning' : 'info',
+        context: {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          processed: result.processed,
+          sent: result.stats.sent,
+          skipped: result.stats.skipped,
+          failed: result.stats.failed,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Processed ${result.processed} jobs`,
         processed: result.processed,
-        sent: result.stats.sent,
-        skipped: result.stats.skipped,
-        failed: result.stats.failed,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `Processed ${result.processed} jobs`,
-      processed: result.processed,
-      stats: result.stats,
-      results: result.results,
-    });
-  } catch (error) {
-    console.error('[cron][process-emails] POST error:', error);
-    return NextResponse.json(
-      {
+        stats: result.stats,
+      });
+    } catch (error) {
+      console.error('[cron][process-emails] POST error:', {
+        jobName: auth.jobName,
+        runId: auth.runId,
+        error,
+      });
+      return NextResponse.json({
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 },
-    );
-  }
+        error: 'Cron email processing failed.',
+      }, { status: 500 });
+    }
+  });
 }

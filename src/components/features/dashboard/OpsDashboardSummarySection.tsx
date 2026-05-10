@@ -4,10 +4,7 @@ import { Badge } from '@/components/ui/badge';
 
 import { DashboardSummaryCard } from './DashboardSummaryCard';
 
-import type {
-  DashboardBookingActionHandlers,
-  DashboardListControls,
-} from './types';
+import type { DashboardBookingActionHandlers, DashboardListControls } from './types';
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
 export type OpsDashboardSummarySectionProps = {
@@ -18,6 +15,7 @@ export type OpsDashboardSummarySectionProps = {
   initialNowIso: string;
   allowTableAssignments: boolean;
   restaurantSlug?: string | null;
+  isStale?: boolean;
 };
 
 export function OpsDashboardSummarySection({
@@ -28,12 +26,13 @@ export function OpsDashboardSummarySection({
   initialNowIso,
   allowTableAssignments,
   restaurantSlug,
+  isStale,
 }: OpsDashboardSummarySectionProps) {
   return (
     <div className="space-y-6">
       {!allowTableAssignments ? (
         <div className="flex justify-end">
-          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+          <Badge variant="secondary" className="bg-primary/10 text-primary">
             Past date · Assignments locked
           </Badge>
         </div>
@@ -47,6 +46,7 @@ export function OpsDashboardSummarySection({
         initialNowIso={initialNowIso}
         allowTableAssignments={allowTableAssignments}
         restaurantSlug={restaurantSlug}
+        isStale={isStale}
       />
     </div>
   );

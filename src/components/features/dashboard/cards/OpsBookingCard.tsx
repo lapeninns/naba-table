@@ -1,19 +1,82 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '@/components/ui/card';
-import { Collapsible } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useBookingService } from '@/contexts/ops-services';
 import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
-import { useMediaQuery } from '@src/hooks/useMediaQuery';
 
 import { OpsBookingCardActions } from './OpsBookingCardActions';
 import { OpsBookingCardDetails } from './OpsBookingCardDetails';
 import { OpsBookingCardHeader } from './OpsBookingCardHeader';
+import { getDashboardPerfStart, recordDashboardPerfMetric } from '../list/performance';
 
 import type { OpsBookingCardViewModel } from './opsBookingCardUtils';
+
+const PREFETCH_DELAY_MS = 180;
+const PREFETCH_THROTTLE_MS = 30_000;
+const MAX_ACTIVE_PREFETCHES = 2;
+
+type PrefetchTask = {
+  cancelled: boolean;
+  run: () => Promise<void>;
+};
+
+let activePrefetches = 0;
+const queuedPrefetches: PrefetchTask[] = [];
+const lastPrefetchAtByBookingId = new Map<string, number>();
+
+function drainPrefetchQueue() {
+  while (activePrefetches < MAX_ACTIVE_PREFETCHES && queuedPrefetches.length > 0) {
+    const task = queuedPrefetches.shift();
+    if (!task || task.cancelled) continue;
+
+    activePrefetches += 1;
+    void task.run().finally(() => {
+      activePrefetches = Math.max(0, activePrefetches - 1);
+      drainPrefetchQueue();
+    });
+  }
+}
+
+function enqueuePrefetchTask(task: PrefetchTask) {
+  queuedPrefetches.push(task);
+  drainPrefetchQueue();
+}
+
+function shouldPrefetchBooking(bookingId: string) {
+  const now = Date.now();
+  const lastPrefetchAt = lastPrefetchAtByBookingId.get(bookingId) ?? 0;
+  if (now - lastPrefetchAt < PREFETCH_THROTTLE_MS) return false;
+  lastPrefetchAtByBookingId.set(bookingId, now);
+  return true;
+}
+
+function prefetchDialogBundle(params: {
+  bookingId: string;
+  bookingService: ReturnType<typeof useBookingService>;
+  queryClient: QueryClient;
+}) {
+  const { bookingId, bookingService, queryClient } = params;
+  return queryClient.prefetchQuery({
+    queryKey: ['ops', 'bookings', 'dialog', bookingId] as const,
+    queryFn: async () => {
+      const bundle = await bookingService.getDialogBundle(bookingId);
+      queryClient.setQueryData(queryKeys.opsBookings.detail(bookingId), bundle.booking);
+      queryClient.setQueryData(
+        queryKeys.opsBookings.assignmentContext(bookingId),
+        bundle.assignmentContext,
+      );
+      return bundle;
+    },
+    staleTime: 30_000,
+  });
+}
 
 export type OpsBookingCardProps = {
   viewModel: OpsBookingCardViewModel;
@@ -34,16 +97,14 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   onCheckOut,
   onMarkNoShow,
 }: OpsBookingCardProps) {
-  const {
-    booking,
-    meta,
-    disableActions: viewDisabled,
-    header,
-    details,
-    actions,
-  } = viewModel;
+  const { booking, meta, disableActions: viewDisabled, header, details, actions } = viewModel;
   const [isOpen, setIsOpen] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 639px)');
+  const queryClient = useQueryClient();
+  const bookingService = useBookingService();
+  const prefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queuedPrefetchRef = useRef<PrefetchTask | null>(null);
+  const renderStartedAtRef = useRef(getDashboardPerfStart());
+  renderStartedAtRef.current = getDashboardPerfStart();
 
   useEffect(() => {
     if (!booking.id) return;
@@ -51,6 +112,14 @@ export const OpsBookingCard = memo(function OpsBookingCard({
     // This prevents unexpected auto-expansion in a virtualized list.
     setIsOpen(false);
   }, [booking.id]);
+
+  useEffect(() => {
+    recordDashboardPerfMetric('ops-dashboard.card.commit', renderStartedAtRef.current, {
+      bookingId: booking.id,
+      status: booking.status,
+      pending: Boolean(actions.pendingAction),
+    });
+  });
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -63,8 +132,8 @@ export const OpsBookingCard = memo(function OpsBookingCard({
   const railClass = useMemo(() => {
     const ui = getOpsBookingStatusUi(booking.status);
     // Urgency is a contextual override on top of status rails.
-    if (header.urgency?.variant === 'destructive') return 'border-l-rose-400';
-    if (header.urgency?.variant === 'warning') return 'border-l-amber-400/70';
+    if (header.urgency?.variant === 'destructive') return 'border-l-destructive';
+    if (header.urgency?.variant === 'warning') return 'border-l-primary';
     return ui.railClass;
   }, [booking.status, header.urgency?.variant]);
 
@@ -80,35 +149,45 @@ export const OpsBookingCard = memo(function OpsBookingCard({
     onCancel?.(booking.id);
   }, [booking.id, onCancel]);
 
-  const cardBody = (
-    <>
-      {/* Keep content visible while actions are pending; pending state is communicated via disabled controls + button-level spinners. */}
+  const cancelPendingPrefetch = useCallback(() => {
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current);
+      prefetchTimerRef.current = null;
+    }
+    if (queuedPrefetchRef.current) {
+      queuedPrefetchRef.current.cancelled = true;
+      queuedPrefetchRef.current = null;
+    }
+  }, []);
 
-      <OpsBookingCardHeader
-        header={header}
-        isOpen={isOpen}
-        showCollapseToggle={isMobile}
-        disableCollapseToggle={isInteractionLocked}
-      />
+  useEffect(() => cancelPendingPrefetch, [cancelPendingPrefetch]);
 
-      <OpsBookingCardDetails details={details} />
+  const handlePrefetch = useCallback(() => {
+    if (!booking.id) return;
+    cancelPendingPrefetch();
 
-      <OpsBookingCardActions
-        actions={actions}
-        onDetails={handleDetails}
-        onEdit={handleEdit}
-        onCancel={handleCancel}
-        onMarkNoShow={onMarkNoShow}
-        onCheckIn={onCheckIn}
-        onCheckOut={onCheckOut}
-      />
-    </>
-  );
+    prefetchTimerRef.current = setTimeout(() => {
+      prefetchTimerRef.current = null;
+      if (!shouldPrefetchBooking(booking.id)) return;
+
+      const task: PrefetchTask = {
+        cancelled: false,
+        run: () =>
+          prefetchDialogBundle({
+            bookingId: booking.id,
+            bookingService,
+            queryClient,
+          }).then(() => undefined),
+      };
+      queuedPrefetchRef.current = task;
+      enqueuePrefetchTask(task);
+    }, PREFETCH_DELAY_MS);
+  }, [booking.id, bookingService, cancelPendingPrefetch, queryClient]);
 
   return (
     <Card
       className={cn(
-        'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out hover:shadow-md motion-reduce:transition-none',
+        'group relative overflow-hidden border-l-[3px] transition-shadow duration-200 ease-out sm:hover:shadow-md motion-reduce:transition-none',
         railClass,
         meta.isDone && 'opacity-60',
         isInteractionLocked && 'pointer-events-none opacity-60',
@@ -117,9 +196,48 @@ export const OpsBookingCard = memo(function OpsBookingCard({
       aria-labelledby={`guest-name-${booking.id}`}
       aria-busy={showLoading}
       aria-disabled={isInteractionLocked || undefined}
+      onMouseEnter={handlePrefetch}
+      onMouseLeave={cancelPendingPrefetch}
     >
       <Collapsible open={isOpen} onOpenChange={handleOpenChange} className="w-full">
-        {cardBody}
+        {/* Mobile: entire header+details region is the expand trigger.
+            sm+: CollapsibleTrigger becomes pointer-events-none so details are always visible. */}
+        <CollapsibleTrigger asChild>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={isOpen}
+            aria-controls={`ops-booking-details-${booking.id}`}
+            className={cn(
+              'w-full cursor-pointer select-none text-left',
+              'active:bg-muted/30',
+              // On sm+ the trigger becomes inert — details are always shown
+              'sm:cursor-default sm:select-text sm:pointer-events-none sm:active:bg-transparent',
+            )}
+          >
+            {/* Keep content visible while actions are pending; pending state is communicated via disabled controls + button-level spinners. */}
+            <OpsBookingCardHeader
+              header={header}
+              table={details.table}
+              isOpen={isOpen}
+              showCollapseToggle={false}
+              disableCollapseToggle={isInteractionLocked}
+            />
+
+            <OpsBookingCardDetails details={details} />
+          </div>
+        </CollapsibleTrigger>
+
+        {/* Action footer lives outside the trigger so its buttons stay independently tappable. */}
+        <OpsBookingCardActions
+          actions={actions}
+          onDetails={handleDetails}
+          onEdit={handleEdit}
+          onCancel={handleCancel}
+          onMarkNoShow={onMarkNoShow}
+          onCheckIn={onCheckIn}
+          onCheckOut={onCheckOut}
+        />
       </Collapsible>
     </Card>
   );

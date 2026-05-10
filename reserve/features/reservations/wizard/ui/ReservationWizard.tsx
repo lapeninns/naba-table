@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 
 import { WizardDependenciesProvider, type WizardDependencies } from '../di';
 import { BookingWizard } from './BookingWizard';
@@ -12,6 +12,7 @@ type ReservationWizardProps = {
   mode?: BookingWizardMode;
   layoutElement?: 'main' | 'div';
   returnPath?: string;
+  redirectOnSuccess?: boolean;
   /**
    * Optional dependency overrides (navigation, analytics, etc.). If omitted,
    * defaults are used, which rely on window navigation.
@@ -27,20 +28,20 @@ export function ReservationWizard({
   mode = 'customer',
   layoutElement = 'main',
   returnPath,
+  redirectOnSuccess,
   dependencies,
   navigationClassName,
   className,
   contentClassName,
 }: ReservationWizardProps = {}) {
-  const normalizedReturnPath = useMemo(() => returnPath ?? '/guest/thank-you', [returnPath]);
-
   return (
     <WizardDependenciesProvider value={dependencies}>
       <BookingWizard
         initialDetails={initialDetails}
         mode={mode}
         layoutElement={layoutElement}
-        returnPath={normalizedReturnPath}
+        returnPath={returnPath}
+        redirectOnSuccess={redirectOnSuccess}
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}

@@ -1,7 +1,11 @@
 import { HttpError } from '@/lib/http/errors';
 
 import { DEV_BOOKING_ID, DEV_BOOKING_OTHER_ID } from '../devIds';
-import { createDevBookings, createDevTables, type DevOpsBookingRecord } from './devBookingServiceFixtures';
+import {
+  createDevBookings,
+  createDevTables,
+  type DevOpsBookingRecord,
+} from './devBookingServiceFixtures';
 import { createDevEmailDeliveryFeed } from './devEmailDelivery';
 
 import type { BookingService } from '@/services/ops/bookings';
@@ -14,8 +18,18 @@ import type {
   OpsEmailDeliverySummaryResponse,
 } from '@/types/emailDelivery';
 import type { OpsEmailQueueFeedResponse, OpsEmailQueueJobStatus } from '@/types/emailQueue';
-import type { OpsBookingListItem, OpsBookingsFilters, OpsBookingsPage, OpsBookingStatus } from '@/types/ops';
-import type { BookingSmsDeliveryResponse, SmsDeliveryEventDTO } from '@/types/smsDelivery';
+import type {
+  OpsBookingListItem,
+  OpsBookingsFilters,
+  OpsBookingsPage,
+  OpsBookingStatus,
+} from '@/types/ops';
+import type {
+  BookingSmsDeliveryResponse,
+  SmsDeliveryEventDTO,
+  OpsSmsDeliveryAttemptDTO,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 
 function parseIso(value: Date | string | null | undefined): Date | null {
   if (!value) return null;
@@ -37,7 +51,10 @@ export class DevBookingService implements BookingService {
     this.tables = createDevTables();
     this.bookings = createDevBookings();
     this.bookings.forEach((booking) => {
-      const assigned = booking.tableAssignments?.flatMap((group) => group.members.map((member) => member.tableId)) ?? [];
+      const assigned =
+        booking.tableAssignments?.flatMap((group) =>
+          group.members.map((member) => member.tableId),
+        ) ?? [];
       if (assigned.length > 0) {
         this.assignedByBookingId.set(booking.id, assigned);
       }
@@ -83,7 +100,10 @@ export class DevBookingService implements BookingService {
   private getAssignedTableIds(record: DevOpsBookingRecord): string[] {
     const fromMap = this.assignedByBookingId.get(record.id);
     if (fromMap) return fromMap;
-    return record.tableAssignments?.flatMap((group) => group.members.map((member) => member.tableId)) ?? [];
+    return (
+      record.tableAssignments?.flatMap((group) => group.members.map((member) => member.tableId)) ??
+      []
+    );
   }
 
   private matchesFilters(record: DevOpsBookingRecord, filters: OpsBookingsFilters): boolean {
@@ -98,7 +118,11 @@ export class DevBookingService implements BookingService {
       return false;
     }
 
-    if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes(record.status)) {
+    if (
+      filters.statuses &&
+      filters.statuses.length > 0 &&
+      !filters.statuses.includes(record.status)
+    ) {
       return false;
     }
 
@@ -133,16 +157,24 @@ export class DevBookingService implements BookingService {
 
   getTodaySummary = this.unimplemented<BookingService['getTodaySummary']>('getTodaySummary');
   getBookingHeatmap = this.unimplemented<BookingService['getBookingHeatmap']>('getBookingHeatmap');
-  getRejectionAnalytics = this.unimplemented<BookingService['getRejectionAnalytics']>('getRejectionAnalytics');
-  getStrategicSettings = this.unimplemented<BookingService['getStrategicSettings']>('getStrategicSettings');
-  updateStrategicSettings = this.unimplemented<BookingService['updateStrategicSettings']>('updateStrategicSettings');
-  listDisabledAssignments = this.unimplemented<BookingService['listDisabledAssignments']>('listDisabledAssignments');
+  getRejectionAnalytics =
+    this.unimplemented<BookingService['getRejectionAnalytics']>('getRejectionAnalytics');
+  getStrategicSettings =
+    this.unimplemented<BookingService['getStrategicSettings']>('getStrategicSettings');
+  updateStrategicSettings =
+    this.unimplemented<BookingService['updateStrategicSettings']>('updateStrategicSettings');
+  listDisabledAssignments =
+    this.unimplemented<BookingService['listDisabledAssignments']>('listDisabledAssignments');
   getBookingHistory = this.unimplemented<BookingService['getBookingHistory']>('getBookingHistory');
-  createWalkInBooking = this.unimplemented<BookingService['createWalkInBooking']>('createWalkInBooking');
+  createWalkInBooking =
+    this.unimplemented<BookingService['createWalkInBooking']>('createWalkInBooking');
   assignTable = this.unimplemented<BookingService['assignTable']>('assignTable');
   unassignTable = this.unimplemented<BookingService['unassignTable']>('unassignTable');
-  confirmHoldAssignment = this.unimplemented<BookingService['confirmHoldAssignment']>('confirmHoldAssignment');
-  getManualAssignmentContext = this.unimplemented<BookingService['getManualAssignmentContext']>('getManualAssignmentContext');
+  confirmHoldAssignment =
+    this.unimplemented<BookingService['confirmHoldAssignment']>('confirmHoldAssignment');
+  getManualAssignmentContext = this.unimplemented<BookingService['getManualAssignmentContext']>(
+    'getManualAssignmentContext',
+  );
 
   listBookings: BookingService['listBookings'] = async (filters) => {
     if (!filters.restaurantId) {
@@ -186,7 +218,12 @@ export class DevBookingService implements BookingService {
     } satisfies OpsBookingsPage;
   };
 
-  getStatusSummary: BookingService['getStatusSummary'] = async ({ restaurantId, from, to, statuses }) => {
+  getStatusSummary: BookingService['getStatusSummary'] = async ({
+    restaurantId,
+    from,
+    to,
+    statuses,
+  }) => {
     const filterStatuses = statuses && statuses.length > 0 ? statuses : null;
     const range: { from: string | null; to: string | null } = {
       from: from ?? null,
@@ -226,7 +263,8 @@ export class DevBookingService implements BookingService {
     };
   };
 
-  getBooking: BookingService['getBooking'] = async (bookingId) => this.toOpsBooking(this.getBookingRecord(bookingId));
+  getBooking: BookingService['getBooking'] = async (bookingId) =>
+    this.toOpsBooking(this.getBookingRecord(bookingId));
 
   getBookingEmailDeliveryLog: BookingService['getBookingEmailDeliveryLog'] = async (
     bookingId,
@@ -303,6 +341,106 @@ export class DevBookingService implements BookingService {
     };
   };
 
+  getRestaurantSmsDeliveryFeed: BookingService['getRestaurantSmsDeliveryFeed'] = async ({
+    restaurantId,
+    range = '7d',
+    page = 1,
+    pageSize = 50,
+    status,
+  }) => {
+    if (!restaurantId) {
+      throw new Error('[dev][bookingService] restaurantId is required');
+    }
+
+    const filterStatuses = status && status.length > 0 ? new Set(status) : null;
+    const attempts: OpsSmsDeliveryAttemptDTO[] = this.bookings
+      .filter((record) => record.restaurantId === restaurantId)
+      .map((record) => {
+        const currentStatus: SmsDeliveryStatus =
+          record.status === 'cancelled' ? 'failed' : 'delivered';
+        const occurredAt = record.createdAt;
+        const event = {
+          id: `dev-sms-feed-${record.id}`,
+          bookingId: record.id,
+          restaurantId,
+          smsType: 'booking_confirmation',
+          recipientPhone: record.customerPhone ?? '+447700900000',
+          messageSid: `dev-sms-${record.id}`,
+          status: currentStatus,
+          provider: 'mock',
+          occurredAt,
+          error: currentStatus === 'failed' ? 'Simulated cancelled-booking SMS failure.' : null,
+          metadata: null,
+        } as const;
+
+        return {
+          messageSid: event.messageSid,
+          recipientPhone: event.recipientPhone,
+          bookingId: record.id,
+          smsType: event.smsType,
+          provider: event.provider,
+          currentStatus,
+          currentOccurredAt: occurredAt,
+          events: [event],
+          booking: {
+            id: record.id,
+            reference: record.reference ?? record.id,
+            bookingDate: record.startIso?.slice(0, 10) ?? '',
+            startTime: record.startIso?.slice(11, 16) ?? '',
+            endTime: record.endIso?.slice(11, 16) ?? '',
+            customerName: record.customerName ?? 'Guest',
+            partySize: record.partySize,
+          },
+          isStale: false,
+          stuckForMs: null,
+        };
+      })
+      .filter((attempt) => !filterStatuses || filterStatuses.has(attempt.currentStatus));
+
+    const startIndex = (Math.max(1, page) - 1) * Math.max(1, pageSize);
+    const pageAttempts = attempts.slice(startIndex, startIndex + Math.max(1, pageSize));
+    const uniqueRecipients = new Set(attempts.map((attempt) => attempt.recipientPhone)).size;
+    const uniqueBookings = new Set(attempts.map((attempt) => attempt.bookingId).filter(Boolean))
+      .size;
+    const statusCounts: Record<SmsDeliveryStatus, number> = {
+      queued: 0,
+      sent: 0,
+      delivered: 0,
+      undelivered: 0,
+      failed: 0,
+    };
+    for (const attempt of attempts) {
+      statusCounts[attempt.currentStatus] += 1;
+    }
+    const delivered = statusCounts.delivered;
+    const failed = statusCounts.failed;
+
+    return {
+      ok: true,
+      restaurantId,
+      range,
+      pageInfo: {
+        page,
+        pageSize,
+        hasNext: startIndex + pageAttempts.length < attempts.length,
+      },
+      attempts: pageAttempts,
+      summary: {
+        total: attempts.length,
+        queued: statusCounts.queued,
+        sent: statusCounts.sent,
+        delivered,
+        undelivered: statusCounts.undelivered,
+        failed,
+        deliveredRate: attempts.length > 0 ? delivered / attempts.length : 0,
+        failureRate: attempts.length > 0 ? failed / attempts.length : 0,
+        uniqueRecipients,
+        uniqueBookings,
+        stuckInFlight: 0,
+      },
+    };
+  };
+
   updateBooking: BookingService['updateBooking'] = async (input) => {
     const record = this.getBookingRecord(input.id);
     record.startIso = input.startIso;
@@ -323,7 +461,11 @@ export class DevBookingService implements BookingService {
   checkInBooking: BookingService['checkInBooking'] = async ({ id, performedAt }) => {
     const record = this.getBookingRecord(id);
     if (record.status === 'checked_in') {
-      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+      return {
+        status: record.status,
+        checkedInAt: record.checkedInAt ?? null,
+        checkedOutAt: record.checkedOutAt ?? null,
+      };
     }
     if (!['pending', 'pending_allocation', 'confirmed'].includes(record.status)) {
       throw this.conflictError(record, 'Booking cannot be checked in from its current status.');
@@ -332,13 +474,21 @@ export class DevBookingService implements BookingService {
     record.status = 'checked_in';
     record.checkedInAt = performedAt ?? new Date().toISOString();
     record.checkedOutAt = null;
-    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    return {
+      status: record.status,
+      checkedInAt: record.checkedInAt ?? null,
+      checkedOutAt: record.checkedOutAt ?? null,
+    };
   };
 
   checkOutBooking: BookingService['checkOutBooking'] = async ({ id, performedAt }) => {
     const record = this.getBookingRecord(id);
     if (record.status === 'completed') {
-      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+      return {
+        status: record.status,
+        checkedInAt: record.checkedInAt ?? null,
+        checkedOutAt: record.checkedOutAt ?? null,
+      };
     }
     if (record.status !== 'checked_in') {
       throw this.conflictError(record, 'Booking must be checked in before it can be completed.');
@@ -346,33 +496,56 @@ export class DevBookingService implements BookingService {
 
     record.status = 'completed';
     record.checkedOutAt = performedAt ?? new Date().toISOString();
-    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    return {
+      status: record.status,
+      checkedInAt: record.checkedInAt ?? null,
+      checkedOutAt: record.checkedOutAt ?? null,
+    };
   };
 
   markNoShowBooking: BookingService['markNoShowBooking'] = async ({ id }) => {
     const record = this.getBookingRecord(id);
     if (record.status === 'no_show') {
-      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+      return {
+        status: record.status,
+        checkedInAt: record.checkedInAt ?? null,
+        checkedOutAt: record.checkedOutAt ?? null,
+      };
     }
     if (!['pending', 'pending_allocation', 'confirmed'].includes(record.status)) {
-      throw this.conflictError(record, 'Booking cannot be marked as no-show from its current status.');
+      throw this.conflictError(
+        record,
+        'Booking cannot be marked as no-show from its current status.',
+      );
     }
     record.status = 'no_show';
     record.checkedInAt = null;
     record.checkedOutAt = null;
-    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    return {
+      status: record.status,
+      checkedInAt: record.checkedInAt ?? null,
+      checkedOutAt: record.checkedOutAt ?? null,
+    };
   };
 
   undoNoShowBooking: BookingService['undoNoShowBooking'] = async ({ id }) => {
     const record = this.getBookingRecord(id);
     if (record.status === 'confirmed') {
-      return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+      return {
+        status: record.status,
+        checkedInAt: record.checkedInAt ?? null,
+        checkedOutAt: record.checkedOutAt ?? null,
+      };
     }
     if (record.status !== 'no_show') {
       throw this.conflictError(record, 'Only no-show bookings can be restored.');
     }
     record.status = 'confirmed';
-    return { status: record.status, checkedInAt: record.checkedInAt ?? null, checkedOutAt: record.checkedOutAt ?? null };
+    return {
+      status: record.status,
+      checkedInAt: record.checkedInAt ?? null,
+      checkedOutAt: record.checkedOutAt ?? null,
+    };
   };
 
   getAssignmentContext: BookingService['getAssignmentContext'] = async (bookingId) => {
@@ -406,10 +579,12 @@ export class DevBookingService implements BookingService {
     };
   };
 
-  assignTablesDirect: BookingService['assignTablesDirect'] = async ({
-    bookingId,
-    tableIds,
-  }) => {
+  getDialogBundle: BookingService['getDialogBundle'] = async (bookingId) => ({
+    booking: await this.getBooking(bookingId),
+    assignmentContext: await this.getAssignmentContext(bookingId),
+  });
+
+  assignTablesDirect: BookingService['assignTablesDirect'] = async ({ bookingId, tableIds }) => {
     this.assignedByBookingId.set(bookingId, tableIds.slice());
 
     const totalCapacity = this.tables

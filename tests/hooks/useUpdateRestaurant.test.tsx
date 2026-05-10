@@ -27,6 +27,7 @@ describe('useUpdateRestaurant', () => {
       contactEmail: null,
       contactPhone: null,
       address: null,
+      businessDescription: null,
       managerDailySummaryEnabled: false,
       managerNotificationPhone: null,
       googleMapUrl: null,

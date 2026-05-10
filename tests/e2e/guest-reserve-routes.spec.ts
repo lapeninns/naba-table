@@ -1,14 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+import { buildFutureBookingDate } from './helpers/future-booking';
+
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const bookingReference = 'NB1234';
-const bookingDate = '2026-02-10';
+const futureBooking = buildFutureBookingDate();
+const bookingDate = futureBooking.isoDate;
 const bookingStartTime = '19:00';
 const bookingEndTime = '20:30';
-const bookingStartIso = '2026-02-10T19:00:00.000Z';
-const bookingEndIso = '2026-02-10T20:30:00.000Z';
+const bookingStartIso = futureBooking.startIsoUtc;
+const bookingEndIso = futureBooking.endIsoUtc;
 const restaurantTimezone = 'Europe/London';
 
 const bookingPayload = {
@@ -42,8 +45,8 @@ test.describe('reserve routes', () => {
       const url = new URL(route.request().url());
 
       if (url.pathname.endsWith('/calendar-mask')) {
-        const from = url.searchParams.get('from') ?? '2026-02-01';
-        const to = url.searchParams.get('to') ?? '2026-02-28';
+        const from = url.searchParams.get('from') ?? bookingDate;
+        const to = url.searchParams.get('to') ?? bookingDate;
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -181,16 +184,12 @@ test.describe('reserve routes', () => {
 
   test('reserve root shows plan step', async ({ page }) => {
     await page.goto('/');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
   test('reserve new alias shows plan step', async ({ page }) => {
     await page.goto('/new');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
   test('reserve reservation details stub renders id', async ({ page }) => {

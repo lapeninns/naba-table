@@ -1,0 +1,76 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - tablist "Menu catalog" [ref=e3]:
+      - tab "Food menu" [ref=e4]:
+        - img
+        - text: Food menu
+      - tab "Drinks menu" [active] [selected] [ref=e5]:
+        - img
+        - text: Drinks menu
+    - generic [ref=e376]:
+      - generic [ref=e378]:
+        - generic [ref=e379]:
+          - generic [ref=e380]: Drinks catalogue
+          - generic [ref=e381]: Manage beer, wine, cocktails, spirits, and alcohol-free options for this venue.
+        - generic [ref=e383]:
+          - button "Import drinks CSV" [ref=e384]:
+            - img
+            - text: Import drinks CSV
+          - button "New drink item" [ref=e385]:
+            - img
+            - text: New drink item
+      - generic [ref=e386]:
+        - generic [ref=e387]:
+          - generic [ref=e388]:
+            - text: Search
+            - textbox "Search" [ref=e389]:
+              - /placeholder: Search name, category, subcategory, drink type
+          - generic [ref=e390]:
+            - text: Category
+            - combobox "Category" [ref=e391]
+          - generic [ref=e392]:
+            - text: Subcategory
+            - combobox "Subcategory" [ref=e393]
+          - generic [ref=e394]:
+            - text: Status
+            - combobox [ref=e395]:
+              - generic: All
+              - img
+        - table [ref=e398]:
+          - rowgroup [ref=e399]:
+            - row "Drink Category Price Service time Availability Modifiers Status Actions" [ref=e400]:
+              - columnheader "Drink" [ref=e401]
+              - columnheader "Category" [ref=e402]
+              - columnheader "Price" [ref=e403]
+              - columnheader "Service time" [ref=e404]
+              - columnheader "Availability" [ref=e405]
+              - columnheader "Modifiers" [ref=e406]
+              - columnheader "Status" [ref=e407]
+              - columnheader "Actions" [ref=e408]
+          - rowgroup [ref=e409]:
+            - row "House Negroni house-negroni cocktail classic GBP 11.50 Evening available 1 Active Alcoholic Edit" [ref=e410]:
+              - cell "House Negroni house-negroni" [ref=e411]:
+                - generic [ref=e412]: House Negroni
+                - generic [ref=e413]: house-negroni
+              - cell "cocktail classic" [ref=e414]:
+                - generic [ref=e415]: cocktail
+                - generic [ref=e416]: classic
+              - cell "GBP 11.50" [ref=e417]
+              - cell "Evening" [ref=e418]
+              - cell "available" [ref=e419]:
+                - generic [ref=e420]: available
+              - cell "1" [ref=e421]
+              - cell "Active Alcoholic" [ref=e422]:
+                - generic [ref=e423]:
+                  - generic [ref=e424]: Active
+                  - generic [ref=e425]: Alcoholic
+              - cell "Edit" [ref=e426]:
+                - button "Edit" [ref=e427]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert [ref=e69]
+  - generic [ref=e70]:
+    - img [ref=e72]
+    - button "Open Tanstack query devtools" [ref=e120] [cursor=pointer]:
+      - img [ref=e121]

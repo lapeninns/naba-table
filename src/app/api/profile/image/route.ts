@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
+import { withCsrfProtectedMutation } from "@/server/security/csrf";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
 
 import type { NextRequest} from "next/server";
@@ -49,6 +50,10 @@ function resolveExtension(file: File): string {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  return withCsrfProtectedMutation(req, () => postProfileImage(req));
+}
+
+async function postProfileImage(req: NextRequest): Promise<NextResponse> {
   try {
     const supabase = await getRouteHandlerSupabaseClient();
     const {

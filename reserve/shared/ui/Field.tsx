@@ -2,7 +2,8 @@
 
 import { Icon } from '@reserve/shared/ui/icons';
 import { cn } from '@shared/lib/cn';
-import { Label } from '@shared/ui/label';
+
+import { Label } from './label';
 
 import type { PropsWithChildren, ReactNode } from 'react';
 

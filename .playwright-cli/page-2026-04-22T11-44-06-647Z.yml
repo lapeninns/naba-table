@@ -1,0 +1,137 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - navigation [ref=e4]:
+        - link "Nab a Table logo Nab a Table ^ beta" [ref=e5] [cursor=pointer]:
+          - /url: /auth?redirectedFrom=%2Fsettings%2Frestaurant%2Favailability
+          - img "Nab a Table logo" [ref=e6]
+          - generic [ref=e7]:
+            - generic [ref=e8]: Nab a Table
+            - generic [ref=e9]: ^ beta
+        - generic [ref=e10]:
+          - link "Guest sign-in" [ref=e11] [cursor=pointer]:
+            - /url: /auth/signin?redirectedFrom=%2Fsettings%2Frestaurant%2Favailability
+          - link "View demo" [ref=e12] [cursor=pointer]:
+            - /url: /#restaurants
+    - main [ref=e13]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - img [ref=e20]
+              - text: Trusted by 200+ restaurants
+            - heading "Streamline your restaurant operations" [level=1] [ref=e22]
+            - paragraph [ref=e23]: Access your operations console to manage bookings, optimize seating, and keep your team aligned—all in real-time.
+          - generic [ref=e24]:
+            - generic [ref=e25]:
+              - img [ref=e27]
+              - generic [ref=e29]:
+                - heading "Real-time bookings" [level=3] [ref=e30]
+                - paragraph [ref=e31]: Manage all reservations with live updates
+            - generic [ref=e32]:
+              - img [ref=e34]
+              - generic [ref=e36]:
+                - heading "Powerful analytics" [level=3] [ref=e37]
+                - paragraph [ref=e38]: Track covers, peak hours, and revenue trends
+            - generic [ref=e39]:
+              - img [ref=e41]
+              - generic [ref=e46]:
+                - heading "Team collaboration" [level=3] [ref=e47]
+                - paragraph [ref=e48]: Role-based access with activity logs
+          - generic [ref=e49]:
+            - img [ref=e50]
+            - generic [ref=e52]: "Enterprise Security:"
+            - generic [ref=e53]: SOC 2 Type II
+            - generic [ref=e54]: •
+            - generic [ref=e55]: 99.9% uptime
+            - generic [ref=e56]: •
+            - generic [ref=e57]: End-to-end encryption
+        - generic [ref=e58]:
+          - generic [ref=e59]:
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - heading "Restaurant operations" [level=2] [ref=e63]
+                - paragraph [ref=e64]: Sign in with a magic link or password to access your console
+              - generic [ref=e65]:
+                - tablist [ref=e66]:
+                  - tab "Magic link One-time secure link" [ref=e67]:
+                    - generic [ref=e68]: Magic link
+                    - generic [ref=e69]: One-time secure link
+                  - tab "Password Your credentials" [selected] [ref=e70]:
+                    - generic [ref=e71]: Password
+                    - generic [ref=e72]: Your credentials
+                - generic [ref=e73]:
+                  - generic [ref=e74]:
+                    - generic [ref=e75]: Email address
+                    - textbox "Email address" [ref=e76]:
+                      - /placeholder: you@example.com
+                  - tabpanel "Password Your credentials" [ref=e77]:
+                    - generic [ref=e78]:
+                      - generic [ref=e79]: Password
+                      - generic [ref=e80]:
+                        - textbox "Enter your password" [ref=e81]
+                        - button "Show password" [ref=e82]:
+                          - img [ref=e83]
+                  - button "Sign in with password" [ref=e86]
+            - generic [ref=e90]: or
+            - generic [ref=e92]:
+              - paragraph [ref=e93]: Looking to make a reservation?
+              - link "Sign in as a guest →" [ref=e94] [cursor=pointer]:
+                - /url: http://localhost:3000/auth/signin
+          - generic [ref=e95]:
+            - text: Need help?
+            - link "Contact support" [ref=e96] [cursor=pointer]:
+              - /url: mailto:support@sajiloreserve.com
+    - contentinfo [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - link "Nab a Table logo Nab a Table ^ beta" [ref=e101] [cursor=pointer]:
+              - /url: /auth?redirectedFrom=%2Fsettings%2Frestaurant%2Favailability
+              - img "Nab a Table logo" [ref=e102]
+              - generic [ref=e103]:
+                - generic [ref=e104]: Nab a Table
+                - generic [ref=e105]: ^ beta
+            - paragraph [ref=e106]: Streamline your restaurant operations with powerful booking tools.
+          - generic [ref=e107]:
+            - heading "Product" [level=3] [ref=e108]
+            - list [ref=e109]:
+              - listitem [ref=e110]:
+                - link "Browse restaurants" [ref=e111] [cursor=pointer]:
+                  - /url: /restaurants
+              - listitem [ref=e112]:
+                - link "Features" [ref=e113] [cursor=pointer]:
+                  - /url: /#features
+              - listitem [ref=e114]:
+                - link "How it works" [ref=e115] [cursor=pointer]:
+                  - /url: /#how-it-works
+          - generic [ref=e116]:
+            - heading "Company" [level=3] [ref=e117]
+            - list [ref=e118]:
+              - listitem [ref=e119]:
+                - link "About us" [ref=e120] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e121]:
+                - link "Contact" [ref=e122] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e123]:
+                - link "Partner with us" [ref=e124] [cursor=pointer]:
+                  - /url: /partners
+          - generic [ref=e125]:
+            - heading "Legal" [level=3] [ref=e126]
+            - list [ref=e127]:
+              - listitem [ref=e128]:
+                - link "Privacy policy" [ref=e129] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e130]:
+                - link "Terms of service" [ref=e131] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e132]:
+                - link "Cookie policy" [ref=e133] [cursor=pointer]:
+                  - /url: /cookies
+        - generic [ref=e135]:
+          - paragraph [ref=e136]: © 2026 Nab a Table. All rights reserved.
+          - generic [ref=e138]: All systems operational
+  - button "Open Next.js Dev Tools" [ref=e147] [cursor=pointer]:
+    - img [ref=e148]
+  - alert [ref=e151]

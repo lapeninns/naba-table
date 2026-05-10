@@ -42,22 +42,22 @@ const STATUS_CONFIG: Record<BeaconStatus, BeaconConfig> = {
   connected: {
     label: 'Live',
     tone: 'success',
-    dotClass: 'bg-emerald-500',
-    ringClass: 'ring-emerald-500/30',
-    pulseClass: 'bg-emerald-400/30 animate-ping',
+    dotClass: 'bg-primary/10',
+    ringClass: 'ring-primary/30',
+    pulseClass: 'bg-primary/10 animate-ping',
   },
   stale: {
     label: 'Stale',
     tone: 'warning',
-    dotClass: 'bg-amber-500',
-    ringClass: 'ring-amber-500/30',
-    pulseClass: 'bg-amber-400/30 animate-pulse',
+    dotClass: 'bg-primary/10',
+    ringClass: 'ring-primary/30',
+    pulseClass: 'bg-primary/10 animate-pulse',
   },
   error: {
     label: 'Error',
     tone: 'danger',
-    dotClass: 'bg-rose-500',
-    ringClass: 'ring-rose-500/25',
+    dotClass: 'bg-destructive/10',
+    ringClass: 'ring-destructive/25',
     pulseClass: 'hidden',
   },
 };
@@ -88,33 +88,37 @@ export function ConnectionStatusBeacon({
   const hasData = typeof dataUpdatedAt === 'number';
   const isLoading = isSummaryLoading && !hasData;
   const isDataStale = hasData && nowMs - dataUpdatedAt > dataStaleAfterMs;
-  const effectiveStatus: BeaconStatus = hasSummaryError && !hasData
-    ? 'error'
-    : isLoading || !hasData
-      ? 'initializing'
-      : isDataStale
-        ? 'stale'
-        : 'connected';
+  const effectiveStatus: BeaconStatus =
+    hasSummaryError && !hasData
+      ? 'error'
+      : isLoading || !hasData
+        ? 'initializing'
+        : isDataStale
+          ? 'stale'
+          : 'connected';
   const beacon = STATUS_CONFIG[effectiveStatus] ?? STATUS_CONFIG.initializing;
   const label = beacon.label;
   const resolvedIsPolling =
-    typeof isPolling === 'boolean' ? isPolling : realtimeEnabled === false || realtimeHealthy === false;
+    typeof isPolling === 'boolean'
+      ? isPolling
+      : realtimeEnabled === false || realtimeHealthy === false;
   const syncLabel = resolvedIsPolling ? 'Polling' : 'Realtime';
 
   const reference = useMemo(() => DateTime.fromMillis(nowMs), [nowMs]);
 
   const formatRelative = (value: number | Date | null | undefined) => {
     if (!value) return null;
-    const dateTime = typeof value === 'number' ? DateTime.fromMillis(value) : DateTime.fromJSDate(value);
+    const dateTime =
+      typeof value === 'number' ? DateTime.fromMillis(value) : DateTime.fromJSDate(value);
     return formatRelativeTime(dateTime, reference, { style: 'short', includeSeconds: true });
   };
 
   const updatedRelative = hasData ? formatRelative(dataUpdatedAt) : null;
-  const syncClassName = resolvedIsPolling ? 'text-amber-600' : 'text-muted-foreground';
+  const syncClassName = resolvedIsPolling ? 'text-primary' : 'text-muted-foreground';
 
   return (
     <div
-      className="inline-flex flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur sm:gap-1.5 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
+      className="inline-flex flex-col gap-1 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur-xl sm:gap-1.5 sm:rounded-2xl sm:px-3 sm:py-2 sm:text-xs"
       title={`Connection status: ${label}`}
       aria-label={`Connection status: ${label}. Sync: ${syncLabel}.`}
       role="status"
@@ -125,7 +129,7 @@ export function ConnectionStatusBeacon({
         Connection status: {label}. Sync: {syncLabel}.
       </span>
       <div className="flex items-center gap-2">
-        <span className="relative flex h-3 w-3 items-center justify-center">
+        <span className="relative flex size-3 items-center justify-center">
           <span
             className={`absolute inline-flex h-4 w-4 rounded-full ${beacon.pulseClass} motion-reduce:animate-none`}
             aria-hidden="true"
@@ -135,12 +139,19 @@ export function ConnectionStatusBeacon({
             aria-hidden="true"
           />
         </span>
-        <OpsStatusBadge label={label} tone={beacon.tone} className="px-1.5 py-0.5 text-[10px] sm:px-2 sm:text-[11px]" />
+        <OpsStatusBadge
+          label={label}
+          tone={beacon.tone}
+          className="px-1.5 py-0.5 text-[10px] sm:px-2 sm:text-[11px]"
+        />
       </div>
 
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground sm:hidden" aria-hidden="true">
+      <div
+        className="flex items-center gap-1 text-[10px] text-muted-foreground sm:hidden"
+        aria-hidden="true"
+      >
         {updatedRelative ? (
-          <span className={isDataStale ? 'text-amber-600' : 'text-muted-foreground'}>
+          <span className={isDataStale ? 'text-primary' : 'text-muted-foreground'}>
             Updated {updatedRelative}
           </span>
         ) : (
@@ -150,10 +161,13 @@ export function ConnectionStatusBeacon({
         <span className={syncClassName}>{syncLabel}</span>
       </div>
 
-      <div className="hidden flex-wrap items-center gap-1 text-[10px] text-muted-foreground sm:flex" aria-hidden="true">
+      <div
+        className="hidden flex-wrap items-center gap-1 text-[10px] text-muted-foreground sm:flex"
+        aria-hidden="true"
+      >
         {updatedRelative ? (
           <>
-            <span className={isDataStale ? 'text-amber-600' : 'text-muted-foreground'}>
+            <span className={isDataStale ? 'text-primary' : 'text-muted-foreground'}>
               Bookings updated {updatedRelative}
             </span>
             <span aria-hidden="true">·</span>

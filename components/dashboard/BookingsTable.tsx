@@ -41,7 +41,10 @@ export type BookingsTableProps = {
   opsLifecycle?: {
     onCheckIn: (bookingId: string) => Promise<void>;
     onCheckOut: (bookingId: string) => Promise<void>;
-    onMarkNoShow: (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => Promise<void>;
+    onMarkNoShow: (
+      bookingId: string,
+      options?: { performedAt?: string | null; reason?: string | null },
+    ) => Promise<void>;
     onUndoNoShow: (bookingId: string, reason?: string | null) => Promise<void>;
   };
   showHeaderTitle?: boolean;
@@ -167,16 +170,16 @@ export function BookingsTable({
 
   const mobileEmptyState: EmptyStateProps | undefined = emptyState
     ? {
-      ...emptyState,
-      analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_mobile`,
-    }
+        ...emptyState,
+        analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_mobile`,
+      }
     : undefined;
 
   const desktopEmptyState: EmptyStateProps | undefined = emptyState
     ? {
-      ...emptyState,
-      analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_desktop`,
-    }
+        ...emptyState,
+        analyticsEvent: `${emptyState.analyticsEvent ?? 'dashboard_empty_state_viewed'}_desktop`,
+      }
     : undefined;
 
   const rowMeasureCacheRef = useRef(new Map<string, number>());
@@ -306,7 +309,9 @@ export function BookingsTable({
       {!hideHeader && (
         <BookingsHeader
           title={isOpsVariant ? 'Booking queue' : 'Bookings'}
-          subtitle={isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined}
+          subtitle={
+            isOpsVariant ? 'Search, filter, and paginate without losing your place.' : undefined
+          }
           total={total}
           showTitle={showHeaderTitle}
           statusFilter={statusFilter}
@@ -336,7 +341,7 @@ export function BookingsTable({
           role="status"
           aria-live="polite"
         >
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Loader2 className="size-3.5 animate-spin" aria-hidden />
           Updating bookings...
         </div>
       ) : null}
@@ -383,7 +388,7 @@ export function BookingsTable({
                       style={{ transform: `translateY(${virtualRow.start}px)` }}
                     >
                       <div className="flex items-center justify-center gap-2 py-3 text-xs font-medium text-muted-foreground">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
                         Loading more bookings...
                       </div>
                     </div>
@@ -426,11 +431,7 @@ export function BookingsTable({
           >
             {rows.map((row) => {
               return (
-                <div
-                  key={row.booking.id}
-                  data-booking-id={row.booking.id}
-                  className="pb-3"
-                >
+                <div key={row.booking.id} data-booking-id={row.booking.id} className="pb-3">
                   {renderOpsBookingCard(row)}
                 </div>
               );

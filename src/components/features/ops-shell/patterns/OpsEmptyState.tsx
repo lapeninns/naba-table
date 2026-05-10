@@ -13,13 +13,7 @@ export type OpsEmptyStateProps = {
   className?: string;
 };
 
-export function OpsEmptyState({
-  title,
-  description,
-  icon,
-  action,
-  className,
-}: OpsEmptyStateProps) {
+export function OpsEmptyState({ title, description, icon, action, className }: OpsEmptyStateProps) {
   return (
     <Card
       className={cn(

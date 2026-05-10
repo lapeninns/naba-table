@@ -44,7 +44,8 @@ export function buildOpsEmailDeliveryTableRows(params: {
   return attempts.map((attempt) => ({
     attemptKey: getOpsEmailDeliveryAttemptKey(attempt),
     attempt,
-    currentStatusLabel: EMAIL_DELIVERY_STATUS_LABELS[attempt.currentStatus] ?? attempt.currentStatus,
+    currentStatusLabel:
+      EMAIL_DELIVERY_STATUS_LABELS[attempt.currentStatus] ?? attempt.currentStatus,
     subject: resolveOpsEmailDeliveryAttemptSubject(attempt),
     recipientEmail: attempt.recipientEmail,
     emailType: attempt.emailType,

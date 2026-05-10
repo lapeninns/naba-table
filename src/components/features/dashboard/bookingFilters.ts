@@ -12,7 +12,11 @@ export const BOOKING_FILTER_OPTIONS = [
   { value: 'upcoming', label: 'Upcoming', description: 'Expected or pending arrivals' },
   { value: 'seated', label: 'Seated', description: 'Currently seated guests' },
   { value: 'attention', label: 'Attention', description: 'Bookings that need an action now' },
-  { value: 'finished', label: 'Finished', description: 'Completed, cancelled, or no-show bookings' },
+  {
+    value: 'finished',
+    label: 'Finished',
+    description: 'Completed, cancelled, or no-show bookings',
+  },
   { value: 'no_show', label: 'No shows', description: 'Marked as no show' },
 ] as const;
 
@@ -26,11 +30,7 @@ const UPCOMING_STATUSES = new Set<OpsTodayBooking['status']>([
   'pending_allocation',
 ]);
 
-const FINISHED_STATUSES = new Set<OpsTodayBooking['status']>([
-  'completed',
-  'cancelled',
-  'no_show',
-]);
+const FINISHED_STATUSES = new Set<OpsTodayBooking['status']>(['completed', 'cancelled', 'no_show']);
 
 export function normalizeBookingFilter(value: string | null | undefined): BookingFilter | null {
   if (!value) {

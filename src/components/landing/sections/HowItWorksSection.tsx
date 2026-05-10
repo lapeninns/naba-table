@@ -1,44 +1,51 @@
 'use client';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 const HOW_IT_WORKS_STEPS = [
   {
-    title: 'We Clone Your Floor',
+    title: 'We map your service',
     description:
-      'We map your tables and turn times. You do nothing. We handle the setup in < 24 hours.',
+      'Tables, turn times, service periods, booking rules, and the pressure points your team already knows.',
   },
   {
-    title: 'We Plug The Leaks',
+    title: 'We install the automations',
     description:
-      'We integrate with your site. Every booking is captured, confirmed, and locked in.',
+      'Your site, confirmations, reminders, waitlist logic, and manager views are configured around that model.',
   },
   {
-    title: 'You Scale Revenue',
+    title: 'Your team runs from one board',
     description:
-      'Fill the empty seats. Upsell the VIPs. Cut the labor costs. Watch profit margins jump.',
+      'Before service, managers see what is booked, what is at risk, and what still needs a human decision.',
   },
 ];
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="py-24 bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-16 motion-safe:reveal-up">
-          <h2 className="text-3xl font-bold text-slate-900">The 3-Step Mechanism</h2>
+    <section id="how-it-works" className="pg-section border-b border-border/70 bg-background">
+      <div className="pg-container">
+        <div className="mb-10 text-center sm:mb-12 md:mb-14 lg:mb-16 motion-safe:reveal-up">
+          <p className="pg-kicker mb-3">White-Glove setup</p>
+          <h2 className="pg-section-title">We build it around how your pub already runs.</h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-8 relative">
-          <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 -z-10 hidden md:block" />
+        <div className="relative grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+          <div className="pointer-events-none absolute left-6 top-6 bottom-6 hidden w-px bg-border md:hidden" />
+          <div className="pointer-events-none absolute left-[16.66%] right-[16.66%] top-6 hidden h-px bg-border md:block" />
           {HOW_IT_WORKS_STEPS.map((step, index) => (
-            <div
+            <Card
               key={step.title}
-              className="relative bg-white p-6 rounded-xl border border-slate-100 shadow-sm text-center motion-safe:reveal-up"
-              style={{ transitionDelay: `${index * 100}ms` }}
+              className="pg-panel relative border-border/70 bg-background/96 text-center shadow-[var(--pg-shadow-xs)] motion-safe:reveal-up"
             >
-              <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold mx-auto mb-4 relative z-10 border-4 border-white shadow-md text-xl">
-                {index + 1}
-              </div>
-              <h3 className="font-bold text-slate-900 mb-2 text-xl">{step.title}</h3>
-              <p className="text-sm text-slate-500">{step.description}</p>
-            </div>
+              <CardHeader className="flex flex-col items-center gap-3 space-y-0 p-5 sm:p-6 md:gap-4 md:p-7">
+                <div className="z-10 flex size-12 items-center justify-center rounded-full border-4 border-background bg-primary text-lg font-bold text-primary-foreground shadow-[var(--pg-shadow-button)] sm:text-xl">
+                  {index + 1}
+                </div>
+                <CardTitle className="pg-card-title">{step.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 pt-0 sm:px-6 sm:pb-6 md:px-7 md:pb-7">
+                <p className="text-sm text-muted-foreground sm:text-base">{step.description}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </div>

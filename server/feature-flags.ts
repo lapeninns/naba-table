@@ -187,7 +187,37 @@ export function getHoldMinTtlSeconds(): number {
 }
 
 export function isEmailQueueEnabled(): boolean {
-  return env.featureFlags.emailQueueEnabled ?? false;
+  const configured = env.featureFlags.emailQueueEnabled;
+
+  if (typeof configured === 'boolean') {
+    // Explicit opt-out in production is unsafe: long-delay reminders/reviews
+    // rely on the durable intents queue. Without it, we fall back to
+    // setTimeout which does not survive serverless invocation recycling.
+    if (configured === false && isProductionEnv()) {
+      warnUnsafeFeatureFlag(
+        'FEATURE_EMAIL_QUEUE_ENABLED explicitly disabled in production; long-delay emails will be lost when the serverless process recycles. Set FEATURE_EMAIL_QUEUE_ENABLED=true (or leave unset).',
+        { env: env.node.env },
+      );
+    }
+    return configured;
+  }
+
+  // Safe default: ON in production/preview, OFF only in test to keep
+  // the existing test fixtures deterministic. Tests that need to assert
+  // queue behavior should set FEATURE_EMAIL_QUEUE_ENABLED=true explicitly.
+  if (env.node.env === 'test') {
+    return false;
+  }
+
+  if (isProductionEnv()) {
+    // Announce once that we defaulted to enabled so operators can see it in logs.
+    warnUnsafeFeatureFlag(
+      'FEATURE_EMAIL_QUEUE_ENABLED was not set; defaulting to true in production. Set the env var explicitly to silence this notice.',
+      { env: env.node.env, defaulted: true },
+    );
+  }
+
+  return true;
 }
 
 export function isPolicyRequoteEnabled(): boolean {

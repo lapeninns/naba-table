@@ -3,6 +3,7 @@
 import { CalendarIcon, MapPinIcon, PrinterIcon, MoreHorizontalIcon } from 'lucide-react';
 import React from 'react';
 
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,12 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button } from '@shared/ui/button';
 
 interface BookingConfirmationActionsProps {
   restaurantName: string;
   restaurantAddress?: string;
-  date: Date;
+  start: Date;
+  end: Date;
   partySize: number;
   bookingRef: string;
   onDownloadIcs?: () => void;
@@ -25,20 +26,18 @@ interface BookingConfirmationActionsProps {
 export function BookingConfirmationActions({
   restaurantName,
   restaurantAddress,
-  date,
+  start,
+  end,
   partySize,
   bookingRef,
   onDownloadIcs,
 }: BookingConfirmationActionsProps) {
-  // Calculate end time (assume 2 hours duration)
-  const endTime = new Date(date.getTime() + 2 * 60 * 60 * 1000);
-
   const eventDetails = {
     title: `Dinner at ${restaurantName}`,
     description: `Reservation Reference: ${bookingRef}\nParty Size: ${partySize}`,
     location: restaurantAddress || restaurantName,
-    start: date,
-    end: endTime,
+    start,
+    end,
   };
 
   const getGoogleCalendarUrl = () => {
@@ -63,18 +62,23 @@ export function BookingConfirmationActions({
   };
 
   return (
-    <div className="flex flex-wrap gap-3">
-      {/* Get Directions */}
-      <Button variant="outline" className="flex-1 sm:flex-none gap-2" onClick={handleGetDirections}>
-        <MapPinIcon className="h-4 w-4" />
+    <div className="flex flex-wrap gap-3 rounded-[var(--pg-radius-md)] border border-border bg-muted/40 p-3">
+      <Button
+        variant="outline"
+        className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
+        onClick={handleGetDirections}
+      >
+        <MapPinIcon className="size-4" />
         Directions
       </Button>
 
-      {/* Add to Calendar Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="flex-1 sm:flex-none gap-2">
-            <CalendarIcon className="h-4 w-4" />
+          <Button
+            variant="outline"
+            className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
+          >
+            <CalendarIcon className="size-4" />
             Add to Calendar
           </Button>
         </DropdownMenuTrigger>
@@ -111,17 +115,16 @@ export function BookingConfirmationActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Print / More Actions */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="shrink-0">
-            <MoreHorizontalIcon className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
+            <MoreHorizontalIcon className="size-4" />
             <span className="sr-only">More actions</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={handlePrint} className="gap-2">
-            <PrinterIcon className="h-4 w-4" />
+            <PrinterIcon className="size-4" />
             Print Confirmation
           </DropdownMenuItem>
         </DropdownMenuContent>

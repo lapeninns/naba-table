@@ -1,10 +1,12 @@
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { Client } from "pg";
+import { Client } from 'pg';
+import { getPgSslConfig } from './db/pg-ssl';
+import { assertExactSupabaseProjectRef } from './db/safety';
 
 type Args = {
   sqlPath: string;
@@ -14,16 +16,16 @@ type Args = {
 function usage(): never {
   console.error(
     [
-      "Usage:",
-      "  pnpm -s tsx scripts/apply-sql-file.ts --file <path> [--expected-ref <projectRef>]",
-      "",
-      "Env:",
-      "  SUPABASE_DB_URL or DATABASE_URL (connection string)",
-      "",
-      "Notes:",
-      "  - Uses pg simple query mode so SQL files may contain multiple statements.",
-      "  - Does not print the connection string (avoid leaking secrets).",
-    ].join("\n"),
+      'Usage:',
+      '  pnpm -s tsx scripts/apply-sql-file.ts --file <path> [--expected-ref <projectRef>]',
+      '',
+      'Env:',
+      '  SUPABASE_DB_URL or DATABASE_URL (connection string)',
+      '',
+      'Notes:',
+      '  - Uses pg simple query mode so SQL files may contain multiple statements.',
+      '  - Does not print the connection string (avoid leaking secrets).',
+    ].join('\n'),
   );
   process.exit(1);
 }
@@ -36,22 +38,22 @@ function parseArgs(argv: string[]): Args {
     const token = argv[i];
     if (!token) continue;
 
-    if (token === "--file") {
+    if (token === '--file') {
       sqlPath = argv[i + 1] ?? null;
       i += 1;
       continue;
     }
-    if (token.startsWith("--file=")) {
-      sqlPath = token.slice("--file=".length);
+    if (token.startsWith('--file=')) {
+      sqlPath = token.slice('--file='.length);
       continue;
     }
-    if (token === "--expected-ref") {
+    if (token === '--expected-ref') {
       expectedProjectRef = argv[i + 1] ?? null;
       i += 1;
       continue;
     }
-    if (token.startsWith("--expected-ref=")) {
-      expectedProjectRef = token.slice("--expected-ref=".length);
+    if (token.startsWith('--expected-ref=')) {
+      expectedProjectRef = token.slice('--expected-ref='.length);
       continue;
     }
   }
@@ -66,17 +68,10 @@ function parseArgs(argv: string[]): Args {
   };
 }
 
-function isSafeExpectedRef(connectionString: string, expectedProjectRef: string): boolean {
-  // Support both direct host (db.<ref>.supabase.co) and pooler user (postgres.<ref>@...pooler...).
-  const lower = connectionString.toLowerCase();
-  const ref = expectedProjectRef.toLowerCase();
-  return lower.includes(ref);
-}
-
 async function main(): Promise<void> {
   const modulePath = fileURLToPath(import.meta.url);
-  const projectRoot = path.resolve(path.dirname(modulePath), "..");
-  const envLocalPath = path.join(projectRoot, ".env.local");
+  const projectRoot = path.resolve(path.dirname(modulePath), '..');
+  const envLocalPath = path.join(projectRoot, '.env.local');
   if (fs.existsSync(envLocalPath)) {
     loadEnv({ path: envLocalPath, override: false });
   }
@@ -85,15 +80,18 @@ async function main(): Promise<void> {
 
   const connectionString = process.env.SUPABASE_DB_URL ?? process.env.DATABASE_URL;
   if (!connectionString) {
-    console.error("Missing SUPABASE_DB_URL or DATABASE_URL.");
+    console.error('Missing SUPABASE_DB_URL or DATABASE_URL.');
     process.exit(1);
   }
 
-  if (args.expectedProjectRef && !isSafeExpectedRef(connectionString, args.expectedProjectRef)) {
-    console.error(
-      `Supabase DB URL does not appear to match expected project ref (${args.expectedProjectRef}). Aborting.`,
-    );
-    process.exit(1);
+  if (args.expectedProjectRef) {
+    try {
+      assertExactSupabaseProjectRef(connectionString, args.expectedProjectRef);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`${message} Aborting.`);
+      process.exit(1);
+    }
   }
 
   const sqlPath = path.resolve(projectRoot, args.sqlPath);
@@ -102,7 +100,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const sql = fs.readFileSync(sqlPath, "utf8");
+  const sql = fs.readFileSync(sqlPath, 'utf8');
   if (!sql.trim()) {
     console.error(`SQL file is empty: ${sqlPath}`);
     process.exit(1);
@@ -110,9 +108,7 @@ async function main(): Promise<void> {
 
   const client = new Client({
     connectionString,
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    ssl: getPgSslConfig(),
   });
 
   await client.connect();

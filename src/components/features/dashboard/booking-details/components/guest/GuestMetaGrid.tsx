@@ -2,8 +2,6 @@
 
 import { Calendar, Clock, Users } from 'lucide-react';
 
-import { Card, CardContent } from '@/components/ui/card';
-
 export type GuestMetaGridProps = {
   partySize: number;
   formattedStartTime: string;
@@ -23,21 +21,19 @@ function MetaCard({
 }) {
   const Icon = icon;
   return (
-    <Card className="border-slate-200/60 bg-white shadow-sm">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <Icon className="h-4 w-4" aria-hidden />
+    <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-background p-2.5 shadow-sm ring-1 ring-border/5">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded bg-muted/60 text-muted-foreground">
+        <Icon className="size-3.5" aria-hidden />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/70">
+          {title}
         </div>
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {title}
-          </div>
-          <div className="truncate text-sm font-semibold text-foreground" title={value}>
-            {value}
-          </div>
+        <div className="truncate text-xs font-bold text-foreground" title={value}>
+          {value}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -49,7 +45,7 @@ export function GuestMetaGrid({
   occasionLabel,
 }: GuestMetaGridProps) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <MetaCard icon={Users} title="Covers" value={`${partySize}`} />
       <MetaCard
         icon={Clock}
@@ -57,10 +53,9 @@ export function GuestMetaGrid({
         value={`${formattedStartTime}${durationMinutes ? ` · ${durationMinutes}m` : ''}`}
       />
       <MetaCard icon={Calendar} title="Source" value={sourceLabel} />
-      <MetaCard icon={Calendar} title="Occasion" value={occasionLabel} />
+      <MetaCard icon={Calendar} title="Event" value={occasionLabel} />
     </div>
   );
 }
 
 export default GuestMetaGrid;
-

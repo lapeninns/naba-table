@@ -11,7 +11,6 @@ import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
 
-
 import type { EmailDeliveryTab } from '@/components/features/email-delivery/opsEmailDeliveryTypes';
 import type { OpsEmailDeliveryRange, EmailDeliveryStatus } from '@/types/emailDelivery';
 
@@ -139,13 +138,7 @@ export function useOpsEmailDeliveryState({
   const resetToDefaults = queryState.resetToDefaults;
 
   const effectiveRestaurantId = useMemo(
-    () =>
-      normalizeRestaurantId(
-        parsedRestaurantId,
-        membershipIds,
-        activeRestaurantId,
-        memberships,
-      ),
+    () => normalizeRestaurantId(parsedRestaurantId, membershipIds, activeRestaurantId, memberships),
     [activeRestaurantId, membershipIds, memberships, parsedRestaurantId],
   );
 

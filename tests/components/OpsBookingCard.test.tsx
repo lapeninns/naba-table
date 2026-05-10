@@ -2,9 +2,29 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useMediaQueryMock, useMinimumDelayMock } = vi.hoisted(() => ({
-  useMediaQueryMock: vi.fn(() => false),
-  useMinimumDelayMock: vi.fn((value: boolean) => value),
+const { queryClientMock, useBookingServiceMock, useMediaQueryMock, useMinimumDelayMock } =
+  vi.hoisted(() => ({
+    queryClientMock: {
+      prefetchQuery: vi.fn(),
+      setQueryData: vi.fn(),
+    },
+    useBookingServiceMock: vi.fn(() => ({
+      getDialogBundle: vi.fn(),
+    })),
+    useMediaQueryMock: vi.fn(() => false),
+    useMinimumDelayMock: vi.fn((value: boolean) => value),
+  }));
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useQueryClient: () => queryClientMock,
+  };
+});
+
+vi.mock('@/contexts/ops-services', () => ({
+  useBookingService: useBookingServiceMock,
 }));
 
 vi.mock('@src/hooks/useMediaQuery', () => ({
@@ -74,6 +94,14 @@ function renderLockedCard(overrides: Partial<BookingDTO> = {}) {
   return render(<OpsBookingCard viewModel={viewModel} />);
 }
 
+function getCardTrigger() {
+  const trigger = screen
+    .getAllByRole('button')
+    .find((button) => button.getAttribute('aria-controls')?.startsWith('ops-booking-details-'));
+  expect(trigger).toBeDefined();
+  return trigger!;
+}
+
 describe('OpsBookingCard', () => {
   beforeEach(() => {
     useMediaQueryMock.mockReturnValue(false);
@@ -119,7 +147,7 @@ describe('OpsBookingCard', () => {
       />,
     );
 
-    expect(screen.getByText('Table 12 + 14')).toBeInTheDocument();
+    expect(screen.getAllByText('Table 12 + 14')).toHaveLength(2);
 
     rerender(
       <OpsBookingCard
@@ -134,7 +162,7 @@ describe('OpsBookingCard', () => {
       />,
     );
 
-    expect(screen.getByText('Unassigned')).toBeInTheDocument();
+    expect(screen.getAllByText('Unassigned')).toHaveLength(2);
 
     rerender(
       <OpsBookingCard
@@ -150,7 +178,7 @@ describe('OpsBookingCard', () => {
       />,
     );
 
-    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.getAllByText('N/A')).toHaveLength(2);
   });
 
   it('uses singular and plural guest labels in the header', () => {
@@ -180,7 +208,7 @@ describe('OpsBookingCard', () => {
 
     expect(screen.getByText(/available\. expand details to read\./i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /toggle details/i }));
+    await user.click(getCardTrigger());
 
     expect(screen.queryByText(/available\. expand details to read\./i)).not.toBeInTheDocument();
   });
@@ -193,7 +221,7 @@ describe('OpsBookingCard', () => {
     expect(screen.queryByText(/available\. expand details to read\./i)).not.toBeInTheDocument();
   });
 
-  it('marks locked cards as inert and disables the mobile collapse toggle', () => {
+  it('marks locked cards as inert and disables details actions', () => {
     useMediaQueryMock.mockReturnValue(true);
 
     renderLockedCard();
@@ -202,6 +230,6 @@ describe('OpsBookingCard', () => {
 
     expect(lockedCard).not.toBeNull();
     expect(lockedCard).toHaveClass('pointer-events-none');
-    expect(screen.getByRole('button', { name: /toggle details/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^details$/i })).toBeDisabled();
   });
 });

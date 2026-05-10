@@ -3,12 +3,12 @@ import {
   CalendarDays,
   CircleHelp,
   DoorOpen,
+  Globe2,
   LayoutGrid,
   Mail,
   MailCheck,
-  Sparkles,
+  MessageSquare,
   Clock3,
-  Timer,
   TrendingDown,
   UtensilsCrossed,
   SlidersHorizontal,
@@ -26,6 +26,7 @@ export type OpsNavigationItem = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   match?: (pathname: string) => boolean;
   requiresFeatureFlag?: keyof OpsFeatureFlags;
+  requiresActiveAdmin?: boolean;
 };
 
 export type OpsNavigationSection = {
@@ -45,7 +46,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
     items: [
       {
         title: 'Dashboard',
-        description: 'Today\'s service overview',
+        description: "Today's service overview",
         href: path('/dashboard'),
         icon: BarChart3,
         match: (pathname) => pathname === path('/dashboard') || pathname === OPS_BASE_PATH,
@@ -55,7 +56,8 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         description: 'Manage reservations',
         href: path('/bookings'),
         icon: CalendarDays,
-        match: (pathname) => pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+        match: (pathname) =>
+          pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
       {
         title: 'New Bookings',
@@ -82,6 +84,14 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/email-delivery'),
         icon: MailCheck,
         match: (pathname) => pathname.startsWith(path('/email-delivery')),
+      },
+      {
+        title: 'SMS Delivery',
+        description: 'Track queued/sent/delivered/failed SMS status',
+        href: path('/sms-delivery'),
+        icon: MessageSquare,
+        match: (pathname) => pathname.startsWith(path('/sms-delivery')),
+        requiresActiveAdmin: true,
       },
       {
         title: 'Email Templates',
@@ -111,39 +121,33 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname.startsWith(path('/settings/restaurant/profile')),
       },
       {
-        title: 'Operating Hours',
-        description: 'Weekly hours & overrides',
-        href: path('/settings/restaurant/operating-hours'),
+        title: 'Google Business Profile',
+        description: 'Connect Google and review sync alignment',
+        href: path('/settings/restaurant/google-business-profile'),
+        icon: Globe2,
+        match: (pathname) =>
+          pathname.startsWith(path('/settings/restaurant/google-business-profile')),
+      },
+      {
+        title: 'Availability & Booking types',
+        description: 'Hours, overrides, meal windows, and occasions',
+        href: path('/settings/restaurant/availability'),
         icon: Clock3,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/operating-hours')),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/availability')),
       },
       {
-        title: 'Booking Occasions',
-        description: 'Guest/staff occasion options',
-        href: path('/settings/restaurant/occasions'),
-        icon: Sparkles,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/occasions')),
-      },
-      {
-        title: 'Service Periods',
-        description: 'Lunch & dinner booking windows',
-        href: path('/settings/restaurant/service-periods'),
+        title: 'Menu',
+        description: 'Manage menu items and modifiers',
+        href: path('/settings/restaurant/menu'),
         icon: UtensilsCrossed,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/service-periods')),
-      },
-      {
-        title: 'Reservation Durations',
-        description: 'Party-size turn times',
-        href: path('/settings/restaurant/turn-durations'),
-        icon: Timer,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/turn-durations')),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/menu')),
       },
       {
         title: 'Tables',
         description: 'Manage table inventory',
-        href: path('/settings/tables'),
+        href: path('/settings/restaurant/tables'),
         icon: LayoutGrid,
-        match: (pathname) => pathname.startsWith(path('/settings/tables')),
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant/tables')),
       },
       {
         title: 'Team',
@@ -154,7 +158,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
       },
     ],
   },
-
 ];
 
 export const OPS_SUPPORT_ITEM: OpsNavigationItem = {
@@ -170,4 +173,26 @@ export function isNavItemActive(pathname: string, item: OpsNavigationItem): bool
     return item.match(pathname);
   }
   return pathname === item.href;
+}
+
+export function filterOpsNavigationSections(params: {
+  sections?: readonly OpsNavigationSection[];
+  featureFlags: OpsFeatureFlags;
+  canViewAdminItems: boolean;
+}): OpsNavigationSection[] {
+  const sections = params.sections ?? OPS_NAV_SECTIONS;
+  return sections
+    .map((section) => ({
+      label: section.label,
+      items: section.items.filter((item) => {
+        if (item.requiresFeatureFlag && !params.featureFlags[item.requiresFeatureFlag]) {
+          return false;
+        }
+        if (item.requiresActiveAdmin && !params.canViewAdminItems) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 }

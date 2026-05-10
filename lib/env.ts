@@ -8,10 +8,35 @@ const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
 let cachedEnv: Env | null = null;
 
 function parseEnv(): Env {
+  const hasTemplatePlaceholder = (value: string) => /\$\{[^}]+\}/.test(value);
+
+  const resolveVercelUrlTemplate = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed.includes('${VERCEL_URL}')) return trimmed;
+
+    const vercelUrl = process.env.VERCEL_URL?.trim();
+    if (!vercelUrl || hasTemplatePlaceholder(vercelUrl)) return null;
+
+    return trimmed.replaceAll('${VERCEL_URL}', vercelUrl);
+  };
+
+  const sanitizePublicUrlEnv = (key: 'NEXT_PUBLIC_APP_URL' | 'NEXT_PUBLIC_SITE_URL') => {
+    const value = process.env[key];
+    if (typeof value !== 'string') return;
+
+    const resolved = resolveVercelUrlTemplate(value);
+    if (resolved) {
+      process.env[key] = resolved;
+    } else {
+      delete process.env[key];
+    }
+  };
+
   const sanitizeUrlEnv = (key: 'BASE_URL' | 'SITE_URL') => {
     const value = process.env[key];
     if (typeof value === 'string') {
-      const normalized = value.trim();
+      const resolved = resolveVercelUrlTemplate(value);
+      const normalized = resolved?.trim() ?? '';
       if (
         normalized.length === 0 ||
         normalized === '/' ||
@@ -24,6 +49,8 @@ function parseEnv(): Env {
     }
   };
 
+  sanitizePublicUrlEnv('NEXT_PUBLIC_APP_URL');
+  sanitizePublicUrlEnv('NEXT_PUBLIC_SITE_URL');
   sanitizeUrlEnv('BASE_URL');
   sanitizeUrlEnv('SITE_URL');
 
@@ -367,6 +394,28 @@ export const env = {
     const parsed = parseEnv();
     return {
       writeKey: parsed.NEXT_PUBLIC_SITE_ANALYTICS_WRITE_KEY,
+    } as const;
+  },
+
+  get googleBusinessProfile() {
+    const parsed = parseEnv();
+    const clientId =
+      parsed.GOOGLE_BUSINESS_CLIENT_ID ?? parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID ?? null;
+    const clientSecret =
+      parsed.GOOGLE_BUSINESS_CLIENT_SECRET ?? parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET ?? null;
+    const redirectUri =
+      parsed.GOOGLE_BUSINESS_REDIRECT_URI ?? parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI ?? null;
+    const tokenEncryptionKey =
+      parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY ??
+      parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ??
+      null;
+    return {
+      clientId,
+      clientSecret,
+      redirectUri,
+      tokenEncryptionKey,
+      quotaProject: parsed.GOOGLE_CLOUD_QUOTA_PROJECT ?? null,
+      configured: Boolean(clientId && clientSecret && redirectUri && tokenEncryptionKey),
     } as const;
   },
 

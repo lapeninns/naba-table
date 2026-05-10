@@ -1,6 +1,5 @@
-'use client';
-
-import { useRef, useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 import { Icon } from './Icons';
 
@@ -13,95 +12,39 @@ type Metric = {
   icon: 'chart' | 'zap';
 };
 
-function useCountUp(endValue: number, duration: number, enabled: boolean) {
-  const [value, setValue] = useState(0);
-  const elementRef = useRef<HTMLDivElement | null>(null);
-  const hasStartedRef = useRef(false);
-
-  useEffect(() => {
-    if (!enabled) {
-      setValue(endValue);
-      hasStartedRef.current = true;
-      return;
-    }
-    setValue(0);
-    hasStartedRef.current = false;
-  }, [endValue, enabled]);
-
-  useEffect(() => {
-    if (!enabled) return undefined;
-    const node = elementRef.current;
-    if (!node) return undefined;
-
-    let startTime: number | null = null;
-    let animationFrame = 0;
-
-    const step = (timestamp: number) => {
-      if (startTime === null) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const nextValue = Math.round(progress * endValue);
-      setValue(progress === 1 ? endValue : nextValue);
-      if (progress < 1) animationFrame = window.requestAnimationFrame(step);
-    };
-
-    const start = () => {
-      if (hasStartedRef.current) return;
-      hasStartedRef.current = true;
-      animationFrame = window.requestAnimationFrame(step);
-    };
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            start();
-            observer.disconnect();
-          }
-        });
-      },
-      { threshold: 0.4 },
-    );
-
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-    };
-  }, [duration, enabled, endValue]);
-
-  return { ref: elementRef, value };
-}
-
 interface MetricCardProps {
   metric: Metric;
-  reduceMotion: boolean;
+  reduceMotion?: boolean;
 }
 
-export function MetricCard({ metric, reduceMotion }: MetricCardProps) {
-  const { ref, value } = useCountUp(metric.value, 1200, !reduceMotion);
-
+export function MetricCard({ metric }: MetricCardProps) {
   function formatMetricValue(val: number) {
     const formatted = val.toLocaleString('en-GB');
     return `${metric.prefix ?? ''}${formatted}${metric.suffix ?? ''}`;
   }
 
   return (
-    <div className="factory-card p-6 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
-      <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-        <Icon name={metric.icon} className="w-6 h-6" />
-      </div>
-      <div
-        ref={ref}
-        className="text-4xl font-extrabold text-slate-900 mb-1 font-variant-numeric tabular-nums transition-colors transition-transform"
-      >
-        {formatMetricValue(value)}
-      </div>
-      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
-        {metric.label}
-      </div>
-      <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 font-mono">
-        {metric.detail}
-      </div>
-    </div>
+    <Card
+      variant="compact"
+      className="pg-panel overflow-hidden border-primary/15 bg-background/95 shadow-[var(--pg-shadow-xs)] transition-all duration-200"
+    >
+      <CardHeader className="flex flex-col gap-0 space-y-0 border-b border-border/60 bg-muted/35 p-4 sm:p-5 md:p-6">
+        <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary sm:mb-4">
+          <Icon name={metric.icon} className="size-6" />
+        </div>
+        <div className="font-variant-numeric font-[var(--pg-font-mono)] text-3xl font-bold tabular-nums text-foreground transition-colors sm:text-4xl">
+          {formatMetricValue(metric.value)}
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:text-sm">
+          {metric.label}
+        </p>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 p-4 sm:p-5 md:p-6">
+        <Separator />
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          {metric.detail}
+        </p>
+      </CardContent>
+    </Card>
   );
 }

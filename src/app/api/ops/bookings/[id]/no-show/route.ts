@@ -5,6 +5,7 @@ import { clearBookingTableAssignments } from '@/server/bookings';
 import { prepareNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
 import {
   loadLifecycleRouteContext,
@@ -14,7 +15,6 @@ import {
 } from '../_shared/lifecycleRoute';
 
 import type { NextRequest } from 'next/server';
-
 
 const bodySchema = z
   .object({
@@ -29,6 +29,10 @@ type RouteParams = {
 };
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
+  return withCsrfProtectedMutation(req, () => postNoShow(req, { params }));
+}
+
+async function postNoShow(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
@@ -41,6 +45,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const payload = parsedBody.data;
 
   const contextResult = await loadLifecycleRouteContext({
+    req,
     bookingId: id,
     logLabel: 'booking-no-show',
   });

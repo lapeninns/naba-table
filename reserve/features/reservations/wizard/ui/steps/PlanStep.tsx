@@ -3,7 +3,7 @@
 import { AlertTriangle } from 'lucide-react';
 import React, { useMemo } from 'react';
 
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
 
 import { useWizardActions, useWizardState } from '../../context/WizardContext';
 import { StepErrorBoundary } from '../ErrorBoundary';
@@ -58,8 +58,8 @@ function getMinSelectableDate(timezone: string | null | undefined) {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TITLE = 'When would you like to join us?';
-const DESCRIPTION = 'Select your preferred date, time, and party size below.';
+const TITLE = 'Plan your table';
+const DESCRIPTION = 'Choose the party size, date, and time before we ask for contact details.';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -104,7 +104,7 @@ export function PlanStep({
         {alertMessage && (
           <Alert variant="destructive" role="alert" className="items-start animate-fade-in">
             <AlertIcon>
-              <AlertTriangle className="h-4 w-4" aria-hidden />
+              <AlertTriangle className="size-4" aria-hidden />
             </AlertIcon>
             <AlertDescription aria-live="polite">{alertMessage}</AlertDescription>
           </Alert>

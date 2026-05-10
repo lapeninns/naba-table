@@ -1,0 +1,85 @@
+'use client';
+
+import { ShieldCheck, Sparkles } from 'lucide-react';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+type ConnectCardProps = {
+  connectHref: string;
+  isConfigured: boolean;
+  isPendingAuth: boolean;
+  lastError: string | null;
+};
+
+const BENEFITS = [
+  'Authorize one Google account.',
+  'Pick the listing that belongs to this restaurant.',
+  'Review differences before syncing changes.',
+];
+
+export function ConnectCard({
+  connectHref,
+  isConfigured,
+  isPendingAuth,
+  lastError,
+}: ConnectCardProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="size-5 text-primary" aria-hidden />
+          Connect Google Business Profile
+        </CardTitle>
+        <CardDescription>
+          Start with Google authorization, then choose the restaurant listing.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+          {BENEFITS.map((benefit) => (
+            <li key={benefit} className="flex items-start gap-2">
+              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              <span>{benefit}</span>
+            </li>
+          ))}
+        </ul>
+
+        {!isConfigured ? (
+          <Alert>
+            <AlertTitle>Integration not configured</AlertTitle>
+            <AlertDescription>
+              Google Business Profile credentials are not available in this environment, so the
+              OAuth flow is disabled. Ask an administrator to configure the integration to enable
+              connect.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {isPendingAuth ? (
+          <Alert>
+            <AlertTitle>Waiting on Google</AlertTitle>
+            <AlertDescription>
+              The authorization handoff is in progress. Finish the Google consent flow in the open
+              tab, or start over with Connect Google.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {lastError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Last connection attempt failed</AlertTitle>
+            <AlertDescription>{lastError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <div>
+          <Button asChild size="lg" disabled={!isConfigured}>
+            <a href={connectHref}>Connect Google</a>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

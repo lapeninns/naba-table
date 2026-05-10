@@ -1,10 +1,11 @@
 import { createHmac } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildTwilioFetchMessageRequest,
   buildTwilioListMessagesRequest,
   buildTwilioSmsRequest,
+  fetchTwilioMessage,
   mapTwilioMessageStatusToDeliveryStatus,
   validateTwilioWebhookSignature,
 } from '@/lib/twilio/sms';
@@ -91,15 +92,59 @@ describe('buildTwilioListMessagesRequest', () => {
   });
 });
 
+describe('buildTwilioFetchMessageRequest', () => {
+  it('builds a single-message fetch request', () => {
+    const request = buildTwilioFetchMessageRequest({
+      accountSid: 'AC123',
+      authToken: 'auth-token',
+      messageSid: 'SM123',
+    });
+
+    expect(request.url).toBe('https://api.twilio.com/2010-04-01/Accounts/AC123/Messages/SM123.json');
+    expect(request.init.method).toBe('GET');
+  });
+});
+
 describe('mapTwilioMessageStatusToDeliveryStatus', () => {
   it('maps Twilio transport states into internal delivery states', () => {
+    expect(mapTwilioMessageStatusToDeliveryStatus('accepted')).toBe('queued');
     expect(mapTwilioMessageStatusToDeliveryStatus('queued')).toBe('queued');
+    expect(mapTwilioMessageStatusToDeliveryStatus('scheduled')).toBe('queued');
+    expect(mapTwilioMessageStatusToDeliveryStatus('sending')).toBe('queued');
     expect(mapTwilioMessageStatusToDeliveryStatus('sent')).toBe('sent');
     expect(mapTwilioMessageStatusToDeliveryStatus('delivered')).toBe('delivered');
     expect(mapTwilioMessageStatusToDeliveryStatus('undelivered')).toBe('undelivered');
     expect(mapTwilioMessageStatusToDeliveryStatus('failed')).toBe('failed');
     expect(mapTwilioMessageStatusToDeliveryStatus('canceled')).toBe('failed');
     expect(mapTwilioMessageStatusToDeliveryStatus('unknown')).toBeNull();
+  });
+});
+
+describe('fetchTwilioMessage', () => {
+  it('parses a Twilio message resource response', async () => {
+    const message = await fetchTwilioMessage({
+      accountSid: 'AC123',
+      authToken: 'auth-token',
+      messageSid: 'SM123',
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            sid: 'SM123',
+            status: 'delivered',
+            to: '+447700900111',
+            from: '+447700900222',
+            date_updated: 'Wed, 20 Apr 2026 10:00:00 +0000',
+            error_code: null,
+            error_message: null,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+    });
+
+    expect(message.sid).toBe('SM123');
+    expect(message.status).toBe('delivered');
+    expect(message.to).toBe('+447700900111');
+    expect(message.dateUpdated).toBe('Wed, 20 Apr 2026 10:00:00 +0000');
   });
 });
 

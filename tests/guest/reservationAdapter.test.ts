@@ -11,7 +11,6 @@ describe('reservationAdapter', () => {
       start_time: '19:30',
       end_time: '21:00',
       booking_type: 'dinner',
-      seating_preference: 'none',
       status: 'confirmed',
       party_size: 2,
       customer_name: 'Alex Example',

@@ -4,13 +4,20 @@ import { AlertCircle } from 'lucide-react';
 import React, { useCallback, useMemo } from 'react';
 import { useController } from 'react-hook-form';
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Form, FormField, FormRoot } from '@/components/ui/form';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
-import { cn } from '@shared/lib/cn';
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
-import { Form, FormField } from '@shared/ui/form';
 
 import { Calendar24Date, Calendar24Time, NotesField, PartySizeField } from './components';
 import { usePlanStepForm } from '../../../hooks/usePlanStepForm';
+import { WizardPanel, WizardPanelContent } from '../../WizardPanel';
 
 import type { PlanStepFormProps, PlanStepFormState } from './types';
 
@@ -20,33 +27,6 @@ import type { PlanStepFormProps, PlanStepFormState } from './types';
 
 const UNKNOWN_AVAILABILITY_COPY =
   'Availability is still loading. Please try another date or retry in a moment.';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface BentoCardProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-function BentoCard({ children, className }: BentoCardProps) {
-  return (
-    <div
-      className={cn(
-        // Base styling
-        'rounded-2xl border border-border/50 bg-background/60 p-5 shadow-sm',
-        'backdrop-blur-md',
-        // Transition for hover
-        'transition-all duration-300',
-        'hover:shadow-lg hover:border-primary/20 hover:bg-background/80',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Form Content
@@ -96,100 +76,108 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
   }, [state.currentUnavailabilityReason]);
 
   return (
-    <form
-      className="space-y-6"
+    <FormRoot
+      className="space-y-5 sm:space-y-6"
       onSubmit={handleSubmit(state.submitForm, state.handleError)}
       noValidate
     >
-      {/* Hidden submit button for form submission via Enter */}
-      <button type="submit" className="hidden" aria-hidden />
+      <Button type="submit" className="hidden" aria-hidden />
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          BENTO GRID LAYOUT
-          Desktop: 3 columns (Date | Party | Time)
-          Tablet: 2 columns (Date+Party | Time)
-          Mobile: 1 column stacked
-      ═══════════════════════════════════════════════════════════════════ */}
-      <div
-        className={cn(
-          'grid gap-4',
-          // Mobile: single column
-          'grid-cols-1',
-          // Tablet: 2 columns
-          'md:grid-cols-2',
-          // Desktop: 3 columns
-          'lg:grid-cols-3',
-        )}
-      >
-        {/* ─────────────────────────────────────────────────────────────────
-            Column 1: Date Selection
-        ───────────────────────────────────────────────────────────── */}
-        <BentoCard className="lg:row-span-1">
-          <Calendar24Date
-            date={{
-              value: dateField.value ?? '',
-              minDate: state.minDate,
-              onSelect: (next: Date | null) => {
-                state.handlers.selectDate(next);
-              },
-              onBlur: dateField.onBlur,
-              error: dateFieldError?.message ?? formState.errors.date?.message,
-            }}
-            onMonthChange={state.handlers.prefetchMonth}
-            isDateUnavailable={isDateUnavailable}
-            loadingDates={state.loadingDates}
-          />
-        </BentoCard>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
+        <WizardPanel interactive className="order-1 md:col-span-3 lg:col-span-3">
+          <WizardPanelContent>
+            <FormField
+              control={control}
+              name="party"
+              render={({ field }) => (
+                <PartySizeField
+                  value={field.value ?? 1}
+                  onChange={state.handlers.changeParty}
+                  error={formState.errors.party?.message}
+                />
+              )}
+            />
+          </WizardPanelContent>
+        </WizardPanel>
 
-        {/* ─────────────────────────────────────────────────────────────────
-            Column 2: Party Size
-        ───────────────────────────────────────────────────────────── */}
-        <BentoCard>
-          <FormField
-            control={control}
-            name="party"
-            render={({ field }) => (
-              <PartySizeField
-                value={field.value ?? 1}
-                onChange={state.handlers.changeParty}
-                error={formState.errors.party?.message}
-              />
-            )}
-          />
-        </BentoCard>
+        <WizardPanel interactive className="order-2 md:col-span-3 lg:col-span-4">
+          <WizardPanelContent>
+            <Calendar24Date
+              date={{
+                value: dateField.value ?? '',
+                minDate: state.minDate,
+                onSelect: (next: Date | null) => {
+                  state.handlers.selectDate(next);
+                },
+                onBlur: dateField.onBlur,
+                error: dateFieldError?.message ?? formState.errors.date?.message,
+              }}
+              onMonthChange={state.handlers.prefetchMonth}
+              isDateUnavailable={isDateUnavailable}
+              loadingDates={state.loadingDates}
+            />
+          </WizardPanelContent>
+        </WizardPanel>
 
-        {/* ─────────────────────────────────────────────────────────────────
-            Column 3: Time Selection (Direct Input)
-        ───────────────────────────────────────────────────────────── */}
-        <BentoCard>
-          <Calendar24Time
-            time={{
-              value: timeField.value ?? '',
-              onChange: (next: string, options?: { commit?: boolean }) => {
-                state.handlers.selectTime(next, options);
-              },
-              onBlur: () => {
-                timeField.onBlur?.();
-                state.handlers.selectTime(getValues('time'), { commit: true });
-              },
-              error: timeFieldError?.message ?? formState.errors.time?.message,
-            }}
-            suggestions={state.slots}
-            intervalMinutes={state.intervalMinutes ?? undefined}
-            isTimeDisabled={timeDisabled}
-            unavailableMessage={unavailableCopy ?? undefined}
-            isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
-          />
-        </BentoCard>
+        <WizardPanel interactive className="order-3 md:col-span-6 lg:col-span-5">
+          <WizardPanelContent>
+            <Calendar24Time
+              time={{
+                value: timeField.value ?? '',
+                onChange: (next: string, options?: { commit?: boolean }) => {
+                  state.handlers.selectTime(next, options);
+                },
+                onBlur: () => {
+                  timeField.onBlur?.();
+                  state.handlers.selectTime(getValues('time'), { commit: true });
+                },
+                error: timeFieldError?.message ?? formState.errors.time?.message,
+              }}
+              suggestions={state.slots}
+              intervalMinutes={state.intervalMinutes ?? undefined}
+              isTimeDisabled={timeDisabled}
+              unavailableMessage={unavailableCopy ?? undefined}
+              isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
+            />
+          </WizardPanelContent>
+        </WizardPanel>
+
+        <WizardPanel className="order-4 md:col-span-6 lg:col-span-12">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="notes" className="border-b-0">
+              <AccordionTrigger className="px-4 py-4 text-base sm:px-5">
+                Add dietary, access, or occasion notes
+              </AccordionTrigger>
+              <AccordionContent className="px-0 pb-0">
+                <WizardPanelContent className="pt-0">
+                  <FormField
+                    control={control}
+                    name="notes"
+                    render={({ field }) => (
+                      <NotesField
+                        value={field.value ?? ''}
+                        onChange={(next) => {
+                          field.onChange(next);
+                        }}
+                        onBlur={(next) => {
+                          field.onBlur();
+                          state.handlers.commitNotes(next);
+                        }}
+                        error={formState.errors.notes?.message}
+                      />
+                    )}
+                  />
+                </WizardPanelContent>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </WizardPanel>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────────
-          Unavailable Warning Alert
-      ───────────────────────────────────────────────────────────── */}
       {unavailableCopy && (
         <Alert variant="warning" className="border border-dashed animate-fade-in">
           <AlertIcon>
-            <AlertCircle className="h-4 w-4" aria-hidden />
+            <AlertCircle className="size-4" aria-hidden />
           </AlertIcon>
           <AlertDescription aria-live="polite">{unavailableCopy}</AlertDescription>
         </Alert>
@@ -198,35 +186,12 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       {state.advisoryMessage && (
         <Alert variant="info" className="animate-fade-in">
           <AlertIcon>
-            <AlertCircle className="h-4 w-4" aria-hidden />
+            <AlertCircle className="size-4" aria-hidden />
           </AlertIcon>
           <AlertDescription aria-live="polite">{state.advisoryMessage}</AlertDescription>
         </Alert>
       )}
-
-      {/* ─────────────────────────────────────────────────────────────────
-          Notes Field - Full Width
-      ───────────────────────────────────────────────────────────── */}
-      <BentoCard>
-        <FormField
-          control={control}
-          name="notes"
-          render={({ field }) => (
-            <NotesField
-              value={field.value ?? ''}
-              onChange={(next) => {
-                field.onChange(next);
-              }}
-              onBlur={(next) => {
-                field.onBlur();
-                state.handlers.commitNotes(next);
-              }}
-              error={formState.errors.notes?.message}
-            />
-          )}
-        />
-      </BentoCard>
-    </form>
+    </FormRoot>
   );
 }
 

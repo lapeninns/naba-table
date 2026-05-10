@@ -1,4 +1,3 @@
-// import themes from "daisyui/src/theming/themes"; // Removed: not supported in latest daisyUI
 import type { ConfigProps } from '../types/config';
 
 const APP_NAME = 'Nab a Table';
@@ -44,11 +43,10 @@ const config = {
     forwardRepliesTo,
   },
   colors: {
-    // REQUIRED — The DaisyUI theme to use (added to the main layout.js). Leave blank for default (light & dark mode). If you any other theme than light/dark, you need to add it in config.tailwind.js in daisyui.themes.
+    // REQUIRED — Radix Luma mode fallback. Route-level `data-theme` still chooses guest vs app semantics.
     theme: 'light',
-    // REQUIRED — This color will be reflected on the whole app outside of the document (loading bar, Chrome tabs, etc..). By default it takes the primary color from your DaisyUI theme (make sure to update your the theme name after "data-theme=")
-    // OR you can just do this to use a custom color: main: "#f37055". HEX only.
-    main: '#570df8', // Fallback to DaisyUI's default primary color or set your own
+    // REQUIRED — Browser chrome/loading fallback color. Keep this aligned with Luma primary unless intentionally overridden.
+    main: '#1447e6',
   },
   auth: {
     // REQUIRED — the path to log in users. It's used to protect private routes (if any). It's used in apiClient (/libs/api.js) upon 401 errors from our API

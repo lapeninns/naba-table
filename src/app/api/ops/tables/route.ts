@@ -7,30 +7,37 @@
  * - POST /api/ops/tables - Create new table
  */
 
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { findTableByNumber, insertTable, listTables, listTablesWithSummary } from "@/server/ops/tables";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
+import {
+  findTableByNumber,
+  insertTable,
+  listTables,
+  listTablesWithSummary,
+} from '@/server/ops/tables';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
-import type { TablesInsert } from "@/types/supabase";
-import type { NextRequest} from "next/server";
+import type { TablesInsert } from '@/types/supabase';
+import type { NextRequest } from 'next/server';
 
 // =====================================================
 // Request Validation
 // =====================================================
 
-const tableStatusEnum = z.enum(["available", "reserved", "occupied", "out_of_service"]);
-const tableCategoryEnum = z.enum(["bar", "dining", "lounge", "patio", "private"]);
-const tableSeatingEnum = z.enum(["standard", "sofa", "booth", "high_top"]);
-const tableMobilityEnum = z.enum(["movable", "fixed"]);
+const tableStatusEnum = z.enum(['available', 'reserved', 'occupied', 'out_of_service']);
+const tableCategoryEnum = z.enum(['bar', 'dining', 'lounge', 'patio', 'private']);
+const tableSeatingEnum = z.enum(['standard', 'sofa', 'booth', 'high_top']);
+const tableMobilityEnum = z.enum(['movable', 'fixed']);
 
 const querySchema = z.object({
   restaurantId: z.string().uuid(),
   section: z.string().optional(),
   status: tableStatusEnum.optional(),
   zoneId: z.string().uuid().optional(),
-  includeSummary: z.enum(["0", "1", "true", "false"]).optional(),
+  includeSummary: z.enum(['0', '1', 'true', 'false']).optional(),
 });
 
 const createTableSchema = z.object({
@@ -39,13 +46,13 @@ const createTableSchema = z.object({
   capacity: z.number().int().min(1).max(20),
   minPartySize: z.number().int().min(1).default(1),
   maxPartySize: z.number().int().min(1).max(20).optional().nullable(),
-  category: tableCategoryEnum.default("dining"),
-  seatingType: tableSeatingEnum.default("standard"),
-  mobility: tableMobilityEnum.default("movable"),
+  category: tableCategoryEnum.default('dining'),
+  seatingType: tableSeatingEnum.default('standard'),
+  mobility: tableMobilityEnum.default('movable'),
   zoneId: z.string().uuid(),
   active: z.boolean().default(true),
   section: z.string().max(100).optional().nullable(),
-  status: tableStatusEnum.default("available"),
+  status: tableStatusEnum.default('available'),
   position: z
     .object({
       x: z.number(),
@@ -71,14 +78,14 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const paramEntries = Object.fromEntries(req.nextUrl.searchParams.entries());
     const parsed = querySchema.safeParse(paramEntries);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 });
     }
 
     const { restaurantId, section, status, zoneId, includeSummary } = parsed.data;
@@ -89,7 +96,9 @@ export async function GET(req: NextRequest) {
       zoneId,
     } as const;
 
-    const shouldIncludeSummary = includeSummary ? includeSummary !== "0" && includeSummary !== "false" : true;
+    const shouldIncludeSummary = includeSummary
+      ? includeSummary !== '0' && includeSummary !== 'false'
+      : true;
 
     const result = shouldIncludeSummary
       ? await listTablesWithSummary(supabase, restaurantId, filters)
@@ -102,8 +111,8 @@ export async function GET(req: NextRequest) {
       summary,
     });
   } catch (error) {
-    console.error("[ops/tables][GET] Unexpected error", { error });
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    console.error('[ops/tables][GET] Unexpected error', { error });
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -113,6 +122,10 @@ export async function GET(req: NextRequest) {
 // =====================================================
 
 export async function POST(req: NextRequest) {
+  return withCsrfProtectedMutation(req, () => postTable(req));
+}
+
+async function postTable(req: NextRequest) {
   try {
     const supabase = await getRouteHandlerSupabaseClient();
 
@@ -122,7 +135,7 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json().catch(() => null);
@@ -130,7 +143,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request body", details: parsed.error.flatten() },
+        { error: 'Invalid request body', details: parsed.error.flatten() },
         { status: 400 },
       );
     }
@@ -138,40 +151,51 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
 
     const { data: membership, error: membershipError } = await supabase
-      .from("restaurant_memberships")
-      .select("role")
-      .eq("restaurant_id", data.restaurantId)
-      .eq("user_id", user.id)
+      .from('restaurant_memberships')
+      .select('role')
+      .eq('restaurant_id', data.restaurantId)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (membershipError || !membership) {
-      return NextResponse.json({ error: "Access denied to this restaurant" }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
+    }
+
+    if (!isRestaurantAdminRole(membership.role)) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions for table management' },
+        { status: 403 },
+      );
     }
 
     const maxPartySize = data.maxPartySize ?? null;
     if (maxPartySize !== null && maxPartySize < data.minPartySize) {
-      return NextResponse.json({ error: "maxPartySize must be >= minPartySize" }, { status: 400 });
+      return NextResponse.json({ error: 'maxPartySize must be >= minPartySize' }, { status: 400 });
     }
 
     const { data: zone, error: zoneError } = await supabase
-      .from("zones")
-      .select("id, restaurant_id")
-      .eq("id", data.zoneId)
+      .from('zones')
+      .select('id, restaurant_id')
+      .eq('id', data.zoneId)
       .maybeSingle();
 
     if (zoneError || !zone) {
-      return NextResponse.json({ error: "Zone not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Zone not found' }, { status: 404 });
     }
 
     if (zone.restaurant_id !== data.restaurantId) {
       return NextResponse.json(
-        { error: "Zone belongs to a different restaurant" },
+        { error: 'Zone belongs to a different restaurant' },
         { status: 400 },
       );
     }
 
     try {
-      const existing = await findTableByNumber(supabase, data.restaurantId, data.tableNumber.trim());
+      const existing = await findTableByNumber(
+        supabase,
+        data.restaurantId,
+        data.tableNumber.trim(),
+      );
       if (existing) {
         return NextResponse.json(
           { error: `Table number "${data.tableNumber}" already exists` },
@@ -179,8 +203,8 @@ export async function POST(req: NextRequest) {
         );
       }
     } catch (lookupError) {
-      console.error("[ops/tables][POST] Duplicate check failed", { error: lookupError });
-      return NextResponse.json({ error: "Failed to verify table uniqueness" }, { status: 500 });
+      console.error('[ops/tables][POST] Duplicate check failed', { error: lookupError });
+      return NextResponse.json({ error: 'Failed to verify table uniqueness' }, { status: 500 });
     }
 
     const insertPayload = {
@@ -198,7 +222,7 @@ export async function POST(req: NextRequest) {
       status: data.status,
       position: data.position ?? null,
       notes: data.notes ? data.notes.trim() || null : null,
-    } satisfies TablesInsert<"table_inventory">;
+    } satisfies TablesInsert<'table_inventory'>;
 
     try {
       const table = await insertTable(supabase, insertPayload);
@@ -212,23 +236,23 @@ export async function POST(req: NextRequest) {
       );
     } catch (createError) {
       const errorCode =
-        typeof createError === "object" && createError && "code" in createError
+        typeof createError === 'object' && createError && 'code' in createError
           ? (createError as { code?: string }).code
           : undefined;
 
-      if (errorCode === "23503") {
+      if (errorCode === '23503') {
         return NextResponse.json(
-          { error: "Capacity is not configured for this restaurant" },
+          { error: 'Capacity is not configured for this restaurant' },
           { status: 422 },
         );
       }
 
-      console.error("[ops/tables][POST] Create error", { error: createError });
-      return NextResponse.json({ error: "Failed to create table" }, { status: 500 });
+      console.error('[ops/tables][POST] Create error', { error: createError });
+      return NextResponse.json({ error: 'Failed to create table' }, { status: 500 });
     }
   } catch (error) {
-    console.error("[ops/tables][POST] Unexpected error", { error });
-    const message = error instanceof Error ? error.message : "An unexpected error occurred";
+    console.error('[ops/tables][POST] Unexpected error', { error });
+    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

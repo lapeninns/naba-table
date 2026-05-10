@@ -23,17 +23,17 @@ function createLookupClient(existing: {
   notes: string | null;
 }) {
   const maybeSingle = vi.fn().mockResolvedValue({ data: existing, error: null });
-  const limit = vi.fn(() => ({ maybeSingle }));
-  const order = vi.fn(() => ({ limit }));
-  const or = vi.fn(() => ({ order }));
-  const eq = vi.fn(() => ({ or }));
-  const select = vi.fn(() => ({ eq }));
-  const from = vi.fn(() => ({ select }));
-
-  return {
-    client: { from } as unknown as DbClient,
-    spies: { from, select, eq, or, order, limit, maybeSingle },
+  const builder = {
+    select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
+    or: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    limit: vi.fn(() => builder),
+    maybeSingle,
   };
+  const from = vi.fn(() => builder);
+
+  return { client: { from } as unknown as DbClient, spies: { from, ...builder } };
 }
 
 describe('server/customers', () => {
@@ -78,5 +78,58 @@ describe('server/customers', () => {
     expect(spies.from).toHaveBeenCalledWith('customers');
     expect(spies.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
     expect(spies.or).toHaveBeenCalledWith('phone_normalized.eq."447950272147"');
+  });
+
+  it('does not reuse or overwrite a customer when only one submitted contact matches', async () => {
+    const victim = {
+      id: 'customer-1',
+      restaurant_id: 'rest-1',
+      email: 'victim@example.com',
+      phone: '+447950272147',
+      full_name: 'Victim Guest',
+      marketing_opt_in: false,
+      created_at: '2026-04-01T15:00:00Z',
+      updated_at: '2026-04-01T15:00:00Z',
+      email_normalized: 'victim@example.com',
+      phone_normalized: '447950272147',
+      auth_user_id: 'auth-user-1',
+      user_profile_id: 'profile-1',
+      notes: null,
+    };
+    const inserted = {
+      ...victim,
+      id: 'customer-2',
+      phone: '+447000000000',
+      phone_normalized: '447000000000',
+      auth_user_id: null,
+      user_profile_id: null,
+    };
+
+    const lookupMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const insertSingle = vi.fn().mockResolvedValue({ data: inserted, error: null });
+    const insertSelect = vi.fn(() => ({ single: insertSingle }));
+    const insert = vi.fn(() => ({ select: insertSelect }));
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      limit: vi.fn(() => builder),
+      maybeSingle: lookupMaybeSingle,
+      insert,
+    };
+    const from = vi.fn(() => builder);
+
+    const customer = await upsertCustomer({ from } as unknown as DbClient, {
+      restaurantId: 'rest-1',
+      email: 'victim@example.com',
+      phone: '07000 000000',
+      name: 'Attacker Input',
+      marketingOptIn: false,
+    });
+
+    expect(customer.id).toBe('customer-2');
+    expect(builder.eq).toHaveBeenCalledWith('email_normalized', 'victim@example.com');
+    expect(builder.eq).toHaveBeenCalledWith('phone_normalized', '447000000000');
+    expect(insert).toHaveBeenCalled();
   });
 });

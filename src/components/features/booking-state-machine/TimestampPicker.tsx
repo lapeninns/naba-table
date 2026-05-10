@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import { endOfDay, format, isAfter, isBefore, isValid, parseISO, startOfDay } from "date-fns";
-import { useEffect, useId, useMemo, useState } from "react";
+import { endOfDay, format, isAfter, isBefore, isValid, parseISO, startOfDay } from 'date-fns';
+import { useEffect, useId, useMemo, useState } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 type TimestampValue = string | Date | null;
 
@@ -42,23 +43,23 @@ function toDate(value?: TimestampValue): Date | null {
 }
 
 function formatDisplay(date: Date | null, timezone?: string): string {
-  if (!date) return "Select time";
+  if (!date) return 'Select time';
   try {
     return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
+      dateStyle: 'medium',
+      timeStyle: 'short',
       timeZone: timezone,
     }).format(date);
   } catch {
-    return format(date, "PP p");
+    return format(date, 'PP p');
   }
 }
 
-const DEFAULT_PRESETS: TimestampPickerProps["presets"] = [
-  { label: "Now", getValue: () => new Date() },
-  { label: "1 hour ago", getValue: () => new Date(Date.now() - 60 * 60 * 1000) },
+const DEFAULT_PRESETS: TimestampPickerProps['presets'] = [
+  { label: 'Now', getValue: () => new Date() },
+  { label: '1 hour ago', getValue: () => new Date(Date.now() - 60 * 60 * 1000) },
   {
-    label: "Start of shift",
+    label: 'Start of shift',
     getValue: () => {
       const now = new Date();
       now.setHours(9, 0, 0, 0);
@@ -82,9 +83,9 @@ export function TimestampPicker({
   presets = DEFAULT_PRESETS,
   className,
   description,
-  timeLabel = "Time",
-  cancelLabel = "Cancel",
-  applyLabel = "Apply",
+  timeLabel = 'Time',
+  cancelLabel = 'Cancel',
+  applyLabel = 'Apply',
   errorMessage,
   disabled = false,
   minuteStep = 1,
@@ -92,7 +93,9 @@ export function TimestampPicker({
   const [open, setOpen] = useState(false);
   const selected = useMemo(() => toDate(value), [value]);
   const [draftDate, setDraftDate] = useState<Date | undefined>(selected ?? undefined);
-  const [timeInput, setTimeInput] = useState<string>(selected ? format(selected, "HH:mm") : "12:00");
+  const [timeInput, setTimeInput] = useState<string>(
+    selected ? format(selected, 'HH:mm') : '12:00',
+  );
   const [internalError, setInternalError] = useState<string | null>(null);
   const effectiveMinuteStep = useMemo(() => {
     const numeric = Number.isFinite(minuteStep) ? Math.floor(minuteStep) : 1;
@@ -102,7 +105,7 @@ export function TimestampPicker({
   useEffect(() => {
     if (!selected) return;
     setDraftDate(selected);
-    setTimeInput(format(selected, "HH:mm"));
+    setTimeInput(format(selected, 'HH:mm'));
   }, [selected]);
 
   const min = useMemo(() => toDate(minDate), [minDate]);
@@ -112,17 +115,17 @@ export function TimestampPicker({
     if (!showRelativeTime || !selected) return null;
     const diff = Date.now() - selected.getTime();
     const minutes = Math.round(diff / 60000);
-    if (Math.abs(minutes) < 1) return "Just now";
-    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    if (Math.abs(minutes) < 1) return 'Just now';
+    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
     if (Math.abs(minutes) < 60) {
-      return formatter.format(-minutes, "minute");
+      return formatter.format(-minutes, 'minute');
     }
     const hours = Math.round(minutes / 60);
     if (Math.abs(hours) < 24) {
-      return formatter.format(-hours, "hour");
+      return formatter.format(-hours, 'hour');
     }
     const days = Math.round(hours / 24);
-    return formatter.format(-days, "day");
+    return formatter.format(-days, 'day');
   }, [selected, showRelativeTime]);
 
   const generatedId = useId();
@@ -141,7 +144,7 @@ export function TimestampPicker({
   const applySelection = (date: Date | null) => {
     if (!date) {
       if (required) {
-        setInternalError("Timestamp is required.");
+        setInternalError('Timestamp is required.');
         onBlur?.();
         return;
       }
@@ -152,7 +155,7 @@ export function TimestampPicker({
     }
 
     const target = new Date(date);
-    const [hours, minutes] = timeInput.split(":").map((value) => Number.parseInt(value, 10));
+    const [hours, minutes] = timeInput.split(':').map((value) => Number.parseInt(value, 10));
     if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
       target.setHours(hours, minutes, 0, 0);
     }
@@ -181,7 +184,7 @@ export function TimestampPicker({
   };
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div className={cn('flex flex-col gap-2', className)}>
       {label ? (
         <span className="text-xs font-medium text-muted-foreground" id={`${controlId}-label`}>
           {label}
@@ -197,7 +200,7 @@ export function TimestampPicker({
           <Button
             type="button"
             variant="outline"
-            className={cn("justify-between", !selected && "text-muted-foreground")}
+            className={cn('justify-between', !selected && 'text-muted-foreground')}
             id={`${controlId}-trigger`}
             aria-labelledby={label ? `${controlId}-label` : undefined}
             aria-describedby={descriptionId}
@@ -206,7 +209,9 @@ export function TimestampPicker({
             disabled={disabled}
           >
             <span>{formatDisplay(selected, timezone)}</span>
-            {relativeLabel ? <span className="text-xs text-muted-foreground/80">{relativeLabel}</span> : null}
+            {relativeLabel ? (
+              <span className="text-xs text-muted-foreground/80">{relativeLabel}</span>
+            ) : null}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[320px] space-y-3 p-4" align="start">
@@ -222,9 +227,12 @@ export function TimestampPicker({
             }}
           />
           <div className="flex items-center gap-2">
-            <label htmlFor={`${controlId}-time`} className="text-xs font-medium text-muted-foreground">
+            <Label
+              htmlFor={`${controlId}-time`}
+              className="text-xs font-medium text-muted-foreground"
+            >
               {timeLabel}
-            </label>
+            </Label>
             <Input
               id={`${controlId}-time`}
               name={name}
@@ -252,7 +260,7 @@ export function TimestampPicker({
                   onClick={() => {
                     const presetDate = preset.getValue();
                     setDraftDate(presetDate);
-                    setTimeInput(format(presetDate, "HH:mm"));
+                    setTimeInput(format(presetDate, 'HH:mm'));
                   }}
                   disabled={disabled}
                 >

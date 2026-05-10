@@ -1,5 +1,15 @@
-import { normalizeRestaurantEmailTemplatesDocument, type RestaurantBookingEmailTemplateKey, type RestaurantEmailTemplateVariant, type RestaurantEmailTemplatesDocument } from '@/lib/restaurants/email-templates';
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import {
+  normalizeRestaurantEmailTemplatesDocument,
+  type RestaurantBookingEmailTemplateKey,
+  type RestaurantEmailTemplateVariant,
+  type RestaurantEmailTemplatesDocument,
+} from '@/lib/restaurants/email-templates';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -12,10 +22,7 @@ type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 type RestaurantUpdate = Database['public']['Tables']['restaurants']['Update'];
 const EMAIL_TEMPLATE_UPDATE_MAX_RETRIES = 3;
 
-async function selectRestaurant(
-  client: DbClient,
-  restaurantId: string,
-): Promise<RestaurantRow> {
+async function selectRestaurant(client: DbClient, restaurantId: string): Promise<RestaurantRow> {
   const runSelect = (includeLogo: boolean) =>
     client
       .from('restaurants')
@@ -53,8 +60,8 @@ function mapVenueDetails(restaurant: RestaurantRow): VenueDetails {
     email: restaurant.contact_email || '',
     policy: restaurant.booking_policy || '',
     logoUrl: restaurant.logo_url || null,
-    googleMapUrl: restaurant.google_map_url || null,
-    googleReviewUrl: restaurant.google_review_url || null,
+    googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
+    googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),
     emailTemplates: normalizeRestaurantEmailTemplatesDocument(restaurant.email_templates),
   };
 }
@@ -66,18 +73,13 @@ async function updateEmailTemplatesDocument(
   expectedUpdatedAt: string | null,
 ): Promise<{ row: RestaurantRow | null; conflict: boolean }> {
   const runUpdate = (includeLogo: boolean, payload: RestaurantUpdate) => {
-    const baseQuery = client
-      .from('restaurants')
-      .update(payload)
-      .eq('id', restaurantId);
+    const baseQuery = client.from('restaurants').update(payload).eq('id', restaurantId);
     const matchedQuery =
       expectedUpdatedAt === null
         ? baseQuery.is('updated_at', null)
         : baseQuery.eq('updated_at', expectedUpdatedAt);
 
-    return matchedQuery
-      .select(restaurantSelectColumns(includeLogo))
-      .maybeSingle<RestaurantRow>();
+    return matchedQuery.select(restaurantSelectColumns(includeLogo)).maybeSingle<RestaurantRow>();
   };
 
   let { data, error } = await runUpdate(true, {
@@ -106,8 +108,12 @@ async function updateEmailTemplatesDocument(
 function buildNextEmailTemplatesDocument(
   current: RestaurantEmailTemplatesDocument | null,
   updater: (
-    templates: Partial<Record<RestaurantBookingEmailTemplateKey, { variants: RestaurantEmailTemplateVariant[] }>>,
-  ) => Partial<Record<RestaurantBookingEmailTemplateKey, { variants: RestaurantEmailTemplateVariant[] }>>,
+    templates: Partial<
+      Record<RestaurantBookingEmailTemplateKey, { variants: RestaurantEmailTemplateVariant[] }>
+    >,
+  ) => Partial<
+    Record<RestaurantBookingEmailTemplateKey, { variants: RestaurantEmailTemplateVariant[] }>
+  >,
 ): RestaurantEmailTemplatesDocument {
   const currentTemplates = current?.templates ?? {};
 
@@ -142,7 +148,9 @@ export async function upsertRestaurantEmailTemplate(
 ): Promise<VenueDetails> {
   for (let attempt = 0; attempt < EMAIL_TEMPLATE_UPDATE_MAX_RETRIES; attempt += 1) {
     const currentRestaurant = await selectRestaurant(client, params.restaurantId);
-    const currentDocument = normalizeRestaurantEmailTemplatesDocument(currentRestaurant.email_templates);
+    const currentDocument = normalizeRestaurantEmailTemplatesDocument(
+      currentRestaurant.email_templates,
+    );
     const nextDocument = buildNextEmailTemplatesDocument(currentDocument, (templates) => ({
       ...templates,
       [params.templateKey]: {
@@ -172,7 +180,9 @@ export async function resetRestaurantEmailTemplate(
 ): Promise<VenueDetails> {
   for (let attempt = 0; attempt < EMAIL_TEMPLATE_UPDATE_MAX_RETRIES; attempt += 1) {
     const currentRestaurant = await selectRestaurant(client, restaurantId);
-    const currentDocument = normalizeRestaurantEmailTemplatesDocument(currentRestaurant.email_templates);
+    const currentDocument = normalizeRestaurantEmailTemplatesDocument(
+      currentRestaurant.email_templates,
+    );
     const nextDocument = buildNextEmailTemplatesDocument(currentDocument, (templates) => {
       delete templates[templateKey];
       return templates;

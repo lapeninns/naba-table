@@ -4,18 +4,22 @@ import dynamic from 'next/dynamic';
 import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
-import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
+import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 
 import type { RestaurantSettingsView } from './types';
+import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 const SettingsSectionSkeleton = ({ title }: { title: string }) => (
-  <div className="rounded-lg border border-border/60 bg-muted/30 p-6" aria-busy="true" role="status">
+  <div
+    className="rounded-lg border border-border/60 bg-muted/30 p-4"
+    aria-busy="true"
+    role="status"
+  >
     <p className="text-sm font-medium text-foreground">{title}</p>
-    <div className="mt-3 space-y-3">
+    <div className="mt-3 flex flex-col gap-3">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-3/4" />
@@ -23,36 +27,128 @@ const SettingsSectionSkeleton = ({ title }: { title: string }) => (
   </div>
 );
 
-const RestaurantProfileSection = dynamic(() => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading profile" />,
-});
+const AvailabilitySkeleton = () => (
+  <div className="space-y-6">
+    <div className="rounded-lg border border-border/70 bg-card p-6">
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-full max-w-xl" />
+      </div>
+      <div className="mt-6 flex gap-2">
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-9 w-28" />
+      </div>
+    </div>
+    <div className="rounded-lg border border-border/60 p-6">
+      <Skeleton className="h-6 w-40" />
+      <div className="mt-4 space-y-3">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+      </div>
+    </div>
+    <div className="rounded-lg border border-border/60 p-6">
+      <Skeleton className="h-6 w-40" />
+      <div className="mt-4 space-y-4">
+        <div className="flex gap-4">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    </div>
+  </div>
+);
 
-const OperatingHoursSection = dynamic(() => import('./OperatingHoursSection').then((m) => m.OperatingHoursSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading operating hours" />,
-});
+const RestaurantSetupOverview = dynamic(
+  () => import('./RestaurantSetupOverview').then((m) => m.RestaurantSetupOverview),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading setup overview" />,
+  },
+);
 
-const OccasionsSection = dynamic(() => import('./OccasionsSection').then((m) => m.OccasionsSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading occasions" />,
-});
+const RestaurantProfileSection = dynamic(
+  () => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading profile" />,
+  },
+);
 
-const ServicePeriodsSection = dynamic(() => import('./ServicePeriodsSection').then((m) => m.ServicePeriodsSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading service periods" />,
-});
+const GoogleBusinessProfileSection = dynamic(
+  () =>
+    import('./google-business-profile/GoogleBusinessProfileSection').then(
+      (m) => m.GoogleBusinessProfileSection,
+    ),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading Google Business Profile" />,
+  },
+);
 
-const TurnDurationsSection = dynamic(() => import('./TurnDurationsSection').then((m) => m.TurnDurationsSection), {
-  loading: () => <SettingsSectionSkeleton title="Loading reservation durations" />,
-});
+const AvailabilityOccasionsCommandCenter = dynamic(
+  () =>
+    import('./AvailabilityOccasionsCommandCenter').then(
+      (m) => m.AvailabilityOccasionsCommandCenter,
+    ),
+  {
+    loading: () => <AvailabilitySkeleton />,
+  },
+);
 
-const OpsTeamManagementClient = dynamic(() => import('../team').then((m) => m.OpsTeamManagementClient), {
-  loading: () => <SettingsSectionSkeleton title="Loading team" />,
-});
+const OpsMenuManagementClient = dynamic(
+  () => import('../menu').then((m) => m.OpsMenuManagementClient),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading menu" />,
+  },
+);
+
+const TableInventoryClient = dynamic(
+  () => import('../tables/TableInventoryClient').then((m) => m.default),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading tables" />,
+  },
+);
+
+const OpsTeamManagementClient = dynamic(
+  () => import('../team').then((m) => m.OpsTeamManagementClient),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading team" />,
+  },
+);
+
+const DualSyncShell = dynamic(
+  () => import('./dual-sync/DualSyncShell').then((m) => m.DualSyncShell),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading sync state" />,
+    ssr: false,
+  },
+);
+
+const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
+  Record<RestaurantSettingsView, ReadonlyArray<DualSyncSectionKey>>
+> = {
+  'google-business-profile': [
+    'profile',
+    'operatingHours',
+    'servicePeriods',
+    'businessContext.categories',
+    'businessContext.serviceAreas',
+    'businessContext.attributes',
+    'businessContext.serviceItems',
+    'foodMenus',
+  ],
+};
 
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
   view: RestaurantSettingsView;
 };
 
-export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRestaurantSettingsClientProps) {
+export function OpsRestaurantSettingsClient({
+  defaultRestaurantId,
+  view,
+}: OpsRestaurantSettingsClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
 
@@ -87,36 +183,41 @@ export function OpsRestaurantSettingsClient({ defaultRestaurantId, view }: OpsRe
     null;
 
   const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
+  const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
+  const hasSyncWorkspace = Boolean(dualSyncSections && selectedRestaurantId);
 
-  const restaurantName = selectedMembership?.restaurantName ?? 'Selected restaurant';
-
-  const viewConfig = RESTAURANT_SETTINGS_ROUTE_MAP[view];
-  const renderByView: Record<RestaurantSettingsView, (context: { restaurantId: string | null; restaurantName: string }) => ReactNode> = {
+  const renderByView: Record<
+    RestaurantSettingsView,
+    (context: { restaurantId: string | null }) => ReactNode
+  > = {
+    overview: ({ restaurantId }) => <RestaurantSetupOverview restaurantId={restaurantId} />,
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
-    'operating-hours': ({ restaurantId }) => <OperatingHoursSection restaurantId={restaurantId} />,
-    occasions: () => <OccasionsSection />,
-    'service-periods': ({ restaurantId }) => <ServicePeriodsSection restaurantId={restaurantId} />,
-    'turn-durations': ({ restaurantId }) => <TurnDurationsSection restaurantId={restaurantId} />,
+    'google-business-profile': ({ restaurantId }) => (
+      <GoogleBusinessProfileSection
+        restaurantId={restaurantId}
+        hasSyncWorkspace={hasSyncWorkspace}
+      />
+    ),
+    availability: ({ restaurantId }) => (
+      <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />
+    ),
+    menu: () => <OpsMenuManagementClient />,
+    tables: () => <TableInventoryClient />,
     team: () => <OpsTeamManagementClient />,
   };
 
   return (
-    <div className="space-y-6">
-      <OpsPageHeader
-        title={viewConfig.title}
-        subtitle={viewConfig.description}
-        meta={
-          <span className="text-xs text-muted-foreground">
-            Currently editing settings for{' '}
-            <span className="font-medium text-foreground">{restaurantName}</span>. Use the sidebar switcher to change
-            restaurants.
-          </span>
-        }
-        headingLevel="h2"
-        titleClassName="text-2xl"
-      />
-
-      {renderByView[view]({ restaurantId: selectedRestaurantId, restaurantName })}
+    <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
+      {renderByView[view]({ restaurantId: selectedRestaurantId })}
+      {dualSyncSections && selectedRestaurantId ? (
+        <div id="gbp-sync-review" className="scroll-mt-24">
+          <DualSyncShell
+            restaurantId={selectedRestaurantId}
+            sections={dualSyncSections}
+            singleOpenSections={view === 'google-business-profile'}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -2,10 +2,8 @@
 
 import { AlertCircle } from 'lucide-react';
 
-import {
-  derivePlanDateAdvisory,
-} from '@features/reservations/wizard/hooks/usePlanStepForm';
-import { Alert, AlertDescription, AlertIcon } from '@shared/ui/alert';
+import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { derivePlanDateAdvisory } from '@features/reservations/wizard/hooks/usePlanStepForm';
 
 const WEEKEND_DATE = '2026-04-18';
 const OVERRIDE_DATE = '2026-04-15';

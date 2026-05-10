@@ -1,11 +1,13 @@
 import type { RestaurantFilters } from '@/lib/restaurants/types';
+import type { OpsSmsDeliveryRange, SmsDeliveryStatus } from '@/types/smsDelivery';
 
 export const queryKeys = {
   bookings: {
     all: ['bookings'] as const,
     list: (params: Record<string, unknown> = {}) => ['bookings', 'list', params] as const,
     detail: (id: string) => ['bookings', 'detail', id] as const,
-    history: (id: string, params: Record<string, unknown> = {}) => ['bookings', 'history', id, params] as const,
+    history: (id: string, params: Record<string, unknown> = {}) =>
+      ['bookings', 'history', id, params] as const,
   },
   opsBookings: {
     all: ['ops', 'bookings'] as const,
@@ -18,7 +20,10 @@ export const queryKeys = {
       ['ops', 'dashboard', restaurantId, 'summary', date ?? 'today'] as const,
     heatmap: (restaurantId: string, start: string, end: string) =>
       ['ops', 'dashboard', restaurantId, 'heatmap', start, end] as const,
-    rejections: (restaurantId: string, params: { from?: string | null; to?: string | null; bucket?: string } = {}) =>
+    rejections: (
+      restaurantId: string,
+      params: { from?: string | null; to?: string | null; bucket?: string } = {},
+    ) =>
       [
         'ops',
         'dashboard',
@@ -30,7 +35,8 @@ export const queryKeys = {
       ] as const,
   },
   opsSettings: {
-    strategicConfig: (restaurantId: string) => ['ops', 'settings', 'strategic-config', restaurantId] as const,
+    strategicConfig: (restaurantId: string) =>
+      ['ops', 'settings', 'strategic-config', restaurantId] as const,
   },
   opsCustomers: {
     list: (params: Record<string, unknown> = {}) => ['ops', 'customers', 'list', params] as const,
@@ -39,10 +45,19 @@ export const queryKeys = {
     all: ['ops', 'restaurants'] as const,
     list: (params: Record<string, unknown> = {}) => ['ops', 'restaurants', 'list', params] as const,
     detail: (id: string) => ['ops', 'restaurants', 'detail', id] as const,
+    businessContext: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'business-context'] as const,
+    googleBusinessProfile: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'google-business-profile'] as const,
+    googleBusinessProfileLocations: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'google-business-profile', 'locations'] as const,
     hours: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'hours'] as const,
-    servicePeriods: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'service-periods'] as const,
-    turnBands: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'turn-bands'] as const,
-    emailTemplates: (restaurantId: string) => ['ops', 'restaurants', restaurantId, 'email-templates'] as const,
+    servicePeriods: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'service-periods'] as const,
+    turnBands: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'turn-bands'] as const,
+    emailTemplates: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'email-templates'] as const,
   },
   opsTables: {
     list: (restaurantId: string, params: Record<string, unknown> = {}) =>
@@ -59,12 +74,37 @@ export const queryKeys = {
   opsOccasions: {
     list: () => ['ops', 'occasions', 'list'] as const,
   },
+  opsMenuHierarchy: {
+    list: (restaurantId: string) => ['ops', 'menu-hierarchy', restaurantId, 'list'] as const,
+  },
+  opsSmsDelivery: {
+    restaurantFeed: (params: {
+      restaurantId: string;
+      range: OpsSmsDeliveryRange;
+      page: number;
+      pageSize: number;
+      statuses: readonly SmsDeliveryStatus[];
+    }) =>
+      [
+        'ops',
+        'sms-delivery',
+        'restaurant-feed',
+        params.restaurantId,
+        params.range,
+        params.page,
+        params.pageSize,
+        params.statuses.join(','),
+      ] as const,
+    bookingLog: (bookingId: string, limit: number) =>
+      ['ops', 'sms-delivery', 'booking-log', bookingId, limit] as const,
+  },
   manualAssign: {
     context: (bookingId: string) => ['ops', 'manual-assign', 'context', bookingId] as const,
   },
   ownerRestaurants: {
     hours: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'hours'] as const,
-    servicePeriods: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
+    servicePeriods: (restaurantId: string) =>
+      ['owner', 'restaurants', restaurantId, 'service-periods'] as const,
     details: (restaurantId: string) => ['owner', 'restaurants', restaurantId, 'details'] as const,
   },
   profile: {
@@ -95,6 +135,9 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsCustomers']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['list']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['detail']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['businessContext']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['googleBusinessProfile']>
+  | ReturnType<(typeof queryKeys)['opsRestaurants']['googleBusinessProfileLocations']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['opsRestaurants']['turnBands']>
@@ -105,6 +148,9 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsTables']['zones']>
   | ReturnType<(typeof queryKeys)['opsOperationsHub']['detail']>
   | ReturnType<(typeof queryKeys)['opsOccasions']['list']>
+  | ReturnType<(typeof queryKeys)['opsMenuHierarchy']['list']>
+  | ReturnType<(typeof queryKeys)['opsSmsDelivery']['restaurantFeed']>
+  | ReturnType<(typeof queryKeys)['opsSmsDelivery']['bookingLog']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['details']>

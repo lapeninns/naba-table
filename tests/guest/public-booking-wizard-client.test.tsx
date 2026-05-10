@@ -45,7 +45,7 @@ describe('ReservationWizardClient', () => {
     expect(screen.getByTestId('reservation-wizard')).toHaveAttribute('data-layout-element', 'div');
     expect(screen.getByTestId('reservation-wizard')).toHaveAttribute(
       'data-return-path',
-      '/guest/thank-you',
+      'undefined',
     );
     expect(screen.getByTestId('reservation-wizard')).toHaveAttribute(
       'data-restaurant-name',

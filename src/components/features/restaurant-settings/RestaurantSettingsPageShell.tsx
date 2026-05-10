@@ -1,34 +1,96 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
+import { useMemo, type ReactNode } from 'react';
+
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
+import { Badge } from '@/components/ui/badge';
+import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
 import { RestaurantSettingsSubnav } from './RestaurantSettingsSubnav';
+import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
+import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
 
-import type { ReactNode } from 'react';
+export type RestaurantSettingsPageShellProps = {
+  /**
+   * Override title when rendering outside an authenticated settings route (e.g. dev harness).
+   * When omitted, the shell derives the title from the current pathname against the
+   * shared restaurant settings navigation metadata.
+   */
+  title?: string;
+  description?: string;
+  eyebrow?: string;
+  children: ReactNode;
+};
 
+const DEFAULT_TITLE = 'Restaurant';
+const DEFAULT_DESCRIPTION =
+  'Configure the restaurant profile, availability, reservation durations, menu, tables, and team access.';
+
+function isRestaurantSettingsRouteActive(pathname: string, href: string) {
+  const normalizedHref = normalizeOpsPathname(href);
+  if (normalizedHref === '/settings/restaurant') {
+    return pathname === normalizedHref;
+  }
+  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
+}
 
 export function RestaurantSettingsPageShell({
   title,
   description,
   eyebrow = 'Settings',
   children,
-}: {
-  title: string;
-  description: string;
-  eyebrow?: string;
-  children: ReactNode;
-}) {
+}: RestaurantSettingsPageShellProps) {
+  const pathname = usePathname();
+  const { memberships, activeRestaurantId } = useOpsSession();
+  const activeMembership = useOpsActiveMembership();
+
+  const activeNavItem = useMemo(() => {
+    if (!pathname) return null;
+    const normalized = normalizeOpsPathname(pathname);
+    return (
+      RESTAURANT_SETTINGS_NAV_ITEMS.find((item) =>
+        isRestaurantSettingsRouteActive(normalized, item.href),
+      ) ?? null
+    );
+  }, [pathname]);
+
+  const resolvedTitle = title ?? activeNavItem?.title ?? DEFAULT_TITLE;
+  const resolvedDescription = description ?? activeNavItem?.description ?? DEFAULT_DESCRIPTION;
+
+  const restaurantName =
+    activeMembership?.restaurantName ??
+    memberships.find((membership) => membership.restaurantId === activeRestaurantId)
+      ?.restaurantName ??
+    memberships[0]?.restaurantName ??
+    null;
+
   return (
-    <div className="mx-auto flex w-full max-w-[80vw] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <OpsPageShell variant="wide" className="flex flex-col gap-4">
       <OpsPageHeader
         eyebrow={eyebrow}
-        title={title}
-        subtitle={description}
+        title={resolvedTitle}
+        subtitle={resolvedDescription}
+        meta={
+          restaurantName ? (
+            <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>Editing</span>
+              <Badge variant="outline" className="font-medium text-foreground">
+                {restaurantName}
+              </Badge>
+              <span className="hidden sm:inline">Change restaurant from the sidebar.</span>
+            </span>
+          ) : null
+        }
         headingLevel="h1"
-        titleClassName="text-3xl"
+        titleClassName="text-2xl"
       />
 
       <RestaurantSettingsSubnav />
 
-      <div className="pb-8">{children}</div>
-    </div>
+      <div className={SETTINGS_COMPACT_PAGE_CONTENT_CLASS}>{children}</div>
+    </OpsPageShell>
   );
 }

@@ -4,10 +4,10 @@ import { NextResponse } from 'next/server';
 import config from '@/config';
 import {
   defaultRedirectForHost,
-  parseHostname,
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
+import { getTrustedAppOrigin, getTrustedSiteOrigin } from '@/lib/site-url';
 import { normalizeEmail } from '@/server/customers';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -18,6 +18,58 @@ export const dynamic = 'force-dynamic';
 const INVALID_CLIENT_ID_ERROR_TYPE = 'invalid_client_id';
 const INVALID_CLIENT_ID_USER_MESSAGE =
   'Sign-in is temporarily unavailable due to an authentication provider setup issue. Please contact support or try again later.';
+const REDACTED_AUTH_PARAM = '[redacted]';
+const SENSITIVE_CALLBACK_PARAMS = new Set([
+  'code',
+  'token_hash',
+  'access_token',
+  'refresh_token',
+  'redirectedFrom',
+]);
+
+function redactCallbackUrl(value: string): string {
+  const url = new URL(value);
+  for (const key of SENSITIVE_CALLBACK_PARAMS) {
+    if (url.searchParams.has(key)) {
+      url.searchParams.set(key, REDACTED_AUTH_PARAM);
+    }
+  }
+  return url.toString();
+}
+
+function describeRedirectTarget(value: string | null): string {
+  if (!value) return 'none';
+  if (value.startsWith('/')) return 'relative';
+  try {
+    return `absolute:${new URL(value).hostname.toLowerCase()}`;
+  } catch {
+    return 'invalid';
+  }
+}
+
+function normalizeRootDomain(rootDomain: string): string {
+  return rootDomain.toLowerCase().replace(/^www\./, '');
+}
+
+function resolveTrustedCallbackOrigin(
+  hostname: string,
+  rootDomain: string,
+  requestOrigin: string,
+): string {
+  const normalizedHost = hostname.toLowerCase();
+  const normalizedRoot = normalizeRootDomain(rootDomain);
+  const localHosts = new Set(['localhost', '127.0.0.1', 'app.localhost', 'www.localhost']);
+
+  if (rootDomain === 'localhost' && localHosts.has(normalizedHost)) {
+    return requestOrigin;
+  }
+
+  if (normalizedHost === `app.${normalizedRoot}`) {
+    return getTrustedAppOrigin();
+  }
+
+  return getTrustedSiteOrigin();
+}
 
 function isInvalidClientIdError(error: {
   message?: string | null;
@@ -118,7 +170,7 @@ export async function GET(req: NextRequest) {
   const code = requestUrl.searchParams.get('code');
   const tokenHash = requestUrl.searchParams.get('token_hash');
   const redirectedFrom = requestUrl.searchParams.get('redirectedFrom');
-  const hostname = parseHostname(req);
+  const hostname = requestUrl.hostname.toLowerCase();
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
   const hasAuthParams = !!code || !!tokenHash;
 
@@ -126,11 +178,13 @@ export async function GET(req: NextRequest) {
     hostname,
     rootDomain,
     hasCode: !!code,
-    redirectedFrom,
-    fullUrl: req.url,
+    redirectedFrom: describeRedirectTarget(redirectedFrom),
+    callbackUrl: redactCallbackUrl(req.url),
     headers: {
-      host: req.headers.get('host'),
-      referer: req.headers.get('referer'),
+      hasHost: !!req.headers.get('host'),
+      hasReferer: !!req.headers.get('referer'),
+      hasOrigin: !!req.headers.get('origin'),
+      hasForwardedHost: !!req.headers.get('x-forwarded-host'),
       userAgent: req.headers.get('user-agent'),
     },
   });
@@ -139,7 +193,9 @@ export async function GET(req: NextRequest) {
     const sanitized = sanitizeRedirect(redirectedFrom, rootDomain, hostname);
     if (!sanitized) {
       if (redirectedFrom) {
-        console.warn('[auth/callback] rejected redirect param', redirectedFrom);
+        console.warn('[auth/callback] rejected redirect param', {
+          redirectedFrom: describeRedirectTarget(redirectedFrom),
+        });
       }
       // Use host-aware default redirect: app subdomain -> /dashboard, root domain -> /guest/dashboard
       const fallback = defaultRedirectForHost(hostname, rootDomain);
@@ -157,7 +213,10 @@ export async function GET(req: NextRequest) {
 
   // Resolve destination URL first so we can create redirect response
   const buildLoginRedirect = (errorType: string, userMessage: string) => {
-    const loginUrl = new URL(config.auth.loginUrl, requestUrl.origin);
+    const loginUrl = new URL(
+      config.auth.loginUrl,
+      resolveTrustedCallbackOrigin(hostname, rootDomain, requestUrl.origin),
+    );
     loginUrl.searchParams.set('error', errorType);
     loginUrl.searchParams.set('message', userMessage);
     return NextResponse.redirect(loginUrl.toString());
@@ -167,7 +226,7 @@ export async function GET(req: NextRequest) {
     console.warn(
       '[auth/callback] No code or token_hash parameter in request - possible direct access or malformed link',
       {
-        redirectedFrom,
+        redirectedFrom: describeRedirectTarget(redirectedFrom),
       },
     );
     return buildLoginRedirect(
@@ -177,7 +236,10 @@ export async function GET(req: NextRequest) {
   }
 
   const destination = toAbsoluteRedirectTarget(resolveDestination(), rootDomain);
-  const redirectUrl = new URL(destination, requestUrl.origin);
+  const redirectUrl = new URL(
+    destination,
+    resolveTrustedCallbackOrigin(hostname, rootDomain, requestUrl.origin),
+  );
 
   const cookieStore = await cookies();
 
@@ -243,7 +305,7 @@ export async function GET(req: NextRequest) {
         console.log('[auth/callback] Session exchanged successfully:', {
           userId: data.user?.id,
           email: data.user?.email,
-          redirectedFrom,
+          redirectedFrom: describeRedirectTarget(redirectedFrom),
         });
 
         if (data.user?.id && data.user?.email) {
@@ -301,8 +363,8 @@ export async function GET(req: NextRequest) {
   }
   console.log('[auth/callback] Final redirect:', {
     destination,
-    redirectUrl: redirectUrl.toString(),
-    origin: requestUrl.origin,
+    redirectHost: redirectUrl.hostname,
+    origin: resolveTrustedCallbackOrigin(hostname, rootDomain, requestUrl.origin),
   });
 
   return NextResponse.redirect(redirectUrl.toString());

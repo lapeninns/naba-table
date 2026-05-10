@@ -18,16 +18,20 @@ export function formatEmailDeliveryOccurredAt(iso: string | null, timezone: stri
   return dt.toFormat('EEE, MMM d · HH:mm');
 }
 
-export function getEmailDeliveryStatusBadgeTone(
-  status: EmailDeliveryStatus,
-): { variant: 'outline' | 'destructive' | 'secondary'; className?: string } {
+export function getEmailDeliveryStatusBadgeTone(status: EmailDeliveryStatus): {
+  variant: 'outline' | 'destructive' | 'secondary';
+  className?: string;
+} {
   switch (status) {
     case 'delivered':
-      return { variant: 'outline', className: 'border-emerald-200 bg-emerald-50 text-emerald-800' };
+      return { variant: 'outline', className: 'border-primary/30 bg-primary/10 text-primary' };
     case 'sent':
-      return { variant: 'outline', className: 'border-slate-200 bg-slate-50 text-slate-700' };
+      return {
+        variant: 'outline',
+        className: 'border-border bg-muted/40 text-muted-foreground',
+      };
     case 'delivery_delayed':
-      return { variant: 'outline', className: 'border-amber-200 bg-amber-50 text-amber-800' };
+      return { variant: 'outline', className: 'border-border bg-muted/40 text-foreground' };
     case 'bounced':
     case 'complained':
     case 'failed':
@@ -36,4 +40,3 @@ export function getEmailDeliveryStatusBadgeTone(
       return { variant: 'secondary' };
   }
 }
-

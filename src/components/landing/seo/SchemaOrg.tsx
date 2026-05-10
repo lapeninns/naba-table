@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 
 import { salesContact } from '@/config/sales-contact';
+import { safeJsonForHtmlScript } from '@/lib/security/script-json';
 
 export function SchemaOrg() {
   const schema = useMemo(
@@ -11,11 +12,11 @@ export function SchemaOrg() {
       '@graph': [
         {
           '@type': 'Organization',
-          name: 'Nab a Table',
+          name: 'Nabatable',
           url: 'https://nabatable.com',
           logo: 'https://nabatable.com/logo.png',
           description:
-            'The operating system for modern hospitality. Empowering venues to deliver exceptional guest experiences through data and automation.',
+            'The ultimate reservations and capacity growth system for modern food-led UK pubs.',
           contactPoint: {
             '@type': 'ContactPoint',
             telephone: salesContact.phone,
@@ -32,9 +33,9 @@ export function SchemaOrg() {
         },
         {
           '@type': 'Product',
-          name: 'Nab a Table Booking System',
+          name: 'Nabatable Packed House Pub System',
           description:
-            'Automated table reservation system for UK pubs and restaurants. Eliminate no-shows, increase revenue, and streamline operations.',
+            'Automated reservations, reminders, floor planning, and service capacity controls for food-led UK pubs.',
           category: 'Software',
           offers: {
             '@type': 'Offer',
@@ -43,7 +44,7 @@ export function SchemaOrg() {
             availability: 'https://schema.org/InStock',
             seller: {
               '@type': 'Organization',
-              name: 'Nab a Table',
+              name: 'Nabatable',
             },
           },
           aggregateRating: {
@@ -54,10 +55,9 @@ export function SchemaOrg() {
         },
         {
           '@type': 'WebSite',
-          name: 'Nab a Table',
+          name: 'Nabatable',
           url: 'https://nabatable.com',
-          description:
-            'Reserve your table in 30 seconds across Cambridgeshire, Norfolk and Bedfordshire.',
+          description: 'Fill tables, reduce no-shows, and run calmer food-led UK pub services.',
           potentialAction: {
             '@type': 'SearchAction',
             target: {
@@ -75,7 +75,7 @@ export function SchemaOrg() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonForHtmlScript(schema) }}
     />
   );
 }

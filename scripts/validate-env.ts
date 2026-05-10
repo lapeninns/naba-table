@@ -1,15 +1,15 @@
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
-import type { ZodIssue } from "zod";
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import type { ZodIssue } from 'zod';
 
-import { envSchemas, resolveEnvSchemaTarget } from "../config/env.schema";
+import { envSchemas, findBlockedPublicEnvKeys, resolveEnvSchemaTarget } from '../config/env.schema';
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
@@ -19,14 +19,16 @@ const schemaTarget = resolveEnvSchemaTarget(process.env);
 const schema = envSchemas[schemaTarget];
 
 if (!schema) {
-  console.error(`Unknown env schema target "${schemaTarget}". Expected one of: ${Object.keys(envSchemas).join(", ")}.`);
+  console.error(
+    `Unknown env schema target "${schemaTarget}". Expected one of: ${Object.keys(envSchemas).join(', ')}.`,
+  );
   process.exit(1);
 }
 
 const result = schema.safeParse(process.env);
 
 if (!result.success) {
-  console.error("Environment validation failed:\n");
+  console.error('Environment validation failed:\n');
   logIssues(result.error.issues);
   process.exit(1);
 }
@@ -40,7 +42,14 @@ const vercelEnv = process.env.VERCEL_ENV; // 'production' | 'preview' | 'develop
 const allowProdResources = env.ALLOW_PROD_RESOURCES_IN_NONPROD === true;
 
 // Skip prod-resource guard when the deployment target itself is production (e.g., Vercel prod build)
-const treatAsProdTarget = appEnv === "production" || vercelEnv === "production";
+const treatAsProdTarget = appEnv === 'production' || vercelEnv === 'production';
+
+const blockedPublicEnvKeys = findBlockedPublicEnvKeys(process.env);
+if (blockedPublicEnvKeys.length > 0) {
+  blockers.push(
+    `Blocked public env secret names: ${blockedPublicEnvKeys.join(', ')}. NEXT_PUBLIC_* values are bundled for browsers; use server-only env names for secrets or add a reviewed exact allowlist entry for true public configuration.`,
+  );
+}
 
 // -----------------------------------------------------------------------------
 // Production safety invariants (avoid silent background job failures)
@@ -50,40 +59,48 @@ if (treatAsProdTarget) {
   if (emailQueueEnabled) {
     if (!env.CRON_SECRET) {
       blockers.push(
-        "FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so trusted cron invocations can call /api/cron/process-emails.",
+        'FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so trusted cron invocations can call /api/cron/process-emails.',
       );
     }
   }
 
   if (env.RESEND_USE_MOCK === true) {
-    blockers.push("RESEND_USE_MOCK=true is not allowed for production targets.");
+    blockers.push('RESEND_USE_MOCK=true is not allowed for production targets.');
   }
+}
+
+const readReplicaUrl = env.SUPABASE_READ_REPLICA_URL?.trim();
+const useReadReplicaForService = env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA === true;
+if (useReadReplicaForService && !readReplicaUrl) {
+  blockers.push(
+    'FEATURE_SERVICE_CLIENT_USE_READ_REPLICA=true requires SUPABASE_READ_REPLICA_URL (Supabase read replica API URL for the same project).',
+  );
 }
 
 if (!treatAsProdTarget && !allowProdResources) {
   const comparisons: Array<{ key: string; value?: string; prodKey: string; prodValue?: string }> = [
     {
-      key: "NEXT_PUBLIC_SUPABASE_URL",
+      key: 'NEXT_PUBLIC_SUPABASE_URL',
       value: env.NEXT_PUBLIC_SUPABASE_URL,
-      prodKey: "PRODUCTION_SUPABASE_URL",
+      prodKey: 'PRODUCTION_SUPABASE_URL',
       prodValue: env.PRODUCTION_SUPABASE_URL,
     },
     {
-      key: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       value: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      prodKey: "PRODUCTION_SUPABASE_ANON_KEY",
+      prodKey: 'PRODUCTION_SUPABASE_ANON_KEY',
       prodValue: env.PRODUCTION_SUPABASE_ANON_KEY,
     },
     {
-      key: "SUPABASE_SERVICE_ROLE_KEY",
+      key: 'SUPABASE_SERVICE_ROLE_KEY',
       value: env.SUPABASE_SERVICE_ROLE_KEY,
-      prodKey: "PRODUCTION_SUPABASE_SERVICE_ROLE_KEY",
+      prodKey: 'PRODUCTION_SUPABASE_SERVICE_ROLE_KEY',
       prodValue: env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY,
     },
     {
-      key: "RESERVE_API_BASE_URL",
+      key: 'RESERVE_API_BASE_URL',
       value: env.RESERVE_API_BASE_URL,
-      prodKey: "PRODUCTION_BOOKING_API_BASE_URL",
+      prodKey: 'PRODUCTION_BOOKING_API_BASE_URL',
       prodValue: env.PRODUCTION_BOOKING_API_BASE_URL,
     },
   ];
@@ -99,20 +116,53 @@ if (!treatAsProdTarget && !allowProdResources) {
 }
 
 const dbTargetEnv = process.env.DB_TARGET_ENV ?? appEnv;
-const allowProdDbWipe = process.env.ALLOW_PROD_DB_WIPE === "true";
+const allowProdDbWipe = process.env.ALLOW_PROD_DB_WIPE === 'true';
 
-if (dbTargetEnv === "production" && !allowProdDbWipe && !treatAsProdTarget) {
+if (dbTargetEnv === 'production' && !allowProdDbWipe && !treatAsProdTarget) {
   blockers.push(
-    `DB_TARGET_ENV is set to "production" while APP_ENV=${appEnv} (VERCEL_ENV=${vercelEnv ?? "unset"}) without ALLOW_PROD_DB_WIPE=true. This is blocked to protect the production database.`,
+    `DB_TARGET_ENV is set to "production" while APP_ENV=${appEnv} (VERCEL_ENV=${vercelEnv ?? 'unset'}) without ALLOW_PROD_DB_WIPE=true. This is blocked to protect the production database.`,
   );
 }
 
-if (process.env.APP_ENV === "staging" && process.env.NODE_ENV !== "development" && process.env.NODE_ENV !== "production") {
-  warnings.push(`APP_ENV=staging should typically run with NODE_ENV=development locally or NODE_ENV=production for deploy previews.`);
+if (
+  process.env.APP_ENV === 'staging' &&
+  process.env.NODE_ENV !== 'development' &&
+  process.env.NODE_ENV !== 'production'
+) {
+  warnings.push(
+    `APP_ENV=staging should typically run with NODE_ENV=development locally or NODE_ENV=production for deploy previews.`,
+  );
+}
+
+const gbpVars = {
+  clientId: env.GOOGLE_BUSINESS_CLIENT_ID ?? env.GOOGLE_BUSINESS_PROFILE_CLIENT_ID,
+  clientSecret: env.GOOGLE_BUSINESS_CLIENT_SECRET ?? env.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET,
+  redirectUri: env.GOOGLE_BUSINESS_REDIRECT_URI ?? env.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI,
+  tokenEncryptionKey:
+    env.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY ?? env.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY,
+};
+
+const gbpConfiguredCount = Object.values(gbpVars).filter(
+  (value) => typeof value === 'string' && value.trim().length > 0,
+).length;
+
+if (gbpConfiguredCount > 0 && gbpConfiguredCount < 4) {
+  blockers.push(
+    'Google Business Profile integration is partially configured. Set GOOGLE_BUSINESS_PROFILE_CLIENT_ID, GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET, GOOGLE_BUSINESS_PROFILE_REDIRECT_URI, and GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY together.',
+  );
+}
+
+if (gbpVars.tokenEncryptionKey) {
+  const decodedKeyLength = Buffer.from(gbpVars.tokenEncryptionKey, 'base64url').length;
+  if (decodedKeyLength !== 32) {
+    blockers.push(
+      'GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY must be base64url data that decodes to exactly 32 bytes.',
+    );
+  }
 }
 
 if (blockers.length > 0) {
-  console.error("\nEnvironment safety checks failed:\n");
+  console.error('\nEnvironment safety checks failed:\n');
   for (const blocker of blockers) {
     console.error(` • ${blocker}`);
   }
@@ -120,18 +170,18 @@ if (blockers.length > 0) {
 }
 
 if (warnings.length > 0) {
-  console.warn("\nEnvironment warnings:\n");
+  console.warn('\nEnvironment warnings:\n');
   for (const warning of warnings) {
     console.warn(` • ${warning}`);
   }
 }
 
 console.log(
-  `Environment validation passed for schema=${schemaTarget}, NODE_ENV=${process.env.NODE_ENV ?? "development"}, APP_ENV=${appEnv}, VERCEL_ENV=${vercelEnv ?? "unset"}.`,
+  `Environment validation passed for schema=${schemaTarget}, NODE_ENV=${process.env.NODE_ENV ?? 'development'}, APP_ENV=${appEnv}, VERCEL_ENV=${vercelEnv ?? 'unset'}.`,
 );
 
 function logIssues(issues: ZodIssue[]) {
   for (const issue of issues) {
-    console.error(` • [${issue.code}] ${issue.path.join(".") || "value"}: ${issue.message}`);
+    console.error(` • [${issue.code}] ${issue.path.join('.') || 'value'}: ${issue.message}`);
   }
 }

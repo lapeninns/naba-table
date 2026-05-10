@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { assignTablesDirectly, unassignTablesDirect, DirectAssignmentError } from "@/server/capacity/table-assignment/direct-assignment";
 import { enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
+import { withCsrfProtectedMutation } from "@/server/security/csrf";
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
 
 import type { BookingRecord } from "@/server/bookings";
@@ -31,6 +32,13 @@ const unassignSchema = z.object({
  * - Fast and reliable
  */
 export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return withCsrfProtectedMutation(req, () => postAssignTables(req, { params }));
+}
+
+async function postAssignTables(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -204,6 +212,13 @@ export async function POST(
  * Remove table assignments from a booking.
  */
 export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return withCsrfProtectedMutation(req, () => deleteAssignTables(req, { params }));
+}
+
+async function deleteAssignTables(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {

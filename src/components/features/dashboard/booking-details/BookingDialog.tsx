@@ -83,13 +83,13 @@ type PrimaryAction =
   | null;
 
 const HEADER_TONES: Record<string, string> = {
-  checked_in: 'border-l-4 border-emerald-500 bg-emerald-50/60',
-  confirmed: 'border-l-4 border-blue-500 bg-blue-50/60',
-  late: 'border-l-4 border-rose-500 bg-rose-50/60',
+  checked_in: 'border-l-4 border-primary/30 bg-primary/10',
+  confirmed: 'border-l-4 border-primary/30 bg-primary/10',
+  late: 'border-l-4 border-destructive/20 bg-destructive/10',
 };
 
 const getHeaderTone = (status: string) =>
-  HEADER_TONES[status] ?? 'border-l-4 border-slate-200 bg-background';
+  HEADER_TONES[status] ?? 'border-l-4 border-border bg-background';
 
 export function BookingDialog({
   booking,
@@ -103,8 +103,11 @@ export function BookingDialog({
   onMarkNoShow,
   onUndoNoShow,
   onCancel,
+  onDataRefresh,
   pendingLifecycleAction,
   cancelPending,
+  tableAssignmentQueryEnabled = true,
+  tableAssignmentRealtime = true,
   open,
   onOpenChange,
   isToday = true,
@@ -125,9 +128,7 @@ export function BookingDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const wasOpenRef = useRef(false);
 
-  const [copySummaryStatus, setCopySummaryStatus] = useState<'idle' | 'copied' | 'failed'>(
-    'idle',
-  );
+  const [copySummaryStatus, setCopySummaryStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [srStatusMessage, setSrStatusMessage] = useState<string>('');
 
   useEffect(() => {
@@ -311,14 +312,7 @@ export function BookingDialog({
     const ok = await copyToClipboard(summaryText);
     setCopySummaryStatus(ok ? 'copied' : 'failed');
     setSrStatusMessage(ok ? 'Summary copied to clipboard.' : 'Unable to copy summary.');
-  }, [
-    assignedTableRows,
-    booking,
-    formattedDate,
-    formattedEndTime,
-    formattedStartTime,
-    summary,
-  ]);
+  }, [assignedTableRows, booking, formattedDate, formattedEndTime, formattedStartTime, summary]);
 
   const handleCancel = useCallback(async () => {
     if (!onCancel) return;
@@ -337,7 +331,7 @@ export function BookingDialog({
         id: 'assign-table',
         label: 'Assign table',
         icon: LayoutGrid,
-        tone: 'bg-indigo-600 hover:bg-indigo-700',
+        tone: 'bg-primary hover:bg-primary/90',
         onClick: () => {
           shouldFocusTablePanelRef.current = true;
           if (isMobile) {
@@ -352,7 +346,7 @@ export function BookingDialog({
         id: 'check-out',
         label: 'Complete visit',
         icon: LogOut,
-        tone: 'bg-blue-600 hover:bg-blue-700',
+        tone: 'bg-primary/10 hover:bg-primary/10',
         onClick: () => handleAction('check-out'),
       };
     }
@@ -362,7 +356,7 @@ export function BookingDialog({
         id: 'undo-no-show',
         label: 'Undo no-show',
         icon: RotateCcw,
-        tone: 'bg-orange-600 hover:bg-orange-700',
+        tone: 'bg-primary hover:bg-primary/90',
         onClick: () => handleAction('undo-no-show'),
       };
     }
@@ -372,7 +366,7 @@ export function BookingDialog({
         id: 'check-in',
         label: 'Mark arrived',
         icon: LogIn,
-        tone: 'bg-emerald-600 hover:bg-emerald-700',
+        tone: 'bg-primary/10 hover:bg-primary/10',
         onClick: () => handleAction('check-in'),
       };
     }
@@ -418,12 +412,25 @@ export function BookingDialog({
   const handleAssignmentComplete = useCallback(() => {
     if (!booking?.id) return;
     queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
-  }, [booking?.id, queryClient]);
+    void onDataRefresh?.();
+  }, [booking?.id, onDataRefresh, queryClient]);
 
   const content = (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* Header - fixed height */}
-      <div className={cn('shrink-0 border-b px-4 py-3', headerTone)}>
+    <div className="flex h-full flex-col overflow-hidden bg-background/80 backdrop-blur-xl relative group">
+      {/* Ambient glassmorphic gradients (desktop only; suppressed when the
+          user prefers reduced motion to skip the heavy paint cost). */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden hidden md:block motion-reduce:hidden">
+        <div className="absolute top-[-10%] left-[-10%] size-[40%] bg-primary/10 rounded-full blur-[120px] transition-transform duration-1000 group-hover:scale-110" />
+        <div className="absolute bottom-[-10%] right-[-10%] size-[50%] bg-primary/5 rounded-full blur-[140px] transition-transform duration-1000 group-hover:scale-105" />
+      </div>
+
+      {/* Header - Glassy & Dynamic */}
+      <div
+        className={cn(
+          'shrink-0 border-b border-border/40 px-4 py-4 sm:px-6 sm:py-5 z-10 bg-background/40 backdrop-blur-md',
+          headerTone,
+        )}
+      >
         <DialogHeader
           booking={booking}
           status={status}
@@ -436,7 +443,7 @@ export function BookingDialog({
         />
       </div>
       {/* Body - takes remaining space and scrolls */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden z-10">
         <BookingDialogBody
           isLoading={isLoading}
           errorMessage={errorMessage}
@@ -460,55 +467,48 @@ export function BookingDialog({
           onAssignmentComplete={handleAssignmentComplete}
           bookingStartTime={booking?.startTime ?? null}
           bookingEndTime={booking?.endTime ?? null}
+          tableAssignmentQueryEnabled={tableAssignmentQueryEnabled}
+          tableAssignmentRealtime={tableAssignmentRealtime}
         />
       </div>
-      {/* Footer - fixed height */}
-      <div className="shrink-0 border-t bg-background px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="hidden sm:block text-xs text-muted-foreground">
-            {booking ? `${formattedDate} · ${formattedStartTime}` : 'Booking details'}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {primaryAction
-              ? (() => {
-                  const PrimaryIcon = primaryAction.icon;
-                  return (
-                    <Button
-                      size="sm"
-                      onClick={primaryAction.onClick}
-                      disabled={isActionPending}
-                      className={cn('text-white', primaryAction.tone)}
-                    >
-                      <PrimaryIcon className="h-4 w-4 mr-1.5" />
-                      {primaryAction.label}
-                    </Button>
-                  );
-                })()
-              : null}
-
+      {/* Bottom Action Rail - Elevated & Floating-style */}
+      <div className="shrink-0 border-t border-border/40 bg-background/60 backdrop-blur-xl px-4 py-4 sm:px-6 z-20 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          {/* Secondary Actions / Info */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {!isMobile && booking?.customerPhone ? (
-              <Button variant="outline" size="sm" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-background hover:text-foreground"
+                asChild
+              >
                 <a href={`tel:${formatPhoneForTel(booking.customerPhone)}`}>
-                  <Phone className="mr-1 h-3.5 w-3.5" />
-                  Call guest
+                  <Phone className="size-3.5" />
+                  Call Guest
                 </a>
               </Button>
-            ) : null}
+            ) : (
+              <div className="hidden text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 sm:block">
+                {booking ? `${formattedDate} · ${formattedStartTime}` : 'Operation Mode'}
+              </div>
+            )}
+          </div>
 
+          {/* Primary Action Stack */}
+          <div className="flex items-center gap-2">
             {booking ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="gap-2"
-                    aria-label="More actions"
+                    className="size-9 p-0 text-muted-foreground hover:bg-background hover:text-foreground"
+                    aria-label="More operations"
                     disabled={isActionPending}
                   >
-                    <MoreHorizontal className="h-4 w-4" aria-hidden />
-                    <span className="hidden sm:inline">More</span>
+                    <MoreHorizontal className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -521,14 +521,14 @@ export function BookingDialog({
                     className="gap-2"
                   >
                     {copySummaryStatus === 'copied' ? (
-                      <Check className="h-4 w-4 text-emerald-600" aria-hidden />
+                      <Check className="size-4 text-primary" aria-hidden />
                     ) : (
-                      <Copy className="h-4 w-4" aria-hidden />
+                      <Copy className="size-4" aria-hidden />
                     )}
                     {copySummaryStatus === 'copied' ? 'Copied summary' : 'Copy summary'}
                   </DropdownMenuItem>
 
-                  {booking.reference ?? booking.id ? (
+                  {(booking.reference ?? booking.id) ? (
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault();
@@ -542,12 +542,12 @@ export function BookingDialog({
                       }}
                       className="gap-2"
                     >
-                      <Copy className="h-4 w-4" aria-hidden />
+                      <Copy className="size-4" aria-hidden />
                       Copy reference
                     </DropdownMenuItem>
                   ) : null}
 
-                  {(shouldShowNoShow || (onCancel && canCancel)) ? <DropdownMenuSeparator /> : null}
+                  {shouldShowNoShow || (onCancel && canCancel) ? <DropdownMenuSeparator /> : null}
 
                   {shouldShowNoShow ? (
                     <DropdownMenuItem
@@ -555,9 +555,9 @@ export function BookingDialog({
                         event.preventDefault();
                         setConfirmNoShow(true);
                       }}
-                      className="gap-2 text-rose-700 focus:text-rose-700"
+                      className="gap-2 text-destructive focus:text-destructive"
                     >
-                      <UserX className="h-4 w-4" aria-hidden />
+                      <UserX className="size-4" aria-hidden />
                       Mark no-show
                     </DropdownMenuItem>
                   ) : null}
@@ -570,13 +570,33 @@ export function BookingDialog({
                       }}
                       className="gap-2 text-destructive focus:text-destructive"
                     >
-                      <Ban className="h-4 w-4" aria-hidden />
+                      <Ban className="size-4" aria-hidden />
                       Cancel booking
                     </DropdownMenuItem>
                   ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
+
+            {primaryAction
+              ? (() => {
+                  const PrimaryIcon = primaryAction.icon;
+                  return (
+                    <Button
+                      size="sm"
+                      onClick={primaryAction.onClick}
+                      disabled={isActionPending}
+                      className={cn(
+                        'h-9 px-4 text-xs font-bold uppercase tracking-widest shadow-sm transition-all active:scale-[0.98]',
+                        primaryAction.tone,
+                      )}
+                    >
+                      <PrimaryIcon className="size-3.5 mr-2" />
+                      {primaryAction.label}
+                    </Button>
+                  );
+                })()
+              : null}
           </div>
         </div>
 
@@ -594,8 +614,8 @@ export function BookingDialog({
           <SheetContent
             side="bottom"
             className={cn(
-              'h-[92dvh] max-h-[calc(100dvh-var(--safe-area-inset-top))] p-0 gap-0 overflow-hidden [&>button]:hidden',
-              'rounded-t-2xl',
+              'h-[94dvh] max-h-[calc(100dvh-var(--safe-area-inset-top))] p-0 gap-0 overflow-hidden border-x-0 border-b-0 [&>button]:hidden',
+              'rounded-t-[2.5rem] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.3)] bg-background/80 backdrop-blur-3xl',
             )}
           >
             <SheetTitle className="sr-only">{titleText}</SheetTitle>
@@ -605,7 +625,7 @@ export function BookingDialog({
         </Sheet>
       ) : (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-          <DialogContent className="flex flex-col h-[70vh] max-w-5xl p-0 overflow-hidden [&>button]:hidden">
+          <DialogContent className="flex h-[min(90vh,900px)] w-[min(98vw,1280px)] max-w-none flex-col overflow-hidden rounded-[2rem] border border-border/20 p-0 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] sm:w-[min(96vw,1280px)] md:h-[min(88vh,900px)] md:w-[min(94vw,1280px)] [&>button]:hidden bg-background">
             <DialogTitle className="sr-only">{titleText}</DialogTitle>
             <DialogDescription className="sr-only">{descriptionText}</DialogDescription>
             {content}
@@ -625,7 +645,7 @@ export function BookingDialog({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleAction('no-show')}
-              className="bg-rose-600 hover:bg-rose-700"
+              className="bg-destructive/10 hover:bg-destructive/10"
             >
               Confirm no-show
             </AlertDialogAction>

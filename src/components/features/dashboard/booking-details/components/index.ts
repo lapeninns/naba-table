@@ -13,7 +13,11 @@
 export { ClickToCopy, type ClickToCopyProps } from './ClickToCopy';
 
 /** Contact information display row (phone/email) */
-export { ContactInfoRow, type ContactInfoRowProps, type ContactInfoRowAction } from './ContactInfoRow';
+export {
+  ContactInfoRow,
+  type ContactInfoRowProps,
+  type ContactInfoRowAction,
+} from './ContactInfoRow';
 
 /** Arrival countdown timer with pulsing indicator */
 export { ArrivalCountdown, type ArrivalCountdownProps } from './ArrivalCountdown';

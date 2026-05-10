@@ -34,7 +34,7 @@ export function DashboardSkeleton() {
             {/* Search Skeleton */}
             <div className="flex items-center gap-2">
               <Skeleton className="h-10 w-full md:w-64 rounded-lg" />
-              <Skeleton className="h-10 w-10 rounded-lg" />
+              <Skeleton className="size-10 rounded-lg" />
             </div>
           </div>
         </div>

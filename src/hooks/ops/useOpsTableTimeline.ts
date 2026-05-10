@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import { useTableInventoryService } from '@/contexts/ops-services';
@@ -62,6 +62,7 @@ export function useOpsTableTimeline({
     refetchInterval: shouldEnable && !realtimeEnabled() ? POLL_INTERVAL_MS : false,
     refetchOnWindowFocus: false,
     staleTime: 5_000,
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
@@ -80,13 +81,23 @@ export function useOpsTableTimeline({
 
     channel.on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'allocations', filter: `restaurant_id=eq.${restaurantId}` },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'allocations',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
       handleChange,
     );
 
     channel.on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'table_holds', filter: `restaurant_id=eq.${restaurantId}` },
+      {
+        event: '*',
+        schema: 'public',
+        table: 'table_holds',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
       handleChange,
     );
 

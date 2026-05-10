@@ -1,64 +1,52 @@
 # Continuity Ledger
 
-Last updated: 2026-04-17T16:57:00Z
+Last updated: 2026-04-24T19:42:52Z
 
 ## Goal (incl. success criteria)
 
-- Move the Old School House drinks-only note off the weekly operating-hours rows and onto temporary overrides only.
-- Success: weekly rows for `the-old-school-house` have empty notes.
-- Success: override rows for `2026-04-17` through `2026-04-23` carry the drinks-only note.
-- Success: Friday `2026-04-24` has no temporary note override because food returns that day.
+- Create a native Nabatable repo-based SDLC operating system that current coding agents can follow.
+- Success: repo gains a concrete SDLC doc set, subagent role docs, and task scaffolding guidance aligned with the existing root `AGENTS.md`.
+- Success: the system is repo-native, layered, concise, and ready for future expansion without reintroducing a giant monolithic policy file.
 
 ## Constraints/Assumptions
 
-- Follow root `AGENTS.md`.
-- This is a production remote Supabase data change.
-- No local Supabase path is allowed.
-- No code changes are required for the requested behavior.
+- Keep the root `AGENTS.md` thin; long-form process belongs in `docs/`.
+- Supabase remains remote-only and UI verification remains required for UI changes.
+- This pass should create the operating-system foundation, not a giant replacement handbook.
+- Prefer additive documentation and light integration over broad repo churn.
 
 ## Key decisions
 
-- Use production restaurant `a120da71-ba6d-446f-a33a-2e78787abcb0` / `the-old-school-house` as the canonical target.
-- Clear all seven weekly `notes` fields.
-- Add temporary per-date overrides for `2026-04-17` through `2026-04-23` carrying the drinks-only note and matching the corresponding weekly hours.
+- Create the SDLC operating system under `docs/sdlc/` plus narrow subagent role files under `.agents/`.
+- Create a task folder for this medium-risk documentation/operating-system feature.
+- Keep role files narrow: planner, implementer, reviewer, UI QA.
 
 ## State
 
-- Task folder created at `tasks/old-school-house-override-notes-20260417-1652/`.
-- Confirmed current production state before the write:
-  - 7 weekly rows existed.
-  - each weekly row already had the drinks-only note.
-  - no override rows existed.
-- Applied the production update and verified after-state:
-  - weekly notes are now `null`
-  - 7 override rows exist for `2026-04-17` through `2026-04-23`
-  - each override row carries the drinks-only note
-  - no override was created for `2026-04-24`
+- Initial implementation in progress.
 
 ## Done
 
-- Created the task artifacts for this production operating-hours change.
-- Updated the live production rows for The Old School House.
-- Saved before/after proof in the task artifacts.
+- Read root `AGENTS.md` and `README.md`.
+- Confirmed the repo currently has a thin root `AGENTS.md` and no existing `docs/` directory.
+- Chosen task slug `nabatable-sdlc-os-20260424-1942`.
 
 ## Now
 
-- Final pass on task notes and user handoff.
+- Scaffold task artifacts and author the first version of the SDLC operating system docs.
 
 ## Next
 
-- Share the exact override window and verification evidence with the user.
+- Integrate doc links into root guidance and run lightweight verification.
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- UNCONFIRMED: whether the user will want follow-up automation/CI enforcement after the documentation foundation lands.
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/research.md
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/plan.md
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/todo.md
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/verification.md
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/artifacts/before.json
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/artifacts/after.json
-- /Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/old-school-house-override-notes-20260417-1652/artifacts/summary.json
+- `AGENTS.md`
+- `README.md`
+- `docs/sdlc/**`
+- `.agents/**`
+- `tasks/nabatable-sdlc-os-20260424-1942/**`

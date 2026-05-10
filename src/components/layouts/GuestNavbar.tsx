@@ -1,26 +1,29 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, Menu, User, LayoutDashboard, Calendar } from 'lucide-react';
+import { Calendar, LayoutDashboard, LogOut, Menu, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
 import {
   Sheet,
   SheetClose,
   SheetContent,
+  SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
@@ -44,7 +47,10 @@ type AccountLink = NavLink & {
   icon?: React.ComponentType<{ className?: string }>;
 };
 
-const PRIMARY_LINK: NavLink = { href: '/restaurants', label: 'Restaurants' };
+const PRIMARY_LINKS: NavLink[] = [
+  { href: '/restaurants', label: 'Restaurants' },
+  { href: '/bookings', label: 'Book a table' },
+];
 
 const ACCOUNT_LINKS: AccountLink[] = [
   { href: '/guest/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -58,6 +64,9 @@ type GuestNavbarProps = {
   tone?: Tone;
   isSticky?: boolean;
 };
+
+const DARK_GLASS_CONTROL_CLASSES =
+  'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/15';
 
 type AccountSnapshot = {
   displayName: string;
@@ -87,10 +96,20 @@ function resolveFallback(
 }
 
 function BrandMark({ tone }: { tone: Tone }) {
-  return <BrandLogo href="/" variant={tone} size="sm" />;
+  return <BrandLogo href="/" variant={tone} size="sm" showBeta={false} />;
 }
 
-function PrimaryNav({ currentPath, tone }: { currentPath: string | null; tone: Tone }) {
+function PrimaryNav({
+  currentPath,
+  tone,
+  links,
+  onRouteIntent,
+}: {
+  currentPath: string | null;
+  tone: Tone;
+  links: NavLink[];
+  onRouteIntent: (href: string) => void;
+}) {
   const isActive = useCallback(
     (href: string) => {
       if (!currentPath) return false;
@@ -100,37 +119,44 @@ function PrimaryNav({ currentPath, tone }: { currentPath: string | null; tone: T
     [currentPath],
   );
 
-  const baseStyles =
-    tone === 'dark'
-      ? 'border-white/15 bg-white/10 text-white'
-      : 'border-border/60 bg-background/70 text-foreground';
-  const inactive =
-    tone === 'dark'
-      ? 'text-white/70 hover:bg-white/10 hover:text-white'
-      : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground';
-  const active =
-    tone === 'dark'
-      ? 'bg-white text-slate-900 shadow-sm ring-0'
-      : 'bg-foreground text-background shadow-sm ring-0';
-
   return (
     <nav
       aria-label="Primary navigation"
       className={cn(
-        'hidden items-center gap-2 rounded-full px-1.5 py-1 shadow-sm backdrop-blur supports-[backdrop-filter]:saturate-150 md:flex',
-        baseStyles,
+        'hidden items-center gap-1 rounded-[var(--pg-radius-pill)] border p-1 shadow-[var(--pg-shadow-edge)] backdrop-blur-xl md:flex',
+        tone === 'dark'
+          ? 'border-primary-foreground/15 bg-primary-foreground/10 text-primary-foreground'
+          : 'border-border/70 bg-background/75 text-foreground',
       )}
     >
-      <Link
-        href={PRIMARY_LINK.href}
-        aria-current={isActive(PRIMARY_LINK.href) ? 'page' : undefined}
-        className={cn(
-          'rounded-full px-3.5 py-2 text-sm font-semibold leading-5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-          isActive(PRIMARY_LINK.href) ? active : inactive,
-        )}
-      >
-        {PRIMARY_LINK.label}
-      </Link>
+      {links.map((link) => (
+        <Button
+          asChild
+          key={link.href}
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'h-9 rounded-[var(--pg-radius-pill)] px-3.5 text-sm font-semibold',
+            tone === 'dark'
+              ? 'text-primary-foreground/75 hover:bg-primary-foreground/12 hover:text-primary-foreground'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            isActive(link.href) &&
+              (tone === 'dark'
+                ? 'bg-background text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-background hover:text-foreground'
+                : 'bg-muted text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-muted'),
+          )}
+        >
+          <Link
+            href={link.href}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            onFocus={() => onRouteIntent(link.href)}
+            onPointerDown={() => onRouteIntent(link.href)}
+            onPointerEnter={() => onRouteIntent(link.href)}
+          >
+            {link.label}
+          </Link>
+        </Button>
+      ))}
     </nav>
   );
 }
@@ -142,6 +168,7 @@ function DesktopActions({
   tone,
   onSignOut,
   isSigningOut,
+  onRouteIntent,
 }: {
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -149,40 +176,55 @@ function DesktopActions({
   tone: Tone;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
+  onRouteIntent: (href: string) => void;
 }) {
   return (
     <div className="hidden items-center gap-3 md:flex">
-      {isLoading ? <Skeleton className="h-10 w-10 rounded-full" /> : null}
+      {isLoading ? <Skeleton className="size-10 rounded-full" /> : null}
 
       {!isLoading && !isAuthenticated ? (
-        <Link
-          href="/auth"
+        <Button
+          asChild
           className={cn(
-            buttonVariants({ variant: tone === 'dark' ? 'secondary' : 'outline', size: 'sm' }),
-            tone === 'dark' ? 'text-white' : undefined,
+            'rounded-[var(--pg-radius-pill)]',
+            tone === 'dark' && DARK_GLASS_CONTROL_CLASSES,
           )}
+          size="sm"
+          variant="outline"
         >
-          Sign in
-        </Link>
+          <Link
+            href="/auth"
+            onFocus={() => onRouteIntent('/auth')}
+            onPointerDown={() => onRouteIntent('/auth')}
+            onPointerEnter={() => onRouteIntent('/auth')}
+          >
+            Sign in
+          </Link>
+        </Button>
       ) : null}
 
       {isAuthenticated && account ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="group relative h-10 w-10 rounded-full border border-border/50 bg-background text-foreground outline-none transition hover:ring-2 hover:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className={cn(
+                'rounded-full p-0',
+                tone === 'dark' &&
+                  'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/15',
+              )}
               aria-label={`${account.displayName} menu`}
             >
-              <Avatar className="h-10 w-10 border border-border/30">
+              <Avatar className="size-10 border border-border/30">
                 {account.avatarUrl ? (
                   <AvatarImage src={account.avatarUrl} alt={account.displayName} />
                 ) : null}
-                <AvatarFallback className="bg-primary/5 text-primary font-medium" aria-hidden>
+                <AvatarFallback className="bg-muted font-medium text-foreground" aria-hidden>
                   {account.fallback}
                 </AvatarFallback>
               </Avatar>
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60 p-2" forceMount>
             <DropdownMenuLabel className="space-y-0.5 px-2 pb-1">
@@ -194,21 +236,22 @@ function DesktopActions({
               ) : null}
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
-            {ACCOUNT_LINKS.map((item) => (
-              <DropdownMenuItem
-                asChild
-                key={item.href}
-                className="cursor-pointer rounded-md p-2 focus:bg-primary/5"
-              >
-                <Link
-                  href={item.href}
-                  className="flex w-full items-center gap-2.5 text-sm font-medium text-foreground/90"
-                >
-                  {item.icon ? <item.icon className="h-4 w-4 text-muted-foreground" /> : null}
-                  {item.label}
-                </Link>
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              {ACCOUNT_LINKS.map((item) => (
+                <DropdownMenuItem asChild key={item.href} className="cursor-pointer rounded-md p-2">
+                  <Link
+                    href={item.href}
+                    className="flex w-full items-center gap-2.5 text-sm font-medium text-foreground/90"
+                    onFocus={() => onRouteIntent(item.href)}
+                    onPointerDown={() => onRouteIntent(item.href)}
+                    onPointerEnter={() => onRouteIntent(item.href)}
+                  >
+                    {item.icon ? <item.icon className="text-muted-foreground" /> : null}
+                    {item.label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
               onSelect={(event) => {
@@ -220,7 +263,7 @@ function DesktopActions({
               aria-disabled={isSigningOut}
             >
               <div className="flex w-full items-center gap-2.5 text-sm font-medium">
-                <LogOut className="h-4 w-4" />
+                <LogOut />
                 <span>Sign out</span>
               </div>
             </DropdownMenuItem>
@@ -240,6 +283,7 @@ function MobileMenu({
   account,
   onSignOut,
   isSigningOut,
+  onRouteIntent,
 }: {
   tone: Tone;
   open: boolean;
@@ -249,6 +293,7 @@ function MobileMenu({
   account: AccountSnapshot | null;
   onSignOut: () => Promise<void>;
   isSigningOut: boolean;
+  onRouteIntent: (href: string) => void;
 }) {
   const isActive = useCallback(
     (href: string) => {
@@ -259,8 +304,22 @@ function MobileMenu({
     [pathname],
   );
 
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (open) {
+      root.setAttribute('data-guest-nav-open', 'true');
+      return () => {
+        root.removeAttribute('data-guest-nav-open');
+      };
+    }
+
+    root.removeAttribute('data-guest-nav-open');
+    return undefined;
+  }, [open]);
+
   const navSections: { title: string; links: AccountLink[] }[] = [
-    { title: 'Explore', links: [{ ...PRIMARY_LINK }] },
+    { title: 'Explore', links: PRIMARY_LINKS.map((link) => ({ ...link })) },
   ];
 
   if (isAuthenticated) {
@@ -273,34 +332,42 @@ function MobileMenu({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-sm transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background touch-manipulation md:hidden"
+        <Button
+          variant="outline"
+          size="icon-lg"
+          className={cn(
+            'rounded-[var(--pg-radius-md)] border-border/80 bg-background/90 shadow-[var(--pg-shadow-xs)] md:hidden',
+            tone === 'dark' && DARK_GLASS_CONTROL_CLASSES,
+          )}
           aria-label="Open navigation menu"
           aria-expanded={open}
           aria-controls="guest-navigation-drawer"
         >
-          <Menu className="h-5 w-5" aria-hidden />
-        </button>
+          <Menu aria-hidden data-icon="inline-start" />
+        </Button>
       </SheetTrigger>
       <SheetContent
         side="right"
         id="guest-navigation-drawer"
         aria-label="Guest navigation"
-        className="flex h-full flex-col gap-6 px-6 pb-6 pt-12 sm:px-8"
+        showCloseButton={false}
+        className="flex h-full flex-col gap-0 px-0 pb-0 pt-0 sm:max-w-md"
       >
-        <SheetHeader className="sr-only">
-          <SheetTitle>Guest navigation</SheetTitle>
+        <SheetHeader className="border-b border-border/70 px-6 py-5 text-left">
+          <BrandMark tone="light" />
+          <SheetTitle className="mt-5 text-2xl font-semibold tracking-tight">
+            Guest navigation
+          </SheetTitle>
+          <SheetDescription>
+            Find restaurants, book a table, or manage your account.
+          </SheetDescription>
         </SheetHeader>
-        <div className="rounded-3xl border border-border/60 bg-background/90 p-4 shadow-sm">
-          <div className="flex flex-col gap-1 pr-10">
-            <BrandMark tone={tone} />
-          </div>
 
+        <div className="flex flex-1 flex-col overflow-y-auto px-6 py-5">
           {isAuthenticated && account ? (
-            <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-border/60 bg-muted/50 p-4">
+            <div className="flex flex-col gap-4 rounded-[var(--pg-radius-lg)] border border-border/70 bg-muted/35 p-4">
               <div className="flex items-center gap-4">
-                <Avatar className="h-12 w-12 border border-border/70 bg-background">
+                <Avatar className="size-12 border border-border/70 bg-background">
                   {account.avatarUrl ? (
                     <AvatarImage src={account.avatarUrl} alt={account.displayName} />
                   ) : null}
@@ -318,79 +385,99 @@ function MobileMenu({
                 </div>
               </div>
               <SheetClose asChild>
-                <Link
-                  href="/guest/profile"
-                  className="inline-flex items-center justify-center rounded-full border border-border/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-[var(--pg-radius-pill)]"
                 >
-                  Manage profile
-                </Link>
+                  <Link
+                    href="/guest/profile"
+                    onFocus={() => onRouteIntent('/guest/profile')}
+                    onPointerDown={() => onRouteIntent('/guest/profile')}
+                    onPointerEnter={() => onRouteIntent('/guest/profile')}
+                  >
+                    Manage profile
+                  </Link>
+                </Button>
               </SheetClose>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Sign in to sync bookings, dietary notes, and saved occasions.
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
-          {navSections.map((section) => (
-            <section key={section.title} className="flex flex-col gap-3" aria-label={section.title}>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                {section.title}
+            <div className="rounded-[var(--pg-radius-lg)] border border-border/70 bg-muted/35 p-4">
+              <p className="text-sm text-muted-foreground">
+                Sign in to sync bookings, dietary notes, and saved occasions.
               </p>
-              <div className="flex flex-col gap-2">
-                {section.links.map((link) => (
-                  <SheetClose asChild key={link.href}>
-                    <Link
-                      href={link.href}
-                      className={cn(
-                        'flex items-center gap-3 rounded-2xl border border-border/60 px-4 py-3 text-base font-semibold text-foreground transition',
-                        'hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                        isActive(link.href)
-                          ? 'border-primary/50 bg-primary/5 text-primary'
-                          : undefined,
-                      )}
-                    >
-                      {link.icon ? (
-                        <link.icon className="h-4 w-4 text-muted-foreground" aria-hidden />
-                      ) : null}
-                      <span>{link.label}</span>
-                    </Link>
-                  </SheetClose>
-                ))}
-              </div>
-            </section>
-          ))}
+            </div>
+          )}
+
+          <Separator className="my-6" />
+
+          <div className="flex flex-col gap-6">
+            {navSections.map((section) => (
+              <section
+                key={section.title}
+                className="flex flex-col gap-3"
+                aria-label={section.title}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  {section.title}
+                </p>
+                <div className="flex flex-col gap-2">
+                  {section.links.map((link) => (
+                    <SheetClose asChild key={link.href}>
+                      <Button
+                        asChild
+                        variant={isActive(link.href) ? 'secondary' : 'ghost'}
+                        className={cn(
+                          'h-12 justify-start rounded-[var(--pg-radius-md)] px-3 text-base font-semibold',
+                          isActive(link.href) && 'border border-border/70 bg-muted',
+                        )}
+                      >
+                        <Link
+                          href={link.href}
+                          onFocus={() => onRouteIntent(link.href)}
+                          onPointerDown={() => onRouteIntent(link.href)}
+                          onPointerEnter={() => onRouteIntent(link.href)}
+                        >
+                          {link.icon ? (
+                            <link.icon className="text-muted-foreground" aria-hidden />
+                          ) : null}
+                          <span>{link.label}</span>
+                        </Link>
+                      </Button>
+                    </SheetClose>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         </div>
 
-        <SheetFooter className="mt-auto flex w-full flex-col gap-3 border-t border-border/50 pt-4">
+        <SheetFooter className="border-t border-border/70 p-6">
           {isAuthenticated ? (
-            <button
-              type="button"
-              className={cn(
-                buttonVariants({ variant: 'outline', size: 'default' }),
-                'w-full justify-center gap-2 rounded-2xl text-base font-semibold touch-manipulation',
-              )}
+            <Button
+              variant="outline"
+              className="w-full rounded-[var(--pg-radius-pill)]"
               onClick={() => {
                 void onSignOut();
               }}
               disabled={isSigningOut}
             >
-              <LogOut className="h-4 w-4" aria-hidden />
+              <LogOut aria-hidden data-icon="inline-start" />
               {isSigningOut ? 'Signing out…' : 'Sign out'}
-            </button>
+            </Button>
           ) : (
             <SheetClose asChild>
-              <Link
-                href="/auth"
-                className={cn(
-                  buttonVariants({ variant: 'default', size: 'default' }),
-                  'w-full justify-center rounded-2xl text-base font-semibold',
-                )}
-              >
-                Sign in
-              </Link>
+              <Button asChild variant="outline" className="w-full rounded-[var(--pg-radius-pill)]">
+                <Link
+                  href="/auth"
+                  onFocus={() => onRouteIntent('/auth')}
+                  onPointerDown={() => onRouteIntent('/auth')}
+                  onPointerEnter={() => onRouteIntent('/auth')}
+                >
+                  Sign in
+                </Link>
+              </Button>
             </SheetClose>
           )}
         </SheetFooter>
@@ -415,6 +502,16 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
     typeof metadata?.['full_name'] === 'string' ? (metadata?.['full_name'] as string) : null;
 
   const { data: profile, isLoading: isProfileLoading } = useProfile({ enabled: isAuthenticated });
+  const primaryLinks = PRIMARY_LINKS;
+  const prefetchRoute = useCallback(
+    (href: string) => {
+      if (!href || href === pathname || href.startsWith('#')) {
+        return;
+      }
+      router.prefetch(href);
+    },
+    [pathname, router],
+  );
 
   const accountSnapshot: AccountSnapshot | null = useMemo(() => {
     if (!isAuthenticated) return null;
@@ -451,25 +548,41 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
     setIsMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    primaryLinks.forEach((link) => prefetchRoute(link.href));
+    if (isAuthenticated) {
+      ACCOUNT_LINKS.forEach((link) => prefetchRoute(link.href));
+    } else {
+      prefetchRoute('/auth');
+    }
+  }, [isAuthenticated, prefetchRoute, primaryLinks]);
+
   const headerToneClasses =
     tone === 'dark'
-      ? 'border-b border-white/10 bg-white/10 text-white'
-      : 'border-b border-border/70 bg-white/90 text-foreground';
+      ? 'border-b border-primary-foreground/10 bg-foreground/80 text-background'
+      : 'border-b border-border/70 bg-background/88 text-foreground';
 
   const shellClasses = cn(
     isSticky ? 'sticky top-0' : 'relative',
-    'z-50 w-full backdrop-blur supports-[backdrop-filter]:saturate-150',
+    'z-50 w-full backdrop-blur-xl supports-[backdrop-filter]:saturate-150',
     headerToneClasses,
   );
 
   return (
     <div className={shellClasses}>
-      <div className="guest-boundary w-full py-3 md:py-4">
-        <div className="flex items-center justify-between gap-3">
-          <BrandMark tone={tone} />
+      <div className="pg-container py-3">
+        <div className="flex min-h-14 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center">
+            <BrandMark tone={tone} />
+          </div>
 
           <div className="hidden flex-1 items-center justify-end gap-4 md:flex">
-            <PrimaryNav currentPath={pathname ?? null} tone={tone} />
+            <PrimaryNav
+              currentPath={pathname ?? null}
+              tone={tone}
+              links={primaryLinks}
+              onRouteIntent={prefetchRoute}
+            />
             <DesktopActions
               isLoading={isLoadingSession || (isAuthenticated && isProfileLoading)}
               isAuthenticated={isAuthenticated}
@@ -477,6 +590,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
               tone={tone}
               onSignOut={handleSignOut}
               isSigningOut={isSigningOut}
+              onRouteIntent={prefetchRoute}
             />
           </div>
 
@@ -490,6 +604,7 @@ export function GuestNavbar({ tone = 'light', isSticky = true }: GuestNavbarProp
               account={accountSnapshot}
               onSignOut={handleSignOut}
               isSigningOut={isSigningOut}
+              onRouteIntent={prefetchRoute}
             />
           </div>
         </div>

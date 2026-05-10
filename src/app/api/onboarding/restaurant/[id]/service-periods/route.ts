@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
+import { withRestaurantAuthorization } from '@/server/auth/guards';
 import { updateServicePeriods } from '@/server/restaurants/servicePeriods';
-import { validateCsrfToken } from '@/server/security/csrf';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
@@ -23,23 +24,13 @@ const requestSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
-  if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
-  }
-
   const { id: restaurantId } = await context.params;
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    return NextResponse.json({ message: 'Unable to verify session' }, { status: 500 });
-  }
-
-  if (!user) {
-    return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+  const authorization = await withRestaurantAuthorization(req, restaurantId, {
+    csrf: true,
+    roles: RESTAURANT_ADMIN_ROLES,
+  });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   let payload: unknown;
@@ -51,15 +42,23 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ message: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
-    const periods = await updateServicePeriods(restaurantId, parsed.data.servicePeriods, getServiceSupabaseClient());
+    const periods = await updateServicePeriods(
+      restaurantId,
+      parsed.data.servicePeriods,
+      getServiceSupabaseClient(),
+    );
     return NextResponse.json({ servicePeriods: periods });
   } catch (updateError) {
     console.error('[onboarding][service-periods][PATCH]', updateError);
-    const message = updateError instanceof Error ? updateError.message : 'Unable to save service periods';
+    const message =
+      updateError instanceof Error ? updateError.message : 'Unable to save service periods';
     return NextResponse.json({ message }, { status: 500 });
   }
 }

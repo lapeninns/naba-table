@@ -21,7 +21,7 @@ type ProfileRecord = Pick<
 type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
 type CustomerContactRow = Pick<
   Database["public"]["Tables"]["customers"]["Row"],
-  "full_name" | "phone" | "updated_at" | "created_at"
+  "full_name" | "phone" | "updated_at" | "created_at" | "auth_user_id" | "user_profile_id"
 >;
 
 function toIsoString(value: string | null | undefined, fallback: () => string): string {
@@ -87,14 +87,15 @@ function sanitizePhone(value: string | null | undefined): string | null {
   return parsed.data;
 }
 
-async function fetchLatestCustomerContact(email: string): Promise<CustomerContactRow | null> {
+async function fetchLatestCustomerContact(email: string, userId: string): Promise<CustomerContactRow | null> {
   const service = getServiceSupabaseClient();
   const normalizedEmail = normalizeEmail(email);
 
   const { data, error } = await service
     .from("customers")
-    .select("full_name,phone,updated_at,created_at")
+    .select("full_name,phone,updated_at,created_at,auth_user_id,user_profile_id")
     .eq("email_normalized", normalizedEmail)
+    .or(`auth_user_id.eq.${userId},user_profile_id.eq.${userId}`)
     .order("updated_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false, nullsFirst: false })
     .limit(1);
@@ -117,7 +118,7 @@ async function hydrateProfileInsertFromCustomers(
     return next;
   }
 
-  const contact = await fetchLatestCustomerContact(next.email);
+  const contact = await fetchLatestCustomerContact(next.email, next.id);
   if (!contact) {
     return next;
   }
@@ -174,7 +175,7 @@ async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & 
 }
 
 export async function ensureProfileRow(
-  client: SupabaseClient<Database, "public", any>,
+  client: SupabaseClient<Database>,
   user: User,
 ): Promise<ProfileRecord> {
   const { data, error } = await client
@@ -228,12 +229,20 @@ export async function ensureProfileRow(
 
     updates.updated_at = new Date().toISOString();
 
-    const { data: patched, error: updateError } = await client
+    let updateQuery = client
       .from("profiles")
       .update(updates)
-      .eq("id", existing.id)
+      .eq("id", existing.id);
+
+    if (existing.updated_at) {
+      updateQuery = updateQuery.eq("updated_at", existing.updated_at);
+    } else {
+      updateQuery = updateQuery.is("updated_at", null);
+    }
+
+    const { data: patched, error: updateError } = await updateQuery
       .select(PROFILE_COLUMNS)
-      .single<ProfileRecord>();
+      .maybeSingle<ProfileRecord>();
 
     if (updateError) {
       console.error("[profile][hydrate] failed to update profile with customer contact", {
@@ -262,7 +271,7 @@ export async function ensureProfileRow(
 }
 
 export async function getOrCreateProfile(
-  client: SupabaseClient<Database, "public", any>,
+  client: SupabaseClient<Database>,
   user: User,
 ) {
   const row = await ensureProfileRow(client, user);

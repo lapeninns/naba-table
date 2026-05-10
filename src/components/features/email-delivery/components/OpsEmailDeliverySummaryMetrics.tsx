@@ -4,13 +4,17 @@ import { ChevronDown } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import {
+  EMAIL_DELIVERY_STALE_THRESHOLD_HOURS,
+  type EmailDeliveryStatus,
+  type OpsEmailDeliverySummary,
+} from '@/types/emailDelivery';
 import { EMAIL_DELIVERY_STATUS_LABELS } from '@src/lib/email-delivery/presentation';
-
-import type { EmailDeliveryStatus, OpsEmailDeliverySummary } from '@/types/emailDelivery';
 
 export type OpsEmailDeliverySummaryMetricsProps = {
   summary: OpsEmailDeliverySummary | null;
@@ -65,11 +69,11 @@ function MetricTile({
 }) {
   const toneClass =
     tone === 'good'
-      ? 'border-emerald-200 bg-emerald-50/40'
+      ? 'border-primary/30 bg-primary/10'
       : tone === 'warn'
-        ? 'border-amber-200 bg-amber-50/40'
+        ? 'border-primary/30 bg-primary/10'
         : tone === 'bad'
-          ? 'border-rose-200 bg-rose-50/40'
+          ? 'border-destructive/20 bg-destructive/10'
           : 'border-border/60 bg-muted/10';
 
   const inner = (
@@ -78,10 +82,7 @@ function MetricTile({
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p
-          className="text-2xl font-semibold tracking-tight text-foreground"
-          data-testid={testId}
-        >
+        <p className="text-2xl font-semibold tracking-tight text-foreground" data-testid={testId}>
           {value}
         </p>
         {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
@@ -92,9 +93,14 @@ function MetricTile({
   if (!onClick) return inner;
 
   return (
-    <button type="button" className="text-left" onClick={onClick}>
+    <Button
+      type="button"
+      variant="ghost"
+      className="h-auto w-full justify-start p-0 text-left hover:bg-transparent"
+      onClick={onClick}
+    >
       {inner}
-    </button>
+    </Button>
   );
 }
 
@@ -127,7 +133,7 @@ export function OpsEmailDeliverySummaryMetrics({
     return (
       <section aria-label="Email delivery metrics">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-slate-900">Deliverability</div>
+          <div className="text-sm font-semibold text-foreground">Deliverability</div>
           <Badge variant="outline" className="text-xs text-muted-foreground">
             Loading…
           </Badge>
@@ -144,7 +150,7 @@ export function OpsEmailDeliverySummaryMetrics({
 
   if (!summary) {
     return (
-      <Alert className="border-slate-200/70 bg-slate-50/40">
+      <Alert className="border-border bg-muted/40">
         <AlertTitle>Metrics unavailable</AlertTitle>
         <AlertDescription>
           Deliverability metrics couldn’t be calculated. The attempt list is still available.
@@ -155,14 +161,15 @@ export function OpsEmailDeliverySummaryMetrics({
 
   const total = Math.max(0, Math.floor(summary.total));
   const failures = Math.max(0, Math.floor(summary.bounced + summary.complained + summary.failed));
+  const stuckInFlight = Math.max(0, Math.floor(summary.stuckInFlight ?? 0));
 
   const segments: Segment[] = [
-    { status: 'delivered', count: summary.delivered, className: 'bg-emerald-500' },
-    { status: 'delivery_delayed', count: summary.deliveryDelayed, className: 'bg-amber-500' },
-    { status: 'bounced', count: summary.bounced, className: 'bg-rose-500' },
-    { status: 'complained', count: summary.complained, className: 'bg-rose-600' },
-    { status: 'failed', count: summary.failed, className: 'bg-rose-700' },
-    { status: 'sent', count: summary.sent, className: 'bg-slate-400' },
+    { status: 'delivered', count: summary.delivered, className: 'bg-primary/10' },
+    { status: 'delivery_delayed', count: summary.deliveryDelayed, className: 'bg-primary/10' },
+    { status: 'bounced', count: summary.bounced, className: 'bg-destructive/10' },
+    { status: 'complained', count: summary.complained, className: 'bg-destructive/10' },
+    { status: 'failed', count: summary.failed, className: 'bg-destructive/10' },
+    { status: 'sent', count: summary.sent, className: 'bg-muted/40' },
   ];
 
   const statusLines = segments
@@ -172,13 +179,28 @@ export function OpsEmailDeliverySummaryMetrics({
   return (
     <section aria-label="Email delivery metrics" className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-slate-900">Deliverability</div>
+        <div className="text-sm font-semibold text-foreground">Deliverability</div>
         {isUpdating ? (
           <Badge variant="outline" className="text-xs text-muted-foreground">
             Updating…
           </Badge>
         ) : null}
       </div>
+
+      {stuckInFlight > 0 ? (
+        <Alert variant="destructive" className="border-primary/30 bg-primary/10 text-primary">
+          <AlertTitle className="text-sm font-semibold">
+            {stuckInFlight} email{stuckInFlight === 1 ? '' : 's'} stuck without a delivery receipt
+          </AlertTitle>
+          <AlertDescription className="text-xs">
+            These were accepted by the provider more than {EMAIL_DELIVERY_STALE_THRESHOLD_HOURS}h
+            ago but never received a terminal webhook (<code>delivered</code> / <code>bounced</code>{' '}
+            / <code>failed</code>). Likely causes: dropped webhook, provider incident, or the
+            recipient mailbox silently discarded it. Open any row below flagged &ldquo;Stuck&rdquo;
+            to investigate or retry.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <MetricTile
@@ -218,10 +240,10 @@ export function OpsEmailDeliverySummaryMetrics({
         data-testid="email-delivery-distribution"
       >
         <div className="flex items-center justify-between gap-3">
-          <div className="text-xs font-medium text-muted-foreground">
-            Status distribution
+          <div className="text-xs font-medium text-muted-foreground">Status distribution</div>
+          <div className="text-xs text-muted-foreground">
+            {total > 0 ? statusLines.join(' · ') : 'No attempts'}
           </div>
-          <div className="text-xs text-muted-foreground">{total > 0 ? statusLines.join(' · ') : 'No attempts'}</div>
         </div>
 
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -260,14 +282,30 @@ export function OpsEmailDeliverySummaryMetrics({
           aria-label="Toggle more metrics"
         >
           More metrics
-          <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
+          <ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3 space-y-3">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-            <SecondaryMetric label="Sent-only" value={String(summary.sent)} testId="email-metric-sent" />
-            <SecondaryMetric label="Bounced" value={String(summary.bounced)} testId="email-metric-bounced" />
-            <SecondaryMetric label="Complained" value={String(summary.complained)} testId="email-metric-complained" />
-            <SecondaryMetric label="Failed" value={String(summary.failed)} testId="email-metric-failed" />
+            <SecondaryMetric
+              label="Sent-only"
+              value={String(summary.sent)}
+              testId="email-metric-sent"
+            />
+            <SecondaryMetric
+              label="Bounced"
+              value={String(summary.bounced)}
+              testId="email-metric-bounced"
+            />
+            <SecondaryMetric
+              label="Complained"
+              value={String(summary.complained)}
+              testId="email-metric-complained"
+            />
+            <SecondaryMetric
+              label="Failed"
+              value={String(summary.failed)}
+              testId="email-metric-failed"
+            />
             <SecondaryMetric
               label="Unique recipients"
               value={String(summary.uniqueRecipients)}
@@ -300,8 +338,14 @@ export function OpsEmailDeliverySummaryMetrics({
               <CardContent className="space-y-2">
                 {summary.topFailedTemplates.length > 0 ? (
                   summary.topFailedTemplates.map((entry) => (
-                    <div key={entry.templateType} className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-sm text-foreground" title={entry.templateType}>
+                    <div
+                      key={entry.templateType}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span
+                        className="min-w-0 truncate text-sm text-foreground"
+                        title={entry.templateType}
+                      >
                         {entry.templateType}
                       </span>
                       <Badge variant="secondary">{entry.count}</Badge>
@@ -323,7 +367,10 @@ export function OpsEmailDeliverySummaryMetrics({
                 {summary.topFailedEmailTypes.length > 0 ? (
                   summary.topFailedEmailTypes.map((entry) => (
                     <div key={entry.emailType} className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-sm text-foreground" title={entry.emailType}>
+                      <span
+                        className="min-w-0 truncate text-sm text-foreground"
+                        title={entry.emailType}
+                      >
                         {entry.emailType}
                       </span>
                       <Badge variant="secondary">{entry.count}</Badge>
@@ -340,4 +387,3 @@ export function OpsEmailDeliverySummaryMetrics({
     </section>
   );
 }
-

@@ -18,7 +18,6 @@ function GuestBookingErrorReviewHarness() {
     time: '19:00',
     party: 4,
     bookingType: 'dinner',
-    seating: 'indoor',
     name: 'Guest Booker',
     email: 'guest@example.com',
     phone: '+447467586751',

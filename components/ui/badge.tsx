@@ -9,21 +9,20 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: 'border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
+        'guest-chip':
+          'border-transparent bg-[var(--pg-bg-muted)] text-[var(--pg-text)] rounded-[var(--pg-radius-pill)] px-3 py-1 min-h-8 text-[var(--pg-text-caption)] font-medium',
+        'guest-chip-outline':
+          'border-[color:var(--pg-border)] bg-transparent text-[var(--pg-text)] rounded-[var(--pg-radius-pill)] px-3 py-1 min-h-8 text-[var(--pg-text-caption)] font-medium',
         secondary:
           'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
         destructive:
           'border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80',
         outline: 'text-foreground',
-        'status-confirmed':
-          'border-transparent bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100',
-        'status-pending':
-          'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100',
-        'status-completed':
-          'border-transparent bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
-        'status-cancelled':
-          'border-transparent bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
-        metric:
-          'border-transparent bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+        'status-confirmed': 'border-transparent bg-success/10 text-success',
+        'status-pending': 'border-transparent bg-warning/10 text-warning',
+        'status-completed': 'border-transparent bg-secondary text-secondary-foreground',
+        'status-cancelled': 'border-transparent bg-destructive/10 text-destructive',
+        metric: 'border-transparent bg-primary/10 text-primary',
       },
     },
     defaultVariants: {

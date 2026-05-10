@@ -52,7 +52,7 @@ export function useOpsCustomers(filters: CustomerFilters | null) {
     enabled: Boolean(normalizedFilters?.restaurantId),
     initialPageParam: 1,
     placeholderData: (previous: InfiniteData<OpsCustomersPage> | undefined) => previous,
-    staleTime: 30_000,
+    staleTime: 60_000,
     getNextPageParam: (lastPage) =>
       lastPage.pageInfo.hasNext ? lastPage.pageInfo.page + 1 : undefined,
   });

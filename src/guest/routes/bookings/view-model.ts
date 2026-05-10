@@ -1,10 +1,10 @@
-import { QueryClient, dehydrate, type DehydratedState } from "@tanstack/react-query";
+import { QueryClient, dehydrate, type DehydratedState } from '@tanstack/react-query';
 
-import { normalizeBookingsTab, type BookingsTab } from "@/guest/lib/validation";
-import { buildBookingsQueryKeyParams } from "@/guest/services/bookings-params";
-import { queryKeys } from "@/lib/query/keys";
+import { normalizeBookingsTab, type BookingsTab } from '@/guest/lib/validation';
+import { buildBookingsQueryKeyParams } from '@/guest/services/bookings-params';
+import { queryKeys } from '@/lib/query/keys';
 
-import type { GuestServerServices } from "@/guest/services/server";
+import type { GuestServerServices } from '@/guest/services/server';
 
 export type GuestBookingsViewModel = {
   dehydratedState: DehydratedState;
@@ -16,25 +16,33 @@ export const buildGuestBookingsViewModel = async (
   searchParams: { tab?: string | null },
 ): Promise<GuestBookingsViewModel> => {
   const user = await services.auth.requireUser({
-    redirectTo: "/auth/signin",
-    redirectedFrom: "/guest/bookings",
+    redirectTo: '/auth/signin',
+    redirectedFrom: '/guest/bookings',
   });
 
   const queryClient = new QueryClient();
-  const bookingsFilters = { page: 1, pageSize: 10 } as const;
+  const bookingsFilters = { page: 1, pageSize: 50 } as const;
 
-  try {
-    const bookings = await services.bookings.list(bookingsFilters);
-    queryClient.setQueryData(queryKeys.bookings.list(buildBookingsQueryKeyParams(bookingsFilters)), bookings);
-  } catch (error) {
-    console.warn("[guest/bookings] prefetch bookings skipped", error);
+  const [bookingsResult, profileResult] = await Promise.allSettled([
+    services.bookings.list(bookingsFilters),
+    services.profile.ensureForUser(user),
+  ]);
+
+  if (bookingsResult.status === 'fulfilled') {
+    const bookings = bookingsResult.value;
+    queryClient.setQueryData(
+      queryKeys.bookings.list(buildBookingsQueryKeyParams(bookingsFilters)),
+      bookings,
+    );
+  } else {
+    console.warn('[guest/bookings] prefetch bookings skipped', bookingsResult.reason);
   }
 
-  try {
-    const profile = await services.profile.ensureForUser(user);
+  if (profileResult.status === 'fulfilled') {
+    const profile = profileResult.value;
     queryClient.setQueryData(queryKeys.profile.self(), profile);
-  } catch (error) {
-    console.warn("[guest/bookings] prefetch profile skipped", error);
+  } else {
+    console.warn('[guest/bookings] prefetch profile skipped', profileResult.reason);
   }
 
   return {

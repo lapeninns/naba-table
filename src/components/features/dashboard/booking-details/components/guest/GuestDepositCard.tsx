@@ -13,21 +13,23 @@ export function GuestDepositCard({ depositLabel }: GuestDepositCardProps) {
   if (!depositLabel) return null;
 
   return (
-    <Card className="border-emerald-200/60 bg-success/10 shadow-sm">
-      <CardContent className="flex items-center justify-between gap-3 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm">
-            <CreditCard className="h-5 w-5" aria-hidden />
+    <Card className="border-primary/30 bg-success/10 shadow-sm">
+      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary shadow-sm">
+            <CreditCard className="size-5" aria-hidden />
           </div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold uppercase tracking-wide text-primary">
               Deposit
             </div>
-            <div className="text-lg font-bold text-emerald-950">{depositLabel}</div>
+            <div className="truncate text-lg font-bold text-primary" title={depositLabel}>
+              {depositLabel}
+            </div>
           </div>
         </div>
-        <Badge className="bg-emerald-700 text-white">
-          <CheckCircle2 className="mr-1 h-3 w-3" aria-hidden />
+        <Badge className="w-fit bg-primary/10 text-primary">
+          <CheckCircle2 className="mr-1 size-3" aria-hidden />
           Paid
         </Badge>
       </CardContent>
@@ -36,4 +38,3 @@ export function GuestDepositCard({ depositLabel }: GuestDepositCardProps) {
 }
 
 export default GuestDepositCard;
-

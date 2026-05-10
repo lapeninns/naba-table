@@ -1,0 +1,74 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - tablist "Menu catalog" [ref=e3]:
+      - tab "Food menu" [selected] [ref=e4]:
+        - img
+        - text: Food menu
+      - tab "Drinks menu" [ref=e5]:
+        - img
+        - text: Drinks menu
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - generic [ref=e9]:
+          - generic [ref=e10]: Food catalogue
+          - generic [ref=e11]: Search, filter, and edit food items currently attached to this restaurant.
+        - generic [ref=e13]:
+          - button "Import food CSV" [ref=e14]:
+            - img
+            - text: Import food CSV
+          - button "New food item" [ref=e15]:
+            - img
+            - text: New food item
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - text: Search
+            - textbox "Search" [ref=e19]:
+              - /placeholder: Search name, category, subcategory
+          - generic [ref=e20]:
+            - text: Category
+            - combobox "Category" [ref=e21]
+          - generic [ref=e22]:
+            - text: Subcategory
+            - combobox "Subcategory" [ref=e23]
+          - generic [ref=e24]:
+            - text: Status
+            - combobox [ref=e25]:
+              - generic: All
+              - img
+        - table [ref=e40]:
+          - rowgroup [ref=e41]:
+            - row "Item Category Price Service time Availability Modifiers Status Actions" [ref=e42]:
+              - columnheader "Item" [ref=e43]
+              - columnheader "Category" [ref=e44]
+              - columnheader "Price" [ref=e45]
+              - columnheader "Service time" [ref=e46]
+              - columnheader "Availability" [ref=e47]
+              - columnheader "Modifiers" [ref=e48]
+              - columnheader "Status" [ref=e49]
+              - columnheader "Actions" [ref=e50]
+          - rowgroup [ref=e51]:
+            - row "Burrata & Heritage Tomatoes starter-burrata Starters Cold GBP 9.50 Lunch available 1 Active Edit" [ref=e52]:
+              - cell "Burrata & Heritage Tomatoes starter-burrata" [ref=e53]:
+                - generic [ref=e54]: Burrata & Heritage Tomatoes
+                - generic [ref=e55]: starter-burrata
+              - cell "Starters Cold" [ref=e56]:
+                - generic [ref=e57]: Starters
+                - generic [ref=e58]: Cold
+              - cell "GBP 9.50" [ref=e59]
+              - cell "Lunch" [ref=e60]
+              - cell "available" [ref=e61]:
+                - generic [ref=e62]: available
+              - cell "1" [ref=e63]
+              - cell "Active" [ref=e64]:
+                - generic [ref=e66]: Active
+              - cell "Edit" [ref=e67]:
+                - button "Edit" [ref=e68]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert [ref=e69]
+  - generic [ref=e70]:
+    - img [ref=e72]
+    - button "Open Tanstack query devtools" [ref=e120] [cursor=pointer]:
+      - img [ref=e121]

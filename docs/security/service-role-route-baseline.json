@@ -1,0 +1,13 @@
+{
+  "description": "Existing service-role API route handlers without a detected route-level authorization guard. Do not add entries without a security review.",
+  "generatedBy": "pnpm run security:guard:service-role -- --update-baseline",
+  "allowedExistingRoutePaths": [
+    "src/app/api/auth/signin/route.ts",
+    "src/app/api/bookings/confirm/route.ts",
+    "src/app/api/health/route.ts",
+    "src/app/api/ops/dashboard/changes/route.ts",
+    "src/app/api/ops/dashboard/heatmap/route.ts",
+    "src/app/api/ops/dashboard/rejections/route.ts",
+    "src/app/api/ops/dashboard/summary/route.ts"
+  ]
+}

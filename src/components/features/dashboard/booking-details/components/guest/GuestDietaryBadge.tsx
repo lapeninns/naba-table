@@ -40,8 +40,11 @@ export function GuestDietaryBadge({ allergies, dietaryRestrictions }: GuestDieta
     <Popover>
       <PopoverTrigger asChild>
         <Button type="button" variant="ghost" className="h-auto p-0 hover:bg-transparent">
-          <Badge variant="outline" className="gap-1 border-rose-200 bg-rose-50 text-rose-800">
-            <Utensils className="h-3.5 w-3.5" aria-hidden />
+          <Badge
+            variant="outline"
+            className="gap-1 border-destructive/20 bg-destructive/10 text-destructive"
+          >
+            <Utensils className="size-3.5" aria-hidden />
             {label}
           </Badge>
         </Button>
@@ -63,4 +66,3 @@ export function GuestDietaryBadge({ allergies, dietaryRestrictions }: GuestDieta
 }
 
 export default GuestDietaryBadge;
-

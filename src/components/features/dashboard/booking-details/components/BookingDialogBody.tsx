@@ -8,8 +8,11 @@
 'use client';
 
 import { ChevronDown } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -17,11 +20,26 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 import { GuestProfilePanel } from './GuestProfilePanel';
-import { TableAssignmentPanel } from './TableAssignmentPanel';
 
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '../types';
 import type { FlattenedTable } from '../utils';
 import type { RefObject } from 'react';
+
+// Dynamic import keeps the table-assignment scoring + virtualization out of the
+// initial dialog chunk so first-open paint is faster.
+const TableAssignmentPanel = dynamic(
+  () => import('./TableAssignmentPanel').then((m) => m.TableAssignmentPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-3" aria-busy="true">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    ),
+  },
+);
 
 export type BookingDialogBodyProps = {
   isLoading: boolean;
@@ -52,6 +70,8 @@ export type BookingDialogBodyProps = {
 
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
+  tableAssignmentQueryEnabled?: boolean;
+  tableAssignmentRealtime?: boolean;
 };
 
 export function BookingDialogBody({
@@ -77,7 +97,22 @@ export function BookingDialogBody({
   onAssignmentComplete,
   bookingStartTime,
   bookingEndTime,
+  tableAssignmentQueryEnabled = true,
+  tableAssignmentRealtime = true,
 }: BookingDialogBodyProps) {
+  const [desktopTablePanelReady, setDesktopTablePanelReady] = useState(false);
+  const bookingId = booking?.id ?? null;
+  const restaurantId = summary?.restaurantId ?? null;
+
+  useEffect(() => {
+    if (isMobile || !bookingId || !restaurantId) {
+      setDesktopTablePanelReady(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setDesktopTablePanelReady(true), 180);
+    return () => window.clearTimeout(timer);
+  }, [isMobile, bookingId, restaurantId]);
+
   if (isLoading) {
     return (
       <div className="space-y-4 p-4">
@@ -119,8 +154,8 @@ export function BookingDialogBody({
 
   if (isMobile) {
     return (
-      <ScrollArea className="h-full bg-slate-50/30">
-        <div className="flex flex-col gap-6 p-4 pb-20">
+      <ScrollArea className="h-full bg-muted/30">
+        <div className="flex flex-col gap-5 p-4 pb-20 sm:p-5">
           <GuestProfilePanel
             booking={booking}
             bookingDate={bookingDate}
@@ -130,37 +165,44 @@ export function BookingDialogBody({
             assignedTableRows={assignedTableRows}
             totalCapacity={totalCapacity}
             capacityPercent={capacityPercent}
-            enableDesktopTabs={false}
           />
 
-          <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-slate-200">
+          <div
+            ref={tablePanelRef}
+            className="rounded-2xl border border-border/40 bg-background/60 p-4 shadow-sm backdrop-blur-md sm:p-5"
+          >
             <Collapsible
               open={isTableAssignmentOpen}
               onOpenChange={onTableAssignmentOpenChange}
-              className="space-y-3"
+              className="space-y-3.5"
             >
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex w-full items-center justify-between p-0 hover:bg-transparent mb-4 h-auto hover:no-underline"
+                  className="mb-3 flex h-auto w-full items-center justify-between rounded-md p-0 hover:bg-transparent hover:no-underline"
                 >
                   <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
+                      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-1">
                         Table Assignment
                       </h3>
                       {needsAssignment && !isTableAssignmentOpen ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white motion-reduce:animate-none">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden />
+                        <Badge
+                          variant="destructive"
+                          className="gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide motion-reduce:animate-none"
+                        >
+                          <span className="size-1.5 rounded-full bg-destructive" aria-hidden />
                           Action required
-                        </span>
+                        </Badge>
                       ) : null}
                     </div>
-                    <p className="text-xs text-slate-500 font-normal">Manage seating and capacity.</p>
+                    <p className="text-xs text-muted-foreground font-normal">
+                      Manage seating and capacity.
+                    </p>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'h-4 w-4 text-slate-500 transition-transform duration-200',
+                      'h-4 w-4 text-muted-foreground transition-transform duration-200',
                       isTableAssignmentOpen && 'rotate-180',
                     )}
                   />
@@ -180,6 +222,8 @@ export function BookingDialogBody({
                         onAssignmentComplete={onAssignmentComplete}
                         bookingStartTime={bookingStartTime}
                         bookingEndTime={bookingEndTime}
+                        enabled={isTableAssignmentOpen && tableAssignmentQueryEnabled}
+                        realtime={tableAssignmentRealtime}
                       />
                     ) : (
                       <Alert>
@@ -200,9 +244,10 @@ export function BookingDialogBody({
   }
 
   return (
-    <div className="grid h-full overflow-hidden grid-cols-1 lg:grid-cols-2">
-      <ScrollArea className="h-full border-b border-stone-200/70 lg:border-b-0 lg:border-r bg-gradient-to-b from-stone-50/80 via-white to-stone-50/60 overflow-x-hidden">
-        <div className="p-5 lg:p-6 space-y-5 overflow-x-hidden">
+    <div className="grid h-full grid-cols-1 overflow-hidden md:grid-cols-[minmax(300px,0.92fr)_minmax(0,1.08fr)] xl:grid-cols-[minmax(340px,0.9fr)_minmax(0,1.1fr)]">
+      {/* ── Left: Guest Profile ────────────────────────────────────────── */}
+      <ScrollArea className="h-full border-b border-border/30 bg-gradient-to-b from-muted/30 to-muted/10 md:border-b-0 md:border-r md:border-border/30">
+        <div className="p-5 sm:p-6 xl:p-8">
           <GuestProfilePanel
             booking={booking}
             bookingDate={bookingDate}
@@ -212,17 +257,21 @@ export function BookingDialogBody({
             assignedTableRows={assignedTableRows}
             totalCapacity={totalCapacity}
             capacityPercent={capacityPercent}
-            enableDesktopTabs={true}
           />
         </div>
       </ScrollArea>
-      <ScrollArea className="h-full overflow-x-hidden bg-white">
-        <div ref={tablePanelRef} className="p-4 lg:p-6 overflow-x-hidden h-full">
-          <div className="mb-4 lg:hidden">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+
+      {/* ── Right: Table Assignment ───────────────────────────────────── */}
+      <ScrollArea className="h-full bg-background/60 backdrop-blur-sm">
+        <div ref={tablePanelRef} className="p-5 sm:p-6 xl:p-8">
+          {/* Section label */}
+          <div className="mb-5 flex items-center gap-2">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
               Table Assignment
             </h3>
+            <span className="flex-1 h-px bg-border/30" />
           </div>
+
           {allowTableAssignments ? (
             <TableAssignmentPanel
               bookingId={booking.id}
@@ -234,6 +283,8 @@ export function BookingDialogBody({
               onAssignmentComplete={onAssignmentComplete}
               bookingStartTime={bookingStartTime}
               bookingEndTime={bookingEndTime}
+              enabled={desktopTablePanelReady && tableAssignmentQueryEnabled}
+              realtime={tableAssignmentRealtime}
             />
           ) : (
             <Alert>

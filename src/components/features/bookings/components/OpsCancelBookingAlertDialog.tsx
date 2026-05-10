@@ -60,7 +60,7 @@ export function OpsCancelBookingAlertDialog({
           >
             {isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
                 Cancelling…
               </>
             ) : (
@@ -74,4 +74,3 @@ export function OpsCancelBookingAlertDialog({
 }
 
 export default OpsCancelBookingAlertDialog;
-

@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { stripUrlQueryAndHash } from '@/lib/security/url-redaction';
 
 const send = (payload: Record<string, unknown>) => {
   try {
@@ -24,7 +25,7 @@ export function useClientErrorReporter() {
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      const path = window.location.pathname + window.location.search;
+      const path = stripUrlQueryAndHash(window.location.pathname + window.location.search);
       send({
         type: 'error',
         message: event.message,
@@ -38,12 +39,16 @@ export function useClientErrorReporter() {
 
     const handleRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason as unknown;
-      const message = typeof reason === 'string' ? reason : (reason as { message?: string })?.message;
-      const path = window.location.pathname + window.location.search;
+      const message =
+        typeof reason === 'string' ? reason : (reason as { message?: string })?.message;
+      const path = stripUrlQueryAndHash(window.location.pathname + window.location.search);
       send({
         type: 'unhandledrejection',
         message: message ?? 'Unhandled rejection',
-        stack: typeof reason === 'object' && reason && 'stack' in reason ? (reason as { stack?: string }).stack ?? null : null,
+        stack:
+          typeof reason === 'object' && reason && 'stack' in reason
+            ? ((reason as { stack?: string }).stack ?? null)
+            : null,
         path,
         userId: user?.id ?? null,
       });

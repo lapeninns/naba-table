@@ -51,7 +51,7 @@ export function OpsBookingsDatePicker({
           className={cn('h-11 gap-2 sm:h-9', className)}
           aria-label="Select service date"
         >
-          <CalendarDays className="h-4 w-4" aria-hidden />
+          <CalendarDays className="size-4" aria-hidden />
           <span className="truncate">{label}</span>
         </Button>
       </PopoverTrigger>
@@ -85,7 +85,7 @@ export function OpsBookingsDatePicker({
               disabled={!value}
               aria-label="Clear selected date"
             >
-              <X className="mr-1 h-4 w-4" aria-hidden />
+              <X className="mr-1 size-4" aria-hidden />
               Clear
             </Button>
           </div>

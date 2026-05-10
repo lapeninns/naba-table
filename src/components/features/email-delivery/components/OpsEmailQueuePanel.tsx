@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +38,9 @@ function formatDateTime(value: string | null, timezone: string): string {
   return dt.toFormat('EEE, MMM d · HH:mm');
 }
 
-function statusBadgeVariant(status: OpsEmailQueueJobStatus): 'default' | 'secondary' | 'outline' | 'destructive' {
+function statusBadgeVariant(
+  status: OpsEmailQueueJobStatus,
+): 'default' | 'secondary' | 'outline' | 'destructive' {
   switch (status) {
     case 'active':
       return 'default';
@@ -134,7 +137,8 @@ export function OpsEmailQueuePanel({
     delayMs: 0,
     minDurationMs: 400,
   });
-  const showRefetchIndicator = (showLoadingState || shouldForceFixtureLoadingMarker) && jobs.length > 0;
+  const showRefetchIndicator =
+    (showLoadingState || shouldForceFixtureLoadingMarker) && jobs.length > 0;
   const queueMetrics = [
     { label: 'Total in queue', value: summary?.total ?? 0, tone: 'slate' },
     { label: 'Scheduled for later', value: summary?.delayed ?? 0, tone: 'amber' },
@@ -157,20 +161,23 @@ export function OpsEmailQueuePanel({
 
   return (
     <section aria-label="Queue monitor" className="space-y-6">
-      <Card className="border-slate-200/60 bg-white shadow-sm">
-        <CardHeader className="space-y-4 border-b border-slate-200/70 pb-5">
+      <Card className="border-border bg-background shadow-sm">
+        <CardHeader className="space-y-4 border-b border-border pb-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <CardTitle className="text-base font-semibold text-slate-900">Scheduled email queue</CardTitle>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-                See which booking emails are scheduled to send later, ready to go out now, currently being sent, or need follow-up.
+              <CardTitle className="text-base font-semibold text-foreground">
+                Scheduled email queue
+              </CardTitle>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                See which booking emails are scheduled to send later, ready to go out now, currently
+                being sent, or need follow-up.
               </p>
             </div>
 
             {query.response && query.response.ok ? (
               <Badge
                 variant="outline"
-                className="w-fit border-slate-200 bg-slate-50 font-mono text-[11px] text-slate-600"
+                className="w-fit border-border bg-muted/40 font-mono text-[11px] text-muted-foreground"
               >
                 {formatDateTime(query.response.timestamp, timezone)}
               </Badge>
@@ -183,17 +190,19 @@ export function OpsEmailQueuePanel({
                 key={item.label}
                 className={cn(
                   'rounded-xl border px-4 py-3 shadow-sm',
-                  item.tone === 'slate' && 'border-slate-200/70 bg-slate-50/70',
-                  item.tone === 'amber' && 'border-amber-200/70 bg-amber-50/80',
-                  item.tone === 'blue' && 'border-sky-200/70 bg-sky-50/80',
-                  item.tone === 'emerald' && 'border-emerald-200/70 bg-emerald-50/80',
-                  item.tone === 'rose' && 'border-rose-200/70 bg-rose-50/80',
+                  item.tone === 'slate' && 'border-border bg-muted/40',
+                  item.tone === 'amber' && 'border-border bg-muted/40',
+                  item.tone === 'blue' && 'border-primary/20 bg-primary/10',
+                  item.tone === 'emerald' && 'border-primary/20 bg-primary/10',
+                  item.tone === 'rose' && 'border-destructive/20 bg-destructive/10',
                 )}
               >
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   {item.label}
                 </div>
-                <div className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{item.value}</div>
+                <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {item.value}
+                </div>
               </div>
             ))}
           </div>
@@ -208,8 +217,8 @@ export function OpsEmailQueuePanel({
                 className={cn(
                   'rounded-full px-3.5 text-xs font-semibold',
                   status === option.value
-                    ? 'bg-slate-900 text-white hover:bg-slate-800'
-                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'border-border bg-background text-foreground hover:bg-muted',
                 )}
                 onClick={() => {
                   setStatus(option.value);
@@ -228,26 +237,26 @@ export function OpsEmailQueuePanel({
               role="region"
               aria-label="Refreshing email queue"
               aria-busy="true"
-              className="flex items-center gap-3 rounded-lg border border-sky-200/70 bg-sky-50/80 px-3 py-2 text-sm text-sky-900"
+              className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/10 px-3 py-2 text-sm text-foreground"
             >
-              <Skeleton className="h-2.5 w-2.5 rounded-full" />
+              <Skeleton className="size-2.5 rounded-full" />
               <span className="font-medium">Refreshing queued jobs…</span>
             </div>
           ) : null}
           {query.apiError ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {query.apiError.error}
             </div>
           ) : query.error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {query.error.message}
             </div>
           ) : (showLoadingState || shouldForceFixtureLoadingMarker) && jobs.length === 0 ? (
             <div
               aria-label="Loading email queue"
-              className="overflow-hidden rounded-xl border border-slate-200/70 bg-white"
+              className="overflow-hidden rounded-xl border border-border bg-background"
             >
-              <div className="grid grid-cols-[1.1fr_1.7fr_1.4fr_1.2fr_1.1fr] gap-3 border-b border-slate-200/70 px-4 py-3">
+              <div className="grid grid-cols-[1.1fr_1.7fr_1.4fr_1.2fr_1.1fr] gap-3 border-b border-border px-4 py-3">
                 {Array.from({ length: 5 }).map((_, index) => (
                   <Skeleton key={index} className="h-4 w-20" />
                 ))}
@@ -256,7 +265,7 @@ export function OpsEmailQueuePanel({
                 {Array.from({ length: 4 }).map((_, rowIndex) => (
                   <div
                     key={rowIndex}
-                    className="grid grid-cols-[1.1fr_1.7fr_1.4fr_1.2fr_1.1fr] gap-3 border-b border-slate-200/60 px-4 py-4 last:border-b-0"
+                    className="grid grid-cols-[1.1fr_1.7fr_1.4fr_1.2fr_1.1fr] gap-3 border-b border-border px-4 py-4 last:border-b-0"
                   >
                     <Skeleton className="h-6 w-24 rounded-full" />
                     <div className="space-y-2">
@@ -280,41 +289,37 @@ export function OpsEmailQueuePanel({
               </div>
             </div>
           ) : jobs.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center">
-              <p className="text-base font-semibold text-slate-900">No queued emails right now</p>
-              <p className="mt-2 text-sm text-slate-600">
-                No booking emails are currently queued for this restaurant.
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Scheduled reminders and confirmations will appear here as soon as jobs are waiting to send.
-              </p>
-            </div>
+            <OpsEmptyState
+              title="No queued emails right now"
+              description="No booking emails are currently queued for this restaurant. Scheduled reminders and confirmations will appear here as soon as jobs are waiting to send."
+              className="min-h-[180px] bg-muted/40"
+            />
           ) : (
             <>
-              <div className="overflow-hidden rounded-xl border border-slate-200/70 bg-white">
+              <div className="overflow-hidden rounded-xl border border-border bg-background">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-slate-200/70 bg-slate-50/70 hover:bg-slate-50/70">
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <TableRow className="border-border bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Queue Status
                       </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Email
                       </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Reservation
                       </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Guest
                       </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         Send Time
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {jobs.map((job) => (
-                      <TableRow key={job.id} className="border-slate-200/60 hover:bg-slate-50/60">
+                      <TableRow key={job.id} className="border-border hover:bg-muted/40">
                         <TableCell className="px-4 py-4 align-top">
                           <Badge
                             variant={statusBadgeVariant(job.status)}
@@ -324,53 +329,62 @@ export function OpsEmailQueuePanel({
                           </Badge>
                         </TableCell>
                         <TableCell className="px-4 py-4 align-top">
-                          <div className="text-sm font-semibold text-slate-900">{typeLabel(job.type)}</div>
-                          <div className="mt-1 truncate font-mono text-[11px] text-slate-500" title={job.id}>
+                          <div className="text-sm font-semibold text-foreground">
+                            {typeLabel(job.type)}
+                          </div>
+                          <div
+                            className="mt-1 truncate font-mono text-[11px] text-muted-foreground"
+                            title={job.id}
+                          >
                             {job.id}
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-4 align-top">
                           {job.booking ? (
                             <div className="space-y-1.5">
-                              <div className="font-mono text-xs font-semibold text-slate-700">
+                              <div className="font-mono text-xs font-semibold text-foreground">
                                 {job.booking.reference}
                               </div>
-                              <div className="text-xs text-slate-500">
+                              <div className="text-xs text-muted-foreground">
                                 {formatDateTime(job.booking.startAt, timezone)}
                               </div>
                               {job.bookingId ? (
                                 <Link
                                   href={`/app/bookings?restaurantId=${restaurantId ?? ''}&focus=${job.bookingId}`}
                                   prefetch={false}
-                                  className="text-xs font-medium text-slate-700 underline underline-offset-2"
+                                  className="text-xs font-medium text-foreground underline underline-offset-2"
                                 >
                                   Open booking
                                 </Link>
                               ) : null}
                             </div>
                           ) : (
-                            <div className="font-mono text-xs text-slate-500">{job.bookingId}</div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {job.bookingId}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="px-4 py-4 align-top">
-                          <div className="text-sm font-medium text-slate-900">
+                          <div className="text-sm font-medium text-foreground">
                             {job.booking?.customerName ?? 'Unknown guest'}
                           </div>
-                          <div className="mt-1 text-xs text-slate-500">
+                          <div className="mt-1 text-xs text-muted-foreground">
                             {job.booking?.customerEmail ?? '—'}
                           </div>
                           {job.failedReason ? (
-                            <div className="mt-2 text-xs text-rose-700" title={job.failedReason}>
+                            <div className="mt-2 text-xs text-destructive" title={job.failedReason}>
                               {job.failedReason}
                             </div>
                           ) : null}
                         </TableCell>
                         <TableCell className="px-4 py-4 align-top">
-                          <div className="text-sm font-medium text-slate-900">
+                          <div className="text-sm font-medium text-foreground">
                             {formatDateTime(job.scheduledFor, timezone)}
                           </div>
                           {job.attemptsMade !== null ? (
-                            <div className="mt-1 text-xs text-slate-500">Attempts: {job.attemptsMade}</div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Attempts: {job.attemptsMade}
+                            </div>
                           ) : null}
                         </TableCell>
                       </TableRow>
@@ -379,8 +393,8 @@ export function OpsEmailQueuePanel({
                 </Table>
               </div>
 
-              <div className="flex flex-col gap-3 rounded-xl border border-slate-200/70 bg-slate-50/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xs font-medium text-slate-600">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-xs font-medium text-muted-foreground">
                   Page {page}
                   {total > 0 ? ` · ${total} job${total === 1 ? '' : 's'}` : ''}
                 </div>
@@ -389,7 +403,7 @@ export function OpsEmailQueuePanel({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    className="border-border bg-background text-foreground hover:bg-muted"
                     onClick={() => setPage((current) => Math.max(1, current - 1))}
                     disabled={page <= 1}
                   >
@@ -399,9 +413,13 @@ export function OpsEmailQueuePanel({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    className="border-border bg-background text-foreground hover:bg-muted"
                     onClick={() => setPage((current) => current + 1)}
-                    disabled={!query.response || query.response.ok === false || !query.response.pageInfo.hasNext}
+                    disabled={
+                      !query.response ||
+                      query.response.ok === false ||
+                      !query.response.pageInfo.hasNext
+                    }
                   >
                     Next
                   </Button>

@@ -7,7 +7,11 @@ export const metadata: Metadata = {
   description: 'View and export guest booking history for your restaurant.',
 };
 
-export default async function OpsCustomersPage({ searchParams }: { searchParams?: Promise<Record<string, string>> }) {
+export default async function OpsCustomersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string>>;
+}) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const focusCustomer = resolvedSearchParams.focus ?? null;
 

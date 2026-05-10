@@ -1,18 +1,10 @@
 import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
-import {
-  BOOKING_TYPES_UI,
-  SEATING_PREFERENCES_UI,
-  type BookingType,
-  type SeatingPreference,
-} from '@shared/config/booking';
+import { BOOKING_TYPES_UI, type BookingType } from '@shared/config/booking';
 
 import type { BookingOption } from '@reserve/shared/booking';
 import type { BookingSubmissionUiError } from '@reserve/shared/error';
-import type { IconKey } from '@reserve/shared/ui/icons';
-
-export type SeatingOption = (typeof SEATING_PREFERENCES_UI)[number];
 
 export type ApiBooking = {
   id: string;
@@ -24,7 +16,6 @@ export type ApiBooking = {
   reference: string;
   party_size: number;
   booking_type: BookingType;
-  seating_preference: SeatingPreference;
   status: string;
   customer_name: string;
   customer_email: string;
@@ -44,7 +35,7 @@ export type StepAction = {
   variant?: 'default' | 'outline' | 'ghost' | 'destructive';
   disabled?: boolean;
   loading?: boolean;
-  icon?: IconKey;
+  icon?: string;
   ariaLabel?: string;
   role?: 'primary' | 'secondary' | 'support';
   fullWidth?: boolean;
@@ -63,7 +54,6 @@ export type BookingDetails = {
   time: string;
   party: number;
   bookingType: BookingOption;
-  seating: SeatingOption;
   notes: string;
   name: string;
   email: string;
@@ -126,7 +116,6 @@ export type ReservationDraft = {
   time: string;
   party: number;
   bookingType: BookingOption;
-  seating: SeatingOption;
   notes?: string | null;
   name: string;
   email: string | null;
@@ -134,24 +123,12 @@ export type ReservationDraft = {
   marketingOptIn: boolean;
 };
 
-const SEATING_OPTIONS_SET = new Set<SeatingOption>(SEATING_PREFERENCES_UI);
-
 export function toBookingOption(value: BookingType): BookingOption {
   const normalized = (value ?? '').toString().trim();
   if (BOOKING_TYPES_UI.includes(normalized as BookingOption)) {
     return normalized as BookingOption;
   }
   return BOOKING_TYPES_UI[0];
-}
-
-export function toSeatingOption(value: SeatingPreference): SeatingOption {
-  if (SEATING_OPTIONS_SET.has(value as SeatingOption)) {
-    return value as SeatingOption;
-  }
-  if (value === 'window' || value === 'booth' || value === 'bar') {
-    return 'indoor';
-  }
-  return SEATING_PREFERENCES_UI[0];
 }
 
 export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingDetails => {
@@ -167,7 +144,6 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     time: '',
     party: 1,
     bookingType: BOOKING_TYPES_UI[0],
-    seating: SEATING_PREFERENCES_UI[0],
     notes: '',
     name: '',
     email: '',
@@ -246,7 +222,6 @@ export function reducer(state: State, action: Action): State {
           : state.details.time,
         party: booking ? booking.party_size : state.details.party,
         bookingType: booking ? toBookingOption(booking.booking_type) : state.details.bookingType,
-        seating: booking ? toSeatingOption(booking.seating_preference) : state.details.seating,
         notes: booking?.notes ?? state.details.notes,
         marketingOptIn: booking ? booking.marketing_opt_in : state.details.marketingOptIn,
       };
@@ -287,7 +262,6 @@ export function reducer(state: State, action: Action): State {
           time: normalizeTime(booking.start_time) ?? state.details.time,
           party: booking.party_size,
           bookingType: toBookingOption(booking.booking_type),
-          seating: toSeatingOption(booking.seating_preference),
           notes: booking.notes ?? '',
           name: booking.customer_name,
           email: booking.customer_email,
