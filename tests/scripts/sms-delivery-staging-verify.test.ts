@@ -39,24 +39,19 @@ describe('staging SMS delivery verifier', () => {
 
   it('supports a no-persist env mode', () => {
     expect(stagingVerifyStepsNoPersistEnv.map((step) => step.name)).toEqual([
-      'Vercel Preview SMS env audit',
-      'strict branch staging readiness via Vercel env run',
+      'Vercel Preview SMS env metadata',
       'Preview deployment freshness',
       'protected Preview webhook route/config',
     ]);
     expect(stagingVerifyStepsNoPersistEnv[0]?.args).toEqual([
       'run',
-      'sms:delivery:audit:staging-vercel-preview',
-    ]);
-    expect(stagingVerifyStepsNoPersistEnv[1]?.args).toEqual([
-      'run',
-      'sms:delivery:readiness:staging-vercel:branch-strict:env-run',
+      'sms:delivery:env:preview:metadata',
     ]);
 
     const report = buildStagingVerifyReport(
       [
         {
-          name: 'Vercel Preview SMS env audit',
+          name: 'Vercel Preview SMS env metadata',
           exitCode: 1,
           ok: false,
           optional: false,
@@ -66,6 +61,6 @@ describe('staging SMS delivery verifier', () => {
     );
 
     expect(report.mode).toBe('no-persist-env');
-    expect(report.blockers).toEqual(['Vercel Preview SMS env audit failed with exit code 1.']);
+    expect(report.blockers).toEqual(['Vercel Preview SMS env metadata failed with exit code 1.']);
   });
 });
