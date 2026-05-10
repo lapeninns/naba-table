@@ -123,7 +123,9 @@ export function matchPosthogExceptionSuppression(
   }
 
   const values = extractExceptionValues(event);
-  const matchedValue = values.find((value) => NOISY_INDEXED_DB_UPDATE_REJECTION_PATTERN.test(value));
+  const matchedValue = values.find((value) =>
+    NOISY_INDEXED_DB_UPDATE_REJECTION_PATTERN.test(value),
+  );
   if (!matchedValue) {
     return null;
   }
@@ -138,6 +140,20 @@ export function matchPosthogExceptionSuppression(
  * Suppresses recurring non-actionable browser storage update rejections that
  * are noisy in production telemetry and not attributable to app business logic.
  */
-export function shouldSuppressPosthogExceptionEvent(event: PosthogEventLike | null | undefined): boolean {
+export function shouldSuppressPosthogExceptionEvent(
+  event: PosthogEventLike | null | undefined,
+): boolean {
   return matchPosthogExceptionSuppression(event) !== null;
+}
+
+export function filterPosthogEventBeforeSend<T extends PosthogEventLike>(
+  event: T | null | undefined,
+): T | null {
+  const suppressionMatch = matchPosthogExceptionSuppression(event);
+  if (!suppressionMatch) {
+    return event ?? null;
+  }
+
+  recordSuppressedPosthogException(suppressionMatch);
+  return null;
 }

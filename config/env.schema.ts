@@ -167,6 +167,11 @@ const baseEnvSchema = z
       .max(2_592_000)
       .optional(),
     NEXT_PUBLIC_SITE_ANALYTICS_WRITE_KEY: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1).optional(),
+    NEXT_PUBLIC_POSTHOG_HOST: z.string().url().optional(),
+    POSTHOG_CLI_API_KEY: z.string().min(1).optional(),
+    POSTHOG_CLI_PROJECT_ID: z.string().min(1).optional(),
+    POSTHOG_SOURCEMAP_UPLOAD: booleanStringOptional,
     OPENAI_API_KEY: z.string().optional(),
     GOOGLE_BUSINESS_CLIENT_ID: z.string().min(1).optional(),
     GOOGLE_BUSINESS_CLIENT_SECRET: z.string().min(1).optional(),
@@ -215,6 +220,8 @@ const baseEnvSchema = z
 const productionEnvSchema = baseEnvSchema.extend({
   NEXT_PUBLIC_APP_URL: z.string().url(),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
+  NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
+  NEXT_PUBLIC_POSTHOG_HOST: z.string().url(),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM: z.string().email(),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),

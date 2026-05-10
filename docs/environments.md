@@ -24,6 +24,7 @@
 - Env validation (`pnpm validate:env`) fails when:
   - `APP_ENV=production` but `NODE_ENV` is not `production`.
   - Non‑prod env uses production Supabase or booking API values matching `PRODUCTION_*` vars.
+  - Production targets are missing `NEXT_PUBLIC_POSTHOG_KEY` or `NEXT_PUBLIC_POSTHOG_HOST`.
 - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
 
 ## Staging quick start

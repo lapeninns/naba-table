@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  filterPosthogEventBeforeSend,
   getPosthogSuppressionDebugState,
   matchPosthogExceptionSuppression,
   recordSuppressedPosthogException,
@@ -36,6 +37,19 @@ describe('shouldSuppressPosthogExceptionEvent', () => {
     });
 
     expect(shouldSuppress).toBe(true);
+  });
+
+  it('returns null from the PostHog before_send filter for explicitly suppressed exceptions', () => {
+    const result = filterPosthogEventBeforeSend({
+      event: '$exception',
+      properties: {
+        $exception_values: [
+          'Non-Error promise rejection captured with value: Object Not Found Matching Id:2, MethodName:update, ParamCount:4',
+        ],
+      },
+    });
+
+    expect(result).toBeNull();
   });
 
   it('suppresses known noisy indexeddb update rejection from exception list fallback', () => {

@@ -6,13 +6,20 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { clientEnv } from '@/lib/env-client';
 import {
+  filterPosthogEventBeforeSend,
   matchPosthogExceptionSuppression,
-  recordSuppressedPosthogException,
 } from '@/lib/posthog/error-filter';
 
 import type { PostHog } from 'posthog-js';
 
 type PosthogQueuedEvent = { event: string; payload: Record<string, unknown> };
+type PosthogCaptureClient = {
+  capture: (event: string, payload: Record<string, unknown>) => void;
+};
+type PosthogWindow = Window & {
+  posthog?: PosthogCaptureClient;
+  __posthogQueue?: PosthogQueuedEvent[];
+};
 
 const noop = () => undefined;
 
@@ -32,9 +39,9 @@ const createNoopPostHog = (): PostHog =>
     set_config: noop,
   }) as unknown as PostHog;
 
-const flushPosthogQueue = (client: PostHog) => {
+const flushPosthogQueue = (client: PosthogCaptureClient) => {
   if (typeof window === 'undefined') return;
-  const win = window as Window & { __posthogQueue?: PosthogQueuedEvent[] };
+  const win = window as PosthogWindow;
   if (!win.__posthogQueue || win.__posthogQueue.length === 0) return;
   const batch = win.__posthogQueue.splice(0, win.__posthogQueue.length);
   batch.forEach(({ event, payload }) => {
@@ -56,13 +63,6 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { key, host, enabled } = clientEnv.posthog;
-    const isOpsHost =
-      typeof window !== 'undefined' &&
-      (window.location.hostname.startsWith('app.') || window.location.pathname.startsWith('/app'));
-
-    if (isOpsHost) {
-      return;
-    }
 
     if (
       !enabled ||
@@ -72,7 +72,9 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
       host.length === 0
     ) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[PostHog] Missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST environment variables');
+        console.warn(
+          '[PostHog] Missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST environment variables',
+        );
       }
       return;
     }
@@ -96,27 +98,25 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
         persistence: 'localStorage+cookie',
         before_send: (event) => {
           const suppressionMatch = matchPosthogExceptionSuppression(event);
-          if (!suppressionMatch) {
-            return event;
-          }
-
-          recordSuppressedPosthogException(suppressionMatch);
-          if (process.env.NODE_ENV === 'development') {
+          if (suppressionMatch && process.env.NODE_ENV === 'development') {
             console.info('[PostHog] Suppressed noisy exception', {
               key: suppressionMatch.key,
               message: suppressionMatch.message,
             });
           }
-          return null;
+          return filterPosthogEventBeforeSend(event);
         },
         loaded: (posthog) => {
           if (process.env.NODE_ENV === 'development') {
-            // Enable debug mode in development
             posthog.debug();
           }
         },
       });
+      if (typeof window !== 'undefined') {
+        (window as PosthogWindow).posthog = posthog;
+      }
       flushPosthogQueue(posthog);
+      setTimeout(() => flushPosthogQueue(posthog), 0);
       setClient(posthog);
     };
 
@@ -153,16 +153,22 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
 export function PostHogUserIdentifier() {
   const posthogClient = usePostHog();
   const { user } = useSupabaseSession();
+  const identifiedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
-      posthogClient.identify(user.id, {
-        email: user.email,
-      });
-    } else {
-      posthogClient.reset();
+      if (identifiedUserIdRef.current !== user.id) {
+        posthogClient.identify(user.id);
+        identifiedUserIdRef.current = user.id;
+      }
+      return;
     }
-  }, [posthogClient, user?.id, user?.email]);
+
+    if (identifiedUserIdRef.current) {
+      posthogClient.reset();
+      identifiedUserIdRef.current = null;
+    }
+  }, [posthogClient, user?.id]);
 
   return null;
 }

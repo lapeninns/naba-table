@@ -1,9 +1,6 @@
 // This file configures client-side analytics instrumentation.
 import { clientEnv } from '@/lib/env-client';
 
-const isOpsPath = (path: string) => path.startsWith('/app');
-const isOpsHost = (host: string) => host.startsWith('app.');
-
 const resolveUrl = (value?: string | URL | null): URL | null => {
   if (typeof window === 'undefined') return null;
   if (!value) return new URL(window.location.href);
@@ -13,12 +10,6 @@ const resolveUrl = (value?: string | URL | null): URL | null => {
   } catch {
     return null;
   }
-};
-
-const isOpsUrl = (value?: string | URL | null) => {
-  const resolved = resolveUrl(value);
-  if (!resolved) return false;
-  return isOpsPath(resolved.pathname) || isOpsHost(resolved.hostname);
 };
 
 type RouterTransitionTarget = { to?: string; url?: string; pathname?: string } | string | undefined;
@@ -34,8 +25,12 @@ const getRouterTargetUrl = (args: unknown[]): URL | null => {
 
 // PostHog is initialized in the client provider to defer work off the critical path.
 const posthogConfig = clientEnv.posthog;
+const INITIAL_PAGEVIEW_WINDOW_KEY = '__nabatablePosthogInitialPageviewCaptured';
+const LAST_PAGEVIEW_URL_WINDOW_KEY = '__nabatablePosthogLastPageviewUrl';
 
 type PosthogQueuedEvent = { event: string; payload: Record<string, unknown> };
+
+const getPageviewKey = (url: URL) => `${url.origin}${url.pathname}${url.search}`;
 
 const getPosthogQueue = () => {
   if (typeof window === 'undefined') return null;
@@ -61,18 +56,26 @@ const flushPosthogQueue = () => {
   });
 };
 
-const capturePosthogPageview = (targetUrl?: URL | null) => {
-  if (!posthogConfig.enabled) return;
-  if (typeof window === 'undefined') return;
+const capturePosthogPageview = (targetUrl?: URL | null): boolean => {
+  if (!posthogConfig.enabled) return false;
+  if (typeof window === 'undefined') return false;
   const resolvedTargetUrl = targetUrl ?? resolveUrl();
-  if (!resolvedTargetUrl || isOpsUrl(resolvedTargetUrl)) return;
-  const win = window as Window & { posthog?: { capture: (event: string, payload: Record<string, unknown>) => void } };
+  if (!resolvedTargetUrl) return false;
+
+  const win = window as Window & {
+    posthog?: { capture: (event: string, payload: Record<string, unknown>) => void };
+    [LAST_PAGEVIEW_URL_WINDOW_KEY]?: string;
+  };
+  const pageviewKey = getPageviewKey(resolvedTargetUrl);
+  if (win[LAST_PAGEVIEW_URL_WINDOW_KEY] === pageviewKey) return false;
+  win[LAST_PAGEVIEW_URL_WINDOW_KEY] = pageviewKey;
+
   if (win.posthog) {
     flushPosthogQueue();
     win.posthog.capture('$pageview', {
       $current_url: resolvedTargetUrl.href,
     });
-    return;
+    return true;
   }
 
   const queue = getPosthogQueue();
@@ -80,6 +83,17 @@ const capturePosthogPageview = (targetUrl?: URL | null) => {
     event: '$pageview',
     payload: { $current_url: resolvedTargetUrl.href },
   });
+  return true;
+};
+
+export const captureInitialPosthogPageview = () => {
+  if (typeof window === 'undefined') return;
+  const win = window as Window & { [INITIAL_PAGEVIEW_WINDOW_KEY]?: boolean };
+  if (win[INITIAL_PAGEVIEW_WINDOW_KEY]) return;
+  const captured = capturePosthogPageview();
+  if (captured) {
+    win[INITIAL_PAGEVIEW_WINDOW_KEY] = true;
+  }
 };
 
 // Capture pageview on route transition
@@ -87,3 +101,5 @@ export const onRouterTransitionStart = (...args: unknown[]) => {
   const targetUrl = getRouterTargetUrl(args);
   capturePosthogPageview(targetUrl);
 };
+
+captureInitialPosthogPageview();

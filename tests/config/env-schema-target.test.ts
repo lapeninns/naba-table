@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findBlockedPublicEnvKeys, resolveEnvSchemaTarget } from '@/config/env.schema';
+import { envSchemas, findBlockedPublicEnvKeys, resolveEnvSchemaTarget } from '@/config/env.schema';
 
 describe('resolveEnvSchemaTarget', () => {
   it('uses development schema for local staging builds', () => {
@@ -60,5 +60,45 @@ describe('public env secret blocking', () => {
       'NEXT_PUBLIC_INVITE_TOKEN',
       'NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY',
     ]);
+  });
+});
+
+describe('production env schema', () => {
+  const productionEnv = {
+    APP_ENV: 'production',
+    NODE_ENV: 'production',
+    NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
+    SUPABASE_SERVICE_ROLE_KEY: 'service-role',
+    NEXT_PUBLIC_APP_URL: 'https://app.nabatable.com',
+    NEXT_PUBLIC_SITE_URL: 'https://www.nabatable.com',
+    NEXT_PUBLIC_POSTHOG_KEY: 'phc_test',
+    NEXT_PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com',
+    RESEND_API_KEY: 'resend',
+    RESEND_FROM: 'no-reply@notifications.nabatable.com',
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: 'turnstile-site',
+    TURNSTILE_SECRET_KEY: 'turnstile-secret',
+    AUTH_AUDIT_HASH_SECRET: 'auth-audit-secret',
+    CRON_SECRET: 'cron-secret',
+  };
+
+  it('requires PostHog browser configuration for production targets', () => {
+    const input = Object.fromEntries(
+      Object.entries(productionEnv).filter(
+        ([key]) => key !== 'NEXT_PUBLIC_POSTHOG_HOST' && key !== 'NEXT_PUBLIC_POSTHOG_KEY',
+      ),
+    );
+
+    const result = envSchemas.production.safeParse(input);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).sort()).toContain(
+        'NEXT_PUBLIC_POSTHOG_HOST',
+      );
+      expect(result.error.issues.map((issue) => issue.path.join('.')).sort()).toContain(
+        'NEXT_PUBLIC_POSTHOG_KEY',
+      );
+    }
   });
 });

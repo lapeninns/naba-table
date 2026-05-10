@@ -60,6 +60,7 @@ const webpackAliasMap = Object.fromEntries(
 
 const nextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: process.env.POSTHOG_SOURCEMAP_UPLOAD === 'true',
   serverExternalPackages: [],
   images: {
     remotePatterns: imageRemotePatterns,

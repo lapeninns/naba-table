@@ -126,14 +126,6 @@ export function track(event: AnalyticsEvent, props?: Record<string, unknown>) {
     }
   }
 
-  try {
-    capturePosthog(event, payload ?? {});
-  } catch (error) {
-    if (DEBUG_ENABLED) {
-      console.warn("[analytics] failed to send event to PostHog", event, error);
-    }
-  }
-
   if (DEBUG_ENABLED) {
     console.debug(`[analytics] ${event}`, payload ?? {});
   }
