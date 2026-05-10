@@ -1,4 +1,5 @@
 import { env } from '@/lib/env';
+import { redactSmsRecipientPhone } from '@/lib/sms/phone-redaction';
 import {
   fetchTwilioMessage,
   mapTwilioMessageStatusToDeliveryStatus,
@@ -272,7 +273,7 @@ async function reconcileSms(): Promise<{ stuck: number; scanned: number; error?:
       severity: 'warning',
       context: {
         messageSid: row.message_sid,
-        recipientPhone: row.recipient_phone,
+        recipientPhone: redactSmsRecipientPhone(row.recipient_phone),
         ageMs: Date.now() - parseIsoMs(row.occurred_at),
       },
       restaurantId: row.restaurant_id ?? undefined,

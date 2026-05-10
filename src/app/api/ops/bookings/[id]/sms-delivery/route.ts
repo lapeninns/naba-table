@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 import { listSmsDeliveryEventsForBooking, SmsDeliveryLogUnavailableError } from '@/server/sms/delivery-log';
+import { sanitizeOpsSmsDeliveryEvents } from '@/src/lib/sms-delivery/sanitize';
 
 import type { BookingSmsDeliveryResponse } from '@/types/smsDelivery';
 import type { NextRequest } from 'next/server';
@@ -88,7 +89,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
 
     return NextResponse.json(
-      { ok: true, bookingId, events } satisfies Extract<BookingSmsDeliveryResponse, { ok: true }>,
+      {
+        ok: true,
+        bookingId,
+        events: sanitizeOpsSmsDeliveryEvents(events),
+      } satisfies Extract<BookingSmsDeliveryResponse, { ok: true }>,
       {
         status: 200,
         headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },

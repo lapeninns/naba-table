@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import {
   GuardError,
   listUserRestaurantMemberships,
@@ -12,6 +13,7 @@ import {
   listSmsDeliveryAttemptsForRestaurant,
   SmsDeliveryLogUnavailableError,
 } from '@/server/sms/delivery-log';
+import { sanitizeOpsSmsDeliveryAttempts } from '@/src/lib/sms-delivery/sanitize';
 import {
   OPS_SMS_DELIVERY_RANGE_VALUES,
   SMS_DELIVERY_STATUS_VALUES,
@@ -85,6 +87,7 @@ export async function GET(request: NextRequest) {
       supabase,
       userId: user.id,
       restaurantId,
+      allowedRoles: RESTAURANT_ADMIN_ROLES,
     });
 
     const listResult = await listSmsDeliveryAttemptsForRestaurant({
@@ -111,7 +114,7 @@ export async function GET(request: NextRequest) {
           pageSize: listResult.pageSize,
           hasNext: listResult.hasNext,
         },
-        attempts: listResult.attempts,
+        attempts: sanitizeOpsSmsDeliveryAttempts(listResult.attempts),
         summary,
       } satisfies Extract<OpsSmsDeliveryFeedResponse, { ok: true }>,
       { status: 200 },

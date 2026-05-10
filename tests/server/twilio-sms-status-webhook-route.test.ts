@@ -68,6 +68,21 @@ function buildSignedRequest(params: {
   });
 }
 
+function buildUnreadableBodyRequest(headers: HeadersInit) {
+  const body = new ReadableStream({
+    pull() {
+      throw new Error('body should not be read');
+    },
+  });
+
+  return new NextRequest('https://app.nabatable.com/api/webhook/twilio/sms-status', {
+    method: 'POST',
+    headers,
+    body,
+    duplex: 'half',
+  } as RequestInit & { duplex: 'half' });
+}
+
 describe('POST /api/webhook/twilio/sms-status', () => {
   beforeEach(() => {
     findLatestSmsDeliveryByMessageSidMock.mockReset();
@@ -120,6 +135,70 @@ describe('POST /api/webhook/twilio/sms-status', () => {
     expect(recordSmsDeliveryLogMock).toHaveBeenCalledTimes(1);
   });
 
+  it('uses signed query context when delivery-log lookup cannot link the callback', async () => {
+    findLatestSmsDeliveryByMessageSidMock.mockResolvedValue(null);
+
+    const query =
+      '?bookingId=11111111-1111-4111-8111-111111111111&restaurantId=22222222-2222-4222-8222-222222222222&smsType=booking_update';
+    const response = await POST(
+      buildSignedRequest({
+        requestUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+        signedUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordSmsDeliveryLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: '11111111-1111-4111-8111-111111111111',
+        restaurantId: '22222222-2222-4222-8222-222222222222',
+        smsType: 'booking_update',
+      }),
+    );
+  });
+
+  it('keeps delivery-log linkage authoritative over signed query context', async () => {
+    const query =
+      '?bookingId=11111111-1111-4111-8111-111111111111&restaurantId=22222222-2222-4222-8222-222222222222&smsType=booking_update';
+    const response = await POST(
+      buildSignedRequest({
+        requestUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+        signedUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordSmsDeliveryLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 'booking-1',
+        restaurantId: 'restaurant-1',
+        smsType: 'booking_confirmation',
+      }),
+    );
+  });
+
+  it('ignores invalid signed query context when lookup cannot link the callback', async () => {
+    findLatestSmsDeliveryByMessageSidMock.mockResolvedValue(null);
+
+    const query =
+      '?bookingId=not-a-uuid&restaurantId=22222222-2222-4222-8222-222222222222&smsType=booking_update';
+    const response = await POST(
+      buildSignedRequest({
+        requestUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+        signedUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordSmsDeliveryLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: null,
+        restaurantId: null,
+        smsType: null,
+      }),
+    );
+  });
+
   it('rejects invalid signatures', async () => {
     const request = new NextRequest('https://app.nabatable.com/api/webhook/twilio/sms-status', {
       method: 'POST',
@@ -137,6 +216,87 @@ describe('POST /api/webhook/twilio/sms-status', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(401);
+    expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing signatures before parsing the body', async () => {
+    const response = await POST(
+      buildUnreadableBodyRequest({
+        'content-type': 'application/x-www-form-urlencoded',
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported content types before signature validation work', async () => {
+    const response = await POST(
+      buildUnreadableBodyRequest({
+        'content-type': 'application/json',
+        'x-twilio-signature': 'present-but-not-used',
+      }),
+    );
+
+    expect(response.status).toBe(415);
+    expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized content-length before reading the body', async () => {
+    const response = await POST(
+      buildUnreadableBodyRequest({
+        'content-length': String(16 * 1024 + 1),
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-twilio-signature': 'present-but-not-used',
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized bodies when content-length is unavailable', async () => {
+    const oversizedBody = `MessageSid=SM123&To=%2B447700900123&MessageStatus=delivered&Blob=${'x'.repeat(
+      16 * 1024,
+    )}`;
+
+    const response = await POST(
+      new NextRequest('https://app.nabatable.com/api/webhook/twilio/sms-status', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-twilio-signature': 'present-but-not-used',
+        },
+        body: oversizedBody,
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects excessive webhook parameter counts before signature validation work', async () => {
+    const params = new URLSearchParams({
+      MessageSid: 'SM123',
+      MessageStatus: 'delivered',
+      To: '+447700900123',
+    });
+    for (let index = 0; index < 65; index += 1) {
+      params.set(`Extra${index}`, String(index));
+    }
+
+    const response = await POST(
+      new NextRequest('https://app.nabatable.com/api/webhook/twilio/sms-status', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-twilio-signature': 'present-but-not-used',
+        },
+        body: params.toString(),
+      }),
+    );
+
+    expect(response.status).toBe(400);
     expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
   });
 });

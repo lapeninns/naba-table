@@ -317,6 +317,7 @@ async function main(): Promise<void> {
     { table: 'table_holds', bookingIdColumn: 'booking_id' },
     { table: 'table_soft_holds', bookingIdColumn: 'booking_id' },
     { table: 'email_delivery_log', bookingIdColumn: 'booking_id' },
+    { table: 'sms_delivery_log', bookingIdColumn: 'booking_id' },
     { table: 'allocations', bookingIdColumn: 'booking_id' },
     // NOTE: capacity_outbox has booking_id but does not always have an FK; we still delete it.
     { table: 'capacity_outbox', bookingIdColumn: 'booking_id' },

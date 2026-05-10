@@ -1,6 +1,7 @@
 import { sendBookingConfirmationEmail } from '@/server/emails/bookings';
 import { hasRecentEmailDelivery } from '@/server/emails/email-delivery-log';
 import { sendGuestBookingConfirmationSms } from '@/server/sms/bookings';
+import { hasRecentSmsDelivery } from '@/server/sms/delivery-log';
 
 import type { BookingRecord } from '@/server/bookings';
 
@@ -26,12 +27,23 @@ export async function sendFirstBookingConfirmationNotifications(
   const allowEmail = options?.allowEmail !== false;
   const allowSms = options?.allowSms !== false;
   const hasValidRecipientEmail = allowEmail && isValidEmail(booking.customer_email);
+  const hasValidRecipientSms = allowSms && Boolean(booking.customer_phone?.trim());
   let hasExistingConfirmationEmail = false;
+  let hasExistingConfirmationSms = false;
 
   if (hasValidRecipientEmail) {
     hasExistingConfirmationEmail = await hasRecentEmailDelivery({
       bookingId: booking.id,
       templateType: 'confirmation',
+      withinMs: CONFIRMATION_DEDUPE_WINDOW_MS,
+    });
+  }
+
+  if (hasValidRecipientSms) {
+    hasExistingConfirmationSms = await hasRecentSmsDelivery({
+      bookingId: booking.id,
+      smsType: 'booking_confirmation',
+      recipientPhone: booking.customer_phone,
       withinMs: CONFIRMATION_DEDUPE_WINDOW_MS,
     });
   }
@@ -44,11 +56,14 @@ export async function sendFirstBookingConfirmationNotifications(
     emailSent = true;
   }
 
-  const smsResult = allowSms ? await sendGuestBookingConfirmationSms(booking) : null;
+  const smsResult =
+    hasValidRecipientSms && !hasExistingConfirmationSms
+      ? await sendGuestBookingConfirmationSms(booking)
+      : null;
   smsSent = Boolean(smsResult?.messageSid || smsResult?.status);
 
   return {
-    alreadySent: hasExistingConfirmationEmail,
+    alreadySent: hasExistingConfirmationEmail || hasExistingConfirmationSms,
     emailSent,
     smsSent,
   };
