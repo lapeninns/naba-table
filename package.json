@@ -52,6 +52,7 @@
     "sms:delivery:readiness:staging-vercel:strict": "tsx -r tsconfig-paths/register scripts/sms-delivery-readiness.ts --target staging --check-vercel-env --strict",
     "sms:delivery:readiness:staging-vercel:branch-strict": "tsx -r tsconfig-paths/register scripts/sms-delivery-readiness.ts --target staging --check-vercel-env --vercel-git-branch codex/Menu --strict",
     "sms:delivery:readiness:staging-vercel:branch-strict:env-run": "tsx -r tsconfig-paths/register scripts/vercel-preview-env-run.ts --branch codex/Menu -- pnpm exec tsx -r tsconfig-paths/register scripts/sms-delivery-readiness.ts --target staging --check-vercel-env --vercel-git-branch codex/Menu --callback-base-url https://nabatable-git-codex-menu-lapen-inns-projects.vercel.app --expected-staging-project-ref ndxmivcrehsacuerwxtm --strict --skip-pulled-env-files --skip-local-env-files",
+    "sms:delivery:env:preview:metadata": "tsx -r tsconfig-paths/register scripts/sms-delivery-vercel-preview-audit.ts --branch codex/Menu --metadata-only",
     "sms:delivery:audit:staging-vercel-preview": "tsx -r tsconfig-paths/register scripts/sms-delivery-vercel-preview-audit.ts --branch codex/Menu --expected-staging-project-ref ndxmivcrehsacuerwxtm",
     "sms:delivery:deployment:preview": "tsx -r tsconfig-paths/register scripts/sms-delivery-preview-deployment-check.ts --branch codex/Menu --alias https://nabatable-git-codex-menu-lapen-inns-projects.vercel.app",
     "sms:delivery:verify:staging": "tsx -r tsconfig-paths/register scripts/sms-delivery-staging-verify.ts",

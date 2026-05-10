@@ -39,6 +39,7 @@ const AUDITED_ENV_KEYS = [
 type Args = {
   branch: string;
   expectedStagingProjectRef: string;
+  metadataOnly: boolean;
 };
 
 type PreviewAuditReport = {
@@ -72,15 +73,34 @@ type PreviewAuditReport = {
   blockers: string[];
 };
 
+type PreviewMetadataReport = {
+  ok: boolean;
+  checkedAt: string;
+  branch: string;
+  mode: 'metadata-only';
+  requiredKeys: string[];
+  genericPreviewKeysPresent: string[];
+  branchPreviewKeysPresent: string[];
+  effectivePreviewKeysPresent: string[];
+  effectivePreviewKeysMissing: string[];
+  blockers: string[];
+};
+
 export function parseVercelPreviewAuditArgs(argv: string[]): Args {
   const args: Args = {
     branch: process.env.SMS_DELIVERY_VERCEL_GIT_BRANCH?.trim() || DEFAULT_BRANCH,
     expectedStagingProjectRef:
       process.env.STAGING_SUPABASE_PROJECT_REF?.trim() || DEFAULT_EXPECTED_STAGING_PROJECT_REF,
+    metadataOnly: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const raw = argv[index] ?? '';
+    if (raw === '--metadata-only') {
+      args.metadataOnly = true;
+      continue;
+    }
+
     const takeValue = (flag: string): string | null => {
       if (raw === flag) {
         const next = argv[index + 1];
@@ -329,10 +349,55 @@ export function buildPreviewAuditReport(
   };
 }
 
+export function buildPreviewMetadataReport(
+  branch: string,
+  metadata: PreviewAuditReport['metadata'],
+): PreviewMetadataReport {
+  const requiredKeys = [...REQUIRED_TWILIO_ENV, 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_DB_URL'];
+  const effectiveKeys = new Set([
+    ...metadata.genericPreviewKeysPresent,
+    ...metadata.branchPreviewKeysPresent,
+  ]);
+  const effectivePreviewKeysPresent = requiredKeys.filter((key) => effectiveKeys.has(key));
+  const effectivePreviewKeysMissing = requiredKeys.filter((key) => !effectiveKeys.has(key));
+  const blockers =
+    effectivePreviewKeysMissing.length > 0
+      ? [
+          `Vercel Preview metadata for branch ${branch} is missing required key names: ${effectivePreviewKeysMissing.join(', ')}`,
+        ]
+      : [];
+
+  return {
+    ok: blockers.length === 0,
+    checkedAt: new Date().toISOString(),
+    branch,
+    mode: 'metadata-only',
+    requiredKeys,
+    genericPreviewKeysPresent: metadata.genericPreviewKeysPresent.filter((key) =>
+      requiredKeys.includes(key),
+    ),
+    branchPreviewKeysPresent: metadata.branchPreviewKeysPresent.filter((key) =>
+      requiredKeys.includes(key),
+    ),
+    effectivePreviewKeysPresent,
+    effectivePreviewKeysMissing,
+    blockers,
+  };
+}
+
 function main() {
   const args = parseVercelPreviewAuditArgs(process.argv.slice(2));
-  const snapshot = readPreviewEnvSnapshot(args.branch);
   const metadata = readPreviewEnvMetadata(args.branch);
+  if (args.metadataOnly) {
+    const report = buildPreviewMetadataReport(args.branch, metadata);
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.ok) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  const snapshot = readPreviewEnvSnapshot(args.branch);
   const report = buildPreviewAuditReport(args, snapshot, metadata);
   console.log(JSON.stringify(report, null, 2));
   if (!report.ok) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildPreviewAuditReport,
+  buildPreviewMetadataReport,
   parseVercelPreviewAuditArgs,
 } from '@/scripts/sms-delivery-vercel-preview-audit';
 
@@ -17,6 +18,15 @@ describe('Vercel Preview SMS delivery audit', () => {
     ).toEqual({
       branch: 'codex/Menu',
       expectedStagingProjectRef: 'ndxmivcrehsacuerwxtm',
+      metadataOnly: false,
+    });
+  });
+
+  it('parses metadata-only mode', () => {
+    expect(parseVercelPreviewAuditArgs(['--branch', 'codex/Menu', '--metadata-only'])).toEqual({
+      branch: 'codex/Menu',
+      expectedStagingProjectRef: 'ndxmivcrehsacuerwxtm',
+      metadataOnly: true,
     });
   });
 
@@ -147,5 +157,55 @@ describe('Vercel Preview SMS delivery audit', () => {
       'Vercel Preview env for branch codex/Menu needs one valid callback base URL key: NEXT_PUBLIC_APP_URL or NEXT_PUBLIC_SITE_URL',
     );
     expect(report.ok).toBe(false);
+  });
+
+  it('reports missing required metadata names without reading secret values', () => {
+    const report = buildPreviewMetadataReport('codex/Menu', {
+      genericPreviewKeysPresent: [
+        'NEXT_PUBLIC_SUPABASE_URL',
+        'SUPABASE_DB_URL',
+        'SUPABASE_SERVICE_ROLE_KEY',
+      ],
+      branchPreviewKeysPresent: [],
+    });
+
+    expect(report).toMatchObject({
+      ok: false,
+      branch: 'codex/Menu',
+      mode: 'metadata-only',
+      genericPreviewKeysPresent: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_DB_URL'],
+      branchPreviewKeysPresent: [],
+      effectivePreviewKeysPresent: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_DB_URL'],
+      effectivePreviewKeysMissing: [
+        'TWILIO_ACCOUNT_SID',
+        'TWILIO_AUTH_TOKEN',
+        'TWILIO_API_KEY_SID',
+        'TWILIO_API_KEY_SECRET',
+        'TWILIO_MESSAGING_SERVICE_SID',
+      ],
+    });
+    expect(report.blockers).toEqual([
+      'Vercel Preview metadata for branch codex/Menu is missing required key names: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, TWILIO_MESSAGING_SERVICE_SID',
+    ]);
+  });
+
+  it('accepts required metadata names from generic Preview or branch overrides', () => {
+    const report = buildPreviewMetadataReport('codex/Menu', {
+      genericPreviewKeysPresent: [
+        'TWILIO_ACCOUNT_SID',
+        'TWILIO_AUTH_TOKEN',
+        'NEXT_PUBLIC_SUPABASE_URL',
+        'SUPABASE_DB_URL',
+      ],
+      branchPreviewKeysPresent: [
+        'TWILIO_API_KEY_SID',
+        'TWILIO_API_KEY_SECRET',
+        'TWILIO_MESSAGING_SERVICE_SID',
+      ],
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.effectivePreviewKeysMissing).toEqual([]);
+    expect(report.blockers).toEqual([]);
   });
 });
