@@ -24,6 +24,7 @@ import {
   type DualSyncSectionKey,
   isDualSyncSectionKey,
 } from '../types';
+import { sanitizeGoogleAuditPayload } from './google-audit';
 
 import type { DualSyncPublishGroup } from './types';
 import type { Database, Json } from '@/types/supabase';
@@ -44,6 +45,8 @@ function rowToBatch(row: DualSyncPublishBatchRow): DualSyncPublishBatch {
     pinnedGbpSnapshotHash: row.pinned_gbp_snapshot_hash,
     coreSnapshotHash: row.core_snapshot_hash,
     gbpSnapshotHash: row.gbp_snapshot_hash,
+    fieldPolicyVersionId: row.field_policy_version_id,
+    fieldPolicyHash: row.field_policy_hash,
     acceptedCount: row.accepted_count,
     rejectedCount: row.rejected_count,
     ignoredCount: row.ignored_count,
@@ -131,6 +134,8 @@ export interface CreatePublishBatchInput {
   readonly pinnedGbpSnapshotHash?: string | null;
   readonly coreSnapshotHash?: string | null;
   readonly gbpSnapshotHash?: string | null;
+  readonly fieldPolicyVersionId?: string | null;
+  readonly fieldPolicyHash?: string | null;
   readonly acceptedCount?: number;
   readonly rejectedCount?: number;
   readonly ignoredCount?: number;
@@ -153,6 +158,8 @@ export async function createPublishBatch(
       pinned_gbp_snapshot_hash: input.pinnedGbpSnapshotHash ?? null,
       core_snapshot_hash: input.coreSnapshotHash ?? null,
       gbp_snapshot_hash: input.gbpSnapshotHash ?? null,
+      field_policy_version_id: input.fieldPolicyVersionId ?? null,
+      field_policy_hash: input.fieldPolicyHash ?? null,
       accepted_count: input.acceptedCount ?? 0,
       rejected_count: input.rejectedCount ?? 0,
       ignored_count: input.ignoredCount ?? 0,
@@ -290,9 +297,12 @@ export async function updateOperationGroupStatus(
     status: input.status,
   };
   if (input.preflightStatus !== undefined) patch.preflight_status = input.preflightStatus;
-  if (input.preflightResult !== undefined) patch.preflight_result = input.preflightResult as Json;
-  if (input.requestSummary !== undefined) patch.request_summary = input.requestSummary as Json;
-  if (input.responseSummary !== undefined) patch.response_summary = input.responseSummary as Json;
+  if (input.preflightResult !== undefined)
+    patch.preflight_result = sanitizeGoogleAuditPayload(input.preflightResult) as Json;
+  if (input.requestSummary !== undefined)
+    patch.request_summary = sanitizeGoogleAuditPayload(input.requestSummary) as Json;
+  if (input.responseSummary !== undefined)
+    patch.response_summary = sanitizeGoogleAuditPayload(input.responseSummary) as Json;
   if (input.errorCode !== undefined) patch.error_code = input.errorCode;
   if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
   if (input.startedAt !== undefined) patch.started_at = input.startedAt;
@@ -386,7 +396,7 @@ export async function updateOperationStatus(
   if (input.errorCode !== undefined) patch.error_code = input.errorCode;
   if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
   if (input.externalResponse !== undefined)
-    patch.external_response = input.externalResponse as Json;
+    patch.external_response = sanitizeGoogleAuditPayload(input.externalResponse) as Json;
   if (input.attemptCount !== undefined) patch.attempt_count = input.attemptCount;
   if (input.startedAt !== undefined) patch.started_at = input.startedAt;
   if (input.finishedAt !== undefined) patch.finished_at = input.finishedAt;

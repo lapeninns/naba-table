@@ -14,6 +14,7 @@ These runbooks cover Google Business Profile dual-sync after the production-safe
   - `GET/PATCH /api/ops/restaurants/:id/dual-sync/control`
   - `GET /api/cron/dual-sync/queue`
   - `GET /api/cron/dual-sync/health`
+  - `GET /api/cron/dual-sync/request-log-retention`
 - Durable tables:
   - `dual_sync_locks`
   - `dual_sync_publish_batches`
@@ -22,6 +23,7 @@ These runbooks cover Google Business Profile dual-sync after the production-safe
   - `dual_sync_jobs`
   - `dual_sync_restaurant_controls`
   - `dual_sync_google_edit_reservations`
+  - `dual_sync_google_request_logs`
   - `observability_events`
 
 ## Safety Rules
@@ -130,6 +132,47 @@ Do not:
 - Disable the webhook to quiet repeated alerts without fixing the
   underlying health condition.
 - Retry queue jobs before reading their last error code and payload.
+
+## Google Request Log Retention
+
+Symptoms:
+
+- `dual_sync_google_request_logs` rows pass their `retention_expires_at`.
+- `/api/cron/dual-sync/request-log-retention` returns 500.
+- `observability_events` has `source = 'cron.dual-sync.request-log-retention'`
+  and `event_type = 'retention.failed'`.
+
+Inspect:
+
+```sql
+select count(*) as expired
+from dual_sync_google_request_logs
+where retention_expires_at < timezone('utc', now());
+
+select event_type, severity, context, created_at
+from observability_events
+where source = 'cron.dual-sync.request-log-retention'
+order by created_at desc
+limit 20;
+```
+
+Operator action:
+
+- Run the retention cron with `dryRun=1` first to verify auth and limit parsing
+  without deleting rows.
+- If dry-run succeeds and the request-log migration exists in the target
+  environment, run a low cap such as `limit=100`. Retention first copies the
+  selected rows into `dual_sync_google_request_log_archives`, then deletes only
+  those archived ids from the hot request-log table.
+- Increase the cap only after confirming the completed event reports expected
+  `selected`, `archived`, and `deleted` counts.
+
+Do not:
+
+- Run retention before the request-log migration is applied and read back.
+- Delete request-log rows manually while investigating a publish incident.
+- Include request or response payloads in incident notes; use counts, ids, and
+  failure codes instead.
 
 ## Dead-Letter Job Retry
 
@@ -308,13 +351,43 @@ Operator action:
 - Retry only failed, still-drifted fields through a new preview.
 - If Google accepted a partial resource write, attach the operation group and operation rows to the incident note.
 
+## Pending Candidate Cancellation
+
+Use this when a Core-side change was captured as an outbound candidate, but the operator decides it should not be exported to Google.
+
+Preferred operator path:
+
+- Open the Google Business Profile sync workspace.
+- Expand `Pending changes`.
+- Use `Cancel` on the specific open candidate.
+- Refresh the workspace and verify the candidate count drops.
+
+API fallback:
+
+```text
+POST /api/ops/restaurants/:restaurantId/dual-sync/candidates/:candidateId/cancel
+```
+
+Safety expectations:
+
+- The route requires restaurant admin access.
+- The update is scoped by candidate id, restaurant id, provider, and `status = open`.
+- The row is not deleted; status changes to `cancelled` and `resolved_at` is recorded.
+- A candidate from another restaurant, or an already resolved/superseded/cancelled row, returns not cancellable.
+
+Do not:
+
+- Delete candidate rows during normal recovery.
+- Cancel a candidate to hide a publish failure; use publish operation and job history for that.
+- Bulk-cancel candidates without first confirming which Core changes should remain local-only.
+
 ## Rollback
 
 Rollback depends on what changed.
 
 - UI-only deploy: revert the application deployment.
 - Scheduler config: disable or lower the dual-sync queue cron first; then redeploy config.
-- Immediate sync kill switch: set `GBP_SYNC_ENABLED=false` to disable the server dual-sync API surface. `NABATABLE_DUAL_SYNC_ENABLED=false` is still honored as the legacy fallback.
+- The dual-sync API surface and settings workspace are default-on; use the targeted controls below for rollback.
 - Import rollback: set `GBP_IMPORT_ENABLED=false` to reject import decisions before Core writes.
 - Export rollback: set `GBP_EXPORT_ENABLED=false` to reject export decisions before operation rows or Google writes.
 - High-risk rollback: set `GBP_HIGH_RISK_EXPORTS_ENABLED=false` to reject high-risk/manual-review exports while keeping lower-risk exports available.

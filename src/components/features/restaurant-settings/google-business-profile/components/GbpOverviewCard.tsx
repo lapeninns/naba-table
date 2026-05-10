@@ -113,7 +113,7 @@ export function GbpOverviewCard({
                     data-icon="inline-start"
                     className={isRefreshing ? 'animate-spin' : undefined}
                   />
-                  Refresh Google
+                  Refresh connection
                 </Button>
               ) : null}
               {manageOnGoogleHref ? (

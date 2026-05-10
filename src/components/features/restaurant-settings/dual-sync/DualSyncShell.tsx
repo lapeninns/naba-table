@@ -29,7 +29,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
 import { cn } from '@/lib/utils';
 
@@ -38,12 +40,18 @@ import { DualSyncFreshnessChip } from './DualSyncFreshnessChip';
 import { DualSyncHeatmap } from './DualSyncHeatmap';
 import { DualSyncOperationalHealthPanel } from './DualSyncOperationalHealthPanel';
 import { DualSyncOperationsPanel } from './DualSyncOperationsPanel';
+import { DualSyncPendingCandidatesPanel } from './DualSyncPendingCandidatesPanel';
 import { DualSyncPublishJobsPanel } from './DualSyncPublishJobsPanel';
 import { DualSyncPublishPreviewDialog } from './DualSyncPublishPreviewDialog';
 import { DualSyncPublishResultDialog } from './DualSyncPublishResultDialog';
 import { DualSyncQueueJobsPanel } from './DualSyncQueueJobsPanel';
-import { FoodMenusImportReviewPanel } from './FoodMenusImportReviewPanel';
+import { DualSyncToolbarTip } from './DualSyncToolbarTip';
 import { summarizeFieldsToHeatmap } from './heatmap';
+import {
+  computeSectionReviewProgress,
+  computeWorkspaceReviewProgress,
+  fieldNeedsOperatorChoice,
+} from './workspace-progress';
 
 import type { DualSyncDecisionAction, DualSyncSectionKey } from '@/server/dual-sync';
 import type {
@@ -110,7 +118,7 @@ function canApplyFieldAction(field: DualSyncFieldSummary, action: DualSyncDecisi
   if (field.conflictPolicy === 'unsupported') return false;
   if (action === 'import_from_google') return field.capability.canImport;
   if (action === 'export_to_google') return field.capability.canExport;
-  return true;
+  return field.capability.canIgnore;
 }
 
 function getSectionBulkSummary(
@@ -118,12 +126,19 @@ function getSectionBulkSummary(
   decisions: Record<string, DecisionEntry>,
 ): SectionBulkSummary {
   return fields.reduce<SectionBulkSummary>(
-    (summary, field) => ({
-      importable: summary.importable + (canApplyFieldAction(field, 'import_from_google') ? 1 : 0),
-      exportable: summary.exportable + (canApplyFieldAction(field, 'export_to_google') ? 1 : 0),
-      ignorable: summary.ignorable + (canApplyFieldAction(field, 'ignore') ? 1 : 0),
-      selected: summary.selected + (decisions[field.fieldKey] ? 1 : 0),
-    }),
+    (summary, field) => {
+      const actionable = fieldNeedsOperatorChoice(field);
+      return {
+        importable:
+          summary.importable +
+          (actionable && canApplyFieldAction(field, 'import_from_google') ? 1 : 0),
+        exportable:
+          summary.exportable +
+          (actionable && canApplyFieldAction(field, 'export_to_google') ? 1 : 0),
+        ignorable: summary.ignorable + (actionable && canApplyFieldAction(field, 'ignore') ? 1 : 0),
+        selected: summary.selected + (decisions[field.fieldKey] ? 1 : 0),
+      };
+    },
     { importable: 0, exportable: 0, ignorable: 0, selected: 0 },
   );
 }
@@ -134,13 +149,14 @@ export function DualSyncShell({
   className,
   singleOpenSections = false,
 }: DualSyncShellProps) {
-  const FOOD_MENUS_REVIEW_VALUE = '__foodMenusReview';
   const METRICS_VALUE = '__metrics';
+  const PENDING_CANDIDATES_VALUE = '__pendingCandidates';
   const QUEUE_JOBS_VALUE = '__queueJobs';
   const PUBLISHES_VALUE = '__publishes';
   const OPERATIONS_VALUE = '__operations';
   const [showOperationalHealth, setShowOperationalHealth] = useState(false);
   const [showOperations, setShowOperations] = useState(false);
+  const [showPendingCandidates, setShowPendingCandidates] = useState(false);
   const [showQueueJobs, setShowQueueJobs] = useState(false);
   const [showPublishJobs, setShowPublishJobs] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -151,15 +167,18 @@ export function DualSyncShell({
     previewPublishMutation,
     autoExportMutation,
     retryJobMutation,
+    cancelCandidateMutation,
     controlMutation,
     operationsQuery,
     jobsQuery,
+    candidatesQuery,
     metricsQuery,
     publishJobsQuery,
     publishJobDetailQuery,
   } = useOpsDualSync({
     restaurantId,
     operationsRequest: showOperations ? { limit: 50 } : undefined,
+    candidatesRequest: showPendingCandidates ? { limit: 50, statuses: ['open'] } : undefined,
     jobsRequest: showQueueJobs
       ? { limit: 25, statuses: ['queued', 'running', 'retrying', 'dead_letter', 'failed'] }
       : undefined,
@@ -185,7 +204,6 @@ export function DualSyncShell({
     () => summarizeFieldsToHeatmap(stateQuery.data?.fields ?? []),
     [stateQuery.data?.fields],
   );
-  const showFoodMenusReview = !sections || sections.length === 0 || sections.includes('foodMenus');
   const [openSection, setOpenSection] = useState<string | undefined>(undefined);
 
   const visibleFields = useMemo<ReadonlyArray<DualSyncFieldSummary>>(() => {
@@ -200,6 +218,12 @@ export function DualSyncShell({
         : false,
     );
   }, [stateQuery.data, sections]);
+
+  const workspaceProgress = useMemo(
+    () => computeWorkspaceReviewProgress(visibleFields, decisions),
+    [visibleFields, decisions],
+  );
+  const writeBlocked = syncPaused || publishMutation.isPending || previewPublishMutation.isPending;
 
   const fieldsBySection = useMemo(() => {
     const grouped = new Map<DualSyncSectionKey, DualSyncFieldSummary[]>();
@@ -220,14 +244,12 @@ export function DualSyncShell({
   );
   const orderedAccordionValues = useMemo(() => {
     const values = orderedSectionKeys.map((key) => key as string);
-    if (showFoodMenusReview) {
-      values.unshift(FOOD_MENUS_REVIEW_VALUE);
-    }
     values.push(METRICS_VALUE);
+    values.push(PENDING_CANDIDATES_VALUE);
     values.push(QUEUE_JOBS_VALUE);
     values.push(PUBLISHES_VALUE, OPERATIONS_VALUE);
     return values;
-  }, [orderedSectionKeys, showFoodMenusReview]);
+  }, [orderedSectionKeys]);
 
   // Reset decisions when the underlying state set changes.
   useEffect(() => {
@@ -272,7 +294,7 @@ export function DualSyncShell({
     setDecisions((prev) => {
       const updated = { ...prev };
       for (const field of fields) {
-        if (canApplyFieldAction(field, action)) {
+        if (fieldNeedsOperatorChoice(field) && canApplyFieldAction(field, action)) {
           updated[field.fieldKey] = { action };
         }
       }
@@ -506,310 +528,439 @@ export function DualSyncShell({
         result={publishResult}
         onOpenChange={setPublishResultOpen}
       />
-      <Card className={cn('space-y-4', className)}>
-        <CardHeader className="flex flex-col gap-3 pb-2 sm:gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <CardTitle className="text-base">Google Business Profile sync</CardTitle>
-            {totalOpen > 0 ? (
-              <Badge variant="secondary" className="font-mono text-xs">
-                {totalOpen} pending
-              </Badge>
-            ) : null}
-            <DualSyncFreshnessChip
-              timestamp={lastSnapshotAt}
-              prefix="Verified"
-              neverLabel="Never verified"
-            />
-            {overallHeatmap.total > 0 ? <DualSyncHeatmap counts={overallHeatmap} /> : null}
-            {syncPaused ? (
-              <Badge variant="destructive" className="text-xs">
-                Paused
-              </Badge>
-            ) : null}
-          </div>
-          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
-            <Button
-              variant={syncPaused ? 'default' : 'outline'}
-              size="sm"
-              onClick={onClickToggleControl}
-              disabled={controlMutation.isPending}
-            >
-              {syncPaused ? (
-                <PlayCircle data-icon="inline-start" />
-              ) : (
-                <PauseCircle data-icon="inline-start" />
-              )}
-              {controlMutation.isPending
-                ? 'Updating...'
-                : syncPaused
-                  ? 'Resume sync'
-                  : 'Pause sync'}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClickRefresh}
-              disabled={syncPaused || refreshMutation.isPending}
-            >
-              <RefreshCw
-                className={cn('mr-1 size-4', refreshMutation.isPending && 'animate-spin')}
+      <TooltipProvider delayDuration={250}>
+        <Card className={cn('space-y-4', className)}>
+          <CardHeader className="flex flex-col gap-3 pb-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <CardTitle className="text-base">Google Business Profile sync</CardTitle>
+                {totalOpen > 0 ? (
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {totalOpen} pending
+                  </Badge>
+                ) : null}
+                <DualSyncFreshnessChip
+                  timestamp={lastSnapshotAt}
+                  prefix="Verified"
+                  neverLabel="Never verified"
+                />
+                {overallHeatmap.total > 0 ? <DualSyncHeatmap counts={overallHeatmap} /> : null}
+                {syncPaused ? (
+                  <Badge variant="destructive" className="text-xs">
+                    Paused
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+                <DualSyncToolbarTip
+                  enabledHint={
+                    syncPaused
+                      ? 'Turn writes back on so you can refresh data, edit field actions, and publish.'
+                      : 'Stop refresh, publish, and field actions while you investigate. Your unsent draft choices are cleared when you pause.'
+                  }
+                  disabledHint="Updating pause state…"
+                  disabled={controlMutation.isPending}
+                >
+                  <Button
+                    variant={syncPaused ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={onClickToggleControl}
+                    disabled={controlMutation.isPending}
+                  >
+                    {syncPaused ? (
+                      <PlayCircle data-icon="inline-start" />
+                    ) : (
+                      <PauseCircle data-icon="inline-start" />
+                    )}
+                    {controlMutation.isPending
+                      ? 'Updating...'
+                      : syncPaused
+                        ? 'Resume sync'
+                        : 'Pause sync'}
+                  </Button>
+                </DualSyncToolbarTip>
+                <DualSyncToolbarTip
+                  enabledHint="Pull a fresh listing snapshot for the review workspace below. This does not apply draft actions or refresh only the connection card."
+                  disabledHint={
+                    syncPaused ? pauseReason : 'Already pulling the latest Google data…'
+                  }
+                  disabled={syncPaused || refreshMutation.isPending}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onClickRefresh}
+                    disabled={syncPaused || refreshMutation.isPending}
+                  >
+                    <RefreshCw
+                      className={cn('mr-1 size-4', refreshMutation.isPending && 'animate-spin')}
+                    />
+                    Pull from Google
+                  </Button>
+                </DualSyncToolbarTip>
+                <DualSyncToolbarTip
+                  enabledHint={`Push ${autoExportable} queued export operation${autoExportable === 1 ? '' : 's'} that are ready for Google. Use after Publish when work was queued.`}
+                  disabledHint={
+                    syncPaused
+                      ? pauseReason
+                      : autoExportMutation.isPending
+                        ? 'Auto-publish is running…'
+                        : 'Nothing is queued to push to Google yet.'
+                  }
+                  disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onClickAutoExport}
+                    disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
+                    aria-disabled={
+                      syncPaused || autoExportable === 0 || autoExportMutation.isPending
+                    }
+                  >
+                    <Zap
+                      className={cn('mr-1 size-4', autoExportMutation.isPending && 'animate-pulse')}
+                    />
+                    {autoExportMutation.isPending
+                      ? 'Running…'
+                      : `Auto-publish ${autoExportable > 0 ? `(${autoExportable})` : ''}`.trim()}
+                  </Button>
+                </DualSyncToolbarTip>
+                <DualSyncToolbarTip
+                  enabledHint="Preview your plan, then apply the Import / Export / Ignore choices you selected."
+                  disabledHint={
+                    publishMutation.isPending || previewPublishMutation.isPending
+                      ? 'Finish the running publish or preview first.'
+                      : syncPaused
+                        ? pauseReason
+                        : 'Choose Import from Google, Export to Google, or Ignore on at least one field.'
+                  }
+                  disabled={!canSubmit}
+                >
+                  <Button
+                    size="sm"
+                    onClick={onClickPublish}
+                    disabled={!canSubmit}
+                    aria-disabled={!canSubmit}
+                  >
+                    <Send className="mr-1 size-4" />
+                    {publishMutation.isPending
+                      ? 'Publishing…'
+                      : `Publish ${decisionCount > 0 ? `(${decisionCount})` : ''}`.trim()}
+                  </Button>
+                </DualSyncToolbarTip>
+              </div>
+            </div>
+            <div className="flex w-full flex-col gap-2 border-t border-border/60 pt-3">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <p className="text-muted-foreground max-w-3xl text-xs leading-relaxed">
+                  {workspaceProgress.needsReviewCount > 0 ? (
+                    <>
+                      <span className="text-foreground font-medium">Review queue: </span>
+                      {workspaceProgress.draftedForReviewCount} of{' '}
+                      {workspaceProgress.needsReviewCount} fields that differ from Google have a
+                      draft action. Finish choices in each section, then Publish.
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-foreground font-medium">Up to date: </span>
+                      No visible fields currently need a sync direction (drift, conflict, or
+                      failure).
+                    </>
+                  )}
+                </p>
+                <div className="text-muted-foreground flex shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[10px] tabular-nums">
+                  <span title="Share of visible fields whose snapshot matches Google">
+                    Match {Math.round(workspaceProgress.syncHealthPercent)}%
+                  </span>
+                  {workspaceProgress.needsReviewCount > 0 ? (
+                    <span title="Draft actions covering fields that still differ">
+                      · Draft {Math.round(workspaceProgress.draftCoveragePercent)}%
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <Progress
+                value={
+                  workspaceProgress.needsReviewCount > 0
+                    ? workspaceProgress.draftCoveragePercent
+                    : workspaceProgress.syncHealthPercent
+                }
+                className="h-2"
+                aria-label={
+                  workspaceProgress.needsReviewCount > 0
+                    ? 'Progress drafting decisions for fields that differ from Google'
+                    : 'Share of visible fields in sync with Google'
+                }
               />
-              Pull from Google
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClickAutoExport}
-              disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
-              aria-disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
-              title={
-                syncPaused
-                  ? pauseReason
-                  : autoExportable === 0
-                    ? 'No queued exports ready to auto-publish.'
-                    : `Auto-publish ${autoExportable} queued exports`
-              }
-            >
-              <Zap className={cn('mr-1 size-4', autoExportMutation.isPending && 'animate-pulse')} />
-              {autoExportMutation.isPending
-                ? 'Running…'
-                : `Auto-publish ${autoExportable > 0 ? `(${autoExportable})` : ''}`.trim()}
-            </Button>
-            <Button
-              size="sm"
-              onClick={onClickPublish}
-              disabled={!canSubmit}
-              aria-disabled={!canSubmit}
-            >
-              <Send className="mr-1 size-4" />
-              {publishMutation.isPending
-                ? 'Publishing…'
-                : `Publish ${decisionCount > 0 ? `(${decisionCount})` : ''}`.trim()}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {syncPaused ? (
-            <Alert>
-              <PauseCircle className="size-4" />
-              <AlertTitle>Dual-sync is paused.</AlertTitle>
-              <AlertDescription>
-                {pauseReason} Write-affecting actions are disabled until sync is resumed.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <Accordion {...accordionProps} className="space-y-3">
-            {showFoodMenusReview ? (
-              <AccordionItem value={FOOD_MENUS_REVIEW_VALUE} className="border-b">
-                <AccordionTrigger className="text-sm font-semibold">
-                  Review Google menu suggestions
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {syncPaused ? (
+              <Alert>
+                <PauseCircle className="size-4" />
+                <AlertTitle>Dual-sync is paused.</AlertTitle>
+                <AlertDescription>
+                  {pauseReason} Write-affecting actions are disabled until sync is resumed.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <Accordion {...accordionProps} className="space-y-3">
+              {orderedSectionKeys.map((sectionKey) => {
+                const fields = fieldsBySection.get(sectionKey) ?? [];
+                const bulkSummary = getSectionBulkSummary(fields, decisions);
+                const sectionProgress = computeSectionReviewProgress(fields, decisions);
+                const hasSectionReview = sectionProgress.needsReviewCount > 0;
+                return (
+                  <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
+                    <AccordionTrigger className="text-sm font-semibold">
+                      <div className="flex w-full flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="text-left">
+                          {SECTION_LABEL[sectionKey]} ({fields.length})
+                        </span>
+                        <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-56">
+                          <div className="text-muted-foreground flex items-center justify-between gap-2 font-mono text-[10px] font-normal tabular-nums">
+                            {hasSectionReview ? (
+                              <>
+                                <span>Draft progress</span>
+                                <span>
+                                  {sectionProgress.draftedForReviewCount}/
+                                  {sectionProgress.needsReviewCount}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span>No review needed</span>
+                                <span>0 pending</span>
+                              </>
+                            )}
+                          </div>
+                          <Progress
+                            value={hasSectionReview ? sectionProgress.draftCoveragePercent : 100}
+                            className="h-1.5"
+                            aria-label={
+                              hasSectionReview
+                                ? `Draft progress for ${SECTION_LABEL[sectionKey]}`
+                                : `${SECTION_LABEL[sectionKey]} has no fields needing review`
+                            }
+                          />
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-2 pt-2">
+                      {fields.length > 0 ? (
+                        <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-semibold uppercase tracking-wide">
+                              Bulk select
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              Apply one draft action to fields in this section that need an operator
+                              choice. In-sync rows are left unchanged.
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onBulkSelectSection(fields, 'import_from_google')}
+                              disabled={writeBlocked || bulkSummary.importable === 0}
+                              aria-disabled={writeBlocked || bulkSummary.importable === 0}
+                            >
+                              Import ({bulkSummary.importable})
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onBulkSelectSection(fields, 'export_to_google')}
+                              disabled={writeBlocked || bulkSummary.exportable === 0}
+                              aria-disabled={writeBlocked || bulkSummary.exportable === 0}
+                            >
+                              Export ({bulkSummary.exportable})
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onBulkSelectSection(fields, 'ignore')}
+                              disabled={writeBlocked || bulkSummary.ignorable === 0}
+                              aria-disabled={writeBlocked || bulkSummary.ignorable === 0}
+                            >
+                              Ignore ({bulkSummary.ignorable})
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onClearSection(fields)}
+                              disabled={writeBlocked || bulkSummary.selected === 0}
+                              aria-disabled={writeBlocked || bulkSummary.selected === 0}
+                            >
+                              Clear ({bulkSummary.selected})
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {fields.map((field) => (
+                        <DualSyncFieldRow
+                          key={field.fieldKey}
+                          field={field}
+                          selectedAction={decisions[field.fieldKey]?.action ?? null}
+                          onChangeAction={(next) => onSelectAction(field.fieldKey, next)}
+                          disabled={writeBlocked}
+                        />
+                      ))}
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+              <AccordionItem
+                key={METRICS_VALUE}
+                value={METRICS_VALUE}
+                className="border-b"
+                onClick={() => {
+                  if (!showOperationalHealth) setShowOperationalHealth(true);
+                }}
+              >
+                <AccordionTrigger
+                  className="text-sm font-semibold"
+                  onClick={() => setShowOperationalHealth(true)}
+                >
+                  Operational health
                 </AccordionTrigger>
                 <AccordionContent className="pt-2">
-                  <FoodMenusImportReviewPanel restaurantId={restaurantId} />
+                  {showOperationalHealth ? (
+                    <DualSyncOperationalHealthPanel metricsQuery={metricsQuery} />
+                  ) : (
+                    <div className="text-muted-foreground text-xs">
+                      Expand to load queue, quota, and publish failure health.
+                    </div>
+                  )}
                 </AccordionContent>
               </AccordionItem>
-            ) : null}
-            {orderedSectionKeys.map((sectionKey) => {
-              const fields = fieldsBySection.get(sectionKey) ?? [];
-              const sectionHeatmap = summarizeFieldsToHeatmap(fields);
-              const bulkSummary = getSectionBulkSummary(fields, decisions);
-              return (
-                <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
-                  <AccordionTrigger className="text-sm font-semibold">
-                    <div className="flex w-full flex-wrap items-center justify-between gap-2 pr-2">
-                      <span>
-                        {SECTION_LABEL[sectionKey]} ({fields.length})
+              <AccordionItem
+                key={PENDING_CANDIDATES_VALUE}
+                value={PENDING_CANDIDATES_VALUE}
+                className="border-b"
+                onClick={() => {
+                  if (!showPendingCandidates) setShowPendingCandidates(true);
+                }}
+              >
+                <AccordionTrigger
+                  className="text-sm font-semibold"
+                  onClick={() => setShowPendingCandidates(true)}
+                >
+                  Pending changes
+                </AccordionTrigger>
+                <AccordionContent className="pt-2">
+                  {showPendingCandidates ? (
+                    <DualSyncPendingCandidatesPanel
+                      candidatesQuery={candidatesQuery}
+                      cancelCandidateMutation={cancelCandidateMutation}
+                    />
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-3">
+                      <span className="text-xs text-muted-foreground">
+                        Load pending Core changes that can be cancelled before export.
                       </span>
-                      <DualSyncHeatmap counts={sectionHeatmap} showLabels={false} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPendingCandidates(true)}
+                      >
+                        Load pending changes
+                      </Button>
                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="space-y-2 pt-2">
-                    <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-semibold uppercase tracking-wide">Bulk select</p>
-                        <p className="text-muted-foreground text-xs">
-                          Apply one action to all eligible fields in this section before publishing.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onBulkSelectSection(fields, 'import_from_google')}
-                          disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.importable === 0
-                          }
-                          aria-disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.importable === 0
-                          }
-                        >
-                          Import all ({bulkSummary.importable})
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onBulkSelectSection(fields, 'export_to_google')}
-                          disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.exportable === 0
-                          }
-                          aria-disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.exportable === 0
-                          }
-                        >
-                          Export all ({bulkSummary.exportable})
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onBulkSelectSection(fields, 'ignore')}
-                          disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.ignorable === 0
-                          }
-                          aria-disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.ignorable === 0
-                          }
-                        >
-                          Ignore all ({bulkSummary.ignorable})
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onClearSection(fields)}
-                          disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.selected === 0
-                          }
-                          aria-disabled={
-                            syncPaused || publishMutation.isPending || bulkSummary.selected === 0
-                          }
-                        >
-                          Clear ({bulkSummary.selected})
-                        </Button>
-                      </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                key={QUEUE_JOBS_VALUE}
+                value={QUEUE_JOBS_VALUE}
+                className="border-b"
+                onClick={() => {
+                  if (!showQueueJobs) setShowQueueJobs(true);
+                }}
+              >
+                <AccordionTrigger
+                  className="text-sm font-semibold"
+                  onClick={() => setShowQueueJobs(true)}
+                >
+                  Queue recovery
+                </AccordionTrigger>
+                <AccordionContent className="pt-2">
+                  {showQueueJobs ? (
+                    <DualSyncQueueJobsPanel
+                      jobsQuery={jobsQuery}
+                      retryJobMutation={retryJobMutation}
+                    />
+                  ) : (
+                    <div className="text-muted-foreground text-xs">
+                      Expand to load durable queue jobs and retry terminal failures.
                     </div>
-                    {fields.map((field) => (
-                      <DualSyncFieldRow
-                        key={field.fieldKey}
-                        field={field}
-                        selectedAction={decisions[field.fieldKey]?.action ?? null}
-                        onChangeAction={(next) => onSelectAction(field.fieldKey, next)}
-                        disabled={syncPaused || publishMutation.isPending}
-                      />
-                    ))}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-            <AccordionItem
-              key={METRICS_VALUE}
-              value={METRICS_VALUE}
-              className="border-b"
-              onClick={() => {
-                if (!showOperationalHealth) setShowOperationalHealth(true);
-              }}
-            >
-              <AccordionTrigger
-                className="text-sm font-semibold"
-                onClick={() => setShowOperationalHealth(true)}
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                key={PUBLISHES_VALUE}
+                value={PUBLISHES_VALUE}
+                className="border-b"
+                onClick={() => {
+                  if (!showPublishJobs) setShowPublishJobs(true);
+                }}
               >
-                Operational health
-              </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                {showOperationalHealth ? (
-                  <DualSyncOperationalHealthPanel metricsQuery={metricsQuery} />
-                ) : (
-                  <div className="text-muted-foreground text-xs">
-                    Expand to load queue, quota, and publish failure health.
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem
-              key={QUEUE_JOBS_VALUE}
-              value={QUEUE_JOBS_VALUE}
-              className="border-b"
-              onClick={() => {
-                if (!showQueueJobs) setShowQueueJobs(true);
-              }}
-            >
-              <AccordionTrigger
-                className="text-sm font-semibold"
-                onClick={() => setShowQueueJobs(true)}
+                <AccordionTrigger
+                  className="text-sm font-semibold"
+                  onClick={() => setShowPublishJobs(true)}
+                >
+                  Recent publishes
+                </AccordionTrigger>
+                <AccordionContent className="pt-2">
+                  {showPublishJobs ? (
+                    <DualSyncPublishJobsPanel
+                      publishJobsQuery={publishJobsQuery}
+                      selectedJobId={selectedJobId}
+                      onSelectJob={setSelectedJobId}
+                      publishJobDetailQuery={publishJobDetailQuery}
+                    />
+                  ) : (
+                    <div className="text-muted-foreground text-xs">
+                      Expand to load recent publish jobs grouped by run.
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem
+                key={OPERATIONS_VALUE}
+                value={OPERATIONS_VALUE}
+                className="border-b"
+                onClick={() => {
+                  if (!showOperations) setShowOperations(true);
+                }}
               >
-                Queue recovery
-              </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                {showQueueJobs ? (
-                  <DualSyncQueueJobsPanel
-                    jobsQuery={jobsQuery}
-                    retryJobMutation={retryJobMutation}
-                  />
-                ) : (
-                  <div className="text-muted-foreground text-xs">
-                    Expand to load durable queue jobs and retry terminal failures.
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem
-              key={PUBLISHES_VALUE}
-              value={PUBLISHES_VALUE}
-              className="border-b"
-              onClick={() => {
-                if (!showPublishJobs) setShowPublishJobs(true);
-              }}
-            >
-              <AccordionTrigger
-                className="text-sm font-semibold"
-                onClick={() => setShowPublishJobs(true)}
-              >
-                Recent publishes
-              </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                {showPublishJobs ? (
-                  <DualSyncPublishJobsPanel
-                    publishJobsQuery={publishJobsQuery}
-                    selectedJobId={selectedJobId}
-                    onSelectJob={setSelectedJobId}
-                    publishJobDetailQuery={publishJobDetailQuery}
-                  />
-                ) : (
-                  <div className="text-muted-foreground text-xs">
-                    Expand to load recent publish jobs grouped by run.
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-            <AccordionItem
-              key={OPERATIONS_VALUE}
-              value={OPERATIONS_VALUE}
-              className="border-b"
-              onClick={() => {
-                if (!showOperations) setShowOperations(true);
-              }}
-            >
-              <AccordionTrigger
-                className="text-sm font-semibold"
-                onClick={() => setShowOperations(true)}
-              >
-                Recent operations
-              </AccordionTrigger>
-              <AccordionContent className="pt-2">
-                {showOperations ? (
-                  <DualSyncOperationsPanel operationsQuery={operationsQuery} />
-                ) : (
-                  <div className="text-muted-foreground text-xs">
-                    Expand to load recent publish operations.
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </CardContent>
-      </Card>
+                <AccordionTrigger
+                  className="text-sm font-semibold"
+                  onClick={() => setShowOperations(true)}
+                >
+                  Recent operations
+                </AccordionTrigger>
+                <AccordionContent className="pt-2">
+                  {showOperations ? (
+                    <DualSyncOperationsPanel operationsQuery={operationsQuery} />
+                  ) : (
+                    <div className="text-muted-foreground text-xs">
+                      Expand to load recent publish operations.
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </CardContent>
+        </Card>
+      </TooltipProvider>
     </>
   );
 }

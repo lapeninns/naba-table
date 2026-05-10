@@ -4,13 +4,10 @@ import {
   getDualSyncDecisionDisabledReason,
   getDualSyncRuntimeFlags,
   isDualSyncAutoCandidatesEnabled,
-  isDualSyncEnabled,
   isDualSyncScheduledRefreshEnabled,
 } from '@/server/dual-sync/flag';
 
 const FLAG_NAMES = [
-  'GBP_SYNC_ENABLED',
-  'NABATABLE_DUAL_SYNC_ENABLED',
   'GBP_IMPORT_ENABLED',
   'GBP_EXPORT_ENABLED',
   'GBP_AUTO_CANDIDATES_ENABLED',
@@ -36,16 +33,14 @@ afterEach(() => {
 });
 
 describe('dual-sync runtime flags', () => {
-  it('defaults rollout flags to enabled', () => {
+  it('defaults targeted rollback flags to enabled', () => {
     for (const name of FLAG_NAMES) {
       delete process.env[name];
     }
 
-    expect(isDualSyncEnabled()).toBe(true);
     expect(isDualSyncAutoCandidatesEnabled()).toBe(true);
     expect(isDualSyncScheduledRefreshEnabled()).toBe(true);
     expect(getDualSyncRuntimeFlags()).toMatchObject({
-      syncEnabled: true,
       importEnabled: true,
       exportEnabled: true,
       autoCandidatesEnabled: true,

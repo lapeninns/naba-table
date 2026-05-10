@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
-const isDualSyncEnabledMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getDualSyncRestaurantControlMock = vi.hoisted(() => vi.fn());
 const setDualSyncRestaurantPausedMock = vi.hoisted(() => vi.fn());
@@ -11,10 +10,6 @@ const setDualSyncRestaurantPausedMock = vi.hoisted(() => vi.fn());
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
   resolveRestaurantId: resolveRestaurantIdMock,
-}));
-
-vi.mock('@/server/dual-sync/flag', () => ({
-  isDualSyncEnabled: isDualSyncEnabledMock,
 }));
 
 vi.mock('@/server/supabase', () => ({
@@ -51,14 +46,12 @@ describe('dual-sync control route', () => {
   beforeEach(() => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
-    isDualSyncEnabledMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
     getDualSyncRestaurantControlMock.mockReset();
     setDualSyncRestaurantPausedMock.mockReset();
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    isDualSyncEnabledMock.mockReturnValue(true);
     getServiceSupabaseClientMock.mockReturnValue(serviceClient);
     getDualSyncRestaurantControlMock.mockResolvedValue(control());
     setDualSyncRestaurantPausedMock.mockResolvedValue(
@@ -128,21 +121,6 @@ describe('dual-sync control route', () => {
     expect(response.status).toBe(403);
     expect(getDualSyncRestaurantControlMock).not.toHaveBeenCalled();
     expect(setDualSyncRestaurantPausedMock).not.toHaveBeenCalled();
-  });
-
-  it('returns a clear unavailable response before access checks', async () => {
-    isDualSyncEnabledMock.mockReturnValue(false);
-
-    const response = await GET(
-      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/control'),
-      routeContext,
-    );
-
-    expect(response.status).toBe(404);
-    expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({
-      code: 'DUAL_SYNC_UNAVAILABLE',
-    });
   });
 
   it('rejects invalid control payloads', async () => {

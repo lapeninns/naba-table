@@ -6,7 +6,6 @@ import { useEffect, type ReactNode } from 'react';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { isDualSyncUiEnabled } from '@/lib/feature-flags/dual-sync';
 
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 
@@ -185,8 +184,7 @@ export function OpsRestaurantSettingsClient({
 
   const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
   const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
-  const dualSyncEnabled = isDualSyncUiEnabled();
-  const hasSyncWorkspace = Boolean(dualSyncEnabled && dualSyncSections && selectedRestaurantId);
+  const hasSyncWorkspace = Boolean(dualSyncSections && selectedRestaurantId);
 
   const renderByView: Record<
     RestaurantSettingsView,
@@ -211,7 +209,7 @@ export function OpsRestaurantSettingsClient({
   return (
     <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
-      {dualSyncEnabled && dualSyncSections && selectedRestaurantId ? (
+      {dualSyncSections && selectedRestaurantId ? (
         <div id="gbp-sync-review" className="scroll-mt-24">
           <DualSyncShell
             restaurantId={selectedRestaurantId}

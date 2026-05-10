@@ -25,10 +25,6 @@ const prefetchState = vi.hoisted(() => ({
   prefetchIfStale: vi.fn(({ queryFn }: { queryFn: () => unknown }) => queryFn()),
 }));
 
-const featureFlagState = vi.hoisted(() => ({
-  dualSyncEnabled: false,
-}));
-
 vi.mock('next/navigation', () => ({
   usePathname: () => navigationState.pathname,
 }));
@@ -50,10 +46,6 @@ vi.mock('next/dynamic', () => ({
       );
     };
   },
-}));
-
-vi.mock('@/lib/feature-flags/dual-sync', () => ({
-  isDualSyncUiEnabled: () => featureFlagState.dualSyncEnabled,
 }));
 
 vi.mock('@/lib/prefetchers', () => ({
@@ -197,7 +189,6 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
 
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
-  featureFlagState.dualSyncEnabled = false;
   prefetchState.prefetchIfStale.mockClear();
 });
 
@@ -250,8 +241,6 @@ describe('OpsRestaurantSettingsClient', () => {
   });
 
   it('passes sync workspace availability and anchors the real dual-sync boundary', () => {
-    featureFlagState.dualSyncEnabled = true;
-
     renderWithOpsSession(<OpsRestaurantSettingsClient view="google-business-profile" />);
 
     expect(screen.getByTestId('settings-view-google-business-profile')).toHaveAttribute(

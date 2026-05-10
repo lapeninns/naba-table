@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server';
 
-import { isDualSyncEnabled, isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/flag';
 import { runScheduledRefreshForAllTenants } from '@/server/dual-sync/scheduling';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -36,12 +36,6 @@ function isTruthyFlag(value: string | null): boolean {
 
 export async function GET(request: Request) {
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
-    if (!isDualSyncEnabled()) {
-      return NextResponse.json(
-        { error: 'Dual-sync is not enabled for this deployment.' },
-        { status: 404 },
-      );
-    }
     if (!isDualSyncScheduledRefreshEnabled()) {
       return NextResponse.json(
         { error: 'Dual-sync scheduled refresh is disabled for this deployment.' },

@@ -18,13 +18,11 @@ import {
 import {
   dualSyncErrorResponse,
   dualSyncPausedResponse,
-  dualSyncUnavailableResponse,
 } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import {
   assertDualSyncRestaurantNotPaused,
   isDualSyncRestaurantPausedError,
 } from '@/server/dual-sync/controls';
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { isDualSyncLockError } from '@/server/dual-sync/locks';
 import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
 import { refreshFromGoogle } from '@/server/dual-sync/refresh';
@@ -39,9 +37,6 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
-  }
-  if (!isDualSyncEnabled({ restaurantId })) {
-    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-refresh');
   if (access instanceof NextResponse) return access;

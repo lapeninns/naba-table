@@ -20,6 +20,7 @@ import type {
   DualSyncJobKind,
   DualSyncJobStatus,
   DualSyncPublishBatchStatus,
+  DualSyncGoogleRequestLogPhase,
   DualSyncPublishOperationStatus,
   DualSyncPublishOperationGroupStatus,
   DualSyncLockJobKind,
@@ -154,6 +155,8 @@ export interface DualSyncPublishBatchRow {
   pinned_gbp_snapshot_hash: string | null;
   core_snapshot_hash: string | null;
   gbp_snapshot_hash: string | null;
+  field_policy_version_id: string | null;
+  field_policy_hash: string | null;
   accepted_count: number;
   rejected_count: number;
   ignored_count: number;
@@ -215,6 +218,55 @@ export interface DualSyncGoogleEditReservationRow {
   write_group: string;
   reserved_at: string;
   window_ms: number;
+  created_at: string;
+}
+
+export interface DualSyncGoogleRequestLogRow {
+  id: string;
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  publish_batch_id: string | null;
+  operation_group_id: string | null;
+  publish_operation_id: string | null;
+  publish_job_id: string | null;
+  section_key: string | null;
+  field_key: string | null;
+  direction: 'import_from_google' | 'export_to_google' | null;
+  write_group: string | null;
+  phase: DualSyncGoogleRequestLogPhase;
+  status: string | null;
+  google_method: string | null;
+  google_update_masks: string[];
+  request_summary: Json;
+  response_summary: Json | null;
+  error_code: string | null;
+  error_message: string | null;
+  retention_expires_at: string;
+  created_at: string;
+}
+
+export interface DualSyncGoogleRequestLogArchiveRow {
+  id: string;
+  original_request_log_id: string;
+  restaurant_id: string;
+  provider: 'google_business_profile';
+  retention_expires_at: string;
+  original_created_at: string;
+  archived_payload: Json;
+  archived_at: string;
+}
+
+export interface DualSyncFieldPolicyVersionRow {
+  id: string;
+  restaurant_id: string | null;
+  provider: 'google_business_profile';
+  version_label: string;
+  policy_hash: string;
+  policy_snapshot: Json;
+  field_count: number;
+  active: boolean;
+  created_by_user_id: string | null;
+  activated_at: string | null;
   created_at: string;
 }
 
@@ -299,6 +351,37 @@ type DualSyncDatabase = {
         Insert: Partial<DualSyncGoogleEditReservationRow> &
           Pick<DualSyncGoogleEditReservationRow, 'restaurant_id' | 'write_group'>;
         Update: Partial<DualSyncGoogleEditReservationRow>;
+        Relationships: [];
+      };
+      dual_sync_google_request_logs: {
+        Row: DualSyncGoogleRequestLogRow;
+        Insert: Partial<DualSyncGoogleRequestLogRow> &
+          Pick<DualSyncGoogleRequestLogRow, 'restaurant_id' | 'phase'>;
+        Update: Partial<DualSyncGoogleRequestLogRow>;
+        Relationships: [];
+      };
+      dual_sync_google_request_log_archives: {
+        Row: DualSyncGoogleRequestLogArchiveRow;
+        Insert: Partial<DualSyncGoogleRequestLogArchiveRow> &
+          Pick<
+            DualSyncGoogleRequestLogArchiveRow,
+            | 'original_request_log_id'
+            | 'restaurant_id'
+            | 'retention_expires_at'
+            | 'original_created_at'
+            | 'archived_payload'
+          >;
+        Update: Partial<DualSyncGoogleRequestLogArchiveRow>;
+        Relationships: [];
+      };
+      dual_sync_field_policy_versions: {
+        Row: DualSyncFieldPolicyVersionRow;
+        Insert: Partial<DualSyncFieldPolicyVersionRow> &
+          Pick<
+            DualSyncFieldPolicyVersionRow,
+            'version_label' | 'policy_hash' | 'policy_snapshot' | 'field_count'
+          >;
+        Update: Partial<DualSyncFieldPolicyVersionRow>;
         Relationships: [];
       };
     };

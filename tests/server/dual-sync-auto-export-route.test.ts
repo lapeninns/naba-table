@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
-const isDualSyncEnabledMock = vi.hoisted(() => vi.fn());
 const isDualSyncAutoCandidatesEnabledMock = vi.hoisted(() => vi.fn());
 const enqueueDualSyncJobMock = vi.hoisted(() => vi.fn());
 const runAutoExportForRestaurantMock = vi.hoisted(() => vi.fn());
@@ -17,7 +16,6 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
 }));
 
 vi.mock('@/server/dual-sync/flag', () => ({
-  isDualSyncEnabled: isDualSyncEnabledMock,
   isDualSyncAutoCandidatesEnabled: isDualSyncAutoCandidatesEnabledMock,
 }));
 
@@ -47,7 +45,6 @@ describe('dual-sync auto-export route', () => {
   beforeEach(() => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
-    isDualSyncEnabledMock.mockReset();
     isDualSyncAutoCandidatesEnabledMock.mockReset();
     enqueueDualSyncJobMock.mockReset();
     runAutoExportForRestaurantMock.mockReset();
@@ -57,7 +54,6 @@ describe('dual-sync auto-export route', () => {
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    isDualSyncEnabledMock.mockReturnValue(true);
     isDualSyncAutoCandidatesEnabledMock.mockReturnValue(true);
     getServiceSupabaseClientMock.mockReturnValue(serviceClient);
     assertDualSyncRestaurantNotPausedMock.mockResolvedValue(undefined);

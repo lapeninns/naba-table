@@ -3,17 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
-const isDualSyncEnabledMock = vi.hoisted(() => vi.fn());
 const listRecentDualSyncJobsMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
   resolveRestaurantId: resolveRestaurantIdMock,
-}));
-
-vi.mock('@/server/dual-sync/flag', () => ({
-  isDualSyncEnabled: isDualSyncEnabledMock,
 }));
 
 vi.mock('@/server/dual-sync/queue', () => ({
@@ -33,13 +28,11 @@ describe('dual-sync queue jobs route', () => {
   beforeEach(() => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
-    isDualSyncEnabledMock.mockReset();
     listRecentDualSyncJobsMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    isDualSyncEnabledMock.mockReturnValue(true);
     getServiceSupabaseClientMock.mockReturnValue(serviceClient);
     listRecentDualSyncJobsMock.mockResolvedValue([
       {

@@ -3,17 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
-const isDualSyncEnabledMock = vi.hoisted(() => vi.fn());
 const buildPublishPlanMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
   resolveRestaurantId: resolveRestaurantIdMock,
-}));
-
-vi.mock('@/server/dual-sync/flag', () => ({
-  isDualSyncEnabled: isDualSyncEnabledMock,
 }));
 
 vi.mock('@/server/dual-sync/publish/planner', () => ({
@@ -32,13 +27,11 @@ describe('dual-sync publish preview route', () => {
   beforeEach(() => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
-    isDualSyncEnabledMock.mockReset();
     buildPublishPlanMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    isDualSyncEnabledMock.mockReturnValue(true);
     getServiceSupabaseClientMock.mockReturnValue(serviceClient);
     buildPublishPlanMock.mockResolvedValue({
       restaurantId: 'rest-1',
@@ -94,27 +87,6 @@ describe('dual-sync publish preview route', () => {
         },
       ],
     });
-  });
-
-  it('returns a clear unavailable response before access checks', async () => {
-    isDualSyncEnabledMock.mockReturnValue(false);
-
-    const response = await POST(
-      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish/preview', {
-        method: 'POST',
-        body: JSON.stringify({ decisions: [] }),
-      }),
-      { params: Promise.resolve({ id: 'rest-1' }) },
-    );
-
-    expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toMatchObject({
-      message: 'Dual-sync is not enabled for this deployment.',
-      error: 'Dual-sync is not enabled for this deployment.',
-      code: 'DUAL_SYNC_UNAVAILABLE',
-    });
-    expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
-    expect(buildPublishPlanMock).not.toHaveBeenCalled();
   });
 
   it('preserves restaurant access checks before parsing or planning', async () => {

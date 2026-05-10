@@ -13,11 +13,7 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
-import {
-  dualSyncErrorResponse,
-  dualSyncUnavailableResponse,
-} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { loadDualSyncOperationalMetrics } from '@/server/dual-sync/observability';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -35,9 +31,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
-  }
-  if (!isDualSyncEnabled({ restaurantId })) {
-    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-metrics');
   if (access instanceof NextResponse) return access;

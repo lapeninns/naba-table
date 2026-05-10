@@ -55,6 +55,16 @@ export {
 };
 
 export { buildFieldPolicy, withFieldPolicy, type DualSyncFieldConfigInput } from './policy';
+export {
+  buildFieldPolicyVersionSnapshot,
+  ensureActiveFieldPolicyVersion,
+  recordFieldPolicyVersion,
+  type BuildFieldPolicyVersionSnapshotResult,
+  type DualSyncFieldPolicySnapshot,
+  type DualSyncFieldPolicySnapshotEntry,
+  type EnsureActiveFieldPolicyVersionInput,
+  type RecordFieldPolicyVersionInput,
+} from './field-policy-versions';
 
 export interface DualSyncCanonicalSnapshotShape {
   readonly profile: unknown;

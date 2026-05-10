@@ -8,6 +8,8 @@ const findPublishBatchByClientRequestMock = vi.hoisted(() => vi.fn());
 const updatePublishBatchStatusMock = vi.hoisted(() => vi.fn());
 const createOperationGroupsForPlanMock = vi.hoisted(() => vi.fn());
 const updateOperationGroupStatusMock = vi.hoisted(() => vi.fn());
+const createGoogleRequestLogMock = vi.hoisted(() => vi.fn());
+const ensureActiveFieldPolicyVersionMock = vi.hoisted(() => vi.fn());
 
 const recomputeAllStatesMock = vi.hoisted(() => vi.fn());
 const markInSyncMock = vi.hoisted(() => vi.fn());
@@ -44,6 +46,14 @@ vi.mock('@/server/dual-sync/publish/operations', () => ({
   updatePublishBatchStatus: updatePublishBatchStatusMock,
   createOperationGroupsForPlan: createOperationGroupsForPlanMock,
   updateOperationGroupStatus: updateOperationGroupStatusMock,
+}));
+
+vi.mock('@/server/dual-sync/publish/google-request-logs', () => ({
+  createGoogleRequestLog: createGoogleRequestLogMock,
+}));
+
+vi.mock('@/server/dual-sync/registry/field-policy-versions', () => ({
+  ensureActiveFieldPolicyVersion: ensureActiveFieldPolicyVersionMock,
 }));
 
 vi.mock('@/server/dual-sync/state/recompute', () => ({
@@ -170,6 +180,8 @@ describe('dual-sync runPublish', () => {
     updatePublishBatchStatusMock.mockReset();
     createOperationGroupsForPlanMock.mockReset();
     updateOperationGroupStatusMock.mockReset();
+    createGoogleRequestLogMock.mockReset();
+    ensureActiveFieldPolicyVersionMock.mockReset();
     recomputeAllStatesMock.mockReset();
     markInSyncMock.mockReset();
     markFailedMock.mockReset();
@@ -225,6 +237,8 @@ describe('dual-sync runPublish', () => {
       pinnedGbpSnapshotHash: null,
       coreSnapshotHash: null,
       gbpSnapshotHash: null,
+      fieldPolicyVersionId: 'policy-version-1',
+      fieldPolicyHash: 'policy-hash-1',
       acceptedCount: 0,
       rejectedCount: 0,
       ignoredCount: 0,
@@ -242,6 +256,20 @@ describe('dual-sync runPublish', () => {
     });
     createOperationGroupsForPlanMock.mockResolvedValue([]);
     updateOperationGroupStatusMock.mockResolvedValue(null);
+    createGoogleRequestLogMock.mockResolvedValue(null);
+    ensureActiveFieldPolicyVersionMock.mockResolvedValue({
+      id: 'policy-version-1',
+      restaurantId: RESTAURANT_ID,
+      provider: 'google_business_profile',
+      versionLabel: 'registry-policy',
+      policyHash: 'policy-hash-1',
+      policySnapshot: { fieldCount: 1 },
+      fieldCount: 1,
+      active: true,
+      createdByUserId: 'user-1',
+      activatedAt: '2026-05-10T00:00:00.000Z',
+      createdAt: '2026-05-10T00:00:00.000Z',
+    });
     recomputeAllStatesMock.mockResolvedValue({
       evaluatedFieldKeys: [],
       transitions: [],
@@ -350,7 +378,14 @@ describe('dual-sync runPublish', () => {
     const decisions = [makeDecision()];
     const decisionHash = hashCanonicalJson({
       restaurantId: RESTAURANT_ID,
-      decisions,
+      fieldPolicyHash: 'policy-hash-1',
+      decisions: decisions.map((decision) => ({
+        fieldKey: decision.fieldKey,
+        sectionKey: decision.sectionKey,
+        action: decision.action,
+        pinnedCoreHash: decision.pinnedCoreHash,
+        pinnedGbpHash: decision.pinnedGbpHash,
+      })),
       pinnedCoreSnapshotHash: null,
       pinnedGbpSnapshotHash: null,
     });
@@ -440,6 +475,8 @@ describe('dual-sync runPublish', () => {
       expect.objectContaining({
         restaurantId: RESTAURANT_ID,
         actorUserId: 'user-1',
+        fieldPolicyVersionId: 'policy-version-1',
+        fieldPolicyHash: 'policy-hash-1',
         acceptedCount: 1,
         rejectedCount: 0,
       }),
@@ -611,6 +648,26 @@ describe('dual-sync runPublish', () => {
         errorCode: 'GOOGLE_VALIDATION_FAILED',
       }),
     );
+    expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        publishBatchId: 'job-1',
+        operationGroupId: 'group-hours',
+        sectionKey: 'operatingHours',
+        direction: 'export_to_google',
+        writeGroup: 'location.regularHours',
+        phase: 'preflight',
+        status: 'failed',
+        googleMethod: 'location.regularHours',
+        googleUpdateMasks: ['regularHours'],
+        requestSummary: expect.objectContaining({
+          groupId: 'export_to_google:operatingHours:location.regularHours',
+          fieldKeys: ['operatingHours.weekly.1'],
+        }),
+        responseSummary: { validateOnly: false },
+        errorCode: 'GOOGLE_VALIDATION_FAILED',
+      }),
+    );
     expect(result.summary.failures).toEqual([
       expect.objectContaining({
         fieldKey: 'operatingHours.weekly.1',
@@ -744,6 +801,21 @@ describe('dual-sync runPublish', () => {
 
     expect(ports.applyExportToGoogle).toHaveBeenCalledTimes(1);
     expect(ports.applyImportToCore).not.toHaveBeenCalled();
+    expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        publishBatchId: 'job-1',
+        publishOperationId: 'op-1',
+        publishJobId: expect.any(String),
+        sectionKey: 'profile',
+        fieldKey: 'profile.businessDescription',
+        direction: 'export_to_google',
+        writeGroup: 'location.profile',
+        phase: 'provider_write',
+        status: 'succeeded',
+        googleUpdateMasks: ['profile'],
+      }),
+    );
   });
 
   it('marks ignored decisions without creating an operation', async () => {

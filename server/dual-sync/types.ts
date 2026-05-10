@@ -242,6 +242,12 @@ export type DualSyncPublishOperationGroupStatus =
   | 'skipped'
   | 'retrying';
 
+export type DualSyncGoogleRequestLogPhase =
+  | 'preflight'
+  | 'provider_write'
+  | 'provider_error'
+  | 'provider_summary';
+
 export interface DualSyncPublishBatch {
   readonly id: string;
   readonly restaurantId: string;
@@ -254,6 +260,8 @@ export interface DualSyncPublishBatch {
   readonly pinnedGbpSnapshotHash: string | null;
   readonly coreSnapshotHash: string | null;
   readonly gbpSnapshotHash: string | null;
+  readonly fieldPolicyVersionId: string | null;
+  readonly fieldPolicyHash: string | null;
   readonly acceptedCount: number;
   readonly rejectedCount: number;
   readonly ignoredCount: number;
@@ -316,6 +324,44 @@ export interface DualSyncPublishOperation {
   readonly finishedAt: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface DualSyncGoogleRequestLog {
+  readonly id: string;
+  readonly restaurantId: string;
+  readonly provider: DualSyncProvider;
+  readonly publishBatchId: string | null;
+  readonly operationGroupId: string | null;
+  readonly publishOperationId: string | null;
+  readonly publishJobId: string | null;
+  readonly sectionKey: DualSyncSectionKey | null;
+  readonly fieldKey: string | null;
+  readonly direction: 'import_from_google' | 'export_to_google' | null;
+  readonly writeGroup: string | null;
+  readonly phase: DualSyncGoogleRequestLogPhase;
+  readonly status: string | null;
+  readonly googleMethod: string | null;
+  readonly googleUpdateMasks: ReadonlyArray<DualSyncGoogleUpdateMask>;
+  readonly requestSummary: unknown;
+  readonly responseSummary: unknown;
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly retentionExpiresAt: string;
+  readonly createdAt: string;
+}
+
+export interface DualSyncFieldPolicyVersion {
+  readonly id: string;
+  readonly restaurantId: string | null;
+  readonly provider: DualSyncProvider;
+  readonly versionLabel: string;
+  readonly policyHash: string;
+  readonly policySnapshot: unknown;
+  readonly fieldCount: number;
+  readonly active: boolean;
+  readonly createdByUserId: string | null;
+  readonly activatedAt: string | null;
+  readonly createdAt: string;
 }
 
 // ---------------------------------------------------------------------------

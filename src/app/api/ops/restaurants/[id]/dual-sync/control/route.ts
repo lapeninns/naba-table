@@ -13,15 +13,11 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
-import {
-  dualSyncErrorResponse,
-  dualSyncUnavailableResponse,
-} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import {
   getDualSyncRestaurantControl,
   setDualSyncRestaurantPaused,
 } from '@/server/dual-sync/controls';
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -37,9 +33,6 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
-  }
-  if (!isDualSyncEnabled({ restaurantId })) {
-    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-control');
   if (access instanceof NextResponse) return access;
@@ -60,9 +53,6 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
-  }
-  if (!isDualSyncEnabled({ restaurantId })) {
-    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-control');
   if (access instanceof NextResponse) return access;

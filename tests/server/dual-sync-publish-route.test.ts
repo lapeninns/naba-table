@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
-const isDualSyncEnabledMock = vi.hoisted(() => vi.fn());
 const runPublishMock = vi.hoisted(() => vi.fn());
 const defaultDualSyncPortsMock = vi.hoisted(() => vi.fn());
 const enqueueDualSyncJobMock = vi.hoisted(() => vi.fn());
@@ -14,10 +13,6 @@ const isDualSyncRestaurantPausedErrorMock = vi.hoisted(() => vi.fn());
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
   resolveRestaurantId: resolveRestaurantIdMock,
-}));
-
-vi.mock('@/server/dual-sync/flag', () => ({
-  isDualSyncEnabled: isDualSyncEnabledMock,
 }));
 
 vi.mock('@/server/dual-sync/publish/orchestrator', () => ({
@@ -54,7 +49,6 @@ describe('dual-sync publish route', () => {
   beforeEach(() => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
-    isDualSyncEnabledMock.mockReset();
     runPublishMock.mockReset();
     defaultDualSyncPortsMock.mockReset();
     enqueueDualSyncJobMock.mockReset();
@@ -64,7 +58,6 @@ describe('dual-sync publish route', () => {
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    isDualSyncEnabledMock.mockReturnValue(true);
     getServiceSupabaseClientMock.mockReturnValue(serviceClient);
     assertDualSyncRestaurantNotPausedMock.mockResolvedValue(undefined);
     isDualSyncRestaurantPausedErrorMock.mockReturnValue(false);
@@ -243,27 +236,6 @@ describe('dual-sync publish route', () => {
       code: 'DUAL_SYNC_RESTAURANT_PAUSED',
       message: 'Maintenance window.',
     });
-  });
-
-  it('returns a clear unavailable response when dual-sync is disabled', async () => {
-    isDualSyncEnabledMock.mockReturnValue(false);
-
-    const response = await POST(
-      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish', {
-        method: 'POST',
-        body: JSON.stringify({ decisions: [] }),
-      }),
-      { params: Promise.resolve({ id: 'rest-1' }) },
-    );
-
-    expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toMatchObject({
-      message: 'Dual-sync is not enabled for this deployment.',
-      error: 'Dual-sync is not enabled for this deployment.',
-      code: 'DUAL_SYNC_UNAVAILABLE',
-    });
-    expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
-    expect(runPublishMock).not.toHaveBeenCalled();
   });
 
   it('preserves restaurant access checks before parsing or publishing', async () => {

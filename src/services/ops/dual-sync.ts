@@ -14,7 +14,9 @@ import type {
   DualSyncFieldState,
   DualSyncJob,
   DualSyncJobStatus,
+  DualSyncOutboundCandidate,
   DualSyncOutboundSource,
+  DualSyncOutboundStatus,
   DualSyncRestaurantControl,
   FoodMenusRefreshResult,
   DualSyncPublishOperation,
@@ -280,6 +282,35 @@ export async function listDualSyncJobs(
   );
 }
 
+export interface ListDualSyncCandidatesRequest {
+  readonly limit?: number;
+  readonly statuses?: ReadonlyArray<DualSyncOutboundStatus>;
+}
+
+export interface ListDualSyncCandidatesResponse {
+  readonly restaurantId: string;
+  readonly candidates: ReadonlyArray<DualSyncOutboundCandidate>;
+}
+
+function buildCandidatesQuery(request: ListDualSyncCandidatesRequest): string {
+  const search = new URLSearchParams();
+  if (request.limit !== undefined) search.set('limit', String(request.limit));
+  if (request.statuses && request.statuses.length > 0) {
+    search.set('status', request.statuses.join(','));
+  }
+  const qs = search.toString();
+  return qs.length > 0 ? `?${qs}` : '';
+}
+
+export async function listDualSyncCandidates(
+  restaurantId: string,
+  request: ListDualSyncCandidatesRequest = {},
+): Promise<ListDualSyncCandidatesResponse> {
+  return fetchJson<ListDualSyncCandidatesResponse>(
+    `${baseUrl(restaurantId)}/candidates${buildCandidatesQuery(request)}`,
+  );
+}
+
 export interface GetDualSyncMetricsRequest {
   readonly windowHours?: number;
   readonly limit?: number;
@@ -315,6 +346,25 @@ export async function retryDualSyncJob(
 ): Promise<RetryDualSyncJobResponse> {
   return fetchJson<RetryDualSyncJobResponse>(
     `${baseUrl(restaurantId)}/jobs/${encodeURIComponent(jobId)}/retry`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+export interface CancelDualSyncCandidateResponse {
+  readonly restaurantId: string;
+  readonly candidate: DualSyncOutboundCandidate;
+}
+
+export async function cancelDualSyncCandidate(
+  restaurantId: string,
+  candidateId: string,
+): Promise<CancelDualSyncCandidateResponse> {
+  return fetchJson<CancelDualSyncCandidateResponse>(
+    `${baseUrl(restaurantId)}/candidates/${encodeURIComponent(candidateId)}/cancel`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

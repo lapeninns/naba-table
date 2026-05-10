@@ -5,6 +5,7 @@ import {
   createPublishBatch,
   findPublishBatchByClientRequest,
   updateOperationGroupStatus,
+  updateOperationStatus,
   updatePublishBatchStatus,
 } from '@/server/dual-sync/publish/operations';
 
@@ -51,6 +52,8 @@ function makeBatchRow(over: Record<string, unknown> = {}) {
     pinned_gbp_snapshot_hash: 'gbp-pin',
     core_snapshot_hash: 'core-current',
     gbp_snapshot_hash: 'gbp-current',
+    field_policy_version_id: 'policy-version-1',
+    field_policy_hash: 'policy-hash-1',
     accepted_count: 2,
     rejected_count: 1,
     ignored_count: 0,
@@ -95,6 +98,34 @@ function makeGroupRow(over: Record<string, unknown> = {}) {
   };
 }
 
+function makeOperationRow(over: Record<string, unknown> = {}) {
+  return {
+    id: 'operation-1',
+    restaurant_id: 'rest-1',
+    publish_job_id: 'job-1',
+    publish_batch_id: 'batch-1',
+    operation_group_id: 'group-1',
+    section_key: 'profile',
+    field_key: 'profile.name',
+    direction: 'export_to_google',
+    status: 'pending',
+    attempt_count: 0,
+    before_core_hash: 'core-before',
+    before_gbp_hash: 'gbp-before',
+    after_core_hash: null,
+    after_gbp_hash: null,
+    google_update_mask: ['profile'],
+    error_code: null,
+    error_message: null,
+    external_response: null,
+    started_at: null,
+    finished_at: null,
+    created_at: '2026-05-09T00:00:00.000Z',
+    updated_at: '2026-05-09T00:00:00.000Z',
+    ...over,
+  };
+}
+
 function clientFor(chain: MockChain) {
   return { from: vi.fn(() => chain) } as unknown as SupabaseClient<Database>;
 }
@@ -114,6 +145,8 @@ describe('dual-sync publish batch helpers', () => {
       pinnedGbpSnapshotHash: 'gbp-pin',
       coreSnapshotHash: 'core-current',
       gbpSnapshotHash: 'gbp-current',
+      fieldPolicyVersionId: 'policy-version-1',
+      fieldPolicyHash: 'policy-hash-1',
       acceptedCount: 2,
       rejectedCount: 1,
       ignoredCount: 0,
@@ -126,12 +159,16 @@ describe('dual-sync publish batch helpers', () => {
         restaurant_id: 'rest-1',
         client_request_id: 'request-1',
         decision_hash: 'decision-hash',
+        field_policy_version_id: 'policy-version-1',
+        field_policy_hash: 'policy-hash-1',
         accepted_count: 2,
         rejected_count: 1,
       }),
     );
     expect(batch.id).toBe('batch-1');
     expect(batch.decisionHash).toBe('decision-hash');
+    expect(batch.fieldPolicyVersionId).toBe('policy-version-1');
+    expect(batch.fieldPolicyHash).toBe('policy-hash-1');
   });
 
   it('finds an existing batch by client request id', async () => {
@@ -220,5 +257,109 @@ describe('dual-sync publish batch helpers', () => {
         error_message: 'Google rejected the payload',
       }),
     );
+  });
+
+  it('redacts sensitive Google audit payloads before updating group summaries', async () => {
+    const groupChain = makeChain(makeGroupRow({ status: 'failed' }));
+    const groupClient = clientFor(groupChain);
+
+    await updateOperationGroupStatus({
+      client: groupClient,
+      operationGroupId: 'group-1',
+      status: 'failed',
+      preflightStatus: 'failed',
+      preflightResult: {
+        status: 400,
+        authorization: 'Bearer preflight-secret',
+      },
+      requestSummary: {
+        fieldKey: 'profile.name',
+        updateMask: ['profile'],
+        headers: {
+          cookie: 'session=raw-cookie',
+          'x-goog-api-key': 'google-api-key',
+        },
+      },
+      responseSummary: {
+        message: 'Rejected refresh_token=response-token',
+        nested: {
+          access_token: 'nested-token',
+        },
+      },
+    });
+
+    const patch = groupChain.update.mock.calls[0]?.[0];
+    expect(JSON.stringify(patch)).not.toContain('preflight-secret');
+    expect(JSON.stringify(patch)).not.toContain('raw-cookie');
+    expect(JSON.stringify(patch)).not.toContain('google-api-key');
+    expect(JSON.stringify(patch)).not.toContain('response-token');
+    expect(JSON.stringify(patch)).not.toContain('nested-token');
+    expect(patch).toMatchObject({
+      status: 'failed',
+      preflight_status: 'failed',
+      preflight_result: {
+        status: 400,
+        authorization: '[redacted]',
+      },
+      request_summary: {
+        fieldKey: 'profile.name',
+        updateMask: ['profile'],
+        headers: {
+          cookie: '[redacted]',
+          'x-goog-api-key': '[redacted]',
+        },
+      },
+      response_summary: {
+        message: 'Rejected refresh_token=[redacted]',
+        nested: {
+          access_token: '[redacted]',
+        },
+      },
+    });
+  });
+
+  it('redacts sensitive Google audit payloads before updating operation responses', async () => {
+    const operationChain = makeChain(makeOperationRow({ status: 'failed' }));
+    const operationClient = clientFor(operationChain);
+
+    await updateOperationStatus({
+      client: operationClient,
+      operationId: 'operation-1',
+      status: 'failed',
+      externalResponse: {
+        status: 403,
+        url: 'https://google.example/location?access_token=query-token',
+        headers: {
+          authorization: 'Bearer response-token',
+          'set-cookie': 'gbp-session=cookie-secret',
+        },
+        body: {
+          apiKey: 'response-api-key',
+          error: 'invalid secret=body-secret',
+        },
+      },
+    });
+
+    const patch = operationChain.update.mock.calls[0]?.[0];
+    expect(JSON.stringify(patch)).not.toContain('query-token');
+    expect(JSON.stringify(patch)).not.toContain('response-token');
+    expect(JSON.stringify(patch)).not.toContain('cookie-secret');
+    expect(JSON.stringify(patch)).not.toContain('response-api-key');
+    expect(JSON.stringify(patch)).not.toContain('body-secret');
+    expect(patch).toMatchObject({
+      status: 'failed',
+      external_response: {
+        status: 403,
+        url: 'https://google.example/location?access_token=[redacted]',
+        headers: {
+          authorization: '[redacted]',
+          'set-cookie': '[redacted]',
+        },
+        body: {
+          apiKey: '[redacted]',
+          error: 'invalid secret=[redacted]',
+        },
+      },
+    });
   });
 });

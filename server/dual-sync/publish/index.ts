@@ -76,3 +76,9 @@ export {
   mapGoogleProviderErrorToPublishFailure,
   sanitizeGoogleProviderErrorMessage,
 } from './google-errors';
+export {
+  pruneExpiredGoogleRequestLogs,
+  type PruneExpiredGoogleRequestLogsInput,
+  type PruneExpiredGoogleRequestLogsResult,
+} from './google-request-log-retention';
+export { createGoogleRequestLog, type CreateGoogleRequestLogInput } from './google-request-logs';

@@ -32,6 +32,7 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 import { assertDualSyncRestaurantNotPaused } from '../controls';
 import { hashCanonicalJson } from '../hashing';
 import { runWithDualSyncLock, type DualSyncLockManager } from '../locks';
+import { createGoogleRequestLog } from '../publish/google-request-logs';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
 import { commitSnapshotRun, failSnapshotRun, openSnapshotRun } from '../snapshots/runs';
@@ -313,6 +314,27 @@ async function refreshFromGoogleUnlocked({
       lastSnapshotRunId: committed.id,
     });
 
+    if (!skipPull) {
+      await createGoogleRequestLog({
+        client,
+        restaurantId,
+        publishJobId: committed.id,
+        phase: 'provider_summary',
+        status: 'succeeded',
+        googleMethod: 'google_refresh',
+        requestSummary: {
+          runKind,
+          snapshotRunId: committed.id,
+        },
+        responseSummary: {
+          snapshotHash,
+          foodMenusRefresh,
+          evaluatedFieldCount: recompute.evaluatedFieldKeys.length,
+          transitionCount: recompute.transitions.length,
+        },
+      });
+    }
+
     return {
       snapshotRun: committed,
       coreSnapshot,
@@ -329,6 +351,23 @@ async function refreshFromGoogleUnlocked({
       errorCode: code,
       errorMessage: message,
     });
+    if (!skipPull) {
+      await createGoogleRequestLog({
+        client,
+        restaurantId,
+        publishJobId: snapshotRun.id,
+        phase: 'provider_error',
+        status: 'failed',
+        googleMethod: 'google_refresh',
+        requestSummary: {
+          runKind,
+          snapshotRunId: snapshotRun.id,
+        },
+        responseSummary: null,
+        errorCode: code,
+        errorMessage: message,
+      });
+    }
     throw error;
   }
 }

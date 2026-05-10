@@ -14,18 +14,18 @@ section below for the historical pointer.
 
 ## Code map
 
-| Concern            | Location                                                                                                                                                                                                                                                                                            |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema (canonical) | `supabase/migrations/20260429210000_add_unified_dual_sync_domain.sql`, `supabase/migrations/20260509173500_add_dual_sync_restaurant_controls.sql`                                                                                                                                                   |
-| Schema (drop V2)   | `supabase/migrations/20260430120000_drop_gbp_sync_v2.sql`                                                                                                                                                                                                                                           |
-| Server core        | `server/dual-sync/`                                                                                                                                                                                                                                                                                 |
-| API routes         | `src/app/api/ops/restaurants/[id]/dual-sync/**`                                                                                                                                                                                                                                                     |
-| Cron               | `src/app/api/cron/dual-sync/auto-export/route.ts`, `vercel.json` `*/30 * * * *`                                                                                                                                                                                                                     |
-| Service / hook     | `src/services/ops/dual-sync.ts`, `src/hooks/ops/useOpsDualSync.ts`                                                                                                                                                                                                                                  |
-| UI shell           | `src/components/features/restaurant-settings/dual-sync/`                                                                                                                                                                                                                                            |
-| Page mount         | `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`                                                                                                                                                                                                                       |
-| Server flags       | `server/dual-sync/flag.ts` (`GBP_SYNC_ENABLED`, `GBP_IMPORT_ENABLED`, `GBP_EXPORT_ENABLED`, `GBP_AUTO_CANDIDATES_ENABLED`, `GBP_HIGH_RISK_EXPORTS_ENABLED`, `GBP_MENU_SYNC_ENABLED`, `GBP_ATTRIBUTES_SYNC_ENABLED`, `GBP_SCHEDULED_REFRESH_ENABLED`; legacy fallback `NABATABLE_DUAL_SYNC_ENABLED`) |
-| Client flag        | `lib/feature-flags/dual-sync.ts` (`NEXT_PUBLIC_NABATABLE_DUAL_SYNC_ENABLED`)                                                                                                                                                                                                                        |
+| Concern                  | Location                                                                                                                                                                                                                         |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema (canonical)       | `supabase/migrations/20260429210000_add_unified_dual_sync_domain.sql`, `supabase/migrations/20260509173500_add_dual_sync_restaurant_controls.sql`                                                                                |
+| Schema (drop V2)         | `supabase/migrations/20260430120000_drop_gbp_sync_v2.sql`                                                                                                                                                                        |
+| Server core              | `server/dual-sync/`                                                                                                                                                                                                              |
+| API routes               | `src/app/api/ops/restaurants/[id]/dual-sync/**`                                                                                                                                                                                  |
+| Cron                     | `src/app/api/cron/dual-sync/auto-export/route.ts`, `vercel.json` `*/30 * * * *`                                                                                                                                                  |
+| Service / hook           | `src/services/ops/dual-sync.ts`, `src/hooks/ops/useOpsDualSync.ts`                                                                                                                                                               |
+| UI shell                 | `src/components/features/restaurant-settings/dual-sync/`                                                                                                                                                                         |
+| Page mount               | `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`                                                                                                                                                    |
+| Server rollback controls | `server/dual-sync/flag.ts` (`GBP_IMPORT_ENABLED`, `GBP_EXPORT_ENABLED`, `GBP_AUTO_CANDIDATES_ENABLED`, `GBP_HIGH_RISK_EXPORTS_ENABLED`, `GBP_MENU_SYNC_ENABLED`, `GBP_ATTRIBUTES_SYNC_ENABLED`, `GBP_SCHEDULED_REFRESH_ENABLED`) |
+| Client mount             | Default-on from `src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx`; no client feature flag gates the dual-sync workspace.                                                                             |
 
 ## Data model
 
@@ -132,7 +132,10 @@ without re-running the whole job.
   GET /dual-sync/auto-export   # vercel cron */30 * * * *
 ```
 
-All API bodies are validated and gated by `isDualSyncEnabled` server-side.
+The dual-sync workspace and API surface are default-on. Route auth, tenant
+access, restaurant pause controls, and targeted rollback controls protect
+write-affecting flows; targeted flags only block their write families before
+mutation.
 
 The control route is the restaurant-scoped kill switch. A paused restaurant
 still serves `GET /state` and `GET /control` so operators can inspect the

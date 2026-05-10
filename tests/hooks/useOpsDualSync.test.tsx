@@ -7,10 +7,12 @@ import { queryKeys } from '@/lib/query/keys';
 import {
   getDualSyncMetrics,
   getDualSyncState,
+  listDualSyncCandidates,
   listDualSyncJobs,
   previewDualSyncPublishPlan,
   publishDualSyncDecisions,
   refreshDualSync,
+  cancelDualSyncCandidate,
   retryDualSyncJob,
   runDualSyncAutoExport,
   setDualSyncControl,
@@ -20,12 +22,14 @@ vi.mock('@/services/ops/dual-sync', () => ({
   getDualSyncMetrics: vi.fn(),
   getDualSyncPublishJobDetail: vi.fn(),
   getDualSyncState: vi.fn(),
+  listDualSyncCandidates: vi.fn(),
   listDualSyncJobs: vi.fn(),
   listDualSyncOperations: vi.fn(),
   listDualSyncPublishJobs: vi.fn(),
   previewDualSyncPublishPlan: vi.fn(),
   publishDualSyncDecisions: vi.fn(),
   refreshDualSync: vi.fn(),
+  cancelDualSyncCandidate: vi.fn(),
   retryDualSyncJob: vi.fn(),
   runDualSyncAutoExport: vi.fn(),
   setDualSyncControl: vi.fn(),
@@ -69,6 +73,10 @@ describe('useOpsDualSync', () => {
     vi.mocked(listDualSyncJobs).mockResolvedValue({
       restaurantId,
       jobs: [],
+    } as never);
+    vi.mocked(listDualSyncCandidates).mockResolvedValue({
+      restaurantId,
+      candidates: [],
     } as never);
     vi.mocked(getDualSyncMetrics).mockResolvedValue({
       restaurantId,
@@ -144,6 +152,25 @@ describe('useOpsDualSync', () => {
         updatedAt: '2026-05-09T12:00:00.000Z',
       },
     } as never);
+    vi.mocked(cancelDualSyncCandidate).mockResolvedValue({
+      restaurantId,
+      candidate: {
+        id: 'candidate-1',
+        restaurantId,
+        provider: 'google_business_profile',
+        sectionKey: 'profile',
+        fieldKey: 'profile.name',
+        proposedValue: 'New name',
+        proposedValueHash: 'hash-new',
+        baselineGbpHash: 'hash-old',
+        status: 'cancelled',
+        source: 'core_write',
+        createdByUserId: 'user-1',
+        resolvedAt: '2026-05-09T12:10:00.000Z',
+        createdAt: '2026-05-09T12:00:00.000Z',
+        updatedAt: '2026-05-09T12:10:00.000Z',
+      },
+    } as never);
   });
 
   it('invalidates cached restaurant profile details after dual-sync publish', async () => {
@@ -178,9 +205,6 @@ describe('useOpsDualSync', () => {
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
-    });
-    expect(invalidateSpy).toHaveBeenCalledWith({
-      queryKey: queryKeys.opsFoodMenus.importReviews(restaurantId),
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.detail(restaurantId),
@@ -264,6 +288,27 @@ describe('useOpsDualSync', () => {
     });
   });
 
+  it('lazily fetches outbound candidates when requested', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    renderHook(
+      () =>
+        useOpsDualSync({
+          restaurantId,
+          candidatesRequest: { limit: 25, statuses: ['open'] },
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => {
+      expect(listDualSyncCandidates).toHaveBeenCalledWith(restaurantId, {
+        limit: 25,
+        statuses: ['open'],
+      });
+    });
+  });
+
   it('lazily fetches operational metrics when requested', async () => {
     const queryClient = createTestQueryClient();
     const wrapper = createQueryWrapper(queryClient);
@@ -302,6 +347,29 @@ describe('useOpsDualSync', () => {
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['dual-sync-metrics', restaurantId],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-state', restaurantId],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.detail(restaurantId),
+    });
+  });
+
+  it('cancels an outbound candidate and invalidates dual-sync workspace caches', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+
+    await act(async () => {
+      await result.current.cancelCandidateMutation.mutateAsync('candidate-1');
+    });
+
+    expect(cancelDualSyncCandidate).toHaveBeenCalledWith(restaurantId, 'candidate-1');
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-candidates', restaurantId],
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['dual-sync-state', restaurantId],

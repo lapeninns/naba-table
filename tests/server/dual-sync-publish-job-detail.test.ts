@@ -68,6 +68,8 @@ function makeBatchRow(over: Record<string, unknown> = {}) {
     pinned_gbp_snapshot_hash: 'gbp-pin',
     core_snapshot_hash: 'core-current',
     gbp_snapshot_hash: 'gbp-current',
+    field_policy_version_id: 'policy-version-1',
+    field_policy_hash: 'policy-hash-1',
     accepted_count: 2,
     rejected_count: 0,
     ignored_count: 0,

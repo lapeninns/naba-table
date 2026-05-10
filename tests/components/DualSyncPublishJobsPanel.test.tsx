@@ -45,6 +45,8 @@ function batch(over: Partial<DualSyncPublishBatch> = {}): DualSyncPublishBatch {
     pinnedGbpSnapshotHash: 'gbp-pin',
     coreSnapshotHash: 'core-current',
     gbpSnapshotHash: 'gbp-current',
+    fieldPolicyVersionId: 'policy-version-1',
+    fieldPolicyHash: 'policy-hash-1',
     acceptedCount: 1,
     rejectedCount: 0,
     ignoredCount: 0,

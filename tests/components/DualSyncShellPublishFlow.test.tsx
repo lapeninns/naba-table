@@ -70,14 +70,16 @@ function makeField(over: Partial<DualSyncFieldSummary> = {}): DualSyncFieldSumma
   };
 }
 
-function makeState(): GetDualSyncStateResponse {
+function makeState(
+  fields: ReadonlyArray<DualSyncFieldSummary> = [makeField()],
+): GetDualSyncStateResponse {
   return {
     restaurantId: 'restaurant-1',
     coreSnapshot: {},
     gbpSnapshot: {},
     coreSnapshotHash: 'state-core-hash',
     gbpSnapshotHash: 'state-gbp-hash',
-    fields: [makeField()],
+    fields,
     outboundQueue: {
       totalOpen: 0,
       autoExportable: 0,
@@ -227,12 +229,14 @@ describe('DualSyncShell publish flow', () => {
         skipped: [],
       })),
       retryJobMutation: makeMutation(async () => ({})),
+      cancelCandidateMutation: makeMutation(async () => ({})),
       controlMutation: makeMutation(async () => ({
         restaurantId: 'restaurant-1',
         control: makeState().control,
       })),
       operationsQuery: makeQuery({ restaurantId: 'restaurant-1', operations: [] }),
       jobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      candidatesQuery: makeQuery({ restaurantId: 'restaurant-1', candidates: [] }),
       metricsQuery: makeQuery(null),
       publishJobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
       publishJobDetailQuery: makeQuery(null),
@@ -240,7 +244,7 @@ describe('DualSyncShell publish flow', () => {
 
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
 
-    await user.click(screen.getByRole('button', { name: 'Export all (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Export (1)' }));
     await user.click(screen.getByRole('button', { name: 'Publish (1)' }));
 
     expect(await screen.findByText('Review publish plan')).toBeInTheDocument();
@@ -314,12 +318,14 @@ describe('DualSyncShell publish flow', () => {
         skipped: [],
       })),
       retryJobMutation: makeMutation(async () => ({})),
+      cancelCandidateMutation: makeMutation(async () => ({})),
       controlMutation: makeMutation(async () => ({
         restaurantId: 'restaurant-1',
         control: makeState().control,
       })),
       operationsQuery: makeQuery({ restaurantId: 'restaurant-1', operations: [] }),
       jobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      candidatesQuery: makeQuery({ restaurantId: 'restaurant-1', candidates: [] }),
       metricsQuery: makeQuery(null),
       publishJobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
       publishJobDetailQuery: makeQuery(null),
@@ -331,5 +337,98 @@ describe('DualSyncShell publish flow', () => {
     expect(screen.getByRole('button', { name: /pull from google/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /^publish$/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /resume sync/i })).toBeEnabled();
+  });
+
+  it('counts only fields that need an operator choice for section bulk actions', () => {
+    mocks.useOpsDualSync.mockReturnValue({
+      stateQuery: makeQuery(
+        makeState([
+          makeField({ fieldKey: 'profile.phone', state: 'core_dirty' }),
+          makeField({
+            fieldKey: 'profile.website',
+            label: 'Website',
+            state: 'in_sync',
+          }),
+          makeField({
+            fieldKey: 'profile.pendingExport',
+            label: 'Pending export',
+            state: 'pending_export',
+          }),
+        ]),
+      ),
+      refreshMutation: makeMutation(async () => ({})),
+      publishMutation: makeMutation(async () => makeResult()),
+      previewPublishMutation: makeMutation(async () => makePlan()),
+      autoExportMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        candidatesConsidered: 0,
+        decisionsExecuted: 0,
+        publishResult: null,
+        skipped: [],
+      })),
+      retryJobMutation: makeMutation(async () => ({})),
+      cancelCandidateMutation: makeMutation(async () => ({})),
+      controlMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        control: makeState().control,
+      })),
+      operationsQuery: makeQuery({ restaurantId: 'restaurant-1', operations: [] }),
+      jobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      candidatesQuery: makeQuery({ restaurantId: 'restaurant-1', candidates: [] }),
+      metricsQuery: makeQuery(null),
+      publishJobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      publishJobDetailQuery: makeQuery(null),
+    });
+
+    render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
+
+    expect(screen.getByText('Draft progress')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Import (1)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Export (1)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Ignore (1)' })).toBeEnabled();
+  });
+
+  it('lazy-loads the pending changes panel when expanded', async () => {
+    const user = userEvent.setup();
+    mocks.useOpsDualSync.mockReturnValue({
+      stateQuery: makeQuery(makeState()),
+      refreshMutation: makeMutation(async () => ({})),
+      publishMutation: makeMutation(async () => makeResult()),
+      previewPublishMutation: makeMutation(async () => makePlan()),
+      autoExportMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        candidatesConsidered: 0,
+        decisionsExecuted: 0,
+        publishResult: null,
+        skipped: [],
+      })),
+      retryJobMutation: makeMutation(async () => ({})),
+      cancelCandidateMutation: makeMutation(async () => ({})),
+      controlMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        control: makeState().control,
+      })),
+      operationsQuery: makeQuery({ restaurantId: 'restaurant-1', operations: [] }),
+      jobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      candidatesQuery: makeQuery({ restaurantId: 'restaurant-1', candidates: [] }),
+      metricsQuery: makeQuery(null),
+      publishJobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      publishJobDetailQuery: makeQuery(null),
+    });
+
+    render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
+
+    expect(mocks.useOpsDualSync).toHaveBeenLastCalledWith(
+      expect.objectContaining({ candidatesRequest: undefined }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Load pending changes' }));
+
+    expect(mocks.useOpsDualSync).toHaveBeenLastCalledWith(
+      expect.objectContaining({ candidatesRequest: { limit: 50, statuses: ['open'] } }),
+    );
+    expect(
+      screen.getByText('No pending Core changes are waiting for Google export.'),
+    ).toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ export const dualSyncQueryKeys = {
   state: (restaurantId: string) => ['dual-sync-state', restaurantId] as const,
   operations: (restaurantId: string) => ['dual-sync-operations', restaurantId] as const,
   jobs: (restaurantId: string) => ['dual-sync-jobs', restaurantId] as const,
+  candidates: (restaurantId: string) => ['dual-sync-candidates', restaurantId] as const,
   metrics: (restaurantId: string) => ['dual-sync-metrics', restaurantId] as const,
   publishJobs: (restaurantId: string) => ['dual-sync-publish-jobs', restaurantId] as const,
   publishJobDetail: (restaurantId: string) =>
@@ -28,10 +29,10 @@ export function invalidateDualSyncWorkspaceQueries(queryClient: QueryClient, res
   queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.state(restaurantId) });
   queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.operations(restaurantId) });
   queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.jobs(restaurantId) });
+  queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.candidates(restaurantId) });
   queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.metrics(restaurantId) });
   queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.publishJobs(restaurantId) });
   queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.publishJobDetail(restaurantId) });
-  queryClient.invalidateQueries({ queryKey: queryKeys.opsFoodMenus.importReviews(restaurantId) });
   queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.detail(restaurantId) });
 }
 

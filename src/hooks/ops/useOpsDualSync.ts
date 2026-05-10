@@ -14,12 +14,14 @@ import {
   getDualSyncMetrics,
   getDualSyncPublishJobDetail,
   getDualSyncState,
+  listDualSyncCandidates,
   listDualSyncJobs,
   listDualSyncOperations,
   listDualSyncPublishJobs,
   previewDualSyncPublishPlan,
   publishDualSyncDecisions,
   refreshDualSync,
+  cancelDualSyncCandidate,
   retryDualSyncJob,
   runDualSyncAutoExport,
   setDualSyncControl,
@@ -39,6 +41,8 @@ import type {
   GetDualSyncMetricsResponse,
   GetDualSyncPublishJobDetailResponse,
   GetDualSyncStateResponse,
+  ListDualSyncCandidatesRequest,
+  ListDualSyncCandidatesResponse,
   ListDualSyncJobsRequest,
   ListDualSyncJobsResponse,
   ListDualSyncOperationsRequest,
@@ -64,6 +68,13 @@ const operationsKey = (restaurantId: string, request: ListDualSyncOperationsRequ
 const jobsKey = (restaurantId: string, request: ListDualSyncJobsRequest) =>
   [
     'dual-sync-jobs',
+    restaurantId,
+    request.limit ?? null,
+    request.statuses ? [...request.statuses].sort().join(',') : null,
+  ] as const;
+const candidatesKey = (restaurantId: string, request: ListDualSyncCandidatesRequest) =>
+  [
+    'dual-sync-candidates',
     restaurantId,
     request.limit ?? null,
     request.statuses ? [...request.statuses].sort().join(',') : null,
@@ -96,6 +107,11 @@ export interface UseOpsDualSyncArgs {
    */
   readonly jobsRequest?: ListDualSyncJobsRequest;
   /**
+   * When provided, the hook lazily fetches outbound candidates for the
+   * pending-change center. Pass `undefined` to skip.
+   */
+  readonly candidatesRequest?: ListDualSyncCandidatesRequest;
+  /**
    * When provided, the hook lazily fetches restaurant-scoped operational
    * health metrics for the operator dashboard. Pass `undefined` to skip.
    */
@@ -116,6 +132,7 @@ export function useOpsDualSync({
   restaurantId,
   operationsRequest,
   jobsRequest,
+  candidatesRequest,
   metricsRequest,
   publishJobsRequest,
   publishJobDetailId,
@@ -124,6 +141,7 @@ export function useOpsDualSync({
   const enabled = Boolean(restaurantId);
   const operationsEnabled = enabled && operationsRequest !== undefined;
   const jobsEnabled = enabled && jobsRequest !== undefined;
+  const candidatesEnabled = enabled && candidatesRequest !== undefined;
   const metricsEnabled = enabled && metricsRequest !== undefined;
   const publishJobsEnabled = enabled && publishJobsRequest !== undefined;
   const publishJobDetailEnabled =
@@ -211,6 +229,27 @@ export function useOpsDualSync({
     },
   });
 
+  const cancelCandidateMutation = useMutation<
+    ListDualSyncCandidatesResponse['candidates'][number],
+    Error,
+    string
+  >({
+    mutationFn: async (candidateId) => {
+      if (!restaurantId) {
+        return Promise.reject(
+          new Error('restaurantId is required to cancel dual-sync candidates.'),
+        );
+      }
+      const response = await cancelDualSyncCandidate(restaurantId, candidateId);
+      return response.candidate;
+    },
+    onSuccess: () => {
+      if (restaurantId) {
+        invalidateDualSyncWorkspaceQueries(queryClient, restaurantId);
+      }
+    },
+  });
+
   const controlMutation = useMutation<SetDualSyncControlResponse, Error, SetDualSyncControlRequest>(
     {
       mutationFn: (request) => {
@@ -241,6 +280,14 @@ export function useOpsDualSync({
       ? jobsKey(restaurantId as string, jobsRequest ?? {})
       : ['dual-sync-jobs', 'noop'],
     queryFn: () => listDualSyncJobs(restaurantId as string, jobsRequest ?? {}),
+  });
+
+  const candidatesQuery = useQuery<ListDualSyncCandidatesResponse>({
+    enabled: candidatesEnabled,
+    queryKey: candidatesEnabled
+      ? candidatesKey(restaurantId as string, candidatesRequest ?? {})
+      : ['dual-sync-candidates', 'noop'],
+    queryFn: () => listDualSyncCandidates(restaurantId as string, candidatesRequest ?? {}),
   });
 
   const metricsQuery = useQuery<GetDualSyncMetricsResponse>({
@@ -275,9 +322,11 @@ export function useOpsDualSync({
     previewPublishMutation,
     autoExportMutation,
     retryJobMutation,
+    cancelCandidateMutation,
     controlMutation,
     operationsQuery,
     jobsQuery,
+    candidatesQuery,
     metricsQuery,
     publishJobsQuery,
     publishJobDetailQuery,

@@ -19,14 +19,6 @@ export function dualSyncErrorResponse(
   );
 }
 
-export function dualSyncUnavailableResponse() {
-  return dualSyncErrorResponse(
-    'Dual-sync is not enabled for this deployment.',
-    404,
-    'DUAL_SYNC_UNAVAILABLE',
-  );
-}
-
 export function dualSyncPausedResponse(message = 'Dual-sync is paused for this restaurant.') {
   return dualSyncErrorResponse(message, 409, DUAL_SYNC_RESTAURANT_PAUSED_CODE);
 }

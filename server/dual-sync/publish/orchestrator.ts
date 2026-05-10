@@ -30,6 +30,7 @@ import { assertDualSyncRestaurantNotPaused } from '../controls';
 import { getDualSyncDecisionDisabledReason, getDualSyncRuntimeFlags } from '../flag';
 import { hashCanonicalJson } from '../hashing';
 import { mapGoogleProviderErrorToPublishFailure } from './google-errors';
+import { createGoogleRequestLog } from './google-request-logs';
 import { reserveGoogleEditBudget, type DualSyncGoogleEditThrottle } from './google-safety';
 import {
   createOperation,
@@ -48,6 +49,7 @@ import { runWithDualSyncLock, type DualSyncLockManager } from '../locks';
 import { listOpenOutboundCandidates, resolveOutboundCandidate } from '../outbound/candidates';
 import { refreshFromGoogleWithoutLock } from '../refresh/service';
 import { buildRegistry, findFieldConfig, resolveFieldCapability } from '../registry';
+import { ensureActiveFieldPolicyVersion } from '../registry/field-policy-versions';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
 import { recomputeAllStates } from '../state/recompute';
@@ -55,6 +57,7 @@ import { markFailed, markIgnored, markInSync } from '../state/write';
 
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 import type {
+  DualSyncGoogleUpdateMask,
   DualSyncPublishBatchStatus,
   DualSyncPublishOperation,
   DualSyncPublishOperationGroupStatus,
@@ -82,6 +85,8 @@ type PreparedPublishDecision = {
   readonly direction: 'import_from_google' | 'export_to_google';
   readonly operation: DualSyncPublishOperation;
   readonly operationGroupId: string | null;
+  readonly writeGroup: string | null;
+  readonly googleUpdateMask: DualSyncGoogleUpdateMask | null;
 };
 
 function readSectionValue(
@@ -148,10 +153,11 @@ function policyFailure(
   };
 }
 
-function buildDecisionHash(input: DualSyncRunPublishInput): string {
+function buildDecisionHash(input: DualSyncRunPublishInput, fieldPolicyHash: string | null): string {
   return (
     hashCanonicalJson({
       restaurantId: input.restaurantId,
+      fieldPolicyHash,
       decisions: input.decisions.map((decision) => ({
         fieldKey: decision.fieldKey,
         sectionKey: decision.sectionKey,
@@ -249,19 +255,20 @@ async function runRequiredExportPreflights(input: {
     const operationGroupId = input.operationGroupIdByKey.get(group.groupId);
     if (!operationGroupId) continue;
     const startedAt = new Date().toISOString();
+    const requestSummary = {
+      groupId: group.groupId,
+      sectionKey: group.sectionKey,
+      writeGroup: group.writeGroup,
+      googleUpdateMasks: group.googleUpdateMasks,
+      fieldKeys: group.fields.map((field) => field.fieldKey),
+    };
     await updateOperationGroupStatus({
       client: input.client,
       operationGroupId,
       status: 'running',
       preflightStatus: 'running',
       startedAt,
-      requestSummary: {
-        groupId: group.groupId,
-        sectionKey: group.sectionKey,
-        writeGroup: group.writeGroup,
-        googleUpdateMasks: group.googleUpdateMasks,
-        fieldKeys: group.fields.map((field) => field.fieldKey),
-      },
+      requestSummary,
     });
 
     let result;
@@ -285,6 +292,24 @@ async function runRequiredExportPreflights(input: {
         },
       };
     }
+
+    await createGoogleRequestLog({
+      client: input.client,
+      restaurantId: input.restaurantId,
+      publishBatchId: input.publishBatchId,
+      operationGroupId,
+      sectionKey: group.sectionKey,
+      direction: group.direction,
+      writeGroup: group.writeGroup,
+      phase: 'preflight',
+      status: result.status,
+      googleMethod: group.writeGroup,
+      googleUpdateMasks: group.googleUpdateMasks,
+      requestSummary,
+      responseSummary: result.result ?? null,
+      errorCode: result.status === 'failed' ? result.failure.code : null,
+      errorMessage: result.status === 'failed' ? result.failure.message : null,
+    });
 
     if (result.status === 'failed') {
       await updateOperationGroupStatus({
@@ -386,7 +411,6 @@ async function runPublishUnlocked(
   const readGbp = options.readGbpSnapshot ?? readGoogleSnapshot;
 
   const restaurantId = input.restaurantId;
-  const decisionHash = buildDecisionHash(input);
 
   await assertDualSyncRestaurantNotPaused({ client, restaurantId });
 
@@ -409,6 +433,13 @@ async function runPublishUnlocked(
     gbpSnapshot,
     includeCoreOnly: false,
   });
+  const fieldPolicyVersion = await ensureActiveFieldPolicyVersion({
+    client,
+    registry,
+    restaurantId,
+    createdByUserId: input.actorUserId,
+  });
+  const decisionHash = buildDecisionHash(input, fieldPolicyVersion.policyHash);
   const runtimeFlags = getDualSyncRuntimeFlags({ restaurantId });
 
   if (input.clientRequestId) {
@@ -463,6 +494,8 @@ async function runPublishUnlocked(
     pinnedGbpSnapshotHash: input.pinnedGbpSnapshotHash ?? null,
     coreSnapshotHash: plan.coreSnapshotHash,
     gbpSnapshotHash: plan.gbpSnapshotHash,
+    fieldPolicyVersionId: fieldPolicyVersion.id,
+    fieldPolicyHash: fieldPolicyVersion.policyHash,
     acceptedCount: plan.acceptedCount,
     rejectedCount: plan.rejectedCount,
     ignoredCount: plan.ignoredCount,
@@ -732,6 +765,9 @@ async function runPublishUnlocked(
       direction,
       operation,
       operationGroupId,
+      writeGroup:
+        direction === 'export_to_google' ? (config.policy.googleWriteGroup ?? null) : null,
+      googleUpdateMask: config.googleUpdateMask ?? null,
     });
   }
 
@@ -823,6 +859,36 @@ async function runPublishUnlocked(
       errorMessage: result.failure?.message ?? null,
       finishedAt,
     });
+
+    if (isExport(decision.action)) {
+      await createGoogleRequestLog({
+        client,
+        restaurantId,
+        publishBatchId: publishBatch.id,
+        operationGroupId: item.operationGroupId,
+        publishOperationId: operation.id,
+        publishJobId,
+        sectionKey: decision.sectionKey,
+        fieldKey: decision.fieldKey,
+        direction: item.direction,
+        writeGroup: item.writeGroup,
+        phase: result.status === 'failed' ? 'provider_error' : 'provider_write',
+        status: result.status,
+        googleMethod: item.writeGroup ?? decision.sectionKey,
+        googleUpdateMasks: item.googleUpdateMask ? [item.googleUpdateMask] : [],
+        requestSummary: {
+          sectionKey: decision.sectionKey,
+          fieldKey: decision.fieldKey,
+          writeGroup: item.writeGroup,
+          googleUpdateMask: item.googleUpdateMask,
+          beforeCoreHash,
+          beforeGbpHash,
+        },
+        responseSummary: result.externalResponse ?? null,
+        errorCode: result.failure?.code ?? null,
+        errorMessage: result.failure?.message ?? null,
+      });
+    }
 
     if (result.status === 'succeeded') {
       const newCanonicalHash =

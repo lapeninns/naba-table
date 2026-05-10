@@ -183,6 +183,69 @@ export async function listOpenOutboundCandidates({
   return (data ?? []).map(rowToCandidate);
 }
 
+export interface ListOutboundCandidatesInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly statuses?: ReadonlyArray<DualSyncOutboundStatus>;
+  readonly limit?: number;
+}
+
+export async function listOutboundCandidates({
+  client,
+  restaurantId,
+  statuses,
+  limit,
+}: ListOutboundCandidatesInput): Promise<ReadonlyArray<DualSyncOutboundCandidate>> {
+  const dual = getDualSyncDbClient(client);
+  let query = dual
+    .from('dual_sync_outbound_candidates')
+    .select('*')
+    .eq('restaurant_id', restaurantId)
+    .eq('provider', DUAL_SYNC_PROVIDER)
+    .order('updated_at', { ascending: false });
+  if (statuses && statuses.length > 0) {
+    query = query.in('status', [...statuses]);
+  }
+  query = query.limit(Math.min(Math.max(limit ?? 50, 1), 200));
+  const { data, error } = await query;
+  if (error) {
+    throw error;
+  }
+  return (data ?? []).map(rowToCandidate);
+}
+
+export interface CancelOutboundCandidateInput {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly candidateId: string;
+  readonly resolvedAt?: string;
+}
+
+export async function cancelOutboundCandidate({
+  client,
+  restaurantId,
+  candidateId,
+  resolvedAt,
+}: CancelOutboundCandidateInput): Promise<DualSyncOutboundCandidate | null> {
+  const dual = getDualSyncDbClient(client);
+  const { data, error } = await dual
+    .from('dual_sync_outbound_candidates')
+    .update({
+      status: 'cancelled' satisfies DualSyncOutboundStatus,
+      resolved_at: resolvedAt ?? new Date().toISOString(),
+    } as never)
+    .eq('id', candidateId)
+    .eq('restaurant_id', restaurantId)
+    .eq('provider', DUAL_SYNC_PROVIDER)
+    .eq('status', 'open')
+    .select('*')
+    .maybeSingle<DualSyncOutboundCandidateRow>();
+  if (error) {
+    throw error;
+  }
+  return data ? rowToCandidate(data) : null;
+}
+
 /**
  * Discover the distinct restaurant ids that currently have at least one
  * open outbound candidate. Used by the cross-tenant cron handler to

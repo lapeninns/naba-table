@@ -76,10 +76,6 @@ export const queryKeys = {
   opsMenuHierarchy: {
     list: (restaurantId: string) => ['ops', 'menu-hierarchy', restaurantId, 'list'] as const,
   },
-  opsFoodMenus: {
-    importReviews: (restaurantId: string) =>
-      ['ops', 'food-menus', restaurantId, 'import-reviews'] as const,
-  },
   manualAssign: {
     context: (bookingId: string) => ['ops', 'manual-assign', 'context', bookingId] as const,
   },
@@ -131,7 +127,6 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsOperationsHub']['detail']>
   | ReturnType<(typeof queryKeys)['opsOccasions']['list']>
   | ReturnType<(typeof queryKeys)['opsMenuHierarchy']['list']>
-  | ReturnType<(typeof queryKeys)['opsFoodMenus']['importReviews']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['hours']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['servicePeriods']>
   | ReturnType<(typeof queryKeys)['ownerRestaurants']['details']>

@@ -10,6 +10,8 @@ const openSnapshotRunMock = vi.hoisted(() => vi.fn());
 const commitSnapshotRunMock = vi.hoisted(() => vi.fn());
 const failSnapshotRunMock = vi.hoisted(() => vi.fn());
 const recomputeAllStatesMock = vi.hoisted(() => vi.fn());
+const createGoogleRequestLogMock = vi.hoisted(() => vi.fn());
+const assertDualSyncRestaurantNotPausedMock = vi.hoisted(() => vi.fn());
 const runWithDualSyncLockMock = vi.hoisted(() =>
   vi.fn(async (_input, work) =>
     work({
@@ -49,6 +51,14 @@ vi.mock('@/server/dual-sync/snapshots/runs', () => ({
 
 vi.mock('@/server/dual-sync/state/recompute', () => ({
   recomputeAllStates: recomputeAllStatesMock,
+}));
+
+vi.mock('@/server/dual-sync/publish/google-request-logs', () => ({
+  createGoogleRequestLog: createGoogleRequestLogMock,
+}));
+
+vi.mock('@/server/dual-sync/controls', () => ({
+  assertDualSyncRestaurantNotPaused: assertDualSyncRestaurantNotPausedMock,
 }));
 
 vi.mock('@/server/dual-sync/locks', () => ({
@@ -101,6 +111,8 @@ beforeEach(() => {
   commitSnapshotRunMock.mockReset();
   failSnapshotRunMock.mockReset();
   recomputeAllStatesMock.mockReset();
+  createGoogleRequestLogMock.mockReset();
+  assertDualSyncRestaurantNotPausedMock.mockReset();
   runWithDualSyncLockMock.mockClear();
 
   openSnapshotRunMock.mockResolvedValue({
@@ -153,6 +165,8 @@ beforeEach(() => {
     evaluatedFieldKeys: ['foodMenus.items.starters.foodMenu_item_starters/default_chilli-paneer'],
     transitions: [],
   });
+  createGoogleRequestLogMock.mockResolvedValue(null);
+  assertDualSyncRestaurantNotPausedMock.mockResolvedValue(undefined);
   getGoogleBusinessProfileFoodMenusContextMock.mockResolvedValue({
     externalProfileId: 'external-1',
     accessToken: 'access-token',
@@ -236,6 +250,30 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       googleFoodMenusHash: 'g'.repeat(64),
       importReviewCount: 2,
     });
+    expect(createGoogleRequestLogMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: RESTAURANT_ID,
+      publishJobId: 'run-1',
+      phase: 'provider_summary',
+      status: 'succeeded',
+      googleMethod: 'google_refresh',
+      requestSummary: {
+        runKind: 'scheduled',
+        snapshotRunId: 'run-1',
+      },
+      responseSummary: {
+        snapshotHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        foodMenusRefresh: {
+          status: 'refreshed',
+          projectionSnapshotId: 'projection-snapshot-1',
+          googleSnapshotId: 'google-snapshot-1',
+          googleFoodMenusHash: 'g'.repeat(64),
+          importReviewCount: 2,
+        },
+        evaluatedFieldCount: 1,
+        transitionCount: 0,
+      },
+    });
     expect(runWithDualSyncLockMock).toHaveBeenCalledWith(
       expect.objectContaining({
         client,
@@ -262,6 +300,7 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       reason: 'skip_pull',
       message: 'Live Google pull was skipped for this refresh run.',
     });
+    expect(createGoogleRequestLogMock).not.toHaveBeenCalled();
   });
 
   it('keeps the base refresh working when FoodMenus storage is not migrated yet', async () => {
@@ -320,6 +359,21 @@ describe('refreshFromGoogle FoodMenus integration', () => {
     expect(failSnapshotRunMock).toHaveBeenCalledWith({
       client,
       runId: 'run-1',
+      errorCode: 'GBP_UPSTREAM_ERROR',
+      errorMessage: 'Google FoodMenus failed',
+    });
+    expect(createGoogleRequestLogMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: RESTAURANT_ID,
+      publishJobId: 'run-1',
+      phase: 'provider_error',
+      status: 'failed',
+      googleMethod: 'google_refresh',
+      requestSummary: {
+        runKind: 'manual',
+        snapshotRunId: 'run-1',
+      },
+      responseSummary: null,
       errorCode: 'GBP_UPSTREAM_ERROR',
       errorMessage: 'Google FoodMenus failed',
     });

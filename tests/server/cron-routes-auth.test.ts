@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const isEmailQueueEnabledMock = vi.hoisted(() => vi.fn());
-const isDualSyncEnabledMock = vi.hoisted(() => vi.fn());
 const isDualSyncAutoCandidatesEnabledMock = vi.hoisted(() => vi.fn());
 const isDualSyncScheduledRefreshEnabledMock = vi.hoisted(() => vi.fn());
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
@@ -15,6 +14,7 @@ const runScheduledRefreshForAllTenantsMock = vi.hoisted(() => vi.fn());
 const runAutoExportForAllTenantsMock = vi.hoisted(() => vi.fn());
 const runDualSyncOperationalHealthAlertSweepMock = vi.hoisted(() => vi.fn());
 const processNextDualSyncJobMock = vi.hoisted(() => vi.fn());
+const pruneExpiredGoogleRequestLogsMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/security/rate-limit', () => ({
@@ -26,7 +26,6 @@ vi.mock('@/server/feature-flags', () => ({
 }));
 
 vi.mock('@/server/dual-sync/flag', () => ({
-  isDualSyncEnabled: isDualSyncEnabledMock,
   isDualSyncAutoCandidatesEnabled: isDualSyncAutoCandidatesEnabledMock,
   isDualSyncScheduledRefreshEnabled: isDualSyncScheduledRefreshEnabledMock,
 }));
@@ -75,6 +74,10 @@ vi.mock('@/server/dual-sync/queue', () => ({
   processNextDualSyncJob: processNextDualSyncJobMock,
 }));
 
+vi.mock('@/server/dual-sync/publish', () => ({
+  pruneExpiredGoogleRequestLogs: pruneExpiredGoogleRequestLogsMock,
+}));
+
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: getServiceSupabaseClientMock,
 }));
@@ -84,6 +87,7 @@ import { GET as autoExportGET } from '@/src/app/api/cron/dual-sync/auto-export/r
 import { GET as healthGET } from '@/src/app/api/cron/dual-sync/health/route';
 import { GET as queueGET } from '@/src/app/api/cron/dual-sync/queue/route';
 import { GET as refreshGET } from '@/src/app/api/cron/dual-sync/refresh/route';
+import { GET as requestLogRetentionGET } from '@/src/app/api/cron/dual-sync/request-log-retention/route';
 import {
   GET as processEmailsGET,
   POST as processEmailsPOST,
@@ -157,6 +161,15 @@ const cronRoutes = [
     () =>
       healthGET(new NextRequest('https://www.nabatable.com/api/cron/dual-sync/health?dryRun=1')),
   ],
+  [
+    'dual-sync request-log retention',
+    () =>
+      requestLogRetentionGET(
+        new NextRequest(
+          'https://www.nabatable.com/api/cron/dual-sync/request-log-retention?dryRun=1',
+        ),
+      ),
+  ],
 ] as const;
 
 describe('cron route authentication', () => {
@@ -171,7 +184,6 @@ describe('cron route authentication', () => {
       source: 'memory',
     });
     isEmailQueueEnabledMock.mockReturnValue(true);
-    isDualSyncEnabledMock.mockReturnValue(true);
     isDualSyncAutoCandidatesEnabledMock.mockReturnValue(true);
     isDualSyncScheduledRefreshEnabledMock.mockReturnValue(true);
     recordObservabilityEventMock.mockResolvedValue(undefined);
@@ -225,6 +237,13 @@ describe('cron route authentication', () => {
       dryRun: true,
     });
     processNextDualSyncJobMock.mockResolvedValue({ status: 'idle', job: null });
+    pruneExpiredGoogleRequestLogsMock.mockResolvedValue({
+      cutoff: '2026-05-10T00:00:00.000Z',
+      limit: 1_000,
+      selected: 0,
+      deleted: 0,
+      moreLikely: false,
+    });
     getServiceSupabaseClientMock.mockReturnValue({ service: true });
   });
 
@@ -243,6 +262,7 @@ describe('cron route authentication', () => {
     expect(runAutoExportForAllTenantsMock).not.toHaveBeenCalled();
     expect(runDualSyncOperationalHealthAlertSweepMock).not.toHaveBeenCalled();
     expect(processNextDualSyncJobMock).not.toHaveBeenCalled();
+    expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -277,6 +297,13 @@ describe('cron route authentication', () => {
       'dual-sync health',
       () => healthGET(cronRequest('/api/cron/dual-sync/health?dryRun=1', 'wrong')),
     ],
+    [
+      'dual-sync request-log retention',
+      () =>
+        requestLogRetentionGET(
+          cronRequest('/api/cron/dual-sync/request-log-retention?dryRun=1', 'wrong'),
+        ),
+    ],
   ])('%s rejects wrong bearer tokens before work', async (_name, callRoute) => {
     const response = await callRoute();
     const payload = await response.json();
@@ -290,6 +317,7 @@ describe('cron route authentication', () => {
     expect(runAutoExportForAllTenantsMock).not.toHaveBeenCalled();
     expect(runDualSyncOperationalHealthAlertSweepMock).not.toHaveBeenCalled();
     expect(processNextDualSyncJobMock).not.toHaveBeenCalled();
+    expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
   });
 
   it('accepts a rotated previous secret', async () => {
@@ -501,6 +529,78 @@ describe('cron route authentication', () => {
       maxJobs: 25,
       processed: 0,
       results: [],
+    });
+  });
+
+  it('caps request-log retention limits and records count-only observability', async () => {
+    pruneExpiredGoogleRequestLogsMock.mockResolvedValueOnce({
+      cutoff: '2026-05-10T00:00:00.000Z',
+      limit: 5_000,
+      selected: 5_000,
+      archived: 5_000,
+      deleted: 5_000,
+      moreLikely: true,
+    });
+
+    const response = await requestLogRetentionGET(
+      cronRequest('/api/cron/dual-sync/request-log-retention?limit=999999'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(pruneExpiredGoogleRequestLogsMock).toHaveBeenCalledWith({
+      client: { service: true },
+      now: expect.any(String),
+      limit: 5_000,
+    });
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'cron.dual-sync.request-log-retention',
+        eventType: 'retention.triggered',
+        severity: 'info',
+        context: expect.objectContaining({
+          limit: 5_000,
+        }),
+      }),
+    );
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'cron.dual-sync.request-log-retention',
+        eventType: 'retention.completed',
+        severity: 'warning',
+        context: expect.objectContaining({
+          selected: 5_000,
+          archived: 5_000,
+          deleted: 5_000,
+          moreLikely: true,
+        }),
+      }),
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      dryRun: false,
+      limit: 5_000,
+      selected: 5_000,
+      archived: 5_000,
+      deleted: 5_000,
+      moreLikely: true,
+    });
+  });
+
+  it('keeps request-log retention dryRun behind auth without deleting rows', async () => {
+    const response = await requestLogRetentionGET(
+      cronRequest('/api/cron/dual-sync/request-log-retention?dryRun=1&limit=999999'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      dryRun: true,
+      limit: 5_000,
+      selected: 0,
+      archived: 0,
+      deleted: 0,
+      moreLikely: false,
     });
   });
 

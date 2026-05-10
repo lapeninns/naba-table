@@ -39,9 +39,16 @@ Applies to every path that imports Google Business Profile data into Nabatable C
    - Publish batch and operation group.
    - Before/after field hashes.
    - Google update masks or attribute masks.
-   - Request summary and response summary where available.
+   - Redacted request summary and response summary where available.
    - Stable failure code and retryability.
    - Final recompute outcome.
+
+4b. Durable provider audit payloads must be redacted before persistence.
+
+- Authorization headers, cookies, access tokens, refresh tokens, id tokens, API keys, client secrets, passwords, credentials, and session values must not be written to durable audit JSON.
+- URL/query-string and message strings must redact token-like `access_token`, `refresh_token`, `token`, `key`, and `secret` values before storage.
+- Redaction must preserve non-sensitive operator context such as status codes, field keys, update masks, operation ids, and stable failure summaries.
+- Dedicated Google request-log rows must store summaries and retention metadata only; raw credentials and unbounded provider payloads do not belong in `dual_sync_google_request_logs`.
 
 4a. Provider preflight capability must be explicit.
 
@@ -67,8 +74,8 @@ Applies to every path that imports Google Business Profile data into Nabatable C
    - Migrations and destructive data changes must be applied and read back on staging before production.
    - Production rollout requires explicit approval and rollback notes.
 
-7. Risky flows must be feature-flagged for immediate rollback.
-   - `GBP_SYNC_ENABLED` disables the server-side dual-sync API surface. The legacy `NABATABLE_DUAL_SYNC_ENABLED` name is still honored as a fallback.
+7. Risky write flows must have targeted rollback controls.
+   - The dual-sync API surface and settings workspace are default-on.
    - `GBP_IMPORT_ENABLED` rejects import decisions before Core writes.
    - `GBP_EXPORT_ENABLED` rejects export decisions before operation rows or Google writes.
    - `GBP_AUTO_CANDIDATES_ENABLED` disables manual and scheduled auto-candidate export.

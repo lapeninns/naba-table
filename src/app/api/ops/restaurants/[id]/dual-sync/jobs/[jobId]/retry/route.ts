@@ -10,11 +10,7 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
-import {
-  dualSyncErrorResponse,
-  dualSyncUnavailableResponse,
-} from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
+import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { retryDualSyncJob } from '@/server/dual-sync/queue';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -39,9 +35,6 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   }
   if (!jobId) {
     return dualSyncErrorResponse('Missing job id', 400);
-  }
-  if (!isDualSyncEnabled({ restaurantId })) {
-    return dualSyncUnavailableResponse();
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-job-retry');
   if (access instanceof NextResponse) return access;

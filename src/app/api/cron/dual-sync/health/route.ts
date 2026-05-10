@@ -8,7 +8,6 @@
 
 import { NextResponse } from 'next/server';
 
-import { isDualSyncEnabled } from '@/server/dual-sync/flag';
 import { runDualSyncOperationalHealthAlertSweep } from '@/server/dual-sync/observability';
 import { recordObservabilityEvent } from '@/server/observability';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
@@ -37,13 +36,6 @@ function isTruthyFlag(value: string | null): boolean {
 
 export async function GET(request: Request) {
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
-    if (!isDualSyncEnabled()) {
-      return NextResponse.json(
-        { error: 'Dual-sync is not enabled for this deployment.' },
-        { status: 404 },
-      );
-    }
-
     const url = new URL(request.url);
     const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
     const onlyCritical = isTruthyFlag(url.searchParams.get('onlyCritical'));

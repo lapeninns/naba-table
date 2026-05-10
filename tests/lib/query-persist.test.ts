@@ -18,7 +18,7 @@ describe('query persistence filter', () => {
       ['dual-sync-operations', 'rest-1', 50, null, null, null],
       ['dual-sync-publish-jobs', 'rest-1', 25, null, null],
       ['dual-sync-publish-job-detail', 'rest-1', 'job-1'],
-      queryKeys.opsFoodMenus.importReviews('rest-1'),
+      ['ops', 'food-menus', 'rest-1', 'import-reviews'],
     ].map((queryKey) => [queryKey] as const),
   )('excludes volatile ops integration query %#', (queryKey) => {
     expect(isVolatileOpsIntegrationQueryKey(queryKey)).toBe(true);
