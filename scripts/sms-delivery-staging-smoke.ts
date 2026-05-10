@@ -183,14 +183,16 @@ export function shouldRunPreviewAuditBeforeSmokeSend(input: {
 }
 
 function runPreviewAudit() {
-  const result = spawnSync('pnpm', ['run', 'sms:delivery:audit:staging-vercel-preview'], {
+  const result = spawnSync('pnpm', ['run', 'sms:delivery:verify:staging:no-persist'], {
     cwd: projectRoot,
     encoding: 'utf8',
     stdio: 'inherit',
   });
   const exitCode = typeof result.status === 'number' ? result.status : 1;
   if (exitCode !== 0) {
-    throw new Error(`Preview audit failed with exit code ${exitCode}; refusing live SMS smoke.`);
+    throw new Error(
+      `Preview no-persist verification failed with exit code ${exitCode}; refusing live SMS smoke.`,
+    );
   }
 }
 
