@@ -194,6 +194,20 @@ function runPreviewAudit() {
   }
 }
 
+function runPreviewDeploymentCheck() {
+  const result = spawnSync('pnpm', ['run', 'sms:delivery:deployment:preview'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    stdio: 'inherit',
+  });
+  const exitCode = typeof result.status === 'number' ? result.status : 1;
+  if (exitCode !== 0) {
+    throw new Error(
+      `Preview deployment freshness check failed with exit code ${exitCode}; refusing live SMS smoke.`,
+    );
+  }
+}
+
 async function main() {
   const args = parseStagingSmokeArgs(process.argv.slice(2));
   loadStagingEnv({
@@ -251,6 +265,7 @@ async function main() {
       })
     ) {
       runPreviewAudit();
+      runPreviewDeploymentCheck();
     }
 
     result = await sendTwilioSmsMessage({

@@ -87,7 +87,7 @@ describe('staging SMS smoke helpers', () => {
     );
   });
 
-  it('requires the Preview audit only for unblocked live sends', () => {
+  it('requires Preview preflight gates only for unblocked live sends', () => {
     expect(
       shouldRunPreviewAuditBeforeSmokeSend({
         send: false,
