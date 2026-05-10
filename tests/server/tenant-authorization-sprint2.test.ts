@@ -101,7 +101,17 @@ function authorizedRestaurant() {
   };
 }
 
-function buildAssignmentServiceClient() {
+function buildAssignmentServiceClient(
+  options: {
+    booking?: Partial<{
+      start_at: string;
+      booking_date: string;
+      start_time: string;
+      party_size: number;
+      booking_type: string | null;
+    }>;
+  } = {},
+) {
   const calls: Array<{ table: string; method: string; args: unknown[] }> = [];
 
   const tableResult = {
@@ -156,7 +166,9 @@ function buildAssignmentServiceClient() {
           start_time: '18:00',
           party_size: 2,
           status: 'confirmed',
+          booking_type: null,
           restaurants: { timezone: 'Europe/London' },
+          ...options.booking,
         },
         error: null,
       })),
@@ -305,5 +317,45 @@ describe('Sprint 2 tenant authorization route containment', () => {
       true,
     );
     expect(cleanupOrphanedAssignmentsMock).not.toHaveBeenCalled();
+  });
+
+  it('uses booking_type when assignment-context has to fall back outside service windows', async () => {
+    withBookingAuthorizationMock.mockResolvedValue({
+      ok: true,
+      bookingId: BOOKING_ID,
+      restaurantId: RESTAURANT_A,
+      user: { id: 'user-a' },
+      membership: { role: 'host', restaurant_id: RESTAURANT_A },
+      supabase: {},
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const service = buildAssignmentServiceClient({
+      booking: {
+        start_at: '2026-05-05T14:00:00.000Z',
+        booking_date: '2026-05-05',
+        start_time: '15:00',
+        party_size: 8,
+        booking_type: 'dinner',
+      },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(service.client);
+    getTenantServiceSupabaseClientMock.mockReturnValue(service.client);
+
+    const response = await assignmentContextGET(
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/bookings/${BOOKING_ID}/assignment-context`,
+      ),
+      routeContext(BOOKING_ID),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.window.endAt).toBe('2026-05-05T15:30:00');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[capacity][window][fallback] service not found, using fallback service',
+      expect.objectContaining({ fallbackService: 'dinner' }),
+    );
+
+    warnSpy.mockRestore();
   });
 });

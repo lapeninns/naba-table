@@ -287,7 +287,7 @@ export async function loadAssignmentContextPayload(params: {
   const bookingQuery = await serviceSupabase
     .from('bookings')
     .select(
-      'id, restaurant_id, start_at, booking_date, start_time, party_size, status, restaurants(timezone)',
+      'id, restaurant_id, start_at, booking_date, start_time, party_size, status, booking_type, restaurants(timezone)',
     )
     .eq('id', bookingId)
     .eq('restaurant_id', restaurantId)
@@ -308,6 +308,7 @@ export async function loadAssignmentContextPayload(params: {
     bookingDate: booking.booking_date,
     startTime: booking.start_time,
     partySize: booking.party_size,
+    bookingOption: booking.booking_type ?? null,
     policy,
   });
   const contextWindowStart = toIsoUtc(
