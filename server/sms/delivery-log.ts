@@ -47,6 +47,9 @@ type InsertParams = {
   metadata?: Json | null;
 };
 
+const SMS_DELIVERY_LOG_SELECT =
+  'id, booking_id, restaurant_id, sms_type, recipient_phone, message_sid, status, provider, provider_event_id, occurred_at, error, metadata';
+
 function isDeliveryLogUnavailable(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const anyErr = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
@@ -65,6 +68,23 @@ function isDeliveryLogUnavailable(error: unknown): boolean {
   );
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const anyErr = error as { code?: unknown; message?: unknown };
+  const code = typeof anyErr.code === 'string' ? anyErr.code : '';
+  const message = typeof anyErr.message === 'string' ? anyErr.message : '';
+  return code === '23505' || /duplicate key/i.test(message);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  return String(error);
+}
+
 function toEntryDto(row: SmsDeliveryLogRow): SmsDeliveryLogEntry {
   return {
     id: row.id,
@@ -79,6 +99,30 @@ function toEntryDto(row: SmsDeliveryLogRow): SmsDeliveryLogEntry {
     error: row.error ?? null,
     metadata: row.metadata ?? null,
   };
+}
+
+async function findExistingSmsDeliveryLogEvent(params: {
+  messageSid: string;
+  recipientPhone: string;
+  status: SmsDeliveryStatus;
+}): Promise<SmsDeliveryLogEntry | null> {
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('sms_delivery_log')
+    .select(SMS_DELIVERY_LOG_SELECT)
+    .eq('message_sid', params.messageSid)
+    .eq('recipient_phone', params.recipientPhone)
+    .eq('status', params.status)
+    .order('occurred_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[sms][delivery-log] duplicate readback failed', { message: error.message });
+    return null;
+  }
+
+  return data ? toEntryDto(data as SmsDeliveryLogRow) : null;
 }
 
 export async function recordSmsDeliveryLog(params: InsertParams): Promise<SmsDeliveryLogEntry | null> {
@@ -104,9 +148,7 @@ export async function recordSmsDeliveryLog(params: InsertParams): Promise<SmsDel
         error: params.error ?? null,
         metadata: params.metadata ?? null,
       })
-      .select(
-        'id, booking_id, restaurant_id, sms_type, recipient_phone, message_sid, status, provider, provider_event_id, occurred_at, error, metadata',
-      )
+      .select(SMS_DELIVERY_LOG_SELECT)
       .single();
 
     if (error) {
@@ -115,6 +157,14 @@ export async function recordSmsDeliveryLog(params: InsertParams): Promise<SmsDel
 
     return toEntryDto(data as SmsDeliveryLogRow);
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return findExistingSmsDeliveryLogEvent({
+        messageSid: params.messageSid,
+        recipientPhone: normalizedPhone,
+        status: params.status,
+      });
+    }
+
     await recordObservabilityEvent({
       source: 'sms.delivery_log',
       eventType: 'insert_failed',
@@ -124,7 +174,7 @@ export async function recordSmsDeliveryLog(params: InsertParams): Promise<SmsDel
         provider: params.provider,
         bookingId: params.bookingId ?? null,
         restaurantId: params.restaurantId ?? null,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       },
       restaurantId: params.restaurantId ?? undefined,
       bookingId: params.bookingId ?? undefined,
@@ -165,6 +215,49 @@ export async function findLatestSmsDeliveryByMessageSid(params: {
     restaurantId: (data.restaurant_id as string | null) ?? null,
     smsType: (data.sms_type as string | null) ?? null,
   };
+}
+
+export async function hasRecentSmsDelivery(params: {
+  bookingId: string;
+  smsType: string;
+  recipientPhone?: string | null;
+  statuses?: ReadonlyArray<SmsDeliveryStatus>;
+  withinMs?: number;
+}): Promise<boolean> {
+  const withinMs =
+    typeof params.withinMs === 'number' && params.withinMs > 0
+      ? params.withinMs
+      : 30 * 24 * 60 * 60 * 1000;
+  const statuses = params.statuses?.length
+    ? params.statuses
+    : (['queued', 'sent', 'delivered'] as const);
+  const sinceIso = new Date(Date.now() - withinMs).toISOString();
+  const normalizedPhone = normalizePhone(params.recipientPhone);
+  if (params.recipientPhone !== undefined && !normalizedPhone) {
+    return false;
+  }
+
+  const supabase = getServiceSupabaseClient();
+  let query = supabase
+    .from('sms_delivery_log')
+    .select('id')
+    .eq('booking_id', params.bookingId)
+    .eq('sms_type', params.smsType)
+    .in('status', statuses as string[])
+    .gte('occurred_at', sinceIso);
+
+  if (normalizedPhone) {
+    query = query.eq('recipient_phone', normalizedPhone);
+  }
+
+  const { data, error } = await query.limit(1);
+
+  if (error) {
+    console.warn('[sms][delivery-log] recent-check failed', { message: error.message });
+    return false;
+  }
+
+  return (data ?? []).length > 0;
 }
 
 export async function listSmsDeliveryEventsForBooking(params: {

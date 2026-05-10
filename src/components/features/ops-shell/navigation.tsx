@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   Mail,
   MailCheck,
+  MessageSquare,
   Sparkles,
   Clock3,
   Timer,
@@ -26,6 +27,7 @@ export type OpsNavigationItem = {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   match?: (pathname: string) => boolean;
   requiresFeatureFlag?: keyof OpsFeatureFlags;
+  requiresActiveAdmin?: boolean;
 };
 
 export type OpsNavigationSection = {
@@ -82,6 +84,14 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/email-delivery'),
         icon: MailCheck,
         match: (pathname) => pathname.startsWith(path('/email-delivery')),
+      },
+      {
+        title: 'SMS Delivery',
+        description: 'Track queued/sent/delivered/failed SMS status',
+        href: path('/sms-delivery'),
+        icon: MessageSquare,
+        match: (pathname) => pathname.startsWith(path('/sms-delivery')),
+        requiresActiveAdmin: true,
       },
       {
         title: 'Email Templates',
@@ -170,4 +180,26 @@ export function isNavItemActive(pathname: string, item: OpsNavigationItem): bool
     return item.match(pathname);
   }
   return pathname === item.href;
+}
+
+export function filterOpsNavigationSections(params: {
+  sections?: readonly OpsNavigationSection[];
+  featureFlags: OpsFeatureFlags;
+  canViewAdminItems: boolean;
+}): OpsNavigationSection[] {
+  const sections = params.sections ?? OPS_NAV_SECTIONS;
+  return sections
+    .map((section) => ({
+      label: section.label,
+      items: section.items.filter((item) => {
+        if (item.requiresFeatureFlag && !params.featureFlags[item.requiresFeatureFlag]) {
+          return false;
+        }
+        if (item.requiresActiveAdmin && !params.canViewAdminItems) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
 }

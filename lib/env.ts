@@ -8,10 +8,35 @@ const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
 let cachedEnv: Env | null = null;
 
 function parseEnv(): Env {
+  const hasTemplatePlaceholder = (value: string) => /\$\{[^}]+\}/.test(value);
+
+  const resolveVercelUrlTemplate = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed.includes('${VERCEL_URL}')) return trimmed;
+
+    const vercelUrl = process.env.VERCEL_URL?.trim();
+    if (!vercelUrl || hasTemplatePlaceholder(vercelUrl)) return null;
+
+    return trimmed.replaceAll('${VERCEL_URL}', vercelUrl);
+  };
+
+  const sanitizePublicUrlEnv = (key: 'NEXT_PUBLIC_APP_URL' | 'NEXT_PUBLIC_SITE_URL') => {
+    const value = process.env[key];
+    if (typeof value !== 'string') return;
+
+    const resolved = resolveVercelUrlTemplate(value);
+    if (resolved) {
+      process.env[key] = resolved;
+    } else {
+      delete process.env[key];
+    }
+  };
+
   const sanitizeUrlEnv = (key: 'BASE_URL' | 'SITE_URL') => {
     const value = process.env[key];
     if (typeof value === 'string') {
-      const normalized = value.trim();
+      const resolved = resolveVercelUrlTemplate(value);
+      const normalized = resolved?.trim() ?? '';
       if (
         normalized.length === 0 ||
         normalized === '/' ||
@@ -24,6 +49,8 @@ function parseEnv(): Env {
     }
   };
 
+  sanitizePublicUrlEnv('NEXT_PUBLIC_APP_URL');
+  sanitizePublicUrlEnv('NEXT_PUBLIC_SITE_URL');
   sanitizeUrlEnv('BASE_URL');
   sanitizeUrlEnv('SITE_URL');
 

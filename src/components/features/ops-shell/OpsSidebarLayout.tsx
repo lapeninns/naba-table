@@ -29,7 +29,7 @@ import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
 
-import { OPS_NAV_SECTIONS, OPS_SUPPORT_ITEM, isNavItemActive } from './navigation';
+import { OPS_SUPPORT_ITEM, filterOpsNavigationSections, isNavItemActive } from './navigation';
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 
@@ -82,16 +82,14 @@ export function OpsSidebarLayout({
 
 function OpsSidebarPanel() {
   const pathname = usePathname();
-  const { featureFlags } = useOpsSession();
+  const { featureFlags, permissions } = useOpsSession();
 
   const sections = useMemo<OpsNavigationSection[]>(() => {
-    return OPS_NAV_SECTIONS.map((section) => ({
-      label: section.label,
-      items: section.items.filter((item) =>
-        item.requiresFeatureFlag ? Boolean(featureFlags[item.requiresFeatureFlag]) : true,
-      ),
-    })).filter((section) => section.items.length > 0);
-  }, [featureFlags]);
+    return filterOpsNavigationSections({
+      featureFlags,
+      canViewAdminItems: permissions.canManageSettings,
+    });
+  }, [featureFlags, permissions.canManageSettings]);
 
   return (
     <Sidebar
