@@ -10,6 +10,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_FOOTER_CLASS,
+  OPS_CARD_HEADER_CLASS,
+  OPS_PAGE_RHYTHM_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
@@ -447,7 +454,7 @@ export function OpsRejectionDashboard() {
   const hasData = Boolean(analytics && analytics.summary.total > 0);
 
   return (
-    <OpsPageShell variant="standard" className="space-y-6">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         title="Rejections"
         subtitle="Review rejection analytics and strategic settings for your restaurant."
@@ -488,8 +495,8 @@ export function OpsRejectionDashboard() {
         }
       />
 
-      <Card className="border-border/60">
-        <CardHeader>
+      <Card className={OPS_CARD_CLASS}>
+        <CardHeader className={OPS_CARD_HEADER_CLASS}>
           <CardTitle className="flex items-center gap-2 text-xl font-semibold text-foreground">
             <BarChart3 className="size-5" aria-hidden />
             Rejection analytics
@@ -499,9 +506,9 @@ export function OpsRejectionDashboard() {
             {activePreset.label}).
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-6')}>
           {loading ? (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
               {[0, 1, 2].map((key) => (
                 <Skeleton key={key} className="h-24 rounded-xl" />
               ))}
@@ -514,7 +521,7 @@ export function OpsRejectionDashboard() {
               </AlertDescription>
             </Alert>
           ) : hasData && analytics ? (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
               <SummaryCard
                 label="Total skipped"
                 value={formatCount(analytics.summary.total)}
@@ -543,8 +550,8 @@ export function OpsRejectionDashboard() {
 
           {hasData && analytics ? (
             <div className="grid gap-6 lg:grid-cols-2">
-              <Card className="border-border/60 lg:col-span-2">
-                <CardHeader className="pb-3">
+              <Card className={cn(OPS_CARD_CLASS, 'lg:col-span-2')}>
+                <CardHeader className={OPS_CARD_HEADER_CLASS}>
                   <CardTitle className="text-base font-medium">
                     Trend by {analytics.range.bucket}
                   </CardTitle>
@@ -552,7 +559,7 @@ export function OpsRejectionDashboard() {
                     Volume of skipped bookings over the selected window.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-2')}>
                   {analytics.series.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No data to plot for this period.
@@ -590,8 +597,8 @@ export function OpsRejectionDashboard() {
                   )}
                 </CardContent>
               </Card>
-              <Card className="border-border/60">
-                <CardHeader className="pb-3">
+              <Card className={OPS_CARD_CLASS}>
+                <CardHeader className={OPS_CARD_HEADER_CLASS}>
                   <CardTitle className="text-base font-medium">
                     Top hard rejection reasons
                   </CardTitle>
@@ -599,7 +606,7 @@ export function OpsRejectionDashboard() {
                     Operational blockers that prevented immediate seating.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-3')}>
                   {analytics.summary.hard.topReasons.length > 0 ? (
                     <ul className="space-y-2">
                       {analytics.summary.hard.topReasons.map((reason) => (
@@ -620,8 +627,8 @@ export function OpsRejectionDashboard() {
                 </CardContent>
               </Card>
 
-              <Card className="border-border/60">
-                <CardHeader className="pb-3">
+              <Card className={OPS_CARD_CLASS}>
+                <CardHeader className={OPS_CARD_HEADER_CLASS}>
                   <CardTitle className="text-base font-medium">
                     Dominant strategic penalties
                   </CardTitle>
@@ -629,7 +636,7 @@ export function OpsRejectionDashboard() {
                     Which penalty contributed most when scoring rejected plans.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-3')}>
                   {analytics.summary.strategic.topPenalties.length > 0 ? (
                     <ul className="space-y-2">
                       {analytics.summary.strategic.topPenalties.map((penalty) => (
@@ -661,8 +668,8 @@ export function OpsRejectionDashboard() {
           ) : null}
 
           {hasData && analytics ? (
-            <Card className="border-border/60">
-              <CardHeader className="pb-3">
+            <Card className={OPS_CARD_CLASS}>
+              <CardHeader className={OPS_CARD_HEADER_CLASS}>
                 <CardTitle className="flex items-center gap-2 text-base font-medium">
                   <TrendingDown className="size-4" aria-hidden />
                   Recent strategic rejection samples
@@ -719,7 +726,12 @@ export function OpsRejectionDashboard() {
         </CardContent>
 
         {analytics?.range ? (
-          <CardFooter className="flex flex-col gap-1 border-t border-border/60 bg-muted/20 px-6 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+          <CardFooter
+            className={cn(
+              OPS_CARD_FOOTER_CLASS,
+              'flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between',
+            )}
+          >
             <span>
               Window: {formatDateTime(analytics.range.from)} → {formatDateTime(analytics.range.to)}{' '}
               (bucket: {analytics.range.bucket})
@@ -729,8 +741,13 @@ export function OpsRejectionDashboard() {
         ) : null}
       </Card>
 
-      <Card className="border-border/60">
-        <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <Card className={OPS_CARD_CLASS}>
+        <CardHeader
+          className={cn(
+            OPS_CARD_HEADER_CLASS,
+            'flex flex-col gap-2 md:flex-row md:items-center md:justify-between',
+          )}
+        >
           <div>
             <CardTitle className="flex items-center gap-2 text-lg font-semibold">
               <Settings2 className="size-5" aria-hidden />
@@ -759,7 +776,7 @@ export function OpsRejectionDashboard() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className={OPS_CARD_CONTENT_CLASS}>
           {settingsQuery.isLoading ? (
             <div className="grid gap-3 sm:grid-cols-3">
               {[0, 1, 2].map((key) => (
@@ -802,7 +819,7 @@ export function OpsRejectionDashboard() {
           ) : null}
         </CardContent>
         {settingsQuery.data ? (
-          <CardFooter className="border-t border-border/60 bg-muted/20 px-6 py-4 text-xs text-muted-foreground">
+          <CardFooter className={cn(OPS_CARD_FOOTER_CLASS, 'text-xs text-muted-foreground')}>
             <span>
               Source:{' '}
               {settingsQuery.data.source === 'db' ? 'Supabase overrides' : 'Code/env defaults'} ·

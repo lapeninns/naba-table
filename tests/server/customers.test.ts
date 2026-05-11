@@ -77,59 +77,208 @@ describe('server/customers', () => {
     expect(customer).toEqual(existing);
     expect(spies.from).toHaveBeenCalledWith('customers');
     expect(spies.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
-    expect(spies.or).toHaveBeenCalledWith('phone_normalized.eq."447950272147"');
+    expect(spies.eq).toHaveBeenCalledWith('phone_normalized', '447950272147');
   });
 
-  it('does not reuse or overwrite a customer when only one submitted contact matches', async () => {
-    const victim = {
+  it('reuses an existing customer by email without overwriting a conflicting phone', async () => {
+    const existing = {
       id: 'customer-1',
       restaurant_id: 'rest-1',
-      email: 'victim@example.com',
+      email: 'guest@example.com',
       phone: '+447950272147',
-      full_name: 'Victim Guest',
+      full_name: 'Existing Guest',
       marketing_opt_in: false,
       created_at: '2026-04-01T15:00:00Z',
       updated_at: '2026-04-01T15:00:00Z',
-      email_normalized: 'victim@example.com',
+      email_normalized: 'guest@example.com',
       phone_normalized: '447950272147',
-      auth_user_id: 'auth-user-1',
-      user_profile_id: 'profile-1',
-      notes: null,
-    };
-    const inserted = {
-      ...victim,
-      id: 'customer-2',
-      phone: '+447000000000',
-      phone_normalized: '447000000000',
       auth_user_id: null,
       user_profile_id: null,
+      notes: null,
     };
 
-    const lookupMaybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-    const insertSingle = vi.fn().mockResolvedValue({ data: inserted, error: null });
-    const insertSelect = vi.fn(() => ({ single: insertSingle }));
-    const insert = vi.fn(() => ({ select: insertSelect }));
+    const maybeSingle = vi.fn().mockResolvedValue({ data: existing, error: null });
+    const update = vi.fn();
+    const insert = vi.fn();
     const builder = {
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
-      order: vi.fn(() => builder),
-      limit: vi.fn(() => builder),
-      maybeSingle: lookupMaybeSingle,
+      maybeSingle,
+      update,
       insert,
     };
     const from = vi.fn(() => builder);
 
     const customer = await upsertCustomer({ from } as unknown as DbClient, {
       restaurantId: 'rest-1',
-      email: 'victim@example.com',
+      email: 'guest@example.com',
       phone: '07000 000000',
-      name: 'Attacker Input',
+      name: 'Updated Input',
       marketingOptIn: false,
     });
 
-    expect(customer.id).toBe('customer-2');
-    expect(builder.eq).toHaveBeenCalledWith('email_normalized', 'victim@example.com');
-    expect(builder.eq).toHaveBeenCalledWith('phone_normalized', '447000000000');
-    expect(insert).toHaveBeenCalled();
+    expect(customer).toEqual(existing);
+    expect(builder.eq).toHaveBeenCalledWith('email_normalized', 'guest@example.com');
+    expect(builder.eq).not.toHaveBeenCalledWith('phone_normalized', '447000000000');
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('fills a missing customer phone when reusing an existing email match', async () => {
+    const existing = {
+      id: 'customer-1',
+      restaurant_id: 'rest-1',
+      email: 'guest@example.com',
+      phone: '',
+      full_name: 'Existing Guest',
+      marketing_opt_in: false,
+      created_at: '2026-04-01T15:00:00Z',
+      updated_at: '2026-04-01T15:00:00Z',
+      email_normalized: 'guest@example.com',
+      phone_normalized: null,
+      auth_user_id: null,
+      user_profile_id: null,
+      notes: null,
+    };
+    const updated = {
+      ...existing,
+      phone: '+447000000000',
+      phone_normalized: '447000000000',
+    };
+
+    const lookupBuilder = {
+      select: vi.fn(() => lookupBuilder),
+      eq: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({ data: existing, error: null }),
+    };
+    const updateSingle = vi.fn().mockResolvedValue({ data: updated, error: null });
+    const updateBuilder = {
+      update: vi.fn(() => updateBuilder),
+      eq: vi.fn(() => updateBuilder),
+      select: vi.fn(() => updateBuilder),
+      single: updateSingle,
+    };
+    const from = vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(updateBuilder);
+
+    const customer = await upsertCustomer({ from } as unknown as DbClient, {
+      restaurantId: 'rest-1',
+      email: 'guest@example.com',
+      phone: '07000 000000',
+      name: 'Existing Guest',
+      marketingOptIn: false,
+    });
+
+    expect(customer).toEqual(updated);
+    expect(updateBuilder.update).toHaveBeenCalledWith({ phone: '+447000000000' });
+    expect(updateBuilder.eq).toHaveBeenCalledWith('id', 'customer-1');
+  });
+
+  it('keeps the email-matched customer when filling a missing phone conflicts', async () => {
+    const existing = {
+      id: 'customer-1',
+      restaurant_id: 'rest-1',
+      email: 'guest@example.com',
+      phone: '',
+      full_name: 'Existing Guest',
+      marketing_opt_in: false,
+      created_at: '2026-04-01T15:00:00Z',
+      updated_at: '2026-04-01T15:00:00Z',
+      email_normalized: 'guest@example.com',
+      phone_normalized: null,
+      auth_user_id: null,
+      user_profile_id: null,
+      notes: null,
+    };
+    const duplicatePhoneError = {
+      code: '23505',
+      message:
+        'duplicate key value violates unique constraint "customers_restaurant_id_phone_normalized_key"',
+    };
+
+    const lookupBuilder = {
+      select: vi.fn(() => lookupBuilder),
+      eq: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({ data: existing, error: null }),
+    };
+    const updateSingle = vi.fn().mockResolvedValue({ data: null, error: duplicatePhoneError });
+    const updateBuilder = {
+      update: vi.fn(() => updateBuilder),
+      eq: vi.fn(() => updateBuilder),
+      select: vi.fn(() => updateBuilder),
+      single: updateSingle,
+    };
+    const from = vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(updateBuilder);
+
+    const customer = await upsertCustomer({ from } as unknown as DbClient, {
+      restaurantId: 'rest-1',
+      email: 'guest@example.com',
+      phone: '07000 000000',
+      name: 'Existing Guest',
+      marketingOptIn: false,
+    });
+
+    expect(customer).toEqual(existing);
+    expect(updateBuilder.update).toHaveBeenCalledWith({ phone: '+447000000000' });
+  });
+
+  it('recovers from duplicate email inserts by retrying the email identity lookup', async () => {
+    const existing = {
+      id: 'customer-1',
+      restaurant_id: 'rest-1',
+      email: 'guest@example.com',
+      phone: '+447950272147',
+      full_name: 'Existing Guest',
+      marketing_opt_in: false,
+      created_at: '2026-04-01T15:00:00Z',
+      updated_at: '2026-04-01T15:00:00Z',
+      email_normalized: 'guest@example.com',
+      phone_normalized: '447950272147',
+      auth_user_id: null,
+      user_profile_id: null,
+      notes: null,
+    };
+    const duplicateEmailError = {
+      code: '23505',
+      message:
+        'duplicate key value violates unique constraint "customers_restaurant_id_email_normalized_key"',
+    };
+
+    const firstEmailLookup = {
+      select: vi.fn(() => firstEmailLookup),
+      eq: vi.fn(() => firstEmailLookup),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const firstPhoneLookup = {
+      select: vi.fn(() => firstPhoneLookup),
+      eq: vi.fn(() => firstPhoneLookup),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const insertSingle = vi.fn().mockResolvedValue({ data: null, error: duplicateEmailError });
+    const insertSelect = vi.fn(() => ({ single: insertSingle }));
+    const insertBuilder = {
+      insert: vi.fn(() => ({ select: insertSelect })),
+    };
+    const secondEmailLookup = {
+      select: vi.fn(() => secondEmailLookup),
+      eq: vi.fn(() => secondEmailLookup),
+      maybeSingle: vi.fn().mockResolvedValue({ data: existing, error: null }),
+    };
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(firstEmailLookup)
+      .mockReturnValueOnce(firstPhoneLookup)
+      .mockReturnValueOnce(insertBuilder)
+      .mockReturnValueOnce(secondEmailLookup);
+
+    const customer = await upsertCustomer({ from } as unknown as DbClient, {
+      restaurantId: 'rest-1',
+      email: 'guest@example.com',
+      phone: '07000 000000',
+      name: 'Existing Guest',
+      marketingOptIn: false,
+    });
+
+    expect(customer).toEqual(existing);
+    expect(secondEmailLookup.eq).toHaveBeenCalledWith('email_normalized', 'guest@example.com');
   });
 });

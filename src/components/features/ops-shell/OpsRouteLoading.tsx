@@ -1,9 +1,11 @@
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function OpsRouteLoading() {
   return (
     <div className="min-h-screen bg-background" aria-busy="true">
-      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
         <div className="space-y-3">
           <Skeleton className="h-8 w-48 sm:h-9 sm:w-56" />
           <Skeleton className="h-4 w-72 sm:w-96" />
@@ -21,7 +23,7 @@ export function OpsRouteLoading() {
             <Skeleton className="h-40 w-full rounded-2xl" />
           </div>
         </div>
-      </main>
+      </OpsPageShell>
     </div>
   );
 }

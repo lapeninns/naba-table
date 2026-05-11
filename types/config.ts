@@ -19,6 +19,7 @@ export interface ConfigProps {
     fromSupport: string;
     supportEmail?: string;
     forwardRepliesTo?: string;
+    platformReplyTo: string;
   };
   colors: {
     theme: Theme;

@@ -4,7 +4,9 @@ import { Suspense, useMemo } from 'react';
 
 import { WalkInWizardClient } from '@/app/app/(app)/new-bookings/_components/WalkInWizardClient';
 import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Card } from '@/components/ui/card';
 
 import { DEV_RESTAURANT_ID } from '../../_mocks/devIds';
@@ -16,7 +18,7 @@ export function OpsNewBookingDevHarness() {
 
   return (
     <OpsDevProviders factories={factories} initialRestaurantId={DEV_RESTAURANT_ID}>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
         <OpsPageHeader
           title="New booking (dev)"
           subtitle="Responsive QA harness for the walk-in wizard shell and container."
@@ -32,8 +34,7 @@ export function OpsNewBookingDevHarness() {
             <WalkInWizardClient />
           </Suspense>
         </BookingErrorBoundary>
-      </div>
+      </OpsPageShell>
     </OpsDevProviders>
   );
 }
-

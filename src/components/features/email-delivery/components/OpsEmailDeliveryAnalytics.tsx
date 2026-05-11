@@ -2,6 +2,11 @@
 
 import { BarChart3 } from 'lucide-react';
 
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,13 +55,13 @@ function AnalyticsTile({
   toneClass: string;
 }) {
   return (
-    <Card className={cn('border shadow-sm', toneClass)}>
-      <CardHeader className="pb-2">
+    <Card className={cn(OPS_CARD_CLASS, toneClass)}>
+      <CardHeader className={OPS_CARD_HEADER_CLASS}>
         <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className={OPS_CARD_CONTENT_CLASS}>
         <p className="text-3xl font-semibold tracking-tight text-foreground">{value}</p>
         {hint ? <p className="mt-2 text-sm text-muted-foreground">{hint}</p> : null}
       </CardContent>
@@ -135,8 +140,13 @@ export function OpsEmailDeliveryAnalytics({
 
   return (
     <section aria-label="Email delivery analytics" className="space-y-6">
-      <Card className="border-border bg-background shadow-sm">
-        <CardHeader className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
+      <Card className={OPS_CARD_CLASS}>
+        <CardHeader
+          className={cn(
+            OPS_CARD_HEADER_CLASS,
+            'flex flex-col gap-4 border-b sm:flex-row sm:items-start sm:justify-between',
+          )}
+        >
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <BarChart3 className="size-4 text-muted-foreground" aria-hidden />
@@ -199,7 +209,7 @@ export function OpsEmailDeliveryAnalytics({
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-6 pt-4')}>
           {errorMessage ? (
             <Alert variant="destructive">
               <AlertTitle>Unable to load analytics</AlertTitle>
@@ -209,13 +219,13 @@ export function OpsEmailDeliveryAnalytics({
 
           {isLoading && !summary ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {Array.from({ length: 4 }).map((_, index) => (
                   <Skeleton key={index} className="h-32 rounded-xl" />
                 ))}
               </div>
               <Skeleton className="h-28 rounded-xl" />
-              <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
+              <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
                 <Skeleton className="h-40 rounded-xl" />
                 <Skeleton className="h-40 rounded-xl" />
                 <Skeleton className="h-40 rounded-xl" />
@@ -223,7 +233,7 @@ export function OpsEmailDeliveryAnalytics({
             </>
           ) : summary ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <AnalyticsTile
                   label="Total Attempts"
                   value={String(total)}

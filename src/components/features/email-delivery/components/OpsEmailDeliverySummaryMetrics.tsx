@@ -2,6 +2,11 @@
 
 import { ChevronDown } from 'lucide-react';
 
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,11 +82,17 @@ function MetricTile({
           : 'border-border/60 bg-muted/10';
 
   const inner = (
-    <Card className={cn(toneClass, onClick ? 'transition-colors hover:bg-muted/15' : null)}>
-      <CardHeader className="pb-2">
+    <Card
+      className={cn(
+        OPS_CARD_CLASS,
+        toneClass,
+        onClick ? 'transition-colors hover:bg-muted/15' : null,
+      )}
+    >
+      <CardHeader className={OPS_CARD_HEADER_CLASS}>
         <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className={OPS_CARD_CONTENT_CLASS}>
         <p className="text-2xl font-semibold tracking-tight text-foreground" data-testid={testId}>
           {value}
         </p>
@@ -329,13 +340,13 @@ export function OpsEmailDeliverySummaryMetrics({
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <Card className="border-border/60 bg-muted/10">
-              <CardHeader className="pb-2">
+            <Card className={cn(OPS_CARD_CLASS, 'bg-muted/10')}>
+              <CardHeader className={OPS_CARD_HEADER_CLASS}>
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Top failed templates
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-2')}>
                 {summary.topFailedTemplates.length > 0 ? (
                   summary.topFailedTemplates.map((entry) => (
                     <div
@@ -357,13 +368,13 @@ export function OpsEmailDeliverySummaryMetrics({
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 bg-muted/10">
-              <CardHeader className="pb-2">
+            <Card className={cn(OPS_CARD_CLASS, 'bg-muted/10')}>
+              <CardHeader className={OPS_CARD_HEADER_CLASS}>
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Top failed email types
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-2')}>
                 {summary.topFailedEmailTypes.length > 0 ? (
                   summary.topFailedEmailTypes.map((entry) => (
                     <div key={entry.emailType} className="flex items-center justify-between gap-3">

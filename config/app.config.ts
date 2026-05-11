@@ -8,6 +8,9 @@ const supportDomain = supportEmail.includes('@') ? supportEmail.split('@')[1] : 
 const forwardRepliesToEnv = process.env.SUPPORT_FORWARD_EMAIL?.trim();
 const forwardRepliesTo =
   forwardRepliesToEnv && forwardRepliesToEnv.length > 0 ? forwardRepliesToEnv : supportEmail;
+const platformReplyToEnv = process.env.PLATFORM_REPLY_TO_EMAIL?.trim();
+const platformReplyTo =
+  platformReplyToEnv && platformReplyToEnv.length > 0 ? platformReplyToEnv : 'info@lapeninns.com';
 const noReplyAddress = `noreply@${supportDomain}`;
 
 const config = {
@@ -41,6 +44,8 @@ const config = {
     supportEmail,
     // When someone replies to supportEmail sent by the app, forward it to the email below (optional).
     forwardRepliesTo,
+    // Reply-To target for platform-owned transactional emails.
+    platformReplyTo,
   },
   colors: {
     // REQUIRED — Radix Luma mode fallback. Route-level `data-theme` still chooses guest vs app semantics.

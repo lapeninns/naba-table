@@ -1,6 +1,12 @@
 import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 type DashboardSummarySkeletonProps = {
   restaurantName?: string;
@@ -15,8 +21,8 @@ export function DashboardSummarySkeleton({ restaurantName }: DashboardSummarySke
     'booking-skeleton-4',
   ];
   return (
-    <Card className="border-border/60" aria-busy="true">
-      <CardHeader className="p-4 md:p-6">
+    <Card className={OPS_CARD_CLASS} aria-busy="true">
+      <CardHeader className={OPS_CARD_HEADER_CLASS}>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <CardTitle className="text-xl font-semibold text-foreground">Bookings</CardTitle>
@@ -27,7 +33,7 @@ export function DashboardSummarySkeleton({ restaurantName }: DashboardSummarySke
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
+      <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-4 sm:space-y-6')}>
         {/* Mock OpsDashboardToolbar */}
         <div className="rounded-xl border border-border/60 bg-card/80 px-3 py-2.5 shadow-sm">
           <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">

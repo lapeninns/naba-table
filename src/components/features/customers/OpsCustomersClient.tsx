@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
@@ -126,33 +127,37 @@ export function OpsCustomersClient({
 
   if (memberships.length === 0) {
     return (
-      <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
-        <OpsEmptyState
-          title="No restaurant access yet"
-          description="Ask an owner or manager to send you an invitation so you can view customer data."
-          action={
-            <Button asChild variant="secondary">
-              <Link href={opsHref('/dashboard')}>Return to ops home</Link>
-            </Button>
-          }
-        />
-      </section>
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center">
+          <OpsEmptyState
+            title="No restaurant access yet"
+            description="Ask an owner or manager to send you an invitation so you can view customer data."
+            action={
+              <Button asChild variant="secondary">
+                <Link href={opsHref('/dashboard')}>Return to ops home</Link>
+              </Button>
+            }
+          />
+        </section>
+      </OpsPageShell>
     );
   }
 
   if (!activeRestaurantId) {
     return (
-      <section className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center p-8">
-        <OpsEmptyState
-          title="Loading restaurant access…"
-          description="We’re preparing your guests. This will only take a moment."
-        />
-      </section>
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <section className="mx-auto flex min-h-[40vh] max-w-2xl items-center justify-center">
+          <OpsEmptyState
+            title="Loading restaurant access…"
+            description="We’re preparing your guests. This will only take a moment."
+          />
+        </section>
+      </OpsPageShell>
     );
   }
 
   return (
-    <OpsPageShell variant="standard" className="space-y-4">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         title="Guests"
         meta={

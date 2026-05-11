@@ -86,6 +86,7 @@ const baseEnvSchema = z
     RESERVE_RESERVATION_UNAVAILABLE_TOOLTIP: z.string().optional(),
     BOOKING_DEFAULT_RESTAURANT_ID: z.string().uuid().optional(),
     NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG_FALLBACK: z.string().optional(),
+    PLATFORM_REPLY_TO_EMAIL: z.string().email().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_FROM: z.string().email().optional(),
     RESEND_USE_MOCK: booleanStringOptional,

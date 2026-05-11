@@ -4,12 +4,18 @@ import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { BookingsTable } from '@/components/dashboard/BookingsTable';
-import { BookingOfflineBanner, type BookingAction } from '@/components/features/booking-state-machine';
+import {
+  BookingOfflineBanner,
+  type BookingAction,
+} from '@/components/features/booking-state-machine';
 import { OpsBookingsSearchInput } from '@/components/features/bookings/components/OpsBookingsSearchInput';
 import { buildOpsBookingsCardRows } from '@/components/features/bookings/opsBookingsSelectors';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 
@@ -208,7 +214,9 @@ export function OpsBookingsListDevHarness() {
 
   const handleUndoNoShow = useCallback(
     async (bookingId: string) =>
-      runAction(bookingId, 'undo-no-show', () => toast.success(`Undo no-show: ${getLabel(bookingId)}`)),
+      runAction(bookingId, 'undo-no-show', () =>
+        toast.success(`Undo no-show: ${getLabel(bookingId)}`),
+      ),
     [getLabel, runAction],
   );
 
@@ -247,13 +255,14 @@ export function OpsBookingsListDevHarness() {
   return (
     <BookingStateMachineProvider initialBookings={[]}>
       <div className="min-h-screen bg-background font-sans text-foreground">
-        <main className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-          <a
-            href="#ops-bookings-list"
-            className="sr-only focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+          <Button
+            asChild
+            variant="link"
+            className="sr-only h-auto p-0 focus:not-sr-only focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            Skip to bookings list
-          </a>
+            <a href="#ops-bookings-list">Skip to bookings list</a>
+          </Button>
           <OpsPageHeader
             title="Manage bookings (dev harness)"
             meta={
@@ -306,7 +315,7 @@ export function OpsBookingsListDevHarness() {
               onUndoNoShow: handleUndoNoShow,
             }}
           />
-        </main>
+        </OpsPageShell>
       </div>
     </BookingStateMachineProvider>
   );

@@ -1,10 +1,16 @@
 import dynamic from 'next/dynamic';
 
 import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StaleBoundary } from '@/components/ui/stale-boundary';
+import { cn } from '@/lib/utils';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { OpsDashboardToolbar } from './OpsDashboardToolbar';
@@ -56,8 +62,8 @@ export function DashboardSummaryCard({
   }
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="p-4 md:p-6">
+    <Card className={OPS_CARD_CLASS}>
+      <CardHeader className={OPS_CARD_HEADER_CLASS}>
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <CardTitle className="text-xl font-semibold text-foreground">Bookings</CardTitle>
@@ -68,7 +74,7 @@ export function DashboardSummaryCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-4 md:space-y-6 md:p-6">
+      <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-4 sm:space-y-6')}>
         {/* Toolbar stays interactive during stale transitions (SWR golden rule) */}
         <OpsDashboardToolbar
           filter={controls.filter}

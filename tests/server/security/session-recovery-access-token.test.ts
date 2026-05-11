@@ -39,6 +39,30 @@ describe('session recovery access tokens', () => {
     ).toThrow('At least one contact method is required');
   });
 
+  it('creates an email recovery token when an optional phone value cannot be normalized', () => {
+    const token = createSessionRecoveryAccessToken({
+      restaurantId: '550e8400-e29b-41d4-a716-446655440000',
+      email: 'guest@example.com',
+      phone: 'not-a-phone',
+      secret: 'test-secret',
+      now: new Date('2026-04-13T12:00:00.000Z'),
+      ttlSeconds: 900,
+    });
+
+    const result = validateSessionRecoveryAccessToken(token, {
+      secret: 'test-secret',
+      now: new Date('2026-04-13T12:05:00.000Z'),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.payload.email).toBe('guest@example.com');
+    expect(result.payload.phone).toBeNull();
+  });
+
   it('matches phone-only tokens against phone-only bookings', () => {
     const token = createSessionRecoveryAccessToken({
       restaurantId: '550e8400-e29b-41d4-a716-446655440000',

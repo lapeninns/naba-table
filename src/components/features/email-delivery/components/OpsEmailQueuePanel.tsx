@@ -4,6 +4,11 @@ import { DateTime } from 'luxon';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -161,8 +166,8 @@ export function OpsEmailQueuePanel({
 
   return (
     <section aria-label="Queue monitor" className="space-y-6">
-      <Card className="border-border bg-background shadow-sm">
-        <CardHeader className="space-y-4 border-b border-border pb-5">
+      <Card className={OPS_CARD_CLASS}>
+        <CardHeader className={cn(OPS_CARD_HEADER_CLASS, 'space-y-4 border-b')}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <CardTitle className="text-base font-semibold text-foreground">
@@ -184,7 +189,7 @@ export function OpsEmailQueuePanel({
             ) : null}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             {queueMetrics.map((item) => (
               <div
                 key={item.label}
@@ -231,7 +236,7 @@ export function OpsEmailQueuePanel({
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-4 pt-5">
+        <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-4 pt-4')}>
           {showRefetchIndicator ? (
             <div
               role="region"

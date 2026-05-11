@@ -24,36 +24,6 @@ export function normalizePhone(phone: string | null | undefined): string {
   return normalizeComparablePhone(phone);
 }
 
-function buildCustomerOrFilter(email: string, phone: string): string {
-  const filters: string[] = [];
-
-  if (email) {
-    filters.push(`email_normalized.eq."${email}"`);
-  }
-
-  if (phone) {
-    filters.push(`phone_normalized.eq."${phone}"`);
-  }
-
-  if (filters.length === 0) {
-    throw new Error('At least one normalized contact method is required');
-  }
-
-  return filters.join(',');
-}
-
-function contactsMatchExisting(
-  existing: Pick<CustomerRow, "email_normalized" | "phone_normalized">,
-  params: { email: string; phone: string },
-): boolean {
-  if (params.email && params.phone) {
-    return existing.email_normalized === params.email && existing.phone_normalized === params.phone;
-  }
-  if (params.email) return existing.email_normalized === params.email;
-  if (params.phone) return existing.phone_normalized === params.phone;
-  return false;
-}
-
 function sanitizePhoneValue(phone: string | null | undefined): string {
   if (!phone) return '';
   const trimmed = phone.trim();
@@ -61,12 +31,59 @@ function sanitizePhoneValue(phone: string | null | undefined): string {
 
   // Canonicalize valid GB numbers to E.164 for consistency and DB safety.
   const canonical = formatUKPhoneToE164(trimmed) ?? trimmed;
-  if (canonical.length < CUSTOMER_PHONE_LENGTH_MIN || canonical.length > CUSTOMER_PHONE_LENGTH_MAX) {
+  if (
+    canonical.length < CUSTOMER_PHONE_LENGTH_MIN ||
+    canonical.length > CUSTOMER_PHONE_LENGTH_MAX
+  ) {
     throw new Error(
       `Phone must be between ${CUSTOMER_PHONE_LENGTH_MIN} and ${CUSTOMER_PHONE_LENGTH_MAX} characters`,
     );
   }
   return canonical;
+}
+
+async function findCustomerByNormalizedIdentity(
+  client: DbClient,
+  restaurantId: string,
+  params: { email: string; phone: string },
+): Promise<CustomerRow | null> {
+  if (params.email) {
+    const { data, error } = await client
+      .from("customers")
+      .select(CUSTOMER_COLUMNS)
+      .eq("restaurant_id", restaurantId)
+      .eq("email_normalized", params.email)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error(`[upsertCustomer] Email lookup error`, error);
+      throw error;
+    }
+
+    if (data) {
+      return data as CustomerRow;
+    }
+  }
+
+  if (params.phone) {
+    const { data, error } = await client
+      .from("customers")
+      .select(CUSTOMER_COLUMNS)
+      .eq("restaurant_id", restaurantId)
+      .eq("phone_normalized", params.phone)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error(`[upsertCustomer] Phone lookup error`, error);
+      throw error;
+    }
+
+    if (data) {
+      return data as CustomerRow;
+    }
+  }
+
+  return null;
 }
 
 export async function findCustomerByContact(
@@ -129,59 +146,45 @@ export async function upsertCustomer(
   console.log(`[upsertCustomer] Resolving customer`, {
     restaurantId: params.restaurantId,
     email: normalizedEmail,
-    phone: normalizedPhone
+    phone: normalizedPhone,
   });
 
-  let lookup = client
-    .from("customers")
-    .select(CUSTOMER_COLUMNS)
-    .eq("restaurant_id", params.restaurantId);
+  let customerData = await findCustomerByNormalizedIdentity(client, params.restaurantId, {
+    email: normalizedEmail,
+    phone: normalizedPhone,
+  });
 
-  if (normalizedEmail && normalizedPhone) {
-    lookup = lookup.eq("email_normalized", normalizedEmail).eq("phone_normalized", normalizedPhone);
-  } else {
-    lookup = lookup.or(buildCustomerOrFilter(normalizedEmail, normalizedPhone));
-  }
-
-  const { data: existing, error: findError } = await lookup
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (findError && findError.code !== "PGRST116") {
-    console.error(`[upsertCustomer] Find error`, findError);
-    throw findError;
-  }
-
-  let customerData: CustomerRow | null = existing as CustomerRow | null;
-
-  if (existing && contactsMatchExisting(existing as CustomerRow, { email: normalizedEmail, phone: normalizedPhone })) {
-    console.log(`[upsertCustomer] Found existing customer: ${existing.id}`);
+  if (customerData) {
+    console.log(`[upsertCustomer] Found existing customer: ${customerData.id}`);
     // 2. Update existing customer
     const updates: TablesUpdate<"customers"> = {};
 
-    if (!existing.full_name && params.name) {
+    if (!customerData.full_name && params.name) {
       updates.full_name = params.name;
     }
 
-    if (marketingOptIn && !existing.marketing_opt_in) {
+    if (marketingOptIn && !customerData.marketing_opt_in) {
       updates.marketing_opt_in = true;
     }
 
-    if (!existing.phone_normalized && normalizedPhone) {
+    if (!customerData.phone_normalized && normalizedPhone) {
       updates.phone = phoneForStorage;
     }
 
     if (Object.keys(updates).length > 0) {
-      console.log(`[upsertCustomer] Updating customer: ${existing.id}`, updates);
+      console.log(`[upsertCustomer] Updating customer: ${customerData.id}`, updates);
       const { data: updated, error: updateError } = await client
         .from("customers")
         .update(updates)
-        .eq("id", existing.id)
+        .eq("id", customerData.id)
         .select(CUSTOMER_COLUMNS)
         .single();
 
       if (updateError) {
+        if (updateError.code === "23505" && updates.phone) {
+          console.warn(`[upsertCustomer] Skipping conflicting phone update`, updateError);
+          return customerData;
+        }
         console.error(`[upsertCustomer] Update error`, updateError);
         throw updateError;
       }
@@ -212,29 +215,13 @@ export async function upsertCustomer(
       // Final fallback for race conditions
       if (insertError.code === "23505") {
         console.log(`[upsertCustomer] Race condition detected, retrying find.`);
-        let secondLookup = client
-          .from("customers")
-          .select(CUSTOMER_COLUMNS)
-          .eq("restaurant_id", params.restaurantId);
+        const secondFind = await findCustomerByNormalizedIdentity(client, params.restaurantId, {
+          email: normalizedEmail,
+          phone: normalizedPhone,
+        });
 
-        if (normalizedEmail && normalizedPhone) {
-          secondLookup = secondLookup
-            .eq("email_normalized", normalizedEmail)
-            .eq("phone_normalized", normalizedPhone);
-        } else {
-          secondLookup = secondLookup.or(buildCustomerOrFilter(normalizedEmail, normalizedPhone));
-        }
-
-        const { data: secondFind } = await secondLookup.maybeSingle();
-
-        if (
-          secondFind &&
-          contactsMatchExisting(secondFind as CustomerRow, {
-            email: normalizedEmail,
-            phone: normalizedPhone,
-          })
-        ) {
-          return secondFind as CustomerRow;
+        if (secondFind) {
+          return secondFind;
         }
       }
       throw insertError;

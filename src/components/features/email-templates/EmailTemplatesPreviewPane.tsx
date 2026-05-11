@@ -2,6 +2,11 @@
 
 import { Mail, Monitor, Search, Smartphone } from 'lucide-react';
 
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -52,8 +57,13 @@ export function EmailTemplatesPreviewPane({
   const isMobile = previewDevice === 'mobile';
 
   return (
-    <section className="overflow-hidden rounded-[1.5rem] border border-border bg-background shadow-sm">
-      <header className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-3.5">
+    <section className={cn(OPS_CARD_CLASS, 'overflow-hidden rounded-[1.5rem] bg-background')}>
+      <header
+        className={cn(
+          OPS_CARD_HEADER_CLASS,
+          'flex items-center justify-between border-b bg-muted/40',
+        )}
+      >
         <div className="flex items-center gap-3">
           <Mail className="size-4 text-muted-foreground" />
           <div className="min-w-0">
@@ -94,7 +104,7 @@ export function EmailTemplatesPreviewPane({
         </div>
       </header>
 
-      <div className="min-h-[36rem] overflow-y-auto bg-muted/30 p-[var(--pg-gutter)]">
+      <div className={cn(OPS_CARD_CONTENT_CLASS, 'min-h-[36rem] overflow-y-auto bg-muted/30 pt-4')}>
         <div className="flex flex-col gap-6">
           {errorMessage ? (
             <Alert variant="destructive" className="w-full">

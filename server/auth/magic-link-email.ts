@@ -11,6 +11,10 @@ import {
   renderDivider,
   renderEmailBase,
 } from "@/server/emails/base";
+import {
+  resolvePlatformAppSenderName,
+  resolvePlatformReplyTo,
+} from "@/server/emails/sender-policy";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
 type MagicLinkIntent = "signin" | "signup";
@@ -237,7 +241,8 @@ export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promis
       subject: message.subject,
       html: message.html,
       text: message.text,
-      fromName: config.appName,
+      replyTo: resolvePlatformReplyTo(),
+      fromName: resolvePlatformAppSenderName(),
       tags: [
         { name: "email_type", value: "auth_magic_link" },
         { name: "template_type", value: intent },

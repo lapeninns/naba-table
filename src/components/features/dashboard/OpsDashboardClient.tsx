@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { memo, useMemo } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Button } from '@/components/ui/button';
@@ -250,15 +251,23 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
   );
 
   if (!state.restaurantId) {
-    return <NoAccessState />;
+    return (
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <NoAccessState />
+      </OpsPageShell>
+    );
   }
 
   if (state.hasError) {
-    return <DashboardErrorState onRetry={state.handleRetry} />;
+    return (
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <DashboardErrorState onRetry={state.handleRetry} />
+      </OpsPageShell>
+    );
   }
 
   return (
-    <OpsPageShell variant="standard" className="space-y-5 sm:space-y-6">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <DashboardHeaderSection {...headerProps} />
 
       <section aria-label="Connection status">

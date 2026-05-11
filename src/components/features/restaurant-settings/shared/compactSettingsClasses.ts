@@ -1,16 +1,30 @@
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_FOOTER_CLASS,
+  OPS_CARD_HEADER_CLASS,
+  OPS_PAGE_CONTENT_STACK_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
+
 export const SETTINGS_DENSE_MODE_CLASS = 'restaurant-settings-dense';
 
-export const SETTINGS_COMPACT_PAGE_CONTENT_CLASS = 'flex flex-col gap-4 pb-6';
+/** @deprecated Use OPS_PAGE_CONTENT_STACK_CLASS. */
+export const SETTINGS_COMPACT_PAGE_CONTENT_CLASS = OPS_PAGE_CONTENT_STACK_CLASS;
 
-export const SETTINGS_COMPACT_ROUTE_STACK_CLASS = `${SETTINGS_DENSE_MODE_CLASS} flex flex-col gap-4`;
+/** @deprecated Use OPS_PAGE_CONTENT_STACK_CLASS with SETTINGS_DENSE_MODE_CLASS when needed. */
+export const SETTINGS_COMPACT_ROUTE_STACK_CLASS = `${SETTINGS_DENSE_MODE_CLASS} ${OPS_PAGE_CONTENT_STACK_CLASS}`;
 
-export const SETTINGS_COMPACT_CARD_CLASS = 'border-border/70 shadow-none';
+/** @deprecated Use OPS_CARD_CLASS. */
+export const SETTINGS_COMPACT_CARD_CLASS = OPS_CARD_CLASS;
 
-export const SETTINGS_COMPACT_CARD_HEADER_CLASS = 'px-4 py-3 sm:px-5';
+/** @deprecated Use OPS_CARD_HEADER_CLASS. */
+export const SETTINGS_COMPACT_CARD_HEADER_CLASS = OPS_CARD_HEADER_CLASS;
 
-export const SETTINGS_COMPACT_CARD_CONTENT_CLASS = 'px-4 pb-4 sm:px-5';
+/** @deprecated Use OPS_CARD_CONTENT_CLASS. */
+export const SETTINGS_COMPACT_CARD_CONTENT_CLASS = OPS_CARD_CONTENT_CLASS;
 
-export const SETTINGS_COMPACT_CARD_FOOTER_CLASS = 'border-t bg-muted/40 px-4 py-3 sm:px-5';
+/** @deprecated Use OPS_CARD_FOOTER_CLASS. */
+export const SETTINGS_COMPACT_CARD_FOOTER_CLASS = OPS_CARD_FOOTER_CLASS;
 
 export const SETTINGS_COMPACT_SECTION_HEADER_CLASS = 'flex flex-col gap-1 pb-2';
 

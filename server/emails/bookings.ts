@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 
 import config from '@/config';
-import { env } from '@/lib/env';
 import {
   buildCalendarEvent,
   shouldAttachCalendarEventAttachment,
@@ -18,6 +17,7 @@ import {
   type RestaurantEmailTemplateVariant,
 } from '@/lib/restaurants/email-templates';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl, safePublicHref } from '@/lib/security/safe-url';
+import { getTrustedSiteOrigin } from '@/lib/site-url';
 import { type VenueDetails } from '@/lib/venue';
 import {
   createEmailIdempotencyKey,
@@ -46,6 +46,10 @@ import {
   type EmailDeliveryLogEntry,
 } from '@/server/emails/email-delivery-log';
 import {
+  resolveRestaurantReplyTo,
+  resolveRestaurantSenderName,
+} from '@/server/emails/sender-policy';
+import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
   logLogoColumnFallback,
@@ -65,11 +69,8 @@ import type { Database } from '@/types/supabase';
 
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 
-// Prefer the public site origin for guest-facing links; fall back to app URL if unset.
-const bookingSiteUrl = (env.raw.NEXT_PUBLIC_SITE_URL ?? env.raw.SITE_URL ?? env.app.url).replace(
-  /\/+$/,
-  '',
-);
+// Prefer the public root host for guest-facing booking links.
+const bookingSiteUrl = getTrustedSiteOrigin().replace(/\/+$/, '');
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
@@ -785,7 +786,8 @@ async function dispatchEmail(
       html,
       text,
       attachments,
-      fromName: venue.name,
+      replyTo: resolveRestaurantReplyTo(venue.email),
+      fromName: resolveRestaurantSenderName(venue.name),
       tags: [
         { name: 'email_type', value: deliveryEmailType },
         { name: 'template_type', value: deliveryTemplateType },

@@ -1,4 +1,6 @@
 import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function DashboardSkeleton() {
@@ -10,7 +12,7 @@ export function DashboardSkeleton() {
   ];
   return (
     <div className="min-h-screen bg-background" aria-busy="true">
-      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
         {/* Header Skeleton matching OpsDashboardClient layout */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
@@ -45,7 +47,7 @@ export function DashboardSkeleton() {
             <OpsBookingCardSkeleton key={key} />
           ))}
         </div>
-      </main>
+      </OpsPageShell>
     </div>
   );
 }

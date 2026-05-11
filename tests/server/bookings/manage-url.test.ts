@@ -18,9 +18,22 @@ vi.mock('@/lib/env', () => ({
 
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 
+const originalEnv = { ...process.env };
+
+function restoreEnv() {
+  for (const key of Object.keys(process.env)) {
+    if (!(key in originalEnv)) {
+      delete process.env[key];
+    }
+  }
+  Object.assign(process.env, originalEnv);
+}
+
 describe('buildBookingManageUrl', () => {
   beforeEach(() => {
     vi.useRealTimers();
+    restoreEnv();
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://nabatable.com';
   });
 
   it('creates a recover link for phone-only bookings', () => {
@@ -47,5 +60,25 @@ describe('buildBookingManageUrl', () => {
     });
 
     expect(url).toBe('https://nabatable.com/bookings/recover/error?code=MISSING_ACCESS_TOKEN');
+  });
+
+  it('does not emit app-host recovery links when only the app URL is configured', () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.SITE_URL;
+    delete process.env.BASE_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.nabatable.com';
+
+    const url = buildBookingManageUrl({
+      id: 'booking-1',
+      restaurant_id: '550e8400-e29b-41d4-a716-446655440000',
+      customer_email: 'guest@example.com',
+      customer_phone: '',
+    });
+
+    const parsed = new URL(url);
+
+    expect(parsed.origin).toBe('https://nabatable.com');
+    expect(parsed.pathname).toBe('/bookings/recover');
+    expect(parsed.searchParams.get('next')).toBe('/bookings/booking-1');
   });
 });

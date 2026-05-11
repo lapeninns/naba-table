@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useMemo, type ReactNode } from 'react';
 
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Badge } from '@/components/ui/badge';
@@ -68,7 +69,7 @@ export function RestaurantSettingsPageShell({
     null;
 
   return (
-    <OpsPageShell variant="wide" className="flex flex-col gap-4">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         eyebrow={eyebrow}
         title={resolvedTitle}

@@ -1,7 +1,9 @@
 import { Suspense } from 'react';
 
 import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 
 import { OpsGuestBookingWizard } from './_components/OpsGuestBookingWizard';
 
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function WalkInPage() {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         title="New booking"
         subtitle="Create a walk-in or reservation with full ops controls."
@@ -28,6 +30,6 @@ export default async function WalkInPage() {
           <OpsGuestBookingWizard />
         </Suspense>
       </BookingErrorBoundary>
-    </div>
+    </OpsPageShell>
   );
 }

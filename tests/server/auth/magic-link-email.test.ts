@@ -37,6 +37,7 @@ vi.mock('@/config', () => ({
     },
     email: {
       supportEmail: 'support@nabatable.com',
+      platformReplyTo: 'auth-replies@nabatable.com',
     },
   },
 }));
@@ -80,6 +81,8 @@ describe('sendAuthMagicLink', () => {
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'guest@example.com',
+        replyTo: 'auth-replies@nabatable.com',
+        fromName: 'Nab a Table',
         html: expect.stringContaining(
           'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fguest&amp;token_hash=abc&amp;type=magiclink',
         ),

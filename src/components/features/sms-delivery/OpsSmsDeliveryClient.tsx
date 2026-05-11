@@ -4,6 +4,12 @@ import { AlertCircle, MessageSquare, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import {
+  OPS_CARD_CLASS,
+  OPS_CARD_CONTENT_CLASS,
+  OPS_CARD_HEADER_CLASS,
+  OPS_PAGE_RHYTHM_CLASS,
+} from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
@@ -161,24 +167,26 @@ export function OpsSmsDeliveryClient({
 
   if (memberships.length === 0) {
     return (
-      <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
-        <OpsEmptyState
-          title="No restaurant access yet"
-          description="Ask an owner or manager to send you an invitation so you can manage bookings."
-          action={
-            <Button asChild variant="secondary">
-              <Link href={opsHref('/dashboard')} prefetch={false}>
-                Return to ops home
-              </Link>
-            </Button>
-          }
-        />
-      </section>
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center">
+          <OpsEmptyState
+            title="No restaurant access yet"
+            description="Ask an owner or manager to send you an invitation so you can manage bookings."
+            action={
+              <Button asChild variant="secondary">
+                <Link href={opsHref('/dashboard')} prefetch={false}>
+                  Return to ops home
+                </Link>
+              </Button>
+            }
+          />
+        </section>
+      </OpsPageShell>
     );
   }
 
   return (
-    <OpsPageShell variant="standard" className="space-y-4">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         title="SMS Delivery"
         subtitle="Track queued/sent/delivered/failed booking SMS in one place."
@@ -249,56 +257,56 @@ export function OpsSmsDeliveryClient({
         </Alert>
       ) : null}
 
-      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {feedQuery.isLoading || !feed ? (
           <>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <Skeleton className="h-12 w-full" />
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <Skeleton className="h-12 w-full" />
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <Skeleton className="h-12 w-full" />
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <Skeleton className="h-12 w-full" />
               </CardContent>
             </Card>
           </>
         ) : (
           <>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <p className="text-xs text-muted-foreground">Total attempts</p>
                 <p className="text-2xl font-semibold">{feed.summary.total}</p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <p className="text-xs text-muted-foreground">Delivered rate</p>
                 <p className="text-2xl font-semibold">
                   {Math.round(feed.summary.deliveredRate * 100)}%
                 </p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <p className="text-xs text-muted-foreground">Failures</p>
                 <p className="text-2xl font-semibold">
                   {feed.summary.failed + feed.summary.undelivered}
                 </p>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
+            <Card className={OPS_CARD_CLASS}>
+              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <p className="text-xs text-muted-foreground">Unique recipients</p>
                 <p className="text-2xl font-semibold">{feed.summary.uniqueRecipients}</p>
               </CardContent>
@@ -388,7 +396,7 @@ export function OpsSmsDeliveryClient({
         }
       />
 
-      <section className="mt-4">
+      <section>
         {unavailable ? (
           <Alert className="border-border bg-muted/40">
             <AlertTitle>Delivery tracking unavailable</AlertTitle>
@@ -409,14 +417,14 @@ export function OpsSmsDeliveryClient({
             <AlertDescription>{feedQuery.error.message}</AlertDescription>
           </Alert>
         ) : feed ? (
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className={OPS_CARD_CLASS}>
+            <CardHeader className={OPS_CARD_HEADER_CLASS}>
               <CardTitle className="flex items-center gap-2 text-base">
                 <MessageSquare className="size-4" aria-hidden />
                 SMS Delivery Log
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className={OPS_CARD_CONTENT_CLASS}>
               {feed.attempts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No SMS attempts found for this range/filter.

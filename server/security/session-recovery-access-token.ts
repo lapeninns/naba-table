@@ -6,23 +6,25 @@ import { normalizeEmail, normalizePhone } from '@/server/customers';
 const TOKEN_PREFIX = 'sr1' as const;
 const MAX_TTL_SECONDS = 2_592_000; // 30 days
 
-const payloadSchema = z.object({
-  v: z.literal(1),
-  purpose: z.literal('session_recovery'),
-  restaurantId: z.string().uuid(),
-  email: z.string().email().nullable(),
-  phone: z.string().min(7).max(50).nullable(),
-  iat: z.number().int().nonnegative(),
-  exp: z.number().int().positive(),
-}).superRefine((value, ctx) => {
-  if (!value.email && !value.phone) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'At least one contact method is required',
-      path: ['email'],
-    });
-  }
-});
+const payloadSchema = z
+  .object({
+    v: z.literal(1),
+    purpose: z.literal('session_recovery'),
+    restaurantId: z.string().uuid(),
+    email: z.string().email().nullable(),
+    phone: z.string().min(7).max(50).nullable(),
+    iat: z.number().int().nonnegative(),
+    exp: z.number().int().positive(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.email && !value.phone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one contact method is required',
+        path: ['email'],
+      });
+    }
+  });
 
 export type SessionRecoveryAccessTokenPayload = z.infer<typeof payloadSchema>;
 
@@ -72,6 +74,14 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
+function normalizePhoneSafely(value: string | null | undefined): string | null {
+  try {
+    return normalizePhone(value) || null;
+  } catch {
+    return null;
+  }
+}
+
 export function createSessionRecoveryAccessToken(params: {
   restaurantId: string;
   email?: string | null;
@@ -85,7 +95,7 @@ export function createSessionRecoveryAccessToken(params: {
   const issuedAt = Math.floor(nowMs / 1000);
   const expiresAt = issuedAt + ttlSeconds;
   const normalizedEmail = normalizeEmail(params.email);
-  const normalizedPhone = normalizePhone(params.phone);
+  const normalizedPhone = normalizePhoneSafely(params.phone);
 
   if (!normalizedEmail && !normalizedPhone) {
     throw new Error('At least one contact method is required');
@@ -158,7 +168,7 @@ export function sessionRecoveryTokenMatchesBookingContact(params: {
   booking: SessionRecoveryBookingContact;
 }): boolean {
   const tokenEmail = normalizeEmail(params.payload.email);
-  const tokenPhone = normalizePhone(params.payload.phone);
+  const tokenPhone = normalizePhoneSafely(params.payload.phone);
 
   if (!tokenEmail && !tokenPhone) {
     return false;
@@ -169,7 +179,7 @@ export function sessionRecoveryTokenMatchesBookingContact(params: {
   }
 
   const bookingEmail = normalizeEmail(params.booking.email);
-  const bookingPhone = normalizePhone(params.booking.phone);
+  const bookingPhone = tokenPhone ? normalizePhoneSafely(params.booking.phone) : null;
 
   if (tokenEmail && bookingEmail !== tokenEmail) {
     return false;

@@ -16,6 +16,7 @@ import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/comp
 import { OpsEmailQueuePanel } from '@/components/features/email-delivery/components/OpsEmailQueuePanel';
 import { OPS_EMAIL_DELIVERY_PAGE_SIZE_OPTIONS } from '@/components/features/email-delivery/opsEmailDeliveryTypes';
 import { useOpsEmailDeliveryState } from '@/components/features/email-delivery/useOpsEmailDeliveryState';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
@@ -45,24 +46,26 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
 
   if (state.memberships.length === 0) {
     return (
-      <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
-        <OpsEmptyState
-          title="No restaurant access yet"
-          description="Ask an owner or manager to send you an invitation so you can manage bookings."
-          action={
-            <Button asChild variant="secondary">
-              <Link href={opsHref('/dashboard')} prefetch={false}>
-                Return to ops home
-              </Link>
-            </Button>
-          }
-        />
-      </section>
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center">
+          <OpsEmptyState
+            title="No restaurant access yet"
+            description="Ask an owner or manager to send you an invitation so you can manage bookings."
+            action={
+              <Button asChild variant="secondary">
+                <Link href={opsHref('/dashboard')} prefetch={false}>
+                  Return to ops home
+                </Link>
+              </Button>
+            }
+          />
+        </section>
+      </OpsPageShell>
     );
   }
 
   return (
-    <OpsPageShell variant="standard" className="space-y-4">
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         title="Email Delivery"
         subtitle="Deliverability dashboard for booking emails (Resend)."

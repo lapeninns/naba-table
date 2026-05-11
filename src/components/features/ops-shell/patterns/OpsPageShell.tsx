@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 import type { ReactNode } from 'react';
 
-export type OpsPageShellVariant = 'standard' | 'wide' | 'immersive';
+export type OpsPageShellVariant = 'standard' | 'immersive';
 
 export type OpsPageShellProps = {
   /** Container variant. Defaults to 'standard' for list/table pages. */
@@ -17,10 +17,8 @@ export type OpsPageShellProps = {
 
 const variantClasses: Record<OpsPageShellVariant, string> = {
   // List/table/detail-management pages: bookings, customers, dashboard, rejections, delivery.
-  standard: 'mx-auto w-full max-w-6xl px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
-  // Settings and admin configuration surfaces needing extra horizontal space.
-  wide: 'pg-container py-[var(--pg-section-y-tight)]',
-  // Split-pane/editor-style experiences (e.g. email templates).
+  standard: 'mx-auto w-full max-w-[1200px] px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
+  // Split-pane/editor-style experiences.
   immersive: 'h-[calc(100vh-3.5rem)] w-full min-w-0 overflow-hidden',
 };
 

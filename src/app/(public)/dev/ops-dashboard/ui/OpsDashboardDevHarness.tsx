@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { getBookingTabCounts } from '@/components/features/dashboard/bookingFilters';
 import { OpsDashboardHeader } from '@/components/features/dashboard/OpsDashboardHeader';
 import { OpsDashboardSummarySection } from '@/components/features/dashboard/OpsDashboardSummarySection';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 
 import { DEV_RESTAURANT_ID } from '../../_mocks/devIds';
 import { createOpsDevServiceFactories } from '../../_mocks/services/devFactories';
@@ -125,7 +127,10 @@ export function OpsDashboardDevHarness() {
     });
   }, [summary]);
 
-  const guestStats = useMemo(() => ({ upcoming: tabCounts.upcoming, seated: tabCounts.seated }), [tabCounts]);
+  const guestStats = useMemo(
+    () => ({ upcoming: tabCounts.upcoming, seated: tabCounts.seated }),
+    [tabCounts],
+  );
   const controls = useMemo<DashboardListControls>(
     () => ({
       filter,
@@ -136,7 +141,8 @@ export function OpsDashboardDevHarness() {
       sortDir,
       isRefetching: false,
       onFilterChange: setFilter,
-      onSearchChange: (event: ChangeEvent<HTMLInputElement>) => setSearch(event.currentTarget.value),
+      onSearchChange: (event: ChangeEvent<HTMLInputElement>) =>
+        setSearch(event.currentTarget.value),
       onPrint: () => toast.message('Dev harness: print not implemented'),
       onSortKeyChange: setSortKey,
       onSortDirChange: setSortDir,
@@ -166,7 +172,7 @@ export function OpsDashboardDevHarness() {
   return (
     <OpsDevProviders factories={factories} initialRestaurantId={DEV_RESTAURANT_ID}>
       <div className="min-h-screen bg-background">
-        <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
           <OpsDashboardHeader
             headerSwipeRef={headerSwipeRef}
             guestStats={guestStats}
@@ -197,7 +203,7 @@ export function OpsDashboardDevHarness() {
             initialNowIso={initialNowIso}
             allowTableAssignments={true}
           />
-        </main>
+        </OpsPageShell>
       </div>
     </OpsDevProviders>
   );
