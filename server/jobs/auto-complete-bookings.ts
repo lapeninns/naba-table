@@ -1,37 +1,42 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { clearBookingTableAssignments } from "@/server/bookings";
-import { resolveBookingEndAtUtc } from "@/server/bookings/booking-access";
-import { enqueueCheckOutSideEffects } from "@/server/jobs/booking-side-effects";
-import { prepareCheckInTransition, prepareCheckOutTransition } from "@/server/ops/booking-lifecycle/actions";
-import { BookingLifecycleError } from "@/server/ops/booking-lifecycle/stateMachine";
-import { getRestaurantSchedule } from "@/server/restaurants/schedule";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { clearBookingTableAssignments } from '@/server/bookings';
+import { resolveBookingEndAtUtc } from '@/server/bookings/booking-access';
+import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
+import {
+  prepareCheckInTransition,
+  prepareCheckOutTransition,
+} from '@/server/ops/booking-lifecycle/actions';
+import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { TransitionResult } from "@/server/ops/booking-lifecycle/actions";
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { TransitionResult } from '@/server/ops/booking-lifecycle/actions';
+import type { Database, Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const DEFAULT_WINDOW_MINUTES = 30;
 const DEFAULT_LIMIT = 200;
-const CLOSE_DELAY_MINUTES = 30;
+const DEFAULT_LOOKBACK_DAYS = 30;
 const ACTOR_ID_OVERRIDE = process.env.AUTO_COMPLETE_ACTOR_ID?.trim() || null;
 
-type RestaurantRow = Pick<Tables<"restaurants">, "id" | "name" | "timezone">;
+type RestaurantRow = Pick<
+  Tables<'restaurants'>,
+  'id' | 'name' | 'timezone' | 'reservation_lifecycle_grace_minutes'
+>;
 
 type BookingRow = Pick<
-  Tables<"bookings">,
-  | "id"
-  | "restaurant_id"
-  | "status"
-  | "start_at"
-  | "end_at"
-  | "booking_date"
-  | "start_time"
-  | "end_time"
-  | "checked_in_at"
-  | "checked_out_at"
-  | "customer_email"
+  Tables<'bookings'>,
+  | 'id'
+  | 'restaurant_id'
+  | 'status'
+  | 'start_at'
+  | 'end_at'
+  | 'booking_date'
+  | 'start_time'
+  | 'end_time'
+  | 'checked_in_at'
+  | 'checked_out_at'
+  | 'customer_email'
 >;
 
 type AutoCompleteOptions = {
@@ -42,7 +47,7 @@ type AutoCompleteOptions = {
 };
 
 export type AutoCompleteSummary = {
-  mode: "dry-run" | "apply";
+  mode: 'dry-run' | 'apply';
   nowUtc: string;
   windowMinutes: number;
   limit: number;
@@ -57,7 +62,7 @@ export type AutoCompleteSummary = {
 
 function formatError(error: unknown): string {
   if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null) {
+  if (typeof error === 'object' && error !== null) {
     try {
       return JSON.stringify(error);
     } catch {
@@ -69,7 +74,7 @@ function formatError(error: unknown): string {
 
 function normalizeTimezone(timezone?: string | null): string {
   const trimmed = timezone?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : "Europe/London";
+  return trimmed && trimmed.length > 0 ? trimmed : 'Europe/London';
 }
 
 function resolveLocalDateTime(
@@ -81,19 +86,6 @@ function resolveLocalDateTime(
   const iso = `${date}T${time}`;
   const dt = DateTime.fromISO(iso, { zone: timezone });
   return dt.isValid ? dt : null;
-}
-
-function resolveClosingWindowRange(
-  localDate: string,
-  closingTime: string | null,
-  timezone: string,
-  windowMinutes: number,
-): { start: DateTime; end: DateTime } | null {
-  const closeAt = resolveLocalDateTime(localDate, closingTime, timezone);
-  if (!closeAt) return null;
-  const start = closeAt.plus({ minutes: CLOSE_DELAY_MINUTES });
-  const end = start.plus({ minutes: windowMinutes });
-  return start.isValid && end.isValid ? { start, end } : null;
 }
 
 function toUtcIso(dt: DateTime | null): string | null {
@@ -108,24 +100,6 @@ function computeStartAtUtc(booking: BookingRow, timezone: string): string | null
   return toUtcIso(dt);
 }
 
-function computeFallbackEndAtUtc(
-  booking: BookingRow,
-  timezone: string,
-  defaultDurationMinutes: number,
-): string | null {
-  if (booking.start_at) {
-    const startAt = DateTime.fromISO(booking.start_at, { zone: "utc" });
-    if (startAt.isValid) {
-      return startAt.plus({ minutes: defaultDurationMinutes }).toUTC().toISO();
-    }
-  }
-
-  const localStart = resolveLocalDateTime(booking.booking_date, booking.start_time, timezone);
-  if (!localStart) return null;
-  const localEnd = localStart.plus({ minutes: defaultDurationMinutes });
-  return toUtcIso(localEnd);
-}
-
 async function resolveActorId(
   supabase: SupabaseClient<Database>,
   restaurantId: string,
@@ -133,15 +107,15 @@ async function resolveActorId(
   if (ACTOR_ID_OVERRIDE) return ACTOR_ID_OVERRIDE;
 
   const { data, error } = await supabase
-    .from("restaurant_memberships")
-    .select("user_id, created_at")
-    .eq("restaurant_id", restaurantId)
-    .order("created_at", { ascending: true })
+    .from('restaurant_memberships')
+    .select('user_id, created_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.warn("[cron][auto-complete] failed to resolve membership", {
+    console.warn('[cron][auto-complete] failed to resolve membership', {
       restaurantId,
       error: error.message,
     });
@@ -155,7 +129,7 @@ async function resolveActorId(
         return membershipUserId;
       }
     } catch (authError) {
-      console.warn("[cron][auto-complete] failed to verify membership user", {
+      console.warn('[cron][auto-complete] failed to verify membership user', {
         restaurantId,
         error: formatError(authError),
       });
@@ -169,7 +143,12 @@ async function applyTransition(
   supabase: SupabaseClient<Database>,
   booking: BookingRow,
   transition: TransitionResult,
-): Promise<{ status: string; checkedInAt: string | null; checkedOutAt: string | null; updatedAt: string | null } | null> {
+): Promise<{
+  status: string;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+  updatedAt: string | null;
+} | null> {
   if (transition.skipUpdate) {
     return {
       status: transition.response.status,
@@ -181,21 +160,22 @@ async function applyTransition(
 
   const history = transition.history;
   if (!history) {
-    throw new Error("Missing history payload for transition");
+    throw new Error('Missing history payload for transition');
   }
 
-  const targetStatus = (transition.updates.status ?? booking.status) as Tables<"bookings">["status"];
+  const targetStatus = (transition.updates.status ??
+    booking.status) as Tables<'bookings'>['status'];
   const finalCheckedInAt =
     transition.updates.checked_in_at !== undefined
-      ? transition.updates.checked_in_at ?? null
-      : booking.checked_in_at ?? null;
+      ? (transition.updates.checked_in_at ?? null)
+      : (booking.checked_in_at ?? null);
   const finalCheckedOutAt =
     transition.updates.checked_out_at !== undefined
-      ? transition.updates.checked_out_at ?? null
-      : booking.checked_out_at ?? null;
+      ? (transition.updates.checked_out_at ?? null)
+      : (booking.checked_out_at ?? null);
   const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
 
-  const { data, error } = await supabase.rpc("apply_booking_state_transition", {
+  const { data, error } = await supabase.rpc('apply_booking_state_transition', {
     p_booking_id: booking.id,
     p_status: targetStatus,
     p_checked_in_at: finalCheckedInAt,
@@ -205,7 +185,7 @@ async function applyTransition(
     p_history_to: history.to_status,
     p_history_changed_by: history.changed_by ?? null,
     p_history_changed_at: history.changed_at ?? finalUpdatedAt,
-    p_history_reason: history.reason ?? "status_change",
+    p_history_reason: history.reason ?? 'status_change',
     p_history_metadata: history.metadata ?? {},
   });
 
@@ -224,9 +204,9 @@ async function applyTransition(
 
 async function fetchRestaurants(supabase: SupabaseClient<Database>): Promise<RestaurantRow[]> {
   const { data, error } = await supabase
-    .from("restaurants")
-    .select("id, name, timezone")
-    .order("name", { ascending: true });
+    .from('restaurants')
+    .select('id, name, timezone, reservation_lifecycle_grace_minutes')
+    .order('name', { ascending: true });
 
   if (error) {
     throw error;
@@ -238,30 +218,33 @@ async function fetchRestaurants(supabase: SupabaseClient<Database>): Promise<Res
 async function fetchEligibleBookings(
   supabase: SupabaseClient<Database>,
   restaurantId: string,
+  lookbackStartDate: string,
   localDate: string,
   limit: number,
 ): Promise<BookingRow[]> {
   const { data, error } = await supabase
-    .from("bookings")
+    .from('bookings')
     .select(
       [
-        "id",
-        "restaurant_id",
-        "status",
-        "start_at",
-        "end_at",
-        "booking_date",
-        "start_time",
-        "end_time",
-        "checked_in_at",
-        "checked_out_at",
-        "customer_email",
-      ].join(","),
+        'id',
+        'restaurant_id',
+        'status',
+        'start_at',
+        'end_at',
+        'booking_date',
+        'start_time',
+        'end_time',
+        'checked_in_at',
+        'checked_out_at',
+        'customer_email',
+      ].join(','),
     )
-    .eq("restaurant_id", restaurantId)
-    .in("status", ["confirmed", "checked_in"])
-    .eq("booking_date", localDate)
-    .order("end_at", { ascending: true, nullsFirst: false })
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['confirmed', 'checked_in'])
+    .gte('booking_date', lookbackStartDate)
+    .lte('booking_date', localDate)
+    .order('booking_date', { ascending: true })
+    .order('end_at', { ascending: true, nullsFirst: false })
     .limit(limit);
 
   if (error) {
@@ -271,14 +254,47 @@ async function fetchEligibleBookings(
   return (data ?? []) as unknown as BookingRow[];
 }
 
-export async function autoCompletePastBookings(options: AutoCompleteOptions = {}): Promise<AutoCompleteSummary> {
+function resolveGraceMinutes(restaurant: RestaurantRow, fallbackMinutes: number): number {
+  const value = restaurant.reservation_lifecycle_grace_minutes;
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return Math.min(value, 24 * 60);
+  }
+  return fallbackMinutes;
+}
+
+function resolveCheckoutAtUtc(
+  endAt: DateTime,
+  checkedInAt: string | null,
+  nowUtc: DateTime,
+): string | null {
+  let checkoutAt = endAt;
+  if (checkedInAt) {
+    const checkedIn = DateTime.fromISO(checkedInAt, { zone: 'utc' });
+    if (checkedIn.isValid && checkedIn > checkoutAt) {
+      checkoutAt = checkedIn;
+    }
+  }
+  if (checkoutAt > nowUtc) {
+    checkoutAt = nowUtc;
+  }
+  return checkoutAt.toUTC().toISO();
+}
+
+export async function autoCompletePastBookings(
+  options: AutoCompleteOptions = {},
+): Promise<AutoCompleteSummary> {
   const windowMinutes =
-    typeof options.windowMinutes === "number" && options.windowMinutes > 0
+    typeof options.windowMinutes === 'number' && options.windowMinutes > 0
       ? Math.min(options.windowMinutes, 180)
       : DEFAULT_WINDOW_MINUTES;
-  const limit = typeof options.limit === "number" && options.limit > 0 ? options.limit : DEFAULT_LIMIT;
+  const limit =
+    typeof options.limit === 'number' && options.limit > 0 ? options.limit : DEFAULT_LIMIT;
   const dryRun = options.dryRun ?? false;
-  const nowUtc = options.now ? DateTime.fromJSDate(options.now, { zone: "utc" }) : DateTime.utc();
+  const nowUtc = options.now ? DateTime.fromJSDate(options.now, { zone: 'utc' }) : DateTime.utc();
+  const lookbackStartUtc = nowUtc.minus({ days: DEFAULT_LOOKBACK_DAYS }).toUTC();
+  if (!lookbackStartUtc.isValid) {
+    throw new Error('Failed to resolve auto-complete lookback window');
+  }
 
   const supabase = getServiceSupabaseClient();
   const restaurants = await fetchRestaurants(supabase);
@@ -298,52 +314,37 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
     let timezone = normalizeTimezone(restaurant.timezone);
     let localNow = nowUtc.setZone(timezone);
     if (!localNow.isValid) {
-      timezone = "UTC";
+      timezone = 'UTC';
       localNow = nowUtc;
     }
 
     const localDate = localNow.toISODate();
-    if (!localDate) {
+    const lookbackStartDate = localNow.minus({ days: DEFAULT_LOOKBACK_DAYS }).toISODate();
+    if (!localDate || !lookbackStartDate) {
       restaurantsSkippedWindow += 1;
       continue;
     }
 
-    let schedule;
-    try {
-      schedule = await getRestaurantSchedule(restaurant.id, { date: localDate, client: supabase });
-    } catch (error) {
-      console.warn("[cron][auto-complete] failed to load schedule", {
-        restaurantId: restaurant.id,
-        error: formatError(error),
-      });
+    const graceMinutes = resolveGraceMinutes(restaurant, windowMinutes);
+    const dueCutoffUtc = nowUtc.minus({ minutes: graceMinutes }).toUTC();
+    if (!dueCutoffUtc.isValid) {
       restaurantsSkippedWindow += 1;
       continue;
     }
 
-    if (schedule.isClosed) {
-      restaurantsSkippedWindow += 1;
-      continue;
-    }
-
-    const windowRange = resolveClosingWindowRange(
+    const remaining = Math.max(0, limit - candidates);
+    const bookings = await fetchEligibleBookings(
+      supabase,
+      restaurant.id,
+      lookbackStartDate,
       localDate,
-      schedule.window.closesAt,
-      timezone,
-      windowMinutes,
+      remaining,
     );
-    if (!windowRange) {
-      restaurantsSkippedWindow += 1;
-      continue;
-    }
-
-    if (localNow < windowRange.start || localNow >= windowRange.end) {
-      restaurantsSkippedWindow += 1;
-      continue;
-    }
+    if (bookings.length === 0) continue;
 
     const actorId = await resolveActorId(supabase, restaurant.id);
     if (!actorId) {
-      console.warn("[cron][auto-complete] skipping restaurant with no actor", {
+      console.warn('[cron][auto-complete] skipping restaurant with no actor', {
         restaurantId: restaurant.id,
       });
       restaurantsSkippedWindow += 1;
@@ -351,19 +352,11 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
     }
 
     restaurantsProcessed += 1;
-    const remaining = Math.max(0, limit - candidates);
-    const bookings = await fetchEligibleBookings(supabase, restaurant.id, localDate, remaining);
 
     for (const booking of bookings) {
       if (candidates >= limit) break;
 
-      const baseEndAtUtc = resolveBookingEndAtUtc(booking, timezone);
-      const fallbackEndAtUtc =
-        booking.end_at || booking.end_time
-          ? null
-          : computeFallbackEndAtUtc(booking, timezone, schedule.defaultDurationMinutes);
-      const resolvedEndAtUtc = fallbackEndAtUtc ?? baseEndAtUtc;
-      const effectiveEndAtUtc = resolvedEndAtUtc ?? nowUtc.toISO();
+      const effectiveEndAtUtc = resolveBookingEndAtUtc(booking, timezone);
       if (!effectiveEndAtUtc) {
         skipped += 1;
         continue;
@@ -374,13 +367,11 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
         skipped += 1;
         continue;
       }
-
-      const startAtUtc = computeStartAtUtc(booking, timezone);
-      const checkoutAtUtc = endAt <= nowUtc ? endAt.toUTC().toISO() : nowUtc.toISO();
-      if (!checkoutAtUtc) {
-        skipped += 1;
+      if (endAt < lookbackStartUtc || endAt > dueCutoffUtc) {
         continue;
       }
+
+      const startAtUtc = computeStartAtUtc(booking, timezone);
 
       candidates += 1;
       if (dryRun) {
@@ -390,10 +381,11 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
       try {
         let currentBooking: BookingRow = booking;
 
-        if (currentBooking.status === "confirmed" || !currentBooking.checked_in_at) {
-          const performedCheckInAt = currentBooking.checked_in_at ?? startAtUtc ?? checkoutAtUtc;
+        if (currentBooking.status === 'confirmed' || !currentBooking.checked_in_at) {
+          const performedCheckInAt =
+            currentBooking.checked_in_at ?? startAtUtc ?? effectiveEndAtUtc;
           if (!performedCheckInAt) {
-            throw new Error("Missing start_at for check-in");
+            throw new Error('Missing start_at for check-in');
           }
 
           const checkIn = prepareCheckInTransition({
@@ -408,24 +400,30 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
             },
             actorId,
             performedAt: performedCheckInAt,
-            reason: "auto-complete",
+            reason: 'auto-complete',
           });
 
           const checkInResult = await applyTransition(supabase, currentBooking, checkIn);
           if (!checkInResult) {
-            throw new Error("Check-in transition failed");
+            throw new Error('Check-in transition failed');
           }
 
           currentBooking = {
             ...currentBooking,
-            status: checkInResult.status as BookingRow["status"],
+            status: checkInResult.status as BookingRow['status'],
             checked_in_at: checkInResult.checkedInAt,
             checked_out_at: checkInResult.checkedOutAt,
           };
         }
 
         if (!currentBooking.checked_in_at) {
-          throw new Error("Missing checked_in_at for check-out");
+          throw new Error('Missing checked_in_at for check-out');
+        }
+
+        const checkoutAtUtc = resolveCheckoutAtUtc(endAt, currentBooking.checked_in_at, nowUtc);
+        if (!checkoutAtUtc) {
+          skipped += 1;
+          continue;
         }
 
         const checkOut = prepareCheckOutTransition({
@@ -440,18 +438,18 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
           },
           actorId,
           performedAt: checkoutAtUtc,
-          reason: "auto-complete",
+          reason: 'auto-complete',
         });
 
         const checkOutResult = await applyTransition(supabase, currentBooking, checkOut);
         if (!checkOutResult) {
-          throw new Error("Check-out transition failed");
+          throw new Error('Check-out transition failed');
         }
 
         try {
           await clearBookingTableAssignments(supabase, currentBooking.id);
         } catch (clearError) {
-          console.warn("[cron][auto-complete] failed to clear table assignments", {
+          console.warn('[cron][auto-complete] failed to clear table assignments', {
             bookingId: currentBooking.id,
             error: formatError(clearError),
           });
@@ -459,16 +457,18 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
 
         try {
           const { data: fullBooking } = await supabase
-            .from("bookings")
-            .select("*")
-            .eq("id", currentBooking.id)
+            .from('bookings')
+            .select('*')
+            .eq('id', currentBooking.id)
             .maybeSingle();
 
           if (fullBooking) {
-            await enqueueCheckOutSideEffects(fullBooking as Tables<"bookings">, restaurant.id, { supabase });
+            await enqueueCheckOutSideEffects(fullBooking as Tables<'bookings'>, restaurant.id, {
+              supabase,
+            });
           }
         } catch (sideEffectsError) {
-          console.warn("[cron][auto-complete] failed to schedule review email", {
+          console.warn('[cron][auto-complete] failed to schedule review email', {
             bookingId: currentBooking.id,
             error: formatError(sideEffectsError),
           });
@@ -479,13 +479,13 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
         errors += 1;
         const message = formatError(error);
         if (error instanceof BookingLifecycleError) {
-          console.warn("[cron][auto-complete] lifecycle error", {
+          console.warn('[cron][auto-complete] lifecycle error', {
             bookingId: booking.id,
             code: error.code,
             error: message,
           });
         } else {
-          console.warn("[cron][auto-complete] failed to complete booking", {
+          console.warn('[cron][auto-complete] failed to complete booking', {
             bookingId: booking.id,
             error: message,
           });
@@ -495,7 +495,7 @@ export async function autoCompletePastBookings(options: AutoCompleteOptions = {}
   }
 
   return {
-    mode: dryRun ? "dry-run" : "apply",
+    mode: dryRun ? 'dry-run' : 'apply',
     nowUtc: nowUtc.toISO() ?? nowUtc.toString(),
     windowMinutes,
     limit,
