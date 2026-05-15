@@ -3,8 +3,13 @@ import { getOccasionCatalog } from '@/server/occasions/catalog';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 import { formatReservationTime } from '@reserve/shared/formatting/booking';
-import { isOccasionAvailable, type OccasionCatalog, type OccasionDefinition, type OccasionKey } from '@reserve/shared/occasions';
-import { normalizeTime, slotsForRange, toMinutes } from '@reserve/shared/time';
+import {
+  isOccasionAvailable,
+  type OccasionCatalog,
+  type OccasionDefinition,
+  type OccasionKey,
+} from '@reserve/shared/occasions';
+import { MINUTES_PER_DAY, fromMinutes, normalizeTime, toMinutes } from '@reserve/shared/time';
 
 import type { Database } from '@/types/supabase';
 import type { ReservationTime } from '@reserve/shared/time';
@@ -161,6 +166,45 @@ function normalizeSlotTimes(value: string[] | null | undefined): ReservationTime
   return slots.map((slot) => slot.value);
 }
 
+function resolveRangeEndMinutes(startMinutes: number, endMinutes: number): number | null {
+  if (endMinutes === startMinutes) {
+    return null;
+  }
+  return endMinutes < startMinutes ? endMinutes + MINUTES_PER_DAY : endMinutes;
+}
+
+function resolveSlotMinutesForRange(
+  slot: ReservationTime,
+  startMinutes: number,
+  endMinutes: number,
+): number {
+  const minutes = toMinutes(slot);
+  return endMinutes > MINUTES_PER_DAY && minutes < startMinutes
+    ? minutes + MINUTES_PER_DAY
+    : minutes;
+}
+
+function slotsForOperatingRange(
+  opensAt: ReservationTime,
+  closesAt: ReservationTime,
+  intervalMinutes: number,
+): ReservationTime[] {
+  if (intervalMinutes <= 0) {
+    return [];
+  }
+  const startMinutes = toMinutes(opensAt);
+  const rawEndMinutes = toMinutes(closesAt);
+  const endMinutes = resolveRangeEndMinutes(startMinutes, rawEndMinutes);
+  if (endMinutes === null) {
+    return [];
+  }
+  const slots: ReservationTime[] = [];
+  for (let minutes = startMinutes; minutes < endMinutes; minutes += intervalMinutes) {
+    slots.push(fromMinutes(minutes));
+  }
+  return slots;
+}
+
 function resolveIntervalMinutes(
   overrideInterval: number | null | undefined,
   weeklyInterval: number | null | undefined,
@@ -188,8 +232,8 @@ function buildCoverage(periods: RawServicePeriod[]): OptionCoverage {
       return;
     }
     const startMinutes = toMinutes(start);
-    const endMinutes = toMinutes(end);
-    if (endMinutes <= startMinutes) {
+    const endMinutes = resolveRangeEndMinutes(startMinutes, toMinutes(end));
+    if (endMinutes === null) {
       return;
     }
     const option = pickBookingOption(period);
@@ -206,13 +250,21 @@ function buildCoverage(periods: RawServicePeriod[]): OptionCoverage {
   return coverage;
 }
 
-function hasCoverage(coverage: OptionCoverage, option: OccasionKey, slot: ReservationTime): boolean {
+function hasCoverage(
+  coverage: OptionCoverage,
+  option: OccasionKey,
+  slot: ReservationTime,
+): boolean {
   const ranges = coverage.get(option);
   if (!ranges || ranges.length === 0) {
     return false;
   }
   const minutes = toMinutes(slot);
-  return ranges.some(({ start, end }) => minutes >= start && minutes < end);
+  return ranges.some(({ start, end }) => {
+    const adjustedMinutes =
+      end > MINUTES_PER_DAY && minutes < start ? minutes + MINUTES_PER_DAY : minutes;
+    return adjustedMinutes >= start && adjustedMinutes < end;
+  });
 }
 
 type AvailabilityParams = {
@@ -289,7 +341,12 @@ function computeSlots(
   month: number,
   fixedSlots: ReservationTime[] | null,
 ): RestaurantScheduleSlot[] {
-  if (!opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt)) {
+  if (!opensAt || !closesAt) {
+    return [];
+  }
+  const openingMinutes = toMinutes(opensAt);
+  const closingMinutes = resolveRangeEndMinutes(openingMinutes, toMinutes(closesAt));
+  if (closingMinutes === null) {
     return [];
   }
 
@@ -314,8 +371,8 @@ function computeSlots(
       return acc;
     }
     const startMinutes = toMinutes(start);
-    const endMinutes = toMinutes(end);
-    if (endMinutes <= startMinutes) {
+    const endMinutes = resolveRangeEndMinutes(startMinutes, toMinutes(end));
+    if (endMinutes === null) {
       return acc;
     }
     const option = pickBookingOption(period);
@@ -340,7 +397,7 @@ function computeSlots(
   }
 
   const findPeriodForTime = (value: ReservationTime) => {
-    const slotMinutes = toMinutes(value);
+    const slotMinutes = resolveSlotMinutesForRange(value, openingMinutes, closingMinutes);
     const matches = periodDetails.filter(
       (entry) => slotMinutes >= entry.startMinutes && slotMinutes < entry.endMinutes,
     );
@@ -370,21 +427,19 @@ function computeSlots(
     return matches[0]?.period ?? null;
   };
 
-  const openingMinutes = toMinutes(opensAt);
-  const closingMinutes = closesAt ? toMinutes(closesAt) : null;
   const baseSlots =
     fixedSlots && fixedSlots.length > 0
       ? fixedSlots.filter((slot) => {
-          const minutes = toMinutes(slot);
+          const minutes = resolveSlotMinutesForRange(slot, openingMinutes, closingMinutes);
           if (minutes < openingMinutes) {
             return false;
           }
-          if (closingMinutes !== null && minutes >= closingMinutes) {
+          if (minutes >= closingMinutes) {
             return false;
           }
           return true;
         })
-      : slotsForRange(opensAt, closesAt, intervalMinutes);
+      : slotsForOperatingRange(opensAt, closesAt, intervalMinutes);
 
   return baseSlots.reduce<RestaurantScheduleSlot[]>((acc, slot) => {
     const period = findPeriodForTime(slot);
@@ -459,32 +514,35 @@ export async function getRestaurantSchedule(
   const dayOfWeek = resolveDayOfWeek(date, restaurant.timezone);
   const month = resolveMonth(date, restaurant.timezone);
 
-  const [{ data: overrideRow, error: overrideError }, { data: weeklyRow, error: weeklyError }, { data: periods, error: periodsError }] =
-    await Promise.all([
-      client
-        .from('restaurant_operating_hours')
-        .select(
-          'opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
-        )
-        .eq('restaurant_id', restaurantId)
-        .eq('effective_date', date)
-        .maybeSingle(),
-      client
-        .from('restaurant_operating_hours')
-        .select(
-          'opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
-        )
-        .eq('restaurant_id', restaurantId)
-        .eq('day_of_week', dayOfWeek)
-        .is('effective_date', null)
-        .maybeSingle(),
-      client
-        .from('restaurant_service_periods')
-        .select('id, name, day_of_week, start_time, end_time, booking_option')
-        .eq('restaurant_id', restaurantId)
-        .order('day_of_week', { ascending: true })
-        .order('start_time', { ascending: true }),
-    ]);
+  const [
+    { data: overrideRow, error: overrideError },
+    { data: weeklyRow, error: weeklyError },
+    { data: periods, error: periodsError },
+  ] = await Promise.all([
+    client
+      .from('restaurant_operating_hours')
+      .select(
+        'opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
+      )
+      .eq('restaurant_id', restaurantId)
+      .eq('effective_date', date)
+      .maybeSingle(),
+    client
+      .from('restaurant_operating_hours')
+      .select(
+        'opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
+      )
+      .eq('restaurant_id', restaurantId)
+      .eq('day_of_week', dayOfWeek)
+      .is('effective_date', null)
+      .maybeSingle(),
+    client
+      .from('restaurant_service_periods')
+      .select('id, name, day_of_week, start_time, end_time, booking_option')
+      .eq('restaurant_id', restaurantId)
+      .order('day_of_week', { ascending: true })
+      .order('start_time', { ascending: true }),
+  ]);
 
   if (overrideError) {
     throw overrideError;
@@ -500,7 +558,11 @@ export async function getRestaurantSchedule(
   const opensAt = normalizeMaybeTime(effectiveHours?.opens_at);
   const closesAt = normalizeMaybeTime(effectiveHours?.closes_at);
   const closedFlag = Boolean(effectiveHours?.is_closed);
-  const isClosed = closedFlag || !opensAt || !closesAt || toMinutes(closesAt) <= toMinutes(opensAt);
+  const isClosed =
+    closedFlag ||
+    !opensAt ||
+    !closesAt ||
+    resolveRangeEndMinutes(toMinutes(opensAt), toMinutes(closesAt)) === null;
   const effectiveIntervalMinutes = resolveIntervalMinutes(
     overrideRow?.reservation_interval_minutes,
     weeklyRow?.reservation_interval_minutes,
@@ -510,8 +572,12 @@ export async function getRestaurantSchedule(
   const weeklySlotTimes = normalizeSlotTimes(weeklyRow?.reservation_slot_times);
   const effectiveSlotTimes = overrideSlotTimes.length > 0 ? overrideSlotTimes : weeklySlotTimes;
 
-  const relevantPeriods = (periods ?? []).filter((period): period is RawServicePeriod =>
-    Boolean(period) && Boolean(period.start_time) && Boolean(period.end_time) && isPeriodActiveForDay(period, dayOfWeek),
+  const relevantPeriods = (periods ?? []).filter(
+    (period): period is RawServicePeriod =>
+      Boolean(period) &&
+      Boolean(period.start_time) &&
+      Boolean(period.end_time) &&
+      isPeriodActiveForDay(period, dayOfWeek),
   );
   const coverage = buildCoverage(relevantPeriods);
   // Prefer provided client for catalog lookups; fall back to service client if none was passed.
@@ -524,19 +590,19 @@ export async function getRestaurantSchedule(
   const slots = isClosed
     ? []
     : computeSlots(
-      opensAt,
-      closesAt,
-      effectiveIntervalMinutes,
-      relevantPeriods,
-      dayOfWeek,
-      coverage,
-      orderedKeys,
-      catalog,
-      date,
-      restaurant.timezone,
-      month,
-      effectiveSlotTimes.length > 0 ? effectiveSlotTimes : null,
-    );
+        opensAt,
+        closesAt,
+        effectiveIntervalMinutes,
+        relevantPeriods,
+        dayOfWeek,
+        coverage,
+        orderedKeys,
+        catalog,
+        date,
+        restaurant.timezone,
+        month,
+        effectiveSlotTimes.length > 0 ? effectiveSlotTimes : null,
+      );
 
   const availableOptionsSet = new Set<OccasionKey>();
   slots.forEach((slot) => {
