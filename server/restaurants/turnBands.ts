@@ -19,6 +19,20 @@ type TurnBandRow = {
   duration_minutes: number;
 };
 
+type TurnBandReplacementRow = {
+  restaurant_id: string;
+  booking_option: string;
+  max_party_size: number;
+  duration_minutes: number;
+};
+
+type ReplacementRpcClient = DbClient & {
+  rpc(
+    fn: 'replace_restaurant_turn_bands',
+    args: { p_restaurant_id: string; p_rows: TurnBandReplacementRow[] },
+  ): Promise<{ error: { message?: string } | null }>;
+};
+
 const MAX_DURATION_MINUTES = 1440;
 
 function normalizeOptionKey(value: string | null | undefined): string {
@@ -34,10 +48,16 @@ function normalizeBandInput(entry: TurnBandInput, optionKey: string, index: numb
   const durationMinutes = Number(entry?.durationMinutes);
 
   if (!Number.isInteger(maxPartySize) || maxPartySize <= 0) {
-    throw new Error(`Turn band ${index + 1} for "${optionKey}" must have a positive max party size.`);
+    throw new Error(
+      `Turn band ${index + 1} for "${optionKey}" must have a positive max party size.`,
+    );
   }
 
-  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0 || durationMinutes > MAX_DURATION_MINUTES) {
+  if (
+    !Number.isInteger(durationMinutes) ||
+    durationMinutes <= 0 ||
+    durationMinutes > MAX_DURATION_MINUTES
+  ) {
     throw new Error(
       `Turn band ${index + 1} for "${optionKey}" must have duration between 1 and ${MAX_DURATION_MINUTES} minutes.`,
     );
@@ -120,7 +140,9 @@ async function loadValidBookingOptions(client: DbClient): Promise<Set<string>> {
     throw error;
   }
 
-  return new Set((data ?? []).map((row) => row.key?.toString().trim().toLowerCase()).filter(Boolean));
+  return new Set(
+    (data ?? []).map((row) => row.key?.toString().trim().toLowerCase()).filter(Boolean),
+  );
 }
 
 export async function replaceRestaurantTurnBands(
@@ -131,16 +153,7 @@ export async function replaceRestaurantTurnBands(
   const validOptions = await loadValidBookingOptions(client);
   const normalized = normalizeTurnBandsPayload(payload ?? {}, validOptions);
 
-  const { error: deleteError } = await client
-    .from('restaurant_turn_bands')
-    .delete()
-    .eq('restaurant_id', restaurantId);
-
-  if (deleteError) {
-    throw deleteError;
-  }
-
-  const rows = Object.entries(normalized).flatMap(([optionKey, bands]) =>
+  const rows: TurnBandReplacementRow[] = Object.entries(normalized).flatMap(([optionKey, bands]) =>
     bands.map((band) => ({
       restaurant_id: restaurantId,
       booking_option: optionKey,
@@ -149,11 +162,16 @@ export async function replaceRestaurantTurnBands(
     })),
   );
 
-  if (rows.length > 0) {
-    const { error: insertError } = await client.from('restaurant_turn_bands').insert(rows);
-    if (insertError) {
-      throw insertError;
-    }
+  const { error: replaceError } = await (client as ReplacementRpcClient).rpc(
+    'replace_restaurant_turn_bands',
+    {
+      p_restaurant_id: restaurantId,
+      p_rows: rows,
+    },
+  );
+
+  if (replaceError) {
+    throw replaceError;
   }
 
   return getRestaurantTurnBands(restaurantId, client);

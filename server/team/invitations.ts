@@ -226,14 +226,16 @@ export async function revokeRestaurantInvite(
     .eq('restaurant_id', restaurantId)
     .eq('status', INVITE_STATUS_PENDING)
     .select(INVITE_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw error;
   }
 
   if (!data) {
-    throw Object.assign(new Error('Invite not found'), { code: 'INVITE_NOT_FOUND' as const });
+    throw Object.assign(new Error('Invite not found or already processed'), {
+      code: 'INVITE_NOT_FOUND' as const,
+    });
   }
 
   return data as RestaurantInvite;

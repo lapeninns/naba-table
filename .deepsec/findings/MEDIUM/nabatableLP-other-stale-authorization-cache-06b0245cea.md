@@ -16,6 +16,12 @@ fetchUserMembershipsCached stores memberships in a process-wide Map for 30 secon
 
 Do not use the display/layout membership cache for authorization decisions. Always query the source of truth for requireMembershipForRestaurant/requireAdminMembership, or add reliable invalidation on every membership mutation with a distributed version/revocation mechanism that works across server instances.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`fetchUserMembershipsCached` remains layout/display-only. `requireMembershipForRestaurant` now defaults `useCache` to `false`, and the regression proves a populated layout cache is ignored when authorization performs a fresh lookup. Covered by `tests/server/team-access-cache.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-13)

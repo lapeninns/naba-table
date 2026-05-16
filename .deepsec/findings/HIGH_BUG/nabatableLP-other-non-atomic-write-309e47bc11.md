@@ -16,6 +16,12 @@ createRestaurant() inserts the restaurant first, then inserts the owner membersh
 
 Create the restaurant and owner membership in one transactional RPC. If keeping application-side compensation, check and surface cleanup failures and avoid making the restaurant active until membership creation is confirmed.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`createRestaurant` no longer inserts `restaurants` and `restaurant_memberships` as separate application-side writes with best-effort cleanup. It now validates and normalizes the input in TypeScript, resolves the slug, and delegates the actual restaurant plus owner-membership creation to `create_restaurant_with_owner`. The new `20260516093900_atomic_create_restaurant_with_owner.sql` migration inserts the restaurant and owner membership inside one PostgreSQL function call; if membership insertion fails, the function raises and the restaurant insert rolls back with it. Focused evidence: `tests/server/restaurants/create.test.ts` passed on 2026-05-16 with 4 tests and proves the service uses the atomic RPC, still feeds collision-resolved slugs into that call, does not enter a standalone membership write path when the RPC fails, and defines service-role-only RPC execution. The aggregate `pnpm run security:regression` pack also passed on 2026-05-16 with 26 files / 167 tests.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-11)

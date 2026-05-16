@@ -8,6 +8,7 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
 import { preflightGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
 import type { GoogleBusinessProfileFieldDecisionInput } from '@/server/google-business-profile/workflow';
 import type { NextRequest } from 'next/server';
@@ -71,9 +72,19 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const access = await ensureRestaurantAdminAccess(
     restaurantId,
     'google-business-profile-preflight',
+    req,
   );
   if (access instanceof NextResponse) {
     return access;
+  }
+
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId,
+    action: 'workflow-preflight',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   let payload: z.infer<typeof preflightSchema>;

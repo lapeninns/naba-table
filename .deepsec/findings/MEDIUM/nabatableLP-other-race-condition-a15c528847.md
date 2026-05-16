@@ -20,3 +20,11 @@ Make active hold overlap prevention fail closed and independent of a runtime ove
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-20)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+## Remediation
+
+**Verdict:** fixed
+
+`isHoldStrictConflictsEnabled()` now returns the invariant `true`, the shared env feature config reports strict conflicts as true, and hold paths no longer import or honor a runtime bypass for overlap prevention.
+
+**Verification:** `pnpm exec vitest run tests/server/capacity/table-assignment-guards.test.ts tests/server/deepsec-final-controls-source.test.ts`

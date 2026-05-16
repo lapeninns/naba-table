@@ -16,6 +16,12 @@ The handler verifies membership only for the restaurant on the supplied hold, th
 
 Before constructing the service client or calling confirmHold, load the submitted bookingId with the cookie-bound client, verify it exists, verify its restaurant_id equals the hold restaurant, and verify membership for that restaurant. Return a generic not-found/forbidden response for mismatches and do not expose RPC details to the caller.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/staff/auto/confirm/route.ts` now loads the submitted booking with the session-bound client after hold membership is established and returns `BOOKING_NOT_FOUND` if the booking is missing or belongs to a different restaurant. Service-role `confirmHold` is not called until that check passes. Covered by `tests/server/staff-auto-confirm-route-security.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

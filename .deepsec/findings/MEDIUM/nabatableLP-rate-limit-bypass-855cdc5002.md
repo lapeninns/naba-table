@@ -19,3 +19,7 @@ Derive the client IP only from a trusted platform-provided source or from a prox
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-12)
+
+**Verdict:** fixed
+
+Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

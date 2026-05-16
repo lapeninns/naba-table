@@ -20,3 +20,7 @@ After authenticating the user, require membership or admin membership for the sp
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+
+**Verdict:** fixed
+
+Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

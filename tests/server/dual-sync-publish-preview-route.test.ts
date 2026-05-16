@@ -89,6 +89,44 @@ describe('dual-sync publish preview route', () => {
     });
   });
 
+  it('accepts FoodMenus decisions from the shared section registry', async () => {
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          decisions: [
+            {
+              fieldKey: 'foodMenus.items.starters.foodMenu_item_starters/default_chilli-paneer',
+              sectionKey: 'foodMenus',
+              action: 'export_to_google',
+              pinnedCoreHash: 'core-hash',
+              pinnedGbpHash: 'gbp-hash',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(buildPublishPlanMock).toHaveBeenCalledWith(
+      serviceClient,
+      expect.objectContaining({
+        restaurantId: 'rest-1',
+        actorUserId: 'user-1',
+        decisions: [
+          {
+            fieldKey: 'foodMenus.items.starters.foodMenu_item_starters/default_chilli-paneer',
+            sectionKey: 'foodMenus',
+            action: 'export_to_google',
+            pinnedCoreHash: 'core-hash',
+            pinnedGbpHash: 'gbp-hash',
+          },
+        ],
+      }),
+    );
+  });
+
   it('preserves restaurant access checks before parsing or planning', async () => {
     ensureRestaurantAdminAccessMock.mockResolvedValue(
       NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
@@ -103,6 +141,27 @@ describe('dual-sync publish preview route', () => {
     );
 
     expect(response.status).toBe(403);
+    expect(buildPublishPlanMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects decisions that omit field-level pins', async () => {
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish/preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          decisions: [
+            {
+              fieldKey: 'profile.businessDescription',
+              sectionKey: 'profile',
+              action: 'export_to_google',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(422);
     expect(buildPublishPlanMock).not.toHaveBeenCalled();
   });
 
@@ -136,6 +195,8 @@ describe('dual-sync publish preview route', () => {
               fieldKey: 'profile.businessDescription',
               sectionKey: 'profile',
               action: 'export_to_google',
+              pinnedCoreHash: 'core-hash',
+              pinnedGbpHash: 'gbp-hash',
             },
           ],
         }),

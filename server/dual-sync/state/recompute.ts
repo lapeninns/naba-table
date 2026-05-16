@@ -141,6 +141,7 @@ export async function recomputeAllStates(
   ]);
   const existingByKey = new Map(existingStates.map((row) => [row.fieldKey, row]));
   const openByKey = new Set(openCandidates.map((row) => row.fieldKey));
+  const recomputedAt = new Date().toISOString();
 
   const evaluated: string[] = [];
   const transitions: Array<{
@@ -182,6 +183,12 @@ export async function recomputeAllStates(
       state: nextState,
       coreValueHash: coreHash,
       gbpValueHash: gbpHash,
+      ...(nextState === 'in_sync'
+        ? {
+            lastInSyncHash: coreHash,
+            lastInSyncAt: recomputedAt,
+          }
+        : {}),
       lastSnapshotRunId: lastSnapshotRunId ?? null,
     });
 

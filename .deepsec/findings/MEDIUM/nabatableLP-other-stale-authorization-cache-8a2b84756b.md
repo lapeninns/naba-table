@@ -16,6 +16,12 @@ Both GET and DELETE call requireGoogleBusinessAdminAccess, which delegates to en
 
 Use a fresh, uncached admin membership check for this API route before reading Google Business Profile state or disconnecting credentials. Keep the existing membership cache limited to layout/session display data and invalidate it on membership changes.
 
+## Revalidation
+
+**Verdict:** fixed
+
+Google Business Profile admin guards delegate to `requireAdminMembership`, which delegates to `requireMembershipForRestaurant` with the default uncached authorization path. Covered by `tests/server/team-access-cache.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-28)

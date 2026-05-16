@@ -19,3 +19,9 @@ Make the hydration update atomic by adding conditions that the target fields are
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)
+
+**Verdict:** fixed
+
+`lib/profile/server.ts` now guards customer-contact hydration with both the existing `updated_at` optimistic predicate and field-level predicates for every hydrated column. If the profile name or phone changes after the initial read, the hydration update no longer matches and the function returns the original row instead of overwriting a concurrent explicit edit.
+
+Evidence: `pnpm exec vitest run tests/lib/profile-server.test.ts` passed on 2026-05-16. `pnpm exec prettier --check lib/profile/server.ts tests/lib/profile-server.test.ts` also passed.

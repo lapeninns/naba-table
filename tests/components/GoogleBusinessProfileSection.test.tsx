@@ -65,9 +65,16 @@ const disconnectMutation = {
   error: null,
 };
 
+const startAuthorizationMutation = {
+  mutate: vi.fn(),
+  isPending: false,
+  error: null,
+};
+
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
   useOpsGoogleBusinessProfileAvailableLocations: () => locationsResult,
+  useOpsStartGoogleBusinessProfileAuthorization: () => startAuthorizationMutation,
   useOpsLinkGoogleBusinessProfileLocation: () => linkMutation,
   useOpsDisconnectGoogleBusinessProfile: () => disconnectMutation,
 }));
@@ -165,6 +172,8 @@ beforeEach(() => {
   locationsResult.refetch.mockReset();
   linkMutation.mutate.mockReset();
   linkMutation.isPending = false;
+  startAuthorizationMutation.mutate.mockReset();
+  startAuthorizationMutation.isPending = false;
   disconnectMutation.mutate.mockReset();
   disconnectMutation.isPending = false;
   queryClientMock.invalidateQueries.mockReset();
@@ -192,7 +201,7 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    await user.click(screen.getByRole('button', { name: /refresh google/i }));
+    await user.click(screen.getByRole('button', { name: /refresh connection/i }));
 
     expect(connectionResult.refetch).toHaveBeenCalledTimes(1);
     expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
@@ -234,8 +243,8 @@ describe('GoogleBusinessProfileSection', () => {
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /connect google/i }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /refresh google/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /connect google/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /refresh connection/i })).not.toBeInTheDocument();
     expect(document.getElementById('gbp-connection')).toBeInTheDocument();
     expectSharedChrome();
   });
@@ -286,7 +295,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getAllByText('Nabatable Main').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/linked and ready/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/review changes below/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /refresh google/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh connection/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /manage on google/i })).toHaveAttribute(
       'href',
       'https://www.google.com/maps/search/?api=1&query_place_id=place-1',

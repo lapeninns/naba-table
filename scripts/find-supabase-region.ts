@@ -1,4 +1,5 @@
 import { Client } from 'pg';
+
 import { getPgSslConfig } from './db/pg-ssl';
 
 const regions = [
@@ -10,7 +11,7 @@ const regions = [
   'ap-southeast-1',
 ];
 const projectRef = (process.env.SUPABASE_PROJECT_REF || process.argv[2] || '').trim();
-const password = (process.env.SUPABASE_DB_PASSWORD || process.argv[3] || '').trim();
+const password = (process.env.SUPABASE_DB_PASSWORD || '').trim();
 
 async function findRegion() {
   if (!projectRef || !password) {
@@ -20,7 +21,6 @@ async function findRegion() {
     console.error(
       '  SUPABASE_PROJECT_REF=... SUPABASE_DB_PASSWORD=... npx tsx scripts/find-supabase-region.ts',
     );
-    console.error('  npx tsx scripts/find-supabase-region.ts <project_ref> <db_password>');
     process.exit(1);
   }
 

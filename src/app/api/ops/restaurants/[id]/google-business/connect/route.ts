@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { getRequestOrigin } from '@/app/api/ops/google-business-profile/_origin';
-import { createGoogleBusinessProfileAuthorizationUrl } from '@/server/google-business-profile/service';
+import { setGoogleBusinessProfileOAuthStateCookie } from '@/server/google-business-profile/oauth-state-cookie';
+import { createGoogleBusinessProfileAuthorization } from '@/server/google-business-profile/service';
 
 import {
   googleBusinessErrorResponse,
@@ -14,19 +15,21 @@ import type { NextRequest } from 'next/server';
 const SETTINGS_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const resolved = await requireGoogleBusinessAdminAccess(params);
+  const resolved = await requireGoogleBusinessAdminAccess(params, req);
   if (resolved instanceof NextResponse) {
     return resolved;
   }
 
   try {
-    const authorizationUrl = await createGoogleBusinessProfileAuthorizationUrl({
+    const authorization = await createGoogleBusinessProfileAuthorization({
       restaurantId: resolved.restaurantId,
       requestedByUserId: resolved.access.userId,
       returnPath: new URL(SETTINGS_RETURN_PATH, getRequestOrigin(req)).toString(),
     });
 
-    return NextResponse.json({ authorizationUrl });
+    const response = NextResponse.json({ authorizationUrl: authorization.authorizationUrl });
+    setGoogleBusinessProfileOAuthStateCookie(response, authorization.stateToken);
+    return response;
   } catch (error) {
     return googleBusinessErrorResponse(
       error,

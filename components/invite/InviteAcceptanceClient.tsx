@@ -9,18 +9,20 @@ import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
-import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
 
 const acceptanceSchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name'),
-  password: z
-    .string()
-    .min(10, 'Password must be at least 10 characters')
-    .regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Include letters and numbers for security'),
 });
 
 type AcceptanceValues = z.infer<typeof acceptanceSchema>;
@@ -45,7 +47,6 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
     resolver: zodResolver(acceptanceSchema),
     defaultValues: {
       name: '',
-      password: '',
     },
   });
 
@@ -69,30 +70,19 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
 
       const payload = await response.json();
       if (!response.ok) {
-        const message = typeof payload?.error === 'string' ? payload.error : 'Unable to accept invitation';
+        if (response.status === 401) {
+          router.push(`/auth/signin?redirectedFrom=/invite/${encodeURIComponent(token)}`);
+          return;
+        }
+        const message =
+          typeof payload?.error === 'string' ? payload.error : 'Unable to accept invitation';
         setErrorMessage(message);
         return;
       }
 
-      const parsed = invitationAcceptResponseSchema.parse(payload);
-
-      const supabase = getSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: parsed.email,
-        password: values.password,
-      });
-
-      if (signInError) {
-        console.error('[invite][accept] sign-in failed', signInError.message);
-      } else {
-
-        // Force session refresh to ensure auth state is immediately available
-        await supabase.auth.getUser();
-
-        // Refresh router to update all components with new auth state
-        router.refresh();
-        router.push('/app');
-      }
+      invitationAcceptResponseSchema.parse(payload);
+      router.refresh();
+      router.push('/app');
     } catch (error) {
       console.error('[invite][accept] unexpected error', error);
       const message = 'Something went wrong while accepting the invitation.';
@@ -109,16 +99,25 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
     <div className={containerClassName}>
       <Card className={cardClassName}>
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-semibold text-slate-900">Join {invite.restaurantName}</CardTitle>
+          <CardTitle
+            className="text-2xl font-semibold text-slate-900"
+            role="heading"
+            aria-level={1}
+          >
+            Join {invite.restaurantName}
+          </CardTitle>
           <CardDescription className="text-slate-600">
-            {invite.inviterName ? `${invite.inviterName} invited you` : 'You have been invited'} to join the team as
-            a <span className="font-medium capitalize text-slate-900">{invite.role}</span>.
+            {invite.inviterName ? `${invite.inviterName} invited you` : 'You have been invited'} to
+            join the team as a{' '}
+            <span className="font-medium capitalize text-slate-900">{invite.role}</span>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
             <p className="font-medium">Invitation details</p>
-            <p>Email: <span className="font-mono text-slate-900">{invite.email}</span></p>
+            <p>
+              Email: <span className="font-mono text-slate-900">{invite.email}</span>
+            </p>
             <p>Expires: {new Date(invite.expiresAt).toLocaleString()}</p>
           </div>
 
@@ -138,21 +137,11 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Create password</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="password" autoComplete="new-password" placeholder="Minimum 10 characters" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {errorMessage ? <p className="text-sm text-red-600" role="alert">{errorMessage}</p> : null}
+              {errorMessage ? (
+                <p className="text-sm text-red-600" role="alert">
+                  {errorMessage}
+                </p>
+              ) : null}
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (

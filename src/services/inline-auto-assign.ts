@@ -13,429 +13,473 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type DbClient = SupabaseClient<Database, 'public'>;
 
 function stringifyError(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'string') return error;
-    try {
-        return JSON.stringify(error);
-    } catch {
-        return String(error);
-    }
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function throwIfAutoAssignAborted(signal: AbortSignal, timedOut: boolean): void {
+  if (signal.aborted || timedOut) {
+    const abortError = new Error('Inline auto-assign timed out');
+    abortError.name = 'AbortError';
+    throw abortError;
+  }
 }
 
 export type InlineAutoAssignOptions = {
-    bookingId: string;
-    restaurantId: string;
-    timeoutMs?: number;
-    createdBy: string;
-    historyReason: string;
-    observabilitySource: string;
-    client: DbClient;
-    onBookingUpdated?: (booking: BookingRecord) => void;
+  bookingId: string;
+  restaurantId: string;
+  timeoutMs?: number;
+  createdBy: string;
+  historyReason: string;
+  observabilitySource: string;
+  client: DbClient;
+  onBookingUpdated?: (booking: BookingRecord) => void;
 };
 
 type InlineLastResult = {
-    attemptId: string;
-    attemptedAt: string;
-    success: boolean;
-    reason: string | null;
-    durationMs: number;
-    strategy: { requireAdjacency: null; maxTables: null };
-    trigger: string;
-    alternates?: number;
-    emailSent: boolean;
-    emailVariant: 'standard' | 'modified' | null;
+  attemptId: string;
+  attemptedAt: string;
+  success: boolean;
+  reason: string | null;
+  durationMs: number;
+  strategy: { requireAdjacency: null; maxTables: null };
+  trigger: string;
+  alternates?: number;
+  emailSent: boolean;
+  emailVariant: 'standard' | 'modified' | null;
+};
+
+type PendingSuccessPlanResult = {
+  reason: string | null;
+  durationMs: number;
+  alternates?: number;
+  emailSent: boolean;
+  emailVariant: 'standard' | 'modified' | null;
 };
 
 function buildInlineLastResult(params: {
-    durationMs: number;
-    success: boolean;
-    reason: string | null;
-    strategy: { requireAdjacency: null; maxTables: null };
-    trigger: string;
-    alternates?: number;
-    attemptId: string;
-    emailSent: boolean;
-    emailVariant: 'standard' | 'modified' | null;
+  durationMs: number;
+  success: boolean;
+  reason: string | null;
+  strategy: { requireAdjacency: null; maxTables: null };
+  trigger: string;
+  alternates?: number;
+  attemptId: string;
+  emailSent: boolean;
+  emailVariant: 'standard' | 'modified' | null;
 }): InlineLastResult {
-    return {
-        attemptId: params.attemptId,
-        attemptedAt: new Date().toISOString(),
-        success: params.success,
-        reason: params.reason,
-        durationMs: params.durationMs,
-        strategy: params.strategy,
-        trigger: params.trigger,
-        alternates: params.alternates,
-        emailSent: params.emailSent,
-        emailVariant: params.emailVariant,
-    };
+  return {
+    attemptId: params.attemptId,
+    attemptedAt: new Date().toISOString(),
+    success: params.success,
+    reason: params.reason,
+    durationMs: params.durationMs,
+    strategy: params.strategy,
+    trigger: params.trigger,
+    alternates: params.alternates,
+    emailSent: params.emailSent,
+    emailVariant: params.emailVariant,
+  };
 }
 
 /**
  * Performs inline auto-assignment for a booking with timeout control and full observability.
  * This is the unified implementation used by both public and ops booking endpoints.
- * 
+ *
  * Returns the updated booking record if assignment succeeds and modifies the booking status.
  * Returns null if assignment times out or fails (booking remains in current state).
  */
 export async function runInlineAutoAssign(
-    options: InlineAutoAssignOptions
+  options: InlineAutoAssignOptions,
 ): Promise<BookingRecord | null> {
-    const {
+  const {
+    bookingId,
+    restaurantId,
+    timeoutMs = 4000,
+    createdBy,
+    historyReason,
+    observabilitySource,
+    client: supabase,
+    onBookingUpdated,
+  } = options;
+
+  const attemptId = randomUUID();
+  let attemptStartedAt = 0;
+  const plannerStrategy = { requireAdjacency: null, maxTables: null };
+  const plannerTrigger = 'inline_creation';
+  const emailVariant = 'standard';
+  let timeoutPersisted = false;
+  let timedOut = false;
+  let currentBooking: BookingRecord | null = null;
+  const successPlanResultRef: { current: PendingSuccessPlanResult | null } = { current: null };
+
+  const persistInlinePlanResult = async (params: {
+    success: boolean;
+    reason: string | null;
+    durationMs: number;
+    alternates?: number;
+    emailSent: boolean;
+    emailVariant: 'standard' | 'modified' | null;
+  }) => {
+    if (params.success && timedOut) {
+      const abortError = new Error('Inline auto-assign timed out');
+      abortError.name = 'AbortError';
+      throw abortError;
+    }
+    const inlineResult: Json = buildInlineLastResult({
+      durationMs: params.durationMs,
+      success: params.success,
+      reason: params.reason,
+      strategy: plannerStrategy,
+      trigger: plannerTrigger,
+      alternates: params.alternates,
+      attemptId,
+      emailSent: params.emailSent,
+      emailVariant: params.emailVariant,
+    });
+    try {
+      const updated = await updateBookingRecord(supabase, bookingId, {
+        auto_assign_last_result: inlineResult,
+      });
+      currentBooking = updated;
+      if (onBookingUpdated) {
+        onBookingUpdated(updated);
+      }
+    } catch (updateError) {
+      console.warn('[inline-auto-assign] persist inline result failed', {
         bookingId,
+        error: stringifyError(updateError),
+      });
+    }
+  };
+
+  try {
+    const inlineIdempotencyKey = `inline-${bookingId}`;
+    const autoAssign = new CancellableAutoAssign(timeoutMs);
+    attemptStartedAt = Date.now();
+
+    console.info('[inline-auto-assign] start', {
+      bookingId,
+      attemptId,
+      timeoutMs,
+      createdBy,
+    });
+
+    const handleInlineTimeout = async () => {
+      timedOut = true;
+      const elapsedMs = attemptStartedAt > 0 ? Date.now() - attemptStartedAt : undefined;
+      await recordObservabilityEvent({
+        source: observabilitySource,
+        eventType: 'inline_auto_assign.timeout',
         restaurantId,
-        timeoutMs = 4000,
-        createdBy,
-        historyReason,
-        observabilitySource,
-        client: supabase,
-        onBookingUpdated,
-    } = options;
-
-    const attemptId = randomUUID();
-    let attemptStartedAt = 0;
-    const plannerStrategy = { requireAdjacency: null, maxTables: null };
-    const plannerTrigger = 'inline_creation';
-    const emailVariant = 'standard';
-    let timeoutPersisted = false;
-    let currentBooking: BookingRecord | null = null;
-
-    const persistInlinePlanResult = async (params: {
-        success: boolean;
-        reason: string | null;
-        durationMs: number;
-        alternates?: number;
-        emailSent: boolean;
-        emailVariant: 'standard' | 'modified' | null;
-    }) => {
-        const inlineResult: Json = buildInlineLastResult({
-            durationMs: params.durationMs,
-            success: params.success,
-            reason: params.reason,
-            strategy: plannerStrategy,
-            trigger: plannerTrigger,
-            alternates: params.alternates,
-            attemptId,
-            emailSent: params.emailSent,
-            emailVariant: params.emailVariant,
-        });
-        try {
-            const updated = await updateBookingRecord(supabase, bookingId, {
-                auto_assign_last_result: inlineResult,
-            });
-            currentBooking = updated;
-            if (onBookingUpdated) {
-                onBookingUpdated(updated);
-            }
-        } catch (updateError) {
-            console.warn('[inline-auto-assign] persist inline result failed', {
-                bookingId,
-                error: stringifyError(updateError),
-            });
-        }
+        bookingId,
+        context: {
+          timeoutMs,
+          elapsedMs,
+          attemptId,
+        },
+        severity: 'warning',
+      });
+      await persistInlinePlanResult({
+        success: false,
+        reason: 'INLINE_TIMEOUT',
+        durationMs: elapsedMs ?? timeoutMs,
+        alternates: 0,
+        emailSent: false,
+        emailVariant,
+      });
+      timeoutPersisted = true;
     };
 
-    try {
-        const inlineIdempotencyKey = `inline-${bookingId}`;
-        const autoAssign = new CancellableAutoAssign(timeoutMs);
-        attemptStartedAt = Date.now();
+    await autoAssign.runWithTimeout(async (signal: AbortSignal) => {
+      const quoteStartedAt = Date.now();
+      let quoteDurationMs = 0;
+      let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
 
-        console.info('[inline-auto-assign] start', {
-            bookingId,
-            attemptId,
-            timeoutMs,
-            createdBy,
+      try {
+        quote = await quoteTablesForBooking({
+          bookingId,
+          createdBy,
+          holdTtlSeconds: 120,
+          client: supabase,
+          signal,
         });
+        quoteDurationMs = Date.now() - quoteStartedAt;
+        throwIfAutoAssignAborted(signal, timedOut);
+        const classification = classifyPlannerReason(quote?.reason ?? null);
+        await recordPlannerQuoteTelemetry({
+          restaurantId,
+          bookingId,
+          durationMs: quoteDurationMs,
+          success: Boolean(quote?.hold),
+          reason: quote?.reason ?? null,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+          strategy: plannerStrategy,
+          trigger: plannerTrigger,
+          attemptIndex: 0,
+          internalStats: quote?.plannerStats ?? null,
+          extraContext: { attemptId },
+        });
+      } catch (quoteError) {
+        throwIfAutoAssignAborted(signal, timedOut);
+        quoteDurationMs = Date.now() - quoteStartedAt;
+        const quoteErrorReason =
+          quoteError instanceof Error && quoteError.name ? quoteError.name : 'QUOTE_ERROR';
+        const classification = classifyPlannerReason(quoteErrorReason);
+        await persistInlinePlanResult({
+          success: false,
+          reason: quoteErrorReason,
+          durationMs: quoteDurationMs,
+          alternates: 0,
+          emailSent: false,
+          emailVariant,
+        });
+        await recordPlannerQuoteTelemetry({
+          restaurantId,
+          bookingId,
+          durationMs: quoteDurationMs,
+          success: false,
+          reason: quoteErrorReason,
+          reasonCode: classification.code,
+          reasonCategory: classification.category,
+          strategy: plannerStrategy,
+          trigger: plannerTrigger,
+          attemptIndex: 0,
+          errorMessage: stringifyError(quoteError),
+          severity: 'warning',
+          extraContext: { attemptId },
+        });
+        console.error('[inline-auto-assign] quote error', {
+          bookingId,
+          attemptId,
+          durationMs: quoteDurationMs,
+          error: stringifyError(quoteError),
+        });
+        await recordObservabilityEvent({
+          source: observabilitySource,
+          eventType: 'inline_auto_assign.quote_error',
+          restaurantId,
+          bookingId,
+          context: {
+            durationMs: quoteDurationMs,
+            attemptId,
+          },
+          severity: 'warning',
+        });
+        throw quoteError;
+      }
 
-        const handleInlineTimeout = async () => {
-            const elapsedMs = attemptStartedAt > 0 ? Date.now() - attemptStartedAt : undefined;
-            await recordObservabilityEvent({
-                source: observabilitySource,
-                eventType: 'inline_auto_assign.timeout',
-                restaurantId,
-                bookingId,
-                context: {
-                    timeoutMs,
-                    elapsedMs,
-                    attemptId,
-                },
-                severity: 'warning',
-            });
-            await persistInlinePlanResult({
-                success: false,
-                reason: 'INLINE_TIMEOUT',
-                durationMs: elapsedMs ?? timeoutMs,
-                alternates: 0,
-                emailSent: false,
-                emailVariant,
-            });
-            timeoutPersisted = true;
-        };
+      console.info('[inline-auto-assign] quote result', {
+        bookingId,
+        attemptId,
+        durationMs: quoteDurationMs,
+        hasHold: Boolean(quote?.hold),
+        reason: quote?.reason ?? null,
+        alternates: quote?.alternates?.length ?? 0,
+      });
 
-        await autoAssign.runWithTimeout(async (signal: AbortSignal) => {
-            const quoteStartedAt = Date.now();
-            let quoteDurationMs = 0;
-            let quote: Awaited<ReturnType<typeof quoteTablesForBooking>> | null = null;
+      await recordObservabilityEvent({
+        source: observabilitySource,
+        eventType: 'inline_auto_assign.quote_result',
+        restaurantId,
+        bookingId,
+        context: {
+          durationMs: quoteDurationMs,
+          hasHold: Boolean(quote?.hold),
+          attemptId,
+          reason: quote?.reason ?? null,
+          alternates: quote?.alternates?.length ?? 0,
+        },
+      });
+      throwIfAutoAssignAborted(signal, timedOut);
 
-            try {
-                quote = await quoteTablesForBooking({
-                    bookingId,
-                    createdBy,
-                    holdTtlSeconds: 120,
-                    client: supabase,
-                    signal,
-                });
-                quoteDurationMs = Date.now() - quoteStartedAt;
-                const classification = classifyPlannerReason(quote?.reason ?? null);
-                await recordPlannerQuoteTelemetry({
-                    restaurantId,
-                    bookingId,
-                    durationMs: quoteDurationMs,
-                    success: Boolean(quote?.hold),
-                    reason: quote?.reason ?? null,
-                    reasonCode: classification.code,
-                    reasonCategory: classification.category,
-                    strategy: plannerStrategy,
-                    trigger: plannerTrigger,
-                    attemptIndex: 0,
-                    internalStats: quote?.plannerStats ?? null,
-                    extraContext: { attemptId },
-                });
-            } catch (quoteError) {
-                quoteDurationMs = Date.now() - quoteStartedAt;
-                const quoteErrorReason =
-                    quoteError instanceof Error && quoteError.name ? quoteError.name : 'QUOTE_ERROR';
-                const classification = classifyPlannerReason(quoteErrorReason);
-                await persistInlinePlanResult({
-                    success: false,
-                    reason: quoteErrorReason,
-                    durationMs: quoteDurationMs,
-                    alternates: 0,
-                    emailSent: false,
-                    emailVariant,
-                });
-                await recordPlannerQuoteTelemetry({
-                    restaurantId,
-                    bookingId,
-                    durationMs: quoteDurationMs,
-                    success: false,
-                    reason: quoteErrorReason,
-                    reasonCode: classification.code,
-                    reasonCategory: classification.category,
-                    strategy: plannerStrategy,
-                    trigger: plannerTrigger,
-                    attemptIndex: 0,
-                    errorMessage: stringifyError(quoteError),
-                    severity: 'warning',
-                    extraContext: { attemptId },
-                });
-                console.error('[inline-auto-assign] quote error', {
-                    bookingId,
-                    attemptId,
-                    durationMs: quoteDurationMs,
-                    error: stringifyError(quoteError),
-                });
-                await recordObservabilityEvent({
-                    source: observabilitySource,
-                    eventType: 'inline_auto_assign.quote_error',
-                    restaurantId,
-                    bookingId,
-                    context: {
-                        durationMs: quoteDurationMs,
-                        attemptId,
-                    },
-                    severity: 'warning',
-                });
-                throw quoteError;
-            }
+      if (!quote?.hold) {
+        throwIfAutoAssignAborted(signal, timedOut);
+        await persistInlinePlanResult({
+          success: false,
+          reason: quote?.reason ?? null,
+          alternates: quote?.alternates?.length ?? 0,
+          durationMs: quoteDurationMs,
+          emailSent: false,
+          emailVariant,
+        });
+        console.warn('[inline-auto-assign] hold not available', {
+          bookingId,
+          reason: quote?.reason ?? 'NO_HOLD',
+          alternates: quote?.alternates?.length ?? 0,
+          attemptId,
+          durationMs: quoteDurationMs,
+        });
+        await recordObservabilityEvent({
+          source: observabilitySource,
+          eventType: 'inline_auto_assign.no_hold',
+          restaurantId,
+          bookingId,
+          context: {
+            reason: quote?.reason ?? 'NO_HOLD',
+            alternates: quote?.alternates?.length ?? 0,
+            durationMs: quoteDurationMs,
+            attemptId,
+          },
+          severity: 'info',
+        });
+        return;
+      }
 
-            console.info('[inline-auto-assign] quote result', {
-                bookingId,
-                attemptId,
-                durationMs: quoteDurationMs,
-                hasHold: Boolean(quote?.hold),
-                reason: quote?.reason ?? null,
-                alternates: quote?.alternates?.length ?? 0,
-            });
+      const confirmStartedAt = Date.now();
+      try {
+        throwIfAutoAssignAborted(signal, timedOut);
+        await atomicConfirmAndTransition({
+          bookingId,
+          holdId: quote.hold.id,
+          idempotencyKey: inlineIdempotencyKey,
+          assignedBy: null,
+          historyReason,
+          historyMetadata: { source: createdBy, holdId: quote.hold.id },
+          client: supabase,
+          signal,
+        });
+        throwIfAutoAssignAborted(signal, timedOut);
+      } catch (confirmError) {
+        throwIfAutoAssignAborted(signal, timedOut);
+        const confirmDurationMs = Date.now() - confirmStartedAt;
+        console.error('[inline-auto-assign] confirm error', {
+          bookingId,
+          attemptId,
+          holdId: quote.hold.id,
+          durationMs: confirmDurationMs,
+          error: stringifyError(confirmError),
+        });
+        await recordObservabilityEvent({
+          source: observabilitySource,
+          eventType: 'inline_auto_assign.confirm_failed',
+          restaurantId,
+          bookingId,
+          context: {
+            attemptId,
+            holdId: quote.hold.id,
+            durationMs: confirmDurationMs,
+          },
+          severity: 'error',
+        });
+        throw confirmError;
+      }
 
-            await recordObservabilityEvent({
-                source: observabilitySource,
-                eventType: 'inline_auto_assign.quote_result',
-                restaurantId,
-                bookingId,
-                context: {
-                    durationMs: quoteDurationMs,
-                    hasHold: Boolean(quote?.hold),
-                    attemptId,
-                    reason: quote?.reason ?? null,
-                    alternates: quote?.alternates?.length ?? 0,
-                },
-            });
+      const confirmDurationMs = Date.now() - confirmStartedAt;
+      console.info('[inline-auto-assign] confirm completed', {
+        bookingId,
+        attemptId,
+        holdId: quote.hold.id,
+        durationMs: confirmDurationMs,
+      });
 
-            if (!quote?.hold) {
-                await persistInlinePlanResult({
-                    success: false,
-                    reason: quote?.reason ?? null,
-                    alternates: quote?.alternates?.length ?? 0,
-                    durationMs: quoteDurationMs,
-                    emailSent: false,
-                    emailVariant,
-                });
-                console.warn('[inline-auto-assign] hold not available', {
-                    bookingId,
-                    reason: quote?.reason ?? 'NO_HOLD',
-                    alternates: quote?.alternates?.length ?? 0,
-                    attemptId,
-                    durationMs: quoteDurationMs,
-                });
-                await recordObservabilityEvent({
-                    source: observabilitySource,
-                    eventType: 'inline_auto_assign.no_hold',
-                    restaurantId,
-                    bookingId,
-                    context: {
-                        reason: quote?.reason ?? 'NO_HOLD',
-                        alternates: quote?.alternates?.length ?? 0,
-                        durationMs: quoteDurationMs,
-                        attemptId,
-                    },
-                    severity: 'info',
-                });
-                return;
-            }
+      await recordObservabilityEvent({
+        source: observabilitySource,
+        eventType: 'inline_auto_assign.confirm_succeeded',
+        restaurantId,
+        bookingId,
+        context: {
+          attemptId,
+          holdId: quote.hold.id,
+          durationMs: confirmDurationMs,
+        },
+      });
+      throwIfAutoAssignAborted(signal, timedOut);
 
-            const confirmStartedAt = Date.now();
-            try {
-                await atomicConfirmAndTransition({
-                    bookingId,
-                    holdId: quote.hold.id,
-                    idempotencyKey: inlineIdempotencyKey,
-                    assignedBy: null,
-                    historyReason,
-                    historyMetadata: { source: createdBy, holdId: quote.hold.id },
-                    client: supabase,
-                    signal,
-                });
-            } catch (confirmError) {
-                const confirmDurationMs = Date.now() - confirmStartedAt;
-                console.error('[inline-auto-assign] confirm error', {
-                    bookingId,
-                    attemptId,
-                    holdId: quote.hold.id,
-                    durationMs: confirmDurationMs,
-                    error: stringifyError(confirmError),
-                });
-                await recordObservabilityEvent({
-                    source: observabilitySource,
-                    eventType: 'inline_auto_assign.confirm_failed',
-                    restaurantId,
-                    bookingId,
-                    context: {
-                        attemptId,
-                        holdId: quote.hold.id,
-                        durationMs: confirmDurationMs,
-                    },
-                    severity: 'error',
-                });
-                throw confirmError;
-            }
+      // Reload booking to get updated status
+      const { data: reloaded } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .maybeSingle();
+      throwIfAutoAssignAborted(signal, timedOut);
 
-            const confirmDurationMs = Date.now() - confirmStartedAt;
-            console.info('[inline-auto-assign] confirm completed', {
-                bookingId,
-                attemptId,
-                holdId: quote.hold.id,
-                durationMs: confirmDurationMs,
-            });
-
-            await recordObservabilityEvent({
-                source: observabilitySource,
-                eventType: 'inline_auto_assign.confirm_succeeded',
-                restaurantId,
-                bookingId,
-                context: {
-                    attemptId,
-                    holdId: quote.hold.id,
-                    durationMs: confirmDurationMs,
-                },
-            });
-
-            // Reload booking to get updated status
-            const { data: reloaded } = await supabase
-                .from('bookings')
-                .select('*')
-                .eq('id', bookingId)
-                .maybeSingle();
-
-            if (reloaded) {
-                currentBooking = reloaded as BookingRecord;
-                if (onBookingUpdated) {
-                    onBookingUpdated(currentBooking);
-                }
-            }
-
-            await persistInlinePlanResult({
-                success: true,
-                reason: quote.reason ?? null,
-                alternates: quote?.alternates?.length ?? 0,
-                durationMs: quoteDurationMs,
-                emailSent: false,
-                emailVariant,
-            });
-
-            await recordObservabilityEvent({
-                source: observabilitySource,
-                eventType: 'inline_auto_assign.succeeded',
-                restaurantId,
-                bookingId,
-                context: {
-                    holdId: quote.hold.id,
-                    idempotencyKey: inlineIdempotencyKey,
-                    attemptId,
-                    quoteDurationMs,
-                    confirmDurationMs,
-                },
-            });
-        }, handleInlineTimeout);
-
-        return currentBooking;
-    } catch (inlineError) {
-        if (inlineError instanceof Error && inlineError.name === 'AbortError') {
-            const durationMs = attemptStartedAt > 0 ? Date.now() - attemptStartedAt : undefined;
-            console.warn('[inline-auto-assign] aborted', {
-                bookingId,
-                durationMs,
-                timeoutMs,
-                attemptId,
-            });
-            if (!timeoutPersisted) {
-                await persistInlinePlanResult({
-                    success: false,
-                    reason: 'INLINE_TIMEOUT',
-                    durationMs: durationMs ?? timeoutMs,
-                    alternates: 0,
-                    emailSent: false,
-                    emailVariant,
-                });
-                timeoutPersisted = true;
-            }
-            await recordObservabilityEvent({
-                source: observabilitySource,
-                eventType: 'inline_auto_assign.operation_aborted',
-                restaurantId,
-                bookingId,
-                context: {
-                    attemptId,
-                    durationMs,
-                    timeoutMs,
-                },
-                severity: 'warning',
-            });
-        } else {
-            console.warn('[inline-auto-assign] failed', {
-                error: stringifyError(inlineError),
-            });
+      if (reloaded) {
+        currentBooking = reloaded as BookingRecord;
+        if (onBookingUpdated) {
+          onBookingUpdated(currentBooking);
         }
-        return null;
+      }
+
+      successPlanResultRef.current = {
+        reason: quote.reason ?? null,
+        alternates: quote?.alternates?.length ?? 0,
+        durationMs: quoteDurationMs,
+        emailSent: false,
+        emailVariant,
+      };
+
+      await recordObservabilityEvent({
+        source: observabilitySource,
+        eventType: 'inline_auto_assign.succeeded',
+        restaurantId,
+        bookingId,
+        context: {
+          holdId: quote.hold.id,
+          idempotencyKey: inlineIdempotencyKey,
+          attemptId,
+          quoteDurationMs,
+          confirmDurationMs,
+        },
+      });
+    }, handleInlineTimeout);
+
+    const successPlanResult = successPlanResultRef.current;
+    if (successPlanResult && !timedOut) {
+      await persistInlinePlanResult({
+        success: true,
+        reason: successPlanResult.reason,
+        durationMs: successPlanResult.durationMs,
+        alternates: successPlanResult.alternates,
+        emailSent: successPlanResult.emailSent,
+        emailVariant: successPlanResult.emailVariant,
+      });
     }
+
+    return currentBooking;
+  } catch (inlineError) {
+    if (inlineError instanceof Error && inlineError.name === 'AbortError') {
+      const durationMs = attemptStartedAt > 0 ? Date.now() - attemptStartedAt : undefined;
+      console.warn('[inline-auto-assign] aborted', {
+        bookingId,
+        durationMs,
+        timeoutMs,
+        attemptId,
+      });
+      if (!timeoutPersisted) {
+        await persistInlinePlanResult({
+          success: false,
+          reason: 'INLINE_TIMEOUT',
+          durationMs: durationMs ?? timeoutMs,
+          alternates: 0,
+          emailSent: false,
+          emailVariant,
+        });
+        timeoutPersisted = true;
+      }
+      await recordObservabilityEvent({
+        source: observabilitySource,
+        eventType: 'inline_auto_assign.operation_aborted',
+        restaurantId,
+        bookingId,
+        context: {
+          attemptId,
+          durationMs,
+          timeoutMs,
+        },
+        severity: 'warning',
+      });
+    } else {
+      console.warn('[inline-auto-assign] failed', {
+        error: stringifyError(inlineError),
+      });
+    }
+    return null;
+  }
 }

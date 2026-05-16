@@ -19,3 +19,7 @@ Atomically claim the review before side effects, for example by transitioning pe
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+
+**Verdict:** fixed
+
+`decideFoodMenusImportReview` now validates the selected action, then claims the review with a conditional `pending -> processing` update before any canonical menu write. The storage finalizer now updates by restaurant id, review id, and `decision_status = 'processing'`, preventing replayed or concurrent submissions from applying side effects and then racing the audit row. Focused evidence: `tests/server/google-business-profile-food-menus-sync.test.ts` passed on 2026-05-16 and covers both normal claimed decisions and the lost-claim path that skips side effects.

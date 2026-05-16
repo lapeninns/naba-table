@@ -16,6 +16,12 @@ The client fetches the full restaurant SMS delivery feed via bookingService.getR
 
 Return a sanitized feed DTO for this dashboard. Strip events[].metadata and events[].error, or gate those fields behind an explicit admin-only diagnostic view. Prefer mapping the API response server-side before NextResponse.json rather than relying on the React component not to render sensitive fields.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/ops/sms-delivery/route.ts` maps feed rows through `sanitizeOpsSmsDeliveryAttempts`, which strips provider metadata and raw errors before `NextResponse.json`. Covered by `tests/server/sms-delivery-route.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

@@ -55,6 +55,10 @@ function optionalNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+function isPinnedHash(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
 function isPublishDecision(value: unknown): value is DualSyncPublishDecision {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
@@ -63,7 +67,11 @@ function isPublishDecision(value: unknown): value is DualSyncPublishDecision {
     typeof row.sectionKey === 'string' &&
     (row.action === 'import_from_google' ||
       row.action === 'export_to_google' ||
-      row.action === 'ignore')
+      row.action === 'ignore') &&
+    Object.prototype.hasOwnProperty.call(row, 'pinnedCoreHash') &&
+    Object.prototype.hasOwnProperty.call(row, 'pinnedGbpHash') &&
+    isPinnedHash(row.pinnedCoreHash) &&
+    isPinnedHash(row.pinnedGbpHash)
   );
 }
 
@@ -76,8 +84,8 @@ function publishDecisions(payload: JsonObject): DualSyncPublishDecision[] {
     fieldKey: decision.fieldKey,
     sectionKey: decision.sectionKey,
     action: decision.action,
-    pinnedCoreHash: decision.pinnedCoreHash ?? null,
-    pinnedGbpHash: decision.pinnedGbpHash ?? null,
+    pinnedCoreHash: decision.pinnedCoreHash,
+    pinnedGbpHash: decision.pinnedGbpHash,
   }));
 }
 

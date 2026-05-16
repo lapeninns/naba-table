@@ -20,3 +20,7 @@ Create the restaurant and owner membership inside one database transaction/RPC, 
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-11)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+The two-write restaurant creation path has been replaced with `create_restaurant_with_owner`, a transactional database function that inserts the restaurant and owner membership in one call. `createRestaurant` now calls that RPC after validation and slug resolution, and no longer performs best-effort compensation after a committed restaurant insert. Focused evidence: `tests/server/restaurants/create.test.ts` passed on 2026-05-16.

@@ -16,6 +16,12 @@ The default parameter confettiStatuses = ['completed'] creates a new array on ev
 
 Hoist the default confetti status list to a stable module-level constant or memoize it, and compute status-change detection inside the effect before updating previousStatusRef so the changed flag cannot stay stale.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/components/features/booking-state-machine/StatusTransitionAnimator.tsx` now uses a stable module-level `DEFAULT_CONFETTI_STATUSES` value and computes the actual status transition inside the effect that updates `previousStatusRef`. Highlight and confetti timers are scheduled only for a consumed real transition, so later state-only rerenders from the hide timeout do not re-trigger confetti. `tests/components/StatusTransitionAnimator.test.tsx` verifies confetti does not restart after the timeout fires.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

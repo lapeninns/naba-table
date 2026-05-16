@@ -19,3 +19,7 @@ Do not use Origin or Referer for trusted host decisions, and only honor forwarde
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-29)
+
+**Verdict:** fixed
+
+`parseHostname` no longer accepts `x-forwarded-host`, `x-original-host`, `Origin`, or `Referer` for auth host decisions; it resolves from `req.nextUrl`, `req.url`, then `Host`. The signin route now passes that value through `resolveTrustedAuthHostname`, which falls back to the configured canonical root/www host unless the host is exactly root, www, app, or approved local. `buildAuthCallbackUrl` replaced the suffix-based `endsWith('nabatable.com')` callback builder, and `sendAuthMagicLink` now validates `emailRedirectTo` with `normalizeTrustedMagicLinkRedirect` before Supabase `generateLink` can create a token. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including spoofed forwarded/origin headers, suffix-domain callbacks, and helper-level invalid redirect rejection.

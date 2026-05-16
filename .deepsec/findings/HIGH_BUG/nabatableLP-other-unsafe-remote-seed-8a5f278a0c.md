@@ -16,6 +16,12 @@ The script directly creates a service-role Supabase client from environment vari
 
 Require explicit target restaurant input, add dry-run by default, validate the target Supabase project/environment, and block production unless a deliberate override is supplied.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`scripts/seed-bookings-week.ts` is now staging-only through `assertStagingScriptSafety`, which validates the exact Supabase project ref and requires `DB_TARGET_ENV=staging` or `APP_ENV=staging` plus `CONFIRM_STAGING_BOOKING_SEED=true`. It no longer falls back to the first restaurant row; `RESTAURANT_ID` is mandatory. The lunch minute generation was also constrained to `0..59` so the seed cannot emit invalid minute values.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-21)

@@ -5,7 +5,8 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
-import { createGoogleBusinessProfileAuthorizationUrl } from '@/server/google-business-profile/service';
+import { setGoogleBusinessProfileOAuthStateCookie } from '@/server/google-business-profile/oauth-state-cookie';
+import { createGoogleBusinessProfileAuthorization } from '@/server/google-business-profile/service';
 
 import type { NextRequest } from 'next/server';
 
@@ -15,25 +16,34 @@ type RouteContext = {
 
 const SETTINGS_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 
-export async function GET(req: NextRequest, { params }: RouteContext) {
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed. Use POST to start Google Business Profile authorization.' },
+    { status: 405, headers: { Allow: 'POST' } },
+  );
+}
+
+export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
     return access;
   }
 
   try {
-    const authorizationUrl = await createGoogleBusinessProfileAuthorizationUrl({
+    const authorization = await createGoogleBusinessProfileAuthorization({
       restaurantId,
       requestedByUserId: access.userId,
       returnPath: new URL(SETTINGS_RETURN_PATH, getRequestOrigin(req)).toString(),
     });
 
-    return NextResponse.redirect(authorizationUrl);
+    const response = NextResponse.json({ authorizationUrl: authorization.authorizationUrl });
+    setGoogleBusinessProfileOAuthStateCookie(response, authorization.stateToken);
+    return response;
   } catch (error) {
     const message =
       error instanceof Error

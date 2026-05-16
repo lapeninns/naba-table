@@ -16,6 +16,12 @@ The route accepts client-supplied publish decisions and calls runPublish() with 
 
 Require pinned hashes for publish decisions unless an explicit audited force-publish mode exists, enforce snapshot/per-field drift checks before any batch or per-field port call, and only then create operation rows and perform external writes.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The publish route schema now requires each decision to include `pinnedCoreHash` and `pinnedGbpHash` as `string | null` instead of defaulting omitted pins to `null`. The server publish path also validates those pins and compares them before operation creation and provider writes. Focused evidence: `tests/server/dual-sync-publish-route.test.ts` rejects omitted field-level pins, and the orchestrator tests verify stale pins prevent batch/per-field export calls.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)

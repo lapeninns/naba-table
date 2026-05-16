@@ -85,4 +85,12 @@ describe('proxy GBP callback public API routing', () => {
     );
     expect(requireOpsAuthMock).not.toHaveBeenCalled();
   });
+
+  it('does not let double-slash app paths redirect to an external host', async () => {
+    const response = await handleRouting(new NextRequest('http://localhost/app//evil'));
+
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe('http://app.localhost/evil');
+    expect(requireOpsAuthMock).not.toHaveBeenCalled();
+  });
 });

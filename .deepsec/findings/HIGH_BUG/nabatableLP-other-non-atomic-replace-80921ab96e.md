@@ -20,3 +20,9 @@ Perform the replacement in a single database transaction or RPC that validates t
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
+
+**Verdict:** fixed
+
+`updateServicePeriods` now rejects duplicate replacement ids before mutation and calls the service-role-only `replace_restaurant_service_periods` RPC instead of issuing separate delete and insert statements. The RPC upserts incoming service-period rows by id, preserving dependent rows for unchanged ids, then deletes obsolete rows inside the same database transaction.
+
+Evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16. The regression coverage verifies the helper calls the atomic replacement RPC and rejects duplicate service period ids before replacement.

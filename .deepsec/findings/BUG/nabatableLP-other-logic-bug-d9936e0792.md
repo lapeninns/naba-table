@@ -16,6 +16,14 @@ createManualHold and instantTableAssignment intentionally write metadata.selecti
 
 Keep the requireAdjacency=false metadata shape, but align confirmation validation so snapshot is optional for non-adjacent holds. Cover both manual and instant paths in tests.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`createManualHold` and `instantTableAssignment` can keep writing `snapshot: null` for `requireAdjacency: false` holds because the shared confirmation metadata validator now only requires snapshots for adjacency-required metadata. The guard tests cover the non-adjacent shape and the adjacency-required rejection.
+
+Evidence: `pnpm exec vitest run tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/capacity/demand-profiles.ts server/capacity/selector.ts server/capacity/table-assignment/supabase.ts server/capacity/v2/utils.ts tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` also passed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

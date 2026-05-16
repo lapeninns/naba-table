@@ -8,6 +8,13 @@ import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
 import { getPgSslConfig } from './db/pg-ssl';
+import {
+  DEFAULT_PRODUCTION_PROJECT_REF,
+  assertExactSupabaseApiProjectRef,
+  assertExactSupabaseProjectRef,
+  assertStagingScriptSafety,
+  normalizeSupabaseProjectRef,
+} from './db/safety';
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), '..');
@@ -28,13 +35,50 @@ if (!supabaseUrl || !serviceRoleKey) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
   process.exit(1);
 }
+const checkedSupabaseUrl = supabaseUrl;
+const checkedServiceRoleKey = serviceRoleKey;
 
 if (!email || !password) {
   console.error('Set USER_EMAIL and USER_PASSWORD to continue.');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
+function assertAuthUserScriptSafety(): void {
+  const targetEnv = (process.env.DB_TARGET_ENV ?? process.env.APP_ENV ?? '').trim().toLowerCase();
+
+  if (targetEnv === 'production') {
+    const expectedProjectRef = normalizeSupabaseProjectRef(
+      process.env.EXPECTED_PROJECT_REF ??
+        process.env.PRODUCTION_SUPABASE_PROJECT_REF ??
+        DEFAULT_PRODUCTION_PROJECT_REF,
+      'EXPECTED_PROJECT_REF',
+    );
+
+    assertExactSupabaseApiProjectRef(checkedSupabaseUrl, expectedProjectRef);
+    if (dbUrl) {
+      assertExactSupabaseProjectRef(dbUrl, expectedProjectRef);
+    }
+
+    if (process.env.CONFIRM_PRODUCTION_AUTH_RESET !== 'true') {
+      throw new Error('CONFIRM_PRODUCTION_AUTH_RESET=true is required for production auth resets.');
+    }
+    return;
+  }
+
+  assertStagingScriptSafety({
+    apiUrl: checkedSupabaseUrl,
+    connectionString: dbUrl,
+    expectedProjectRef:
+      process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF,
+    targetEnv,
+    confirmation: process.env.CONFIRM_STAGING_AUTH_RESET,
+    confirmationName: 'CONFIRM_STAGING_AUTH_RESET',
+  });
+}
+
+assertAuthUserScriptSafety();
+
+const supabase = createClient(checkedSupabaseUrl, checkedServiceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 

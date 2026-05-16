@@ -36,9 +36,20 @@ vi.mock('@/lib/logger', () => ({
 type TableName =
   | 'restaurant_external_profiles'
   | 'restaurant_external_profile_credentials'
-  | 'restaurant_external_profile_oauth_states';
+  | 'restaurant_external_profile_oauth_states'
+  | 'restaurant_memberships';
 
-function buildQuery(table: TableName, captured: { credentialUpsert: unknown[] }) {
+type CapturedQueries = {
+  credentialUpsert: unknown[];
+  updates: { table: TableName; payload: unknown }[];
+};
+
+type BuildQueryOptions = {
+  oauthStateOverrides?: Record<string, unknown>;
+  membership?: Record<string, unknown> | null;
+};
+
+function buildQuery(table: TableName, captured: CapturedQueries, options: BuildQueryOptions = {}) {
   const profile = {
     id: 'profile-1',
     restaurant_id: 'rest-1',
@@ -59,21 +70,44 @@ function buildQuery(table: TableName, captured: { credentialUpsert: unknown[] })
     consumed_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    ...options.oauthStateOverrides,
   };
+  const membership =
+    options.membership === undefined
+      ? {
+          user_id: 'user-1',
+          restaurant_id: 'rest-1',
+          role: 'owner',
+          created_at: new Date().toISOString(),
+          restaurants: { id: 'rest-1', name: 'Old Crown', slug: 'old-crown' },
+        }
+      : options.membership;
+  let updatePayload: unknown = null;
 
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    is: vi.fn(() => query),
     maybeSingle: vi.fn(async () => {
       if (table === 'restaurant_external_profiles') {
         return { data: profile, error: null };
       }
       if (table === 'restaurant_external_profile_oauth_states') {
+        if (updatePayload) {
+          return { data: { id: oauthState.id }, error: null };
+        }
         return { data: oauthState, error: null };
+      }
+      if (table === 'restaurant_memberships') {
+        return { data: membership, error: null };
       }
       return { data: null, error: null };
     }),
-    update: vi.fn(() => query),
+    update: vi.fn((payload: unknown) => {
+      updatePayload = payload;
+      captured.updates.push({ table, payload });
+      return query;
+    }),
     insert: vi.fn(() => query),
     single: vi.fn(async () => ({ data: profile, error: null })),
     upsert: vi.fn(async (payload: unknown) => {
@@ -108,7 +142,10 @@ describe('GBP read-only V1 authorization storage', () => {
       name: null,
     });
 
-    const captured = { credentialUpsert: [] as unknown[] };
+    const captured = {
+      credentialUpsert: [] as unknown[],
+      updates: [] as { table: TableName; payload: unknown }[],
+    };
     const client = {
       from: vi.fn((table: TableName) => buildQuery(table, captured)),
     };
@@ -119,6 +156,7 @@ describe('GBP read-only V1 authorization storage', () => {
     await completeGoogleBusinessProfileAuthorization({
       stateToken: 'state-token',
       code: 'code',
+      requestedByUserId: 'user-1',
       client: client as never,
     });
 
@@ -129,5 +167,93 @@ describe('GBP read-only V1 authorization storage', () => {
     });
     expect(captured.credentialUpsert[0]).not.toHaveProperty('access_token_encrypted');
     expect(captured.credentialUpsert[0]).not.toHaveProperty('access_token_expires_at');
+  });
+
+  it('rejects OAuth completion for a different initiating user before exchanging the code', async () => {
+    const captured = {
+      credentialUpsert: [] as unknown[],
+      updates: [] as { table: TableName; payload: unknown }[],
+    };
+    const client = {
+      from: vi.fn((table: TableName) => buildQuery(table, captured)),
+    };
+
+    const { completeGoogleBusinessProfileAuthorization } =
+      await import('@/server/google-business-profile/service');
+
+    await expect(
+      completeGoogleBusinessProfileAuthorization({
+        stateToken: 'state-token',
+        code: 'code',
+        requestedByUserId: 'user-2',
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({
+      code: 'GBP_INVALID_STATE',
+      status: 403,
+    });
+
+    expect(exchangeCodeMock).not.toHaveBeenCalled();
+    expect(captured.updates).toHaveLength(0);
+    expect(captured.credentialUpsert).toHaveLength(0);
+  });
+
+  it('rejects OAuth completion for the wrong route restaurant before consuming state', async () => {
+    const captured = {
+      credentialUpsert: [] as unknown[],
+      updates: [] as { table: TableName; payload: unknown }[],
+    };
+    const client = {
+      from: vi.fn((table: TableName) => buildQuery(table, captured)),
+    };
+
+    const { completeGoogleBusinessProfileAuthorization } =
+      await import('@/server/google-business-profile/service');
+
+    await expect(
+      completeGoogleBusinessProfileAuthorization({
+        stateToken: 'state-token',
+        code: 'code',
+        requestedByUserId: 'user-1',
+        expectedRestaurantId: 'rest-2',
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({
+      code: 'GBP_INVALID_STATE',
+      status: 400,
+    });
+
+    expect(exchangeCodeMock).not.toHaveBeenCalled();
+    expect(captured.updates).toHaveLength(0);
+    expect(captured.credentialUpsert).toHaveLength(0);
+  });
+
+  it('rejects OAuth completion when the initiating user is no longer an admin', async () => {
+    const captured = {
+      credentialUpsert: [] as unknown[],
+      updates: [] as { table: TableName; payload: unknown }[],
+    };
+    const client = {
+      from: vi.fn((table: TableName) => buildQuery(table, captured, { membership: null })),
+    };
+
+    const { completeGoogleBusinessProfileAuthorization } =
+      await import('@/server/google-business-profile/service');
+
+    await expect(
+      completeGoogleBusinessProfileAuthorization({
+        stateToken: 'state-token',
+        code: 'code',
+        requestedByUserId: 'user-1',
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({
+      code: 'GBP_STATE_RESTAURANT_FORBIDDEN',
+      status: 403,
+    });
+
+    expect(exchangeCodeMock).not.toHaveBeenCalled();
+    expect(captured.updates).toHaveLength(0);
+    expect(captured.credentialUpsert).toHaveLength(0);
   });
 });

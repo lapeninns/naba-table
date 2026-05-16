@@ -20,3 +20,9 @@ Move the replacement into a single database transaction/RPC, or implement a diff
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
+
+**Verdict:** fixed
+
+`updateServicePeriods` now rejects duplicate service-period ids before mutation and uses `replace_restaurant_service_periods` for the replacement. The service-role-only RPC performs upsert-first replacement inside a database transaction and only deletes rows omitted from the replacement set after incoming rows are valid, preserving dependent capacity configuration for unchanged ids and rolling back on failure.
+
+Evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16. The regression coverage verifies direct delete-then-insert chains are not used and duplicate supplied period ids are rejected before the RPC call.

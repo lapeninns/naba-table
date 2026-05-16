@@ -16,6 +16,12 @@ The table calls revokeInvite.mutate for the selected invite. The browser service
 
 Make the DELETE contract match the client: either return the revoked invite and update status/revoked_at instead of deleting, or change the client mutation schema and invalidation path to handle { success: true } intentionally.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/ops/team/invitations/[id]/route.ts` now calls `revokeRestaurantInvite` and returns `{ invite }` with the serialized revoked invitation. `server/team/invitations.ts` soft-revokes pending invitations with `status = 'revoked'` and `revoked_at` instead of hard-deleting rows. `src/services/ops/team.ts` parses the returned `invite` through `restaurantInviteSchema`, so the client mutation contract matches the server response and invalidation can run normally.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

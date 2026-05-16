@@ -20,3 +20,7 @@ Wrap the primary booking mutation and profile update in a database transaction/R
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+Booking/profile maintenance no longer reports a committed primary booking mutation as failed when derived customer profile updates fail. `insertBookingRecord` catches and logs profile maintenance failures after returning the inserted booking, and `softCancelBooking` records cancellation profile data only after a non-cancelled row is transitioned to `cancelled`. Repeated cancellation calls reload the existing booking and do not increment profile counters again. Focused evidence: `tests/server/bookings-profile-consistency.test.ts` passed on 2026-05-16 and covers these best-effort/idempotency paths.

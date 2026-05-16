@@ -258,7 +258,11 @@ describe('RestaurantSettingsSubnav', () => {
   it('uses the compact page and navigation baseline across settings routes', () => {
     renderPageShell('/app/settings/restaurant');
 
-    expect(screen.getByRole('main')).toHaveClass('gap-4', 'pg-container');
+    expect(screen.getByTestId('ops-page-shell')).toHaveClass(
+      'mx-auto',
+      'max-w-[1200px]',
+      'space-y-5',
+    );
     expect(screen.getByRole('heading', { level: 1, name: 'Restaurant setup' })).toHaveClass(
       'text-2xl',
     );

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 import { getPgSslConfig } from '../db/pg-ssl';
+import { assertExactSupabaseProjectRef, DEFAULT_STAGING_PROJECT_REF } from '../db/safety';
 
 type TimingRow = {
   label: string;
@@ -113,7 +114,8 @@ async function timeQuery(
 }
 
 async function main(): Promise<void> {
-  const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || 'ndxmivcrehsacuerwxtm';
+  const expectedProjectRef =
+    process.env.EXPECTED_PROJECT_REF?.trim() || DEFAULT_STAGING_PROJECT_REF;
   const projectRefPath = path.join(projectRoot, 'supabase/.temp/project-ref');
   if (!fs.existsSync(projectRefPath)) {
     throw new Error(
@@ -127,8 +129,12 @@ async function main(): Promise<void> {
     );
   }
 
+  const connectionString = buildPgConnectionString();
+  assertExactSupabaseProjectRef(connectionString, expectedProjectRef);
+
   const taskDir = path.join(projectRoot, 'tasks/staging-perf-dataset-20260207-1647');
   const artifactsDir = path.join(taskDir, 'artifacts');
+  fs.mkdirSync(artifactsDir, { recursive: true });
 
   const timingsPath = path.join(artifactsDir, 'workload-timings.json');
   const pssTotalPath = path.join(artifactsDir, 'pg_stat_statements_top_total.csv');
@@ -154,7 +160,7 @@ async function main(): Promise<void> {
   const indexUsagePath = path.join(artifactsDir, 'index_usage_public.csv');
 
   const client = new Client({
-    connectionString: buildPgConnectionString(),
+    connectionString,
     ssl: getPgSslConfig(),
   });
 

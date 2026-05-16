@@ -16,6 +16,14 @@ getEnvironmentScope uses env.node.env, which is NODE_ENV, to query feature_flag_
 
 Scope override lookup with env.node.appEnv, and add tests for NODE_ENV=production with APP_ENV=staging to ensure staging reads only staging overrides.
 
+## Revalidation
+
+**Verdict:** fixed
+
+Feature flag override lookup now scopes by `env.node.appEnv` first, falling back to `env.node.env` only if no app environment is available. Staging deployments running with `NODE_ENV=production` therefore query staging-scoped overrides rather than production-scoped overrides.
+
+Evidence: `pnpm exec vitest run tests/server/feature-flags.test.ts` passed on 2026-05-16. The regression coverage verifies `NODE_ENV=production` and `APP_ENV=staging` queries `feature_flag_overrides.environment = 'staging'`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-29)

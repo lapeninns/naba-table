@@ -20,3 +20,22 @@ For sign-in, validate only that the password field is non-empty and pass the raw
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-04)
+
+## Resolution
+
+**Verdict:** fixed
+
+`OpsSignInForm` now uses sign-in-specific password validation instead of the
+creation-time password policy. The form only rejects a missing password and
+sends the raw password value to `/api/auth/signin` without trimming or enforcing
+length/symbol rules.
+
+Evidence:
+
+- `lib/security/passwordPolicy.ts` now exports `validatePasswordForSignIn`.
+- `tests/components/auth/OpsSignInForm.test.tsx` verifies a legacy password with
+  leading/trailing spaces is submitted unchanged.
+- `tests/lib/password-policy.test.ts` verifies creation policy remains strict
+  while sign-in policy preserves raw non-empty values.
+- Playwright loaded the shipped `/app/auth/signin` route with HTTP 200 and one
+  password submit button.

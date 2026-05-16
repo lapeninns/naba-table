@@ -16,6 +16,12 @@ The route loads the user-controlled booking id with getServiceSupabaseClient, lo
 
 Move membership verification before any booking-specific validation response. Prefer an RLS/session-client lookup or a membership-scoped RPC; otherwise normalize not-found and forbidden responses so cross-tenant callers cannot distinguish booking existence or timing.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/ops/bookings/[id]/status/route.ts` now checks the authenticated user's restaurant memberships immediately after the booking load and before restaurant/lifecycle validation, returning `Booking not found` for cross-tenant bookings. Covered by `tests/server/ops-booking-status-route-security.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)

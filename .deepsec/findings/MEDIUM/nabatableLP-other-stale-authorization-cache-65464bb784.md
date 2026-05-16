@@ -16,6 +16,12 @@ The layout calls fetchUserMembershipsCached(supabaseUser.id) and populates the p
 
 Do not share the layout's UI membership cache with authorization decisions. Make requireMembershipForRestaurant and requireAdminMembership query the database for every sensitive check, or use only request-scoped/versioned cache with reliable cross-process invalidation on membership and role changes.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The ops layout may populate `fetchUserMembershipsCached`, but `requireMembershipForRestaurant` defaults `useCache` to `false`, and `requireAdminMembership` delegates to that uncached path. Covered by `tests/server/team-access-cache.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

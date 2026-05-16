@@ -1,17 +1,10 @@
 import { DateTime } from 'luxon';
 
 import { recordObservabilityEvent } from '@/server/observability';
-import {
-  processEmailJobs,
-  type ProcessEmailJobResult,
-} from '@/server/queue/email-processing';
+import { processEmailJobs, type ProcessEmailJobResult } from '@/server/queue/email-processing';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
-
-import {
-  EMAIL_DLQ_NAME,
-  EMAIL_QUEUE_NAME,
-} from './email-contract';
+import { EMAIL_DLQ_NAME, EMAIL_QUEUE_NAME } from './email-contract';
 
 import type {
   EmailJobPayload,
@@ -20,11 +13,7 @@ import type {
   EmailQueueStatusSnapshot,
   QueueJobSummary,
 } from './email-contract';
-import type {
-  Json,
-  Tables,
-  TablesInsert,
-} from '@/types/supabase';
+import type { Json, Tables, TablesInsert } from '@/types/supabase';
 
 const DEFAULT_ATTEMPTS = 5;
 const DEFAULT_BACKOFF = { type: 'exponential', delay: 60_000 } as const;
@@ -60,6 +49,10 @@ type CancelEmailIntentsParams = {
 };
 
 type JobHistoryLimit = number | 'all' | undefined;
+type EmailQueueStatusOptions = {
+  jobLimit?: JobHistoryLimit;
+  restaurantId?: string | null;
+};
 
 function buildEmailJobId(type: EmailJobType, bookingId: string): string {
   return `email${EMAIL_JOB_ID_SEPARATOR}${type}${EMAIL_JOB_ID_SEPARATOR}${bookingId}`;
@@ -79,10 +72,7 @@ function normalizeBackoff(backoff: BackoffPolicy | undefined) {
   return { type, delay } as const;
 }
 
-function parseBackoffDelay(
-  backoff: { type: string; delay: number },
-  attempt: number,
-): number {
+function parseBackoffDelay(backoff: { type: string; delay: number }, attempt: number): number {
   const baseDelay =
     typeof backoff.delay === 'number' && Number.isFinite(backoff.delay) && backoff.delay > 0
       ? Math.floor(backoff.delay)
@@ -153,9 +143,7 @@ function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
         ? payload.bookingId
         : row.booking_id,
     restaurantId:
-      typeof payload.restaurantId === 'string'
-        ? payload.restaurantId
-        : row.restaurant_id,
+      typeof payload.restaurantId === 'string' ? payload.restaurantId : row.restaurant_id,
     type:
       typeof payload.type === 'string' && payload.type.length > 0
         ? (payload.type as EmailJobType)
@@ -163,7 +151,7 @@ function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
     scheduledFor:
       typeof payload.scheduledFor === 'string' && payload.scheduledFor.length > 0
         ? payload.scheduledFor
-        : toIsoDateTime(row.scheduled_for) ?? undefined,
+        : (toIsoDateTime(row.scheduled_for) ?? undefined),
     failedReason: row.last_error,
     failedAt:
       row.status === 'failed' || row.status === 'processing'
@@ -198,16 +186,21 @@ function toQueueJobSummary(row: EmailDispatchIntentRow): QueueJobSummary {
   };
 }
 
-async function countPendingRows(nowIso: string, mode: 'due' | 'future'): Promise<number> {
+async function countPendingRows(
+  nowIso: string,
+  mode: 'due' | 'future',
+  restaurantId?: string | null,
+): Promise<number> {
   const supabase = getServiceSupabaseClient();
-  const query = supabase
+  let query = supabase
     .from('email_dispatch_intents')
     .select('id', { head: true, count: 'exact' })
     .eq('status', 'pending');
+  if (restaurantId) {
+    query = query.eq('restaurant_id', restaurantId);
+  }
   const filtered =
-    mode === 'due'
-      ? query.lte('scheduled_for', nowIso)
-      : query.gt('scheduled_for', nowIso);
+    mode === 'due' ? query.lte('scheduled_for', nowIso) : query.gt('scheduled_for', nowIso);
   const { count, error } = await filtered;
 
   if (error) {
@@ -219,9 +212,10 @@ async function countPendingRows(nowIso: string, mode: 'due' | 'future'): Promise
 
 async function countStatusRows(
   status: EmailDispatchIntentStatus | ReadonlyArray<EmailDispatchIntentStatus>,
+  restaurantId?: string | null,
 ): Promise<number> {
   const supabase = getServiceSupabaseClient();
-  const query = Array.isArray(status)
+  let query = Array.isArray(status)
     ? supabase
         .from('email_dispatch_intents')
         .select('id', { head: true, count: 'exact' })
@@ -230,6 +224,9 @@ async function countStatusRows(
         .from('email_dispatch_intents')
         .select('id', { head: true, count: 'exact' })
         .eq('status', status as EmailDispatchIntentStatus);
+  if (restaurantId) {
+    query = query.eq('restaurant_id', restaurantId);
+  }
   const { count, error } = await query;
 
   if (error) {
@@ -243,16 +240,15 @@ async function listPendingRows(
   nowIso: string,
   mode: 'due' | 'future',
   limit: number,
+  restaurantId?: string | null,
 ): Promise<EmailDispatchIntentRow[]> {
   const supabase = getServiceSupabaseClient();
-  const query = supabase
-    .from('email_dispatch_intents')
-    .select('*')
-    .eq('status', 'pending');
+  let query = supabase.from('email_dispatch_intents').select('*').eq('status', 'pending');
+  if (restaurantId) {
+    query = query.eq('restaurant_id', restaurantId);
+  }
   const filtered =
-    mode === 'due'
-      ? query.lte('scheduled_for', nowIso)
-      : query.gt('scheduled_for', nowIso);
+    mode === 'due' ? query.lte('scheduled_for', nowIso) : query.gt('scheduled_for', nowIso);
   const { data, error } = await filtered
     .order('scheduled_for', { ascending: true })
     .order('created_at', { ascending: true })
@@ -268,12 +264,14 @@ async function listPendingRows(
 async function listStatusRows(
   status: EmailDispatchIntentStatus,
   limit: number,
+  restaurantId?: string | null,
 ): Promise<EmailDispatchIntentRow[]> {
   const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase
-    .from('email_dispatch_intents')
-    .select('*')
-    .eq('status', status)
+  let query = supabase.from('email_dispatch_intents').select('*').eq('status', status);
+  if (restaurantId) {
+    query = query.eq('restaurant_id', restaurantId);
+  }
+  const { data, error } = await query
     .order('scheduled_for', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(limit);
@@ -405,7 +403,9 @@ export async function scheduleEmailIntent(
     ? Math.max(0, scheduledForDateTime.toMillis() - Date.now())
     : 0;
   const attempts =
-    typeof options.attempts === 'number' && Number.isFinite(options.attempts) && options.attempts > 0
+    typeof options.attempts === 'number' &&
+    Number.isFinite(options.attempts) &&
+    options.attempts > 0
       ? Math.floor(options.attempts)
       : DEFAULT_ATTEMPTS;
   const backoff = normalizeBackoff(options.backoff);
@@ -472,9 +472,7 @@ export async function scheduleEmailIntent(
   throw new Error(error.message);
 }
 
-export async function cancelEmailIntents(
-  params: CancelEmailIntentsParams,
-): Promise<number> {
+export async function cancelEmailIntents(params: CancelEmailIntentsParams): Promise<number> {
   const types = normalizeTypes(params.types);
   const supabase = getServiceSupabaseClient();
   const now = new Date().toISOString();
@@ -504,9 +502,7 @@ export async function cancelEmailIntents(
   return data?.length ?? 0;
 }
 
-export async function cancelEmailIntentByDedupeKey(
-  dedupeKey: string,
-): Promise<boolean> {
+export async function cancelEmailIntentByDedupeKey(dedupeKey: string): Promise<boolean> {
   const supabase = getServiceSupabaseClient();
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -533,10 +529,12 @@ export async function cancelEmailIntentByDedupeKey(
 
 export async function getEmailQueueStatusFromIntents(
   includeJobs = false,
-  options?: { jobLimit?: JobHistoryLimit },
+  options?: EmailQueueStatusOptions,
 ): Promise<EmailQueueStatusSnapshot> {
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
+  const restaurantId = options?.restaurantId ?? null;
+  const jobLimit = normalizeJobHistoryLimit(options?.jobLimit);
   const [
     waitingCount,
     activeCount,
@@ -548,23 +546,15 @@ export async function getEmailQueueStatusFromIntents(
     delayedRows,
     failedRows,
   ] = await Promise.all([
-    countPendingRows(nowIso, 'due'),
-    countStatusRows('processing'),
-    countPendingRows(nowIso, 'future'),
-    countStatusRows('failed'),
-    countStatusRows(['sent', 'skipped']),
-    includeJobs
-      ? listPendingRows(nowIso, 'due', normalizeJobHistoryLimit(options?.jobLimit))
-      : Promise.resolve([]),
-    includeJobs
-      ? listStatusRows('processing', normalizeJobHistoryLimit(options?.jobLimit))
-      : Promise.resolve([]),
-    includeJobs
-      ? listPendingRows(nowIso, 'future', normalizeJobHistoryLimit(options?.jobLimit))
-      : Promise.resolve([]),
-    includeJobs
-      ? listStatusRows('failed', normalizeJobHistoryLimit(options?.jobLimit))
-      : Promise.resolve([]),
+    countPendingRows(nowIso, 'due', restaurantId),
+    countStatusRows('processing', restaurantId),
+    countPendingRows(nowIso, 'future', restaurantId),
+    countStatusRows('failed', restaurantId),
+    countStatusRows(['sent', 'skipped'], restaurantId),
+    includeJobs ? listPendingRows(nowIso, 'due', jobLimit, restaurantId) : Promise.resolve([]),
+    includeJobs ? listStatusRows('processing', jobLimit, restaurantId) : Promise.resolve([]),
+    includeJobs ? listPendingRows(nowIso, 'future', jobLimit, restaurantId) : Promise.resolve([]),
+    includeJobs ? listStatusRows('failed', jobLimit, restaurantId) : Promise.resolve([]),
   ]);
 
   const waiting = waitingRows
@@ -650,9 +640,7 @@ export async function drainDueEmailIntents(params?: {
       },
     })),
   );
-  const resultsById = new Map(
-    processingResult.results.map((result) => [result.jobId, result]),
-  );
+  const resultsById = new Map(processingResult.results.map((result) => [result.jobId, result]));
 
   await Promise.all(
     claimed.map(async (row) => {

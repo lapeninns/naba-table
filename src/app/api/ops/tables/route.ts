@@ -19,6 +19,7 @@ import {
 } from '@/server/ops/tables';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+import { requireMembershipForRestaurant } from '@/server/team/access';
 
 import type { TablesInsert } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
@@ -89,6 +90,16 @@ export async function GET(req: NextRequest) {
     }
 
     const { restaurantId, section, status, zoneId, includeSummary } = parsed.data;
+
+    try {
+      await requireMembershipForRestaurant({
+        userId: user.id,
+        restaurantId,
+        client: supabase,
+      });
+    } catch {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const filters = {
       section: section && section.trim().length > 0 ? section : undefined,

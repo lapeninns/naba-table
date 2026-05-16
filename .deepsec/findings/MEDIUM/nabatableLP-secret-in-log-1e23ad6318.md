@@ -20,3 +20,9 @@ Do not pass VERCEL_TOKEN as a CLI argument. Prefer the Vercel CLI environment va
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-28)
+
+**Verdict:** fixed
+
+`scripts/email/setup-notifications-domain.ts` no longer appends the Vercel token to command-line arguments. The token is supplied through the child process environment, and the source safety test asserts `--token` is absent from the Vercel command builder.
+
+Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

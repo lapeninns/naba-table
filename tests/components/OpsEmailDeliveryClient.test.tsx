@@ -123,12 +123,14 @@ function makeSuccessResponse(
 
 function createBookingServiceMock(
   getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
-  getRestaurantEmailDeliverySummary: BookingService['getRestaurantEmailDeliverySummary'] = vi.fn().mockResolvedValue({
-    ok: true,
-    restaurantId: 'rest-1',
-    range: '7d',
-    summary: makeSummary(),
-  }),
+  getRestaurantEmailDeliverySummary: BookingService['getRestaurantEmailDeliverySummary'] = vi
+    .fn()
+    .mockResolvedValue({
+      ok: true,
+      restaurantId: 'rest-1',
+      range: '7d',
+      summary: makeSummary(),
+    }),
   getRestaurantEmailQueue: BookingService['getRestaurantEmailQueue'] = vi.fn().mockResolvedValue({
     ok: true,
     restaurantId: 'rest-1',
@@ -245,60 +247,67 @@ describe('OpsEmailDeliveryClient', () => {
   });
 
   it('shows retry actions only for failed and bounced rows and not for delivered rows', async () => {
-    const getRestaurantEmailDeliveryFeed = vi.fn<BookingService['getRestaurantEmailDeliveryFeed']>().mockResolvedValue(
-      makeSuccessResponse({
-        attempts: [
-          {
-            id: 'delivery-log-id-failed',
-            messageId: 'provider-message-id-failed',
-            recipientEmail: 'failed@example.com',
-            bookingId: 'booking-failed',
-            emailType: 'created',
-            templateType: 'booking_confirmation',
-            provider: 'resend',
-            currentStatus: 'failed',
-            currentOccurredAt: '2026-03-20T15:00:00Z',
-            events: [],
-            booking: null,
-          },
-          {
-            id: 'delivery-log-id-delivered',
-            messageId: 'provider-message-id-delivered',
-            recipientEmail: 'delivered@example.com',
-            bookingId: 'booking-delivered',
-            emailType: 'updated',
-            templateType: 'booking_update',
-            provider: 'resend',
-            currentStatus: 'delivered',
-            currentOccurredAt: '2026-03-20T14:00:00Z',
-            events: [],
-            booking: null,
-          },
-          {
-            id: 'delivery-log-id-bounced',
-            messageId: 'provider-message-id-bounced',
-            recipientEmail: 'bounced@example.com',
-            bookingId: 'booking-bounced',
-            emailType: 'review_request',
-            templateType: 'review_request',
-            provider: 'resend',
-            currentStatus: 'bounced',
-            currentOccurredAt: '2026-03-20T16:00:00Z',
-            events: [],
-            booking: null,
-          },
-        ],
-        summary: makeSummary(3),
-      }),
-    );
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          attempts: [
+            {
+              id: 'delivery-log-id-failed',
+              messageId: 'provider-message-id-failed',
+              recipientEmail: 'failed@example.com',
+              bookingId: 'booking-failed',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'failed',
+              currentOccurredAt: '2026-03-20T15:00:00Z',
+              events: [],
+              booking: null,
+            },
+            {
+              id: 'delivery-log-id-delivered',
+              messageId: 'provider-message-id-delivered',
+              recipientEmail: 'delivered@example.com',
+              bookingId: 'booking-delivered',
+              emailType: 'updated',
+              templateType: 'booking_update',
+              provider: 'resend',
+              currentStatus: 'delivered',
+              currentOccurredAt: '2026-03-20T14:00:00Z',
+              events: [],
+              booking: null,
+            },
+            {
+              id: 'delivery-log-id-bounced',
+              messageId: 'provider-message-id-bounced',
+              recipientEmail: 'bounced@example.com',
+              bookingId: 'booking-bounced',
+              emailType: 'review_request',
+              templateType: 'review_request',
+              provider: 'resend',
+              currentStatus: 'bounced',
+              currentOccurredAt: '2026-03-20T16:00:00Z',
+              events: [],
+              booking: null,
+            },
+          ],
+          summary: makeSummary(3),
+        }),
+      );
 
     renderClient(getRestaurantEmailDeliveryFeed);
 
-    expect(await screen.findByRole('button', { name: /retry email for failed@example.com/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry email for bounced@example.com/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /retry email for delivered@example.com/i })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /retry email for bounced@example.com/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /retry email for delivered@example.com/i }),
+    ).not.toBeInTheDocument();
   });
-
 
   it('uses the delivery-log UUID instead of the provider message id when retrying a failed row', async () => {
     const user = userEvent.setup();
@@ -331,7 +340,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
 
     await waitFor(() => {
@@ -341,6 +352,47 @@ describe('OpsEmailDeliveryClient', () => {
     });
     expect(retryEmailDelivery).not.toHaveBeenCalledWith({
       deliveryLogId: 'provider-message-id-failed',
+    });
+  });
+
+  it('does not retry with the provider message id when a delivery-log id is missing', async () => {
+    const user = userEvent.setup();
+    const retryEmailDelivery = vi.fn<BookingService['retryEmailDelivery']>().mockResolvedValue({
+      ok: true,
+      deliveryLogEntry: {},
+    });
+    const getRestaurantEmailDeliveryFeed = vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(
+        makeSuccessResponse({
+          attempts: [
+            {
+              messageId: 'provider-message-id-failed',
+              recipientEmail: 'failed@example.com',
+              bookingId: 'booking-failed',
+              emailType: 'created',
+              templateType: 'booking_confirmation',
+              provider: 'resend',
+              currentStatus: 'failed',
+              currentOccurredAt: '2026-03-20T15:00:00Z',
+              events: [],
+              booking: null,
+            },
+          ],
+          summary: makeSummary(1),
+        }),
+      );
+
+    renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
+
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    expect(retryEmailDelivery).not.toHaveBeenCalled();
+    expect(toastErrorMock).toHaveBeenCalledWith('Retry unavailable', {
+      description: 'This email attempt is missing its delivery log id. Refresh and try again.',
     });
   });
 
@@ -389,7 +441,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
 
     expect(await screen.findByText('Retry email delivery?')).toBeInTheDocument();
     expect(screen.getAllByText('Your booking confirmation').length).toBeGreaterThan(0);
@@ -397,7 +451,7 @@ describe('OpsEmailDeliveryClient', () => {
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
 
     await waitFor(() => {
-      expect(retryEmailDelivery).toHaveBeenCalledWith({ deliveryLogId: 'delivery-log-id-failed' });
+      expect(retryEmailDelivery).toHaveBeenCalledWith({ deliveryLogId: 'evt-1' });
     });
     expect(toastSuccessMock).toHaveBeenCalledWith('Retry queued', {
       description: 'Resending created to failed@example.com.',
@@ -406,7 +460,6 @@ describe('OpsEmailDeliveryClient', () => {
       expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledTimes(2);
     });
   });
-
 
   it('closes the retry dialog before showing success feedback', async () => {
     const user = userEvent.setup();
@@ -439,7 +492,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
@@ -485,7 +540,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
@@ -512,7 +569,8 @@ describe('OpsEmailDeliveryClient', () => {
         makeSuccessResponse({
           attempts: [
             {
-              messageId: 'delivery-log-id-failed',
+              id: 'delivery-log-id-failed',
+              messageId: 'provider-message-id-failed',
               recipientEmail: 'failed@example.com',
               bookingId: 'booking-failed',
               emailType: 'created',
@@ -530,7 +588,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
 
     await waitFor(() => {
@@ -542,7 +602,9 @@ describe('OpsEmailDeliveryClient', () => {
     await waitFor(() => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /retry email for failed@example.com/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /retry email for failed@example.com/i }),
+    ).toBeInTheDocument();
   });
 
   it('passes simulate retry mutation error through the retry action flow when requested by URL', async () => {
@@ -581,7 +643,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for retry.failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for retry.failed@example.com/i }),
+    );
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
 
     await waitFor(() => {
@@ -604,6 +668,7 @@ describe('OpsEmailDeliveryClient', () => {
         makeSuccessResponse({
           attempts: [
             {
+              id: 'delivery-log-id-failed',
               messageId: 'delivery-log-id-failed',
               recipientEmail: 'failed@example.com',
               bookingId: 'booking-failed',
@@ -622,7 +687,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { retryEmailDelivery });
 
-    await user.click(await screen.findByRole('button', { name: /retry email for failed@example.com/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
     await user.click(screen.getByRole('button', { name: /cancel/i }));
 
     expect(retryEmailDelivery).not.toHaveBeenCalled();
@@ -644,7 +711,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByText('Unable to load email delivery attempts')).toBeInTheDocument();
     expect(
-      screen.getByText('We could not reach the delivery log service. Check your connection and try again.'),
+      screen.getByText(
+        'We could not reach the delivery log service. Check your connection and try again.',
+      ),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /retry/i }));
@@ -674,7 +743,9 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('Dev/test validation control')).toBeInTheDocument();
     expect(screen.getByText(/messageId=__force_error__/i)).toBeInTheDocument();
     expect(await screen.findByText('Unable to load email delivery attempts')).toBeInTheDocument();
-    expect(screen.getByText('Forced delivery log error for dev/test validation.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Forced delivery log error for dev/test validation.'),
+    ).toBeInTheDocument();
   });
 
   it('supports simulateEmailDeliveryError=1 on the authenticated validator surface', async () => {
@@ -701,7 +772,9 @@ describe('OpsEmailDeliveryClient', () => {
     renderClient(getRestaurantEmailDeliveryFeed);
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.getByText('Forced delivery log error for dev/test validation.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Forced delivery log error for dev/test validation.'),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /retry/i }));
 
@@ -716,7 +789,9 @@ describe('OpsEmailDeliveryClient', () => {
 
   it('resolves filtered zero-result responses to visible empty guidance once loading settles', async () => {
     searchParamsMock.mockReturnValue(
-      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state'),
+      new URLSearchParams(
+        'restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state',
+      ),
     );
 
     const responses = [
@@ -776,16 +851,20 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('Previous result')).toBeInTheDocument();
 
     searchParamsMock.mockReturnValue(
-      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state&page=2'),
+      new URLSearchParams(
+        'restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state&page=2',
+      ),
     );
 
     rerender(
       <QueryClientProvider
-        client={new QueryClient({
-          defaultOptions: {
-            queries: { retry: false, refetchOnWindowFocus: false },
-          },
-        })}
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: false, refetchOnWindowFocus: false },
+            },
+          })
+        }
       >
         <OpsServicesProvider
           factories={{
@@ -803,7 +882,9 @@ describe('OpsEmailDeliveryClient', () => {
     );
 
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
-    expect(screen.getByText('Adjust the filters or try a wider date range to see more results.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Adjust the filters or try a wider date range to see more results.'),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText('Loading email delivery attempts')).not.toBeInTheDocument();
     expect(screen.queryByText('Previous result')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -845,7 +926,9 @@ describe('OpsEmailDeliveryClient', () => {
     releaseGate();
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    expect(screen.getByText('Forced delivery log error for dev/test validation.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Forced delivery log error for dev/test validation.'),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByLabelText('Loading email delivery attempts')).not.toBeInTheDocument();
     });
@@ -853,7 +936,9 @@ describe('OpsEmailDeliveryClient', () => {
 
   it('keeps a visible terminal panel mounted when a settled fetch returns no rows after placeholder data existed', async () => {
     searchParamsMock.mockReturnValue(
-      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state'),
+      new URLSearchParams(
+        'restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state',
+      ),
     );
 
     let resolveSettled!: () => void;
@@ -918,16 +1003,20 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('Existing row')).toBeInTheDocument();
 
     searchParamsMock.mockReturnValue(
-      new URLSearchParams('restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state&page=2'),
+      new URLSearchParams(
+        'restaurantId=rest-1&tab=delivery-log&recipientEmail=zzzz-no-match-empty-state&page=2',
+      ),
     );
 
     rerender(
       <QueryClientProvider
-        client={new QueryClient({
-          defaultOptions: {
-            queries: { retry: false, refetchOnWindowFocus: false },
-          },
-        })}
+        client={
+          new QueryClient({
+            defaultOptions: {
+              queries: { retry: false, refetchOnWindowFocus: false },
+            },
+          })
+        }
       >
         <OpsServicesProvider
           factories={{
@@ -947,14 +1036,15 @@ describe('OpsEmailDeliveryClient', () => {
     resolveSettled();
 
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
-    expect(screen.getByText('Adjust the filters or try a wider date range to see more results.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Adjust the filters or try a wider date range to see more results.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Existing row')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByLabelText('Loading email delivery attempts')).not.toBeInTheDocument();
     });
   });
-
 
   it('marks the Email Delivery sidebar item as active on this page', async () => {
     const getRestaurantEmailDeliveryFeed = vi
@@ -973,7 +1063,11 @@ describe('OpsEmailDeliveryClient', () => {
     expect(bookingsLink.closest('[data-active="true"]')).toBeNull();
 
     const emptyState = await screen.findByText('No email deliveries found');
-    expect(within(emptyState.closest('div') as HTMLElement).getByText(/adjust the filters or try a wider date range/i)).toBeInTheDocument();
+    expect(
+      within(emptyState.closest('div') as HTMLElement).getByText(
+        /adjust the filters or try a wider date range/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('keeps the redesigned delivery log UI path and leaves queue and analytics tabs intact', async () => {
@@ -1068,9 +1162,7 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'Adjust the filters or try a wider date range to see more results.',
-      ),
+      screen.getByText('Adjust the filters or try a wider date range to see more results.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Showing 0-0 of 70 results')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Prev' })).not.toBeDisabled();
@@ -1090,7 +1182,9 @@ describe('OpsEmailDeliveryClient', () => {
     renderClient(getRestaurantEmailDeliveryFeed);
 
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
-    expect(screen.getByText('Adjust the filters or try a wider date range to see more results.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Adjust the filters or try a wider date range to see more results.'),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/^Showing 0-0 of 0 results$/)).not.toBeInTheDocument();
   });
 
@@ -1190,7 +1284,10 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByText('Test Restaurant')).toBeInTheDocument();
     expect(screen.getByText('UTC')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /go to bookings/i })).toHaveAttribute('href', '/app/bookings');
+    expect(screen.getByRole('link', { name: /go to bookings/i })).toHaveAttribute(
+      'href',
+      '/app/bookings',
+    );
   });
 
   it('updates the active tab via client-side URL replacement while preserving other query params', async () => {
@@ -1264,10 +1361,11 @@ describe('OpsEmailDeliveryClient', () => {
     expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').toContain('animate-spin');
 
     await waitFor(() => {
-      expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').not.toContain('animate-spin');
+      expect(refreshButton.querySelector('svg')?.className.baseVal ?? '').not.toContain(
+        'animate-spin',
+      );
     });
   });
-
 
   it('repeated manual refresh clicks on the analytics tab eventually restore the refresh button for another click', async () => {
     const getRestaurantEmailDeliveryFeed = vi
@@ -1331,10 +1429,12 @@ describe('OpsEmailDeliveryClient', () => {
         summary: makeSummary(1),
       }));
 
-
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
 
-    expect(await screen.findByRole('tab', { name: /analytics/i })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('tab', { name: /analytics/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: 'rest-1',
@@ -1348,7 +1448,6 @@ describe('OpsEmailDeliveryClient', () => {
     expect(screen.getByRole('combobox', { name: /restaurant switcher/i })).toBeInTheDocument();
     expect(screen.getByText('UTC')).toBeInTheDocument();
   });
-
 
   it('opens analytics deep links from the URL without rewriting restaurant context', async () => {
     const getRestaurantEmailDeliveryFeed = vi
@@ -1397,7 +1496,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailDeliverySummary });
 
-    expect(await screen.findByRole('tab', { name: /analytics/i, selected: true })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('tab', { name: /analytics/i, selected: true }),
+    ).toBeInTheDocument();
     expect(getRestaurantEmailDeliverySummary).toHaveBeenCalledWith(
       expect.objectContaining({
         restaurantId: 'rest-1',
@@ -1500,9 +1601,6 @@ describe('OpsEmailDeliveryClient', () => {
     );
   });
 
-
-
-
   it('renders polished queue KPI tiles, filters, table rows, and pagination within the queue tab', async () => {
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
@@ -1599,7 +1697,7 @@ describe('OpsEmailDeliveryClient', () => {
       await queuePromise;
     });
 
-    expect(await screen.findByText('No booking emails are currently queued for this restaurant.')).toBeInTheDocument();
+    expect(await screen.findByText('No queued emails right now')).toBeInTheDocument();
   });
 
   it('does not fetch queue data until the queue tab is activated', async () => {
@@ -1621,12 +1719,16 @@ describe('OpsEmailDeliveryClient', () => {
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
 
-    expect(await screen.findByRole('tab', { name: /delivery log/i, selected: true })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('tab', { name: /delivery log/i, selected: true }),
+    ).toBeInTheDocument();
     expect(getRestaurantEmailQueue).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('tab', { name: /queue/i }));
 
-    expect(await screen.findByLabelText(/loading email queue|refreshing email queue/i)).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText(/loading email queue|refreshing email queue/i),
+    ).toBeInTheDocument();
     expect(getRestaurantEmailQueue).toHaveBeenCalledTimes(1);
     expect(getRestaurantEmailQueue).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1700,7 +1802,9 @@ describe('OpsEmailDeliveryClient', () => {
       { timeout: 1500 },
     );
     await waitFor(() => {
-      expect(screen.queryByLabelText(/loading email queue|refreshing email queue/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(/loading email queue|refreshing email queue/i),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -1763,7 +1867,10 @@ describe('OpsEmailDeliveryClient', () => {
 
     expect(await screen.findByLabelText('Refreshing email queue')).toBeInTheDocument();
     expect(screen.getByText('Stale Queue Guest')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Refreshing email queue' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('region', { name: 'Refreshing email queue' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
 
     await act(async () => {
       releaseFilteredQueue();
@@ -1813,35 +1920,43 @@ describe('OpsEmailDeliveryClient', () => {
       .mockResolvedValue(makeSuccessResponse());
     const getRestaurantEmailQueue = vi
       .fn<BookingService['getRestaurantEmailQueue']>()
-      .mockImplementation(async ({ page, status }) => ({
-        ok: true,
-        restaurantId: 'rest-1',
-        pageInfo: { page: page ?? 1, pageSize: 25, hasNext: (page ?? 1) < 3 && !status, total: status ? 1 : 3 },
-        summary: { total: status ? 1 : 3, waiting: 1, active: 1, delayed: 1, dlq: 0 },
-        jobs: [
-          {
-            id: status ? 'job-filtered' : `job-page-${page ?? 1}`,
-            status: status ?? 'waiting',
-            type: 'review_request',
-            bookingId: 'booking-filtered',
+      .mockImplementation(
+        async ({ page, status }) =>
+          ({
+            ok: true,
             restaurantId: 'rest-1',
-            scheduledFor: '2026-03-20T14:30:00Z',
-            failedReason: null,
-            failedAt: null,
-            attemptsMade: 0,
-            booking: {
-              id: 'booking-filtered',
-              reference: 'QUEUE01',
-              customerName: 'Queue Guest',
-              customerEmail: 'queue@example.com',
-              startAt: '2026-03-21T19:00:00Z',
-              endAt: '2026-03-21T20:30:00Z',
-              status: 'confirmed',
+            pageInfo: {
+              page: page ?? 1,
+              pageSize: 25,
+              hasNext: (page ?? 1) < 3 && !status,
+              total: status ? 1 : 3,
             },
-          },
-        ],
-        timestamp: '2026-03-20T14:35:00Z',
-      } satisfies Extract<OpsEmailQueueFeedResponse, { ok: true }>));
+            summary: { total: status ? 1 : 3, waiting: 1, active: 1, delayed: 1, dlq: 0 },
+            jobs: [
+              {
+                id: status ? 'job-filtered' : `job-page-${page ?? 1}`,
+                status: status ?? 'waiting',
+                type: 'review_request',
+                bookingId: 'booking-filtered',
+                restaurantId: 'rest-1',
+                scheduledFor: '2026-03-20T14:30:00Z',
+                failedReason: null,
+                failedAt: null,
+                attemptsMade: 0,
+                booking: {
+                  id: 'booking-filtered',
+                  reference: 'QUEUE01',
+                  customerName: 'Queue Guest',
+                  customerEmail: 'queue@example.com',
+                  startAt: '2026-03-21T19:00:00Z',
+                  endAt: '2026-03-21T20:30:00Z',
+                  status: 'confirmed',
+                },
+              },
+            ],
+            timestamp: '2026-03-20T14:35:00Z',
+          }) satisfies Extract<OpsEmailQueueFeedResponse, { ok: true }>,
+      );
 
     searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
 
@@ -1897,25 +2012,27 @@ describe('OpsEmailDeliveryClient', () => {
 
     const getRestaurantEmailDeliveryFeed = vi
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
-      .mockImplementation(async ({ restaurantId, range, page, pageSize, recipientEmail, status }) => {
-        if (restaurantId === '22222222-2222-4222-8222-222222222222') {
+      .mockImplementation(
+        async ({ restaurantId, range, page, pageSize, recipientEmail, status }) => {
+          if (restaurantId === '22222222-2222-4222-8222-222222222222') {
+            return makeSuccessResponse({
+              restaurantId,
+              range: range ?? '7d',
+              pageInfo: { page: page ?? 1, pageSize: pageSize ?? 50, hasNext: false },
+              attempts: [],
+              summary: makeSummary(0),
+            });
+          }
+
           return makeSuccessResponse({
-            restaurantId,
+            restaurantId: restaurantId ?? 'rest-1',
             range: range ?? '7d',
             pageInfo: { page: page ?? 1, pageSize: pageSize ?? 50, hasNext: false },
             attempts: [],
-            summary: makeSummary(0),
+            summary: makeSummary(status?.includes('failed') || recipientEmail ? 0 : 2),
           });
-        }
-
-        return makeSuccessResponse({
-          restaurantId: restaurantId ?? 'rest-1',
-          range: range ?? '7d',
-          pageInfo: { page: page ?? 1, pageSize: pageSize ?? 50, hasNext: false },
-          attempts: [],
-          summary: makeSummary(status?.includes('failed') || recipientEmail ? 0 : 2),
-        });
-      });
+        },
+      );
 
     const getRestaurantEmailDeliverySummary = vi
       .fn<BookingService['getRestaurantEmailDeliverySummary']>()
@@ -1923,7 +2040,13 @@ describe('OpsEmailDeliveryClient', () => {
         ok: true,
         restaurantId: restaurantId ?? 'rest-1',
         range: range ?? '7d',
-        summary: makeSummary(restaurantId === '22222222-2222-4222-8222-222222222222' && !recipientEmail && !status?.length ? 4 : 1),
+        summary: makeSummary(
+          restaurantId === '22222222-2222-4222-8222-222222222222' &&
+            !recipientEmail &&
+            !status?.length
+            ? 4
+            : 1,
+        ),
       }));
 
     const getRestaurantEmailQueue = vi
@@ -1931,7 +2054,12 @@ describe('OpsEmailDeliveryClient', () => {
       .mockImplementation(async ({ restaurantId, page, pageSize, status }) => ({
         ok: true,
         restaurantId: restaurantId ?? 'rest-1',
-        pageInfo: { page: page ?? 1, pageSize: pageSize ?? 25, hasNext: false, total: status ? 1 : 2 },
+        pageInfo: {
+          page: page ?? 1,
+          pageSize: pageSize ?? 25,
+          hasNext: false,
+          total: status ? 1 : 2,
+        },
         summary: { total: status ? 1 : 2, waiting: 1, active: 0, delayed: 1, dlq: 0 },
         jobs: [],
         timestamp: '2026-03-20T14:35:00Z',
@@ -1942,7 +2070,9 @@ describe('OpsEmailDeliveryClient', () => {
       getRestaurantEmailQueue,
     });
 
-    expect(await screen.findByRole('tab', { name: /analytics/i, selected: true })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('tab', { name: /analytics/i, selected: true }),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(getRestaurantEmailDeliveryFeed).toHaveBeenCalledWith(
         expect.objectContaining({

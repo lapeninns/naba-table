@@ -20,3 +20,9 @@ Never persist password fields. Store only non-sensitive account metadata such as
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
+
+**Verdict:** fixed
+
+`OnboardingWizard` no longer passes submitted password values into onboarding state and initializes the password field as blank. `OnboardingProvider` also strips any existing `account.password` values from reducer state, sessionStorage writes, and restored drafts.
+
+Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

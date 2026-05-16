@@ -16,21 +16,10 @@ import { mapValidationFailure, withValidationHeaders } from '@/server/booking/ht
 import {
   deriveEndTimeFromDuration,
   fetchBookingsForContact,
-  generateUniqueBookingReference,
   inferMealTypeFromTime,
   logAuditEvent,
-  insertBookingRecord,
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
-import {
-  PastBookingError,
-  assertBookingNotInPast,
-  canOverridePastBooking,
-} from '@/server/bookings/pastTimeValidation';
-import {
-  OperatingHoursError,
-  assertBookingWithinOperatingWindow,
-} from '@/server/bookings/timeValidation';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import { isAutoAssignOnBookingEnabled } from '@/server/feature-flags';
 import {
@@ -40,6 +29,7 @@ import {
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -67,7 +57,6 @@ type AuthenticatedUser = {
 };
 
 type UnifiedCreateParams = {
-  req: NextRequest;
   payload: BookingPayload;
   user: AuthenticatedUser;
   service: ReturnType<typeof getServiceSupabaseClient>;
@@ -75,56 +64,7 @@ type UnifiedCreateParams = {
   clientRequestId: string;
   userAgent: string | null;
   clientIp: string | null;
-  contactEmail: string | null;
 };
-
-type PostgrestErrorLike = {
-  code?: string;
-  message?: string;
-};
-
-function extractPostgrestError(error: unknown): PostgrestErrorLike {
-  if (typeof error === 'object' && error !== null) {
-    const record = error as Record<string, unknown>;
-    return {
-      code: typeof record.code === 'string' ? record.code : undefined,
-      message: typeof record.message === 'string' ? record.message : undefined,
-    };
-  }
-  return {};
-}
-
-function buildRequestDetails(params: {
-  idempotencyKey: string | null;
-  clientRequestId: string;
-  userAgent: string | null;
-  staffId: string;
-  staffEmail: string | null;
-  emailProvided: boolean;
-  phoneProvided: boolean;
-  emailValue: string;
-  phoneValue: string;
-}): Record<string, unknown> {
-  return {
-    channel: OPS_CHANNEL,
-    request: {
-      idempotency_key: params.idempotencyKey,
-      client_request_id: params.clientRequestId,
-      user_agent: params.userAgent ?? null,
-    },
-    staff: {
-      id: params.staffId,
-      email: params.staffEmail,
-    },
-    created_by: OPS_WALK_IN_SOURCE,
-    provided_contact: {
-      email: params.emailProvided,
-      phone: params.phoneProvided,
-      email_value: params.emailValue || null,
-      phone_value: params.phoneValue || null,
-    },
-  } as const;
-}
 
 async function recoverOpsBookingRecord(
   client: ReturnType<typeof getServiceSupabaseClient>,
@@ -211,47 +151,6 @@ function ensureFallbackContact(
     return `walkin+${slug}@system.local`;
   }
   return buildConstraintSafeFallbackPhone(clientRequestId);
-}
-
-type RestaurantContactDetails = {
-  email: string | null;
-  phone: string | null;
-};
-
-async function fetchRestaurantContactDetails(
-  client: ReturnType<typeof getServiceSupabaseClient>,
-  restaurantId: string,
-): Promise<RestaurantContactDetails> {
-  try {
-    const { data, error } = await client
-      .from('restaurants')
-      .select('contact_email, contact_phone')
-      .eq('id', restaurantId)
-      .maybeSingle<Pick<Tables<'restaurants'>, 'contact_email' | 'contact_phone'>>();
-
-    if (error) {
-      console.error('[ops/bookings] restaurant contact lookup failed', error.message);
-      return { email: null, phone: null };
-    }
-
-    if (!data) {
-      return { email: null, phone: null };
-    }
-
-    const email =
-      typeof data.contact_email === 'string' && data.contact_email.trim().length > 0
-        ? data.contact_email.trim()
-        : null;
-    const phone =
-      typeof data.contact_phone === 'string' && data.contact_phone.trim().length > 0
-        ? data.contact_phone.trim()
-        : null;
-
-    return { email, phone };
-  } catch (error) {
-    console.error('[ops/bookings] restaurant contact lookup threw', error);
-    return { email: null, phone: null };
-  }
 }
 
 const OPS_BOOKING_STATUSES = [
@@ -601,13 +500,16 @@ export async function GET(req: NextRequest) {
   const isWindowCount = params.countStrategy === 'window';
   const rangeEnd = isWindowCount ? offset + params.pageSize : offset + params.pageSize - 1;
   const serviceSupabase = getServiceSupabaseClient();
+  const assignmentsRelation = params.tableId
+    ? 'booking_table_assignments!inner'
+    : 'booking_table_assignments';
 
   let query = serviceSupabase
     .from('bookings')
     .select(
       `id, start_at, end_at, booking_date, start_time, end_time, party_size, status, notes, restaurant_id, customer_name, customer_email, customer_phone, created_at,
       restaurants(name, slug, timezone, reservation_interval_minutes),
-      booking_table_assignments(
+      ${assignmentsRelation}(
         table_id,
         merge_group_id,
         table_inventory(
@@ -754,6 +656,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  return withCsrfProtectedMutation(req, () => postOpsBooking(req));
+}
+
+async function postOpsBooking(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -833,8 +739,6 @@ export async function POST(req: NextRequest) {
   }
 
   const service = getServiceSupabaseClient();
-  const restaurantContacts = await fetchRestaurantContactDetails(service, payload.restaurantId);
-  const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
   const idempotencyKey = req.headers.get('Idempotency-Key');
   const normalizedIdempotencyKey =
     typeof idempotencyKey === 'string' && idempotencyKey.trim().length > 0
@@ -846,334 +750,15 @@ export async function POST(req: NextRequest) {
       : randomUUID();
   const userAgent = req.headers.get('user-agent');
 
-  if (useUnifiedValidation) {
-    return handleUnifiedWalkInCreate({
-      req,
-      payload,
-      user,
-      service,
-      normalizedIdempotencyKey,
-      clientRequestId,
-      userAgent,
-      clientIp,
-      contactEmail: restaurantContacts.email,
-    });
-  }
-
-  const schedule = await getRestaurantSchedule(payload.restaurantId, {
-    date: payload.date,
-    client: service,
-  });
-  const timezone = schedule.timezone;
-
-  const startTime = payload.time;
-  const startDateTime = DateTime.fromISO(`${payload.date}T${startTime}`, {
-    zone: timezone ?? undefined,
-  });
-
-  if (!startDateTime.isValid) {
-    return NextResponse.json({ error: 'Invalid booking time' }, { status: 400 });
-  }
-
-  const bookingType = payload.bookingType ?? inferMealTypeFromTime(startTime);
-  const turnBandsByOption = await getRestaurantTurnBands(payload.restaurantId, service);
-  const { bookingOption: resolvedBookingOption, durationMinutes } =
-    await resolveBookingDurationMinutes({
-      restaurantId: payload.restaurantId,
-      bookingDate: payload.date,
-      startTime,
-      partySize: payload.party,
-      bookingOption: bookingType,
-      timezone,
-      client: service,
-      turnBandsByOption,
-    });
-  try {
-    assertBookingWithinOperatingWindow({
-      schedule,
-      requestedTime: startTime,
-    });
-  } catch (error) {
-    if (error instanceof OperatingHoursError) {
-      return NextResponse.json({ error: error.message, reason: error.reason }, { status: 422 });
-    }
-    throw error;
-  }
-
-  const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
-  if (!resolvedBookingOption) {
-    return NextResponse.json(
-      { error: 'Unable to resolve booking option for selected time' },
-      { status: 422 },
-    );
-  }
-
-  // Validate booking is not in the past (if feature flag enabled)
-  if (env.featureFlags.bookingPastTimeBlocking) {
-    const allowPastParam = req.nextUrl.searchParams.get('allow_past');
-    const allowOverride = allowPastParam === 'true';
-
-    // Get user's role for the restaurant
-    const memberships = await fetchUserMemberships(user.id, service);
-    const membership = memberships.find((m) => m.restaurant_id === payload.restaurantId);
-    const userRole = membership?.role as RestaurantRole | null;
-
-    try {
-      assertBookingNotInPast(schedule.timezone, payload.date, startTime, {
-        graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
-        allowOverride,
-        actorRole: userRole,
-      });
-
-      // Log successful override if admin used it
-      if (allowOverride && canOverridePastBooking(userRole)) {
-        void recordObservabilityEvent({
-          source: 'api.ops.bookings',
-          eventType: 'booking.past_time.override',
-          severity: 'info',
-          context: {
-            restaurantId: payload.restaurantId,
-            endpoint: 'ops.bookings.create',
-            actorId: user.id,
-            actorEmail: user.email,
-            actorRole: userRole,
-            timezone: schedule.timezone,
-            bookingDate: payload.date,
-            bookingTime: startTime,
-          },
-        });
-      }
-    } catch (pastTimeError) {
-      if (pastTimeError instanceof PastBookingError) {
-        // Log blocked attempt
-        void recordObservabilityEvent({
-          source: 'api.ops.bookings',
-          eventType: 'booking.past_time.blocked',
-          severity: 'warning',
-          context: {
-            restaurantId: payload.restaurantId,
-            endpoint: 'ops.bookings.create',
-            actorId: user.id,
-            actorEmail: user.email,
-            actorRole: userRole,
-            ipScope: anonymizeIp(clientIp),
-            overrideAttempted: allowOverride,
-            ...pastTimeError.details,
-          },
-        });
-
-        return NextResponse.json(
-          {
-            error: pastTimeError.message,
-            code: pastTimeError.code,
-            details: pastTimeError.details,
-          },
-          { status: 422 },
-        );
-      }
-      throw pastTimeError;
-    }
-  }
-
-  const rawCustomerEmail = (payload.email ?? '').trim();
-  const rawCustomerPhone = (payload.phone ?? '').trim();
-  const emailProvided = rawCustomerEmail.length > 0;
-  const phoneProvided = rawCustomerPhone.length > 0;
-
-  const fallbackEmail = ensureFallbackContact(payload.email, clientRequestId, 'email');
-  const fallbackPhone = ensureFallbackContact(payload.phone, clientRequestId, 'phone');
-  const normalizedRestaurantEmail = restaurantContacts.email
-    ? normalizeEmail(restaurantContacts.email)
-    : null;
-  const resolvedCustomerEmail = emailProvided ? normalizeEmail(rawCustomerEmail) : '';
-  const resolvedCustomerPhone = phoneProvided ? rawCustomerPhone : '';
-
-  const customer = await upsertCustomer(service, {
-    restaurantId: payload.restaurantId,
-    email: fallbackEmail,
-    phone: fallbackPhone,
-    name: payload.name,
-    marketingOptIn: payload.marketingOptIn ?? false,
-  });
-
-  const recoveredExisting = await recoverOpsBookingRecord(service, {
-    restaurantId: payload.restaurantId,
-    idempotencyKey: normalizedIdempotencyKey,
-    customerId: customer.id,
-    bookingDate: payload.date,
-    startTime,
-    endTime,
-  });
-
-  if (recoveredExisting) {
-    const bookings = await fetchBookingsForContact(
-      service,
-      payload.restaurantId,
-      fallbackEmail,
-      fallbackPhone,
-    );
-    return NextResponse.json({
-      booking: recoveredExisting,
-      bookings,
-      idempotencyKey: normalizedIdempotencyKey,
-      clientRequestId: recoveredExisting.client_request_id,
-      duplicate: true,
-    });
-  }
-
-  let booking: BookingRecord | null = null;
-  let reference = '';
-
-  for (let attempt = 0; attempt < 5 && !booking; attempt += 1) {
-    reference = await generateUniqueBookingReference(service);
-
-    try {
-      const details = buildRequestDetails({
-        idempotencyKey: normalizedIdempotencyKey,
-        clientRequestId,
-        userAgent,
-        staffId: user.id,
-        staffEmail: user.email ?? null,
-        emailProvided,
-        phoneProvided,
-        emailValue: emailProvided ? rawCustomerEmail : (normalizedRestaurantEmail ?? ''),
-        phoneValue: phoneProvided ? rawCustomerPhone : '',
-      });
-
-      booking = await insertBookingRecord(service, {
-        restaurant_id: payload.restaurantId,
-        customer_id: customer.id,
-        booking_date: payload.date,
-        start_time: startTime,
-        end_time: endTime,
-        reference,
-        party_size: payload.party,
-        booking_type: bookingType,
-        seating_preference: payload.seating as BookingRecord['seating_preference'],
-        status: 'pending',
-        customer_name: payload.name,
-        customer_email: resolvedCustomerEmail,
-        customer_phone: resolvedCustomerPhone,
-        notes: payload.notes ?? null,
-        marketing_opt_in: payload.marketingOptIn ?? false,
-        source: OPS_WALK_IN_SOURCE,
-        client_request_id: clientRequestId,
-        idempotency_key: normalizedIdempotencyKey ?? null,
-        details: details as Json,
-      });
-    } catch (error: unknown) {
-      const { code, message } = extractPostgrestError(error);
-      const isUniqueViolation =
-        code === '23505' || (message ? /duplicate key value/i.test(message) : false);
-
-      if (!isUniqueViolation) {
-        console.error('[ops/bookings] insert failed', error);
-        return NextResponse.json({ error: 'Unable to create booking' }, { status: 500 });
-      }
-
-      const constraintMessage = message ?? '';
-      const duplicateReference = /bookings_reference/i.test(constraintMessage);
-      const idempotencyConflict =
-        /bookings_idem_unique_per_restaurant/i.test(constraintMessage) ||
-        /bookings_client_request_unique/i.test(constraintMessage);
-
-      if (idempotencyConflict) {
-        const { data: existing } = await service
-          .from('bookings')
-          .select('*')
-          .eq('restaurant_id', payload.restaurantId)
-          .eq('client_request_id', clientRequestId)
-          .maybeSingle();
-
-        if (existing) {
-          booking = existing as BookingRecord;
-          break;
-        }
-
-        return NextResponse.json({ error: 'Duplicate request' }, { status: 409 });
-      }
-
-      if (!duplicateReference) {
-        console.error('[ops/bookings] insert conflict', error);
-        return NextResponse.json({ error: 'Unable to create booking' }, { status: 500 });
-      }
-    }
-  }
-
-  if (!booking) {
-    return NextResponse.json({ error: 'Unable to allocate booking reference' }, { status: 500 });
-  }
-
-  const bookings = await fetchBookingsForContact(
+  return handleUnifiedWalkInCreate({
+    payload,
+    user,
     service,
-    payload.restaurantId,
-    fallbackEmail,
-    fallbackPhone,
-  );
-
-  const responseBody = {
-    booking,
-    bookings,
-    idempotencyKey: normalizedIdempotencyKey,
+    normalizedIdempotencyKey,
     clientRequestId,
-  };
-
-  // Run auto-assign BEFORE sending emails so the correct email type is sent
-  if (isAutoAssignOnBookingEnabled()) {
-    const { runInlineAutoAssign } = await import('@/services/inline-auto-assign');
-    const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
-
-    try {
-      const updatedBooking = await runInlineAutoAssign({
-        bookingId: booking.id,
-        restaurantId: payload.restaurantId,
-        timeoutMs: inlineTimeoutMs,
-        createdBy: 'ops-walk-in',
-        historyReason: 'ops_walk_in_inline_auto_assign',
-        observabilitySource: 'api.ops.bookings.inline_auto_assign',
-        client: service,
-      });
-
-      // Update booking in response if assignment succeeded
-      if (updatedBooking) {
-        responseBody.booking = updatedBooking;
-      }
-    } catch (error) {
-      console.error('[ops/bookings] auto-assign inline attempt failed', error);
-    }
-  }
-
-  // Send emails AFTER auto-assign so status reflects final state (pending vs confirmed)
-  await enqueueBookingCreatedSideEffects({
-    booking: safeBookingPayload(responseBody.booking),
-    idempotencyKey: normalizedIdempotencyKey,
-    restaurantId: payload.restaurantId,
-    emailProvided,
+    userAgent,
+    clientIp,
   });
-
-  // If inline attempt did not confirm and retries are configured, run background job
-  // This matches public booking behavior for resilience
-  if (isAutoAssignOnBookingEnabled() && responseBody.booking.status !== 'confirmed') {
-    try {
-      const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
-      void autoAssignAndConfirmIfPossible(responseBody.booking.id);
-    } catch (autoError) {
-      console.error('[ops/bookings] background auto-assign scheduling failed', autoError);
-    }
-  }
-
-  void recordObservabilityEvent({
-    source: 'api.ops',
-    eventType: 'ops_bookings.create',
-    context: {
-      staff_id: user.id,
-      restaurant_id: payload.restaurantId,
-      booking_id: booking.id,
-      rate_source: createRateResult.source,
-    },
-  });
-
-  return NextResponse.json(responseBody, { status: 201 });
 }
 
 async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
@@ -1222,6 +807,8 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     phone: fallbackPhone,
     name: payload.name,
     marketingOptIn: payload.marketingOptIn ?? false,
+    identityMatchMode: 'partial',
+    allowExistingUpdates: true,
   });
 
   const recoveredExisting = await recoverOpsBookingRecord(service, {

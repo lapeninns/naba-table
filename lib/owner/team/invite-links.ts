@@ -1,5 +1,5 @@
-import { env } from "@/lib/env";
-import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { env } from '@/lib/env';
+import { getCanonicalSiteUrl } from '@/lib/site-url';
 
 export function buildInviteUrl(token: string): string {
   const base = env.app.url ?? getCanonicalSiteUrl();

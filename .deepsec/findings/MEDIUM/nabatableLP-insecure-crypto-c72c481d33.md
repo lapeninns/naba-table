@@ -19,3 +19,9 @@ Do not disable certificate verification. Use `ssl: true` with normal CA validati
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/production-precheck.ts` now creates the Postgres client with the shared `getPgSslConfig()` helper instead of `ssl: { rejectUnauthorized: false }`, so certificate validation is no longer disabled for the production precheck connection. The source safety test asserts the script no longer contains `rejectUnauthorized: false`.
+
+Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

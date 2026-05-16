@@ -16,6 +16,12 @@ Customer history rows return customer name, email, and phone verbatim. The trace
 
 Add CSV formula neutralization to the shared CSV generator or export accessors for all user-controlled customer fields, including values beginning with =, +, -, @, tab, or carriage return.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/ops/customers.ts` can continue returning domain values because `src/app/api/ops/customers/export/route.ts` writes them through `generateCSV`, whose shared `escapeCSVField` neutralizes formula-leading cells. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-29)

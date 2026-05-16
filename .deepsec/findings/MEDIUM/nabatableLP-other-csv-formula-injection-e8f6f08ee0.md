@@ -16,6 +16,12 @@ The export writes customer-controlled fields such as name, email, and phone dire
 
 Sanitize CSV cell values before export, preferably in `generateCSV`, by forcing all exported user-controlled values to literal text. Prefix dangerous formula-leading values with an apostrophe or use an XLSX writer that sets explicit string cell types.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting, and `/api/ops/customers/export` emits CSV through `generateCSV`. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-29)

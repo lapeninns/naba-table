@@ -24,6 +24,25 @@ const valueMetadataSchema = z.object({
   value: z.union([z.boolean(), z.string(), z.null()]).optional().default(null),
   displayName: nullableTextSchema,
 });
+const persistedIdSchema = z.string().trim().uuid('Persisted row id must be a UUID').optional();
+const serviceAreaTypeSchema = z.preprocess(
+  (value) => (typeof value === 'string' ? value.trim().toLowerCase() : value),
+  z.enum(['place', 'region', 'postal_code', 'other']),
+);
+const attributeValueTypeSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'bool') return 'boolean';
+    if (normalized === 'string') return 'text';
+    if (normalized === 'url') return 'uri';
+    if (normalized === 'multi_enum' || normalized === 'repeated_enum') return 'multienum';
+    return normalized;
+  },
+  z.enum(['boolean', 'text', 'uri', 'enum', 'multienum']),
+);
 const linkTypeSchema = z.enum([
   'website',
   'menu_or_services',
@@ -59,7 +78,7 @@ const updateBusinessContextSchema = z
     links: z
       .array(
         z.object({
-          id: z.string().trim().min(1).optional(),
+          id: persistedIdSchema,
           linkType: linkTypeSchema,
           linkStatus: z.enum(['current', 'previous']).nullable().optional().default('current'),
           label: nullableTextSchema,
@@ -71,7 +90,7 @@ const updateBusinessContextSchema = z
     categories: z
       .array(
         z.object({
-          id: z.string().trim().min(1).optional(),
+          id: persistedIdSchema,
           displayName: z.string().trim().min(1),
           categoryCode: nullableTextSchema,
           moreHoursTypes: z.array(moreHoursTypeSchema).optional().default([]),
@@ -82,9 +101,9 @@ const updateBusinessContextSchema = z
     serviceAreas: z
       .array(
         z.object({
-          id: z.string().trim().min(1).optional(),
+          id: persistedIdSchema,
           displayName: z.string().trim().min(1),
-          areaType: z.string().trim().optional().default('region'),
+          areaType: serviceAreaTypeSchema.optional().default('region'),
           regionCode: nullableTextSchema,
           googlePlaceId: nullableTextSchema,
           googlePlaceResourceName: nullableTextSchema,
@@ -95,7 +114,7 @@ const updateBusinessContextSchema = z
     attributes: z
       .array(
         z.object({
-          id: z.string().trim().min(1).optional(),
+          id: persistedIdSchema,
           attributeGroup: nullableTextSchema,
           attributeKey: z.string().trim().min(1),
           attributeName: nullableTextSchema,
@@ -104,7 +123,7 @@ const updateBusinessContextSchema = z
           displayText: nullableTextSchema,
           displayTextStandalone: nullableTextSchema,
           displayTextNegative: nullableTextSchema,
-          valueType: z.string().trim().min(1),
+          valueType: attributeValueTypeSchema,
           boolValue: z.boolean().nullable().optional(),
           textValue: nullableTextSchema,
           uriValue: nullableTextSchema,
@@ -121,7 +140,7 @@ const updateBusinessContextSchema = z
     serviceItems: z
       .array(
         z.object({
-          id: z.string().trim().min(1).optional(),
+          id: persistedIdSchema,
           itemKey: z.string().trim().min(1),
           itemType: nullableTextSchema,
           displayName: nullableTextSchema,

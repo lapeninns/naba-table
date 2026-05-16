@@ -19,3 +19,14 @@ Create the parent directory with fs.mkdirSync(path.dirname(outputPath), { recurs
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
+
+**Verdict:** fixed
+
+The baseline script now supports an explicit `DB_PERF_BASELINE_OUTPUT_PATH` and
+creates the parent artifact directory before saving `baseline-results.json`.
+
+Evidence:
+
+- `tests/scripts/perf-script-safety.test.ts` verifies the configurable output
+  path marker and directory creation before artifact writes.
+- `pnpm exec vitest run tests/scripts/perf-script-safety.test.ts`

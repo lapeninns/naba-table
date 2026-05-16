@@ -16,6 +16,12 @@ GET and PUT rely on ensureRestaurantAdminAccess before reading or mutating drink
 
 Ensure API permission checks perform a fresh membership lookup and do not consume the layout cache. Add an explicit uncached authorization path for route handlers or make cached membership reads display-only.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`requireMembershipForRestaurant` defaults `useCache` to `false`, so `ensureRestaurantAdminAccess` and `requireAdminMembership` perform fresh membership lookups for API authorization unless a caller explicitly opts into cache. Covered by `tests/server/team-access-cache.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

@@ -19,3 +19,7 @@ Move review replacement and review decision application into transactional datab
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+
+**Verdict:** fixed
+
+Pending-review replacement now goes through the `replace_pending_food_menus_import_reviews` service-role RPC added in `20260516094700_atomic_foodmenus_import_reviews.sql`, so superseding old pending rows and inserting the fresh review batch happen inside one database function call. Decision handling now claims `pending -> processing` before side effects and finalizes only from `processing`. Focused evidence: `tests/server/google-business-profile-food-menus-storage.test.ts` passed on 2026-05-16 and verifies replacement uses the RPC and final decision marking requires the claimed state; `tests/server/google-business-profile-food-menus-sync.test.ts` verifies side effects do not run when the claim is lost.

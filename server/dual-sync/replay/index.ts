@@ -1,4 +1,5 @@
 export {
+  computeReplayDecisionPins,
   runDualSyncReplayScenario,
   type DualSyncReplayFieldState,
   type DualSyncReplayPreviousState,

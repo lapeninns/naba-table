@@ -67,8 +67,8 @@ function makeDecision(over: Partial<DualSyncPublishDecision> = {}): DualSyncPubl
     fieldKey: 'profile.businessDescription',
     sectionKey: 'profile',
     action: 'export_to_google',
-    pinnedCoreHash: null,
-    pinnedGbpHash: null,
+    pinnedCoreHash: hashCanonicalJson('Tasty'),
+    pinnedGbpHash: hashCanonicalJson('Tasty'),
     ...over,
   };
 }
@@ -83,14 +83,7 @@ function buildPlan(decisions: ReadonlyArray<DualSyncPublishDecision>, actorUserI
     },
     {
       readCoreSnapshot: vi.fn(async () => makeSnapshot()),
-      readGbpSnapshot: vi.fn(async () =>
-        makeSnapshot({
-          profile: {
-            ...makeSnapshot().profile,
-            businessDescription: 'Google text',
-          },
-        }),
-      ),
+      readGbpSnapshot: vi.fn(async () => makeSnapshot()),
     },
   );
 }
@@ -131,8 +124,18 @@ describe('buildPublishPlan', () => {
   it('groups accepted decisions by direction, section, and write group', async () => {
     const plan = await buildPlan([
       makeDecision({ fieldKey: 'profile.businessDescription', action: 'export_to_google' }),
-      makeDecision({ fieldKey: 'profile.name', action: 'export_to_google' }),
-      makeDecision({ fieldKey: 'profile.contactPhone', action: 'import_from_google' }),
+      makeDecision({
+        fieldKey: 'profile.name',
+        action: 'export_to_google',
+        pinnedCoreHash: hashCanonicalJson('acme'),
+        pinnedGbpHash: hashCanonicalJson('acme'),
+      }),
+      makeDecision({
+        fieldKey: 'profile.contactPhone',
+        action: 'import_from_google',
+        pinnedCoreHash: hashCanonicalJson('+441223123456'),
+        pinnedGbpHash: hashCanonicalJson('+441223123456'),
+      }),
       makeDecision({ action: 'ignore' }),
     ]);
 
@@ -206,8 +209,16 @@ describe('buildPublishPlan', () => {
         decisions: [
           makeDecision({ sectionKey: 'operatingHours' }),
           makeDecision({ pinnedCoreHash: 'stale-core-hash' }),
-          makeDecision({ fieldKey: 'profile.googleMapUrl' }),
-          makeDecision({ fieldKey: 'profile.name' }),
+          makeDecision({
+            fieldKey: 'profile.googleMapUrl',
+            pinnedCoreHash: hashCanonicalJson('https://maps.example/acme'),
+            pinnedGbpHash: hashCanonicalJson('https://maps.example/acme'),
+          }),
+          makeDecision({
+            fieldKey: 'profile.name',
+            pinnedCoreHash: hashCanonicalJson('acme'),
+            pinnedGbpHash: hashCanonicalJson('acme'),
+          }),
         ],
         actorUserId: null,
       },
@@ -226,12 +237,71 @@ describe('buildPublishPlan', () => {
     ]);
   });
 
+  it('treats null field pins as expected absent values in preview planning', async () => {
+    const plan = await buildPublishPlan(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          makeDecision({
+            action: 'export_to_google',
+            pinnedCoreHash: null,
+            pinnedGbpHash: hashCanonicalJson('Tasty'),
+          }),
+        ],
+        actorUserId: 'user-1',
+      },
+      {
+        readCoreSnapshot: vi.fn(async () => makeSnapshot()),
+        readGbpSnapshot: vi.fn(async () => makeSnapshot()),
+      },
+    );
+
+    expect(plan.groups).toEqual([]);
+    expect(plan.rejected).toEqual([
+      expect.objectContaining({
+        fieldKey: 'profile.businessDescription',
+        failure: expect.objectContaining({ code: 'CORE_DRIFT' }),
+      }),
+    ]);
+  });
+
+  it('does not treat null field pins as drift when the previewed value is still absent', async () => {
+    const absentSnapshot = makeSnapshot({
+      profile: {
+        ...makeSnapshot().profile,
+        businessDescription: null,
+      },
+    });
+
+    const plan = await buildPublishPlan(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [makeDecision({ action: 'ignore', pinnedCoreHash: null, pinnedGbpHash: null })],
+        actorUserId: 'user-1',
+      },
+      {
+        readCoreSnapshot: vi.fn(async () => absentSnapshot),
+        readGbpSnapshot: vi.fn(async () => absentSnapshot),
+      },
+    );
+
+    expect(plan.ignoredCount).toBe(1);
+    expect(plan.rejected).toEqual([]);
+  });
+
   it('rejects decisions disabled by production rollback flags before grouping', async () => {
     process.env.GBP_EXPORT_ENABLED = 'false';
 
     const plan = await buildPlan([
       makeDecision({ fieldKey: 'profile.businessDescription', action: 'export_to_google' }),
-      makeDecision({ fieldKey: 'profile.contactPhone', action: 'import_from_google' }),
+      makeDecision({
+        fieldKey: 'profile.contactPhone',
+        action: 'import_from_google',
+        pinnedCoreHash: hashCanonicalJson('+441223123456'),
+        pinnedGbpHash: hashCanonicalJson('+441223123456'),
+      }),
     ]);
 
     expect(plan.acceptedCount).toBe(1);

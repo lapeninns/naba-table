@@ -16,6 +16,12 @@ replaceProviderRows deletes existing provider rows and then inserts replacements
 
 Move the canonical sync into a database transaction/RPC, or stage new rows and swap them atomically. If a table replacement fails, roll back all table changes and do not commit the snapshot/change-log evidence as applied.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`syncGoogleBusinessProfileCanonicalBusinessInfo` now delegates the canonical GBP sync to the service-role RPC `replace_gbp_canonical_business_info` instead of issuing separate snapshot, delete, insert, field-status, and change-log calls. The migration `supabase/migrations/20260516090500_atomic_gbp_canonical_business_info.sql` performs the snapshot inserts, GBP-owned row replacements, field-sync status replacement, and profile change-log insert inside one PostgreSQL function with an advisory transaction lock. If any table replacement fails, the function call rolls back as a single transaction and no applied snapshot/change-log evidence is committed independently.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

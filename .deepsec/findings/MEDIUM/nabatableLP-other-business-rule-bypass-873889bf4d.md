@@ -19,3 +19,9 @@ Apply evaluateGuestModificationLock to every guest/session-recovery mutation bef
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
+
+**Verdict:** fixed
+
+Session-recovery dashboard updates now call `handleDashboardUpdate` with `enforceGuestSelfServiceLock: true`, and the session-recovery delete branch evaluates `evaluateGuestModificationLock` before `softCancelBooking`. Checked-in, started, and starting-soon bookings are now blocked for every guest/session-recovery mutation path.
+
+Validation: `pnpm exec vitest run tests/server/booking-validation-security.test.ts tests/server/public-bookings-route.test.ts tests/server/ops-bookings-create-route.test.ts tests/server/public-booking-delete-route.test.ts tests/server/public-booking-session-recovery-source.test.ts tests/server/resend-webhook-route.test.ts`

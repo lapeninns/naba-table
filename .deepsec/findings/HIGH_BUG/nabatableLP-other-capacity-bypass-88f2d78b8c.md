@@ -16,6 +16,14 @@ The handler only uses createWithEnforcement when bookingValidationUnified is ena
 
 Make capacity-enforced creation mandatory for ops bookings. If the legacy path must remain, have it call the same capacity RPC/precheck path and fail closed when capacity enforcement is unavailable.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`POST /api/ops/bookings` now always delegates walk-in creation to `handleUnifiedWalkInCreate`, regardless of `FEATURE_BOOKING_VALIDATION_UNIFIED`. The legacy branch that directly called `insertBookingRecord` was removed, so ops walk-ins now commit through `BookingValidationService.createWithEnforcement` and the capacity-backed create path.
+
+Evidence: `pnpm exec vitest run tests/server/ops-bookings-create-route.test.ts` passed on 2026-05-16. The focused route regression keeps `bookingValidationUnified` false and verifies `createWithEnforcement` is called while `insertBookingRecord` is not. The combined focused command `pnpm exec vitest run tests/server/ops-bookings-create-route.test.ts tests/server/bookings-modification-flow.test.ts tests/server/inline-auto-assign.test.ts` passed, and targeted ESLint passed for the changed files.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-23)

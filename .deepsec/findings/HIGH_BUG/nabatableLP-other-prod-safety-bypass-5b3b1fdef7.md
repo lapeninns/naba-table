@@ -19,3 +19,7 @@ Before any auth/admin mutation, parse both production and destination project re
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/staging/import-prod-staff.ts` now parses and validates the destination project ref before the destination Supabase admin client is constructed. The guard rejects destination refs that equal the production ref, requires the approved staging project ref through the shared `assertStagingScriptSafety` helper, requires `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and requires `CONFIRM_STAGING_STAFF_IMPORT=true`. Focused script-safety tests cover the shared staging guard and assert this import guard runs before `createClient<Database>(stagingUrl, ...)`.

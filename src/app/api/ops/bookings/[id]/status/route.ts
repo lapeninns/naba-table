@@ -113,6 +113,23 @@ async function patchBookingStatus(
     );
   }
 
+  try {
+    const memberships = await fetchUserMemberships(user.id, tenantSupabase);
+    const hasAccess = memberships.some(
+      (membership) => membership.restaurant_id === bookingRow.restaurant_id,
+    );
+    if (!hasAccess) {
+      return withStatusDeprecation(
+        NextResponse.json({ error: 'Booking not found' }, { status: 404 }),
+      );
+    }
+  } catch (error) {
+    console.error('[ops][booking-status] membership lookup failed', error);
+    return withStatusDeprecation(
+      NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 }),
+    );
+  }
+
   const { data: restaurant, error: restaurantError } = await serviceSupabase
     .from('restaurants')
     .select('timezone, reservation_lifecycle_grace_minutes')
@@ -144,21 +161,6 @@ async function patchBookingStatus(
         { error: 'Lifecycle actions are only available on the reservation date' },
         { status: 409 },
       ),
-    );
-  }
-
-  try {
-    const memberships = await fetchUserMemberships(user.id, tenantSupabase);
-    const hasAccess = memberships.some(
-      (membership) => membership.restaurant_id === bookingRow.restaurant_id,
-    );
-    if (!hasAccess) {
-      return withStatusDeprecation(NextResponse.json({ error: 'Forbidden' }, { status: 403 }));
-    }
-  } catch (error) {
-    console.error('[ops][booking-status] membership lookup failed', error);
-    return withStatusDeprecation(
-      NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 }),
     );
   }
 
@@ -294,36 +296,43 @@ async function patchBookingStatus(
     }
     finalStatus = checkOutResult.result.status as Tables<'bookings'>['status'];
 
-    // Release any table assignments once completed
-    try {
-      await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
-    } catch (clearError) {
-      console.warn('[ops][booking-status] failed to clear table assignments', {
-        bookingId: bookingRow.id,
-        error: clearError instanceof Error ? clearError.message : clearError,
-      });
-    }
-
-    invalidateOpsDashboardCaches(bookingRow.restaurant_id, {
-      summaryDates: [bookingRow.booking_date],
-    });
-
-    // Schedule review request email after completion (same as check-out route)
-    try {
-      const { data: fullBooking } = await serviceSupabase
-        .from('bookings')
-        .select('*')
-        .eq('id', bookingRow.id)
-        .maybeSingle();
-
-      if (fullBooking && bookingRow.restaurant_id) {
-        await enqueueCheckOutSideEffects(fullBooking, bookingRow.restaurant_id);
+    if (checkOutResult.result.changed) {
+      try {
+        await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
+      } catch (clearError) {
+        console.error('[ops][booking-status] failed to clear table assignments', {
+          bookingId: bookingRow.id,
+          error: clearError instanceof Error ? clearError.message : clearError,
+        });
+        return withStatusDeprecation(
+          NextResponse.json(
+            { error: 'Booking was updated but table assignments could not be released' },
+            { status: 500 },
+          ),
+        );
       }
-    } catch (sideEffectsError) {
-      console.warn('[ops][booking-status] failed to schedule review email', {
-        bookingId: bookingRow.id,
-        error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
+
+      invalidateOpsDashboardCaches(bookingRow.restaurant_id, {
+        summaryDates: [bookingRow.booking_date],
       });
+
+      // Schedule review request email after completion (same as check-out route)
+      try {
+        const { data: fullBooking } = await serviceSupabase
+          .from('bookings')
+          .select('*')
+          .eq('id', bookingRow.id)
+          .maybeSingle();
+
+        if (fullBooking && bookingRow.restaurant_id) {
+          await enqueueCheckOutSideEffects(fullBooking, bookingRow.restaurant_id);
+        }
+      } catch (sideEffectsError) {
+        console.warn('[ops][booking-status] failed to schedule review email', {
+          bookingId: bookingRow.id,
+          error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
+        });
+      }
     }
 
     return withStatusDeprecation(

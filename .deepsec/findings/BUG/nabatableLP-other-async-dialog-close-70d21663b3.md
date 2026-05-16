@@ -16,6 +16,12 @@ The confirm button is rendered as AlertDialogAction, which Radix implements as D
 
 Handle the click event explicitly, call event.preventDefault(), await onConfirm, and close the dialog only after a successful confirmation. Centralize the close path so onAfterClose fires once.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/components/features/booking-state-machine/ConfirmationDialog.tsx` now prevents the Radix `AlertDialogAction` default close behavior, blocks external close while a confirmation is submitting, and closes through one explicit success path after `onConfirm` resolves. Failed confirmations keep the dialog open and do not run `onAfterClose`. `tests/components/ConfirmationDialog.test.tsx` covers both the pending-success path and the failed-confirmation path.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

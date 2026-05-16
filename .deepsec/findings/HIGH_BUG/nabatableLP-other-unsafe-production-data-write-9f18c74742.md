@@ -16,6 +16,12 @@ The script creates a service-role Supabase client directly from environment vari
 
 Require explicit restaurant and environment targeting, run the repo environment safety checks, and block production unless a separate production confirmation is supplied.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`scripts/seed-bookings-week.ts` now calls `assertStagingScriptSafety` before constructing the service-role client. It requires exact staging project-ref validation, `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and `CONFIRM_STAGING_BOOKING_SEED=true`. The script also requires an explicit `RESTAURANT_ID` instead of selecting the first restaurant in the connected project.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-21)

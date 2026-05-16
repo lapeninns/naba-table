@@ -26,8 +26,8 @@ const decisionSchema = z.object({
   fieldKey: z.string().min(1),
   sectionKey: z.enum(DUAL_SYNC_SECTION_KEYS),
   action: z.enum(['import_from_google', 'export_to_google', 'ignore']),
-  pinnedCoreHash: z.string().nullable().default(null),
-  pinnedGbpHash: z.string().nullable().default(null),
+  pinnedCoreHash: z.string().nullable(),
+  pinnedGbpHash: z.string().nullable(),
 });
 
 const publishPreviewRequestSchema = z.object({

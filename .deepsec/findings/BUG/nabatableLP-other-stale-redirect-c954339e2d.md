@@ -20,3 +20,15 @@ Redirect to an existing booking route such as `/bookings/:bookingId` or `/guest/
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
+
+**Verdict:** fixed
+
+The `/bookings/[bookingId]/thank-you` route now exists and permanently funnels
+legacy thank-you links to the canonical guest receipt page. The `next.config.js`
+redirect also constrains the `bookingId` query capture to a single path segment.
+
+Evidence:
+
+- `tests/config/link-config.test.ts` verifies the configured legacy redirect.
+- `tests/guest/public-booking-redirects.test.ts` verifies the route redirects to
+  `/guest/bookings/:bookingId/receipt` with query params preserved.

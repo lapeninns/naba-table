@@ -70,7 +70,7 @@ export function TableAssignmentSummaryCard({
           </div>
 
           <div className="space-y-1.5">
-            <Progress value={percent} className="h-1.5 bg-muted/50" />
+            <Progress aria-label="Seating capacity" value={percent} className="h-1.5 bg-muted/50" />
             <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-widest">
               <span className="text-muted-foreground/60">Seating Capacity</span>
               <span

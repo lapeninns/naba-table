@@ -20,3 +20,11 @@ Enforce the same server-side feature flag in `src/app/api/ops/dashboard/rejectio
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-31)
+
+## Remediation
+
+**Verdict:** fixed
+
+The rejection analytics dashboard API now checks `isOpsRejectionAnalyticsEnabled()` before query parsing, authorization, or data access and returns 404 while the feature is disabled.
+
+**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`

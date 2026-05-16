@@ -100,7 +100,8 @@ function buildRedirect(
 ) {
   const base = `${req.nextUrl.protocol}//${targetHost}`;
   const suffix = searchParams ? `?${searchParams}` : '';
-  const url = new URL(`${pathname}${suffix}`, base);
+  const safePathname = normalizeProxyRedirectPath(pathname);
+  const url = new URL(`${safePathname}${suffix}`, base);
   const response = NextResponse.redirect(url, status);
   // Ensure cross-host redirects are absolute for clarity and correctness.
   response.headers.set('location', url.toString());
@@ -109,7 +110,13 @@ function buildRedirect(
 
 function stripLeadingAppPrefix(pathname: string) {
   const next = pathname.replace(/^\/app(\/|$)/, '/');
-  return next === '' ? '/' : next;
+  return normalizeProxyRedirectPath(next);
+}
+
+function normalizeProxyRedirectPath(pathname: string) {
+  if (!pathname || /\\|%5c/i.test(pathname)) return '/';
+  const normalized = pathname.startsWith('/') ? pathname.replace(/^\/+/, '/') : `/${pathname}`;
+  return normalized || '/';
 }
 
 function isPublicRestaurantSchedulePath(pathname: string) {

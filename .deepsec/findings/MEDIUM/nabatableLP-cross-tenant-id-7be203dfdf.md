@@ -19,3 +19,7 @@ After resolving the authenticated user, call requireMembershipForRestaurant({ us
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+**Verdict:** fixed
+
+`src/app/api/ops/tables/route.ts` now calls `requireMembershipForRestaurant` for the requested `restaurantId` before `listTablesWithSummary` or `listTables` runs. Covered by `tests/server/ops-tables-route-security.test.ts`.

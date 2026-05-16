@@ -16,6 +16,14 @@ The route only accepts confirmation tokens that are exactly 64 characters via `z
 
 Align validation with generation, for example by accepting 43-character base64url tokens, or change generation to 48 random bytes for 64-character tokens while preserving compatibility for existing tokens. Add a test that creates a generated token and verifies this endpoint accepts it.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The confirmation endpoint now uses the centralized `isConfirmationTokenFormat` helper from `server/bookings/confirmation-token.ts`, so application-generated 43-character base64url confirmation tokens are no longer rejected before database validation. The helper preserves compatibility for 64-character legacy tokens.
+
+Evidence: `pnpm exec vitest run tests/server/bookings-confirm-route.test.ts` passed on 2026-05-16. The route-level test creates a real generated token and verifies `/api/bookings/confirm` accepts it.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-24)

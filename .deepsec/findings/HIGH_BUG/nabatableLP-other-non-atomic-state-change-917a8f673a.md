@@ -19,3 +19,7 @@ Move the booking update plus assignment/idempotency cleanup into a single strict
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)
+
+**Verdict:** fixed
+
+`beginBookingModificationFlow` now calls `updateBookingAndClearAssignmentsAtomically` for the pending modification write. The new `20260516095200_atomic_booking_modification_cleanup.sql` migration updates the booking, clears `assigned_zone_id`, deletes `booking_table_assignments`, and deletes `booking_assignment_idempotency` rows inside one PostgreSQL function call, so cleanup failure rolls back the booking update. Focused evidence: `tests/server/bookings-modification-flow.test.ts` passed on 2026-05-16 and verifies the modification flow uses the atomic helper.

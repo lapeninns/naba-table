@@ -19,3 +19,9 @@ Never persist password fields. After successful signup, store only non-secret ac
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+
+**Verdict:** fixed
+
+`OnboardingContext` redacts account passwords in the reducer, persisted state writer, and persisted draft restore path. `OnboardingWizard` now stores only `{ email, mode }` after signup and no longer restores password defaults from onboarding state.
+
+Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

@@ -20,3 +20,7 @@ Return only guest-safe availability fields from this public endpoint. Move exact
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-07)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-26)
+
+**Verdict:** fixed
+
+`src/app/api/availability/route.ts` now returns only guest-safe availability fields, omits exact cover/party/utilization metrics from `metadata`, strips utilization from alternatives, and no longer emits `X-Utilization`. Covered by `tests/server/availability-route-query-params.test.ts`.

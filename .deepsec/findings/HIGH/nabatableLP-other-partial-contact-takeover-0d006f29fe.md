@@ -19,3 +19,9 @@ Do not merge unauthenticated booking submissions into an existing customer on a 
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
+
+**Verdict:** fixed
+
+POST `/api/bookings` now sends public guest contact input to `upsertCustomer` with `identityMatchMode: 'strict'` and `allowExistingUpdates: false`. That prevents public creates from reusing or mutating an existing customer on a single email or phone match, including the missing-phone poisoning case. If an insert collides with an existing email or phone but the other contact method does not match the same row, strict duplicate recovery returns no customer and the route responds with a duplicate-resource conflict before booking creation, duplicate recovery, side effects, confirmation cookies, or session-recovery cookies are produced.
+
+Evidence: `pnpm exec vitest run tests/server/customers.test.ts tests/server/public-bookings-route.test.ts` passed on 2026-05-16. The regression coverage verifies strict public insert conflicts do not fall back to a single contact match, and verifies `/api/bookings` exits on strict public identity conflicts before booking creation or side effects.

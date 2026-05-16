@@ -16,6 +16,12 @@ The export button downloads /api/ops/customers/export and saves the returned CSV
 
 Neutralize spreadsheet formulas in the shared CSV escaping path before export, for example by prefixing an apostrophe to fields whose trimmed value starts with =, +, -, @, tab, CR, or LF, then apply normal CSV quoting. Add regression tests covering exported guest names and other free-text fields.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting, and both customers and bookings export routes use `generateCSV`. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

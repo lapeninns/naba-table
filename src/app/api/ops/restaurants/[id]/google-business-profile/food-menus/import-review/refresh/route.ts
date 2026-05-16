@@ -29,6 +29,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const access = await ensureRestaurantAdminAccess(
     restaurantId,
     'google-business-profile-food-menus-import-review-refresh',
+    request,
   );
   if (access instanceof NextResponse) {
     return access;

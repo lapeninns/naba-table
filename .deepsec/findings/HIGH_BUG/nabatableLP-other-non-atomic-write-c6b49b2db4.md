@@ -20,3 +20,9 @@ Replace the delete-then-insert sequence with a single transactional RPC. Validat
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`updateOperatingHours` no longer performs separate delete and insert statements. It rejects duplicate override ids/dates and invalid calendar dates before mutation, then delegates to the service-role-only `replace_restaurant_operating_hours` RPC. The RPC upserts replacement rows and deletes obsolete rows in one database transaction, so failures roll back as a unit.
+
+Evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16. The regression coverage verifies the helper calls the atomic replacement RPC and does not call table delete/insert chains directly.

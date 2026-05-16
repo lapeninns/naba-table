@@ -16,6 +16,14 @@ The fallback demand-profile path filters rules by service window, day, and minut
 
 Apply the same semantics to database-backed rules as fallback rules: filter rows to the current minute window, order by priority and specificity, and add tests with multiple profiles for the same day/service window.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/capacity/demand-profiles.ts` now loads all matching restaurant/day/service rows, filters them to the current minute window, and sorts by priority and narrower-window specificity before choosing the multiplier. This aligns database-backed demand profiles with fallback-rule semantics.
+
+Evidence: `pnpm exec vitest run tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/capacity/demand-profiles.ts server/capacity/selector.ts server/capacity/table-assignment/supabase.ts server/capacity/v2/utils.ts tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` also passed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-02)

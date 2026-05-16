@@ -19,3 +19,7 @@ Remove positional password support. Require SUPABASE_DB_PASSWORD from a secret-m
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/find-supabase-region.ts` now reads the database password only from `SUPABASE_DB_PASSWORD`; positional password usage and `<db_password>` usage text have been removed. Covered by `tests/scripts/db-safety.test.ts`.

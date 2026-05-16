@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   businessInfoTestUtils,
   readGoogleBusinessProfileBusinessInfo,
+  syncGoogleBusinessProfileCanonicalBusinessInfo,
 } from '@/server/google-business-profile/business-info';
 
 describe('google business profile business info mapping', () => {
@@ -314,6 +315,70 @@ describe('google business profile business info mapping', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('preserves existing GBP service items when the optional segment was unavailable', async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    const client = { rpc };
+
+    await syncGoogleBusinessProfileCanonicalBusinessInfo({
+      restaurantId: '00000000-0000-4000-8000-000000000001',
+      externalProfile: {
+        id: '00000000-0000-4000-8000-000000000002',
+      } as Parameters<typeof syncGoogleBusinessProfileCanonicalBusinessInfo>[0]['externalProfile'],
+      location: {
+        name: 'locations/456',
+        title: 'Old Crown Girton',
+        __nabatableOptionalFetchStatus: {
+          serviceItems: 'unavailable',
+        },
+      },
+      attributes: null,
+      client: client as Parameters<
+        typeof syncGoogleBusinessProfileCanonicalBusinessInfo
+      >[0]['client'],
+      syncedAt: '2026-04-18T12:00:00.000Z',
+      syncAttributes: false,
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const [, args] = rpc.mock.calls[0] ?? [];
+    expect(args.p_service_items).toBeNull();
+    expect(args.p_field_sync_entity_tables).not.toContain('restaurant_service_items');
+    expect(JSON.stringify(args.p_profile_change_log_rows)).not.toContain(
+      'restaurant_service_items',
+    );
+  });
+
+  it('replaces GBP service items when Google explicitly returns an empty segment', async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    const client = { rpc };
+
+    await syncGoogleBusinessProfileCanonicalBusinessInfo({
+      restaurantId: '00000000-0000-4000-8000-000000000001',
+      externalProfile: {
+        id: '00000000-0000-4000-8000-000000000002',
+      } as Parameters<typeof syncGoogleBusinessProfileCanonicalBusinessInfo>[0]['externalProfile'],
+      location: {
+        name: 'locations/456',
+        title: 'Old Crown Girton',
+        serviceItems: [],
+        __nabatableOptionalFetchStatus: {
+          serviceItems: 'fetched',
+        },
+      },
+      attributes: null,
+      client: client as Parameters<
+        typeof syncGoogleBusinessProfileCanonicalBusinessInfo
+      >[0]['client'],
+      syncedAt: '2026-04-18T12:00:00.000Z',
+      syncAttributes: false,
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const [, args] = rpc.mock.calls[0] ?? [];
+    expect(args.p_service_items).toEqual([]);
+    expect(args.p_field_sync_entity_tables).toContain('restaurant_service_items');
+  });
+
   it('builds deterministic field sync status rows for canonical GBP values', () => {
     const rows = businessInfoTestUtils.buildCanonicalRows({
       restaurantId: 'rest-1',
@@ -574,10 +639,7 @@ describe('google business profile business info mapping', () => {
 
   it('declares Sprint 1 GBP coverage schema fixes additively', () => {
     const migration = readFileSync(
-      join(
-        process.cwd(),
-        'supabase/migrations/20260429141000_complete_gbp_coverage_sprint1.sql',
-      ),
+      join(process.cwd(), 'supabase/migrations/20260429141000_complete_gbp_coverage_sprint1.sql'),
       'utf8',
     );
 
@@ -589,6 +651,25 @@ describe('google business profile business info mapping', () => {
     expect(migration).toContain('display_value_json jsonb');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS provider_timezone text');
     expect(migration).toContain('restaurant_gbp_service_area_place_id_gaps');
+  });
+
+  it('declares atomic GBP canonical business-info replacement RPC', () => {
+    const migration = readFileSync(
+      join(
+        process.cwd(),
+        'supabase/migrations/20260516090500_atomic_gbp_canonical_business_info.sql',
+      ),
+      'utf8',
+    );
+
+    expect(migration).toContain('replace_gbp_canonical_business_info');
+    expect(migration).toContain('pg_advisory_xact_lock');
+    expect(migration).toContain('p_service_items IS NOT NULL');
+    expect(migration).toContain('restaurant_external_profile_snapshots');
+    expect(migration).toContain('restaurant_field_sync_statuses');
+    expect(migration).toContain('restaurant_profile_change_log');
+    expect(migration).toContain('GRANT EXECUTE');
+    expect(migration).toContain('TO service_role');
   });
 
   it('documents repeatable backfills for place IDs, provenance, definitions, and links', () => {

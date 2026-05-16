@@ -19,3 +19,9 @@ In /api/ops/tables GET, call requireMembershipForRestaurant with the authenticat
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+
+**Verdict:** fixed
+
+The GET handler for `/api/ops/tables` now calls `requireMembershipForRestaurant` with the authenticated user id and parsed `restaurantId` before loading table inventory, zones, or capacity summary. The focused regression test `tests/server/ops-tables-route-security.test.ts` verifies a membership failure returns 403 and no table data loaders are called, and verifies the authorized path checks membership before loading data.
+
+Evidence: `pnpm exec vitest run tests/server/ops-tables-route-security.test.ts` passed on 2026-05-16.

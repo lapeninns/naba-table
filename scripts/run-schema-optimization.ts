@@ -3,13 +3,16 @@
  * Executes the schema optimization fixes directly on Supabase
  *
  * Run with:
- *   SUPABASE_DB_URL="postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres" npx tsx scripts/run-schema-optimization.ts
+ *   DB_TARGET_ENV=staging CONFIRM_STAGING_SCHEMA_OPTIMIZATION=true \
+ *   SUPABASE_DB_URL="postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres" \
+ *   npx tsx scripts/run-schema-optimization.ts
  *
  * NOTE: This script intentionally requires an explicit SUPABASE_DB_URL so it cannot accidentally target an old/stale project.
  */
 
 import { Client } from 'pg';
 import { getPgSslConfig } from './db/pg-ssl';
+import { assertStagingScriptSafety } from './db/safety';
 
 const connectionString = process.env.SUPABASE_DB_URL?.trim() || '';
 
@@ -19,7 +22,7 @@ if (!connectionString) {
   console.error('');
   console.error('   Example:');
   console.error(
-    '   SUPABASE_DB_URL="postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres" npx tsx scripts/run-schema-optimization.ts',
+    '   DB_TARGET_ENV=staging CONFIRM_STAGING_SCHEMA_OPTIMIZATION=true SUPABASE_DB_URL="postgresql://postgres.<project_ref>:<password>@aws-1-<region>.pooler.supabase.com:6543/postgres" npx tsx scripts/run-schema-optimization.ts',
   );
   process.exit(1);
 }
@@ -263,7 +266,22 @@ async function runPhase(
   };
 }
 
+function assertPhaseSucceeded(result: PhaseResult): void {
+  if (!result.success) {
+    throw new Error(`Schema optimization failed in phase: ${result.phase}`);
+  }
+}
+
 async function main() {
+  const stagingProjectRef = assertStagingScriptSafety({
+    connectionString,
+    expectedProjectRef:
+      process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF,
+    targetEnv: process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim(),
+    confirmation: process.env.CONFIRM_STAGING_SCHEMA_OPTIMIZATION,
+    confirmationName: 'CONFIRM_STAGING_SCHEMA_OPTIMIZATION',
+  });
+
   const client = new Client({
     connectionString,
     ssl: getPgSslConfig(),
@@ -273,6 +291,7 @@ async function main() {
   console.log('║     NABATABLE DATABASE SCHEMA OPTIMIZATION SCRIPT        ║');
   console.log('║                   nabatable-staging                      ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log(`Guarded staging project ref: ${stagingProjectRef}`);
   console.log('');
 
   try {
@@ -285,12 +304,16 @@ async function main() {
     // ============================================================
     // PHASE 1: VACUUM, ANALYZE & CREATE INDEXES
     // ============================================================
-    results.push(await runPhase(client, '1. VACUUM, ANALYZE & CREATE INDEXES', phase1Commands));
+    let result = await runPhase(client, '1. VACUUM, ANALYZE & CREATE INDEXES', phase1Commands);
+    results.push(result);
+    assertPhaseSucceeded(result);
 
     // ============================================================
     // PHASE 2: AUTOVACUUM CONFIGURATION
     // ============================================================
-    results.push(await runPhase(client, '2. AUTOVACUUM CONFIGURATION', phase2Commands));
+    result = await runPhase(client, '2. AUTOVACUUM CONFIGURATION', phase2Commands);
+    results.push(result);
+    assertPhaseSucceeded(result);
 
     // ============================================================
     // PHASE 3: CHECK FOR ORPHANED DATA
@@ -300,6 +323,7 @@ async function main() {
     console.log(`${'='.repeat(60)}`);
 
     let orphanedDataFound = false;
+    let orphanedCheckFailed = false;
     for (const check of phase3CheckCommands) {
       try {
         const result = await client.query(check.sql);
@@ -312,14 +336,20 @@ async function main() {
         }
       } catch (err) {
         console.log(`  ❌ ${check.name}: ${err}`);
+        orphanedCheckFailed = true;
       }
+    }
+    if (orphanedCheckFailed) {
+      throw new Error('Schema optimization failed while checking orphaned data.');
     }
 
     // ============================================================
     // PHASE 4: CLEANUP ORPHANED DATA
     // ============================================================
     if (orphanedDataFound) {
-      results.push(await runPhase(client, '4. CLEANUP ORPHANED DATA', phase4CleanupCommands));
+      result = await runPhase(client, '4. CLEANUP ORPHANED DATA', phase4CleanupCommands);
+      results.push(result);
+      assertPhaseSucceeded(result);
     } else {
       console.log('\n  ℹ️ No orphaned data to clean up.');
     }
@@ -327,7 +357,9 @@ async function main() {
     // ============================================================
     // PHASE 5: CREATE FOREIGN KEY CONSTRAINTS
     // ============================================================
-    results.push(await runPhase(client, '5. CREATE FOREIGN KEY CONSTRAINTS', phase5FkCommands));
+    result = await runPhase(client, '5. CREATE FOREIGN KEY CONSTRAINTS', phase5FkCommands);
+    results.push(result);
+    assertPhaseSucceeded(result);
 
     // ============================================================
     // VERIFICATION
@@ -375,6 +407,7 @@ async function main() {
     console.log(`\n  Total: ${totalSuccess}/${totalCommands} commands successful`);
     if (totalErrors > 0) {
       console.log(`  Errors: ${totalErrors}`);
+      throw new Error(`Schema optimization failed with ${totalErrors} command error(s).`);
     }
 
     console.log(`\n${'='.repeat(60)}`);
@@ -394,4 +427,10 @@ async function main() {
   }
 }
 
-main();
+void main().catch((error) => {
+  console.error(
+    '[run-schema-optimization] Failed:',
+    error instanceof Error ? error.message : String(error),
+  );
+  process.exit(1);
+});

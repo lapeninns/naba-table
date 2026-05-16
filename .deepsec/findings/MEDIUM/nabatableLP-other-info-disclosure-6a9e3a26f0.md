@@ -20,3 +20,7 @@ Use a guest-specific history DTO for this public route that redacts raw actor va
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-13)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-20)
+
+**Verdict:** fixed
+
+`server/bookingHistory.ts` now normalizes booking history actors to `System` or `Restaurant team` instead of returning raw audit actors or `changed_by` identifiers. The public route consumes that sanitized helper output. Covered by `tests/server/booking-history-redaction.test.ts`.

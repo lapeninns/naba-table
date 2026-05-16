@@ -20,3 +20,7 @@ Do not trust forwarded/origin/referer host headers from the request for auth cal
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-19)
+
+**Verdict:** fixed
+
+The signin route no longer lets spoofable forwarded/origin headers or suffix-matched hosts choose `emailRedirectTo`. `parseHostname` ignores `x-forwarded-host`, `x-original-host`, `Origin`, and `Referer`; `resolveTrustedAuthHostname` restricts auth host selection to exact canonical root, www, app, or approved local hosts; and `buildAuthCallbackUrl` builds the callback from that trusted host only. `sendAuthMagicLink` also rejects untrusted callback origins before calling Supabase `generateLink`, so future callers cannot bypass the route-level canonicalization. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including negative coverage for `x-forwarded-host: evil-nabatable.com` and direct `evil-nabatable.com` callback construction.

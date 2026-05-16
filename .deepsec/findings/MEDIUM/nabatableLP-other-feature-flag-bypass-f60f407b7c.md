@@ -20,3 +20,11 @@ Treat the context flag as UX only and enforce the same server-side feature gate 
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-31)
+
+## Remediation
+
+**Verdict:** fixed
+
+The backing rejection analytics and strategic-config APIs both enforce `isOpsRejectionAnalyticsEnabled()` server-side before authentication, membership checks, or service data access.
+
+**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`

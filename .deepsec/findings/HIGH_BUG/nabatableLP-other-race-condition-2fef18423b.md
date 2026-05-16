@@ -19,3 +19,7 @@ Perform the future-assignment check and table delete inside a single transaction
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)
+
+**Verdict:** fixed
+
+The route no longer performs separate future-assignment lookup and table delete operations. Current `src/app/api/ops/tables/[id]/route.ts` calls `delete_table_inventory_guarded`, and `supabase/migrations/20260516083600_guard_table_inventory_delete.sql` locks the table row with `FOR UPDATE` before checking active/future assignments and deleting. New assignment inserts must satisfy the table FK and cannot pass through a concurrently locked/deleted table row without the database rechecking the final state. Focused evidence: `tests/server/ops-table-delete-route.test.ts` verifies the guarded RPC call and 409 mapping; targeted ESLint, targeted Prettier check, and `pnpm run typecheck` passed on 2026-05-16.

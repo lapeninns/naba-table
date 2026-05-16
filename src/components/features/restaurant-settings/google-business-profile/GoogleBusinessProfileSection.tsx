@@ -27,10 +27,10 @@ import {
   useOpsGoogleBusinessProfileAvailableLocations,
   useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
+  useOpsStartGoogleBusinessProfileAuthorization,
 } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { opsHref } from '@/lib/url/opsHref';
 import {
-  OPS_RESTAURANTS_BASE,
   type GoogleBusinessProfileAvailableLocation,
   type GoogleBusinessProfileConnection,
 } from '@/services/ops/restaurants';
@@ -305,6 +305,7 @@ export function GoogleBusinessProfileSection({
   );
   const linkMutation = useOpsLinkGoogleBusinessProfileLocation(restaurantId);
   const disconnectMutation = useOpsDisconnectGoogleBusinessProfile(restaurantId);
+  const startAuthorizationMutation = useOpsStartGoogleBusinessProfileAuthorization(restaurantId);
 
   const [selectedLocationValue, setSelectedLocationValue] = useState('');
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
@@ -444,6 +445,19 @@ export function GoogleBusinessProfileSection({
     );
   }, [linkMutation, selectedLocation]);
 
+  const handleConnectGoogle = useCallback(() => {
+    if (startAuthorizationMutation.isPending) {
+      return;
+    }
+
+    startAuthorizationMutation.mutate(undefined, {
+      onSuccess: ({ authorizationUrl }) => {
+        window.location.assign(authorizationUrl);
+      },
+      onError: (error) => toast.error(error.message),
+    });
+  }, [startAuthorizationMutation]);
+
   const selectAnchor = useCallback(
     (anchorId: GbpAnchorId) => {
       if (anchorId === 'gbp-sync-review' && !hasSyncWorkspace) {
@@ -458,9 +472,6 @@ export function GoogleBusinessProfileSection({
   );
 
   const stage = getStage(data);
-  const connectHref = restaurantId
-    ? `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/connect`
-    : '#';
   const manageOnGoogleHref = buildGoogleMapsPlaceHref(data?.externalPlaceId ?? null);
   const hasLinkedLocation = Boolean(data?.externalLocationId);
   const isLinked = data?.status === 'linked' || data?.status === 'sync_error';
@@ -483,7 +494,8 @@ export function GoogleBusinessProfileSection({
       lastPullAt={data?.lastPullAt ?? null}
       hasLinkedLocation={hasLinkedLocation}
       showConnect={showConnect && Boolean(restaurantId)}
-      connectHref={connectHref}
+      onConnect={restaurantId ? handleConnectGoogle : null}
+      isConnecting={startAuthorizationMutation.isPending}
       showPicker={showPicker}
       onChooseLocation={() => selectAnchor('gbp-location')}
       canRefresh={canRefresh}
@@ -616,8 +628,9 @@ export function GoogleBusinessProfileSection({
         {showConnect ? (
           <div className="scroll-mt-24">
             <ConnectCard
-              connectHref={connectHref}
+              onConnect={handleConnectGoogle}
               isConfigured={data.isConfigured}
+              isConnecting={startAuthorizationMutation.isPending}
               isPendingAuth={data.status === 'pending_auth'}
               lastError={!isLinked ? data.lastError : null}
             />
@@ -628,7 +641,8 @@ export function GoogleBusinessProfileSection({
           <div id="gbp-location" className="scroll-mt-24">
             <LocationPickerCard
               data={data}
-              connectHref={connectHref}
+              onConnect={handleConnectGoogle}
+              isConnecting={startAuthorizationMutation.isPending}
               selectedLocation={selectedLocation}
               selectedLocationValue={selectedLocationValue}
               onSelectedLocationValueChange={setSelectedLocationValue}

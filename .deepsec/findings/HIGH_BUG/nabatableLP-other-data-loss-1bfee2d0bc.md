@@ -16,6 +16,12 @@ The table calls the revoke mutation with a restaurantId and inviteId, but the ba
 
 Change DELETE to use the existing revokeRestaurantInvite-style status update, set revoked_at, and return {invite: serializedInvite} matching the client schema. Keep hard delete as a separate owner-only maintenance path if needed.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The revoke flow now preserves invitation rows by updating pending invites to `status='revoked'` with `revoked_at`, and the DELETE route returns `{ invite: serializedInvite }` matching the browser service schema. Focused route/service/component coverage verifies the soft-revoke response contract and the client revoke path: `pnpm exec vitest run tests/server/team-invitations-security.test.ts tests/services/ops-team-service.test.ts tests/components/TeamSettingsComponents.test.tsx` passed on 2026-05-16.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

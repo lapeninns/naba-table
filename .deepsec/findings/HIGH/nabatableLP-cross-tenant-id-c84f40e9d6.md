@@ -20,3 +20,7 @@ Do not treat a service-role client plus header as a tenant boundary. Use explici
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-24)
+
+**Verdict:** fixed
+
+The originally cited cross-tenant assignment-context query is no longer present: current consumers resolve or receive an authorized restaurant context and use explicit `restaurant_id` predicates before tenant-specific reads/writes. The misleading helper contract has also been hardened in `server/supabase.ts`: `getTenantServiceSupabaseClient` now documents that the `X-Restaurant-Id` header is for logging/RPC context only, not an isolation boundary, because service-role clients bypass RLS. Callers are explicitly required to enforce membership and restaurant predicates themselves. This closes the demonstrated issue as a code-contract hardening rather than an RLS-header enforcement claim.

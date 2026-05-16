@@ -2,8 +2,10 @@ import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { env } from '@/lib/env';
 import { getTrustedSiteOrigin } from '@/lib/site-url';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
+import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { reservationAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
@@ -105,7 +107,12 @@ export default async function GuestBookingReceiptPage({
   const supabase = await getServerComponentSupabaseClient();
   const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
   const user = userResponse.data.user;
-  const hasRecoveryCookie = Boolean(cookieStore.get('sr_access')?.value);
+  const recoveryCookie = cookieStore.get('sr_access')?.value ?? null;
+  const recoverySecret = env.security.sessionRecoveryAccessTokenSecret;
+  const hasRecoveryCookie =
+    Boolean(recoveryCookie) &&
+    Boolean(recoverySecret) &&
+    validateSessionRecoveryAccessToken(recoveryCookie!, { secret: recoverySecret! }).ok;
 
   // Require either auth or an established recovery cookie for receipt access.
   if (!user && !hasRecoveryCookie) {

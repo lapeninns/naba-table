@@ -19,3 +19,7 @@ Atomically claim the review first with an UPDATE ... WHERE id = ? AND restaurant
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+
+**Verdict:** fixed
+
+`decideFoodMenusImportReview` now claims the row before menu side effects by transitioning `decision_status` from `pending` to `processing` with restaurant/review/status predicates. If the claim returns no row, the decision aborts before applying canonical menu changes. The final decision update now requires `decision_status = 'processing'`, so an unclaimed or concurrently handled review cannot overwrite the outcome. Focused evidence: `tests/server/google-business-profile-food-menus-sync.test.ts` passed on 2026-05-16 and verifies the lost-claim path does not call menu side-effect helpers or final marking.

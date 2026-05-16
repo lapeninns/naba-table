@@ -2,13 +2,52 @@ type ProductionScriptSafetyInput = {
   connectionString: string;
   expectedProjectRef: string;
   targetEnv?: string;
+  requireTargetEnv?: boolean;
   apply?: boolean;
   destructive?: boolean;
   targetRestaurant?: string | null;
   requireRestaurant?: boolean;
   confirmation?: string;
+  confirmationName?: string;
   breakGlass?: string;
+  breakGlassName?: string;
 };
+
+type ProductionApiScriptSafetyInput = {
+  apiUrl: string;
+  expectedProjectRef: string;
+  targetEnv?: string;
+  requireTargetEnv?: boolean;
+  apply?: boolean;
+  confirmation?: string;
+  confirmationName?: string;
+};
+
+type StagingScriptSafetyInput = {
+  apiUrl?: string;
+  connectionString?: string;
+  expectedProjectRef?: string | null;
+  targetEnv?: string;
+  confirmation?: string;
+  confirmationName?: string;
+};
+
+export const DEFAULT_PRODUCTION_PROJECT_REF = 'vrdiqfudmwydclqpydee';
+export const DEFAULT_STAGING_PROJECT_REF = 'ndxmivcrehsacuerwxtm';
+
+export function normalizeSupabaseProjectRef(
+  projectRef: string | null | undefined,
+  name = 'EXPECTED_PROJECT_REF',
+): string {
+  const normalized = projectRef?.trim().toLowerCase();
+  if (!normalized) {
+    throw new Error(`${name} is required.`);
+  }
+  if (!/^[a-z0-9]{20}$/.test(normalized)) {
+    throw new Error(`${name} must be a 20-character Supabase project ref.`);
+  }
+  return normalized;
+}
 
 function extractProjectRefFromConnectionString(connectionString: string): string | null {
   const url = new URL(connectionString);
@@ -62,16 +101,99 @@ export function assertProductionScriptSafety(input: ProductionScriptSafetyInput)
   }
 
   const targetEnv =
-    input.targetEnv ?? process.env.DB_TARGET_ENV ?? process.env.APP_ENV ?? 'development';
-  if (targetEnv !== 'production') return;
+    input.targetEnv?.trim().toLowerCase() ||
+    process.env.DB_TARGET_ENV?.trim().toLowerCase() ||
+    process.env.APP_ENV?.trim().toLowerCase() ||
+    '';
+  if (input.requireTargetEnv && targetEnv !== 'production') {
+    throw new Error(
+      'DB_TARGET_ENV=production or APP_ENV=production is required for production writes.',
+    );
+  }
 
-  assertExactSupabaseProjectRef(input.connectionString, input.expectedProjectRef);
+  const expectedProjectRef = normalizeSupabaseProjectRef(
+    input.expectedProjectRef,
+    'EXPECTED_PRODUCTION_PROJECT_REF',
+  );
+  const actualProjectRef = extractProjectRefFromConnectionString(input.connectionString);
+  if (!actualProjectRef) {
+    throw new Error('Unable to determine Supabase project ref from DB host/user.');
+  }
+
+  const targetsProduction = targetEnv === 'production' || actualProjectRef === expectedProjectRef;
+  if (!targetsProduction) return;
+
+  if (actualProjectRef !== expectedProjectRef) {
+    throw new Error(
+      `Supabase project ref mismatch: expected ${expectedProjectRef}, received ${actualProjectRef}.`,
+    );
+  }
 
   if (input.apply && input.confirmation !== 'true') {
-    throw new Error('Production apply requires explicit confirmation.');
+    const confirmationName = input.confirmationName ?? 'CONFIRM_PRODUCTION';
+    throw new Error(`${confirmationName}=true is required before applying to production.`);
   }
 
   if (input.apply && input.destructive && input.breakGlass !== 'true') {
-    throw new Error('Destructive production apply requires break-glass confirmation.');
+    const breakGlassName = input.breakGlassName ?? 'BREAK_GLASS_PRODUCTION';
+    throw new Error(`${breakGlassName}=true is required for destructive production apply.`);
   }
+}
+
+export function assertProductionApiScriptSafety(input: ProductionApiScriptSafetyInput): void {
+  const expectedProjectRef = normalizeSupabaseProjectRef(
+    input.expectedProjectRef,
+    'EXPECTED_PRODUCTION_PROJECT_REF',
+  );
+  const actualProjectRef = assertExactSupabaseApiProjectRef(input.apiUrl, expectedProjectRef);
+  const targetEnv =
+    input.targetEnv?.trim().toLowerCase() ||
+    process.env.DB_TARGET_ENV?.trim().toLowerCase() ||
+    process.env.APP_ENV?.trim().toLowerCase() ||
+    '';
+
+  if (input.requireTargetEnv && targetEnv !== 'production') {
+    throw new Error(
+      'DB_TARGET_ENV=production or APP_ENV=production is required for production writes.',
+    );
+  }
+
+  const targetsProduction = targetEnv === 'production' || actualProjectRef === expectedProjectRef;
+  if (targetsProduction && input.apply && input.confirmation !== 'true') {
+    const confirmationName = input.confirmationName ?? 'CONFIRM_PRODUCTION';
+    throw new Error(`${confirmationName}=true is required before applying to production.`);
+  }
+}
+
+export function assertStagingScriptSafety(input: StagingScriptSafetyInput): string {
+  const expectedProjectRef = normalizeSupabaseProjectRef(
+    input.expectedProjectRef ?? DEFAULT_STAGING_PROJECT_REF,
+    'EXPECTED_STAGING_PROJECT_REF',
+  );
+  const targetEnv =
+    input.targetEnv?.trim().toLowerCase() ||
+    process.env.DB_TARGET_ENV?.trim().toLowerCase() ||
+    process.env.APP_ENV?.trim().toLowerCase() ||
+    '';
+
+  if (!targetEnv) {
+    throw new Error('DB_TARGET_ENV=staging or APP_ENV=staging is required for staging writes.');
+  }
+  if (targetEnv !== 'staging') {
+    throw new Error(`Refusing staging script against target env "${targetEnv}".`);
+  }
+
+  if (input.apiUrl) {
+    assertExactSupabaseApiProjectRef(input.apiUrl, expectedProjectRef);
+  }
+  if (input.connectionString) {
+    assertExactSupabaseProjectRef(input.connectionString, expectedProjectRef);
+  }
+
+  if (input.confirmation !== 'true') {
+    const confirmationName = input.confirmationName ?? 'CONFIRM_STAGING_WRITE';
+    throw new Error(`${confirmationName}=true is required before applying to staging.`);
+  }
+
+  return expectedProjectRef;
 }

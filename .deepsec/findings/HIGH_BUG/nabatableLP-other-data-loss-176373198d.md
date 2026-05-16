@@ -16,6 +16,12 @@ getGoogleBusinessProfileLocationProfile fetches optional mask groups such as ser
 
 Return explicit per-segment fetch status, or make optional segment failure fail the sync. At minimum, pass a syncServiceItems flag through to persistence and only replace restaurant_service_items when the serviceItems segment was fetched successfully.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`getGoogleBusinessProfileLocationProfile` now returns `__nabatableOptionalFetchStatus.serviceItems` as `fetched` or `unavailable` after the optional read-mask request. `syncGoogleBusinessProfileCanonicalBusinessInfo` uses that status to pass `p_service_items: null` to the atomic replacement RPC when the optional segment was unavailable, preserving existing GBP-managed service items. Focused client and business-info tests cover failed optional fetch preservation and explicit empty-segment replacement.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

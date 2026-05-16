@@ -19,3 +19,21 @@ Revoke authenticated EXECUTE unless these RPCs are strictly server-only. If dire
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+This was a true-positive database-level authorization gap. It is fixed by `supabase/migrations/20260516070700_harden_soft_hold_rpc_authorization.sql`.
+
+The migration keeps the application path server-only by revoking `PUBLIC`, `anon`, and `authenticated` execution on `acquire_soft_holds_atomic`, `release_soft_holds`, `check_soft_hold_ownership`, and `cleanup_expired_soft_holds`, then granting execute only to `service_role`. Current shipped callers already authorize the operator in Next.js route handlers before constructing service clients, so direct authenticated Supabase RPC execution is no longer part of the supported contract.
+
+The migration also hardens `acquire_soft_holds_atomic` itself: database-side TTL is clamped to 5-30 seconds, every requested table must exist in `table_inventory` for `p_restaurant_id`, an optional `p_booking_id` must belong to that restaurant, and conflict rows no longer return another session token through `blocking_session`.
+
+Evidence:
+
+- `pnpm exec vitest run tests/server/capacity/soft-holds-rpc-security.test.ts` passed: 3 tests.
+- `pnpm run security:regression` passed after adding the new soft-hold regression to the pack: 17 files, 113 tests.
+- `pnpm run security:guard:service-role` passed with the existing baseline: 7 existing exceptions, 0 new violations.
+- `pnpm exec eslint --max-warnings=0 tests/server/capacity/soft-holds-rpc-security.test.ts` passed.
+- `pnpm exec prettier --check package.json tests/server/capacity/soft-holds-rpc-security.test.ts tasks/deepsec-high-remediation-20260516-0659/research.md tasks/deepsec-high-remediation-20260516-0659/plan.md tasks/deepsec-high-remediation-20260516-0659/todo.md tasks/deepsec-high-remediation-20260516-0659/verification.md CONTINUITY.md` passed.
+
+Not yet applied to remote Supabase in this pass. Staging/prod apply remains a deployment step.

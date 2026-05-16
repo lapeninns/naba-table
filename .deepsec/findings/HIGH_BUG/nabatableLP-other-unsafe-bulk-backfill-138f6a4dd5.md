@@ -16,6 +16,12 @@ After loading .env.local, APPLY can be enabled with --apply or APPLY=true and th
 
 Require explicit environment and restaurant scope for apply mode, run/replicate validate-env production-resource checks, default UPDATE_EMAIL_PREFS to false, and require a separate production confirmation for any all-restaurant run.
 
+## Revalidation
+
+**Verdict:** fixed
+
+Apply mode in `scripts/backfill-review-emails.ts` now runs `assertReviewBackfillApplySafety()` before constructing the Supabase service-role client. That guard requires an exact production API project ref, `DB_TARGET_ENV=production` or `APP_ENV=production`, `CONFIRM_REVIEW_EMAIL_BACKFILL=true`, and a concrete `TARGET_RESTAURANT_ID`/`RESTAURANT_ID` unless the operator also sets `ALLOW_ALL_RESTAURANTS_BACKFILL=true` and `CONFIRM_REVIEW_EMAIL_GLOBAL_BACKFILL=true`. Restaurant preference writes are disabled unless `UPDATE_EMAIL_PREFS=true` and `CONFIRM_REVIEW_EMAIL_PREF_UPDATE=true`, and even then are scoped only to restaurants with selected backfill candidates. Focused script tests verify the guard is ordered before `getServiceSupabaseClient()` and that preference updates are candidate-scoped.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-19)

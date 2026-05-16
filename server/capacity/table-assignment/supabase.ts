@@ -1,31 +1,27 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
-import { releaseTableHold } from "@/server/capacity/holds";
-import {
-  getContextQueryPaddingMinutes,
-  isAdjacencyQueryUndirected,
-} from "@/server/feature-flags";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
+import { releaseTableHold } from '@/server/capacity/holds';
+import { getContextQueryPaddingMinutes, isAdjacencyQueryUndirected } from '@/server/feature-flags';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
+import { ManualSelectionInputError, type DbClient, type Table, type BookingWindow } from './types';
+import { toIsoUtc } from './utils';
 
-import { ManualSelectionInputError, type DbClient, type Table, type BookingWindow } from "./types";
-import { toIsoUtc } from "./utils";
+import type { TableHold } from '@/server/capacity/holds';
+import type { VenuePolicy } from '@/server/capacity/policy';
+import type { Tables } from '@/types/supabase';
 
-import type { TableHold } from "@/server/capacity/holds";
-import type { VenuePolicy } from "@/server/capacity/policy";
-import type { Tables } from "@/types/supabase";
-
-export type { DbClient } from "./types";
+export type { DbClient } from './types';
 
 // Note: min_party_size and max_party_size removed - now derived from mobility via deriveTableRules()
 const TABLE_INVENTORY_SELECT =
-  "id,table_number,capacity,section,category,seating_type,mobility,zone_id,status,active,position,zones(active)" as const;
+  'id,table_number,capacity,section,category,seating_type,mobility,zone_id,status,active,position,zones(active)' as const;
 
-type TableInventoryRow = Tables<"table_inventory">;
+type TableInventoryRow = Tables<'table_inventory'>;
 type TableInventoryRowWithZone = TableInventoryRow & { zones?: { active: boolean | null } | null };
 
-export type BookingRow = Tables<"bookings"> & {
+export type BookingRow = Tables<'bookings'> & {
   restaurants?: { timezone: string | null } | { timezone: string | null }[];
 };
 
@@ -43,7 +39,7 @@ export type ContextBookingRow = {
   booking_table_assignments: Array<{ table_id: string | null }> | null;
 };
 
-export type TableHoldRow = Tables<"table_holds"> & {
+export type TableHoldRow = Tables<'table_holds'> & {
   table_hold_members: Array<{ table_id: string | null }> | null;
 };
 
@@ -63,18 +59,18 @@ export function applyAbortSignal<T extends { abortSignal?: (signal: AbortSignal)
   builder: T,
   signal?: AbortSignal,
 ): T {
-  if (signal && typeof builder.abortSignal === "function") {
+  if (signal && typeof builder.abortSignal === 'function') {
     return builder.abortSignal(signal);
   }
   return builder;
 }
 
 export function extractErrorCode(error: unknown): string | undefined {
-  if (typeof error !== "object" || error === null) {
+  if (typeof error !== 'object' || error === null) {
     return undefined;
   }
   const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : undefined;
+  return typeof code === 'string' ? code : undefined;
 }
 
 function normalizeBookingRow(row: BookingRow): BookingRow {
@@ -84,38 +80,46 @@ function normalizeBookingRow(row: BookingRow): BookingRow {
   return row;
 }
 
-export async function loadBooking(bookingId: string, client: DbClient, signal?: AbortSignal): Promise<BookingRow> {
+export async function loadBooking(
+  bookingId: string,
+  client: DbClient,
+  signal?: AbortSignal,
+): Promise<BookingRow> {
   const bookingQuery = applyAbortSignal(
     client
-      .from("bookings")
+      .from('bookings')
       .select(
         [
-          "id",
-          "restaurant_id",
-          "booking_date",
-          "start_time",
-          "end_time",
-      "start_at",
-      "end_at",
-      "party_size",
-      "status",
-      "seating_preference",
-      "booking_type",
-      "restaurants(timezone)",
-    ].join(","),
-  )
-  .eq("id", bookingId),
+          'id',
+          'restaurant_id',
+          'booking_date',
+          'start_time',
+          'end_time',
+          'start_at',
+          'end_at',
+          'party_size',
+          'status',
+          'seating_preference',
+          'booking_type',
+          'restaurants(timezone)',
+        ].join(','),
+      )
+      .eq('id', bookingId),
     signal,
   );
 
   const { data, error } = await bookingQuery.maybeSingle();
 
   if (error) {
-    throw new ManualSelectionInputError(error.message ?? "Failed to load booking", "BOOKING_LOOKUP_FAILED", 500);
+    throw new ManualSelectionInputError(
+      error.message ?? 'Failed to load booking',
+      'BOOKING_LOOKUP_FAILED',
+      500,
+    );
   }
 
   if (!data) {
-    throw new ManualSelectionInputError("Booking not found", "BOOKING_NOT_FOUND", 404);
+    throw new ManualSelectionInputError('Booking not found', 'BOOKING_NOT_FOUND', 404);
   }
 
   return normalizeBookingRow(data as unknown as BookingRow);
@@ -126,16 +130,24 @@ type RestaurantInfo = {
   slug: string | null;
 };
 
-async function loadRestaurantInfo(restaurantId: string, client: DbClient, signal?: AbortSignal): Promise<RestaurantInfo> {
+async function loadRestaurantInfo(
+  restaurantId: string,
+  client: DbClient,
+  signal?: AbortSignal,
+): Promise<RestaurantInfo> {
   const restaurantQuery = applyAbortSignal(
-    client.from("restaurants").select("timezone, slug").eq("id", restaurantId),
+    client.from('restaurants').select('timezone, slug').eq('id', restaurantId),
     signal,
   );
 
   const { data, error } = await restaurantQuery.maybeSingle();
 
   if (error) {
-    throw new ManualSelectionInputError(error.message ?? "Failed to load restaurant metadata", "RESTAURANT_LOOKUP_FAILED", 500);
+    throw new ManualSelectionInputError(
+      error.message ?? 'Failed to load restaurant metadata',
+      'RESTAURANT_LOOKUP_FAILED',
+      500,
+    );
   }
 
   return {
@@ -159,7 +171,7 @@ export async function loadTablesForRestaurant(
   signal?: AbortSignal,
 ): Promise<Table[]> {
   try {
-    const { getInventoryCache } = await import("@/server/capacity/cache");
+    const { getInventoryCache } = await import('@/server/capacity/cache');
     const cached = getInventoryCache(restaurantId);
     if (Array.isArray(cached) && cached.length > 0) {
       return cached as Table[];
@@ -169,13 +181,17 @@ export async function loadTablesForRestaurant(
   }
 
   const query = applyAbortSignal(
-    client.from("table_inventory").select(TABLE_INVENTORY_SELECT).eq("restaurant_id", restaurantId),
+    client.from('table_inventory').select(TABLE_INVENTORY_SELECT).eq('restaurant_id', restaurantId),
     signal,
   );
   const { data, error } = await query;
 
   if (error || !data) {
-    throw new ManualSelectionInputError(error?.message ?? "Failed to load table inventory", "TABLE_INVENTORY_LOOKUP_FAILED", 500);
+    throw new ManualSelectionInputError(
+      error?.message ?? 'Failed to load table inventory',
+      'TABLE_INVENTORY_LOOKUP_FAILED',
+      500,
+    );
   }
 
   const rows = data as TableInventoryRowWithZone[];
@@ -204,7 +220,7 @@ export async function loadTablesForRestaurant(
   });
 
   try {
-    const { setInventoryCache } = await import("@/server/capacity/cache");
+    const { setInventoryCache } = await import('@/server/capacity/cache');
     setInventoryCache(restaurantId, tables);
   } catch {
     // ignore cache set failure
@@ -226,17 +242,21 @@ export async function loadTablesByIds(
   const uniqueIds = Array.from(new Set(tableIds));
   const tableQuery = applyAbortSignal(
     client
-      .from("table_inventory")
+      .from('table_inventory')
       .select<typeof TABLE_INVENTORY_SELECT, TableInventoryRowWithZone>(TABLE_INVENTORY_SELECT)
-      .eq("restaurant_id", restaurantId)
-      .in("id", uniqueIds),
+      .eq('restaurant_id', restaurantId)
+      .in('id', uniqueIds),
     signal,
   );
 
   const { data, error } = await tableQuery;
 
   if (error || !data) {
-    return [];
+    throw new ManualSelectionInputError(
+      error?.message ?? 'Failed to load conflicting bookings',
+      'CONTEXT_BOOKINGS_LOOKUP_FAILED',
+      503,
+    );
   }
 
   const rows = data as TableInventoryRowWithZone[];
@@ -285,7 +305,7 @@ export async function loadAdjacency(
 ): Promise<Map<string, Set<string>>> {
   const uniqueTableIds = Array.from(
     new Set(
-      tableIds.filter((value): value is string => typeof value === "string" && value.length > 0),
+      tableIds.filter((value): value is string => typeof value === 'string' && value.length > 0),
     ),
   );
 
@@ -295,7 +315,7 @@ export async function loadAdjacency(
 
   let cachedGraph: Map<string, Set<string>> | null = null;
   try {
-    const { getAdjacencyCache } = await import("@/server/capacity/cache");
+    const { getAdjacencyCache } = await import('@/server/capacity/cache');
     cachedGraph = getAdjacencyCache(restaurantId);
   } catch {
     cachedGraph = null;
@@ -311,15 +331,16 @@ export async function loadAdjacency(
   const needFetch = !cachedGraph || missing.length > 0;
 
   type AdjacencyRow = { table_a: string | null; table_b: string | null };
-  const baseQuery = () => applyAbortSignal(client.from("table_adjacencies").select("table_a, table_b"), signal);
+  const baseQuery = () =>
+    applyAbortSignal(client.from('table_adjacencies').select('table_a, table_b'), signal);
   const adjacencyUndirected = isAdjacencyQueryUndirected();
   const targetIds = needFetch && cachedGraph ? missing : uniqueTableIds;
-  const forward = await baseQuery().in("table_a", targetIds);
+  const forward = await baseQuery().in('table_a', targetIds);
   if (forward.error) {
     return new Map();
   }
 
-  const reverse = adjacencyUndirected ? await baseQuery().in("table_b", targetIds) : null;
+  const reverse = adjacencyUndirected ? await baseQuery().in('table_b', targetIds) : null;
   if (reverse?.error) {
     return new Map();
   }
@@ -330,7 +351,9 @@ export async function loadAdjacency(
       ? (reverse.data as AdjacencyRow[])
       : [];
 
-  const map = cachedGraph ? new Map<string, Set<string>>(cachedGraph) : new Map<string, Set<string>>();
+  const map = cachedGraph
+    ? new Map<string, Set<string>>(cachedGraph)
+    : new Map<string, Set<string>>();
   if (targetIds.length > 0) {
     for (const id of targetIds) {
       map.delete(id);
@@ -361,7 +384,7 @@ export async function loadAdjacency(
   }
 
   try {
-    const { setAdjacencyCache } = await import("@/server/capacity/cache");
+    const { setAdjacencyCache } = await import('@/server/capacity/cache');
     setAdjacencyCache(restaurantId, map);
   } catch {
     // ignore cache set failures
@@ -392,45 +415,53 @@ export async function loadContextBookings(
   const startIso = aroundWindow?.startIso ?? null;
   const endIso = aroundWindow?.endIso ?? null;
   const padMs = pad * 60 * 1000;
-  const startPad = startIso ? DateTime.fromISO(startIso, { setZone: true }).minus({ milliseconds: padMs }).toISO() : null;
-  const endPad = endIso ? DateTime.fromISO(endIso, { setZone: true }).plus({ milliseconds: padMs }).toISO() : null;
+  const startPad = startIso
+    ? DateTime.fromISO(startIso, { setZone: true }).minus({ milliseconds: padMs }).toISO()
+    : null;
+  const endPad = endIso
+    ? DateTime.fromISO(endIso, { setZone: true }).plus({ milliseconds: padMs }).toISO()
+    : null;
 
   let query = client
-    .from("bookings")
+    .from('bookings')
     .select(
       [
-        "id",
-        "party_size",
-        "status",
-        "start_time",
-        "end_time",
-        "start_at",
-        "end_at",
-        "booking_date",
-        "booking_type",
-        "booking_table_assignments(table_id)",
-      ].join(","),
+        'id',
+        'party_size',
+        'status',
+        'start_time',
+        'end_time',
+        'start_at',
+        'end_at',
+        'booking_date',
+        'booking_type',
+        'booking_table_assignments(table_id)',
+      ].join(','),
     )
-    .eq("restaurant_id", restaurantId)
-    .eq("booking_date", bookingDate)
-    .in("status", [...BOOKING_BLOCKING_STATUSES])
-    .order("start_at", { ascending: true });
+    .eq('restaurant_id', restaurantId)
+    .eq('booking_date', bookingDate)
+    .in('status', [...BOOKING_BLOCKING_STATUSES])
+    .order('start_at', { ascending: true });
 
   query = applyAbortSignal(query, signal);
 
-  const hasGt = typeof (query as unknown as { gt?: unknown }).gt === "function";
-  const hasLt = typeof (query as unknown as { lt?: unknown }).lt === "function";
+  const hasGt = typeof (query as unknown as { gt?: unknown }).gt === 'function';
+  const hasLt = typeof (query as unknown as { lt?: unknown }).lt === 'function';
   if (startPad && hasGt) {
-    (query as unknown as { gt: (col: string, val: string) => unknown }).gt("end_at", startPad);
+    (query as unknown as { gt: (col: string, val: string) => unknown }).gt('end_at', startPad);
   }
   if (endPad && hasLt) {
-    (query as unknown as { lt: (col: string, val: string) => unknown }).lt("start_at", endPad);
+    (query as unknown as { lt: (col: string, val: string) => unknown }).lt('start_at', endPad);
   }
 
   const { data, error } = await query;
 
   if (error || !data) {
-    return [];
+    throw new ManualSelectionInputError(
+      error?.message ?? 'Failed to load conflicting bookings',
+      'CONTEXT_BOOKINGS_LOOKUP_FAILED',
+      503,
+    );
   }
 
   return data as unknown as ContextBookingRow[];
@@ -446,12 +477,16 @@ export async function loadTableAssignmentsForTables(
   }
 
   const { data, error } = await client
-    .from("booking_table_assignments")
-    .select("table_id, id, start_at, end_at, merge_group_id")
-    .eq("booking_id", bookingId);
+    .from('booking_table_assignments')
+    .select('table_id, id, start_at, end_at, merge_group_id')
+    .eq('booking_id', bookingId);
 
   if (error || !data) {
-    return [];
+    throw new ManualSelectionInputError(
+      error?.message ?? 'Failed to load conflicting bookings',
+      'CONTEXT_BOOKINGS_LOOKUP_FAILED',
+      503,
+    );
   }
 
   const rows = data as unknown as BookingAssignmentRow[];
@@ -464,17 +499,17 @@ export async function fetchHoldsForWindow(
   client: DbClient,
 ): Promise<TableHold[]> {
   const { data, error } = await client
-    .from("table_holds")
-    .select("*, table_hold_members(table_id)")
-    .eq("restaurant_id", restaurantId)
-    .gt("expires_at", new Date().toISOString())
-    .lt("start_at", toIsoUtc(window.block.end))
-    .gt("end_at", toIsoUtc(window.block.start));
+    .from('table_holds')
+    .select('*, table_hold_members(table_id)')
+    .eq('restaurant_id', restaurantId)
+    .gt('expires_at', new Date().toISOString())
+    .lt('start_at', toIsoUtc(window.block.end))
+    .gt('end_at', toIsoUtc(window.block.start));
 
   if (error) {
     const code = (error as { code?: string }).code;
     // Missing table, FK relationship, or schema cache error - return empty array
-    if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
+    if (code === '42P01' || code === 'PGRST200' || code === 'PGRST205') {
       return [];
     }
     throw error;
@@ -490,7 +525,7 @@ export async function fetchHoldsForWindow(
     const members = row.table_hold_members ?? [];
     const tableIds = members
       .map((member) => member.table_id)
-      .filter((value): value is string => typeof value === "string");
+      .filter((value): value is string => typeof value === 'string');
     return {
       id: row.id,
       bookingId: row.booking_id,
@@ -517,23 +552,23 @@ export async function loadActiveHoldsForDate(
     return [];
   }
 
-  const day = DateTime.fromISO(bookingDate, { zone: policy.timezone ?? "UTC" });
+  const day = DateTime.fromISO(bookingDate, { zone: policy.timezone ?? 'UTC' });
   if (!day.isValid) {
     return [];
   }
 
-  const dayStart = toIsoUtc(day.startOf("day"));
-  const dayEnd = toIsoUtc(day.plus({ days: 1 }).startOf("day"));
+  const dayStart = toIsoUtc(day.startOf('day'));
+  const dayEnd = toIsoUtc(day.plus({ days: 1 }).startOf('day'));
   const now = toIsoUtc(DateTime.now());
 
   const holdsQuery = applyAbortSignal(
     client
-      .from("table_holds")
-      .select("*, table_hold_members(table_id)")
-      .eq("restaurant_id", restaurantId)
-      .gt("expires_at", now)
-      .lt("start_at", dayEnd)
-      .gt("end_at", dayStart),
+      .from('table_holds')
+      .select('*, table_hold_members(table_id)')
+      .eq('restaurant_id', restaurantId)
+      .gt('expires_at', now)
+      .lt('start_at', dayEnd)
+      .gt('end_at', dayStart),
     signal,
   );
 
@@ -542,7 +577,7 @@ export async function loadActiveHoldsForDate(
   if (error) {
     const code = (error as { code?: string }).code;
     // Missing table, FK relationship, or schema cache error - return empty array
-    if (code === "42P01" || code === "PGRST200" || code === "PGRST205") {
+    if (code === '42P01' || code === 'PGRST200' || code === 'PGRST205') {
       return [];
     }
     throw error;
@@ -558,7 +593,7 @@ export async function loadActiveHoldsForDate(
     const members = row.table_hold_members ?? [];
     const tableIds = members
       .map((member) => member.table_id)
-      .filter((value): value is string => typeof value === "string");
+      .filter((value): value is string => typeof value === 'string');
     return {
       id: row.id,
       bookingId: row.booking_id,
@@ -600,46 +635,53 @@ export function findMissingHoldMetadataFields(holdRow: TableHoldRow): string[] {
   const missing: string[] = [];
   const rawMetadata = (holdRow as { metadata?: unknown }).metadata;
 
-  if (!rawMetadata || typeof rawMetadata !== "object") {
-    return ["metadata"];
+  if (!rawMetadata || typeof rawMetadata !== 'object') {
+    return ['metadata'];
   }
 
   const metadata = rawMetadata as Record<string, unknown>;
-  if (typeof metadata.policyVersion !== "string" || metadata.policyVersion.trim().length === 0) {
-    missing.push("metadata.policyVersion");
+  if (typeof metadata.policyVersion !== 'string' || metadata.policyVersion.trim().length === 0) {
+    missing.push('metadata.policyVersion');
   }
+  const requireAdjacency = metadata.requireAdjacency === true;
 
   const selection = metadata.selection as Record<string, unknown> | undefined;
-  if (!selection || typeof selection !== "object") {
-    missing.push("metadata.selection");
+  if (!selection || typeof selection !== 'object') {
+    missing.push('metadata.selection');
     return missing;
   }
 
   const snapshot = selection.snapshot as Record<string, unknown> | undefined;
-  if (!snapshot || typeof snapshot !== "object") {
-    missing.push("metadata.selection.snapshot");
+  if (!snapshot || typeof snapshot !== 'object') {
+    if (requireAdjacency) {
+      missing.push('metadata.selection.snapshot');
+    }
     return missing;
   }
 
   const zoneIds = snapshot.zoneIds;
-  if (!Array.isArray(zoneIds) || zoneIds.length === 0 || zoneIds.some((zone) => typeof zone !== "string" || zone.trim().length === 0)) {
-    missing.push("metadata.selection.snapshot.zoneIds");
+  if (
+    !Array.isArray(zoneIds) ||
+    zoneIds.length === 0 ||
+    zoneIds.some((zone) => typeof zone !== 'string' || zone.trim().length === 0)
+  ) {
+    missing.push('metadata.selection.snapshot.zoneIds');
   }
 
   const adjacency = snapshot.adjacency as Record<string, unknown> | undefined;
-  if (!adjacency || typeof adjacency !== "object") {
-    missing.push("metadata.selection.snapshot.adjacency");
+  if (!adjacency || typeof adjacency !== 'object') {
+    missing.push('metadata.selection.snapshot.adjacency');
     return missing;
   }
 
   const edges = adjacency.edges;
-  if (!Array.isArray(edges) || edges.some((edge) => typeof edge !== "string")) {
-    missing.push("metadata.selection.snapshot.adjacency.edges");
+  if (!Array.isArray(edges) || edges.some((edge) => typeof edge !== 'string')) {
+    missing.push('metadata.selection.snapshot.adjacency.edges');
   }
 
   const hash = adjacency.hash;
-  if (typeof hash !== "string" || hash.trim().length === 0) {
-    missing.push("metadata.selection.snapshot.adjacency.hash");
+  if (typeof hash !== 'string' || hash.trim().length === 0) {
+    missing.push('metadata.selection.snapshot.adjacency.hash');
   }
 
   return missing;

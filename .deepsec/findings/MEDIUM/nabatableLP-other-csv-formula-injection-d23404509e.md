@@ -16,6 +16,12 @@ The export builds a CSV from booking fields such as customerName, customerEmail,
 
 Centralize CSV cell hardening in the CSV helper before quoting. Prefix formula-like cells with an apostrophe or otherwise neutralize values matching leading whitespace followed by =, +, -, @, tab, CR, or LF, then apply normal CSV escaping. Add tests covering exported guest name, email, phone, notes, and array fields.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting, and `/api/ops/bookings/export` emits CSV through `generateCSV`. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

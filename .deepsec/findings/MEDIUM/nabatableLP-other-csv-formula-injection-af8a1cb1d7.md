@@ -16,6 +16,12 @@ escapeCSVField only quotes fields containing delimiters and escapes double quote
 
 Add formula-injection protection in escapeCSVField before returning the cell. For any string whose first non-whitespace/control character is one of =, +, -, or @, prefix a single quote or another accepted neutralizing character, then quote/escape normally. Apply this consistently to all data cells, and add tests covering delimiter-free and quoted formula payloads.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting and `generateCSV` applies it to headers and every data cell. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-11)

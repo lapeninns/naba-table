@@ -16,6 +16,12 @@ The sheet only reloads form state when the source key changes or the form is not
 
 Reset the form and baseline snapshot when discard is confirmed or when the sheet transitions from closed to open for a new item.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The affected legacy component is no longer present in the current repository. `git ls-files` has no `src/components/features/menu/DrinkItemSheet.tsx` entry, and `rg 'DrinkItemSheet|loadedSourceKeyRef|baselineSnapshotRef' src components tests` returns no current implementation references. The shipped menu surface now uses the menu hierarchy components, so this stale dirty-new-drink sheet state path is removed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

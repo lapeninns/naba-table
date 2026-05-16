@@ -19,3 +19,7 @@ Do not return raw invite tokens or invite URLs from the admin create API. Delive
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)
+
+**Verdict:** fixed
+
+Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

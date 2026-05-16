@@ -1,49 +1,59 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { env } from "@/lib/env";
-import { logger } from "@/lib/logger";
-import { computeServiceBreakdown } from "@/lib/ops/daily-booking-summary";
-import { getDateInTimezone } from "@/lib/utils/datetime";
-import { LruCache } from "@/server/capacity/lru-cache";
-import { getCustomerProfilesForCustomers } from "@/server/ops/customer-profiles";
-import { getServiceSupabaseClient } from "@/server/supabase";
-import { getDashboardDayBoundsUtc } from "@/utils/ops/dashboard";
-import { computeDashboardTotals } from "@/utils/ops/dashboardSummary";
+import { env } from '@/lib/env';
+import { logger } from '@/lib/logger';
+import { computeServiceBreakdown } from '@/lib/ops/daily-booking-summary';
+import { getDateInTimezone } from '@/lib/utils/datetime';
+import { LruCache } from '@/server/capacity/lru-cache';
+import { getCustomerProfilesForCustomers } from '@/server/ops/customer-profiles';
+import { getServiceSupabaseClient } from '@/server/supabase';
+import { getDashboardDayBoundsUtc } from '@/utils/ops/dashboard';
+import { computeDashboardTotals } from '@/utils/ops/dashboardSummary';
 
-import type { OpsTodayBooking, OpsTodayBookingsSummary } from "@/types/ops";
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import type { Database, Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
 
-const CANCELLED_STATUSES: Tables<"bookings">["status"][] = ["cancelled", "no_show"];
+const CANCELLED_STATUSES: Tables<'bookings'>['status'][] = ['cancelled', 'no_show'];
 
 const opsCacheConfig = env.opsCache;
 const SUMMARY_CACHE_TTL_MS = opsCacheConfig.summaryTtlMs;
 const CHANGES_CACHE_TTL_MS = opsCacheConfig.changesTtlMs;
 const RESTAURANT_META_CACHE_TTL_MS = opsCacheConfig.restaurantMetaTtlMs;
 const OPS_CACHE_MAX_ENTRIES = opsCacheConfig.maxEntries;
+const CHANGE_FEED_MAX_LIMIT = 100;
 
 const summaryCacheEnabled = SUMMARY_CACHE_TTL_MS > 0;
 const changesCacheEnabled = CHANGES_CACHE_TTL_MS > 0;
 const restaurantMetaCacheEnabled = RESTAURANT_META_CACHE_TTL_MS > 0;
 
-const summaryCache = new LruCache<TodayBookingsSummary>(OPS_CACHE_MAX_ENTRIES, Math.max(SUMMARY_CACHE_TTL_MS, 1));
+const summaryCache = new LruCache<TodayBookingsSummary>(
+  OPS_CACHE_MAX_ENTRIES,
+  Math.max(SUMMARY_CACHE_TTL_MS, 1),
+);
 const summaryInFlight = new Map<string, Promise<TodayBookingsSummary>>();
 
 type RestaurantMeta = {
   timezone: string;
 };
 
-const restaurantMetaCache = new LruCache<RestaurantMeta>(OPS_CACHE_MAX_ENTRIES, Math.max(RESTAURANT_META_CACHE_TTL_MS, 1));
+const restaurantMetaCache = new LruCache<RestaurantMeta>(
+  OPS_CACHE_MAX_ENTRIES,
+  Math.max(RESTAURANT_META_CACHE_TTL_MS, 1),
+);
 const restaurantMetaInFlight = new Map<string, Promise<RestaurantMeta>>();
 
 type BookingChangesPayload = BookingChangeFeedResponse;
 
-const changesCache = new LruCache<BookingChangesPayload>(OPS_CACHE_MAX_ENTRIES, Math.max(CHANGES_CACHE_TTL_MS, 1));
+const changesCache = new LruCache<BookingChangesPayload>(
+  OPS_CACHE_MAX_ENTRIES,
+  Math.max(CHANGES_CACHE_TTL_MS, 1),
+);
 const changesInFlight = new Map<string, Promise<BookingChangesPayload>>();
 
-const opsLogger = logger.child({ module: "ops.bookings" });
+const opsLogger = logger.child({ module: 'ops.bookings' });
 
 type PreferencesJson = {
   allergies?: unknown;
@@ -57,31 +67,34 @@ function parsePreferences(preferencesJson: unknown): {
   dietaryRestrictions: string[] | null;
   seatingPreference: string | null;
 } {
-  if (!preferencesJson || typeof preferencesJson !== "object") {
+  if (!preferencesJson || typeof preferencesJson !== 'object') {
     return { allergies: null, dietaryRestrictions: null, seatingPreference: null };
   }
 
   const prefs = preferencesJson as PreferencesJson;
 
   const allergies = Array.isArray(prefs.allergies)
-    ? prefs.allergies.filter((item): item is string => typeof item === "string")
+    ? prefs.allergies.filter((item): item is string => typeof item === 'string')
     : null;
 
   const dietaryRestrictions = Array.isArray(prefs.dietary_restrictions)
-    ? prefs.dietary_restrictions.filter((item): item is string => typeof item === "string")
+    ? prefs.dietary_restrictions.filter((item): item is string => typeof item === 'string')
     : null;
 
-  const seatingPreference = typeof prefs.seating === "string" ? prefs.seating : null;
+  const seatingPreference = typeof prefs.seating === 'string' ? prefs.seating : null;
 
   return {
     allergies: allergies && allergies.length > 0 ? allergies : null,
-    dietaryRestrictions: dietaryRestrictions && dietaryRestrictions.length > 0 ? dietaryRestrictions : null,
+    dietaryRestrictions:
+      dietaryRestrictions && dietaryRestrictions.length > 0 ? dietaryRestrictions : null,
     seatingPreference,
   };
 }
 
-function normalizeDetails(details: Tables<"bookings">["details"] | null | undefined): Record<string, unknown> | null {
-  if (!details || typeof details !== "object" || Array.isArray(details)) {
+function normalizeDetails(
+  details: Tables<'bookings'>['details'] | null | undefined,
+): Record<string, unknown> | null {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
     return null;
   }
   return details as Record<string, unknown>;
@@ -89,12 +102,12 @@ function normalizeDetails(details: Tables<"bookings">["details"] | null | undefi
 
 function toUtcIso(date: string, time: string | null, timezone: string): string {
   const normalizedTime = (() => {
-    if (!time) return "00:00:00";
+    if (!time) return '00:00:00';
     const match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (!match) return time;
-    const hours = match[1]?.padStart(2, "0") ?? "00";
-    const minutes = match[2] ?? "00";
-    const seconds = match[3] ?? "00";
+    const hours = match[1]?.padStart(2, '0') ?? '00';
+    const minutes = match[2] ?? '00';
+    const seconds = match[3] ?? '00';
     return `${hours}:${minutes}:${seconds}`;
   })();
 
@@ -104,51 +117,51 @@ function toUtcIso(date: string, time: string | null, timezone: string): string {
     if (iso) return iso;
   }
 
-  return `${date}T${normalizedTime.endsWith("Z") ? normalizedTime : `${normalizedTime}Z`}`;
+  return `${date}T${normalizedTime.endsWith('Z') ? normalizedTime : `${normalizedTime}Z`}`;
 }
 
 function toSortTimeMs(time: string | null): number {
   if (!time) return Number.MAX_SAFE_INTEGER;
   const normalizedTime = time.length === 5 ? `${time}:00` : time;
-  const parsed = DateTime.fromISO(`1970-01-01T${normalizedTime}`, { zone: "UTC" });
+  const parsed = DateTime.fromISO(`1970-01-01T${normalizedTime}`, { zone: 'UTC' });
   return parsed.isValid ? parsed.toMillis() : Number.MAX_SAFE_INTEGER;
 }
 
 function formatTimeRangeLabel(startIso: string, endIso: string, timezone: string): string {
-  const start = DateTime.fromISO(startIso, { zone: "utc" }).setZone(timezone);
-  const end = DateTime.fromISO(endIso, { zone: "utc" }).setZone(timezone);
+  const start = DateTime.fromISO(startIso, { zone: 'utc' }).setZone(timezone);
+  const end = DateTime.fromISO(endIso, { zone: 'utc' }).setZone(timezone);
 
   if (!start.isValid) {
-    return "Time TBD";
+    return 'Time TBD';
   }
 
-  const startLabel = start.toFormat("h:mm a");
+  const startLabel = start.toFormat('h:mm a');
   if (!end.isValid || end.toMillis() === start.toMillis()) {
     return startLabel;
   }
 
-  return `${startLabel} – ${end.toFormat("h:mm a")}`;
+  return `${startLabel} – ${end.toFormat('h:mm a')}`;
 }
 
 function buildDisplayInitials(name: string | null | undefined): string {
-  return (name || "Guest")
-    .split(" ")
+  return (name || 'Guest')
+    .split(' ')
     .filter(Boolean)
     .map((part) => part[0])
-    .join("")
+    .join('')
     .toUpperCase()
     .slice(0, 2);
 }
 
-function buildTableLabel(assignments: OpsTodayBooking["tableAssignments"]): string | null {
+function buildTableLabel(assignments: OpsTodayBooking['tableAssignments']): string | null {
   if (!assignments || assignments.length === 0) {
     return null;
   }
 
   const labels = assignments.map((group) =>
-    (group.members ?? []).map((member) => member.tableNumber || "—").join(" + "),
+    (group.members ?? []).map((member) => member.tableNumber || '—').join(' + '),
   );
-  const combined = labels.filter(Boolean).join(", ");
+  const combined = labels.filter(Boolean).join(', ');
   return combined.length > 0 ? combined : null;
 }
 
@@ -156,7 +169,10 @@ export type TodayBooking = OpsTodayBooking;
 
 export type TodayBookingsSummary = OpsTodayBookingsSummary;
 
-type BookingSummaryTableInventory = Pick<Tables<"table_inventory">, "table_number" | "capacity" | "section">;
+type BookingSummaryTableInventory = Pick<
+  Tables<'table_inventory'>,
+  'table_number' | 'capacity' | 'section'
+>;
 
 type BookingSummaryTableAssignment = {
   table_id: string | null;
@@ -164,23 +180,23 @@ type BookingSummaryTableAssignment = {
 };
 
 type BookingSummaryQueryRow = Pick<
-  Tables<"bookings">,
-  | "id"
-  | "status"
-  | "booking_type"
-  | "start_time"
-  | "end_time"
-  | "party_size"
-  | "customer_name"
-  | "customer_email"
-  | "customer_phone"
-  | "notes"
-  | "reference"
-  | "details"
-  | "source"
-  | "checked_in_at"
-  | "checked_out_at"
-  | "customer_id"
+  Tables<'bookings'>,
+  | 'id'
+  | 'status'
+  | 'booking_type'
+  | 'start_time'
+  | 'end_time'
+  | 'party_size'
+  | 'customer_name'
+  | 'customer_email'
+  | 'customer_phone'
+  | 'notes'
+  | 'reference'
+  | 'details'
+  | 'source'
+  | 'checked_in_at'
+  | 'checked_out_at'
+  | 'customer_id'
 > & {
   booking_table_assignments: BookingSummaryTableAssignment[] | null;
 };
@@ -192,11 +208,11 @@ type SummaryOptions = {
 };
 
 function resolveTimezone(value: string | null | undefined): string {
-  return value && value.trim().length > 0 ? value : "UTC";
+  return value && value.trim().length > 0 ? value : 'UTC';
 }
 
 function isValidDateString(value: string | undefined): value is string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function buildSummaryCacheKey(restaurantId: string, date: string): string {
@@ -207,7 +223,10 @@ function buildChangesCacheKey(restaurantId: string, date: string, limit: number)
   return `${restaurantId}:${date}:limit=${limit}`;
 }
 
-export function invalidateOpsBookingsSummaryCache(restaurantId: string, date?: string | null): void {
+export function invalidateOpsBookingsSummaryCache(
+  restaurantId: string,
+  date?: string | null,
+): void {
   if (!summaryCacheEnabled || !restaurantId) return;
 
   if (date && isValidDateString(date)) {
@@ -281,9 +300,9 @@ async function getRestaurantMeta(restaurantId: string, client: DbClient): Promis
 
   const fetchPromise = (async () => {
     const { data, error } = await client
-      .from("restaurants")
-      .select("timezone")
-      .eq("id", restaurantId)
+      .from('restaurants')
+      .select('timezone')
+      .eq('id', restaurantId)
       .maybeSingle();
 
     if (error) {
@@ -337,7 +356,7 @@ export async function getTodayBookingsSummary(
   if (summaryCacheEnabled) {
     const cached = summaryCache.get(cacheKey);
     if (cached) {
-      opsLogger.debug("summary cache hit", { restaurantId, reportDate });
+      opsLogger.debug('summary cache hit', { restaurantId, reportDate });
       return cached;
     }
 
@@ -350,7 +369,7 @@ export async function getTodayBookingsSummary(
   const fetchPromise = (async () => {
     const start = Date.now();
     const { data, error } = await client
-      .from("bookings")
+      .from('bookings')
       .select(
         `
         id,
@@ -379,9 +398,9 @@ export async function getTodayBookingsSummary(
         )
       `,
       )
-      .eq("restaurant_id", restaurantId)
-      .eq("booking_date", reportDate)
-      .order("start_time", { ascending: true });
+      .eq('restaurant_id', restaurantId)
+      .eq('booking_date', reportDate)
+      .order('start_time', { ascending: true });
 
     if (error) {
       throw error;
@@ -391,7 +410,10 @@ export async function getTodayBookingsSummary(
 
     const customerIds = bookings
       .map((booking) => booking.customer_id)
-      .filter((customerId): customerId is string => typeof customerId === "string" && customerId.length > 0);
+      .filter(
+        (customerId): customerId is string =>
+          typeof customerId === 'string' && customerId.length > 0,
+      );
 
     const customerProfilesMap = await getCustomerProfilesForCustomers({
       customerIds,
@@ -399,14 +421,16 @@ export async function getTodayBookingsSummary(
     });
 
     const summaryBookings: TodayBooking[] = bookings.map((booking) => {
-      const profileData = booking.customer_id ? customerProfilesMap.get(booking.customer_id) ?? null : null;
+      const profileData = booking.customer_id
+        ? (customerProfilesMap.get(booking.customer_id) ?? null)
+        : null;
       const parsedPreferences = parsePreferences(profileData?.preferences);
 
       const rawAssignments = Array.isArray(booking.booking_table_assignments)
         ? booking.booking_table_assignments
         : [];
 
-      const assignmentGroups = new Map<string, TodayBooking["tableAssignments"][number]>();
+      const assignmentGroups = new Map<string, TodayBooking['tableAssignments'][number]>();
 
       for (const assignment of rawAssignments) {
         if (!assignment?.table_id) {
@@ -429,7 +453,7 @@ export async function getTodayBookingsSummary(
             members: [],
           };
 
-          if (typeof tableMeta?.capacity === "number") {
+          if (typeof tableMeta?.capacity === 'number') {
             group.capacitySum = tableMeta.capacity;
           }
 
@@ -438,8 +462,8 @@ export async function getTodayBookingsSummary(
 
         group.members.push({
           tableId: assignment.table_id,
-          tableNumber: tableMeta?.table_number ?? "Unknown",
-          capacity: typeof tableMeta?.capacity === "number" ? tableMeta.capacity : null,
+          tableNumber: tableMeta?.table_number ?? 'Unknown',
+          capacity: typeof tableMeta?.capacity === 'number' ? tableMeta.capacity : null,
           section: tableMeta?.section ?? null,
         });
       }
@@ -455,14 +479,16 @@ export async function getTodayBookingsSummary(
       const requiresTableAssignment = tableAssignments.length === 0;
       const startIso = toUtcIso(reportDate, booking.start_time, timezone);
       const endIso = toUtcIso(reportDate, booking.end_time ?? booking.start_time, timezone);
-      const displayCustomerLabel = booking.customer_name?.trim() || "Walk-in Guest";
-      const searchText = `${booking.customer_name ?? ""} ${booking.reference ?? ""}`.trim().toLowerCase();
+      const displayCustomerLabel = booking.customer_name?.trim() || 'Walk-in Guest';
+      const searchText = `${booking.customer_name ?? ''} ${booking.reference ?? ''}`
+        .trim()
+        .toLowerCase();
       const sortTimeMs = toSortTimeMs(booking.start_time);
       const sortTimelineTimeMs =
-        booking.status === "checked_in" ? toSortTimeMs(booking.end_time) : sortTimeMs;
+        booking.status === 'checked_in' ? toSortTimeMs(booking.end_time) : sortTimeMs;
       const displayTimeRangeLabel = booking.start_time
         ? formatTimeRangeLabel(startIso, endIso, timezone)
-        : "Time TBD";
+        : 'Time TBD';
 
       return {
         id: booking.id,
@@ -478,7 +504,7 @@ export async function getTodayBookingsSummary(
         customerPhone: booking.customer_phone ?? null,
         reference: booking.reference ?? null,
         details: normalizeDetails(booking.details),
-        source: (booking.source as Tables<"bookings">["source"]) ?? null,
+        source: (booking.source as Tables<'bookings'>['source']) ?? null,
         profileNotes: profileData?.notes ?? null,
         allergies: parsedPreferences.allergies,
         dietaryRestrictions: parsedPreferences.dietaryRestrictions,
@@ -518,12 +544,12 @@ export async function getTodayBookingsSummary(
     } satisfies TodayBookingsSummary;
 
     const durationMs = Date.now() - start;
-    opsLogger.info("ops.summary.fetch", {
+    opsLogger.info('ops.summary.fetch', {
       restaurantId,
       reportDate,
       duration_ms: durationMs,
       bookings: summaryBookings.length,
-      source: "db",
+      source: 'db',
     });
 
     if (summaryCacheEnabled) {
@@ -555,7 +581,7 @@ export type BookingChange = {
   bookingId: string;
   bookingReference: string | null;
   customerName: string | null;
-  changeType: Database["public"]["Enums"]["booking_change_type"];
+  changeType: Database['public']['Enums']['booking_change_type'];
   changedAt: string;
   changedBy: string | null;
   oldData: Record<string, unknown> | null;
@@ -569,11 +595,18 @@ export type BookingChangeFeedResponse = {
 };
 
 type BookingVersionRow = Pick<
-  Tables<"booking_versions">,
-  "version_id" | "booking_id" | "change_type" | "changed_at" | "changed_by" | "old_data" | "new_data"
+  Tables<'booking_versions'>,
+  | 'version_id'
+  | 'booking_id'
+  | 'change_type'
+  | 'changed_at'
+  | 'changed_by'
+  | 'old_data'
+  | 'new_data'
 > & {
-  bookings: Pick<Tables<"bookings">, "customer_name" | "reference"> |
-    Pick<Tables<"bookings">, "customer_name" | "reference">[];
+  bookings:
+    | Pick<Tables<'bookings'>, 'customer_name' | 'reference'>
+    | Pick<Tables<'bookings'>, 'customer_name' | 'reference'>[];
 };
 
 type HeatmapOptions = {
@@ -589,17 +622,20 @@ export async function getBookingsHeatmap(
   const client = options.client ?? getServiceSupabaseClient();
 
   const { data, error } = await client
-    .from("bookings")
-    .select("booking_date, party_size, status")
-    .eq("restaurant_id", restaurantId)
-    .gte("booking_date", options.startDate)
-    .lte("booking_date", options.endDate);
+    .from('bookings')
+    .select('booking_date, party_size, status')
+    .eq('restaurant_id', restaurantId)
+    .gte('booking_date', options.startDate)
+    .lte('booking_date', options.endDate);
 
   if (error) {
     throw error;
   }
 
-  const entries = (data ?? []) as Pick<Tables<"bookings">, "booking_date" | "party_size" | "status">[];
+  const entries = (data ?? []) as Pick<
+    Tables<'bookings'>,
+    'booking_date' | 'party_size' | 'status'
+  >[];
 
   return entries.reduce<BookingHeatmap>((acc, booking) => {
     const key = booking.booking_date;
@@ -628,7 +664,7 @@ export async function getTodayBookingChanges(
   options: ChangeFeedOptions,
 ): Promise<BookingChangeFeedResponse> {
   const client = options.client ?? getServiceSupabaseClient();
-  const limit = options.limit ?? 50;
+  const limit = Math.min(Math.max(Math.trunc(options.limit ?? 50), 1), CHANGE_FEED_MAX_LIMIT);
   const referenceDate = options.referenceDate ?? new Date();
   const restaurantMeta = await getRestaurantMeta(restaurantId, client);
   const timezone = restaurantMeta.timezone;
@@ -642,7 +678,7 @@ export async function getTodayBookingChanges(
   if (changesCacheEnabled) {
     const cached = changesCache.get(cacheKey);
     if (cached) {
-      opsLogger.debug("changes cache hit", { restaurantId, date: targetDate, limit });
+      opsLogger.debug('changes cache hit', { restaurantId, date: targetDate, limit });
       return cached;
     }
 
@@ -656,15 +692,15 @@ export async function getTodayBookingChanges(
     const start = Date.now();
 
     const { data, error } = await client
-      .from("booking_versions")
+      .from('booking_versions')
       .select(
         `version_id, booking_id, change_type, changed_at, changed_by, old_data, new_data,
       bookings!inner(customer_name, reference)`,
       )
-      .eq("restaurant_id", restaurantId)
-      .gte("changed_at", startUtcIso)
-      .lt("changed_at", endUtcIso)
-      .order("changed_at", { ascending: false })
+      .eq('restaurant_id', restaurantId)
+      .gte('changed_at', startUtcIso)
+      .lt('changed_at', endUtcIso)
+      .order('changed_at', { ascending: false })
       .limit(limit);
 
     if (error) {
@@ -679,7 +715,7 @@ export async function getTodayBookingChanges(
         bookingId: version.booking_id,
         bookingReference: booking?.reference ?? null,
         customerName: booking?.customer_name ?? null,
-        changeType: version.change_type as BookingChange["changeType"],
+        changeType: version.change_type as BookingChange['changeType'],
         changedAt: version.changed_at,
         changedBy: version.changed_by,
         oldData: (version.old_data as Record<string, unknown>) ?? null,
@@ -694,13 +730,13 @@ export async function getTodayBookingChanges(
     } satisfies BookingChangeFeedResponse;
 
     const durationMs = Date.now() - start;
-    opsLogger.info("ops.changes.fetch", {
+    opsLogger.info('ops.changes.fetch', {
       restaurantId,
       date: targetDate,
       timezone,
       duration_ms: durationMs,
       changes: changes.length,
-      source: "db",
+      source: 'db',
     });
 
     if (changesCacheEnabled) {

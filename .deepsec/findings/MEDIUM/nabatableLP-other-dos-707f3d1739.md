@@ -20,3 +20,9 @@ Check required signature headers and a strict Content-Length limit before readin
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-26)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)
+
+**Verdict:** fixed
+
+The Resend webhook handler now checks required Svix headers before reading the request body, rejects oversized `Content-Length` preflight values, and also enforces a post-read byte limit for signed requests. Missing verification headers no longer force body buffering.
+
+Validation: `pnpm exec vitest run tests/server/calendar-mask-route.test.ts tests/server/resend-webhook-route.test.ts`

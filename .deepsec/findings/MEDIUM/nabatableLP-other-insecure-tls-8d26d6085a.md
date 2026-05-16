@@ -19,3 +19,7 @@ Use verified TLS with the platform CA instead of disabling certificate validatio
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
+
+**Verdict:** fixed
+
+`scripts/db-perf-baseline.ts` now uses `getPgSslConfig()`, which returns `rejectUnauthorized: true` and optional CA configuration. Covered by `tests/scripts/db-safety.test.ts`.

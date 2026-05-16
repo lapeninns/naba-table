@@ -85,6 +85,7 @@ import {
   buildOperatingHoursPayload,
   buildMissingRequiredOccasions,
   buildWeeklyHoursMap,
+  defaultOverrideRow,
   extractRequiredOccasionKeys,
   formatKitchenRange,
   mapOverridesFromResponse,
@@ -412,6 +413,25 @@ describe('availability schedule manager model', () => {
       id: 'override-1',
       reservationSlotTimes: ['12:00', '12:30'],
     });
+  });
+
+  it('creates stable UUIDs for new operating-hours override drafts', () => {
+    const first = defaultOverrideRow();
+    const second = defaultOverrideRow();
+
+    expect(first.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(second.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(first.id).not.toBe(second.id);
+
+    const payload = buildOperatingHoursPayload(
+      mapWeeklyFromResponse(buildOperatingHours().weekly),
+      [first],
+    );
+    expect(payload.overrides[0]?.id).toBe(first.id);
   });
 
   it('validates service window helpers and kitchen range labels', () => {

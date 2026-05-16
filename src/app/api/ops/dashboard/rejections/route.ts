@@ -1,17 +1,21 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { getRejectionAnalytics } from "@/server/ops/rejections";
-import { getServiceSupabaseClient } from "@/server/supabase";
-import { buildDashboardAccessErrorResponse, requireDashboardAccess } from "@/src/app/api/ops/dashboard/_shared";
+import { isOpsRejectionAnalyticsEnabled } from '@/server/feature-flags';
+import { getRejectionAnalytics } from '@/server/ops/rejections';
+import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  buildDashboardAccessErrorResponse,
+  requireDashboardAccess,
+} from '@/src/app/api/ops/dashboard/_shared';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
 const querySchema = z.object({
   restaurantId: z.string().uuid(),
   from: z.string().optional(),
   to: z.string().optional(),
-  bucket: z.enum(["day", "hour"]).optional(),
+  bucket: z.enum(['day', 'hour']).optional(),
 });
 
 type RejectionsQuery = z.infer<typeof querySchema>;
@@ -26,15 +30,19 @@ function parseQuery(request: NextRequest): RejectionsQuery | null {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isOpsRejectionAnalyticsEnabled()) {
+    return NextResponse.json({ error: 'Rejection analytics is disabled' }, { status: 404 });
+  }
+
   const query = parseQuery(request);
   if (!query) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
   }
 
   try {
     await requireDashboardAccess(query.restaurantId);
   } catch (error) {
-    return buildDashboardAccessErrorResponse("rejections", error);
+    return buildDashboardAccessErrorResponse('rejections', error);
   }
 
   try {
@@ -47,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(analytics);
   } catch (analyticsError) {
-    console.error("[ops/dashboard][rejections] failed to load analytics", analyticsError);
-    return NextResponse.json({ error: "Unable to load rejection analytics" }, { status: 500 });
+    console.error('[ops/dashboard][rejections] failed to load analytics', analyticsError);
+    return NextResponse.json({ error: 'Unable to load rejection analytics' }, { status: 500 });
   }
 }

@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
+import { assertStagingScriptSafety } from './db/safety';
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -9,6 +11,23 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} is required.`);
+  }
+  return value;
+}
+
+assertStagingScriptSafety({
+  apiUrl: SUPABASE_URL,
+  expectedProjectRef: process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF,
+  targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
+  confirmation: process.env.CONFIRM_STAGING_BOOKING_SEED,
+  confirmationName: 'CONFIRM_STAGING_BOOKING_SEED',
+});
+
+const TARGET_RESTAURANT_ID = requireEnv('RESTAURANT_ID');
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 interface BookingInput {
@@ -108,14 +127,7 @@ function generateRandomId(): string {
 }
 
 async function getRestaurantId(): Promise<string> {
-  const { data, error } = await supabase.from('restaurants').select('id').limit(1);
-
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    throw new Error('No restaurants found');
-  }
-
-  return data[0].id;
+  return TARGET_RESTAURANT_ID;
 }
 
 async function getOrCreateCustomer(
@@ -204,7 +216,7 @@ async function seedBookingsForWeek() {
 
       const lunchCount = Math.floor(Math.random() * 6) + 10;
       for (let i = 0; i < lunchCount; i++) {
-        const minutes = Math.floor(Math.random() * 105);
+        const minutes = Math.floor(Math.random() * 60);
         const hour = 12;
         const startTime = `${hour.toString().padStart(2, '0')}:${minutes
           .toString()

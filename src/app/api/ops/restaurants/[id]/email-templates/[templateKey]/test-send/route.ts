@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server';
 
-import { restaurantEmailTemplateKeySchema, sendRestaurantEmailTemplateTestSchema, type SendRestaurantEmailTemplateTestResponse } from '@/app/api/ops/restaurants/schema';
+import {
+  restaurantEmailTemplateKeySchema,
+  sendRestaurantEmailTemplateTestSchema,
+  type SendRestaurantEmailTemplateTestResponse,
+} from '@/app/api/ops/restaurants/schema';
 import { sendRestaurantBookingEmailTest } from '@/server/emails/bookings';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 
-import { ensureTemplateWriteAccess, resolveRestaurantId, resolveTemplateKeyParam, type RouteParams } from '../../_shared';
+import {
+  ensureTemplateWriteAccess,
+  resolveRestaurantId,
+  resolveTemplateKeyParam,
+  type RouteParams,
+} from '../../_shared';
 
 import type { NextRequest } from 'next/server';
 
@@ -13,14 +23,28 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(await resolveTemplateKeyParam(params));
+  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
+    await resolveTemplateKeyParam(params),
+  );
   if (!parsedTemplateKey.success) {
     return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
   }
 
-  const venueOrResponse = await ensureTemplateWriteAccess(restaurantId);
+  const venueOrResponse = await ensureTemplateWriteAccess(restaurantId, req);
   if (venueOrResponse instanceof NextResponse) {
     return venueOrResponse;
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'restaurant-email-template:test-send',
+    tenantId: restaurantId,
+    limit: 10,
+    windowMs: 60_000,
+    message: 'Too many test email requests. Please try again later.',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   let body: unknown;
@@ -32,7 +56,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const parsedBody = sendRestaurantEmailTemplateTestSchema.safeParse(body);
   if (!parsedBody.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsedBody.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsedBody.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
@@ -69,6 +96,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops][restaurants][email-templates][test-send] failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to send test email' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to send test email' },
+      { status: 500 },
+    );
   }
 }

@@ -19,3 +19,7 @@ Return a dedicated sanitized DTO for guest lookup. Exclude confirmation_token, i
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
+
+**Verdict:** fixed
+
+`src/app/api/bookings/route.ts` now maps both policy and legacy guest lookup rows through a guest-safe DTO before returning them. The DTO omits confirmation tokens, idempotency keys, client request ids, pending refs, details, and notes. Covered by `tests/server/public-bookings-route.test.ts`.

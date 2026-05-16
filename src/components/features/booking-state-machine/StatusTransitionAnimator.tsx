@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,7 @@ import type { OpsBookingStatus } from '@/types/ops';
 
 const HIGHLIGHT_DURATION_MS = 900;
 const CONFETTI_DURATION_MS = 950;
+const DEFAULT_CONFETTI_STATUSES: OpsBookingStatus[] = ['completed'];
 
 type StatusTransitionAnimatorProps = {
   status: OpsBookingStatus | null;
@@ -48,7 +49,7 @@ export function StatusTransitionAnimator({
   className,
   highlightClassName,
   overlayClassName,
-  confettiStatuses = ['completed'],
+  confettiStatuses = DEFAULT_CONFETTI_STATUSES,
 }: StatusTransitionAnimatorProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const previousStatusRef = useRef<OpsBookingStatus | null>(null);
@@ -56,38 +57,33 @@ export function StatusTransitionAnimator({
   const [showConfetti, setShowConfetti] = useState(false);
 
   const activeStatus = effectiveStatus ?? status;
-  const statusChanged = useMemo(() => {
-    const previous = previousStatusRef.current;
-    return previous && activeStatus && previous !== activeStatus;
-  }, [activeStatus]);
 
   useEffect(() => {
     if (!activeStatus) {
       return;
     }
     const previous = previousStatusRef.current;
-    if (previous !== activeStatus) {
-      previousStatusRef.current = activeStatus;
-      if (!prefersReducedMotion) {
-        setShowHighlight(true);
-        const timeout = setTimeout(() => setShowHighlight(false), HIGHLIGHT_DURATION_MS);
-        return () => clearTimeout(timeout);
-      }
-    }
-    return undefined;
-  }, [activeStatus, prefersReducedMotion]);
+    const didChange = Boolean(previous && previous !== activeStatus);
+    previousStatusRef.current = activeStatus;
 
-  useEffect(() => {
-    if (!activeStatus || prefersReducedMotion) {
+    if (!didChange || prefersReducedMotion) {
       return;
     }
-    if (statusChanged && confettiStatuses.includes(activeStatus)) {
+
+    setShowHighlight(true);
+    const highlightTimeout = setTimeout(() => setShowHighlight(false), HIGHLIGHT_DURATION_MS);
+
+    let confettiTimeout: ReturnType<typeof setTimeout> | null = null;
+    if (confettiStatuses.includes(activeStatus)) {
       setShowConfetti(true);
-      const timeout = setTimeout(() => setShowConfetti(false), CONFETTI_DURATION_MS);
-      return () => clearTimeout(timeout);
+      confettiTimeout = setTimeout(() => setShowConfetti(false), CONFETTI_DURATION_MS);
     }
-    return undefined;
-  }, [activeStatus, confettiStatuses, prefersReducedMotion, statusChanged]);
+
+    return () => {
+      clearTimeout(highlightTimeout);
+      if (confettiTimeout) clearTimeout(confettiTimeout);
+    };
+  }, [activeStatus, confettiStatuses, prefersReducedMotion]);
 
   return (
     <div
@@ -124,6 +120,7 @@ export function StatusTransitionAnimator({
       {showConfetti ? (
         <div
           aria-hidden
+          data-testid="status-transition-confetti"
           className="pointer-events-none absolute inset-x-[-12px] -top-3 flex justify-center"
         >
           <div className="h-2 w-[140%] animate-[confetti-fade_0.75s_ease-out] bg-[radial-gradient(circle,_hsl(var(--primary)/0.45)_0%,_hsl(var(--primary)/0)_70%)] blur-sm" />

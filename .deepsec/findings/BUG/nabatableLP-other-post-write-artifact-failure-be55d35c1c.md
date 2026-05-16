@@ -19,3 +19,7 @@ Create `artifactsDir` before starting the database write phase, or write the sum
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/staging/seed-perf-dataset.ts` now runs `fs.mkdirSync(artifactsDir, { recursive: true })` before constructing the pg client and connecting for apply mode, so the summary path is preflighted before remote mutations. Focused script-safety tests assert that artifact directory creation and the staging target guard precede `await client.connect()`.

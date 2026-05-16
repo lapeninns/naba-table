@@ -16,6 +16,12 @@ buildCanonicalRows maps location.serviceItems with a nullish fallback to an empt
 
 Track whether serviceItems were fetched successfully and skip restaurant_service_items replacement when the segment was unavailable. Only replace with an empty array when Google explicitly returned an empty serviceItems list.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/google-business-profile/business-info.ts` now treats `serviceItems` replacement as opt-in: it only replaces rows when the segment was explicitly fetched or the location payload contains `serviceItems`. Unavailable or omitted segments pass `p_service_items: null` and omit `restaurant_service_items` from field-status and change-log replacement. An explicit `serviceItems: []` still replaces with an empty array, so a real upstream empty result deletes stale provider rows intentionally. Focused tests assert both paths.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

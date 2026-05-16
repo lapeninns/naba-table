@@ -276,7 +276,7 @@ describe('google business profile sync selection', () => {
       overrides: [
         {
           id: 'override-1',
-          effectiveDate: '2026-12-25',
+          effectiveDate: '2026-12-23',
           opensAt: '12:00',
           closesAt: '20:00',
           isClosed: false,
@@ -321,28 +321,31 @@ describe('google business profile sync selection', () => {
       location,
       selection: {
         weeklyDays: [1],
-        overrideDates: ['2026-12-25'],
+        overrideDates: ['2026-12-23'],
       },
     });
 
     expect(patch.updateMask).toEqual(expect.arrayContaining(['regularHours', 'specialHours']));
-    expect(patch.payload.regularHours).toMatchObject({
-      periods: expect.arrayContaining([
+    expect(patch.payload.regularHours).toEqual({
+      periods: [
         expect.objectContaining({ openDay: 'SUNDAY', closeDay: 'SUNDAY' }),
         expect.objectContaining({ openDay: 'MONDAY', closeDay: 'MONDAY' }),
-      ]),
+      ],
     });
-    expect(patch.payload.specialHours).toMatchObject({
-      specialHourPeriods: expect.arrayContaining([
+    expect(patch.payload.specialHours).toEqual({
+      specialHourPeriods: [
+        expect.objectContaining({
+          startDate: { year: 2026, month: 12, day: 23 },
+          openTime: { hours: 12, minutes: 0 },
+          closeTime: { hours: 20, minutes: 0 },
+        }),
         expect.objectContaining({
           startDate: { year: 2026, month: 12, day: 24 },
         }),
         expect.objectContaining({
           startDate: { year: 2026, month: 12, day: 25 },
-          openTime: { hours: 12, minutes: 0 },
-          closeTime: { hours: 20, minutes: 0 },
         }),
-      ]),
+      ],
     });
   });
 

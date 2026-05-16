@@ -19,3 +19,9 @@ Replace the manual membership query on mutating zone endpoints with requireAdmin
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-27)
+
+**Verdict:** fixed
+
+`src/app/api/ops/zones/route.ts` now enforces admin-only roles on `POST` before calling `createZone`, returning `403` for non-admin restaurant members. CSRF protection remains wrapped around the mutation.
+
+Validation: `pnpm exec vitest run tests/server/restaurant-google-business-v1-routes.test.ts tests/cloudflare/booking-short-links-storage.test.ts tests/server/team-access-cache.test.ts tests/server/ops-restaurants-route-security.test.ts tests/server/tenant-authorization-sprint2.test.ts`

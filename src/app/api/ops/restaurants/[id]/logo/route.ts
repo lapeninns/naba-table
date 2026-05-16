@@ -1,6 +1,6 @@
-import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
@@ -10,13 +10,6 @@ import type { NextRequest } from 'next/server';
 const BUCKET_ID = 'restaurant-branding';
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);
-
-const MIME_EXTENSION: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/svg+xml': 'svg',
-};
 
 function jsonError(status: number, code: string, message: string, details?: unknown) {
   return NextResponse.json({ code, message, details }, { status });
@@ -55,15 +48,6 @@ async function ensureBucketExists() {
     console.warn('[ops/restaurants/logo] bucket lookup produced error', error);
   }
   return service;
-}
-
-function resolveExtension(file: File): string {
-  const lowerName = file.name.toLowerCase();
-  const ext = lowerName.includes('.') ? lowerName.split('.').pop() : null;
-  if (ext && ext.length <= 8 && /^[a-z0-9]+$/.test(ext)) {
-    return ext;
-  }
-  return MIME_EXTENSION[file.type] ?? 'bin';
 }
 
 export async function POST(req: NextRequest, context: RouteContext) {
@@ -107,6 +91,19 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
       return jsonError(500, 'ACCESS_CHECK_FAILED', 'Unable to verify access');
     }
 
+    const rateLimit = await requireApiRateLimit({
+      request: req,
+      scope: 'restaurant-logo:upload',
+      tenantId: restaurantId,
+      userId: user.id,
+      limit: 10,
+      windowMs: 60_000,
+      message: 'Too many logo uploads. Please try again later.',
+    });
+    if (rateLimit) {
+      return rateLimit;
+    }
+
     let file: File | null = null;
     try {
       const formData = await req.formData();
@@ -136,9 +133,8 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
     }
 
     const service = await ensureBucketExists();
-    const extension = resolveExtension(file);
     const cacheKey = Date.now().toString(36);
-    const path = `${restaurantId}/${cacheKey}-${randomUUID()}.${extension}`;
+    const path = `${restaurantId}/logo`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -151,14 +147,14 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
 
     if (uploadError) {
       console.error('[ops/restaurants/logo][POST] upload failed', uploadError.message);
-      return jsonError(500, 'UPLOAD_FAILED', "We couldn’t store your image. Please try again.");
+      return jsonError(500, 'UPLOAD_FAILED', 'We couldn’t store your image. Please try again.');
     }
 
     const { data: publicUrlData } = service.storage.from(BUCKET_ID).getPublicUrl(path);
     const publicUrl = publicUrlData?.publicUrl;
 
     if (!publicUrl) {
-      return jsonError(500, 'PUBLIC_URL_FAILED', "We couldn’t generate an image URL");
+      return jsonError(500, 'PUBLIC_URL_FAILED', 'We couldn’t generate an image URL');
     }
 
     return NextResponse.json({
@@ -168,7 +164,7 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[ops/restaurants/logo][POST] unexpected', error);
-    return jsonError(500, 'UNEXPECTED_ERROR', "We couldn’t upload your image. Please try again.");
+    return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t upload your image. Please try again.');
   }
 }
 

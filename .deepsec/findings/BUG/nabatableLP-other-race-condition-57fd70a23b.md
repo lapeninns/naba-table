@@ -16,6 +16,12 @@ The handler checks menuItemExternalIdExistsForRestaurant before calling upsertMe
 
 Make create atomic in the database: use insert-only behavior for this endpoint and translate unique violations to 409, or move the existence check and write into one locked transaction/RPC.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The referenced legacy route `src/app/api/ops/restaurants/[id]/menu/items/route.ts` is no longer present in the current repository. The shipped replacement create route is `src/app/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/route.ts`, which calls `createRestaurantMenuItem`. That repository function uses an insert-only write to `restaurant_menu_items` and does not call the legacy upsert RPC, so concurrent creates are resolved by the database unique constraint rather than a stale application pre-check followed by upsert replacement.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

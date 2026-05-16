@@ -84,7 +84,9 @@ function isDeliveryLogUnavailable(error: unknown): boolean {
   );
 }
 
-export async function recordEmailDeliveryLog(params: InsertParams): Promise<EmailDeliveryLogEntry | null> {
+export async function recordEmailDeliveryLog(
+  params: InsertParams,
+): Promise<EmailDeliveryLogEntry | null> {
   try {
     const supabase = getServiceSupabaseClient();
     const { data, error } = await supabase
@@ -103,7 +105,9 @@ export async function recordEmailDeliveryLog(params: InsertParams): Promise<Emai
         error: params.error ?? null,
         metadata: params.metadata ?? null,
       })
-      .select('id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata')
+      .select(
+        'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
+      )
       .single();
 
     if (error) {
@@ -136,7 +140,12 @@ export async function recordEmailDeliveryLog(params: InsertParams): Promise<Emai
 export async function findLatestEmailDeliveryByMessageId(params: {
   messageId: string;
   recipientEmail?: string | null;
-}): Promise<{ bookingId: string | null; restaurantId: string | null; emailType: string | null; templateType: string | null } | null> {
+}): Promise<{
+  bookingId: string | null;
+  restaurantId: string | null;
+  emailType: string | null;
+  templateType: string | null;
+} | null> {
   const supabase = getServiceSupabaseClient();
   const query = supabase
     .from('email_delivery_log')
@@ -170,7 +179,10 @@ export async function hasRecentEmailDelivery(params: {
   statuses?: ReadonlyArray<EmailDeliveryStatus>;
   withinMs?: number;
 }): Promise<boolean> {
-  const withinMs = typeof params.withinMs === 'number' && params.withinMs > 0 ? params.withinMs : 30 * 24 * 60 * 60 * 1000;
+  const withinMs =
+    typeof params.withinMs === 'number' && params.withinMs > 0
+      ? params.withinMs
+      : 30 * 24 * 60 * 60 * 1000;
   const statuses = params.statuses?.length ? params.statuses : (['sent', 'delivered'] as const);
   const sinceIso = new Date(Date.now() - withinMs).toISOString();
 
@@ -283,7 +295,11 @@ function toEventDto(row: EmailDeliveryLogRow): EmailDeliveryEventDTO {
 function resolveRangeStartIso(range: OpsEmailDeliveryRange): string {
   const now = Date.now();
   const lookbackMs =
-    range === '24h' ? 24 * 60 * 60 * 1000 : range === '30d' ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+    range === '24h'
+      ? 24 * 60 * 60 * 1000
+      : range === '30d'
+        ? 30 * 24 * 60 * 60 * 1000
+        : 7 * 24 * 60 * 60 * 1000;
   return new Date(now - lookbackMs).toISOString();
 }
 
@@ -307,7 +323,9 @@ function compareAttemptsByCurrentDesc(a: AttemptAggregate, b: AttemptAggregate):
 }
 
 const EMAIL_STALE_THRESHOLD_MS = EMAIL_DELIVERY_STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
-const EMAIL_IN_FLIGHT_STATUS_SET: ReadonlySet<EmailDeliveryStatus> = new Set(EMAIL_DELIVERY_IN_FLIGHT_STATUSES);
+const EMAIL_IN_FLIGHT_STATUS_SET: ReadonlySet<EmailDeliveryStatus> = new Set(
+  EMAIL_DELIVERY_IN_FLIGHT_STATUSES,
+);
 
 export function computeEmailAttemptStaleness(input: {
   currentStatus: EmailDeliveryStatus;
@@ -332,7 +350,10 @@ export function computeEmailAttemptStaleness(input: {
   return { isStale: true, stuckForMs: ageMs };
 }
 
-function decorateAttemptWithStaleness(attempt: OpsEmailDeliveryAttemptDTO, now: number): OpsEmailDeliveryAttemptDTO {
+function decorateAttemptWithStaleness(
+  attempt: OpsEmailDeliveryAttemptDTO,
+  now: number,
+): OpsEmailDeliveryAttemptDTO {
   const staleness = computeEmailAttemptStaleness({
     currentStatus: attempt.currentStatus,
     currentOccurredAt: attempt.currentOccurredAt,
@@ -356,7 +377,9 @@ function toBookingDto(row: BookingSnapshotRow): NonNullable<OpsEmailDeliveryAtte
   };
 }
 
-async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliveryAttemptsParams): Promise<{
+async function listEmailDeliveryAttemptsWithQueryFallback(
+  params: ListEmailDeliveryAttemptsParams,
+): Promise<{
   attempts: OpsEmailDeliveryAttemptDTO[];
   hasNext: boolean;
   page: number;
@@ -442,7 +465,8 @@ async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliv
 
     for (const row of rows) {
       const event = toEventDto(row);
-      if (normalizedRecipient && event.recipientEmail.toLowerCase() !== normalizedRecipient) continue;
+      if (normalizedRecipient && event.recipientEmail.toLowerCase() !== normalizedRecipient)
+        continue;
 
       const key = `${event.messageId}__${event.recipientEmail.toLowerCase()}`;
       const existing = buckets.get(key);
@@ -491,7 +515,9 @@ async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliv
     new Set(
       pageAggregates
         .map((attempt) => attempt.bookingId)
-        .filter((bookingId): bookingId is string => typeof bookingId === 'string' && bookingId.length > 0),
+        .filter(
+          (bookingId): bookingId is string => typeof bookingId === 'string' && bookingId.length > 0,
+        ),
     ),
   );
 
@@ -504,7 +530,10 @@ async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliv
 
     if (!error) {
       bookingById = new Map(
-        ((data as BookingSnapshotRow[] | null | undefined) ?? []).map((row) => [row.id, toBookingDto(row)]),
+        ((data as BookingSnapshotRow[] | null | undefined) ?? []).map((row) => [
+          row.id,
+          toBookingDto(row),
+        ]),
       );
     }
   }
@@ -513,6 +542,7 @@ async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliv
   const attempts: OpsEmailDeliveryAttemptDTO[] = pageAggregates.map((attempt) =>
     decorateAttemptWithStaleness(
       {
+        id: attempt.currentEventId,
         messageId: attempt.messageId,
         recipientEmail: attempt.recipientEmail,
         bookingId: attempt.bookingId,
@@ -523,8 +553,11 @@ async function listEmailDeliveryAttemptsWithQueryFallback(params: ListEmailDeliv
         currentOccurredAt: attempt.currentOccurredAt,
         events: attempt.events
           .slice()
-          .sort((a, b) => parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id)),
-        booking: attempt.bookingId ? bookingById.get(attempt.bookingId) ?? null : null,
+          .sort(
+            (a, b) =>
+              parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id),
+          ),
+        booking: attempt.bookingId ? (bookingById.get(attempt.bookingId) ?? null) : null,
       },
       now,
     ),
@@ -537,7 +570,8 @@ export async function listEmailDeliveryEventsForBooking(params: {
   bookingId: string;
   limit?: number;
 }): Promise<EmailDeliveryEventDTO[]> {
-  const rawLimit = typeof params.limit === 'number' && Number.isFinite(params.limit) ? params.limit : 50;
+  const rawLimit =
+    typeof params.limit === 'number' && Number.isFinite(params.limit) ? params.limit : 50;
   const limit = Math.max(1, Math.min(200, Math.floor(rawLimit)));
 
   const supabase = getServiceSupabaseClient();
@@ -602,7 +636,12 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   bookingRef?: string;
   templateType?: string;
   emailType?: string;
-}): Promise<{ attempts: OpsEmailDeliveryAttemptDTO[]; hasNext: boolean; page: number; pageSize: number }> {
+}): Promise<{
+  attempts: OpsEmailDeliveryAttemptDTO[];
+  hasNext: boolean;
+  page: number;
+  pageSize: number;
+}> {
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
 
@@ -649,6 +688,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   const attempts: OpsEmailDeliveryAttemptDTO[] = pageRows.map((row) =>
     decorateAttemptWithStaleness(
       {
+        id: typeof row.id === 'string' ? row.id : undefined,
         messageId: String(row.messageId ?? ''),
         recipientEmail: String(row.recipientEmail ?? ''),
         bookingId: typeof row.bookingId === 'string' ? row.bookingId : null,
@@ -658,7 +698,10 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
         currentStatus: row.currentStatus as EmailDeliveryStatus,
         currentOccurredAt: typeof row.currentOccurredAt === 'string' ? row.currentOccurredAt : null,
         events: ensureArray<EmailDeliveryEventDTO>(row.events),
-        booking: (ensureObject<Record<string, unknown>>(row.booking) as OpsEmailDeliveryAttemptDTO['booking']) ?? null,
+        booking:
+          (ensureObject<Record<string, unknown>>(
+            row.booking,
+          ) as OpsEmailDeliveryAttemptDTO['booking']) ?? null,
       },
       now,
     ),
@@ -667,14 +710,18 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   return { attempts, hasNext, page, pageSize };
 }
 
-export async function getEmailDeliveryLogEntryById(deliveryLogId: string): Promise<EmailDeliveryLogEntry | null> {
+export async function getEmailDeliveryLogEntryById(
+  deliveryLogId: string,
+): Promise<EmailDeliveryLogEntry | null> {
   const normalizedId = normalizeOptionalString(deliveryLogId);
   if (!normalizedId) return null;
 
   const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase
     .from('email_delivery_log')
-    .select('id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata')
+    .select(
+      'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
+    )
     .eq('id', normalizedId)
     .maybeSingle();
 
@@ -690,7 +737,11 @@ export async function getEmailDeliveryLogEntryById(deliveryLogId: string): Promi
 
 export async function retryEmailDeliveryLogEntry(params: {
   deliveryLogId: string;
-  resendBookingEmail: (bookingId: string, emailType: string | null, templateType: string | null) => Promise<EmailDeliveryLogEntry | null>;
+  resendBookingEmail: (
+    bookingId: string,
+    emailType: string | null,
+    templateType: string | null,
+  ) => Promise<EmailDeliveryLogEntry | null>;
 }): Promise<EmailDeliveryLogEntry> {
   const entry = await getEmailDeliveryLogEntryById(params.deliveryLogId);
 
@@ -699,14 +750,24 @@ export async function retryEmailDeliveryLogEntry(params: {
   }
 
   if (entry.status !== 'failed' && entry.status !== 'bounced') {
-    throw new EmailDeliveryRetryError('NOT_RETRYABLE', 'Only failed or bounced emails can be retried.');
+    throw new EmailDeliveryRetryError(
+      'NOT_RETRYABLE',
+      'Only failed or bounced emails can be retried.',
+    );
   }
 
   if (!entry.bookingId) {
-    throw new EmailDeliveryRetryError('MISSING_BOOKING', 'The original booking could not be determined for this delivery log entry.');
+    throw new EmailDeliveryRetryError(
+      'MISSING_BOOKING',
+      'The original booking could not be determined for this delivery log entry.',
+    );
   }
 
-  const resent = await params.resendBookingEmail(entry.bookingId, entry.emailType, entry.templateType);
+  const resent = await params.resendBookingEmail(
+    entry.bookingId,
+    entry.emailType,
+    entry.templateType,
+  );
   if (!resent) {
     throw new Error('Retry email send did not create a delivery log entry.');
   }
@@ -740,11 +801,16 @@ async function countStuckInFlightEmailAttempts(params: {
       throw new EmailDeliveryLogUnavailableError();
     }
     // Non-fatal: summary is still useful without this number.
-    console.warn('[email][delivery-log] stuck-count query failed', { message: inflightError.message });
+    console.warn('[email][delivery-log] stuck-count query failed', {
+      message: inflightError.message,
+    });
     return 0;
   }
 
-  const candidates = new Map<string, { messageId: string; recipientEmail: string; occurredAt: string }>();
+  const candidates = new Map<
+    string,
+    { messageId: string; recipientEmail: string; occurredAt: string }
+  >();
   for (const row of inflightRows ?? []) {
     const messageId = typeof row.message_id === 'string' ? row.message_id : '';
     const recipient = typeof row.recipient_email === 'string' ? row.recipient_email : '';
@@ -769,7 +835,9 @@ async function countStuckInFlightEmailAttempts(params: {
     .limit(5_000);
 
   if (terminalError) {
-    console.warn('[email][delivery-log] stuck-count terminal query failed', { message: terminalError.message });
+    console.warn('[email][delivery-log] stuck-count terminal query failed', {
+      message: terminalError.message,
+    });
     // Conservative fallback: assume none of the stale in-flight rows were
     // superseded. This may over-count, which is acceptable for an alert.
     return candidates.size;
@@ -877,8 +945,12 @@ export async function getEmailDeliveryAttemptsSummary(params: {
     uniqueBookings: Number(row.uniqueBookings ?? 0),
     p50DeliverySeconds: typeof row.p50DeliverySeconds === 'number' ? row.p50DeliverySeconds : null,
     p95DeliverySeconds: typeof row.p95DeliverySeconds === 'number' ? row.p95DeliverySeconds : null,
-    topFailedTemplates: ensureArray<OpsEmailDeliverySummary['topFailedTemplates'][number]>(row.topFailedTemplates),
-    topFailedEmailTypes: ensureArray<OpsEmailDeliverySummary['topFailedEmailTypes'][number]>(row.topFailedEmailTypes),
+    topFailedTemplates: ensureArray<OpsEmailDeliverySummary['topFailedTemplates'][number]>(
+      row.topFailedTemplates,
+    ),
+    topFailedEmailTypes: ensureArray<OpsEmailDeliverySummary['topFailedEmailTypes'][number]>(
+      row.topFailedEmailTypes,
+    ),
     stuckInFlight,
   };
 }

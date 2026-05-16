@@ -20,3 +20,7 @@ Do not swallow cleanup failures for state transitions that require releasing cap
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`clearBookingTableAssignments` no longer swallows lookup, atomic unassign, fallback delete, zone-lock clear, or assignment-idempotency cleanup failures. It throws read errors directly and uses `assertAssignmentCleanupSucceeded` for fallback delete, zone clear, and idempotency cleanup errors, so lifecycle callers can fail or retry instead of treating failed cleanup as success. Focused evidence: `tests/server/bookings/assignment-cleanup.test.ts` passed on 2026-05-16 and verifies failures in zone cleanup and fallback delete are surfaced as thrown errors.

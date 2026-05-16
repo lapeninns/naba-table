@@ -16,6 +16,12 @@ The script is named and logged as a staging bootstrap, but it loads `.env.local`
 
 Hard-fail unless the resolved Supabase URL matches an explicit staging project ref and the validated env indicates staging. Reuse the central env validation or run the same production-resource checks as `pnpm validate:env`; also require an explicit confirmation/project-ref for any service-role mutation.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`scripts/staging/bootstrap-owner.ts` now calls `assertStagingScriptSafety` immediately after reading the Supabase URL and before generated password persistence or service-role client construction. The guard requires the expected staging project ref, `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and `CONFIRM_STAGING_OWNER_BOOTSTRAP=true`. Focused script-safety tests verify the guard runs before `writePasswordToGitignoredBackups` and before `createClient<Database>(supabaseUrl, ...)`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

@@ -5,8 +5,10 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
+import { Client } from 'pg';
 
-import { assertExactSupabaseApiProjectRef } from './db/safety';
+import { getPgSslConfig } from './db/pg-ssl';
+import { assertExactSupabaseApiProjectRef, assertProductionScriptSafety } from './db/safety';
 import type { Database } from '../types/supabase';
 
 type DeleteSpec = {
@@ -23,7 +25,9 @@ function usage(): never {
       'Env:',
       '  NEXT_PUBLIC_SUPABASE_URL=... (required)',
       '  SUPABASE_SERVICE_ROLE_KEY=... (required)',
+      '  SUPABASE_DB_URL=... (required on apply)',
       '  RESTAURANT_SLUG=three-horseshoes (required) OR RESTAURANT_ID=... (optional override)',
+      '  DB_TARGET_ENV=production or APP_ENV=production (required on apply)',
       '',
       'Safety:',
       '  - Dry run by default (no writes).',
@@ -43,44 +47,120 @@ function usage(): never {
   process.exit(1);
 }
 
-function shouldIgnoreMissingTable(message: string): boolean {
-  return /schema cache|does not exist|relation .* does not exist/i.test(message);
-}
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
+function quoteIdent(value: string): string {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(value)) {
+    throw new Error(`Unsafe SQL identifier: ${value}`);
   }
-  return chunks;
+  return `"${value}"`;
 }
 
-async function deleteByIds(
-  supabase: ReturnType<typeof createClient<Database>>,
-  table: DeleteSpec['table'],
-  column: string,
-  ids: string[],
-): Promise<number> {
-  if (ids.length === 0) return 0;
-  let deleted = 0;
+function resolveDbUrl(): string | null {
+  return (
+    process.env.SUPABASE_DB_URL?.trim() ||
+    process.env.DATABASE_URL?.trim() ||
+    process.env.DB_URL?.trim() ||
+    null
+  );
+}
 
-  for (const group of chunk(ids, 100)) {
-    // Note: we intentionally don't `.select()` here; PostgREST DELETE returning
-    // behavior varies by config, and we only need to know "did it succeed".
-    const { count, error } = await supabase
-      .from(table)
-      .delete({ count: 'exact' })
-      .in(column, group);
-    if (error) {
-      if (shouldIgnoreMissingTable(error.message)) {
-        return deleted;
+function assertPurgeApplySafety(input: {
+  apply: boolean;
+  dbUrl: string | null;
+  expectedProjectRef: string | null;
+  restaurantTarget: string | null;
+  confirmPurgeBookings: boolean;
+  confirmProduction: boolean;
+}): string | null {
+  if (!input.apply) return null;
+  if (!input.dbUrl) {
+    throw new Error('SUPABASE_DB_URL, DATABASE_URL, or DB_URL is required on --apply.');
+  }
+  if (!input.expectedProjectRef) {
+    throw new Error('EXPECTED_PROJECT_REF is required on --apply to avoid accidental deletes.');
+  }
+
+  assertProductionScriptSafety({
+    connectionString: input.dbUrl,
+    expectedProjectRef: input.expectedProjectRef,
+    targetEnv: process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim() || '',
+    requireTargetEnv: true,
+    apply: true,
+    destructive: true,
+    requireRestaurant: true,
+    targetRestaurant: input.restaurantTarget,
+    confirmation: input.confirmPurgeBookings ? 'true' : undefined,
+    confirmationName: 'CONFIRM_PURGE_BOOKINGS',
+    breakGlass: input.confirmProduction ? 'true' : undefined,
+    breakGlassName: 'CONFIRM_PRODUCTION',
+  });
+
+  return input.dbUrl;
+}
+
+async function tableExists(client: Client, table: string): Promise<boolean> {
+  const result = await client.query<{ exists: string | null }>('select to_regclass($1) as exists', [
+    `public.${table}`,
+  ]);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function purgeBookingsInTransaction(
+  connectionString: string,
+  restaurantId: string,
+  deletes: DeleteSpec[],
+): Promise<{
+  bookingIds: string[];
+  childDeletes: Array<{ table: string; deleted: number; skipped: boolean }>;
+  bookingDeletes: number;
+}> {
+  const client = new Client({
+    connectionString,
+    ssl: getPgSslConfig(process.env),
+  });
+
+  await client.connect();
+  try {
+    await client.query('begin');
+    const bookingRows = await client.query<{ id: string }>(
+      'select id from public.bookings where restaurant_id = $1 order by created_at for update',
+      [restaurantId],
+    );
+    const bookingIds = bookingRows.rows.map((row) => row.id);
+    const childDeletes: Array<{ table: string; deleted: number; skipped: boolean }> = [];
+
+    if (bookingIds.length > 0) {
+      for (const spec of deletes) {
+        const tableName = String(spec.table);
+        if (!(await tableExists(client, tableName))) {
+          childDeletes.push({ table: tableName, deleted: 0, skipped: true });
+          continue;
+        }
+
+        const result = await client.query(
+          `delete from public.${quoteIdent(tableName)} where ${quoteIdent(spec.bookingIdColumn)} = any($1::uuid[])`,
+          [bookingIds],
+        );
+        childDeletes.push({ table: tableName, deleted: result.rowCount ?? 0, skipped: false });
       }
-      throw new Error(`Failed to delete from ${String(table)}: ${error.message}`);
     }
-    deleted += count ?? 0;
-  }
 
-  return deleted;
+    const bookingDeleteResult =
+      bookingIds.length > 0
+        ? await client.query('delete from public.bookings where id = any($1::uuid[])', [bookingIds])
+        : { rowCount: 0 };
+
+    await client.query('commit');
+    return {
+      bookingIds,
+      childDeletes,
+      bookingDeletes: bookingDeleteResult.rowCount ?? 0,
+    };
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    await client.end();
+  }
 }
 
 async function resolveRestaurant(
@@ -171,6 +251,14 @@ async function main(): Promise<void> {
   const EXPECTED_PROJECT_REF = process.env.EXPECTED_PROJECT_REF?.trim() || null;
   const restaurantSlug = process.env.RESTAURANT_SLUG?.trim() || null;
   const restaurantId = process.env.RESTAURANT_ID?.trim() || null;
+  const dbUrl = assertPurgeApplySafety({
+    apply: APPLY,
+    dbUrl: resolveDbUrl(),
+    expectedProjectRef: EXPECTED_PROJECT_REF,
+    restaurantTarget: restaurantId ?? restaurantSlug,
+    confirmPurgeBookings: CONFIRM_PURGE_BOOKINGS,
+    confirmProduction: CONFIRM_PRODUCTION,
+  });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -183,21 +271,6 @@ async function main(): Promise<void> {
   if (!restaurantSlug && !restaurantId) {
     console.error('Set RESTAURANT_SLUG or RESTAURANT_ID.');
     usage();
-  }
-
-  if (APPLY && !CONFIRM_PRODUCTION) {
-    console.error('Refusing to delete without CONFIRM_PRODUCTION=true.');
-    process.exit(1);
-  }
-
-  if (APPLY && !CONFIRM_PURGE_BOOKINGS) {
-    console.error('Refusing to delete without CONFIRM_PURGE_BOOKINGS=true.');
-    process.exit(1);
-  }
-
-  if (APPLY && !EXPECTED_PROJECT_REF) {
-    console.error('EXPECTED_PROJECT_REF is required on --apply to avoid accidental deletes.');
-    process.exit(1);
   }
 
   if (EXPECTED_PROJECT_REF) {
@@ -323,17 +396,21 @@ async function main(): Promise<void> {
     { table: 'capacity_outbox', bookingIdColumn: 'booking_id' },
   ];
 
-  for (const spec of deletes) {
-    const deleted = await deleteByIds(supabase, spec.table, spec.bookingIdColumn, bookingIds);
-    if (deleted > 0) {
-      console.log(
-        `Deleted ~${deleted} rows from ${String(spec.table)} (by ${spec.bookingIdColumn}).`,
-      );
-    }
+  if (!dbUrl) {
+    throw new Error('Internal error: missing transaction DB URL after apply safety checks.');
   }
 
-  await deleteByIds(supabase, 'bookings', 'id', bookingIds);
-  console.log(`Deleted ${bookingIds.length} rows from bookings.`);
+  const purgeResult = await purgeBookingsInTransaction(dbUrl, restaurant.id, deletes);
+  for (const result of purgeResult.childDeletes) {
+    if (result.skipped) {
+      console.log(`Skipped ${result.table}; table does not exist.`);
+      continue;
+    }
+    if (result.deleted > 0) {
+      console.log(`Deleted ${result.deleted} rows from ${result.table}.`);
+    }
+  }
+  console.log(`Deleted ${purgeResult.bookingDeletes} rows from bookings.`);
 }
 
 void main().catch((err) => {

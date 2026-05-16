@@ -19,3 +19,7 @@ Require explicit production confirmation and an exact project-ref check before a
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`scripts/ensure-auth-user.ts` now runs `assertAuthUserScriptSafety()` before constructing the Supabase admin client. Production mode verifies the Supabase API ref and optional DB ref against the expected production ref and requires `CONFIRM_PRODUCTION_AUTH_RESET=true`; non-production mode delegates to `assertStagingScriptSafety` with `CONFIRM_STAGING_AUTH_RESET=true`. Focused script-safety tests assert the guard and exact-ref checks run before admin client use.

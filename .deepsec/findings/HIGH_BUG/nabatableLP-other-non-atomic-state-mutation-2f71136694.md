@@ -20,3 +20,7 @@ Move booking mutation and profile counter updates into an atomic RPC/transaction
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`insertBookingRecord` still maintains customer profile aggregates, but those derived writes are now best-effort and cannot make an already-committed booking insert appear failed to the caller. `softCancelBooking` now updates only rows whose current status is not `cancelled`; when no transition occurs it reloads and returns the existing booking without recording another cancellation. Cancellation profile maintenance is also best-effort after the committed transition. Focused evidence: `tests/server/bookings-profile-consistency.test.ts` passed on 2026-05-16 and verifies insert profile failures do not fail booking creation, cancellation profile failures do not fail cancellation, and already-cancelled bookings do not double-count cancellations.

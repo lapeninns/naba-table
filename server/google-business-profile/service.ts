@@ -2,10 +2,12 @@ import { randomBytes } from 'node:crypto';
 
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { getRestaurantDetails, updateRestaurantDetails } from '@/server/restaurants/details';
 import { getOperatingHours, updateOperatingHours } from '@/server/restaurants/operatingHours';
 import { getServicePeriods, updateServicePeriods } from '@/server/restaurants/servicePeriods';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { MembershipAccessError, requireAdminMembership } from '@/server/team/access';
 
 import {
   readGoogleBusinessProfileBusinessInfo,
@@ -59,6 +61,7 @@ type SyncRunInsert =
 
 const PROVIDER = 'google_business_profile';
 const DEFAULT_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
+const GBP_RETURN_PATH_PREFIXES = ['/app/settings/restaurant/google-business-profile'] as const;
 const OAUTH_STATE_TTL_MS = 15 * 60 * 1000;
 const LOCATION_DISCOVERY_CACHE_TTL_MS = 10 * 60 * 1000;
 const gbpLogger = logger.child({ module: 'gbp' });
@@ -70,6 +73,14 @@ type LocationDiscoveryCacheEntry = {
 };
 
 const locationDiscoveryCache = new Map<string, LocationDiscoveryCacheEntry>();
+
+function sanitizeOAuthReturnPath(returnPath: string | null | undefined): string {
+  return sanitizeLocalRedirectPath(returnPath, {
+    fallback: DEFAULT_RETURN_PATH,
+    allowedPrefixes: GBP_RETURN_PATH_PREFIXES,
+    allowAbsolute: true,
+  });
+}
 
 export type GoogleBusinessProfileConnectionState = {
   isConfigured: boolean;
@@ -303,7 +314,7 @@ async function createOAuthStateRecord(
     provider: PROVIDER,
     requested_by_user_id: requestedByUserId,
     state_token: stateToken,
-    return_path: returnPath,
+    return_path: sanitizeOAuthReturnPath(returnPath),
     expires_at: expiresAt,
   });
 
@@ -314,9 +325,58 @@ async function createOAuthStateRecord(
   return stateToken;
 }
 
+function createOAuthStateMismatchError(message: string, status = 400): GoogleBusinessProfileError {
+  return new GoogleBusinessProfileError(message, {
+    code: 'GBP_INVALID_STATE',
+    status,
+  });
+}
+
+async function assertOAuthStateCanBeCompleted(
+  state: OAuthStateRow,
+  params: {
+    requestedByUserId: string;
+    expectedRestaurantId?: string;
+    client: DbClient;
+  },
+): Promise<void> {
+  if (state.requested_by_user_id !== params.requestedByUserId) {
+    throw createOAuthStateMismatchError(
+      'Google authorization state did not match this session. Start the connection again from Nabatable.',
+      403,
+    );
+  }
+
+  if (params.expectedRestaurantId && state.restaurant_id !== params.expectedRestaurantId) {
+    throw createOAuthStateMismatchError(
+      'Google authorization state did not match this restaurant.',
+    );
+  }
+
+  try {
+    await requireAdminMembership({
+      userId: params.requestedByUserId,
+      restaurantId: state.restaurant_id,
+      client: params.client,
+    });
+  } catch (error) {
+    if (error instanceof MembershipAccessError) {
+      throw new GoogleBusinessProfileError(
+        'You no longer have permission to connect Google Business Profile for this restaurant.',
+        { code: 'GBP_STATE_RESTAURANT_FORBIDDEN', status: error.status },
+      );
+    }
+    throw error;
+  }
+}
+
 async function consumeOAuthStateRecord(
   stateToken: string,
   client: DbClient,
+  options: {
+    requestedByUserId: string;
+    expectedRestaurantId?: string;
+  },
 ): Promise<OAuthStateRow> {
   const { data, error } = await client
     .from('restaurant_external_profile_oauth_states')
@@ -349,13 +409,29 @@ async function consumeOAuthStateRecord(
     });
   }
 
-  const { error: updateError } = await client
+  await assertOAuthStateCanBeCompleted(data, {
+    requestedByUserId: options.requestedByUserId,
+    expectedRestaurantId: options.expectedRestaurantId,
+    client,
+  });
+
+  const { data: consumedState, error: updateError } = await client
     .from('restaurant_external_profile_oauth_states')
     .update({ consumed_at: nowIso() })
-    .eq('id', data.id);
+    .eq('id', data.id)
+    .is('consumed_at', null)
+    .select('id')
+    .maybeSingle();
 
   if (updateError) {
     throw updateError;
+  }
+
+  if (!consumedState) {
+    throw new GoogleBusinessProfileError('Google authorization state has already been used.', {
+      code: 'GBP_INVALID_STATE',
+      status: 400,
+    });
   }
 
   return data;
@@ -865,12 +941,12 @@ async function markGooglePushSuccess(
   );
 }
 
-export async function createGoogleBusinessProfileAuthorizationUrl(params: {
+export async function createGoogleBusinessProfileAuthorization(params: {
   restaurantId: string;
   requestedByUserId: string;
   returnPath?: string;
   client?: DbClient;
-}): Promise<string> {
+}): Promise<{ authorizationUrl: string; stateToken: string }> {
   const client = getClient(params.client);
   const externalProfile = await ensureExternalProfile(params.restaurantId, client);
   const stateToken = await createOAuthStateRecord(
@@ -889,16 +965,34 @@ export async function createGoogleBusinessProfileAuthorizationUrl(params: {
     client,
   );
 
-  return buildGoogleBusinessProfileAuthUrl(stateToken);
+  return {
+    authorizationUrl: buildGoogleBusinessProfileAuthUrl(stateToken),
+    stateToken,
+  };
+}
+
+export async function createGoogleBusinessProfileAuthorizationUrl(params: {
+  restaurantId: string;
+  requestedByUserId: string;
+  returnPath?: string;
+  client?: DbClient;
+}): Promise<string> {
+  const result = await createGoogleBusinessProfileAuthorization(params);
+  return result.authorizationUrl;
 }
 
 export async function completeGoogleBusinessProfileAuthorization(params: {
   stateToken: string;
   code: string;
+  requestedByUserId: string;
+  expectedRestaurantId?: string;
   client?: DbClient;
 }): Promise<{ restaurantId: string; returnPath: string }> {
   const client = getClient(params.client);
-  const state = await consumeOAuthStateRecord(params.stateToken, client);
+  const state = await consumeOAuthStateRecord(params.stateToken, client, {
+    requestedByUserId: params.requestedByUserId,
+    expectedRestaurantId: params.expectedRestaurantId,
+  });
   const externalProfile = await ensureExternalProfile(state.restaurant_id, client);
 
   try {
@@ -935,7 +1029,7 @@ export async function completeGoogleBusinessProfileAuthorization(params: {
 
     gbpLogger.error('oauth completion failed', {
       restaurantId: state.restaurant_id,
-      returnPath: state.return_path || DEFAULT_RETURN_PATH,
+      returnPath: sanitizeOAuthReturnPath(state.return_path),
       error,
     });
 
@@ -952,7 +1046,7 @@ export async function completeGoogleBusinessProfileAuthorization(params: {
 
   return {
     restaurantId: state.restaurant_id,
-    returnPath: state.return_path || DEFAULT_RETURN_PATH,
+    returnPath: sanitizeOAuthReturnPath(state.return_path),
   };
 }
 

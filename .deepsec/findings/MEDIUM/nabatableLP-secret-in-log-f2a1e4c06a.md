@@ -19,3 +19,7 @@ Never log the raw callback URL or query string. Log only booleans/request IDs, o
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
+
+**Verdict:** fixed
+
+Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

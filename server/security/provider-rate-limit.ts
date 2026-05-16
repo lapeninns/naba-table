@@ -9,12 +9,14 @@ export async function requireProviderRefreshBudget(params: {
   provider: 'google_business_profile';
   restaurantId: string;
   action: string;
+  limit?: number;
+  windowMs?: number;
 }): Promise<NextResponse | null> {
   try {
     const result = await consumeRateLimit({
       identifier: `provider:${params.provider}:${params.restaurantId}:${params.action}`,
-      limit: PROVIDER_REFRESH_LIMIT,
-      windowMs: PROVIDER_REFRESH_WINDOW_MS,
+      limit: params.limit ?? PROVIDER_REFRESH_LIMIT,
+      windowMs: params.windowMs ?? PROVIDER_REFRESH_WINDOW_MS,
     });
 
     if (result.ok) {
@@ -34,6 +36,9 @@ export async function requireProviderRefreshBudget(params: {
       action: params.action,
       message: error instanceof Error ? error.message : String(error),
     });
-    return NextResponse.json({ error: 'Provider refresh rate limit is unavailable.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Provider refresh rate limit is unavailable.' },
+      { status: 503 },
+    );
   }
 }

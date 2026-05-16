@@ -19,3 +19,7 @@ Remove the debug console.log statements or replace them with structured logging 
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-24)
+
+**Verdict:** fixed
+
+`server/capacity/transaction.ts` no longer logs the full `create_booking_with_capacity_check` RPC input/result/error payloads. Remaining observability records keep bounded operational fields and do not include guest contact fields or notes.

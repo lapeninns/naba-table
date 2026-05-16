@@ -19,3 +19,7 @@ Add a foodMenus case returning snapshot.foodMenus ?? { items: [] } and cover sin
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+
+**Verdict:** fixed
+
+`server/dual-sync/publish/orchestrator.ts` now returns `snapshot.foodMenus ?? { items: [] }` for `sectionKey: 'foodMenus'`, so FoodMenus pinned-hash checks are computed from real snapshot data instead of `null`. The FoodMenus publish-route and publish-preview tests cover FoodMenus field decisions reaching the publish/planning path, and the recompute test covers FoodMenus item state hashing through the dynamic registry.

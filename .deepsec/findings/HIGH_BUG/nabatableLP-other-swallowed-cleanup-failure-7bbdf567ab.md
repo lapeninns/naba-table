@@ -20,3 +20,7 @@ Let cleanup failures propagate or return a required structured failure that call
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+This duplicate cleanup finding is fixed by the same strict cleanup path. `clearBookingTableAssignments` now propagates assignment lookup errors, throws if the atomic unassign plus fallback delete cannot clear rows, and throws if zone or idempotency cleanup fails. It no longer returns `0` for cleanup failures. Focused evidence: `tests/server/bookings/assignment-cleanup.test.ts` passed on 2026-05-16 and covers the negative paths that previously would have been swallowed.

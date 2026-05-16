@@ -19,3 +19,7 @@ Redact password before persisting onboarding state, or avoid persisting account 
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+
+**Verdict:** fixed
+
+`OnboardingWizard` now stores only account email and mode after signup, and `OnboardingProvider` redacts account passwords on reducer updates, sessionStorage persistence, and draft restoration. Covered by `tests/components/OnboardingContextPersistence.test.tsx`.

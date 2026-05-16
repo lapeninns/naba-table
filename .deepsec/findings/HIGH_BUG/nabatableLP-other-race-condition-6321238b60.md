@@ -16,6 +16,12 @@ upsertOutboundCandidate first selects the current open candidate, then updates b
 
 Move this into a database RPC/transaction using an atomic INSERT ... ON CONFLICT ... WHERE status = 'open' DO UPDATE, or take a per-field advisory lock. At minimum, include status = 'open' in the update predicate and retry insert/update on zero rows or unique-violation errors.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`upsertOutboundCandidate` now updates an existing candidate only with `id = existing.id` and `status = 'open'`, so a row resolved between the read and update is not mutated as if it were still queued. The helper retries the read/update/insert flow when that guarded update returns no row, and it retries after a `23505`/unique-constraint insert race so the writer refreshes the open row created by the winning concurrent transaction instead of dropping the export. Focused evidence: `tests/server/dual-sync-outbound-candidates.test.ts` passed on 2026-05-16 and verifies both the `status = 'open'` update guard and the partial-unique-index retry path.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)

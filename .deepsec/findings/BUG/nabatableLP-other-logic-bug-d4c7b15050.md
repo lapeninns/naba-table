@@ -16,6 +16,14 @@ confirmHoldAssignment unconditionally calls findMissingHoldMetadataFields() and 
 
 Update hold metadata validation to require snapshot fields only when metadata.requireAdjacency is true. Add a regression test covering confirmation of a requireAdjacency=false manual hold.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/capacity/table-assignment/supabase.ts` now gates snapshot completeness on `metadata.requireAdjacency`. The validation helper permits the intentional `snapshot: null` shape for non-adjacent manual holds and still reports `metadata.selection.snapshot` when adjacency was required.
+
+Evidence: `pnpm exec vitest run tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/capacity/demand-profiles.ts server/capacity/selector.ts server/capacity/table-assignment/supabase.ts server/capacity/v2/utils.ts tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` also passed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

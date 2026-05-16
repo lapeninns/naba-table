@@ -19,3 +19,11 @@ Fail closed for hold conflicts: do not disable database conflict enforcement in 
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-03)
+
+## Remediation
+
+**Verdict:** fixed
+
+Hold creation now fails closed unless the strict conflict RPC is available and verified, and conflict evaluation throws instead of degrading to non-atomic legacy checks.
+
+**Verification:** `pnpm exec vitest run tests/server/capacity/table-assignment-guards.test.ts tests/server/deepsec-final-controls-source.test.ts`

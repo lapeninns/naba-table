@@ -55,7 +55,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Missing restaurant or draft id' }, { status: 400 });
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile-drafts');
+  const access = await ensureRestaurantAdminAccess(
+    restaurantId,
+    'google-business-profile-drafts',
+    req,
+  );
   if (access instanceof NextResponse) {
     return access;
   }

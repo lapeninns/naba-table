@@ -19,3 +19,21 @@ Keep this policy for signup, reset, and password-change flows only. Use a separa
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-26)
+
+## Resolution
+
+**Verdict:** fixed
+
+The shared password policy module now separates creation-time strength checks
+from sign-in validation. `validatePasswordStrength` still enforces the strict
+creation policy, while `validatePasswordForSignIn` accepts any non-empty string
+and returns it unchanged for Supabase authentication.
+
+Evidence:
+
+- `components/auth/OpsSignInForm.tsx` and `components/auth/SignInForm.tsx` use
+  `validatePasswordForSignIn` before calling `/api/auth/signin`.
+- `tests/lib/password-policy.test.ts` covers the strict creation policy and raw
+  sign-in pass-through behavior.
+- `tests/components/auth/OpsSignInForm.test.tsx` covers the ops form submitting
+  the raw password unchanged.

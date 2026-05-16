@@ -747,6 +747,48 @@ describe('buildGoogleFoodMenusProjection', () => {
     expect(review.localItemsMissingFromGoogle).toEqual([]);
   });
 
+  it('does not trust a previous identity when the Google array path now contains another item', () => {
+    const originalItem = makeMenuItem();
+    const movedItem = makeMenuItem({
+      id: 'item-2',
+      externalItemId: 'tikka-masala',
+      itemName: 'Tikka Masala',
+      category: 'Mains',
+      subcategory: null,
+      basePrice: 12.5,
+    });
+    const originalProjection = buildGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      items: [originalItem],
+    });
+    const reorderedProjection = buildGoogleFoodMenusProjection({
+      foodMenusName: 'accounts/123/locations/456/foodMenus',
+      items: [movedItem],
+    });
+
+    const review = buildGoogleFoodMenusImportReview({
+      googleFoodMenus: reorderedProjection.foodMenus,
+      localItems: [originalItem, movedItem],
+      previousIdentities: originalProjection.identities,
+    });
+
+    expect(review.items[0]?.match).toEqual({
+      status: 'matched',
+      confidence: 'section_name_price',
+      localItemId: 'item-2',
+      externalItemId: 'tikka-masala',
+    });
+    expect(review.localItemsMissingFromGoogle).toEqual([
+      {
+        localItemId: 'item-1',
+        externalItemId: 'starter-paneer',
+        itemName: 'Chilli Paneer',
+        targetKind: 'food',
+        reason: 'not_present_in_google',
+      },
+    ]);
+  });
+
   it('does not suggest renaming a parent item from generated expanded option rows', () => {
     const localItem = makeMenuItem({
       id: 'item-korma',

@@ -19,3 +19,9 @@ Make dry-run resolution strictly read-only. Only call generateLink/createUser af
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)
+
+**Verdict:** fixed
+
+`main()` now performs dry-run planning with `resolveExistingAuthUser(userEmail)` only, reports `wouldCreateAuthUser`, and returns on `!apply` before calling `ensureAuthUser(userEmail)`. The mutating `generateLink`/`createUser` path is only reached after apply mode and the existing production confirmation gate.
+
+Evidence: `pnpm exec vitest run tests/scripts/db-safety.test.ts` passed on 2026-05-16. The regression coverage verifies the dry-run branch appears before `ensureAuthUser(userEmail)` and that the script reports what would be created without creating an auth user.

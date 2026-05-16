@@ -16,6 +16,12 @@ The route awaits unassignTableFromBooking but never checks its boolean result; t
 
 Move unassign, remaining-assignment check, and conditional status transition into one database transaction/RPC that reports affected rows and fails on errors. At minimum, check the helper result and condition the status update on no assignments at update time.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The route now treats an atomic unassign that removed no row as `404 Assignment not found`, and RPC/read failures are surfaced instead of being converted into false success or empty assignment lists. The route no longer updates `bookings.status`; the new `unassign_tables_atomic` migration performs deletion plus conditional confirmed-to-pending rollback with a database-side `NOT EXISTS` guard. Focused evidence: `tests/server/ops-booking-table-unassign-route.test.ts` covers the no-row response and absence of route-level status rollback; `tests/server/capacity/table-assignment-unassign.test.ts` covers explicit helper failures.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)

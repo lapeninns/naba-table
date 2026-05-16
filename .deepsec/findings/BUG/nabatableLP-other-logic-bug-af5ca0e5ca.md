@@ -20,3 +20,7 @@ Align this page with the public booking detail recovery flow: accept `access_tok
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`src/app/guest/bookings/[bookingId]/receipt/page.tsx` now accepts `access_token`/`accessToken` only long enough to redirect through `/bookings/recover` with the receipt page as `next`, rejects legacy `token` with `LEGACY_TOKEN_DEPRECATED`, and only allows unauthenticated receipt prefetch after a validated `sr_access` recovery cookie or authenticated session. `tests/guest/guest-receipt-recovery-flow.test.tsx` covers modern token redirect, legacy-token rejection, valid recovery-cookie prefetch, and invalid recovery-cookie sign-in redirect.

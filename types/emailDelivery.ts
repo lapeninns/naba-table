@@ -1,21 +1,21 @@
 export type EmailDeliveryStatus =
-  | "sent"
-  | "delivered"
-  | "delivery_delayed"
-  | "bounced"
-  | "complained"
-  | "failed";
+  | 'sent'
+  | 'delivered'
+  | 'delivery_delayed'
+  | 'bounced'
+  | 'complained'
+  | 'failed';
 
 export const EMAIL_DELIVERY_STATUS_VALUES = [
-  "sent",
-  "delivered",
-  "delivery_delayed",
-  "bounced",
-  "complained",
-  "failed",
+  'sent',
+  'delivered',
+  'delivery_delayed',
+  'bounced',
+  'complained',
+  'failed',
 ] as const satisfies ReadonlyArray<EmailDeliveryStatus>;
 
-export type EmailDeliveryProvider = "resend" | "mock";
+export type EmailDeliveryProvider = 'resend' | 'mock';
 
 export type EmailDeliveryEventDTO = {
   id: string;
@@ -37,19 +37,23 @@ export type BookingEmailDeliveryResponse =
   | {
       ok: false;
       code:
-        | "UNAUTHENTICATED"
-        | "FORBIDDEN"
-        | "BOOKING_NOT_FOUND"
-        | "DELIVERY_LOG_UNAVAILABLE"
-        | "INTERNAL";
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'BOOKING_NOT_FOUND'
+        | 'DELIVERY_LOG_UNAVAILABLE'
+        | 'INTERNAL';
       error: string;
       // Keep `message` as a duplicate field so `fetchJson` can normalize errors consistently.
       message?: string;
     };
 
-export type OpsEmailDeliveryRange = "24h" | "7d" | "30d";
+export type OpsEmailDeliveryRange = '24h' | '7d' | '30d';
 
-export const OPS_EMAIL_DELIVERY_RANGE_VALUES = ["24h", "7d", "30d"] as const satisfies ReadonlyArray<OpsEmailDeliveryRange>;
+export const OPS_EMAIL_DELIVERY_RANGE_VALUES = [
+  '24h',
+  '7d',
+  '30d',
+] as const satisfies ReadonlyArray<OpsEmailDeliveryRange>;
 
 export type OpsEmailDeliveryBookingDTO = {
   id: string;
@@ -62,6 +66,7 @@ export type OpsEmailDeliveryBookingDTO = {
 };
 
 export type OpsEmailDeliveryAttemptDTO = {
+  /** Current email_delivery_log row id used by retry actions. */
   id?: string;
   messageId: string;
   recipientEmail: string;
@@ -92,8 +97,8 @@ export const EMAIL_DELIVERY_STALE_THRESHOLD_HOURS = 12;
 
 /** Non-terminal statuses considered "in flight". */
 export const EMAIL_DELIVERY_IN_FLIGHT_STATUSES: ReadonlyArray<EmailDeliveryStatus> = [
-  "sent",
-  "delivery_delayed",
+  'sent',
+  'delivery_delayed',
 ];
 
 export type OpsEmailDeliveryTopTemplateEntry = {
@@ -141,11 +146,11 @@ export type OpsEmailDeliveryFeedResponse =
   | {
       ok: false;
       code:
-        | "UNAUTHENTICATED"
-        | "FORBIDDEN"
-        | "DELIVERY_LOG_UNAVAILABLE"
-        | "FORCED_ERROR"
-        | "INTERNAL";
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'DELIVERY_LOG_UNAVAILABLE'
+        | 'FORCED_ERROR'
+        | 'INTERNAL';
       error: string;
       message?: string;
     };
@@ -160,11 +165,11 @@ export type OpsEmailDeliverySummaryResponse =
   | {
       ok: false;
       code:
-        | "UNAUTHENTICATED"
-        | "FORBIDDEN"
-        | "DELIVERY_LOG_UNAVAILABLE"
-        | "FORCED_ERROR"
-        | "INTERNAL";
+        | 'UNAUTHENTICATED'
+        | 'FORBIDDEN'
+        | 'DELIVERY_LOG_UNAVAILABLE'
+        | 'FORCED_ERROR'
+        | 'INTERNAL';
       error: string;
       message?: string;
     };

@@ -16,6 +16,12 @@ The script builds a service-role Supabase client directly from NEXT_PUBLIC_SUPAB
 
 Require an explicit RESTAURANT_ID or slug, default to dry-run, require staging/project-ref validation, and refuse production unless an explicit production override and confirmation are present. Prefer the repo env validation path or run the same safety checks as validate:env before creating a service-role client.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`scripts/seed-bookings-week-final.ts` is now staging-only through `assertStagingScriptSafety`, which validates the exact Supabase project ref and requires `DB_TARGET_ENV=staging` or `APP_ENV=staging` plus `CONFIRM_STAGING_BOOKING_SEED=true`. It no longer falls back to the first restaurant row; `RESTAURANT_ID` is mandatory. The customer and booking rows now reuse the same generated email/phone values instead of creating inconsistent linked records.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-21)

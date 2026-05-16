@@ -20,3 +20,7 @@ Resolve magic-link callbacks inside this helper against a fixed configured app o
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+**Verdict:** fixed
+
+`sendAuthMagicLink` now validates `emailRedirectTo` centrally through `normalizeTrustedMagicLinkRedirect` before any Supabase `generateLink` call. The validation requires `/api/auth/callback`, exact configured auth hosts, and HTTPS outside approved local development hosts. Invalid origins throw `MagicLinkDeliveryError` with `reason: "invalid_redirect"` before a hashed token can be generated or appended to an email link. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including helper-level rejection for `https://evil-nabatable.com/api/auth/callback` and `http://www.nabatable.com/api/auth/callback`.

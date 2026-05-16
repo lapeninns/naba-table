@@ -362,6 +362,64 @@ function buildSpecialHoursPeriod(params: {
   };
 }
 
+type GoogleRegularHoursPeriod = NonNullable<
+  NonNullable<GoogleBusinessProfileLocationProfile['regularHours']>['periods']
+>[number];
+type GoogleSpecialHourPeriod = NonNullable<
+  NonNullable<GoogleBusinessProfileLocationProfile['specialHours']>['specialHourPeriods']
+>[number];
+
+function googleTimeSortKey(value: GoogleRegularHoursPeriod['openTime']): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (!value || typeof value !== 'object') {
+    return '99:99';
+  }
+  const hours = Number.isInteger(value.hours) ? value.hours : 99;
+  const minutes = Number.isInteger(value.minutes) ? value.minutes : 99;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function compareGoogleRegularHoursPeriod(
+  left: GoogleRegularHoursPeriod,
+  right: GoogleRegularHoursPeriod,
+): number {
+  const leftOpenDay = googleDayNameToIndex(left.openDay) ?? 99;
+  const rightOpenDay = googleDayNameToIndex(right.openDay) ?? 99;
+  if (leftOpenDay !== rightOpenDay) {
+    return leftOpenDay - rightOpenDay;
+  }
+
+  const leftOpenTime = googleTimeSortKey(left.openTime);
+  const rightOpenTime = googleTimeSortKey(right.openTime);
+  if (leftOpenTime !== rightOpenTime) {
+    return leftOpenTime.localeCompare(rightOpenTime);
+  }
+
+  const leftCloseDay = googleDayNameToIndex(left.closeDay) ?? 99;
+  const rightCloseDay = googleDayNameToIndex(right.closeDay) ?? 99;
+  if (leftCloseDay !== rightCloseDay) {
+    return leftCloseDay - rightCloseDay;
+  }
+
+  return googleTimeSortKey(left.closeTime).localeCompare(googleTimeSortKey(right.closeTime));
+}
+
+function compareGoogleSpecialHourPeriod(
+  left: GoogleSpecialHourPeriod,
+  right: GoogleSpecialHourPeriod,
+): number {
+  const leftDate =
+    formatGoogleDate(left.startDate) ?? formatGoogleDate(left.endDate) ?? '9999-99-99';
+  const rightDate =
+    formatGoogleDate(right.startDate) ?? formatGoogleDate(right.endDate) ?? '9999-99-99';
+  if (leftDate !== rightDate) {
+    return leftDate.localeCompare(rightDate);
+  }
+  return googleTimeSortKey(left.openTime).localeCompare(googleTimeSortKey(right.openTime));
+}
+
 function getPrimaryAddress(
   businessInfo: GoogleBusinessProfileBusinessInfo,
 ): GoogleBusinessProfileBusinessInfo['addresses'][number] | null {
@@ -817,14 +875,18 @@ export function buildPushOperatingHoursLocationPatch(params: {
 
   if (selectedWeeklyDaySet.size > 0) {
     payload.regularHours = {
-      periods: [...preservedRegularPeriods, ...replacementRegularPeriods],
+      periods: [...preservedRegularPeriods, ...replacementRegularPeriods].sort(
+        compareGoogleRegularHoursPeriod,
+      ),
     };
     updateMask.push('regularHours');
   }
 
   if (selectedOverrideDateSet.size > 0) {
     payload.specialHours = {
-      specialHourPeriods: [...preservedSpecialHourPeriods, ...replacementSpecialHourPeriods],
+      specialHourPeriods: [...preservedSpecialHourPeriods, ...replacementSpecialHourPeriods].sort(
+        compareGoogleSpecialHourPeriod,
+      ),
     };
     updateMask.push('specialHours');
   }

@@ -19,3 +19,7 @@ Validate a previous path identity against the expected section label, item name,
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+
+**Verdict:** fixed
+
+`server/google-business-profile/food-menus.ts` now validates a previous Google path identity against the projected section label, item name, and non-option item price before returning `previous_identity`. If the path no longer matches, the import review falls back to display matching and emits an unmatched warning when no safe match exists. `tests/server/google-business-profile-food-menus.test.ts` covers a reordered Google path that previously pointed at another local item and now resolves by section/name/price instead of trusting the stale path.

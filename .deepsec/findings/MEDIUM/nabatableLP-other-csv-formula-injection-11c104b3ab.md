@@ -16,6 +16,12 @@ escapeCSVField only converts values to strings, quotes delimiter-containing fiel
 
 Before CSV quoting, normalize every exported cell as literal text. Prefix cells whose first non-whitespace/control character is =, +, -, or @ with a single quote or another accepted neutralizing character, then perform delimiter/quote escaping. Add tests for both delimiter-free and quoted formula payloads.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting and `generateCSV` applies it to headers and every data cell. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-11)

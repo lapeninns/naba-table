@@ -15,6 +15,7 @@ import { invalidateOpsIntegrationQueries } from './opsIntegrationQueries';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
+  GoogleBusinessProfileAuthorizationStart,
   GoogleBusinessProfileAvailableLocation,
   GoogleBusinessProfileConnection,
   LinkGoogleBusinessProfileLocationInput,
@@ -58,6 +59,21 @@ export function useOpsGoogleBusinessProfileAvailableLocations(
     },
     enabled: Boolean(restaurantId) && enabled,
     staleTime: 10 * 60_000,
+  });
+}
+
+export function useOpsStartGoogleBusinessProfileAuthorization(
+  restaurantId?: string | null,
+): UseMutationResult<GoogleBusinessProfileAuthorizationStart, HttpError | Error, void> {
+  const restaurantService = useRestaurantService();
+
+  return useMutation<GoogleBusinessProfileAuthorizationStart, HttpError | Error, void>({
+    mutationFn: () => {
+      if (!restaurantId) {
+        throw new Error('Restaurant id is required');
+      }
+      return restaurantService.startGoogleBusinessProfileAuthorization(restaurantId);
+    },
   });
 }
 

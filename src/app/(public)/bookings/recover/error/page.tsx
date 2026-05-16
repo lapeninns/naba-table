@@ -13,6 +13,7 @@ import {
 } from '@/components/guest/ui/GuestPageShell';
 import { getBookingRecoveryPrimaryAction } from '@/guest/routes/auth-aware-content';
 import { getGuestAuthState } from '@/guest/services/auth-state.server';
+import { firstString } from '@/lib/api/query-params';
 
 import type { Metadata } from 'next';
 
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-type SearchParams = Promise<{ code?: string; reason?: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const copyByCode: Record<
   string,
@@ -71,7 +72,7 @@ export default async function BookingRecoverErrorPage({
   searchParams: SearchParams;
 }) {
   const resolved = (await searchParams) ?? {};
-  const code = resolved.code ?? 'INVALID_ACCESS_TOKEN';
+  const code = firstString(resolved, 'code') ?? 'INVALID_ACCESS_TOKEN';
   const content = copyByCode[code] ?? copyByCode.INVALID_ACCESS_TOKEN;
   const { isAuthenticated } = await getGuestAuthState();
   const primaryAction = getBookingRecoveryPrimaryAction(isAuthenticated);

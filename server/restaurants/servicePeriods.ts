@@ -8,6 +8,21 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
+type ServicePeriodReplacementRow = {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  day_of_week: number | null;
+  start_time: string;
+  end_time: string;
+  booking_option: string;
+};
+type ReplacementRpcClient = DbClient & {
+  rpc(
+    fn: 'replace_restaurant_service_periods',
+    args: { p_restaurant_id: string; p_rows: ServicePeriodReplacementRow[] },
+  ): Promise<{ error: { message?: string } | null }>;
+};
 
 export type BookingOption = string;
 
@@ -160,36 +175,37 @@ export async function updateServicePeriods(
   );
 
   const validated = periods.map((entry) => validateServicePeriod(entry, validOptions));
+  const uniqueIds = new Set<string>();
+  validated.forEach((period) => {
+    if (uniqueIds.has(period.id)) {
+      throw new Error(`Duplicate service period id ${period.id}`);
+    }
+    uniqueIds.add(period.id);
+  });
 
   // Prevent overlapping periods for the same day (including null day) unless an overlap-exempt period is involved.
   assertNoOverlappingPeriods(validated);
 
-  const { error: deleteError } = await client
-    .from('restaurant_service_periods')
-    .delete()
-    .eq('restaurant_id', restaurantId);
+  const rows: ServicePeriodReplacementRow[] = validated.map((period) => ({
+    id: period.id,
+    restaurant_id: restaurantId,
+    name: period.name,
+    day_of_week: period.dayOfWeek,
+    start_time: period.startTime,
+    end_time: period.endTime,
+    booking_option: period.bookingOption,
+  }));
 
-  if (deleteError) {
-    throw deleteError;
-  }
+  const { error: replaceError } = await (client as ReplacementRpcClient).rpc(
+    'replace_restaurant_service_periods',
+    {
+      p_restaurant_id: restaurantId,
+      p_rows: rows,
+    },
+  );
 
-  if (validated.length > 0) {
-    const insertRows = validated.map((period) => ({
-      id: period.id,
-      restaurant_id: restaurantId,
-      name: period.name,
-      day_of_week: period.dayOfWeek,
-      start_time: period.startTime,
-      end_time: period.endTime,
-      booking_option: period.bookingOption,
-    }));
-
-    const { error: insertError } = await client
-      .from('restaurant_service_periods')
-      .insert(insertRows);
-    if (insertError) {
-      throw insertError;
-    }
+  if (replaceError) {
+    throw replaceError;
   }
 
   return getServicePeriods(restaurantId, client);

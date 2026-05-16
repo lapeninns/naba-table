@@ -173,4 +173,33 @@ describe('auth callback security', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://www.nabatable.com/guest/dashboard');
   });
+
+  it('rejects backslash-normalized relative redirects', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({
+          data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
+          error: null,
+        }),
+      },
+    });
+    getServiceSupabaseClientMock.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            is: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      }),
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://www.nabatable.com/api/auth/callback?token_hash=secret-token&redirectedFrom=%2F%5Cevil.example%2Fguest',
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://www.nabatable.com/guest/dashboard');
+  });
 });

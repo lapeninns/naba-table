@@ -8,7 +8,8 @@ const getEmailQueueStatusMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
-  const actual = await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
+  const actual =
+    await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: requireSessionMock,
@@ -18,7 +19,8 @@ vi.mock('@/server/auth/guards', async () => {
 });
 
 vi.mock('@/server/queue/email', async () => {
-  const actual = await vi.importActual<typeof import('@/server/queue/email')>('@/server/queue/email');
+  const actual =
+    await vi.importActual<typeof import('@/server/queue/email')>('@/server/queue/email');
   return {
     ...actual,
     getEmailQueueStatus: getEmailQueueStatusMock,
@@ -97,7 +99,10 @@ describe('GET /api/ops/email-queue', () => {
 
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({ ok: true });
-    expect(getEmailQueueStatusMock).toHaveBeenCalledWith(true, { jobLimit: 'all' });
+    expect(getEmailQueueStatusMock).toHaveBeenCalledWith(true, {
+      jobLimit: 25,
+      restaurantId: '11111111-1111-4111-8111-111111111111',
+    });
   });
 
   it('treats queueFixture=loading as the canonical authenticated loading fixture', async () => {
@@ -112,7 +117,10 @@ describe('GET /api/ops/email-queue', () => {
 
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({ ok: true });
-    expect(getEmailQueueStatusMock).toHaveBeenCalledWith(true, { jobLimit: 'all' });
+    expect(getEmailQueueStatusMock).toHaveBeenCalledWith(true, {
+      jobLimit: 25,
+      restaurantId: '11111111-1111-4111-8111-111111111111',
+    });
     expect(sleepSpy).toHaveBeenCalledWith(expect.any(Function), 1200);
   });
 
@@ -120,11 +128,16 @@ describe('GET /api/ops/email-queue', () => {
     const sleepSpy = vi.spyOn(globalThis, 'setTimeout');
 
     const response = await GET(
-      buildRequest('?restaurantId=11111111-1111-4111-8111-111111111111&page=1&pageSize=25&fixture=loading'),
+      buildRequest(
+        '?restaurantId=11111111-1111-4111-8111-111111111111&page=1&pageSize=25&fixture=loading',
+      ),
     );
 
     expect(response.status).toBe(200);
-    expect(getEmailQueueStatusMock).toHaveBeenCalledWith(true, { jobLimit: 'all' });
+    expect(getEmailQueueStatusMock).toHaveBeenCalledWith(true, {
+      jobLimit: 25,
+      restaurantId: '11111111-1111-4111-8111-111111111111',
+    });
     expect(sleepSpy).toHaveBeenCalledWith(expect.any(Function), 1200);
   });
 });

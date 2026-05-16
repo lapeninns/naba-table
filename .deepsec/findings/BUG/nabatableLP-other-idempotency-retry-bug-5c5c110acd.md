@@ -20,3 +20,9 @@ Preserve the idempotency key across retryable or ambiguous failures and clear it
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-01)
+
+**Verdict:** fixed
+
+`reserve/features/reservations/wizard/api/useCreateOpsReservation.ts` preserves the current `Idempotency-Key` across ambiguous failures and only clears it after confirmed success or terminal validation/auth errors. The existing retry regression test verifies that a `TypeError('Failed to fetch')` followed by a retry reuses the same request headers.
+
+Evidence: `pnpm exec vitest run tests/reserve/useCreateOpsReservation.test.ts tests/reserve/booking-formatting.test.ts` passed on 2026-05-16. `pnpm exec prettier --check reserve/shared/formatting/booking.ts tests/reserve/booking-formatting.test.ts tests/reserve/useCreateOpsReservation.test.ts` also passed.

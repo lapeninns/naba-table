@@ -19,3 +19,15 @@ Create the artifact directory with `fs.mkdirSync(path.dirname(outputPath), { rec
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
+
+**Verdict:** fixed
+
+`scripts/db-perf-baseline.ts` creates `path.dirname(outputPath)` recursively
+before writing the baseline artifact and marks fatal failures with
+`process.exitCode = 1`.
+
+Evidence:
+
+- `tests/scripts/perf-script-safety.test.ts` verifies recursive output directory
+  creation and non-zero fatal exit behavior.
+- `pnpm exec vitest run tests/scripts/perf-script-safety.test.ts`

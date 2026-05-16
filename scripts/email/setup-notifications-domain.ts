@@ -1,16 +1,16 @@
-import { Resolver } from "node:dns/promises";
-import { execFileSync } from "node:child_process";
+import { Resolver } from 'node:dns/promises';
+import { execFileSync } from 'node:child_process';
 
-import { Resend, type DomainRecords } from "resend";
+import { Resend, type DomainRecords } from 'resend';
 
-type DnsType = "TXT" | "CNAME" | "MX";
-type DnsProvider = "vercel" | "cloudflare" | "unknown";
+type DnsType = 'TXT' | 'CNAME' | 'MX';
+type DnsProvider = 'vercel' | 'cloudflare' | 'unknown';
 
 type DnsRecord = {
   name: string;
   type: DnsType;
   value: string;
-  source: "resend" | "dmarc" | "bimi";
+  source: 'resend' | 'dmarc' | 'bimi';
   priority?: number;
 };
 
@@ -18,21 +18,21 @@ type CliCommand = {
   subdomain: string;
   type: DnsType;
   value: string;
-  source: DnsRecord["source"];
+  source: DnsRecord['source'];
 };
 
-const BASE_DOMAIN = "nabatable.com";
-const SENDING_DOMAIN = "notifications.nabatable.com";
-const SUBDOMAIN_LABEL = "notifications";
-const BIMI_LOGO_FILENAME = "nabatable-bimi.svg";
-const PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8"];
+const BASE_DOMAIN = 'nabatable.com';
+const SENDING_DOMAIN = 'notifications.nabatable.com';
+const SUBDOMAIN_LABEL = 'notifications';
+const BIMI_LOGO_FILENAME = 'nabatable-bimi.svg';
+const PUBLIC_RESOLVERS = ['1.1.1.1', '8.8.8.8'];
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
     throw new Error(
       `Missing required environment variable: ${name}. ` +
-        "Refusing to continue without explicit configuration.",
+        'Refusing to continue without explicit configuration.',
     );
   }
   return value;
@@ -51,7 +51,7 @@ function ensureHttpsUrl(rawUrl: string, label: string): URL {
     throw new Error(`${label} must be a valid absolute URL. Received: ${rawUrl}`);
   }
 
-  if (url.protocol !== "https:") {
+  if (url.protocol !== 'https:') {
     throw new Error(`${label} must use HTTPS. Received protocol: ${url.protocol}`);
   }
 
@@ -67,7 +67,7 @@ function assertDomainRelationship(): void {
 }
 
 function normalizeFqdn(value: string): string {
-  return value.trim().replace(/\.+$/, "").toLowerCase();
+  return value.trim().replace(/\.+$/, '').toLowerCase();
 }
 
 function createResolver(servers?: string[]): Resolver {
@@ -89,14 +89,14 @@ async function resolveAuthoritativeNameservers(domain: string): Promise<string[]
 }
 
 function inferDnsProvider(nameservers: string[]): DnsProvider {
-  if (nameservers.some((value) => value.includes("vercel-dns.com"))) return "vercel";
-  if (nameservers.some((value) => value.includes("cloudflare.com"))) return "cloudflare";
-  return "unknown";
+  if (nameservers.some((value) => value.includes('vercel-dns.com'))) return 'vercel';
+  if (nameservers.some((value) => value.includes('cloudflare.com'))) return 'cloudflare';
+  return 'unknown';
 }
 
 function recordNameToFqdn(recordName: string): string {
   const normalized = recordName.trim();
-  if (!normalized || normalized === "@") {
+  if (!normalized || normalized === '@') {
     return SENDING_DOMAIN;
   }
 
@@ -116,7 +116,7 @@ function recordNameToFqdn(recordName: string): string {
 }
 
 function dnsRecordTargetFqdn(record: DnsRecord): string {
-  if (record.source === "dmarc" && record.name === "_dmarc") {
+  if (record.source === 'dmarc' && record.name === '_dmarc') {
     return `_dmarc.${BASE_DOMAIN}`;
   }
 
@@ -133,7 +133,7 @@ function fqdnToBaseSubdomain(fqdn: string): string {
 
 function resendRecordToDns(record: DomainRecords): DnsRecord | null {
   // Resend can include receiving records. We only need sending records here.
-  if (record.record === "Receiving") {
+  if (record.record === 'Receiving') {
     return null;
   }
 
@@ -145,15 +145,15 @@ function resendRecordToDns(record: DomainRecords): DnsRecord | null {
     type: record.type,
     value: record.value,
     priority: record.priority,
-    source: "resend",
+    source: 'resend',
   };
 }
 
 function buildRootDmarcRecord(ruaEmail: string): DnsRecord {
   return {
-    name: "_dmarc",
-    type: "TXT",
-    source: "dmarc",
+    name: '_dmarc',
+    type: 'TXT',
+    source: 'dmarc',
     value:
       `v=DMARC1; p=quarantine; sp=quarantine; pct=100; ` +
       `rua=mailto:${ruaEmail}; adkim=r; aspf=r; fo=1`,
@@ -163,34 +163,32 @@ function buildRootDmarcRecord(ruaEmail: string): DnsRecord {
 function buildSubdomainDmarcRecord(ruaEmail: string): DnsRecord {
   return {
     name: `_dmarc.${SUBDOMAIN_LABEL}`,
-    type: "TXT",
-    source: "dmarc",
-    value:
-      `v=DMARC1; p=quarantine; pct=100; ` +
-      `rua=mailto:${ruaEmail}; adkim=r; aspf=r; fo=1`,
+    type: 'TXT',
+    source: 'dmarc',
+    value: `v=DMARC1; p=quarantine; pct=100; ` + `rua=mailto:${ruaEmail}; adkim=r; aspf=r; fo=1`,
   };
 }
 
 function buildBimiRecord(assetBaseUrl: string, pemUrl: string | null): DnsRecord {
-  const baseUrl = ensureHttpsUrl(assetBaseUrl, "BIMI asset base URL");
-  if (!baseUrl.pathname.endsWith("/")) {
+  const baseUrl = ensureHttpsUrl(assetBaseUrl, 'BIMI asset base URL');
+  if (!baseUrl.pathname.endsWith('/')) {
     baseUrl.pathname = `${baseUrl.pathname}/`;
   }
 
   const logoUrl = new URL(BIMI_LOGO_FILENAME, baseUrl).toString();
-  const authorityUrl = pemUrl ? ensureHttpsUrl(pemUrl, "BIMI PEM URL").toString() : "";
+  const authorityUrl = pemUrl ? ensureHttpsUrl(pemUrl, 'BIMI PEM URL').toString() : '';
 
   return {
     name: `default._bimi.${SUBDOMAIN_LABEL}`,
-    type: "TXT",
-    source: "bimi",
+    type: 'TXT',
+    source: 'bimi',
     value: `v=BIMI1; l=${logoUrl}; a=${authorityUrl}`,
   };
 }
 
 function toVercelCliCommand(record: DnsRecord): CliCommand {
-  if (record.type === "MX") {
-    if (typeof record.priority !== "number") {
+  if (record.type === 'MX') {
+    if (typeof record.priority !== 'number') {
       throw new Error(`MX record ${record.name} is missing priority.`);
     }
 
@@ -217,23 +215,27 @@ function formatVercelDnsAdd(command: CliCommand): string {
 }
 
 function describeDnsTarget(record: DnsRecord): string {
-  const value = record.type === "MX" && typeof record.priority === "number"
-    ? `${record.priority} ${record.value}`
-    : record.value;
+  const value =
+    record.type === 'MX' && typeof record.priority === 'number'
+      ? `${record.priority} ${record.value}`
+      : record.value;
   return `${record.source.toUpperCase()}\t${record.type}\t${dnsRecordTargetFqdn(record)}\t${value}`;
 }
 
 function shouldApplyDns(): boolean {
-  return process.env.APPLY_DNS === "1";
+  return process.env.APPLY_DNS === '1';
 }
 
 function runVercelDnsAdd(command: CliCommand, token: string, scope: string | null): void {
-  const args = ["dns", "add", BASE_DOMAIN, command.subdomain, command.type, command.value, "--token", token];
+  const args = ['dns', 'add', BASE_DOMAIN, command.subdomain, command.type, command.value];
   if (scope) {
-    args.push("--scope", scope);
+    args.push('--scope', scope);
   }
 
-  execFileSync("vercel", args, { stdio: "inherit" });
+  execFileSync('vercel', args, {
+    stdio: 'inherit',
+    env: { ...process.env, VERCEL_TOKEN: token },
+  });
 }
 
 async function getOrCreateDomain(resend: Resend): Promise<{ id: string; created: boolean }> {
@@ -249,7 +251,7 @@ async function getOrCreateDomain(resend: Resend): Promise<{ id: string; created:
 
   const createResponse = await resend.domains.create({ name: SENDING_DOMAIN });
   if (createResponse.error || !createResponse.data) {
-    const message = createResponse.error?.message ?? "Unknown error creating domain.";
+    const message = createResponse.error?.message ?? 'Unknown error creating domain.';
     throw new Error(`Failed to create Resend domain: ${message}`);
   }
 
@@ -259,21 +261,21 @@ async function getOrCreateDomain(resend: Resend): Promise<{ id: string; created:
 async function main(): Promise<void> {
   assertDomainRelationship();
 
-  const resendApiKey = getRequiredEnv("RESEND_API_KEY");
-  const ruaEmail = getOptionalEnv("DMARC_RUA_EMAIL") ?? `dmarc@${BASE_DOMAIN}`;
-  const assetBaseUrl = getRequiredEnv("BIMI_ASSET_BASE_URL");
-  const bimiPemUrl = getOptionalEnv("BIMI_PEM_URL");
+  const resendApiKey = getRequiredEnv('RESEND_API_KEY');
+  const ruaEmail = getOptionalEnv('DMARC_RUA_EMAIL') ?? `dmarc@${BASE_DOMAIN}`;
+  const assetBaseUrl = getRequiredEnv('BIMI_ASSET_BASE_URL');
+  const bimiPemUrl = getOptionalEnv('BIMI_PEM_URL');
 
   const resend = new Resend(resendApiKey);
 
   const { id: domainId, created } = await getOrCreateDomain(resend);
   console.log(
-    `[resend] Domain ${SENDING_DOMAIN} ${created ? "created" : "found"} with id ${domainId}.`,
+    `[resend] Domain ${SENDING_DOMAIN} ${created ? 'created' : 'found'} with id ${domainId}.`,
   );
 
   const domainResponse = await resend.domains.get(domainId);
   if (domainResponse.error || !domainResponse.data) {
-    const message = domainResponse.error?.message ?? "Unknown error fetching domain details.";
+    const message = domainResponse.error?.message ?? 'Unknown error fetching domain details.';
     throw new Error(`Failed to fetch Resend domain details: ${message}`);
   }
 
@@ -290,57 +292,57 @@ async function main(): Promise<void> {
   const dnsProvider = inferDnsProvider(authoritativeNameservers);
 
   console.log(
-    `\n[dns] Authoritative nameservers for ${BASE_DOMAIN}: ${authoritativeNameservers.join(", ") || "(unresolved)"}`,
+    `\n[dns] Authoritative nameservers for ${BASE_DOMAIN}: ${authoritativeNameservers.join(', ') || '(unresolved)'}`,
   );
   console.log(`[dns] Provider guess: ${dnsProvider}`);
 
-  console.log("\n=== DNS records to publish on the authoritative DNS provider ===");
+  console.log('\n=== DNS records to publish on the authoritative DNS provider ===');
   for (const record of allRecords) {
     console.log(describeDnsTarget(record));
   }
 
-  if (dnsProvider !== "vercel") {
+  if (dnsProvider !== 'vercel') {
     console.log(
       `\n[dns] ${BASE_DOMAIN} is not delegated to Vercel nameservers, so Vercel DNS changes will not affect live email authentication.`,
     );
     console.log(
-      `[dns] Publish the records above in ${dnsProvider === "cloudflare" ? "Cloudflare DNS" : "your authoritative DNS provider"} instead.`,
+      `[dns] Publish the records above in ${dnsProvider === 'cloudflare' ? 'Cloudflare DNS' : 'your authoritative DNS provider'} instead.`,
     );
 
     if (shouldApplyDns()) {
       throw new Error(
-        "APPLY_DNS=1 only supports Vercel-authoritative zones. Publish these records in the live authoritative DNS provider first.",
+        'APPLY_DNS=1 only supports Vercel-authoritative zones. Publish these records in the live authoritative DNS provider first.',
       );
     }
 
     return;
   }
 
-  console.log("\n=== Vercel CLI commands (copy/paste safe) ===");
+  console.log('\n=== Vercel CLI commands (copy/paste safe) ===');
   for (const command of cliCommands) {
     console.log(formatVercelDnsAdd(command));
   }
 
   if (!shouldApplyDns()) {
     console.log(
-      "\n[vercel] APPLY_DNS is not set to 1. Skipping DNS application and exiting safely.",
+      '\n[vercel] APPLY_DNS is not set to 1. Skipping DNS application and exiting safely.',
     );
     console.log(
-      "[vercel] To apply automatically (non-interactive), set APPLY_DNS=1 and provide VERCEL_TOKEN (and optionally VERCEL_SCOPE).",
+      '[vercel] To apply automatically (non-interactive), set APPLY_DNS=1 and provide VERCEL_TOKEN (and optionally VERCEL_SCOPE).',
     );
     return;
   }
 
-  const vercelToken = getRequiredEnv("VERCEL_TOKEN");
-  const vercelScope = getOptionalEnv("VERCEL_SCOPE");
+  const vercelToken = getRequiredEnv('VERCEL_TOKEN');
+  const vercelScope = getOptionalEnv('VERCEL_SCOPE');
 
-  console.log("\n[vercel] APPLY_DNS=1 detected. Applying DNS records via Vercel CLI...");
+  console.log('\n[vercel] APPLY_DNS=1 detected. Applying DNS records via Vercel CLI...');
   for (const command of cliCommands) {
     console.log(`[vercel] Applying ${command.source} ${command.type} ${command.subdomain}`);
     runVercelDnsAdd(command, vercelToken, vercelScope);
   }
 
-  console.log("\n[resend] Attempting domain verification...");
+  console.log('\n[resend] Attempting domain verification...');
   const verifyResponse = await resend.domains.verify(domainId);
   if (verifyResponse.error) {
     console.log(

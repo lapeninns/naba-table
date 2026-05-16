@@ -210,6 +210,8 @@ describe('dual-sync queue worker', () => {
               fieldKey: 'profile.businessDescription',
               sectionKey: 'profile',
               action: 'export_to_google',
+              pinnedCoreHash: 'core-hash',
+              pinnedGbpHash: 'gbp-hash',
             },
           ],
         },
@@ -238,6 +240,33 @@ describe('dual-sync queue worker', () => {
     expect(completeDualSyncJobMock).not.toHaveBeenCalled();
   });
 
+  it('fails queued publish jobs that omit field-level pins before replaying', async () => {
+    claimNextDualSyncJobMock.mockResolvedValue(
+      makeJob({
+        payload: {
+          decisions: [
+            {
+              fieldKey: 'profile.businessDescription',
+              sectionKey: 'profile',
+              action: 'export_to_google',
+            },
+          ],
+        },
+      }),
+    );
+
+    const result = await processNextDualSyncJob({ client, workerId: 'worker-1' });
+
+    expect(result.status).toBe('retrying');
+    expect(runPublishMock).not.toHaveBeenCalled();
+    expect(failDualSyncJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorCode: 'DUAL_SYNC_JOB_FAILED',
+        errorMessage: 'publish_batch job payload must include at least one valid decision.',
+      }),
+    );
+  });
+
   it('preserves the restaurant pause code for queued jobs', async () => {
     const error = Object.assign(new Error('Maintenance window.'), {
       code: 'DUAL_SYNC_RESTAURANT_PAUSED',
@@ -250,6 +279,8 @@ describe('dual-sync queue worker', () => {
               fieldKey: 'profile.businessDescription',
               sectionKey: 'profile',
               action: 'export_to_google',
+              pinnedCoreHash: 'core-hash',
+              pinnedGbpHash: 'gbp-hash',
             },
           ],
         },

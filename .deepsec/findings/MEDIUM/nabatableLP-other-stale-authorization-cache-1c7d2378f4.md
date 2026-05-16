@@ -16,6 +16,12 @@ The layout calls fetchUserMembershipsCached(supabaseUser.id), which stores the u
 
 Do not share the server-render display cache with authorization decisions. Make requireMembershipForRestaurant/requireAdminMembership perform a fresh membership lookup, or use a separate non-authoritative layout cache and explicitly invalidate authorization cache entries from every membership mutation/revocation path.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The ops layout may populate `fetchUserMembershipsCached`, but `requireMembershipForRestaurant` defaults `useCache` to `false`, and `requireAdminMembership` delegates to that uncached path. Covered by `tests/server/team-access-cache.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

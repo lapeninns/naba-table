@@ -20,3 +20,7 @@ Remove contact values from these logs, or log only stable non-reversible hashes 
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)
+
+**Verdict:** fixed
+
+`server/customers.ts` now logs only contact-presence booleans and update field names, and conflict/error logs include stable error code/message data without normalized email, phone, name, or update payload values.

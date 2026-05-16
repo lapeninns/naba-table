@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  claimFoodMenusImportReviewDecision,
   finishFoodMenusPublishAttempt,
   markFoodMenusImportReviewDecision,
   openFoodMenusPublishAttempt,
@@ -48,6 +49,7 @@ function makeChain(result: unknown | unknown[]): MockChain {
 function makeClient(chains: MockChain[]): {
   client: SupabaseClient<Database>;
   fromMock: ReturnType<typeof vi.fn>;
+  rpcMock: ReturnType<typeof vi.fn>;
 } {
   const queue = [...chains];
   const fromMock = vi.fn(() => {
@@ -57,7 +59,12 @@ function makeClient(chains: MockChain[]): {
     }
     return chain;
   });
-  return { client: { from: fromMock } as unknown as SupabaseClient<Database>, fromMock };
+  const rpcMock = vi.fn(async () => ({ data: [], error: null }));
+  return {
+    client: { from: fromMock, rpc: rpcMock } as unknown as SupabaseClient<Database>,
+    fromMock,
+    rpcMock,
+  };
 }
 
 function makeSnapshotRow(overrides: Record<string, unknown> = {}) {
@@ -290,9 +297,8 @@ describe('GBP FoodMenus storage helpers', () => {
   });
 
   it('supersedes pending import reviews before inserting fresh suggestions', async () => {
-    const updateChain = makeChain([]);
-    const insertChain = makeChain([makeImportReviewRow()]);
-    const { client } = makeClient([updateChain, insertChain]);
+    const { client, rpcMock } = makeClient([]);
+    rpcMock.mockResolvedValueOnce({ data: [makeImportReviewRow()], error: null });
 
     const rows = await replacePendingFoodMenusImportReviews({
       client,
@@ -319,26 +325,32 @@ describe('GBP FoodMenus storage helpers', () => {
       },
     });
 
-    expect(updateChain.update).toHaveBeenCalledWith(
-      expect.objectContaining({ decision_status: 'superseded' }),
-    );
-    expect(updateChain.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
-    expect(updateChain.eq).toHaveBeenCalledWith('decision_status', 'pending');
-    expect(insertChain.insert).toHaveBeenCalledWith([
+    expect(rpcMock).toHaveBeenCalledWith(
+      'replace_pending_food_menus_import_reviews',
       expect.objectContaining({
-        restaurant_id: 'rest-1',
-        google_snapshot_id: 'google-snapshot-1',
-        projection_snapshot_id: 'projection-snapshot-1',
-        menu_item_id: 'item-1',
-        match_status: 'matched',
-        decision_status: 'pending',
+        p_restaurant_id: 'rest-1',
+        p_google_snapshot_id: 'google-snapshot-1',
+        p_projection_snapshot_id: 'projection-snapshot-1',
+        p_reviews: [
+          expect.objectContaining({
+            menu_item_id: 'item-1',
+            match_status: 'matched',
+          }),
+        ],
       }),
-    ]);
+    );
     expect(rows[0]?.suggestedPatch).toEqual({ shortDescription: 'Updated' });
   });
 
   it('reads and marks an import-review decision by restaurant', async () => {
     const readChain = makeChain(makeImportReviewRow());
+    const claimChain = makeChain(
+      makeImportReviewRow({
+        decision_status: 'processing',
+        decision_action: 'apply_to_nabatable',
+        decided_by_user_id: 'user-1',
+      }),
+    );
     const updateChain = makeChain(
       makeImportReviewRow({
         decision_status: 'applied',
@@ -347,12 +359,19 @@ describe('GBP FoodMenus storage helpers', () => {
         decided_at: '2026-05-02T18:02:00.000Z',
       }),
     );
-    const { client } = makeClient([readChain, updateChain]);
+    const { client } = makeClient([readChain, claimChain, updateChain]);
 
     const review = await readFoodMenusImportReviewForRestaurant({
       client,
       restaurantId: 'rest-1',
       reviewId: 'review-1',
+    });
+    const claimed = await claimFoodMenusImportReviewDecision({
+      client,
+      restaurantId: 'rest-1',
+      reviewId: 'review-1',
+      decisionAction: 'apply_to_nabatable',
+      decidedByUserId: 'user-1',
     });
     const decided = await markFoodMenusImportReviewDecision({
       client,
@@ -366,6 +385,15 @@ describe('GBP FoodMenus storage helpers', () => {
     expect(readChain.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
     expect(readChain.eq).toHaveBeenCalledWith('id', 'review-1');
     expect(review?.id).toBe('review-1');
+    expect(claimChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision_status: 'processing',
+        decision_action: 'apply_to_nabatable',
+        decided_by_user_id: 'user-1',
+      }),
+    );
+    expect(claimChain.eq).toHaveBeenCalledWith('decision_status', 'pending');
+    expect(claimed.decisionStatus).toBe('processing');
     expect(updateChain.update).toHaveBeenCalledWith(
       expect.objectContaining({
         decision_status: 'applied',
@@ -375,6 +403,7 @@ describe('GBP FoodMenus storage helpers', () => {
     );
     expect(updateChain.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
     expect(updateChain.eq).toHaveBeenCalledWith('id', 'review-1');
+    expect(updateChain.eq).toHaveBeenCalledWith('decision_status', 'processing');
     expect(decided.decisionStatus).toBe('applied');
     expect(decided.decisionAction).toBe('apply_to_nabatable');
   });

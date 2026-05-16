@@ -19,3 +19,9 @@ Enable certificate verification for remote database connections. Use the platfor
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-28)
+
+**Verdict:** fixed
+
+`scripts/execute-sql.ts` now uses the shared `getPgSslConfig()` helper for its Postgres client instead of disabling TLS certificate verification. The database safety test covers this script and fails if `rejectUnauthorized: false` is reintroduced.
+
+Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

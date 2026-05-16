@@ -1,34 +1,34 @@
 // src/app/api/webhook/resend/route.ts
-import { NextResponse } from "next/server";
-import { Resend, type WebhookEvent } from "resend";
+import { NextResponse } from 'next/server';
+import { Resend, type WebhookEvent } from 'resend';
 
 import {
   recordEmailDeliveryLog,
   findLatestEmailDeliveryByMessageId,
   type EmailDeliveryStatus,
-} from "@/server/emails/email-delivery-log";
-import { suppressProfilesByEmail } from "@/server/emails/recipient-suppression";
-import { recordObservabilityEvent } from "@/server/observability";
+} from '@/server/emails/email-delivery-log';
+import { suppressProfilesByEmail } from '@/server/emails/recipient-suppression';
+import { recordObservabilityEvent } from '@/server/observability';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 const resendWebhookVerifier = new Resend();
+const MAX_RESEND_WEBHOOK_BODY_BYTES = 256 * 1024;
 
 type ResendWebhookEvent = {
   type:
-    | Extract<WebhookEvent, "email.sent">
-    | Extract<WebhookEvent, "email.delivered">
-    | Extract<WebhookEvent, "email.delivery_delayed">
-    | Extract<WebhookEvent, "email.complained">
-    | Extract<WebhookEvent, "email.bounced">
-    | Extract<WebhookEvent, "email.opened">
-    | Extract<WebhookEvent, "email.clicked">
-    | Extract<WebhookEvent, "email.failed">
-    | "email.complaint";
+    | Extract<WebhookEvent, 'email.sent'>
+    | Extract<WebhookEvent, 'email.delivered'>
+    | Extract<WebhookEvent, 'email.delivery_delayed'>
+    | Extract<WebhookEvent, 'email.complained'>
+    | Extract<WebhookEvent, 'email.bounced'>
+    | Extract<WebhookEvent, 'email.opened'>
+    | Extract<WebhookEvent, 'email.clicked'>
+    | Extract<WebhookEvent, 'email.failed'>
+    | 'email.complaint';
   created_at: string;
   data: {
     email_id: string;
@@ -41,21 +41,37 @@ type ResendWebhookEvent = {
   };
 };
 
+function parseContentLength(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 export async function POST(req: NextRequest) {
   // 1. --- Webhook Security ---
-  if (!RESEND_WEBHOOK_SECRET) {
-    console.error("[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+  const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!resendWebhookSecret) {
+    console.error('[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook');
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+  }
+
+  const svixId = req.headers.get('svix-id')?.trim();
+  const svixTimestamp = req.headers.get('svix-timestamp')?.trim();
+  const svixSignature = req.headers.get('svix-signature')?.trim();
+
+  if (!svixId || !svixTimestamp || !svixSignature) {
+    console.warn('[webhook][resend] Missing svix verification headers');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const contentLength = parseContentLength(req.headers.get('content-length'));
+  if (contentLength !== null && contentLength > MAX_RESEND_WEBHOOK_BODY_BYTES) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
   const payload = await req.text();
-  const svixId = req.headers.get("svix-id")?.trim();
-  const svixTimestamp = req.headers.get("svix-timestamp")?.trim();
-  const svixSignature = req.headers.get("svix-signature")?.trim();
-
-  if (!svixId || !svixTimestamp || !svixSignature) {
-    console.warn("[webhook][resend] Missing svix verification headers");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (new TextEncoder().encode(payload).byteLength > MAX_RESEND_WEBHOOK_BODY_BYTES) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
   try {
@@ -66,24 +82,24 @@ export async function POST(req: NextRequest) {
         timestamp: svixTimestamp,
         signature: svixSignature,
       },
-      webhookSecret: RESEND_WEBHOOK_SECRET,
+      webhookSecret: resendWebhookSecret,
     }) as ResendWebhookEvent;
 
     const recipients = event.data.to ?? [];
     const primaryRecipient = recipients[0] ?? null;
 
     if (!primaryRecipient) {
-      return NextResponse.json({ error: "No recipient email found" }, { status: 400 });
+      return NextResponse.json({ error: 'No recipient email found' }, { status: 400 });
     }
 
-    const statusMap: Partial<Record<ResendWebhookEvent["type"], EmailDeliveryStatus>> = {
-      "email.sent": "sent",
-      "email.delivered": "delivered",
-      "email.delivery_delayed": "delivery_delayed",
-      "email.complained": "complained",
-      "email.complaint": "complained",
-      "email.bounced": "bounced",
-      "email.failed": "failed",
+    const statusMap: Partial<Record<ResendWebhookEvent['type'], EmailDeliveryStatus>> = {
+      'email.sent': 'sent',
+      'email.delivered': 'delivered',
+      'email.delivery_delayed': 'delivery_delayed',
+      'email.complained': 'complained',
+      'email.complaint': 'complained',
+      'email.bounced': 'bounced',
+      'email.failed': 'failed',
     };
 
     const mappedStatus = statusMap[event.type] ?? null;
@@ -105,7 +121,7 @@ export async function POST(req: NextRequest) {
           recipientEmail,
           messageId: event.data.email_id,
           status: mappedStatus,
-          provider: "resend",
+          provider: 'resend',
           providerEventId: null,
           occurredAt,
           error: errorDetails,
@@ -119,16 +135,16 @@ export async function POST(req: NextRequest) {
 
     // 2. --- Handle Relevant Events ---
     switch (event.type) {
-      case "email.bounced":
-      case "email.complained":
-      case "email.complaint": {
+      case 'email.bounced':
+      case 'email.complained':
+      case 'email.complaint': {
         const result = await suppressProfilesByEmail(primaryRecipient);
 
         if (result.updatedProfiles > 0) {
           await recordObservabilityEvent({
-            source: "webhook.resend",
-            eventType: "email_suppression.added",
-            severity: "warning",
+            source: 'webhook.resend',
+            eventType: 'email_suppression.added',
+            severity: 'warning',
             context: {
               reason: event.type,
               matchedProfiles: result.matchedProfiles,
@@ -150,21 +166,21 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    if (error instanceof Error && error.name === "WebhookVerificationError") {
-      console.warn("[webhook][resend] Invalid signature received");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (error instanceof Error && error.name === 'WebhookVerificationError') {
+      console.warn('[webhook][resend] Invalid signature received');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.error("[webhook][resend] Error processing webhook:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error('[webhook][resend] Error processing webhook:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await recordObservabilityEvent({
-      source: "webhook.resend",
-      eventType: "webhook.processing_failed",
-      severity: "error",
+      source: 'webhook.resend',
+      eventType: 'webhook.processing_failed',
+      severity: 'error',
       context: {
         error: errorMessage,
       },
     });
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

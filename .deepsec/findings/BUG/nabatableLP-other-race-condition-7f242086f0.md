@@ -16,6 +16,12 @@ The handler first checks drinkItemExternalIdExistsForRestaurant and later calls 
 
 Move the create-vs-conflict decision into a single database transaction/RPC. For this create endpoint, use insert-only semantics and map unique-constraint violations to 409, or explicitly require an item-specific update route for updates.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The referenced legacy route `src/app/api/ops/restaurants/[id]/drinks/items/route.ts` is no longer present in the current repository. The current canonical menu hierarchy create path uses `src/app/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/route.ts` with `createRestaurantMenuItem`, which performs an insert-only write to `restaurant_menu_items`. The previous pre-check plus `upsertDrinkItem` replacement path is not shipped, so duplicate create races are handled by database uniqueness rather than by overwriting the first item.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

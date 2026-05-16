@@ -7,6 +7,7 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
 import { createGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
 import type { NextRequest } from 'next/server';
 
@@ -14,15 +15,28 @@ type RouteContext = {
   params: Promise<{ id: string | string[] }>;
 };
 
-export async function POST(_req: NextRequest, { params }: RouteContext) {
+export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile-drafts');
+  const access = await ensureRestaurantAdminAccess(
+    restaurantId,
+    'google-business-profile-drafts',
+    req,
+  );
   if (access instanceof NextResponse) {
     return access;
+  }
+
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId,
+    action: 'workflow-draft',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {

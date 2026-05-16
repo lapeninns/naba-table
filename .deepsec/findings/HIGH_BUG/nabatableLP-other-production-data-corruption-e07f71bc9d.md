@@ -19,3 +19,7 @@ Require an explicit staging/project-ref guard before any write, remove dangerous
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-04)
+
+**Verdict:** fixed
+
+`scripts/generate-bookings-safe.ts` now verifies the Supabase API project through `assertStagingScriptSafety` before service-role client construction and requires explicit staging confirmation. The script no longer defaults the target restaurant/date/count; callers must provide the seed target through environment values. Focused script-safety tests assert the staging guard and explicit target requirements.

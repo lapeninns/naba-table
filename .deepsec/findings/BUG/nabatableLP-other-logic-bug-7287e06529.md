@@ -19,3 +19,17 @@ Check result.attempt.status in the route and return an error status when it is n
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+
+**Verdict:** fixed
+
+The FoodMenus publish route now receives a rejected service call when Google
+publishing fails after preflight, so it returns the existing error response path
+instead of HTTP 200 with a failed attempt.
+
+Evidence:
+
+- `server/google-business-profile/food-menus-sync.ts` throws after persisting the
+  failed attempt.
+- `tests/server/google-business-profile-food-menus-routes.test.ts` covers the
+  route returning HTTP 500 for a failed Google FoodMenus publish.
+- `pnpm exec vitest run tests/server/google-business-profile-food-menus-routes.test.ts`

@@ -16,6 +16,14 @@ enumerateCombinationPlans sorts candidates by descending capacity, but the DFS l
 
 Replace the break with continue for over-capacity candidates, and add a regression test where a larger candidate exceeds the capacity cap but a later smaller candidate forms a valid combination.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/capacity/selector.ts` continues past over-capacity candidates while enumerating combinations, so smaller later candidates can still complete a valid plan. The selector regression covers a larger overflowing partner followed by a smaller fitting partner.
+
+Evidence: `pnpm exec vitest run tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/capacity/demand-profiles.ts server/capacity/selector.ts server/capacity/table-assignment/supabase.ts server/capacity/v2/utils.ts tests/server/capacity/demand-profiles.test.ts tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/selector-merge-policy.test.ts tests/server/capacity-v2-utils.test.ts` also passed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-16)

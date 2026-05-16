@@ -19,3 +19,9 @@ Remove `rejectUnauthorized: false`; use normal certificate validation or configu
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
+
+**Verdict:** fixed
+
+The reported target file, `scripts/import-old-school-house-menu-staging.ts`, is no longer present in the repository, and the current importer/script inventory does not contain this deleted TLS-disabled connection path. The remaining Postgres script safety coverage asserts active database scripts do not contain `rejectUnauthorized: false`.
+
+Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

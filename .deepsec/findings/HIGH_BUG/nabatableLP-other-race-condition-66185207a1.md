@@ -16,6 +16,12 @@ unassignTablesDirect deletes assignments, then separately checks whether any ass
 
 Perform the delete, remaining-assignment check, and status transition in one transaction/RPC. The status update should be conditional on NOT EXISTS remaining assignments while holding the relevant booking row lock.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`unassignTablesDirect` now calls `unassign_tables_atomic` and returns the RPC removal count instead of deleting rows, reading remaining assignments, and updating `bookings.status` in application code. The new migration replaces `unassign_tables_atomic` with a booking-row lock plus database-side `NOT EXISTS` status rollback, so the delete and confirmed-to-pending transition happen in one transaction. Focused evidence: `tests/server/capacity/direct-assignment-atomic.test.ts` verifies the direct helper uses the RPC and does not perform table reads or writes after it.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)

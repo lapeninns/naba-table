@@ -19,3 +19,9 @@ Either do not cache revocable short-link records, purge/update the KV entry when
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-11)
+
+**Verdict:** fixed
+
+`cloudflare/booking-short-links/src/storage.ts` no longer returns short-link records from KV. Token resolution now reads D1 directly, so a `revoked_at` update in D1 is observed before redirect decisions and stale active KV records cannot keep a revoked recovery link live.
+
+Validation: `pnpm exec vitest run tests/server/restaurant-google-business-v1-routes.test.ts tests/cloudflare/booking-short-links-storage.test.ts tests/server/team-access-cache.test.ts tests/server/ops-restaurants-route-security.test.ts tests/server/tenant-authorization-sprint2.test.ts`

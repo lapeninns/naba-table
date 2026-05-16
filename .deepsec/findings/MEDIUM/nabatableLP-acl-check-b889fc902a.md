@@ -20,3 +20,9 @@ Keep the cached membership list for UI rendering only, or make requireMembership
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-13)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+**Verdict:** fixed
+
+`requireMembershipForRestaurant` now defaults `useCache` to `false`, so API and mutation authorization guards perform a fresh membership query unless a caller explicitly opts into cache use. The cache remains available for server-rendered layout membership reads only.
+
+Validation: `pnpm exec vitest run tests/server/restaurant-google-business-v1-routes.test.ts tests/cloudflare/booking-short-links-storage.test.ts tests/server/team-access-cache.test.ts tests/server/ops-restaurants-route-security.test.ts tests/server/tenant-authorization-sprint2.test.ts`

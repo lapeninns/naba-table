@@ -19,3 +19,7 @@ Add an audience option to the history helper and redact or generalize actor for 
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)
+
+**Verdict:** fixed
+
+`server/bookingHistory.ts` now normalizes booking history actors to `System` or `Restaurant team` instead of returning raw audit actors or `changed_by` identifiers. Covered by `tests/server/booking-history-redaction.test.ts`.

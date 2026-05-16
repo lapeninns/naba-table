@@ -19,3 +19,9 @@ Treat reservation date strings as local calendar dates, not UTC instants. Parse 
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)
+
+**Verdict:** fixed
+
+`reserve/shared/formatting/booking.ts` now parses `YYYY-MM-DD` reservation dates as calendar dates and formats date-only labels with a fixed UTC formatter. Date-only labels no longer shift to the previous local day for western venue timezones; timezone-aware formatting remains in the `Date`/instant-based helpers.
+
+Evidence: `pnpm exec vitest run tests/reserve/useCreateOpsReservation.test.ts tests/reserve/booking-formatting.test.ts` passed on 2026-05-16. `pnpm exec prettier --check reserve/shared/formatting/booking.ts tests/reserve/booking-formatting.test.ts tests/reserve/useCreateOpsReservation.test.ts` also passed.

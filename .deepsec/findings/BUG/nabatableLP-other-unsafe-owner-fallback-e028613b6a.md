@@ -16,6 +16,12 @@ If OWNER_USER_ID and OWNER_EMAIL are not set, the script lists auth users and as
 
 Require OWNER_USER_ID or OWNER_EMAIL for any write, or restrict the fallback to a clearly marked local/dev-only mode with target environment validation.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`scripts/seed-restaurant.ts` no longer falls back to the first auth user. `resolveOwnerId` now throws unless `OWNER_USER_ID` or `OWNER_EMAIL` resolves a specific owner, and the script calls the staging safety guard before importing server seed helpers.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

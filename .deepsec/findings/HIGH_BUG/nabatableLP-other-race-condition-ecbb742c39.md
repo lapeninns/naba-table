@@ -16,6 +16,12 @@ unassignTablesDirect deletes assignment rows, then separately checks whether any
 
 Perform the delete, remaining-assignment check, and status update in one transactional database function that locks the booking row. Alternatively, update status with a single conditional SQL statement using NOT EXISTS against booking_table_assignments after the delete.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The application-level delete/read/update sequence has been removed from `unassignTablesDirect`. It now delegates unassignment to `unassign_tables_atomic`, and the new migration updates that RPC to lock the booking row, delete matching assignment rows, and run the pending-status rollback with a `NOT EXISTS` assignment guard inside the same database transaction. Focused evidence: `tests/server/capacity/direct-assignment-atomic.test.ts` covers the helper behavior and asserts the migration contains `FOR UPDATE`, `DELETE FROM public.booking_table_assignments`, `status = 'pending'`, and `NOT EXISTS`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)

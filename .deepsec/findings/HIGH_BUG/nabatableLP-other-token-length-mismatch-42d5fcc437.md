@@ -16,6 +16,14 @@ The route requires tokens to be exactly 64 characters before it calls validateCo
 
 Centralize the confirmation token format and make this schema match the generator, for example by accepting the 43-character base64url format, or change the generator/storage/tests to consistently produce 64-character tokens.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The confirmation route now validates candidates through `isConfirmationTokenFormat` from the token module instead of enforcing an exact 64-character schema. That format accepts the 43-character base64url tokens produced by `generateConfirmationToken()` and still allows 64-character legacy tokens.
+
+Evidence: `pnpm exec vitest run tests/server/bookings-confirm-route.test.ts` passed on 2026-05-16. The route-level test uses a real generated token and verifies `/api/bookings/confirm` accepts it.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-24)

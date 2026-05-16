@@ -20,3 +20,7 @@ Log detailed errors server-side, but return a generic client message. Map expect
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
+
+**Verdict:** fixed
+
+`src/app/api/ops/restaurants/route.ts` now logs a sanitized server-side failure summary and returns the stable client message `Unable to create restaurant` for unexpected creation failures. Covered by `tests/server/ops-restaurants-route-security.test.ts`.

@@ -20,3 +20,14 @@ Type search params as string | string[] and normalize code with a helper that se
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-25)
+
+**Verdict:** fixed
+
+`src/app/(public)/bookings/recover/error/page.tsx` now normalizes duplicated
+`code` params with `firstString` before lookup and `replaceAll` rendering.
+
+Evidence:
+
+- `tests/guest/public-booking-message-pages.test.tsx` covers duplicated recovery
+  `code` params and verifies the reason details render without crashing.
+- `pnpm exec vitest run tests/guest/public-booking-message-pages.test.tsx`

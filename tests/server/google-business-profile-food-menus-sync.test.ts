@@ -12,6 +12,7 @@ const listProjectedFoodMenusIdentitiesMock = vi.hoisted(() => vi.fn());
 const recordFoodMenusSnapshotMock = vi.hoisted(() => vi.fn());
 const replacePendingFoodMenusImportReviewsMock = vi.hoisted(() => vi.fn());
 const readFoodMenusImportReviewForRestaurantMock = vi.hoisted(() => vi.fn());
+const claimFoodMenusImportReviewDecisionMock = vi.hoisted(() => vi.fn());
 const markFoodMenusImportReviewDecisionMock = vi.hoisted(() => vi.fn());
 const openFoodMenusPublishAttemptMock = vi.hoisted(() => vi.fn());
 const markFoodMenusPublishAttemptRunningMock = vi.hoisted(() => vi.fn());
@@ -46,6 +47,7 @@ vi.mock('@/server/google-business-profile/food-menus-storage', async (importOrig
     recordFoodMenusSnapshot: recordFoodMenusSnapshotMock,
     replacePendingFoodMenusImportReviews: replacePendingFoodMenusImportReviewsMock,
     readFoodMenusImportReviewForRestaurant: readFoodMenusImportReviewForRestaurantMock,
+    claimFoodMenusImportReviewDecision: claimFoodMenusImportReviewDecisionMock,
     markFoodMenusImportReviewDecision: markFoodMenusImportReviewDecisionMock,
     openFoodMenusPublishAttempt: openFoodMenusPublishAttemptMock,
     markFoodMenusPublishAttemptRunning: markFoodMenusPublishAttemptRunningMock,
@@ -314,6 +316,7 @@ describe('GBP FoodMenus sync service', () => {
     recordFoodMenusSnapshotMock.mockReset();
     replacePendingFoodMenusImportReviewsMock.mockReset();
     readFoodMenusImportReviewForRestaurantMock.mockReset();
+    claimFoodMenusImportReviewDecisionMock.mockReset();
     markFoodMenusImportReviewDecisionMock.mockReset();
     getGoogleBusinessProfileFoodMenusMock.mockReset();
     updateGoogleBusinessProfileFoodMenusMock.mockReset();
@@ -324,6 +327,13 @@ describe('GBP FoodMenus sync service', () => {
     upsertFoodMenuSettingsMock.mockReset();
     listRestaurantMenuHierarchyMock.mockReset();
     listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
+    claimFoodMenusImportReviewDecisionMock.mockResolvedValue(
+      makeReview({
+        decisionStatus: 'processing',
+        decisionAction: 'apply_to_nabatable',
+        decidedByUserId: 'user-1',
+      }),
+    );
     readFoodMenuSettingsMock.mockResolvedValue(null);
     listRestaurantMenuHierarchyMock.mockResolvedValue({ menus: [makeCanonicalMenu()] });
   });
@@ -785,6 +795,13 @@ describe('GBP FoodMenus sync service', () => {
         servesNum: 2,
       }),
     });
+    expect(claimFoodMenusImportReviewDecisionMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: 'rest-1',
+      reviewId: 'review-1',
+      decisionAction: 'apply_to_nabatable',
+      decidedByUserId: 'user-1',
+    });
     expect(markFoodMenusImportReviewDecisionMock).toHaveBeenCalledWith({
       client,
       restaurantId: 'rest-1',
@@ -795,6 +812,28 @@ describe('GBP FoodMenus sync service', () => {
     });
     expect(result.review.decisionStatus).toBe('applied');
     expect(result.item).toBe(updatedItem);
+  });
+
+  it('does not apply FoodMenus side effects when the pending decision claim is lost', async () => {
+    readFoodMenusImportReviewForRestaurantMock.mockResolvedValue(makeReview());
+    claimFoodMenusImportReviewDecisionMock.mockRejectedValue(
+      new Error('restaurant_gbp_food_menu_import_reviews claim failed for review-1'),
+    );
+
+    await expect(
+      decideFoodMenusImportReview({
+        client,
+        restaurantId: 'rest-1',
+        reviewId: 'review-1',
+        action: 'apply_to_nabatable',
+        decidedByUserId: 'user-1',
+      }),
+    ).rejects.toThrow('claim failed');
+
+    expect(applyCanonicalFoodMenusSuggestedPatchMock).not.toHaveBeenCalled();
+    expect(createCanonicalFoodMenusItemFromPatchMock).not.toHaveBeenCalled();
+    expect(decideCanonicalMissingLocalFoodMenusItemMock).not.toHaveBeenCalled();
+    expect(markFoodMenusImportReviewDecisionMock).not.toHaveBeenCalled();
   });
 
   it('records an explicit ignore decision without mutating the menu item', async () => {
@@ -1273,5 +1312,56 @@ describe('GBP FoodMenus sync service', () => {
     });
     expect(markFoodMenusPublishAttemptRunningMock).not.toHaveBeenCalled();
     expect(updateGoogleBusinessProfileFoodMenusMock).not.toHaveBeenCalled();
+  });
+
+  it('records and throws failed Google FoodMenus publishes instead of resolving success', async () => {
+    listCanonicalFoodMenusImportItemsMock.mockResolvedValue([makeMenuItem()]);
+    recordFoodMenusProjectionMock.mockResolvedValue({
+      snapshot: makeSnapshot({ id: 'projection-snapshot-1', snapshotKind: 'nabatable_projection' }),
+      identities: [],
+    });
+    getGoogleBusinessProfileFoodMenusMock.mockResolvedValue(googleFoodMenus);
+    recordFoodMenusSnapshotMock.mockResolvedValue(
+      makeSnapshot({
+        id: 'baseline-snapshot-1',
+        snapshotKind: 'preflight',
+      }),
+    );
+    openFoodMenusPublishAttemptMock.mockResolvedValue({
+      id: 'attempt-1',
+      status: 'pending',
+    });
+    markFoodMenusPublishAttemptRunningMock.mockResolvedValue({
+      id: 'attempt-1',
+      status: 'running',
+    });
+    updateGoogleBusinessProfileFoodMenusMock.mockRejectedValue(new Error('Google rejected menu'));
+    finishFoodMenusPublishAttemptMock.mockResolvedValue({
+      id: 'attempt-1',
+      status: 'failed',
+    });
+
+    await expect(
+      publishFoodMenusProjectionToGoogle({
+        client,
+        restaurantId: 'rest-1',
+        accessToken: 'access-token',
+        foodMenusName: 'accounts/123/locations/456/foodMenus',
+      }),
+    ).rejects.toMatchObject({
+      name: 'GBP_FOOD_MENUS_PUBLISH_FAILED',
+      message: 'Google rejected menu',
+      attempt: { status: 'failed' },
+      googleResponse: null,
+    });
+
+    expect(finishFoodMenusPublishAttemptMock).toHaveBeenCalledWith({
+      client,
+      attemptId: 'attempt-1',
+      status: 'failed',
+      errorCode: 'Error',
+      errorMessage: 'Google rejected menu',
+    });
+    expect(recordFoodMenusSnapshotMock).toHaveBeenCalledTimes(1);
   });
 });

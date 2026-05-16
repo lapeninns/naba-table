@@ -11,6 +11,7 @@ const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const originalTurnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+const originalRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
 vi.mock('@/server/security/csrf', () => ({
   validateCsrfToken: validateCsrfTokenMock,
@@ -76,10 +77,7 @@ function buildMagicLinkThrottleOk() {
   };
 }
 
-function buildQuery(result: {
-  data: unknown;
-  error: { code?: string; message?: string } | null;
-}) {
+function buildQuery(result: { data: unknown; error: { code?: string; message?: string } | null }) {
   const maybeSingle = vi.fn().mockResolvedValue(result);
   const limit = vi.fn().mockReturnValue({ maybeSingle });
   const eq = vi.fn().mockReturnValue({ limit });
@@ -115,12 +113,14 @@ function buildKnownProfile(id = 'a4f4be11-9d83-4ced-839a-8abbde5336c0') {
 function buildRequest(
   payload: Record<string, unknown>,
   host = 'www.nabatable.com',
+  headers?: HeadersInit,
 ): NextRequest {
   return new NextRequest(`https://${host}/api/auth/signin`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       host,
+      ...headers,
     },
     body: JSON.stringify(payload),
   });
@@ -141,6 +141,7 @@ describe('signin route magic-link policy', () => {
 
     validateCsrfTokenMock.mockReturnValue(true);
     classifySigninSurfaceMock.mockReturnValue('app_ops');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'nabatable.com';
     consumeMagicLinkSigninThrottleMock.mockResolvedValue(buildMagicLinkThrottleOk());
     verifyTurnstileTokenMock.mockResolvedValue({
       ok: true,
@@ -167,6 +168,11 @@ describe('signin route magic-link policy', () => {
       process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = originalTurnstileSiteKey;
     } else {
       delete process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    }
+    if (typeof originalRootDomain === 'string') {
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN = originalRootDomain;
+    } else {
+      delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
     }
   });
 
@@ -231,6 +237,69 @@ describe('signin route magic-link policy', () => {
     expect(sendAuthMagicLinkMock).toHaveBeenCalledTimes(1);
     expect(recordMagicLinkSigninAuditMock).toHaveBeenCalledWith(
       expect.objectContaining({ outcome: 'sent' }),
+    );
+  });
+
+  it('does not let spoofed forwarded or origin headers choose the magic-link callback host', async () => {
+    getServiceSupabaseClientMock.mockReturnValue(buildKnownProfile());
+    sendAuthMagicLinkMock.mockResolvedValue(undefined);
+
+    const response = await POST(
+      buildRequest(
+        {
+          mode: 'magic_link',
+          email: 'known@example.com',
+          redirectedFrom: '/guest/dashboard',
+        },
+        'www.nabatable.com',
+        {
+          origin: 'https://evil-nabatable.com',
+          referer: 'https://evil-nabatable.com/login',
+          'x-forwarded-host': 'evil-nabatable.com',
+          'x-original-host': 'evil-nabatable.com',
+        },
+      ),
+    );
+
+    expect(response.status).toBe(202);
+    expect(classifySigninSurfaceMock).toHaveBeenCalledWith('www.nabatable.com', 'nabatable.com');
+    expect(sendAuthMagicLinkMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailRedirectTo: expect.stringMatching(
+          /^https:\/\/www\.nabatable\.com\/api\/auth\/callback\?/,
+        ),
+      }),
+    );
+    expect(sendAuthMagicLinkMock.mock.calls[0]?.[0]?.emailRedirectTo).not.toContain(
+      'evil-nabatable.com',
+    );
+  });
+
+  it('does not use suffix-matched attacker domains for magic-link callbacks', async () => {
+    getServiceSupabaseClientMock.mockReturnValue(buildKnownProfile());
+    sendAuthMagicLinkMock.mockResolvedValue(undefined);
+
+    const response = await POST(
+      buildRequest(
+        {
+          mode: 'magic_link',
+          email: 'known@example.com',
+          redirectedFrom: '/guest/dashboard',
+        },
+        'evil-nabatable.com',
+      ),
+    );
+
+    expect(response.status).toBe(202);
+    expect(sendAuthMagicLinkMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        emailRedirectTo: expect.stringMatching(
+          /^https:\/\/www\.nabatable\.com\/api\/auth\/callback\?/,
+        ),
+      }),
+    );
+    expect(sendAuthMagicLinkMock.mock.calls[0]?.[0]?.emailRedirectTo).not.toContain(
+      'evil-nabatable.com',
     );
   });
 
@@ -303,9 +372,7 @@ describe('signin route magic-link policy', () => {
 
     expect(response.status).toBe(202);
     expect(
-      recordMagicLinkSigninAuditMock.mock.calls.some(
-        ([call]) => call?.outcome === 'send_error',
-      ),
+      recordMagicLinkSigninAuditMock.mock.calls.some(([call]) => call?.outcome === 'send_error'),
     ).toBe(true);
   });
 });

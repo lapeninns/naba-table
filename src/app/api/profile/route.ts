@@ -1,39 +1,45 @@
-import { NextResponse } from "next/server";
-import { randomUUID, createHash } from "node:crypto";
-import { ZodError } from "zod";
+import { NextResponse } from 'next/server';
+import { randomUUID, createHash } from 'node:crypto';
+import { ZodError } from 'zod';
 
+import { profileUpdateSchema, type ProfileUpdatePayload } from '@/lib/profile/schema';
+import { normalizeProfileRow, ensureProfileRow } from '@/lib/profile/server';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
-import { profileUpdateSchema, type ProfileUpdatePayload } from "@/lib/profile/schema";
-import { normalizeProfileRow, ensureProfileRow, PROFILE_COLUMNS } from "@/lib/profile/server";
-import { withCsrfProtectedMutation } from "@/server/security/csrf";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-
-import type { Database } from "@/types/supabase";
-import type { NextRequest } from "next/server";
+import type { Database } from '@/types/supabase';
+import type { NextRequest } from 'next/server';
 
 function jsonError(status: number, code: string, message: string, details?: unknown) {
   return NextResponse.json({ code, message, details }, { status });
 }
 
-type ProfileUpdateRow = Database["public"]["Tables"]["profiles"]["Update"];
-type ProfileUpdateRequestRow =
-  Database["public"]["Tables"]["profile_update_requests"]["Row"];
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
-function buildUpdatePayload(body: ProfileUpdatePayload): ProfileUpdateRow {
-  const payload: ProfileUpdateRow = {
-    updated_at: new Date().toISOString(),
-  };
-  if (Object.prototype.hasOwnProperty.call(body, "name")) {
-    payload.name = body.name ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(body, "phone")) {
-    payload.phone = body.phone ?? null;
-  }
-  if (Object.prototype.hasOwnProperty.call(body, "image")) {
-    payload.image = body.image ?? null;
-  }
-  return payload;
-}
+type ApplyProfileUpdateResult = {
+  status: 'applied' | 'idempotent' | 'conflict';
+  profile: ProfileRow | null;
+};
+
+type ApplyProfileUpdateRpcClient = {
+  rpc: (
+    fn: 'apply_profile_update_idempotent',
+    args: {
+      p_profile_id: string;
+      p_idempotency_key: string;
+      p_payload_hash: string;
+      p_set_name: boolean;
+      p_name: string | null;
+      p_set_phone: boolean;
+      p_phone: string | null;
+      p_set_image: boolean;
+      p_image: string | null;
+    },
+  ) => Promise<{
+    data: ApplyProfileUpdateResult[] | ApplyProfileUpdateResult | null;
+    error: { message?: string; code?: string } | null;
+  }>;
+};
 
 function normalizeIdempotencyKey(raw: string | null): string | null {
   if (!raw) return null;
@@ -54,9 +60,7 @@ function hashPayload(payload: ProfileUpdatePayload): string {
       acc[key] = payload[key as keyof ProfileUpdatePayload] ?? null;
       return acc;
     }, {});
-  return createHash("sha256")
-    .update(JSON.stringify(ordered))
-    .digest("hex");
+  return createHash('sha256').update(JSON.stringify(ordered)).digest('hex');
 }
 
 export async function GET(): Promise<NextResponse> {
@@ -68,12 +72,12 @@ export async function GET(): Promise<NextResponse> {
     } = await supabase.auth.getUser();
 
     if (authError) {
-      console.error("[profile][get] failed to resolve auth", authError.message);
-      return jsonError(500, "AUTH_RESOLUTION_FAILED", "Unable to verify your session");
+      console.error('[profile][get] failed to resolve auth', authError.message);
+      return jsonError(500, 'AUTH_RESOLUTION_FAILED', 'Unable to verify your session');
     }
 
     if (!user) {
-      return jsonError(401, "UNAUTHENTICATED", "You must be signed in to view your profile");
+      return jsonError(401, 'UNAUTHENTICATED', 'You must be signed in to view your profile');
     }
 
     const row = await ensureProfileRow(supabase, user);
@@ -81,8 +85,8 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error("[profile][get] unexpected", error);
-    return jsonError(500, "UNEXPECTED_ERROR", "We couldn’t load your profile. Please try again.");
+    console.error('[profile][get] unexpected', error);
+    return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t load your profile. Please try again.');
   }
 }
 
@@ -102,133 +106,130 @@ async function putProfile(req: NextRequest): Promise<NextResponse> {
     } = await supabase.auth.getUser();
 
     if (authError) {
-      console.error("[profile][put] failed to resolve auth", authError.message);
-      return jsonError(500, "AUTH_RESOLUTION_FAILED", "Unable to verify your session");
+      console.error('[profile][put] failed to resolve auth', authError.message);
+      return jsonError(500, 'AUTH_RESOLUTION_FAILED', 'Unable to verify your session');
     }
 
     if (!user) {
-      return jsonError(401, "UNAUTHENTICATED", "You must be signed in to update your profile");
+      return jsonError(401, 'UNAUTHENTICATED', 'You must be signed in to update your profile');
     }
 
     let rawBody: unknown;
     try {
       rawBody = await req.json();
     } catch {
-      return jsonError(400, "INVALID_JSON", "Request body must be valid JSON");
+      return jsonError(400, 'INVALID_JSON', 'Request body must be valid JSON');
     }
 
-    if (rawBody && typeof rawBody === "object" && Object.prototype.hasOwnProperty.call(rawBody, "email")) {
+    if (
+      rawBody &&
+      typeof rawBody === 'object' &&
+      Object.prototype.hasOwnProperty.call(rawBody, 'email')
+    ) {
       const attemptedEmail = (rawBody as Record<string, unknown>).email;
       if (attemptedEmail !== undefined && attemptedEmail !== user.email) {
-        return jsonError(400, "EMAIL_IMMUTABLE", "Email cannot be changed");
+        return jsonError(400, 'EMAIL_IMMUTABLE', 'Email cannot be changed');
       }
     }
 
     const result = profileUpdateSchema.safeParse(rawBody ?? {});
     if (!result.success) {
       const flattened = result.error.flatten();
-      return jsonError(400, "INVALID_PROFILE", "Please review the highlighted fields", flattened);
+      return jsonError(400, 'INVALID_PROFILE', 'Please review the highlighted fields', flattened);
     }
 
     parsedBody = result.data;
 
-    idempotencyKey = normalizeIdempotencyKey(req.headers.get("Idempotency-Key")) ?? randomUUID();
+    idempotencyKey = normalizeIdempotencyKey(req.headers.get('Idempotency-Key')) ?? randomUUID();
 
     const row = await ensureProfileRow(supabase, user);
     const serviceSupabase = getServiceSupabaseClient();
 
-    if (!Object.keys(parsedBody).some((key) => key === "name" || key === "phone" || key === "image")) {
+    if (
+      !Object.keys(parsedBody).some((key) => key === 'name' || key === 'phone' || key === 'image')
+    ) {
       const profile = normalizeProfileRow(row, user.email ?? null);
       return NextResponse.json(
         { profile, idempotent: true },
         {
           headers: {
-            "Idempotency-Key": idempotencyKey,
+            'Idempotency-Key': idempotencyKey,
           },
         },
       );
     }
 
-    const updatePayload = buildUpdatePayload(parsedBody);
     const payloadHash = hashPayload(parsedBody);
+    const hasName = Object.prototype.hasOwnProperty.call(parsedBody, 'name');
+    const hasPhone = Object.prototype.hasOwnProperty.call(parsedBody, 'phone');
+    const hasImage = Object.prototype.hasOwnProperty.call(parsedBody, 'image');
 
-    const existing = await serviceSupabase
-      .from("profile_update_requests")
-      .select("payload_hash, applied_at")
-      .eq("profile_id", user.id)
-      .eq("idempotency_key", idempotencyKey)
-      .maybeSingle<Pick<ProfileUpdateRequestRow, "payload_hash" | "applied_at">>();
+    const { data: rpcData, error: rpcError } = await (
+      serviceSupabase as unknown as ApplyProfileUpdateRpcClient
+    ).rpc('apply_profile_update_idempotent', {
+      p_profile_id: user.id,
+      p_idempotency_key: idempotencyKey,
+      p_payload_hash: payloadHash,
+      p_set_name: hasName,
+      p_name: hasName ? (parsedBody.name ?? null) : null,
+      p_set_phone: hasPhone,
+      p_phone: hasPhone ? (parsedBody.phone ?? null) : null,
+      p_set_image: hasImage,
+      p_image: hasImage ? (parsedBody.image ?? null) : null,
+    });
 
-    if (existing.error) {
-      console.error("[profile][put] idempotency lookup failed", existing.error.message);
-      return jsonError(500, "IDEMPOTENCY_LOOKUP_FAILED", "We couldn’t verify your request. Please try again.");
-    }
-
-    if (existing.data) {
-      if (existing.data.payload_hash === payloadHash) {
-        const profile = normalizeProfileRow(row, user.email ?? null);
-        return NextResponse.json(
-          { profile, idempotent: true },
-          {
-            headers: {
-              "Idempotency-Key": idempotencyKey,
-            },
-          },
-        );
-      }
-
+    if (rpcError) {
+      console.error('[profile][put] atomic update failed', rpcError.message ?? rpcError.code);
       return jsonError(
-        409,
-        "IDEMPOTENCY_KEY_CONFLICT",
-        "This update was already applied with different details. Refresh and try again with a new request.",
+        500,
+        'PROFILE_UPDATE_FAILED',
+        'Unable to save your profile. Please try again.',
       );
     }
 
-    const { data: updated, error: updateError } = await supabase
-      .from("profiles")
-      .update(updatePayload)
-      .eq("id", user.id)
-      .select(PROFILE_COLUMNS)
-      .single();
-
-    if (updateError) {
-      console.error("[profile][put] update failed", updateError.message);
-      const code = updateError.code === "PGRST301" ? "FORBIDDEN" : "UPDATE_FAILED";
-      const message =
-        code === "FORBIDDEN"
-          ? "You do not have permission to update this profile"
-          : "Unable to save your profile. Please try again.";
-      return jsonError(403, code, message);
+    const rpcResult = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    if (!rpcResult) {
+      console.error('[profile][put] atomic update returned no result');
+      return jsonError(
+        500,
+        'PROFILE_UPDATE_FAILED',
+        'Unable to save your profile. Please try again.',
+      );
     }
 
-    const insertResult = await serviceSupabase
-      .from("profile_update_requests")
-      .insert({
-        profile_id: user.id,
-        idempotency_key: idempotencyKey,
-        payload_hash: payloadHash,
-      });
-
-    if (insertResult.error) {
-      console.error("[profile][put] failed to persist idempotency record", insertResult.error.message);
+    if (rpcResult.status === 'conflict') {
+      return jsonError(
+        409,
+        'IDEMPOTENCY_KEY_CONFLICT',
+        'This update was already applied with different details. Refresh and try again with a new request.',
+      );
     }
 
-    const profile = normalizeProfileRow(updated, user.email ?? null);
+    if (!rpcResult.profile) {
+      console.error('[profile][put] atomic update returned no profile', rpcResult.status);
+      return jsonError(
+        500,
+        'PROFILE_UPDATE_FAILED',
+        'Unable to save your profile. Please try again.',
+      );
+    }
+
+    const profile = normalizeProfileRow(rpcResult.profile, user.email ?? null);
     return NextResponse.json(
-      { profile, idempotent: false },
+      { profile, idempotent: rpcResult.status === 'idempotent' },
       {
         headers: {
-          "Idempotency-Key": idempotencyKey,
+          'Idempotency-Key': idempotencyKey,
         },
       },
     );
   } catch (error) {
     if (error instanceof ZodError) {
       const flattened = error.flatten();
-      return jsonError(400, "INVALID_PROFILE", "Please review the highlighted fields", flattened);
+      return jsonError(400, 'INVALID_PROFILE', 'Please review the highlighted fields', flattened);
     }
 
-    console.error("[profile][put] unexpected", error, parsedBody ?? {});
-    return jsonError(500, "UNEXPECTED_ERROR", "We couldn’t update your profile. Please try again.");
+    console.error('[profile][put] unexpected', error, parsedBody ?? {});
+    return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t update your profile. Please try again.');
   }
 }

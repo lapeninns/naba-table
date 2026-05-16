@@ -19,3 +19,9 @@ Wrap the quote/confirm operation in the same cancellable timeout pattern used by
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)
+
+**Verdict:** fixed
+
+`attemptInlineModificationAssign` now wraps quote/confirm in the shared `CancellableAutoAssign` timeout helper, passes the timeout `AbortSignal` into both `quoteTablesForBooking` and `atomicConfirmAndTransition`, and returns `INLINE_TIMEOUT` on abort so `beginBookingModificationFlow` can persist the timeout result, send the pending email, and schedule background assignment fallback.
+
+Evidence: `pnpm exec vitest run tests/server/bookings-modification-flow.test.ts` passed on 2026-05-16. The focused regression covers timeout fallback after the 500ms minimum clamp and successful signal propagation into quote and confirm. Scoped lint also passed with `pnpm exec eslint --max-warnings=0 server/bookings/modification-flow.ts tests/server/bookings-modification-flow.test.ts`. Repo-level `pnpm run lint` and `pnpm run typecheck` remain red on unrelated pre-existing shadcn migration inventory and separate TypeScript errors.

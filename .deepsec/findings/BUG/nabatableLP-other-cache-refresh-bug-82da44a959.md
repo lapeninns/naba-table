@@ -16,6 +16,14 @@ refreshOverrides stores the fetched Map and sets expiresAt, but ensureRefreshSch
 
 Track cache freshness separately from whether the override Map is empty. For example, return early whenever now < cache.expiresAt, and use a separate initialized flag if cold-cache behavior must be distinguished.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/feature-flags-overrides.ts` now treats the override cache as fresh whenever `Date.now() < cache.expiresAt`, even when the fetched override map is empty. Normal environments with no override rows no longer repeatedly hit Supabase until the TTL expires.
+
+Evidence: `pnpm exec vitest run tests/server/feature-flags.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/feature-flags-overrides.ts tests/server/feature-flags.test.ts` also passed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-29)

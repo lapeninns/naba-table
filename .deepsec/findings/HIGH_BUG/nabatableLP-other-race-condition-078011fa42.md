@@ -16,6 +16,12 @@ The handler unassigns a table, separately reloads assignments, then sets the boo
 
 Move unassign, remaining-assignment count, and conditional status transition into one database RPC/transaction. Make assignment-read failures explicit errors, check the unassign result, and guard any status rollback with a database-side NOT EXISTS condition for current assignments.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The single-table DELETE route now checks the `unassignTableFromBooking` result and no longer performs route-level remaining-assignment reads followed by a separate booking-status update. `unassignTableFromBooking` now throws on `unassign_tables_atomic` RPC errors, and `getBookingTableAssignments` throws on reload errors instead of returning an empty list. The new `20260516092900_atomic_unassign_tables_status.sql` migration makes `unassign_tables_atomic` lock the booking row, delete assignments, and conditionally set confirmed bookings back to pending with a database-side `NOT EXISTS` guard in the same transaction. Focused evidence: `tests/server/ops-booking-table-unassign-route.test.ts`, `tests/server/capacity/table-assignment-unassign.test.ts`, and `tests/server/capacity/direct-assignment-atomic.test.ts` passed on 2026-05-16.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)

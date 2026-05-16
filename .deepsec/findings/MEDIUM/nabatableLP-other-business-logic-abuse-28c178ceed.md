@@ -20,3 +20,9 @@ Do not trust client-derived endIso/duration. Recompute duration from restaurant 
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-02)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-20)
+
+**Verdict:** fixed
+
+`BookingValidationService` now rejects non-finite, zero/negative, excessive, same-day-wrapping, and after-close durations before capacity checks or commits. Commit payloads only proceed when the normalized end is after the start, within the same venue day, and within the schedule closing boundary.
+
+Validation: `pnpm exec vitest run tests/server/booking-validation-security.test.ts tests/server/public-bookings-route.test.ts tests/server/ops-bookings-create-route.test.ts tests/server/public-booking-delete-route.test.ts tests/server/public-booking-session-recovery-source.test.ts tests/server/resend-webhook-route.test.ts`

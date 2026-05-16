@@ -46,6 +46,35 @@ const sleep = (ms: number): Promise<void> =>
 const getBackoffDelay = (attempt: number): number =>
   ASSIGNMENT_REFRESH_BASE_DELAY_MS * Math.pow(2, attempt);
 
+function getErrorCode(error: unknown): string | null {
+  return error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : null;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+    ? error.message
+    : String(error);
+}
+
+function isMissingAssignmentSyncRpcError(error: unknown): boolean {
+  const code = getErrorCode(error);
+  const message = getErrorMessage(error);
+  return (
+    code === '42883' ||
+    code === 'PGRST202' ||
+    code === 'PGRST204' ||
+    /schema cache/i.test(message) ||
+    /function .* not found/i.test(message) ||
+    /could not find the function/i.test(message) ||
+    /sync_confirmed_assignment_windows.*does not exist/i.test(message)
+  );
+}
+
 export async function synchronizeAssignments(
   params: AssignmentSyncParams,
 ): Promise<TableAssignmentMember[]> {
@@ -147,6 +176,11 @@ export async function synchronizeAssignments(
         syncedViaRpc = true;
       }
     } catch (error) {
+      if (!isMissingAssignmentSyncRpcError(error)) {
+        throw new Error(
+          `Failed to synchronize assignment windows via RPC: ${getErrorMessage(error)}`,
+        );
+      }
       console.warn('[capacity.confirm] sync_confirmed_assignment_windows failed', {
         bookingId: booking.id,
         holdId: holdContext?.holdId ?? null,
@@ -155,30 +189,36 @@ export async function synchronizeAssignments(
     }
 
     if (!syncedViaRpc) {
-      try {
-        await supabase
+      const assignmentUpdate = applyAbortSignal(
+        supabase
           .from('booking_table_assignments')
           .update({ start_at: startIso, end_at: endIso })
           .eq('booking_id', booking.id)
-          .in('table_id', uniqueTableIds);
-      } catch {
-        // Ignore in mocked environments.
+          .in('table_id', uniqueTableIds),
+        signal,
+      );
+      const { error: assignmentUpdateError } = await assignmentUpdate;
+      if (assignmentUpdateError) {
+        throw new Error(`Failed to update assignment windows: ${assignmentUpdateError.message}`);
       }
 
-      try {
-        await supabase
+      const allocationUpdate = applyAbortSignal(
+        supabase
           .from('allocations')
           .update({ window: windowRange })
           .eq('booking_id', booking.id)
           .eq('resource_type', TABLE_RESOURCE_TYPE)
-          .in('resource_id', uniqueTableIds);
-      } catch {
-        // Ignore missing allocation support in mocked environments.
+          .in('resource_id', uniqueTableIds),
+        signal,
+      );
+      const { error: allocationUpdateError } = await allocationUpdate;
+      if (allocationUpdateError) {
+        throw new Error(`Failed to update allocation windows: ${allocationUpdateError.message}`);
       }
 
       if (idempotencyKey) {
-        try {
-          await supabase
+        const ledgerUpdate = applyAbortSignal(
+          supabase
             .from('booking_assignment_idempotency')
             .update({
               assignment_window: windowRange,
@@ -186,9 +226,14 @@ export async function synchronizeAssignments(
               payload_checksum: payloadChecksum,
             } as Record<string, unknown>)
             .eq('booking_id', booking.id)
-            .eq('idempotency_key', idempotencyKey);
-        } catch {
-          // Ignore ledger updates in mocked environments.
+            .eq('idempotency_key', idempotencyKey),
+          signal,
+        );
+        const { error: ledgerUpdateError } = await ledgerUpdate;
+        if (ledgerUpdateError) {
+          throw new Error(
+            `Failed to update assignment idempotency ledger: ${ledgerUpdateError.message}`,
+          );
         }
       }
 
@@ -230,6 +275,26 @@ export async function synchronizeAssignments(
         ASSIGNMENT_REFRESH_BASE_DELAY_MS * (Math.pow(2, ASSIGNMENT_REFRESH_ATTEMPTS) - 1),
     });
     throw new Error(errorMsg);
+  }
+
+  const mismatchedTableIds = uniqueTableIds.filter((tableId) => {
+    const row = tableRowLookup.get(tableId);
+    if (!row) {
+      return true;
+    }
+    const normalizedStart = normalizeIsoString(row.start_at ?? null);
+    const normalizedEnd = normalizeIsoString(row.end_at ?? null);
+    return (
+      normalizedStart !== startIso ||
+      normalizedEnd !== endIso ||
+      (row.merge_group_id ?? null) !== (mergeGroupId ?? null)
+    );
+  });
+
+  if (mismatchedTableIds.length > 0) {
+    throw new Error(
+      `Assignment synchronization failed: ${mismatchedTableIds.length} table(s) still have stale windows after sync`,
+    );
   }
 
   const result: TableAssignmentMember[] = uniqueTableIds.map((tableId) => {

@@ -15,16 +15,6 @@ type KVLike = {
   put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
 };
 
-function computeCacheTtlSeconds(expiresAt: string): number | null {
-  const expiryMs = Date.parse(expiresAt);
-  if (!Number.isFinite(expiryMs)) {
-    return null;
-  }
-
-  const ttlSeconds = Math.floor((expiryMs - Date.now()) / 1000);
-  return ttlSeconds > 0 ? ttlSeconds : null;
-}
-
 export function createShortLinkRepository(params: {
   db: D1Like;
   cache?: KVLike | null;
@@ -77,23 +67,9 @@ export function createShortLinkRepository(params: {
           record.createdBy,
         )
         .run();
-
-      const ttlSeconds = computeCacheTtlSeconds(record.expiresAt);
-      if (params.cache && ttlSeconds) {
-        await params.cache.put(record.token, JSON.stringify(record), {
-          expirationTtl: ttlSeconds,
-        });
-      }
     },
 
     async getLinkByToken(token) {
-      if (params.cache) {
-        const cached = await params.cache.get(token, 'json');
-        if (cached) {
-          return cached;
-        }
-      }
-
       const row = await params.db
         .prepare(
           `
@@ -108,15 +84,6 @@ export function createShortLinkRepository(params: {
         .first<Record<string, unknown>>();
 
       const record = row ? mapShortLinkRow(row) : null;
-      if (record && params.cache) {
-        const ttlSeconds = computeCacheTtlSeconds(record.expiresAt);
-        if (ttlSeconds) {
-          await params.cache.put(record.token, JSON.stringify(record), {
-            expirationTtl: ttlSeconds,
-          });
-        }
-      }
-
       return record;
     },
 

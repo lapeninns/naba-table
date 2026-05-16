@@ -6,6 +6,7 @@ import {
   DUAL_SYNC_STORED_REPLAY_FIXTURES,
   FakeGoogleBusinessProfileAdapter,
   FOOD_MENU_TIKKA_FIELD_KEY,
+  computeReplayDecisionPins,
   createReplaySnapshot,
   runDualSyncReplayScenario,
 } from '@/server/dual-sync/replay';
@@ -258,11 +259,13 @@ describe('runDualSyncReplayScenario', () => {
   });
 
   it('replays publish planning against fixture snapshots', async () => {
+    const coreSnapshot = makeSnapshot();
+    const gbpSnapshot = makeSnapshot();
     const result = await runDualSyncReplayScenario({
       name: 'profile export with rejected google-owned field',
       restaurantId: 'restaurant-1',
-      coreSnapshot: makeSnapshot(),
-      gbpSnapshot: makeSnapshot(),
+      coreSnapshot,
+      gbpSnapshot,
       publishInput: {
         actorUserId: 'user-1',
         decisions: [
@@ -270,15 +273,21 @@ describe('runDualSyncReplayScenario', () => {
             fieldKey: 'profile.contactPhone',
             sectionKey: 'profile',
             action: 'export_to_google',
-            pinnedCoreHash: null,
-            pinnedGbpHash: null,
+            ...computeReplayDecisionPins({
+              coreSnapshot,
+              gbpSnapshot,
+              fieldKey: 'profile.contactPhone',
+            }),
           },
           {
             fieldKey: 'profile.googleMapUrl',
             sectionKey: 'profile',
             action: 'export_to_google',
-            pinnedCoreHash: null,
-            pinnedGbpHash: null,
+            ...computeReplayDecisionPins({
+              coreSnapshot,
+              gbpSnapshot,
+              fieldKey: 'profile.googleMapUrl',
+            }),
           },
         ],
       },

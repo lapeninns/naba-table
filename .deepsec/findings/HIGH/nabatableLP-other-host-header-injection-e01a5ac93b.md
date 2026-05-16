@@ -19,3 +19,7 @@ Do not use Origin or Referer for trusted host decisions, and only honor forwarde
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-29)
+
+**Verdict:** fixed
+
+The host trust chain was hardened at both the route and email-helper boundaries. `parseHostname` no longer reads spoofable forwarded/origin/referer headers for auth host selection, and `/api/auth/signin` now canonicalizes the parsed host through an exact configured root/www/app allowlist before building `emailRedirectTo`. The callback builder no longer accepts literal suffix matches, and `sendAuthMagicLink` rejects untrusted callback origins before token generation. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including the forged forwarded/origin header path and direct attacker-domain path.

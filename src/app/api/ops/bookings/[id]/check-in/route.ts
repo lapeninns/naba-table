@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prepareCheckInTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
 import {
   loadLifecycleRouteContext,
@@ -26,6 +27,10 @@ type RouteParams = {
 };
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
+  return withCsrfProtectedMutation(req, () => postCheckIn(req, { params }));
+}
+
+async function postCheckIn(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });

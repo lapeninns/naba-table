@@ -19,3 +19,9 @@ Split read-only planning from mutating auth operations. In dry-run mode, only re
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)
+
+**Verdict:** fixed
+
+The dry-run path now resolves only existing auth users with `resolveExistingAuthUser(userEmail)` and returns on `!apply` before the mutating `ensureAuthUser(userEmail)` path. Missing users are reported as `wouldCreateAuthUser` during dry run; confirmed auth user creation can only occur after apply mode and the production confirmation gate.
+
+Evidence: `pnpm exec vitest run tests/scripts/db-safety.test.ts` passed on 2026-05-16. The regression coverage verifies dry-run auth resolution remains read-only and that `ensureAuthUser(userEmail)` is ordered after the `if (!apply)` return.

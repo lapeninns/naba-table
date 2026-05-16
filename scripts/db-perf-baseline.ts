@@ -365,6 +365,16 @@ const queries: { name: string; sql: string }[] = [
   },
 ];
 
+function resolveOutputPath(): string {
+  return path.resolve(
+    process.env.DB_PERF_BASELINE_OUTPUT_PATH ??
+      path.join(
+        __dirname,
+        '../tasks/db-perf-optimization-20260106-1108/artifacts/baseline-results.json',
+      ),
+  );
+}
+
 async function runBaseline() {
   const client = new Client({
     connectionString,
@@ -399,10 +409,8 @@ async function runBaseline() {
     }
 
     // Save to JSON file
-    const outputPath = path.join(
-      __dirname,
-      '../tasks/db-perf-optimization-20260106-1108/artifacts/baseline-results.json',
-    );
+    const outputPath = resolveOutputPath();
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(results, null, 2));
     console.log('');
     console.log(`✅ Results saved to: ${outputPath}`);
@@ -499,6 +507,7 @@ async function runBaseline() {
     console.log('='.repeat(60));
   } catch (err) {
     console.error('Fatal error:', err);
+    process.exitCode = 1;
   } finally {
     await client.end();
   }

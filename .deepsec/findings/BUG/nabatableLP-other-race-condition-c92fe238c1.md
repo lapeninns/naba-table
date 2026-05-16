@@ -20,3 +20,7 @@ Move these aggregate updates into a database RPC or transaction that uses row lo
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)
+
+**Verdict:** fixed
+
+The aggregate helpers no longer perform a read-modify-write sequence in TypeScript. `server/customers.ts` routes booking and cancellation profile updates through `record_booking_for_customer_profile_atomic` and `record_cancellation_for_customer_profile_atomic`. Migration `supabase/migrations/20260516114919_atomic_customer_profile_aggregates.sql` performs the updates with atomic `ON CONFLICT (customer_id) DO UPDATE` increment expressions for bookings, covers, cancellations, latest booking timestamps, and marketing opt-in tracking. `tests/server/customers.test.ts` covers the RPC-only helper calls and migration source checks.

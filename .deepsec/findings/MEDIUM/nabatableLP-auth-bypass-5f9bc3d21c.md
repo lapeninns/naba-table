@@ -19,3 +19,9 @@ Remove or block the legacy route, or enforce the same password-confirmation, CSR
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-28)
+
+**Verdict:** fixed
+
+The legacy `google-business/sync` route now passes the request into the shared admin-access helper for CSRF validation, requires a non-empty password payload, verifies the operator password with `verifyUserPasswordConfirmation`, and only then consumes the provider refresh budget and runs the GBP business-info sync.
+
+Validation: `pnpm exec vitest run tests/server/restaurant-google-business-v1-routes.test.ts tests/cloudflare/booking-short-links-storage.test.ts tests/server/team-access-cache.test.ts tests/server/ops-restaurants-route-security.test.ts tests/server/tenant-authorization-sprint2.test.ts`

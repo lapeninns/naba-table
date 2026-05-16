@@ -19,3 +19,9 @@ Keep TLS server verification enabled and use the platform trust store or Supabas
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/find-supabase-region.ts` now uses `getPgSslConfig()` for the Postgres connection and no longer accepts the database password from `process.argv`. The script safety test covers both the TLS setting and the env-only password behavior.
+
+Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

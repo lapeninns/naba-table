@@ -170,38 +170,39 @@ async function resolveUserFromGeneratedMagicLink(email: string): Promise<User | 
   }
 }
 
-async function ensureAuthUser(email: string): Promise<{ user: User; created: boolean }> {
+async function loadAuthUserById(id: string, source: string): Promise<User> {
+  const lookup = await supabase.auth.admin.getUserById(id);
+  if (lookup.error || !lookup.data.user) {
+    throw new Error(
+      `Failed to load auth user by ${source} id: ${lookup.error?.message ?? 'missing user'}`,
+    );
+  }
+  return lookup.data.user;
+}
+
+async function resolveExistingAuthUser(email: string): Promise<User | null> {
   const fromProfiles = await resolveUserIdFromProfiles(email);
   if (fromProfiles) {
-    const lookup = await supabase.auth.admin.getUserById(fromProfiles);
-    if (lookup.error || !lookup.data.user) {
-      throw new Error(
-        `Failed to load auth user by profile id: ${lookup.error?.message ?? 'missing user'}`,
-      );
-    }
-    return { user: lookup.data.user, created: false };
+    return loadAuthUserById(fromProfiles, 'profile');
   }
 
   const fromAdmin = await resolveUserIdFromAdmin(email);
   if (fromAdmin) {
-    const lookup = await supabase.auth.admin.getUserById(fromAdmin);
-    if (lookup.error || !lookup.data.user) {
-      throw new Error(
-        `Failed to load auth user by admin id: ${lookup.error?.message ?? 'missing user'}`,
-      );
-    }
-    return { user: lookup.data.user, created: false };
+    return loadAuthUserById(fromAdmin, 'admin');
   }
 
   const fromDb = await resolveUserIdFromDb(email);
   if (fromDb) {
-    const lookup = await supabase.auth.admin.getUserById(fromDb);
-    if (lookup.error || !lookup.data.user) {
-      throw new Error(
-        `Failed to load auth user by db id: ${lookup.error?.message ?? 'missing user'}`,
-      );
-    }
-    return { user: lookup.data.user, created: false };
+    return loadAuthUserById(fromDb, 'db');
+  }
+
+  return null;
+}
+
+async function ensureAuthUser(email: string): Promise<{ user: User; created: boolean }> {
+  const existing = await resolveExistingAuthUser(email);
+  if (existing) {
+    return { user: existing, created: false };
   }
 
   const fromMagicLink = await resolveUserFromGeneratedMagicLink(email);
@@ -292,21 +293,53 @@ async function ensureProfileRows(user: User): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const existingUser = await resolveExistingAuthUser(userEmail);
+
+  if (!apply) {
+    const beforeMemberships = existingUser ? await loadMemberships(existingUser.id) : [];
+    console.log(
+      JSON.stringify(
+        {
+          apply,
+          restaurantId,
+          role,
+          before: {
+            userId: existingUser?.id ?? null,
+            email: existingUser?.email ?? userEmail,
+            created: false,
+            userExists: Boolean(existingUser),
+            wouldCreateAuthUser: !existingUser,
+            memberships: beforeMemberships,
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
   const { user, created } = await ensureAuthUser(userEmail);
   const beforeMemberships = await loadMemberships(user.id);
 
-  const before = {
-    userId: user.id,
-    email: user.email ?? userEmail,
-    created,
-    memberships: beforeMemberships,
-  };
-
-  console.log(JSON.stringify({ apply, restaurantId, role, before }, null, 2));
-
-  if (!apply) {
-    return;
-  }
+  console.log(
+    JSON.stringify(
+      {
+        apply,
+        restaurantId,
+        role,
+        before: {
+          userId: user.id,
+          email: user.email ?? userEmail,
+          created,
+          userExists: true,
+          memberships: beforeMemberships,
+        },
+      },
+      null,
+      2,
+    ),
+  );
 
   await ensureProfileRows(user);
   await upsertMembership(user.id);

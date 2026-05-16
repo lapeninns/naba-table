@@ -19,3 +19,7 @@ Validate that the SQL file exists before connecting, and on any failure set proc
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-28)
+
+**Verdict:** fixed
+
+`scripts/execute-sql.ts` now validates the SQL file before constructing the pg client, sets `process.exitCode = 1` for caught connect/query failures, and has a top-level `.catch` that exits with code 1 for guard or preflight failures. Focused script-safety tests assert the file preflight happens before client construction and the staging guard runs before connection.

@@ -19,3 +19,7 @@ Write the CSV with `mode: 0o600`, ensure the parent directory is not world-reada
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/staging/import-prod-staff.ts` now creates/chmods the output directory as `0700` and writes/chmods generated credential CSVs as `0600`. Covered by `tests/scripts/db-safety.test.ts`.

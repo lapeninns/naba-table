@@ -20,3 +20,7 @@ Add requireMembershipForRestaurant({ userId, restaurantId }) to GET /api/ops/tab
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+**Verdict:** fixed
+
+`src/app/api/ops/tables/route.ts` now calls `requireMembershipForRestaurant` for the requested `restaurantId` before `listTablesWithSummary` or `listTables` runs. Covered by `tests/server/ops-tables-route-security.test.ts`.

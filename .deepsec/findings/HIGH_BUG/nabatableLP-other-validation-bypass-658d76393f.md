@@ -16,6 +16,12 @@ The route calls evaluateManualSelection, but only rejects the specific holds che
 
 Reject when validation.ok is false or when any validation check has status error, returning structured validation details. Add route tests for inactive tables, insufficient capacity, over-slack assignments, and conflicts.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/ops/bookings/[id]/tables/route.ts` now rejects failed manual validation before calling `assignTableToBooking`. It checks both `validation.ok` and any checks with `status === "error"` and returns a structured 422 response instead of continuing to service-role assignment. Focused evidence: `tests/server/ops-booking-table-assignment-route.test.ts` verifies a failed capacity validation prevents `assignTableToBooking`; the focused table/assignment Vitest set, targeted ESLint, targeted Prettier check, and `pnpm run typecheck` passed on 2026-05-16.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)

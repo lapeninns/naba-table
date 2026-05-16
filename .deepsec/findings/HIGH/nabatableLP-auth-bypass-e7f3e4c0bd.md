@@ -20,3 +20,7 @@ Do not derive auth callback origins from request headers. Choose the callback or
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-19)
+
+**Verdict:** fixed
+
+The suffix-based callback construction was removed. The signin route now resolves `parseHostname(req)` through `resolveTrustedAuthHostname` before surface classification, redirect selection, and callback URL creation. `buildAuthCallbackUrl` only uses the trusted exact root/www/app or approved local host set, so `evilnabatable.com`, `evil-nabatable.com`, and `localhost.attacker.com` no longer become token-bearing callback origins. `sendAuthMagicLink` separately rejects untrusted `emailRedirectTo` values before Supabase token generation. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests.

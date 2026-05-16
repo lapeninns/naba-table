@@ -1,11 +1,11 @@
-import { randomUUID } from "crypto";
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from 'crypto';
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
 type RestaurantRow = {
   id: string;
@@ -84,58 +84,60 @@ type ServicePeriodSeed = {
   dayOfWeek: number;
   startTime: string;
   endTime: string;
-  bookingOption: "lunch" | "dinner";
+  bookingOption: 'lunch' | 'dinner';
 };
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const defaultEnvPath = path.join(projectRoot, ".env.vercel-production.live");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const defaultEnvPath = path.join(projectRoot, '.env.vercel-production.live');
 
 if (fs.existsSync(defaultEnvPath)) {
   loadEnv({ path: defaultEnvPath, override: false });
 }
 
-const apply = process.env.APPLY === "true";
-const confirmProduction = process.env.CONFIRM_PRODUCTION === "true";
-const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || "vrdiqfudmwydclqpydee";
+const apply = process.env.APPLY === 'true';
+const confirmProduction = process.env.CONFIRM_PRODUCTION === 'true';
+const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || 'vrdiqfudmwydclqpydee';
 
-const sourceSlug = process.env.SOURCE_SLUG?.trim() || "the-old-crown-girton";
-const targetSlug = process.env.TARGET_SLUG?.trim() || "the-old-school-house-stony-stratford";
+const sourceSlug = process.env.SOURCE_SLUG?.trim() || 'the-old-crown-girton';
+const targetSlug = process.env.TARGET_SLUG?.trim() || 'the-old-school-house-stony-stratford';
 
-const supabaseUrl = process.env.PRODUCTION_SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+const supabaseUrl =
+  process.env.PRODUCTION_SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const serviceRoleKey =
-  process.env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  process.env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
 const targetRestaurant = {
-  name: "The Old School House",
+  name: 'The Old School House',
   slug: targetSlug,
-  timezone: "Europe/London",
-  address: "London Rd, Stony Stratford, Milton Keynes MK11 1JA",
-  contactPhone: "01908 561936",
-  contactEmail: "oldschoolhouse@lapeninns.com",
+  timezone: 'Europe/London',
+  address: 'London Rd, Stony Stratford, Milton Keynes MK11 1JA',
+  contactPhone: '01908 561936',
+  contactEmail: 'oldschoolhouse@lapeninns.com',
   googleMapUrl:
-    "https://www.google.com/maps/dir/?api=1&destination=London%20Rd%2C%20Stony%20Stratford%2C%20Milton%20Keynes%20MK11%201JA&travelmode=driving",
+    'https://www.google.com/maps/dir/?api=1&destination=London%20Rd%2C%20Stony%20Stratford%2C%20Milton%20Keynes%20MK11%201JA&travelmode=driving',
   googleReviewUrl: null as string | null,
 };
 
 const targetWeeklyHours: TargetWeeklyHour[] = [
-  { dayOfWeek: 0, opensAt: "12:00:00", closesAt: "21:00:00" },
-  { dayOfWeek: 1, opensAt: "12:00:00", closesAt: "23:00:00" },
-  { dayOfWeek: 2, opensAt: "12:00:00", closesAt: "23:00:00" },
-  { dayOfWeek: 3, opensAt: "12:00:00", closesAt: "23:00:00" },
-  { dayOfWeek: 4, opensAt: "12:00:00", closesAt: "23:00:00" },
-  { dayOfWeek: 5, opensAt: "12:00:00", closesAt: "23:59:00" },
-  { dayOfWeek: 6, opensAt: "12:00:00", closesAt: "23:59:00" },
+  { dayOfWeek: 0, opensAt: '12:00:00', closesAt: '21:00:00' },
+  { dayOfWeek: 1, opensAt: '12:00:00', closesAt: '23:00:00' },
+  { dayOfWeek: 2, opensAt: '12:00:00', closesAt: '23:00:00' },
+  { dayOfWeek: 3, opensAt: '12:00:00', closesAt: '23:00:00' },
+  { dayOfWeek: 4, opensAt: '12:00:00', closesAt: '23:00:00' },
+  { dayOfWeek: 5, opensAt: '12:00:00', closesAt: '23:59:00' },
+  { dayOfWeek: 6, opensAt: '12:00:00', closesAt: '23:59:00' },
 ];
 
 const targetKitchenHours: TargetWeeklyHour[] = [
-  { dayOfWeek: 0, opensAt: "12:00:00", closesAt: "20:00:00" },
-  { dayOfWeek: 1, opensAt: "12:00:00", closesAt: "21:00:00" },
-  { dayOfWeek: 2, opensAt: "12:00:00", closesAt: "21:00:00" },
-  { dayOfWeek: 3, opensAt: "12:00:00", closesAt: "21:00:00" },
-  { dayOfWeek: 4, opensAt: "12:00:00", closesAt: "21:00:00" },
-  { dayOfWeek: 5, opensAt: "12:00:00", closesAt: "21:00:00" },
-  { dayOfWeek: 6, opensAt: "12:00:00", closesAt: "21:00:00" },
+  { dayOfWeek: 0, opensAt: '12:00:00', closesAt: '20:00:00' },
+  { dayOfWeek: 1, opensAt: '12:00:00', closesAt: '21:00:00' },
+  { dayOfWeek: 2, opensAt: '12:00:00', closesAt: '21:00:00' },
+  { dayOfWeek: 3, opensAt: '12:00:00', closesAt: '21:00:00' },
+  { dayOfWeek: 4, opensAt: '12:00:00', closesAt: '21:00:00' },
+  { dayOfWeek: 5, opensAt: '12:00:00', closesAt: '21:00:00' },
+  { dayOfWeek: 6, opensAt: '12:00:00', closesAt: '21:00:00' },
 ];
 
 function buildServicePeriodsFromKitchen(): ServicePeriodSeed[] {
@@ -143,30 +145,72 @@ function buildServicePeriodsFromKitchen(): ServicePeriodSeed[] {
     {
       name: `${labelForDay(row.dayOfWeek)} Lunch`,
       dayOfWeek: row.dayOfWeek,
-      startTime: "12:00:00",
-      endTime: "17:00:00",
-      bookingOption: "lunch",
+      startTime: '12:00:00',
+      endTime: '17:00:00',
+      bookingOption: 'lunch',
     },
     {
       name: `${labelForDay(row.dayOfWeek)} Dinner`,
       dayOfWeek: row.dayOfWeek,
-      startTime: "17:00:00",
+      startTime: '17:00:00',
       endTime: row.closesAt,
-      bookingOption: "dinner",
+      bookingOption: 'dinner',
     },
   ]);
 }
 
 function labelForDay(day: number): string {
-  return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day] ?? `Day ${day}`;
+  return (
+    ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day] ??
+    `Day ${day}`
+  );
 }
 
 function shouldIgnoreMissingTable(message: string | null | undefined): boolean {
-  return typeof message === "string" && /schema cache|does not exist|relation .* does not exist/i.test(message);
+  return (
+    typeof message === 'string' &&
+    /schema cache|does not exist|relation .* does not exist/i.test(message)
+  );
+}
+
+function isAdjacencyEligible(
+  table: Pick<TableRow, 'zone_id' | 'active' | 'capacity' | 'status' | 'mobility'>,
+): boolean {
+  if (!table.zone_id) return false;
+  if (table.active === false) return false;
+  if ((table.capacity ?? 0) <= 0) return false;
+
+  const status = String(table.status ?? 'available').toLowerCase();
+  if (status === 'out_of_service' || status === 'maintenance') return false;
+
+  const mobility =
+    typeof table.mobility === 'string' ? table.mobility.trim().toLowerCase() : 'movable';
+  return mobility !== 'fixed';
+}
+
+function projectAdjacencyRows(
+  tables: Array<Pick<TableRow, 'zone_id' | 'active' | 'capacity' | 'status' | 'mobility'>>,
+) {
+  const eligibleByZone = new Map<string, number>();
+
+  for (const table of tables) {
+    if (!isAdjacencyEligible(table)) continue;
+    const zoneId = table.zone_id as string;
+    eligibleByZone.set(zoneId, (eligibleByZone.get(zoneId) ?? 0) + 1);
+  }
+
+  let totalRows = 0;
+  const byZone = [...eligibleByZone.entries()].map(([zoneId, eligibleTables]) => {
+    const adjacencyRows = eligibleTables * Math.max(eligibleTables - 1, 0);
+    totalRows += adjacencyRows;
+    return { zoneId, eligibleTables, adjacencyRows };
+  });
+
+  return { totalRows, byZone };
 }
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing production Supabase URL or service role key.");
+  console.error('Missing production Supabase URL or service role key.');
   process.exit(1);
 }
 
@@ -176,7 +220,7 @@ if (!supabaseUrl.includes(expectedProjectRef)) {
 }
 
 if (apply && !confirmProduction) {
-  console.error("CONFIRM_PRODUCTION=true is required to modify production data.");
+  console.error('CONFIRM_PRODUCTION=true is required to modify production data.');
   process.exit(1);
 }
 
@@ -186,9 +230,9 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 
 async function ensureTargetAbsent(): Promise<void> {
   const { data, error } = await supabase
-    .from("restaurants")
-    .select("id")
-    .eq("slug", targetRestaurant.slug)
+    .from('restaurants')
+    .select('id')
+    .eq('slug', targetRestaurant.slug)
     .maybeSingle();
 
   if (error) {
@@ -202,11 +246,11 @@ async function ensureTargetAbsent(): Promise<void> {
 
 async function loadSourceRestaurant(): Promise<RestaurantRow> {
   const { data, error } = await supabase
-    .from("restaurants")
+    .from('restaurants')
     .select(
-      "id,name,slug,timezone,capacity,contact_email,contact_phone,address,google_map_url,google_review_url,booking_policy,logo_url,email_send_reminder_24h,email_send_reminder_short,email_send_review_request,reservation_interval_minutes,reservation_default_duration_minutes,reservation_last_seating_buffer_minutes,reservation_lifecycle_grace_minutes",
+      'id,name,slug,timezone,capacity,contact_email,contact_phone,address,google_map_url,google_review_url,booking_policy,logo_url,email_send_reminder_24h,email_send_reminder_short,email_send_review_request,reservation_interval_minutes,reservation_default_duration_minutes,reservation_last_seating_buffer_minutes,reservation_lifecycle_grace_minutes',
     )
-    .eq("slug", sourceSlug)
+    .eq('slug', sourceSlug)
     .maybeSingle();
 
   if (error) {
@@ -222,10 +266,10 @@ async function loadSourceRestaurant(): Promise<RestaurantRow> {
 
 async function loadSourceMemberships(restaurantId: string): Promise<MembershipRow[]> {
   const { data, error } = await supabase
-    .from("restaurant_memberships")
-    .select("user_id,role")
-    .eq("restaurant_id", restaurantId)
-    .in("role", ["owner", "manager"]);
+    .from('restaurant_memberships')
+    .select('user_id,role')
+    .eq('restaurant_id', restaurantId)
+    .in('role', ['owner', 'manager']);
 
   if (error) {
     throw new Error(`Failed to load source memberships: ${error.message}`);
@@ -236,10 +280,10 @@ async function loadSourceMemberships(restaurantId: string): Promise<MembershipRo
 
 async function loadAllowedCapacities(restaurantId: string): Promise<number[]> {
   const { data, error } = await supabase
-    .from("allowed_capacities")
-    .select("capacity")
-    .eq("restaurant_id", restaurantId)
-    .order("capacity", { ascending: true });
+    .from('allowed_capacities')
+    .select('capacity')
+    .eq('restaurant_id', restaurantId)
+    .order('capacity', { ascending: true });
 
   if (error && !shouldIgnoreMissingTable(error.message)) {
     throw new Error(`Failed to load allowed capacities: ${error.message}`);
@@ -251,10 +295,10 @@ async function loadAllowedCapacities(restaurantId: string): Promise<number[]> {
   }
 
   const { data: tables, error: tablesError } = await supabase
-    .from("table_inventory")
-    .select("capacity")
-    .eq("restaurant_id", restaurantId)
-    .order("capacity", { ascending: true });
+    .from('table_inventory')
+    .select('capacity')
+    .eq('restaurant_id', restaurantId)
+    .order('capacity', { ascending: true });
 
   if (tablesError) {
     throw new Error(`Failed to derive capacities from tables: ${tablesError.message}`);
@@ -265,10 +309,10 @@ async function loadAllowedCapacities(restaurantId: string): Promise<number[]> {
 
 async function loadSourceZones(restaurantId: string): Promise<ZoneRow[]> {
   const { data, error } = await supabase
-    .from("zones")
-    .select("id,name,sort_order,active")
-    .eq("restaurant_id", restaurantId)
-    .order("sort_order", { ascending: true });
+    .from('zones')
+    .select('id,name,sort_order,active')
+    .eq('restaurant_id', restaurantId)
+    .order('sort_order', { ascending: true });
 
   if (error) {
     throw new Error(`Failed to load source zones: ${error.message}`);
@@ -279,10 +323,12 @@ async function loadSourceZones(restaurantId: string): Promise<ZoneRow[]> {
 
 async function loadSourceTables(restaurantId: string): Promise<TableRow[]> {
   const { data, error } = await supabase
-    .from("table_inventory")
-    .select("id,zone_id,table_number,capacity,min_party_size,max_party_size,section,status,position,notes,category,seating_type,mobility,active")
-    .eq("restaurant_id", restaurantId)
-    .order("table_number", { ascending: true });
+    .from('table_inventory')
+    .select(
+      'id,zone_id,table_number,capacity,min_party_size,max_party_size,section,status,position,notes,category,seating_type,mobility,active',
+    )
+    .eq('restaurant_id', restaurantId)
+    .order('table_number', { ascending: true });
 
   if (error) {
     throw new Error(`Failed to load source tables: ${error.message}`);
@@ -297,10 +343,10 @@ async function loadSourceAdjacencies(tableIds: string[]): Promise<TableAdjacency
   }
 
   const { data, error } = await supabase
-    .from("table_adjacencies")
-    .select("table_a,table_b")
-    .in("table_a", tableIds)
-    .in("table_b", tableIds);
+    .from('table_adjacencies')
+    .select('table_a,table_b')
+    .in('table_a', tableIds)
+    .in('table_b', tableIds);
 
   if (error && !shouldIgnoreMissingTable(error.message)) {
     throw new Error(`Failed to load source adjacencies: ${error.message}`);
@@ -311,11 +357,11 @@ async function loadSourceAdjacencies(tableIds: string[]): Promise<TableAdjacency
 
 async function loadSourceTurnBands(restaurantId: string): Promise<TurnBandRow[]> {
   const { data, error } = await supabase
-    .from("restaurant_turn_bands")
-    .select("booking_option,max_party_size,duration_minutes")
-    .eq("restaurant_id", restaurantId)
-    .order("booking_option", { ascending: true })
-    .order("max_party_size", { ascending: true });
+    .from('restaurant_turn_bands')
+    .select('booking_option,max_party_size,duration_minutes')
+    .eq('restaurant_id', restaurantId)
+    .order('booking_option', { ascending: true })
+    .order('max_party_size', { ascending: true });
 
   if (error && !shouldIgnoreMissingTable(error.message)) {
     throw new Error(`Failed to load source turn bands: ${error.message}`);
@@ -324,59 +370,65 @@ async function loadSourceTurnBands(restaurantId: string): Promise<TurnBandRow[]>
   return (data ?? []) as TurnBandRow[];
 }
 
-async function cleanupTargetBySlug(slug: string): Promise<void> {
-  const { data: restaurant, error: restaurantError } = await supabase
-    .from("restaurants")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (restaurantError || !restaurant?.id) {
-    return;
-  }
-
-  const restaurantId = restaurant.id;
-
-  const { data: tables } = await supabase.from("table_inventory").select("id").eq("restaurant_id", restaurantId);
+async function cleanupTargetById(restaurantId: string): Promise<void> {
+  const { data: tables } = await supabase
+    .from('table_inventory')
+    .select('id')
+    .eq('restaurant_id', restaurantId);
   const tableIds = (tables ?? []).map((row) => row.id as string);
 
   if (tableIds.length > 0) {
     const { error: adjacencyError } = await supabase
-      .from("table_adjacencies")
+      .from('table_adjacencies')
       .delete()
-      .in("table_a", tableIds)
-      .in("table_b", tableIds);
+      .in('table_a', tableIds)
+      .in('table_b', tableIds);
     if (adjacencyError && !shouldIgnoreMissingTable(adjacencyError.message)) {
-      console.error("[clone-restaurant-config] cleanup adjacency delete failed", adjacencyError.message);
+      console.error(
+        '[clone-restaurant-config] cleanup adjacency delete failed',
+        adjacencyError.message,
+      );
     }
   }
 
   const deletions: Array<{ table: string; ignoreMissing?: boolean }> = [
-    { table: "table_inventory" },
-    { table: "zones" },
-    { table: "allowed_capacities", ignoreMissing: true },
-    { table: "restaurant_turn_bands", ignoreMissing: true },
-    { table: "restaurant_service_periods" },
-    { table: "restaurant_operating_hours" },
-    { table: "restaurant_memberships" },
+    { table: 'table_inventory' },
+    { table: 'zones' },
+    { table: 'allowed_capacities', ignoreMissing: true },
+    { table: 'restaurant_turn_bands', ignoreMissing: true },
+    { table: 'restaurant_service_periods' },
+    { table: 'restaurant_operating_hours' },
+    { table: 'restaurant_memberships' },
   ];
 
   for (const deletion of deletions) {
-    const { error } = await supabase.from(deletion.table).delete().eq("restaurant_id", restaurantId);
+    const { error } = await supabase
+      .from(deletion.table)
+      .delete()
+      .eq('restaurant_id', restaurantId);
     if (error && !(deletion.ignoreMissing && shouldIgnoreMissingTable(error.message))) {
-      console.error(`[clone-restaurant-config] cleanup failed for ${deletion.table}`, error.message);
+      console.error(
+        `[clone-restaurant-config] cleanup failed for ${deletion.table}`,
+        error.message,
+      );
     }
   }
 
-  const { error: deleteRestaurantError } = await supabase.from("restaurants").delete().eq("id", restaurantId);
+  const { error: deleteRestaurantError } = await supabase
+    .from('restaurants')
+    .delete()
+    .eq('id', restaurantId);
   if (deleteRestaurantError) {
-    console.error("[clone-restaurant-config] cleanup failed for restaurants", deleteRestaurantError.message);
+    console.error(
+      '[clone-restaurant-config] cleanup failed for restaurants',
+      deleteRestaurantError.message,
+    );
   }
 }
 
 async function insertRestaurant(source: RestaurantRow): Promise<string> {
   const { data, error } = await supabase
-    .from("restaurants")
+    .from('restaurants')
     .insert({
       name: targetRestaurant.name,
       slug: targetRestaurant.slug,
@@ -397,17 +449,20 @@ async function insertRestaurant(source: RestaurantRow): Promise<string> {
       reservation_last_seating_buffer_minutes: source.reservation_last_seating_buffer_minutes,
       reservation_lifecycle_grace_minutes: source.reservation_lifecycle_grace_minutes ?? 15,
     })
-    .select("id")
+    .select('id')
     .single();
 
   if (error || !data?.id) {
-    throw new Error(`Failed to insert target restaurant: ${error?.message ?? "unknown error"}`);
+    throw new Error(`Failed to insert target restaurant: ${error?.message ?? 'unknown error'}`);
   }
 
   return data.id as string;
 }
 
-async function insertMemberships(restaurantId: string, memberships: MembershipRow[]): Promise<void> {
+async function insertMemberships(
+  restaurantId: string,
+  memberships: MembershipRow[],
+): Promise<void> {
   if (memberships.length === 0) {
     return;
   }
@@ -418,7 +473,7 @@ async function insertMemberships(restaurantId: string, memberships: MembershipRo
     role: membership.role,
   }));
 
-  const { error } = await supabase.from("restaurant_memberships").insert(payload);
+  const { error } = await supabase.from('restaurant_memberships').insert(payload);
   if (error) {
     throw new Error(`Failed to copy memberships: ${error.message}`);
   }
@@ -430,7 +485,7 @@ async function insertAllowedCapacities(restaurantId: string, capacities: number[
   }
 
   const { error } = await supabase
-    .from("allowed_capacities")
+    .from('allowed_capacities')
     .insert(capacities.map((capacity) => ({ restaurant_id: restaurantId, capacity })));
 
   if (error && !shouldIgnoreMissingTable(error.message)) {
@@ -451,7 +506,7 @@ async function insertWeeklyHours(restaurantId: string): Promise<void> {
     reservation_slot_times: null,
   }));
 
-  const { error } = await supabase.from("restaurant_operating_hours").insert(payload);
+  const { error } = await supabase.from('restaurant_operating_hours').insert(payload);
   if (error) {
     throw new Error(`Failed to insert weekly hours: ${error.message}`);
   }
@@ -459,7 +514,7 @@ async function insertWeeklyHours(restaurantId: string): Promise<void> {
 
 async function insertServicePeriods(restaurantId: string): Promise<void> {
   const periods = buildServicePeriodsFromKitchen();
-  const { error } = await supabase.from("restaurant_service_periods").insert(
+  const { error } = await supabase.from('restaurant_service_periods').insert(
     periods.map((period) => ({
       id: randomUUID(),
       restaurant_id: restaurantId,
@@ -481,7 +536,7 @@ async function insertTurnBands(restaurantId: string, turnBands: TurnBandRow[]): 
     return;
   }
 
-  const { error } = await supabase.from("restaurant_turn_bands").insert(
+  const { error } = await supabase.from('restaurant_turn_bands').insert(
     turnBands.map((band) => ({
       restaurant_id: restaurantId,
       booking_option: band.booking_option,
@@ -513,7 +568,7 @@ async function insertZones(restaurantId: string, zones: ZoneRow[]): Promise<Map<
     return zoneMap;
   }
 
-  const { error } = await supabase.from("zones").insert(payload);
+  const { error } = await supabase.from('zones').insert(payload);
   if (error) {
     throw new Error(`Failed to insert zones: ${error.message}`);
   }
@@ -521,7 +576,11 @@ async function insertZones(restaurantId: string, zones: ZoneRow[]): Promise<Map<
   return zoneMap;
 }
 
-async function insertTables(restaurantId: string, tables: TableRow[], zoneMap: Map<string, string>): Promise<Map<string, string>> {
+async function insertTables(
+  restaurantId: string,
+  tables: TableRow[],
+  zoneMap: Map<string, string>,
+): Promise<Map<string, string>> {
   const tableMap = new Map<string, string>();
   const payload = tables.map((table) => {
     const newId = randomUUID();
@@ -529,18 +588,18 @@ async function insertTables(restaurantId: string, tables: TableRow[], zoneMap: M
     return {
       id: newId,
       restaurant_id: restaurantId,
-      zone_id: table.zone_id ? zoneMap.get(table.zone_id) ?? null : null,
+      zone_id: table.zone_id ? (zoneMap.get(table.zone_id) ?? null) : null,
       table_number: table.table_number,
       capacity: table.capacity,
       min_party_size: table.min_party_size,
       max_party_size: table.max_party_size,
       section: table.section,
-      status: table.status ?? "available",
+      status: table.status ?? 'available',
       position: table.position ?? null,
       notes: table.notes,
-      category: table.category ?? "dining",
-      seating_type: table.seating_type ?? "standard",
-      mobility: table.mobility ?? "fixed",
+      category: table.category ?? 'dining',
+      seating_type: table.seating_type ?? 'standard',
+      mobility: table.mobility,
       active: table.active ?? true,
     };
   });
@@ -549,7 +608,7 @@ async function insertTables(restaurantId: string, tables: TableRow[], zoneMap: M
     return tableMap;
   }
 
-  const { error } = await supabase.from("table_inventory").insert(payload);
+  const { error } = await supabase.from('table_inventory').insert(payload);
   if (error) {
     throw new Error(`Failed to insert tables: ${error.message}`);
   }
@@ -557,35 +616,75 @@ async function insertTables(restaurantId: string, tables: TableRow[], zoneMap: M
   return tableMap;
 }
 
-async function verifyClone(): Promise<Record<string, unknown>> {
+async function verifyClone(expectedAdjacencyRows: number): Promise<Record<string, unknown>> {
   const { data: restaurant, error: restaurantError } = await supabase
-    .from("restaurants")
-    .select("id,name,slug,address,contact_email,google_map_url")
-    .eq("slug", targetRestaurant.slug)
+    .from('restaurants')
+    .select('id,name,slug,address,contact_email,google_map_url')
+    .eq('slug', targetRestaurant.slug)
     .maybeSingle();
 
   if (restaurantError || !restaurant?.id) {
-    throw new Error(`Verification failed: ${restaurantError?.message ?? "target not found"}`);
+    throw new Error(`Verification failed: ${restaurantError?.message ?? 'target not found'}`);
   }
 
   const restaurantId = restaurant.id as string;
-  const [hours, periods, zones, tables, memberships, adjacencies] = await Promise.all([
-    supabase.from("restaurant_operating_hours").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).is("effective_date", null),
-    supabase.from("restaurant_service_periods").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
-    supabase.from("zones").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
-    supabase.from("table_inventory").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
-    supabase.from("restaurant_memberships").select("user_id,role").eq("restaurant_id", restaurantId),
+  const { data: targetTables, error: targetTablesError } = await supabase
+    .from('table_inventory')
+    .select('id,zone_id,capacity,status,mobility,active')
+    .eq('restaurant_id', restaurantId);
+
+  if (targetTablesError) {
+    throw new Error(`Verification failed to load target tables: ${targetTablesError.message}`);
+  }
+
+  const tableRows = (targetTables ?? []) as Array<
+    Pick<TableRow, 'id' | 'zone_id' | 'capacity' | 'status' | 'mobility' | 'active'>
+  >;
+  const tableIds = tableRows.map((row) => row.id);
+  const adjacencyResult =
+    tableIds.length > 0
+      ? await supabase
+          .from('table_adjacencies')
+          .select('table_a,table_b', { count: 'exact', head: true })
+          .in('table_a', tableIds)
+          .in('table_b', tableIds)
+      : { count: 0, error: null };
+
+  if (adjacencyResult.error && !shouldIgnoreMissingTable(adjacencyResult.error.message)) {
+    throw new Error(
+      `Verification failed to count adjacency rows: ${adjacencyResult.error.message}`,
+    );
+  }
+
+  const adjacencyRows = adjacencyResult.count ?? 0;
+  if (adjacencyRows !== expectedAdjacencyRows) {
+    throw new Error(
+      `Verification failed: expected ${expectedAdjacencyRows} adjacency rows, received ${adjacencyRows}.`,
+    );
+  }
+
+  const [hours, periods, zones, tables, memberships] = await Promise.all([
     supabase
-      .from("table_adjacencies")
-      .select("table_a,table_b", { count: "exact", head: true })
-      .in(
-        "table_a",
-        (
-          (
-            await supabase.from("table_inventory").select("id").eq("restaurant_id", restaurantId)
-          ).data ?? []
-        ).map((row) => row.id as string),
-      ),
+      .from('restaurant_operating_hours')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId)
+      .is('effective_date', null),
+    supabase
+      .from('restaurant_service_periods')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId),
+    supabase
+      .from('zones')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId),
+    supabase
+      .from('table_inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId),
+    supabase
+      .from('restaurant_memberships')
+      .select('user_id,role')
+      .eq('restaurant_id', restaurantId),
   ]);
 
   return {
@@ -595,7 +694,8 @@ async function verifyClone(): Promise<Record<string, unknown>> {
     zones: zones.count ?? 0,
     tables: tables.count ?? 0,
     memberships: memberships.data ?? [],
-    adjacencyRowsWhereTableAInTarget: adjacencies.count ?? 0,
+    expectedAdjacencyRows,
+    adjacencyRowsWhereTableAInTarget: adjacencyRows,
   };
 }
 
@@ -609,6 +709,7 @@ async function main(): Promise<void> {
     loadSourceTurnBands(source.id),
   ]);
   const adjacencies = await loadSourceAdjacencies(tables.map((table) => table.id));
+  const adjacencyProjection = projectAdjacencyRows(tables);
 
   const plan = {
     source: {
@@ -618,6 +719,7 @@ async function main(): Promise<void> {
       zones: zones.length,
       tables: tables.length,
       adjacencies: adjacencies.length,
+      adjacencyProjection,
       memberships,
       turnBands: turnBands.length,
     },
@@ -637,8 +739,10 @@ async function main(): Promise<void> {
 
   await ensureTargetAbsent();
 
+  let insertedRestaurantId: string | null = null;
   try {
     const restaurantId = await insertRestaurant(source);
+    insertedRestaurantId = restaurantId;
     await insertMemberships(restaurantId, memberships);
     await insertAllowedCapacities(restaurantId, capacities);
     await insertWeeklyHours(restaurantId);
@@ -647,15 +751,20 @@ async function main(): Promise<void> {
     const zoneMap = await insertZones(restaurantId, zones);
     await insertTables(restaurantId, tables, zoneMap);
 
-    const verification = await verifyClone();
+    const verification = await verifyClone(adjacencyProjection.totalRows);
     console.log(JSON.stringify({ applied: true, verification }, null, 2));
   } catch (error) {
-    await cleanupTargetBySlug(targetRestaurant.slug);
+    if (insertedRestaurantId) {
+      await cleanupTargetById(insertedRestaurantId);
+    }
     throw error;
   }
 }
 
 void main().catch((error) => {
-  console.error("[clone-restaurant-config] Failed:", error instanceof Error ? error.message : error);
+  console.error(
+    '[clone-restaurant-config] Failed:',
+    error instanceof Error ? error.message : error,
+  );
   process.exit(1);
 });

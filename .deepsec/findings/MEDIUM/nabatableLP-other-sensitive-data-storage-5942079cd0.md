@@ -19,3 +19,9 @@ Never store password fields in onboarding state or sessionStorage. After signup,
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+
+**Verdict:** fixed
+
+The shared onboarding persistence layer strips `account.password` before state storage and during draft restore, so both `/onboarding` and `/auth/signup` surfaces that render `OnboardingWizard` inherit the same password-redaction behavior.
+
+Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

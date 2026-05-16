@@ -1,7 +1,6 @@
 'use client';
 
 import { ExternalLink, MapPin, RefreshCcw, Unplug } from 'lucide-react';
-import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,8 @@ type GbpOverviewCardProps = {
   lastPullAt: string | null;
   hasLinkedLocation: boolean;
   showConnect: boolean;
-  connectHref: string;
+  onConnect: (() => void) | null;
+  isConnecting: boolean;
   showPicker: boolean;
   onChooseLocation: () => void;
   canRefresh: boolean;
@@ -49,7 +49,8 @@ export function GbpOverviewCard({
   lastPullAt,
   hasLinkedLocation,
   showConnect,
-  connectHref,
+  onConnect,
+  isConnecting,
   showPicker,
   onChooseLocation,
   canRefresh,
@@ -91,8 +92,13 @@ export function GbpOverviewCard({
           {hasActions ? (
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {showConnect ? (
-                <Button type="button" size="sm" asChild>
-                  <Link href={connectHref}>Connect Google</Link>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onConnect ?? undefined}
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? 'Connecting...' : 'Connect Google'}
                 </Button>
               ) : null}
               {showPicker ? (

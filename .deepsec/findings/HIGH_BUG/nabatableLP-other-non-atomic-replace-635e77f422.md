@@ -20,3 +20,9 @@ Replace the delete+insert sequence with an atomic database transaction/RPC. Vali
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`updateOperatingHours` now validates real override dates plus duplicate override ids/dates before mutation, then calls the service-role-only `replace_restaurant_operating_hours` RPC. The RPC performs replacement inside one database transaction by upserting incoming rows and deleting obsolete rows atomically, so an insert/update failure rolls back without leaving the restaurant with no schedule.
+
+Evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16. The regression coverage verifies the helper uses the atomic replacement RPC rather than delete-then-insert and rejects duplicate override ids before replacement.

@@ -171,6 +171,28 @@ describe('dual-sync publish route', () => {
     });
   });
 
+  it('rejects decisions that omit field-level pins', async () => {
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish', {
+        method: 'POST',
+        body: JSON.stringify({
+          decisions: [
+            {
+              fieldKey: 'profile.businessDescription',
+              sectionKey: 'profile',
+              action: 'export_to_google',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(422);
+    expect(runPublishMock).not.toHaveBeenCalled();
+    expect(enqueueDualSyncJobMock).not.toHaveBeenCalled();
+  });
+
   it('returns 409 when another dual-sync write job holds the restaurant lock', async () => {
     runPublishMock.mockRejectedValueOnce({
       code: 'DUAL_SYNC_LOCK_HELD',

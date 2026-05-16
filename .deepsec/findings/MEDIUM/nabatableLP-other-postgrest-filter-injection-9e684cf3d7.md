@@ -19,3 +19,9 @@ Avoid raw string-built PostgREST filters for user input; use separate parameteri
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
+
+**Verdict:** fixed
+
+The customer lookup path now uses equality filters instead of raw string-built PostgREST `.or()` filters for email/phone matching, and the ops walk-in schema rejects PostgREST filter control characters in email input before customer upsert. Crafted email filter fragments no longer reach customer lookup or booking creation.
+
+Validation: `pnpm exec vitest run tests/server/booking-validation-security.test.ts tests/server/public-bookings-route.test.ts tests/server/ops-bookings-create-route.test.ts tests/server/public-booking-delete-route.test.ts tests/server/public-booking-session-recovery-source.test.ts tests/server/resend-webhook-route.test.ts`

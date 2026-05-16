@@ -16,6 +16,12 @@ DualSyncShell sends pinned per-field hashes when publishing decisions, but traci
 
 Move batch port execution after server-side drift validation, or make the batch pre-pass filter out every decision whose pinned hashes do not match before any external write.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The server-side publish path now enforces the `DualSyncShell` pinned hashes before any batch export port can run. `runPublish` compares current field hashes to the submitted pins, creates operation rows for accepted write decisions, and passes only that prepared export subset to `runBatchExportPorts`. Focused evidence: dual-sync orchestrator tests cover stale pins preventing batch/per-field provider calls and route tests cover omitted-pin rejection.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

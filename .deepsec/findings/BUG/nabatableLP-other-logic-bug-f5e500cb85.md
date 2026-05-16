@@ -16,6 +16,12 @@ The retry action posts `pendingRetryRow.attempt.id ?? pendingRetryRow.attempt.me
 
 Do not fall back to provider `messageId` for retry identity. Populate the feed DTO with the current failed/bounced delivery log entry ID, or derive it from the current retryable event in `attempt.events`, and only call `retryEmailDelivery` when a valid delivery-log ID is available.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`useOpsEmailDeliveryRetryState` no longer falls back to `attempt.messageId` when retrying. It resolves a delivery-log id from `attempt.id` or the current event id and refuses to call `retryEmailDelivery` if neither is available. `server/emails/email-delivery-log.ts` now maps the current delivery-log row id into `OpsEmailDeliveryAttemptDTO.id` for both RPC and fallback feed paths, and migration `supabase/migrations/20260516115600_expose_email_delivery_attempt_retry_id.sql` exposes the RPC `current_id` as `id`. Retry-focused component tests prove provider message ids are not submitted.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

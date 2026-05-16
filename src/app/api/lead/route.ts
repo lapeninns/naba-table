@@ -49,12 +49,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const supabase = await getRouteHandlerSupabaseClient();
-    await supabase.from('leads').insert({ email: body.email });
+    const { error } = await supabase.from('leads').insert({ email: body.email });
+
+    if (error) {
+      console.error('[lead] Unable to store lead', {
+        code: error.code,
+        message: stringifyError(error),
+      });
+      return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
+    }
 
     return NextResponse.json({});
   } catch (error: unknown) {
     const message = stringifyError(error);
-    console.error(message);
-    return NextResponse.json({ error: message || 'Unable to store lead' }, { status: 500 });
+    console.error('[lead] Unexpected lead storage failure', { message });
+    return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
   }
 }

@@ -20,3 +20,7 @@ Validate emailRedirectTo inside sendAuthMagicLink against exact configured HTTPS
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+**Verdict:** fixed
+
+`sendAuthMagicLink` now validates `emailRedirectTo` with `normalizeTrustedMagicLinkRedirect` before it creates a service-role Supabase client or calls `auth.admin.generateLink`. The helper rejects non-canonical hosts, non-HTTPS production URLs, and non-callback paths, so a token-bearing email link cannot be generated for `evilnabatable.com` or `evil-nabatable.com`. The signin route also canonicalizes the request host with `resolveTrustedAuthHostname` and no longer uses the suffix-based callback builder. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including helper-level proof that untrusted callback origins fail before token generation.

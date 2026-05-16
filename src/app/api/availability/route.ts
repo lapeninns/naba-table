@@ -171,7 +171,6 @@ export async function GET(req: NextRequest) {
         alternatives = altSlots.map((slot) => ({
           time: slot.time,
           available: slot.available,
-          utilizationPercent: slot.utilizationPercent,
         }));
       }
 
@@ -200,12 +199,6 @@ export async function GET(req: NextRequest) {
           reason: result.reason,
           metadata: {
             servicePeriod: result.metadata.servicePeriod,
-            maxCovers: result.metadata.maxCovers,
-            bookedCovers: result.metadata.bookedCovers,
-            availableCovers: result.metadata.availableCovers,
-            utilizationPercent: result.metadata.utilizationPercent,
-            maxParties: result.metadata.maxParties,
-            bookedParties: result.metadata.bookedParties,
           },
           alternatives,
         },
@@ -214,7 +207,6 @@ export async function GET(req: NextRequest) {
           headers: {
             'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
             'X-Available': result.available.toString(),
-            'X-Utilization': result.metadata.utilizationPercent.toString(),
           },
         },
       );

@@ -16,6 +16,12 @@ The DELETE handler reads the invitation only to get restaurant_id for the admin 
 
 Replace the hard delete with an atomic status update scoped by id, restaurant_id, and status='pending', preferably by calling revokeRestaurantInvite, and return the serialized revoked invite in the response.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The DELETE handler calls `revokeRestaurantInvite` after the admin membership check instead of hard-deleting the row. The helper updates by `id`, `restaurant_id`, and `status='pending'`, sets `revoked_at`, returns the revoked invite, and reports already-processed invites without deleting history. Focused evidence: `tests/server/team-invitations-security.test.ts` verifies the route returns `{ invite }`, does not call delete, and applies the scoped pending-status update; targeted ESLint, Prettier, and `pnpm run typecheck` passed on 2026-05-16.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)

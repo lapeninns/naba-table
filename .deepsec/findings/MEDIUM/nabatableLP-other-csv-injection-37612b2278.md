@@ -16,6 +16,12 @@ The export includes guest-controlled customer fields such as name, email, and ph
 
 Escape formula-like CSV cells before writing them, preferably in lib/export/csv.ts so all exports are covered. Prefix cells whose trimmed value starts with =, +, -, @, tab, or CR/LF with a single quote or another spreadsheet-safe neutralizer, and add regression tests for exported guest fields.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting, and `/api/ops/customers/export` emits CSV through `generateCSV`. Covered by `tests/lib/csv-export.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-29)

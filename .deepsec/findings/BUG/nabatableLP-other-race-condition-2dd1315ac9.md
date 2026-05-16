@@ -20,3 +20,7 @@ Move these aggregate updates into a single database RPC or SQL upsert that incre
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)
+
+**Verdict:** fixed
+
+`recordBookingForCustomerProfile` and `recordCancellationForCustomerProfile` now call service-role-only database RPCs instead of reading the aggregate row and writing absolute totals from application code. Migration `supabase/migrations/20260516114919_atomic_customer_profile_aggregates.sql` adds `record_booking_for_customer_profile_atomic` and `record_cancellation_for_customer_profile_atomic`, both implemented as `INSERT ... ON CONFLICT (customer_id) DO UPDATE` statements that increment counters from `public.customer_profiles` inside the database write. Regression coverage in `tests/server/customers.test.ts` proves both helpers use the RPC path without touching `from(...)`, and asserts the migration retains the atomic increment expressions and service-role grants.

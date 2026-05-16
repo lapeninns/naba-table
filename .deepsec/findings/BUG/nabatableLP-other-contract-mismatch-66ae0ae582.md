@@ -19,3 +19,7 @@ Either add foodMenus to the publish route schema and server validation, or hide/
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+
+**Verdict:** fixed
+
+The publish and preview route schemas now use the shared `DUAL_SYNC_SECTION_KEYS` registry, which includes `foodMenus`. `server/dual-sync/publish/orchestrator.ts` also reads `snapshot.foodMenus ?? { items: [] }` for field hash checks. `tests/server/dual-sync-publish-route.test.ts` and `tests/server/dual-sync-publish-preview-route.test.ts` cover FoodMenus decisions being accepted and forwarded to the publish path instead of rejected with 422.

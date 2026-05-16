@@ -6,7 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 import { getPgSslConfig } from './db/pg-ssl';
-import { assertExactSupabaseProjectRef } from './db/safety';
+import {
+  DEFAULT_PRODUCTION_PROJECT_REF,
+  assertExactSupabaseProjectRef,
+  assertProductionScriptSafety,
+  normalizeSupabaseProjectRef,
+} from './db/safety';
 
 type Args = {
   sqlPath: string;
@@ -17,10 +22,12 @@ function usage(): never {
   console.error(
     [
       'Usage:',
-      '  pnpm -s tsx scripts/apply-sql-file.ts --file <path> [--expected-ref <projectRef>]',
+      '  pnpm -s tsx scripts/apply-sql-file.ts --file <path> --expected-ref <projectRef>',
       '',
       'Env:',
       '  SUPABASE_DB_URL or DATABASE_URL (connection string)',
+      '  EXPECTED_PROJECT_REF may be used instead of --expected-ref',
+      '  CONFIRM_PRODUCTION=true is required when the target is production',
       '',
       'Notes:',
       '  - Uses pg simple query mode so SQL files may contain multiple statements.',
@@ -84,14 +91,26 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  if (args.expectedProjectRef) {
-    try {
-      assertExactSupabaseProjectRef(connectionString, args.expectedProjectRef);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`${message} Aborting.`);
-      process.exit(1);
-    }
+  const expectedProjectRef = normalizeSupabaseProjectRef(
+    args.expectedProjectRef ?? process.env.EXPECTED_PROJECT_REF,
+    'EXPECTED_PROJECT_REF',
+  );
+
+  try {
+    assertExactSupabaseProjectRef(connectionString, expectedProjectRef);
+    assertProductionScriptSafety({
+      connectionString,
+      expectedProjectRef:
+        process.env.PRODUCTION_SUPABASE_PROJECT_REF ?? DEFAULT_PRODUCTION_PROJECT_REF,
+      targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
+      apply: true,
+      confirmation: process.env.CONFIRM_PRODUCTION,
+      confirmationName: 'CONFIRM_PRODUCTION',
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`${message} Aborting.`);
+    process.exit(1);
   }
 
   const sqlPath = path.resolve(projectRoot, args.sqlPath);

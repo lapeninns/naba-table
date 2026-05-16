@@ -20,3 +20,7 @@ Never store the password in OnboardingState. Send it only in the signup request,
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
+
+**Verdict:** fixed
+
+`OnboardingWizard` now stores only account email and mode after signup, no longer hydrates password defaults from onboarding state, and `OnboardingProvider` redacts account passwords on reducer updates, sessionStorage persistence, and draft restoration. Covered by `tests/components/OnboardingContextPersistence.test.tsx`.

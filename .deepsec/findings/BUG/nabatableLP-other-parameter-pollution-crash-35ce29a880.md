@@ -20,3 +20,15 @@ Type searchParams as Record<string, string | string[] | undefined> and normalize
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-25)
+
+**Verdict:** fixed
+
+`src/app/(public)/bookings/recover/error/page.tsx` now accepts repeated App
+Router query values and converts `code` to a single string before string
+operations.
+
+Evidence:
+
+- `tests/guest/public-booking-message-pages.test.tsx` covers duplicated recovery
+  `code` params and verifies the reason details render without crashing.
+- `pnpm exec vitest run tests/guest/public-booking-message-pages.test.tsx`

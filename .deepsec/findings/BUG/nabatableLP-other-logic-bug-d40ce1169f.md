@@ -16,6 +16,14 @@ The scanner's insecure-crypto hit is a false positive, but the custom timezone c
 
 Avoid generating `24:xx` by setting `hourCycle: "h23"`, or normalize Intl-produced `24:xx` to `00:xx` on the same displayed date. Add regression tests for 00:00-00:59 across UTC and representative restaurant timezones.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`server/bookings/pastTimeValidation.ts` now uses `hourCycle: 'h23'` and normalizes fallback `24:xx` formatter output to `00:xx` without incrementing the local date. Regression coverage fixes the midnight-window path for `Europe/London` and verifies current-time conversion does not roll forward by a day.
+
+Evidence: `pnpm exec vitest run tests/server/bookings/past-time-validation.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/bookings/pastTimeValidation.ts tests/server/bookings/past-time-validation.test.ts` also passed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-25)

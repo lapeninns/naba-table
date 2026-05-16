@@ -9,6 +9,7 @@ import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
 import { getPgSslConfig } from '../db/pg-ssl';
+import { assertStagingScriptSafety, DEFAULT_STAGING_PROJECT_REF } from '../db/safety';
 import type { Database } from '@/types/supabase';
 
 type RestaurantRole = 'owner' | 'manager' | 'host' | 'server';
@@ -30,6 +31,8 @@ type StagingUser = {
   roles: Set<RestaurantRole>;
   restaurantIds: Set<string>;
 };
+
+const CONFIRM_STAGING_IMPORT_ENV = 'CONFIRM_STAGING_STAFF_IMPORT';
 
 function readRepoEnvFiles() {
   const modulePath = fileURLToPath(import.meta.url);
@@ -60,6 +63,34 @@ function parseSupabaseProjectRefFromUrl(url: string): string {
     throw new Error(`Unable to parse Supabase project ref from url: ${url}`);
   }
   return match[1]!.toLowerCase();
+}
+
+function requireConfirmedStagingDestination(params: {
+  stagingUrl: string;
+  prodRef: string;
+}): string {
+  const stagingRef = parseSupabaseProjectRefFromUrl(params.stagingUrl);
+  const expectedStagingRef =
+    process.env.EXPECTED_STAGING_PROJECT_REF?.trim().toLowerCase() ||
+    process.env.STAGING_SUPABASE_PROJECT_REF?.trim().toLowerCase() ||
+    DEFAULT_STAGING_PROJECT_REF;
+
+  if (stagingRef === params.prodRef) {
+    throw new Error(
+      `Destination Supabase project ref ${stagingRef} matches production. Refusing to import staff.`,
+    );
+  }
+
+  const targetEnv = process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim();
+  assertStagingScriptSafety({
+    apiUrl: params.stagingUrl,
+    expectedProjectRef: expectedStagingRef,
+    targetEnv,
+    confirmation: process.env[CONFIRM_STAGING_IMPORT_ENV],
+    confirmationName: CONFIRM_STAGING_IMPORT_ENV,
+  });
+
+  return stagingRef;
 }
 
 function normalizeRole(value: unknown): RestaurantRole | null {
@@ -215,6 +246,7 @@ async function main() {
   }
 
   const prodRef = parseSupabaseProjectRefFromUrl(prodUrl);
+  const stagingRef = requireConfirmedStagingDestination({ stagingUrl, prodRef });
 
   const staging = createClient<Database>(stagingUrl, stagingServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -331,12 +363,15 @@ async function main() {
     })
     .join('\n');
 
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, header + lines + '\n', { encoding: 'utf-8' });
+  const outputDir = path.dirname(outPath);
+  fs.mkdirSync(outputDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(outputDir, 0o700);
+  fs.writeFileSync(outPath, header + lines + '\n', { encoding: 'utf-8', mode: 0o600 });
+  fs.chmodSync(outPath, 0o600);
 
   console.log('[import-prod-staff] Imported restaurant staff from production into staging.');
   console.log(`- Prod ref: ${prodRef}`);
-  console.log(`- Staging URL: ${stagingUrl}`);
+  console.log(`- Staging ref: ${stagingRef}`);
   console.log(`- Roles imported: ${Array.from(allowRoles).join(', ')}`);
   console.log(`- Users created/ensured: ${users.size}`);
   console.log(`- Creds CSV (gitignored): ${outPath}`);

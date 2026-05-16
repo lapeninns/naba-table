@@ -19,3 +19,7 @@ Move the purge into a single Postgres function/RPC that runs in one transaction,
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
+
+**Verdict:** fixed
+
+`scripts/purge-restaurant-bookings.ts` now performs apply-mode deletion through a single `pg` transaction. It re-collects matching booking ids inside `BEGIN` using `FOR UPDATE`, deletes configured child rows and the bookings in the same transaction, commits only after all deletes succeed, and rolls back on any failure. The script also requires `SUPABASE_DB_URL`/`DATABASE_URL`/`DB_URL`, exact project-ref validation, production target env, `CONFIRM_PURGE_BOOKINGS=true`, and `CONFIRM_PRODUCTION=true` before apply. Focused tests verify the transaction ordering and rollback path.

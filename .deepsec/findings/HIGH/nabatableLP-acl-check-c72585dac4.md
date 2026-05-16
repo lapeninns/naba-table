@@ -19,3 +19,7 @@ Enforce inviteable roles server-side. Use a dedicated allowlist that excludes ow
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)
+
+**Verdict:** fixed
+
+Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

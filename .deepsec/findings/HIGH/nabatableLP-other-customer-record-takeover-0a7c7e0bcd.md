@@ -20,3 +20,9 @@ Do not merge customer identities on a partial contact match from unauthenticated
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)
+
+**Verdict:** fixed
+
+Public booking creation now calls `upsertCustomer` with `identityMatchMode: 'strict'` and `allowExistingUpdates: false`, so unauthenticated input must match both normalized email and normalized phone on the same customer row before an existing customer id is reused. Strict duplicate-insert recovery also retries the same full-contact lookup and does not fall back to email-only or phone-only matching. Trusted ops flows can still opt into partial matching with explicit existing-profile updates, but the public guest create path cannot attach an attacker-controlled phone to an email-only customer record.
+
+Evidence: `pnpm exec vitest run tests/server/customers.test.ts tests/server/public-bookings-route.test.ts` passed on 2026-05-16. The regression coverage verifies strict public insert conflicts do not fall back to a single email match, and verifies `/api/bookings` uses strict, non-mutating customer identity options before booking creation.

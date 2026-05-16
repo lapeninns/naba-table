@@ -20,3 +20,7 @@ Perform the delete and insert in one database transaction/RPC, validate duplicat
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)
+
+**Verdict:** fixed
+
+`updateServicePeriods` now rejects duplicate service-period ids before mutation and delegates replacement to the service-role-only `replace_restaurant_service_periods` RPC. The RPC upserts incoming rows and deletes obsolete rows inside one database transaction, preserving dependent rows for unchanged ids and rolling back on failure. Focused evidence: `tests/server/restaurant-schedule-replacements.test.ts` verifies the atomic RPC call and duplicate-id rejection; focused Vitest, targeted ESLint, and `pnpm run typecheck` passed on 2026-05-16.

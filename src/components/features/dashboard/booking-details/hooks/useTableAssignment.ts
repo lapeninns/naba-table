@@ -346,10 +346,14 @@ export function useTableAssignment({
         throw new Error(quoteResult.reason || 'No suitable tables found for this booking');
       }
 
-      // Step 2: Directly assign the quoted tables
-      return bookingService.assignTablesDirect({
+      if (!quoteResult.holdId) {
+        throw new Error('Smart assign could not reserve the suggested tables. Please try again.');
+      }
+
+      // Step 2: Confirm the quote hold so the temporary hold is consumed atomically.
+      return bookingService.confirmHoldAssignment({
         bookingId,
-        tableIds: quoteResult.candidate.tableIds,
+        holdId: quoteResult.holdId,
         idempotencyKey: generateIdempotencyKey(),
         requireAdjacency: false,
       });

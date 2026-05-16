@@ -16,6 +16,12 @@ The table list service sends the caller-provided `restaurantId` directly to `/ap
 
 In `src/app/api/ops/tables/route.ts`, call `requireMembershipForRestaurant({ userId: user.id, restaurantId })` before any table or summary query, and add a cross-tenant regression test.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/ops/tables/route.ts` now calls `requireMembershipForRestaurant` for the requested `restaurantId` before `listTablesWithSummary` or `listTables` runs. Covered by `tests/server/ops-tables-route-security.test.ts`.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

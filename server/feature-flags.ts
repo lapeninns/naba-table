@@ -163,8 +163,7 @@ export function getSelectorPlannerLimits(): {
 }
 
 export function isHoldStrictConflictsEnabled(): boolean {
-  const defaultValue = env.featureFlags.holds?.strictConflicts ?? false;
-  return resolveFeatureFlag('holds.strict_conflicts.enabled', defaultValue);
+  return true;
 }
 
 export function isAdjacencyQueryUndirected(): boolean {
@@ -187,7 +186,7 @@ export function getHoldMinTtlSeconds(): number {
 }
 
 export function isEmailQueueEnabled(): boolean {
-  const configured = env.featureFlags.emailQueueEnabled;
+  const configured = env.raw.FEATURE_EMAIL_QUEUE_ENABLED;
 
   if (typeof configured === 'boolean') {
     // Explicit opt-out in production is unsafe: long-delay reminders/reviews

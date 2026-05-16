@@ -20,3 +20,15 @@ Change the search param type to string | string[] | undefined and normalize ever
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
+
+**Verdict:** fixed
+
+`src/app/app/(app)/bookings/page.tsx` now normalizes all App Router search params
+through `firstString` or `stringArray` before calling string-only parsers.
+
+Evidence:
+
+- `tests/server/ops-bookings-page-query-params.test.tsx` covers duplicated
+  filter/query/status/date/table/time/window params and verifies normalized
+  client props.
+- `pnpm exec vitest run tests/server/ops-bookings-page-query-params.test.tsx`

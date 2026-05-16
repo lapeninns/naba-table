@@ -19,3 +19,15 @@ Type searchParams as string | string[] | undefined and normalize defensively bef
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-05)
+
+**Verdict:** fixed
+
+`src/app/guest/bookings/page.tsx` now types App Router search params as
+`string | string[] | undefined` and passes the first normalized `tab` value into
+`buildGuestBookingsViewModel`.
+
+Evidence:
+
+- `tests/guest/guest-bookings-page-query-params.test.tsx` verifies duplicated
+  `tab` values are normalized before the view model receives them.
+- `pnpm exec vitest run tests/guest/guest-bookings-page-query-params.test.tsx`

@@ -16,6 +16,14 @@ generateConfirmationToken() uses randomBytes(32).toString('base64url'), which pr
 
 Make token generation and validation use the same format. Either accept the 43-character base64url output with an exact regex/length check, or generate 64-character hex tokens with randomBytes(32).toString('hex'). Add a route-level regression test using the real generator.
 
+## Revalidation
+
+**Verdict:** fixed
+
+Confirmation token format is now centralized in `server/bookings/confirmation-token.ts`. The generator remains a 32-byte base64url token, the JSDoc documents the actual 43-character length, and the confirmation API validates tokens with `isConfirmationTokenFormat`, accepting generated 43-character base64url tokens while preserving 64-character legacy compatibility.
+
+Evidence: `pnpm exec vitest run tests/server/bookings-confirm-route.test.ts` passed on 2026-05-16. The route-level test uses the real `generateConfirmationToken()` output and verifies `/api/bookings/confirm` reaches token validation and returns 200.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-23)

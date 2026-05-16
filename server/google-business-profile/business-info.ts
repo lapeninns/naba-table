@@ -9,7 +9,7 @@ import type {
   GoogleBusinessProfileAttributesResponse,
   GoogleBusinessProfileLocationProfile,
 } from './client';
-import type { Database } from '@/types/supabase';
+import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -52,8 +52,9 @@ type RestaurantProfileChangeLogInsert =
 type RestaurantOperatingHoursRow =
   Database['public']['Tables']['restaurant_operating_hours']['Row'];
 type RestaurantServicePeriodRow = Database['public']['Tables']['restaurant_service_periods']['Row'];
-type GoogleBusinessProfileAttribute =
-  NonNullable<GoogleBusinessProfileAttributesResponse['attributes']>[number];
+type GoogleBusinessProfileAttribute = NonNullable<
+  GoogleBusinessProfileAttributesResponse['attributes']
+>[number];
 type ProviderRowTable =
   | 'restaurant_addresses'
   | 'restaurant_phone_numbers'
@@ -63,14 +64,32 @@ type ProviderRowTable =
   | 'restaurant_hours'
   | 'restaurant_attributes'
   | 'restaurant_service_items';
-type ProviderRowDeleteQuery = PromiseLike<{ error: unknown }> & {
-  eq: (column: string, value: string) => ProviderRowDeleteQuery;
-};
-type ProviderRowMutationBuilder<TTable extends ProviderRowTable> = {
-  delete: () => ProviderRowDeleteQuery;
-  insert: (
-    rows: Database['public']['Tables'][TTable]['Insert'][],
-  ) => PromiseLike<{ error: unknown }>;
+type CanonicalBusinessInfoReplacementRpcClient = DbClient & {
+  rpc(
+    fn: 'replace_gbp_canonical_business_info',
+    args: {
+      p_restaurant_id: string;
+      p_external_profile_id: string;
+      p_location_snapshot: Json;
+      p_location_source_revision: string | null;
+      p_location_payload_hash: string;
+      p_attributes_snapshot: Json | null;
+      p_attributes_source_revision: string | null;
+      p_attributes_payload_hash: string | null;
+      p_business_details: Json | null;
+      p_addresses: Json;
+      p_phone_numbers: Json;
+      p_links: Json;
+      p_categories: Json;
+      p_service_areas: Json;
+      p_hours: Json;
+      p_attributes: Json | null;
+      p_service_items: Json | null;
+      p_field_sync_statuses: Json;
+      p_field_sync_entity_tables: string[];
+      p_profile_change_log_rows: Json;
+    },
+  ): Promise<{ error: { message?: string } | null }>;
 };
 
 export type GoogleBusinessProfileFieldVerification = {
@@ -257,6 +276,21 @@ function normalizeStringArray(
   return (value ?? [])
     .map((item) => normalizeText(item))
     .filter((item): item is string => Boolean(item));
+}
+
+function toJson(value: unknown): Json {
+  return value as Json;
+}
+
+function shouldSyncLocationServiceItems(location: GoogleBusinessProfileLocationProfile): boolean {
+  if (location.__nabatableOptionalFetchStatus?.serviceItems === 'unavailable') {
+    return false;
+  }
+
+  return (
+    location.__nabatableOptionalFetchStatus?.serviceItems === 'fetched' ||
+    Object.prototype.hasOwnProperty.call(location, 'serviceItems')
+  );
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -727,6 +761,7 @@ function buildFieldSyncStatuses(input: {
   restaurantId: string;
   rows: CanonicalSyncRows;
   syncedAt: string;
+  syncServiceItems?: boolean;
 }): FieldSyncStatusInsert[] {
   const statuses: FieldSyncStatusInsert[] = [];
   const pushStatus = (params: {
@@ -1036,28 +1071,30 @@ function buildFieldSyncStatuses(input: {
     }
   });
 
-  input.rows.serviceItems.forEach((row) => {
-    const entityKey = getServiceItemEntityKey({
-      itemKey: row.item_key ?? 'unknown',
-    });
-    const providerRecordId = row.source_record_id ?? null;
-    const fieldValues: Record<string, unknown> = {
-      item_type: row.item_type,
-      display_name: row.display_name,
-      description: row.description,
-      payload_json: row.payload_json,
-    };
-
-    for (const [fieldKey, value] of Object.entries(fieldValues)) {
-      pushStatus({
-        entityTable: 'restaurant_service_items',
-        entityKey,
-        fieldKey,
-        providerRecordId,
-        value,
+  if (input.syncServiceItems !== false) {
+    input.rows.serviceItems.forEach((row) => {
+      const entityKey = getServiceItemEntityKey({
+        itemKey: row.item_key ?? 'unknown',
       });
-    }
-  });
+      const providerRecordId = row.source_record_id ?? null;
+      const fieldValues: Record<string, unknown> = {
+        item_type: row.item_type,
+        display_name: row.display_name,
+        description: row.description,
+        payload_json: row.payload_json,
+      };
+
+      for (const [fieldKey, value] of Object.entries(fieldValues)) {
+        pushStatus({
+          entityTable: 'restaurant_service_items',
+          entityKey,
+          fieldKey,
+          providerRecordId,
+          value,
+        });
+      }
+    });
+  }
 
   return statuses;
 }
@@ -1594,26 +1631,23 @@ function buildCanonicalRows(input: {
       enum_values: enumValues,
       unset_enum_values: unsetEnumValues,
       value_metadata_json: valueMetadata,
-      raw_value_json:
-        buildRawAttributeValueJson(
-          attribute,
-        ) as Database['public']['Tables']['restaurant_attributes']['Insert']['raw_value_json'],
-      raw_enum_values_json:
-        buildRawEnumValuesJson({
-          setValues: rawSetEnumValues,
-          unsetValues: rawUnsetEnumValues,
-          valueEnumValues: rawValueEnumValues,
-        }) as Database['public']['Tables']['restaurant_attributes']['Insert']['raw_enum_values_json'],
-      display_value_json:
-        buildDisplayValueJson({
-          displayName,
-          displayStrings: attribute.displayStrings,
-          enumValues: displayEnumValues,
-          unsetEnumValues: displayUnsetEnumValues,
-          valueDisplays: displayEnumValues,
-          uriValues,
-          valueMetadata,
-        }) as Database['public']['Tables']['restaurant_attributes']['Insert']['display_value_json'],
+      raw_value_json: buildRawAttributeValueJson(
+        attribute,
+      ) as Database['public']['Tables']['restaurant_attributes']['Insert']['raw_value_json'],
+      raw_enum_values_json: buildRawEnumValuesJson({
+        setValues: rawSetEnumValues,
+        unsetValues: rawUnsetEnumValues,
+        valueEnumValues: rawValueEnumValues,
+      }) as Database['public']['Tables']['restaurant_attributes']['Insert']['raw_enum_values_json'],
+      display_value_json: buildDisplayValueJson({
+        displayName,
+        displayStrings: attribute.displayStrings,
+        enumValues: displayEnumValues,
+        unsetEnumValues: displayUnsetEnumValues,
+        valueDisplays: displayEnumValues,
+        uriValues,
+        valueMetadata,
+      }) as Database['public']['Tables']['restaurant_attributes']['Insert']['display_value_json'],
       display_text: displayText,
       display_text_standalone: positiveLabel,
       display_text_negative: negativeLabel,
@@ -1709,40 +1743,6 @@ async function upsertBusinessDetails(
   }
 }
 
-async function replaceProviderRows<TTable extends ProviderRowTable>(
-  table: TTable,
-  restaurantId: string,
-  rows: Database['public']['Tables'][TTable]['Insert'][],
-  client: DbClient,
-) {
-  const tableMutation = client.from(table) as unknown as ProviderRowMutationBuilder<TTable>;
-  const deleteQuery = tableMutation
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('source', GBP_SOURCE)
-    .eq('managed_by', GBP_MANAGED_BY);
-  const { error: deleteError } = await deleteQuery;
-
-  if (deleteError) {
-    if (isMissingFieldSyncStatusesTableError(deleteError)) {
-      return;
-    }
-    throw deleteError;
-  }
-
-  if (rows.length === 0) {
-    return;
-  }
-
-  const { error: insertError } = await tableMutation.insert(rows);
-  if (insertError) {
-    if (isMissingFieldSyncStatusesTableError(insertError)) {
-      return;
-    }
-    throw insertError;
-  }
-}
-
 async function linkAttributeDefinitions(
   rows: CanonicalSyncRows['attributes'],
   client: DbClient,
@@ -1786,6 +1786,7 @@ function buildProfileChangeLogRows(params: {
   syncedAt: string;
   rows: CanonicalSyncRows;
   syncAttributes: boolean;
+  syncServiceItems: boolean;
 }): RestaurantProfileChangeLogInsert[] {
   const tableRows: Array<{
     table: ProviderRowTable | 'restaurant_business_details';
@@ -1828,11 +1829,15 @@ function buildProfileChangeLogRows(params: {
           },
         ]
       : []),
-    {
-      table: 'restaurant_service_items',
-      value: params.rows.serviceItems,
-      rowCount: params.rows.serviceItems.length,
-    },
+    ...(params.syncServiceItems
+      ? [
+          {
+            table: 'restaurant_service_items' as const,
+            value: params.rows.serviceItems,
+            rowCount: params.rows.serviceItems.length,
+          },
+        ]
+      : []),
   ];
 
   return tableRows
@@ -1914,6 +1919,59 @@ async function replaceProviderFieldSyncStatuses(
   }
 }
 
+async function replaceGoogleBusinessProfileCanonicalBusinessInfo(params: {
+  restaurantId: string;
+  externalProfileId: string;
+  locationSnapshot: GoogleBusinessProfileLocationProfile;
+  locationSourceRevision: string | null;
+  attributesSnapshot: GoogleBusinessProfileAttributesResponse | null;
+  attributesSourceRevision: string | null;
+  rows: CanonicalSyncRows;
+  fieldSyncStatuses: FieldSyncStatusInsert[];
+  fieldSyncEntityTables: string[];
+  profileChangeLogRows: RestaurantProfileChangeLogInsert[];
+  syncAttributes: boolean;
+  syncServiceItems: boolean;
+  client: DbClient;
+}) {
+  const { error } = await (params.client as CanonicalBusinessInfoReplacementRpcClient).rpc(
+    'replace_gbp_canonical_business_info',
+    {
+      p_restaurant_id: params.restaurantId,
+      p_external_profile_id: params.externalProfileId,
+      p_location_snapshot: toJson(params.locationSnapshot),
+      p_location_source_revision: params.locationSourceRevision,
+      p_location_payload_hash: buildPayloadHash(params.locationSnapshot),
+      p_attributes_snapshot:
+        params.syncAttributes && params.attributesSnapshot
+          ? toJson(params.attributesSnapshot)
+          : null,
+      p_attributes_source_revision:
+        params.syncAttributes && params.attributesSnapshot ? params.attributesSourceRevision : null,
+      p_attributes_payload_hash:
+        params.syncAttributes && params.attributesSnapshot
+          ? buildPayloadHash(params.attributesSnapshot)
+          : null,
+      p_business_details: params.rows.details ? toJson(params.rows.details) : null,
+      p_addresses: toJson(params.rows.addresses),
+      p_phone_numbers: toJson(params.rows.phoneNumbers),
+      p_links: toJson(params.rows.links),
+      p_categories: toJson(params.rows.categories),
+      p_service_areas: toJson(params.rows.serviceAreas),
+      p_hours: toJson(params.rows.hours),
+      p_attributes: params.syncAttributes ? toJson(params.rows.attributes) : null,
+      p_service_items: params.syncServiceItems ? toJson(params.rows.serviceItems) : null,
+      p_field_sync_statuses: toJson(params.fieldSyncStatuses),
+      p_field_sync_entity_tables: params.fieldSyncEntityTables,
+      p_profile_change_log_rows: toJson(params.profileChangeLogRows),
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+}
+
 function resolveFieldVerification(
   row: RestaurantFieldSyncStatusRow | null | undefined,
   currentValue: unknown,
@@ -1951,27 +2009,6 @@ function combineFieldVerifications(
   return drifted ?? presentItems[0] ?? null;
 }
 
-async function insertSnapshot(params: {
-  externalProfileId: string;
-  snapshotType: 'location' | 'attributes';
-  payload: unknown;
-  sourceRevision: string | null;
-  client: DbClient;
-}) {
-  const { error } = await params.client.from('restaurant_external_profile_snapshots').insert({
-    external_profile_id: params.externalProfileId,
-    snapshot_type: params.snapshotType,
-    source_revision: params.sourceRevision,
-    payload:
-      params.payload as Database['public']['Tables']['restaurant_external_profile_snapshots']['Insert']['payload'],
-    payload_hash: buildPayloadHash(params.payload),
-  });
-
-  if (error) {
-    throw error;
-  }
-}
-
 export async function syncGoogleBusinessProfileCanonicalBusinessInfo(params: {
   restaurantId: string;
   externalProfile: ExternalProfileRow;
@@ -1990,101 +2027,48 @@ export async function syncGoogleBusinessProfileCanonicalBusinessInfo(params: {
   if (params.syncAttributes) {
     rows.attributes = await linkAttributeDefinitions(rows.attributes, params.client);
   }
+  const syncServiceItems = shouldSyncLocationServiceItems(params.location);
   const fieldSyncStatuses = buildFieldSyncStatuses({
     restaurantId: params.restaurantId,
     rows,
     syncedAt: params.syncedAt,
+    syncServiceItems,
+  });
+  const fieldSyncEntityTables = [
+    'restaurant_business_details',
+    'restaurant_addresses',
+    'restaurant_phone_numbers',
+    'restaurant_links',
+    'restaurant_categories',
+    'restaurant_service_areas',
+    'restaurant_hours',
+    ...(syncServiceItems ? ['restaurant_service_items'] : []),
+    ...(params.syncAttributes ? ['restaurant_attributes'] : []),
+  ];
+  const profileChangeLogRows = buildProfileChangeLogRows({
+    restaurantId: params.restaurantId,
+    externalProfileId: params.externalProfile.id,
+    syncedAt: params.syncedAt,
+    rows,
+    syncAttributes: params.syncAttributes,
+    syncServiceItems,
   });
 
-  await insertSnapshot({
+  await replaceGoogleBusinessProfileCanonicalBusinessInfo({
+    restaurantId: params.restaurantId,
     externalProfileId: params.externalProfile.id,
-    snapshotType: 'location',
-    payload: params.location,
-    sourceRevision: normalizeText(params.location.name),
+    locationSnapshot: params.location,
+    locationSourceRevision: normalizeText(params.location.name),
+    attributesSnapshot: params.attributes,
+    attributesSourceRevision: normalizeText(params.attributes?.name),
+    rows,
+    fieldSyncStatuses,
+    fieldSyncEntityTables,
+    profileChangeLogRows,
+    syncAttributes: params.syncAttributes,
+    syncServiceItems,
     client: params.client,
   });
-
-  if (params.syncAttributes && params.attributes) {
-    await insertSnapshot({
-      externalProfileId: params.externalProfile.id,
-      snapshotType: 'attributes',
-      payload: params.attributes,
-      sourceRevision: normalizeText(params.attributes.name),
-      client: params.client,
-    });
-  }
-
-  await upsertBusinessDetails(params.restaurantId, rows.details, params.client);
-  await replaceProviderRows(
-    'restaurant_addresses',
-    params.restaurantId,
-    rows.addresses,
-    params.client,
-  );
-  await replaceProviderRows(
-    'restaurant_phone_numbers',
-    params.restaurantId,
-    rows.phoneNumbers,
-    params.client,
-  );
-  await replaceProviderRows('restaurant_links', params.restaurantId, rows.links, params.client);
-  await replaceProviderRows(
-    'restaurant_categories',
-    params.restaurantId,
-    rows.categories,
-    params.client,
-  );
-  await replaceProviderRows(
-    'restaurant_service_areas',
-    params.restaurantId,
-    rows.serviceAreas,
-    params.client,
-  );
-  await replaceProviderRows('restaurant_hours', params.restaurantId, rows.hours, params.client);
-
-  if (params.syncAttributes) {
-    await replaceProviderRows(
-      'restaurant_attributes',
-      params.restaurantId,
-      rows.attributes,
-      params.client,
-    );
-  }
-
-  await replaceProviderRows(
-    'restaurant_service_items',
-    params.restaurantId,
-    rows.serviceItems,
-    params.client,
-  );
-
-  await replaceProviderFieldSyncStatuses(
-    params.restaurantId,
-    fieldSyncStatuses,
-    [
-      'restaurant_business_details',
-      'restaurant_addresses',
-      'restaurant_phone_numbers',
-      'restaurant_links',
-      'restaurant_categories',
-      'restaurant_service_areas',
-      'restaurant_hours',
-      'restaurant_service_items',
-      ...(params.syncAttributes ? ['restaurant_attributes'] : []),
-    ],
-    params.client,
-  );
-
-  await insertProfileChangeLogRows(
-    buildProfileChangeLogRows({
-      restaurantId: params.restaurantId,
-      externalProfileId: params.externalProfile.id,
-      syncedAt: params.syncedAt,
-      rows,
-      syncAttributes: params.syncAttributes,
-    }),
-    params.client,
-  );
 }
 
 export async function readGoogleBusinessProfileBusinessInfo(
@@ -2338,7 +2322,8 @@ function mapAddress(row: RestaurantAddressRow, lookup: Map<string, RestaurantFie
     recipients: Array.isArray(row.recipients)
       ? row.recipients.filter((value): value is string => typeof value === 'string')
       : [],
-    latlng: latlngJson ?? (latitude !== null && longitude !== null ? { latitude, longitude } : null),
+    latlng:
+      latlngJson ?? (latitude !== null && longitude !== null ? { latitude, longitude } : null),
     latitude,
     longitude,
     isPrimary: row.is_primary,

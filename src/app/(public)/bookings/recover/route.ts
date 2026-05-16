@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 
 import type { NextRequest } from 'next/server';
@@ -22,10 +23,7 @@ const shouldSetCookieDomain = (hostname: string, rootDomain: string): boolean =>
 };
 
 function sanitizeNextPath(value: string | null): string {
-  if (!value) return '/';
-  if (!value.startsWith('/')) return '/';
-  if (value.startsWith('//')) return '/';
-  return value;
+  return sanitizeLocalRedirectPath(value, { fallback: '/' });
 }
 
 /**

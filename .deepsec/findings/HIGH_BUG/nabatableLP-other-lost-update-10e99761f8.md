@@ -19,3 +19,7 @@ Only send fields that are actually present in the input, or use optimistic concu
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
+
+**Verdict:** fixed
+
+`updateRestaurantDetails` now builds the core restaurant update payload only from fields actually present in the input, then calls `updateRestaurant` with that partial payload. It no longer reads the current restaurant and expands omitted fields into a full stale write. Explicit null clears still remain explicit. Focused evidence: `tests/server/restaurants/details.test.ts` verifies partial name updates and null contact-email clears do not expand omitted fields; `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts tests/server/restaurants/details.test.ts`, targeted ESLint, and `pnpm run typecheck` passed on 2026-05-16.

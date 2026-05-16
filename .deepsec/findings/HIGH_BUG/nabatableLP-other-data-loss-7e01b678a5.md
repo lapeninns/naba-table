@@ -20,3 +20,7 @@ Replace hours atomically in a database transaction or SECURITY DEFINER RPC, and 
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+The route still delegates to `updateOperatingHours`, but that helper no longer performs delete-then-insert replacement. It validates duplicate override ids/dates and real calendar dates before mutation, then calls the service-role-only `replace_restaurant_operating_hours` RPC. The RPC upserts incoming rows and deletes obsolete rows inside one database transaction, so an insert/update failure rolls back without erasing the schedule. Focused evidence: `tests/server/restaurant-schedule-replacements.test.ts` verifies the helper uses the atomic RPC and rejects duplicate ids; focused Vitest, targeted ESLint, and `pnpm run typecheck` passed on 2026-05-16.

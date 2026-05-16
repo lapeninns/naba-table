@@ -20,3 +20,9 @@ Make the implementation and consent text match. Either reduce the remembered-con
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-01)
+
+**Verdict:** fixed
+
+`useRememberedContacts` now stores remembered contact details for 6 hours, matching the Details step disclosure text. Expired localStorage contact payloads continue to be removed on read.
+
+Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

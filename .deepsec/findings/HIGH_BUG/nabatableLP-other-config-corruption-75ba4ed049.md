@@ -16,6 +16,12 @@ insertTables copies each source table but converts mobility null to "fixed". The
 
 Preserve table.mobility as null, or default it to "movable" to match the database trigger semantics. Add a verification assertion that cloned movable/null-mobility tables produce the expected adjacency rows.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`scripts/clone-restaurant-config.ts` now writes `mobility: table.mobility` when cloning table inventory, preserving legacy/null mobility instead of converting it to `"fixed"`. The clone script also computes the expected adjacency row count from the source tables using null mobility as movable and verifies the target restaurant's post-apply adjacency count against that projection before reporting success. Focused script-integrity tests cover null mobility preservation and adjacency verification.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)

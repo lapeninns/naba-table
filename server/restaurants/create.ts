@@ -1,11 +1,5 @@
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
-import {
-  ensureLogoColumnOnRow,
-  isLogoUrlColumnMissing,
-  logLogoColumnFallback,
-} from '@/server/restaurants/logo-url-compat';
-import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
@@ -16,6 +10,40 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 type PublicSchema = Database['public'];
 type DbClient = SupabaseClient<Database, 'public', 'public', PublicSchema>;
+
+type CreateRestaurantWithOwnerArgs = {
+  p_address: string | null;
+  p_booking_policy: string | null;
+  p_capacity: number | null;
+  p_contact_email: string | null;
+  p_contact_phone: string | null;
+  p_email_send_reminder_24h: boolean;
+  p_email_send_reminder_short: boolean;
+  p_email_send_review_request: boolean;
+  p_google_map_url: string | null;
+  p_google_review_url: string | null;
+  p_logo_url: string | null;
+  p_manager_daily_summary_enabled: boolean;
+  p_manager_notification_phone: string | null;
+  p_name: string;
+  p_reservation_default_duration_minutes: number;
+  p_reservation_interval_minutes: number;
+  p_reservation_last_seating_buffer_minutes: number | null;
+  p_reservation_lifecycle_grace_minutes: number;
+  p_slug: string;
+  p_timezone: string;
+  p_user_id: string;
+};
+
+type CreateRestaurantWithOwnerRpcClient = DbClient & {
+  rpc: (
+    fn: 'create_restaurant_with_owner',
+    args: CreateRestaurantWithOwnerArgs,
+  ) => Promise<{
+    data: RestaurantRow | null;
+    error: { message: string } | null;
+  }>;
+};
 
 export type CreateRestaurantInput = {
   name: string;
@@ -164,70 +192,39 @@ export async function createRestaurant(
     );
   }
 
-  const insertPayload: Database['public']['Tables']['restaurants']['Insert'] = {
-    name: input.name,
-    slug: uniqueSlug,
-    timezone,
-    capacity: input.capacity ?? null,
-    contact_email: input.contactEmail ?? null,
-    contact_phone: input.contactPhone ?? null,
-    address: input.address ?? null,
-    manager_daily_summary_enabled: managerDailySummaryEnabled,
-    manager_notification_phone: managerNotificationPhone,
-    google_map_url: googleMapUrl,
-    google_review_url: googleReviewUrl,
-    booking_policy: input.bookingPolicy ?? null,
-    logo_url: input.logoUrl ?? null,
-    email_send_reminder_24h: input.emailSendReminder24h ?? true,
-    email_send_reminder_short: input.emailSendReminderShort ?? true,
-    email_send_review_request: input.emailSendReviewRequest ?? true,
-    reservation_interval_minutes: intervalMinutes,
-    reservation_default_duration_minutes: defaultDurationMinutes,
-    reservation_lifecycle_grace_minutes: lifecycleGraceMinutes,
-    ...(lastSeatingBufferMinutes !== undefined
-      ? { reservation_last_seating_buffer_minutes: lastSeatingBufferMinutes }
-      : {}),
-  };
-
-  const insertWithSelect = (
-    payload: Database['public']['Tables']['restaurants']['Insert'],
-    includeLogo: boolean,
-  ) =>
-    client
-      .from('restaurants')
-      .insert(payload)
-      .select(restaurantSelectColumns(includeLogo))
-      .single<RestaurantRow>();
-
-  let { data: restaurant, error: restaurantError } = await insertWithSelect(insertPayload, true);
-
-  if (restaurantError && isLogoUrlColumnMissing(restaurantError)) {
-    logLogoColumnFallback('createRestaurant');
-    const fallbackPayload = { ...insertPayload };
-    delete fallbackPayload.logo_url;
-    ({ data: restaurant, error: restaurantError } = await insertWithSelect(fallbackPayload, false));
-    restaurant = ensureLogoColumnOnRow(restaurant);
-  }
+  const { data: restaurant, error: restaurantError } = await (
+    client as CreateRestaurantWithOwnerRpcClient
+  ).rpc('create_restaurant_with_owner', {
+    p_address: input.address ?? null,
+    p_booking_policy: input.bookingPolicy ?? null,
+    p_capacity: input.capacity ?? null,
+    p_contact_email: input.contactEmail ?? null,
+    p_contact_phone: input.contactPhone ?? null,
+    p_email_send_reminder_24h: input.emailSendReminder24h ?? true,
+    p_email_send_reminder_short: input.emailSendReminderShort ?? true,
+    p_email_send_review_request: input.emailSendReviewRequest ?? true,
+    p_google_map_url: googleMapUrl,
+    p_google_review_url: googleReviewUrl,
+    p_logo_url: input.logoUrl ?? null,
+    p_manager_daily_summary_enabled: managerDailySummaryEnabled,
+    p_manager_notification_phone: managerNotificationPhone,
+    p_name: input.name,
+    p_reservation_default_duration_minutes: defaultDurationMinutes,
+    p_reservation_interval_minutes: intervalMinutes,
+    p_reservation_last_seating_buffer_minutes: lastSeatingBufferMinutes ?? null,
+    p_reservation_lifecycle_grace_minutes: lifecycleGraceMinutes,
+    p_slug: uniqueSlug,
+    p_timezone: timezone,
+    p_user_id: userId,
+  });
 
   if (restaurantError) {
-    console.error('[createRestaurant] Insert failed', restaurantError);
+    console.error('[createRestaurant] Atomic creation failed', restaurantError);
     throw new Error(`Failed to create restaurant: ${restaurantError.message}`);
   }
 
   if (!restaurant) {
     throw new Error('Restaurant creation returned no data');
-  }
-
-  const { error: membershipError } = await client.from('restaurant_memberships').insert({
-    user_id: userId,
-    restaurant_id: restaurant.id,
-    role: 'owner',
-  });
-
-  if (membershipError) {
-    console.error('[createRestaurant] Membership creation failed', membershipError);
-    await client.from('restaurants').delete().eq('id', restaurant.id);
-    throw new Error(`Failed to create restaurant membership: ${membershipError.message}`);
   }
 
   return {

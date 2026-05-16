@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { validateCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
+
+import type { NextRequest } from 'next/server';
 
 type RouteParams = Promise<{ id: string | string[] }> | undefined;
 
@@ -18,7 +21,15 @@ export async function resolveRestaurantId(paramsPromise: RouteParams): Promise<s
 export async function ensureRestaurantAdminAccess(
   restaurantId: string,
   scope: string = 'menu',
+  req?: NextRequest,
 ): Promise<NextResponse | { userId: string; userEmail: string | null }> {
+  if (req) {
+    const csrfFailure = validateCsrfProtectedMutation(req);
+    if (csrfFailure) {
+      return csrfFailure;
+    }
+  }
+
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -27,7 +38,10 @@ export async function ensureRestaurantAdminAccess(
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {

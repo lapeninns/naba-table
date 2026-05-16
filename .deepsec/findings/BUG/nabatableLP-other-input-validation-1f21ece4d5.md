@@ -16,6 +16,12 @@ parseDecimalCell uses Number.parseFloat and parseIntegerCell uses Number.parseIn
 
 Validate the entire trimmed cell before parsing, for example with strict decimal/integer regexes or Number(trimmed) plus a full-format check. Reject cells with any trailing or embedded non-numeric characters.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The affected CSV import implementation is no longer present in the current repository. `git ls-files` has no `server/menu/import.ts` entry, and `rg 'parseDecimalCell|parseIntegerCell' server src tests` returns no current parser references. With the vulnerable parser removed from the shipped codebase, the partial-prefix numeric parsing path no longer exists.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

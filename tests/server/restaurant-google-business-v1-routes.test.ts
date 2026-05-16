@@ -11,6 +11,20 @@ const linkLocationMock = vi.hoisted(() => vi.fn());
 const syncBusinessInfoMock = vi.hoisted(() => vi.fn());
 const disconnectConnectionMock = vi.hoisted(() => vi.fn());
 const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
+const verifyUserPasswordConfirmationMock = vi.hoisted(() => vi.fn());
+const PasswordConfirmationErrorMock = vi.hoisted(
+  () =>
+    class PasswordConfirmationError extends Error {
+      code: string;
+      status: number;
+
+      constructor(message: string, options: { code?: string; status?: number } = {}) {
+        super(message);
+        this.code = options.code ?? 'PASSWORD_CONFIRMATION_FAILED';
+        this.status = options.status ?? 403;
+      }
+    },
+);
 
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
@@ -18,7 +32,7 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
 }));
 
 vi.mock('@/server/google-business-profile/service', () => ({
-  createGoogleBusinessProfileAuthorizationUrl: createAuthorizationUrlMock,
+  createGoogleBusinessProfileAuthorization: createAuthorizationUrlMock,
   disconnectGoogleBusinessProfileConnection: disconnectConnectionMock,
   getGoogleBusinessProfileAvailableLocations: getAvailableLocationsMock,
   getGoogleBusinessProfileBusinessDetailsStatus: getBusinessDetailsStatusMock,
@@ -29,6 +43,11 @@ vi.mock('@/server/google-business-profile/service', () => ({
 
 vi.mock('@/server/security/provider-rate-limit', () => ({
   requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
+}));
+
+vi.mock('@/server/auth/password-confirmation', () => ({
+  PasswordConfirmationError: PasswordConfirmationErrorMock,
+  verifyUserPasswordConfirmation: verifyUserPasswordConfirmationMock,
 }));
 
 import { POST as callbackConnectPOST } from '@/src/app/api/ops/restaurants/[id]/google-business/connect/route';
@@ -54,6 +73,7 @@ describe('restaurant google business V1 routes', () => {
     syncBusinessInfoMock.mockReset();
     disconnectConnectionMock.mockReset();
     requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
+    verifyUserPasswordConfirmationMock.mockReset().mockResolvedValue(undefined);
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
       userEmail: 'owner@example.com',
@@ -96,7 +116,10 @@ describe('restaurant google business V1 routes', () => {
   });
 
   it('creates OAuth state and returns the Google consent URL', async () => {
-    createAuthorizationUrlMock.mockResolvedValue('https://accounts.google.com/o/oauth2/v2/auth');
+    createAuthorizationUrlMock.mockResolvedValue({
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+      stateToken: 'test',
+    });
 
     const response = await callbackConnectPOST(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business/connect', {
@@ -107,8 +130,10 @@ describe('restaurant google business V1 routes', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
     });
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=test');
+    expect(response.headers.get('set-cookie')).toContain('HttpOnly');
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
@@ -133,7 +158,12 @@ describe('restaurant google business V1 routes', () => {
     expect(getAvailableLocationsMock).toHaveBeenCalledWith('rest-1', undefined, {
       forceRefresh: false,
     });
-    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+    expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
+      provider: 'google_business_profile',
+      restaurantId: 'rest-1',
+      action: 'location-discovery-read',
+      limit: 30,
+    });
   });
 
   it('returns frontend-readable messages for location discovery failures', async () => {
@@ -166,7 +196,8 @@ describe('restaurant google business V1 routes', () => {
     expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
       provider: 'google_business_profile',
       restaurantId: 'rest-1',
-      action: 'location-discovery',
+      action: 'location-discovery-refresh',
+      limit: undefined,
     });
     expect(getAvailableLocationsMock).toHaveBeenCalledWith('rest-1', undefined, {
       forceRefresh: true,
@@ -206,9 +237,28 @@ describe('restaurant google business V1 routes', () => {
     expect(syncBusinessInfoMock).toHaveBeenCalledWith('rest-1', undefined, {
       runKind: 'location_selection',
     });
+    expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
+      provider: 'google_business_profile',
+      restaurantId: 'rest-1',
+      action: 'location-selection-sync',
+    });
   });
 
-  it('syncs manually without requiring a password payload', async () => {
+  it('requires password confirmation for manual legacy sync', async () => {
+    const response = await syncPOST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business/sync', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+      routeContext,
+    );
+
+    expect(response.status).toBe(400);
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(syncBusinessInfoMock).not.toHaveBeenCalled();
+  });
+
+  it('syncs manually after password confirmation', async () => {
     getBusinessDetailsStatusMock.mockResolvedValue({
       connection: { status: 'connected' },
       fieldDiffs: [],
@@ -217,17 +267,42 @@ describe('restaurant google business V1 routes', () => {
     const response = await syncPOST(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business/sync', {
         method: 'POST',
+        body: JSON.stringify({ password: 'correct-password' }),
       }),
       routeContext,
     );
 
     expect(response.status).toBe(200);
+    expect(verifyUserPasswordConfirmationMock).toHaveBeenCalledWith({
+      email: 'owner@example.com',
+      password: 'correct-password',
+    });
     expect(requireProviderRefreshBudgetMock).toHaveBeenCalledWith({
       provider: 'google_business_profile',
       restaurantId: 'rest-1',
       action: 'business-info-sync',
     });
     expect(syncBusinessInfoMock).toHaveBeenCalledWith('rest-1');
+  });
+
+  it('does not sync when password confirmation fails', async () => {
+    verifyUserPasswordConfirmationMock.mockRejectedValue(
+      new PasswordConfirmationErrorMock(
+        'Incorrect password. Confirm the change with your login password and try again.',
+      ),
+    );
+
+    const response = await syncPOST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business/sync', {
+        method: 'POST',
+        body: JSON.stringify({ password: 'wrong-password' }),
+      }),
+      routeContext,
+    );
+
+    expect(response.status).toBe(403);
+    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+    expect(syncBusinessInfoMock).not.toHaveBeenCalled();
   });
 
   it('disconnects and returns the refreshed V1 status', async () => {

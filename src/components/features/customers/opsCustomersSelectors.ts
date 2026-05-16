@@ -254,7 +254,7 @@ export function buildOpsGuestRowViewModels(customers: OpsCustomer[]): OpsGuestRo
         : isReturning
           ? 'border-l-primary'
           : neverVisited
-            ? 'border-l-muted-foreground'
+            ? 'border-l-amber-300'
             : 'border-l-border',
       visitStatusLabel: neverVisited ? 'Never visited' : isReturning ? 'Returning' : 'New',
       marketingLabel: customer.marketingOptIn ? 'Opted in' : 'Opted out',

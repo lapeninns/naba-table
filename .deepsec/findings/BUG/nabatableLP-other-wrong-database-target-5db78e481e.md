@@ -19,3 +19,17 @@ Validate the selected connection string itself before connecting, for example by
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+
+**Verdict:** fixed
+
+`scripts/staging/replay-perf-workload.ts` now builds the exact Postgres
+connection string once and validates that selected URL with
+`assertExactSupabaseProjectRef(connectionString, expectedProjectRef)` before
+creating the `pg` client.
+
+Evidence:
+
+- `tests/scripts/perf-script-safety.test.ts` verifies the connection-string
+  project-ref guard appears before `new Client`.
+- `tests/scripts/db-safety.test.ts` covers the shared Supabase project-ref guard.
+- `pnpm exec vitest run tests/scripts/perf-script-safety.test.ts tests/scripts/db-safety.test.ts`

@@ -20,3 +20,9 @@ Set Secure based on runtime protocol or production environment, independent of C
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-24)
+
+**Verdict:** fixed
+
+Supabase auth cookie defaults and signout cookie expiry now set `secure` from `env.node.appEnv !== 'development'` independent of whether `COOKIE_DOMAIN` is configured. Production host-only auth cookies therefore still receive the Secure attribute.
+
+Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

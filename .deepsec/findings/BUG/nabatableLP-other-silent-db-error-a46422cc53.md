@@ -16,6 +16,12 @@ supabase.from("leads").insert(...) returns an error object on database or RLS fa
 
 Destructure { error } from the insert result, log server-side details, and return a non-2xx response when the insert fails.
 
+## Revalidation
+
+**Verdict:** fixed
+
+`src/app/api/lead/route.ts` now checks the resolved Supabase insert `{ error }` value. Insert errors are logged server-side and return `500` with a stable `Unable to store lead` payload instead of reporting success. `tests/server/lead-route.test.ts` covers the successful insert path, resolved Supabase insert errors, and the rate-limit short-circuit.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)

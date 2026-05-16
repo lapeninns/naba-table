@@ -19,3 +19,7 @@ Move the delete-and-recreate sequence into a single transactional database RPC o
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`scripts/update-railway-zones-tables.ts` no longer runs the destructive replacement through separate Supabase REST calls. Apply now requires a transaction-capable DB URL, exact production project-ref validation, `DB_TARGET_ENV=production` or `APP_ENV=production`, and `CONFIRM_PRODUCTION=true`. The script opens a `pg` client, starts `BEGIN`, resolves and locks the target restaurant, clears existing table/config rows, inserts replacement capacities, zones, tables, hours, and service periods, then commits only after the full replacement succeeds; errors trigger rollback. Focused script-atomicity tests verify the delete/insert sequence is inside one transaction with rollback.

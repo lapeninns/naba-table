@@ -1,9 +1,22 @@
 import { NextResponse } from 'next/server';
 
-import { restaurantEmailTemplateKeySchema, updateRestaurantEmailTemplateSchema, type RestaurantEmailTemplateResponse } from '@/app/api/ops/restaurants/schema';
-import { resetRestaurantEmailTemplate, upsertRestaurantEmailTemplate } from '@/server/restaurants/emailTemplates';
+import {
+  restaurantEmailTemplateKeySchema,
+  updateRestaurantEmailTemplateSchema,
+  type RestaurantEmailTemplateResponse,
+} from '@/app/api/ops/restaurants/schema';
+import {
+  resetRestaurantEmailTemplate,
+  upsertRestaurantEmailTemplate,
+} from '@/server/restaurants/emailTemplates';
 
-import { buildTemplateDto, ensureTemplateWriteAccess, resolveRestaurantId, resolveTemplateKeyParam, type RouteParams } from '../_shared';
+import {
+  buildTemplateDto,
+  ensureTemplateWriteAccess,
+  resolveRestaurantId,
+  resolveTemplateKeyParam,
+  type RouteParams,
+} from '../_shared';
 
 import type { NextRequest } from 'next/server';
 
@@ -13,12 +26,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(await resolveTemplateKeyParam(params));
+  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
+    await resolveTemplateKeyParam(params),
+  );
   if (!parsedTemplateKey.success) {
     return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
   }
 
-  const venueOrResponse = await ensureTemplateWriteAccess(restaurantId);
+  const venueOrResponse = await ensureTemplateWriteAccess(restaurantId, req);
   if (venueOrResponse instanceof NextResponse) {
     return venueOrResponse;
   }
@@ -32,7 +47,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   const parsedBody = updateRestaurantEmailTemplateSchema.safeParse(body);
   if (!parsedBody.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsedBody.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsedBody.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
@@ -51,7 +69,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops][restaurants][email-templates][PATCH] failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to save template' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to save template' },
+      { status: 500 },
+    );
   }
 }
 
@@ -61,12 +82,14 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(await resolveTemplateKeyParam(params));
+  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
+    await resolveTemplateKeyParam(params),
+  );
   if (!parsedTemplateKey.success) {
     return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
   }
 
-  const venueOrResponse = await ensureTemplateWriteAccess(restaurantId);
+  const venueOrResponse = await ensureTemplateWriteAccess(restaurantId, _req);
   if (venueOrResponse instanceof NextResponse) {
     return venueOrResponse;
   }
@@ -82,6 +105,9 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops][restaurants][email-templates][DELETE] failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to reset template' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to reset template' },
+      { status: 500 },
+    );
   }
 }

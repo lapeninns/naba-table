@@ -19,3 +19,7 @@ Perform the delete-and-insert replacement inside a single database transaction/R
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+
+**Verdict:** fixed
+
+`replaceRestaurantTurnBands` no longer deletes and reinserts `restaurant_turn_bands` from the route/service helper. It normalizes the payload, then calls the service-role-only `replace_restaurant_turn_bands` RPC. The migration defines that RPC as a single transactional replacement: incoming rows are validated, upserted by `(restaurant_id, booking_option, max_party_size)`, and obsolete rows are deleted inside the same function. Focused evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts tests/server/restaurants/details.test.ts`, targeted ESLint, and `pnpm run typecheck` passed on 2026-05-16.

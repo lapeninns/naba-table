@@ -74,4 +74,17 @@ describe('public booking confirmation and recovery surfaces', () => {
     );
     expect(container.querySelector('main')).not.toBeInTheDocument();
   });
+
+  it('normalizes duplicated recovery codes before rendering reason details', async () => {
+    render(
+      await BookingRecoverErrorPage({
+        searchParams: Promise.resolve({ code: ['ACCESS_TOKEN_EXPIRED', 'INVALID_ACCESS_TOKEN'] }),
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'This booking link has expired' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('ACCESS TOKEN EXPIRED')).toBeInTheDocument();
+  });
 });

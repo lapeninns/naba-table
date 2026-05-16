@@ -19,3 +19,7 @@ Require verified TLS for production database connections and fail closed on cert
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
+
+**Verdict:** fixed
+
+`scripts/run-production-optimization.ts` now uses `getPgSslConfig()`, which returns `rejectUnauthorized: true` and optional CA configuration. Covered by `tests/scripts/db-safety.test.ts`.
