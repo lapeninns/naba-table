@@ -18,8 +18,4 @@ Include previous core/GBP hashes or candidate baseline hashes in the computation
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
-
-**Verdict:** fixed
-
-`computeFieldState` now receives previous core/GBP hashes from persisted field state and only retains pending/failed overlays when the chosen side still has the same hash. When both Core and Google move from the last in-sync hash, stale pending/failed states now fall through to `conflict`. `tests/server/dual-sync-state-compute.test.ts` covers stale import/export overlays and both-sides-moved conflicts.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

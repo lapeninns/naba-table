@@ -18,9 +18,5 @@ Add `consumeRateLimit` keyed by user and restaurant, record export audit events,
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-29)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
-
-**Verdict:** fixed
-
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

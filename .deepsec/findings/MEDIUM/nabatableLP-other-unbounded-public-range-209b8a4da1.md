@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,10 +18,5 @@ Enforce a maximum range appropriate for the booking UI, for example one or two m
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-13)
-
-**Verdict:** fixed
-
-The public calendar-mask route now caps requested ranges at 62 days, rejects requests beyond the booking horizon, and applies public/tenant rate limits before returning mask data. Oversized ranges are rejected before restaurant lookup or mask queries.
-
-Validation: `pnpm exec vitest run tests/server/calendar-mask-route.test.ts tests/server/resend-webhook-route.test.ts`

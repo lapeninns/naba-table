@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ For each FK, use a transaction or another atomic sequence that rolls back the dr
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
-
-**Verdict:** fixed
-
-`scripts/run-production-optimization.ts` now executes each FK replacement as a transactional command group through `runTransactionalPhase`. If an `ADD CONSTRAINT` or `VALIDATE CONSTRAINT` step fails after a drop, the transaction rolls back that constraint group, the FK phase stops, and the final summary throws when any phase has errors so the process exits non-zero. Focused script-safety tests assert the production runner uses the transactional phase helper and fails hard when `failedPhases.length > 0`.

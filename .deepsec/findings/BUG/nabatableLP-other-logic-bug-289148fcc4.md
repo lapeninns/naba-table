@@ -18,18 +18,5 @@ Parse query booleans explicitly, for example with z.enum(["true", "false"]).tran
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-07)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-26)
-
-**Verdict:** fixed
-
-`src/app/api/availability/route.ts` now reads `includeAlternatives` through
-`safeBool(searchParams, 'includeAlternatives', false)`, which treats the string
-`false` as false instead of relying on JavaScript/Zod truthiness.
-
-Evidence:
-
-- `tests/lib/query-params.test.ts` covers explicit false/zero boolean parsing.
-- `tests/server/availability-route-query-params.test.ts` verifies
-  `includeAlternatives=false` does not call `findAlternativeSlots`.
-- `pnpm exec vitest run tests/lib/query-params.test.ts tests/server/availability-route-query-params.test.ts`

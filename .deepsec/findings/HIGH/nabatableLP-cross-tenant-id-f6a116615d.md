@@ -16,10 +16,12 @@ This signup page renders OnboardingWizard. The wizard sends state.restaurantId t
 
 For every /api/onboarding/restaurant/[id] mutating route, require owner/admin membership for the route restaurantId before using the service-role client. Prefer deriving the restaurant ID from server-side onboarding ownership state where possible.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The signup page renders `OnboardingWizard`, and the wizard still sends client-held `state.restaurantId` to onboarding restaurant endpoints. The backing endpoints have been hardened: hours, service-periods, zones, tables, and complete all call `withRestaurantAuthorization(req, restaurantId, { csrf: true, roles: RESTAURANT_ADMIN_ROLES })`. That guard validates the restaurant UUID, validates CSRF, resolves the session, and requires an owner/manager membership for that exact restaurant id. The service-role client is only obtained after authorization succeeds. The tables endpoint also verifies supplied zone ids belong to the same restaurant before inserting tables. The prior cross-tenant service-role write path was patched in `020a7389` and is covered by `tests/server/tenant-authorization-sprint2.test.ts`.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

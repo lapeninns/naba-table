@@ -16,10 +16,12 @@ The team settings flow creates invites through the ops invitation route. That ro
 
 Never return raw invite tokens from the ops API. Only send the token to the invited mailbox, and change the accept flow so existing accounts must authenticate as the invited email before membership is added; do not reset existing users' passwords from an invite token alone.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-17)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The team settings page routes invite creation through the ops invitation service, and the current ops route no longer returns raw token or inviteUrl fields. Its success response serializes only non-secret invite metadata. The raw token is used only in sendTeamInviteEmail, and the client-side success message displays the invited email and expiry, not an acceptance link. The accept endpoint has also been changed so token possession is not enough to create or reset an auth account; a matching authenticated session is required. This removes the page-level exploit chain where an owner or manager could read the create response and accept as a victim. The relevant invite route and helper changes are in commit 020a7389.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-17)

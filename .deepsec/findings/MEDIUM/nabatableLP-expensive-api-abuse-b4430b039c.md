@@ -18,8 +18,4 @@ Apply consumeRateLimit() before the Google fetch, keyed by user ID, restaurant I
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

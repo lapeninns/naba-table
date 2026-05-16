@@ -19,7 +19,3 @@ Preserve null mobility or default it to "movable" in cloned rows, and compare ve
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-20)
-
-**Verdict:** fixed
-
-`scripts/triple-old-school-house-production-tables.ts` now preserves the source `table.mobility` value in cloned rows and no longer defaults null mobility to `"fixed"`. The apply path verifies the actual adjacency row count equals `finalAdjacencyProjection.totalRows` and cleans up inserted tables if verification fails. Focused script-integrity tests assert the payload no longer contains the fixed default and that adjacency verification happens before cleanup-capable failure propagation.

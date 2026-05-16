@@ -19,9 +19,3 @@ Declare DUAL_SYNC_FAILURE_WEBHOOK_URL in config/env.schema.ts with URL validatio
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
-
-**Verdict:** fixed
-
-`DUAL_SYNC_FAILURE_WEBHOOK_URL` is now declared in the env schema with HTTPS URL validation, exposed through `env.dualSync.failureWebhookUrl`, and consumed from that typed getter instead of `process.env`.
-
-**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`

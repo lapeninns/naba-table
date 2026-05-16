@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@
 
 Do not disable certificate verification for production database connections. Configure node-postgres with a trusted CA bundle or a verified TLS mode supported by Supabase.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+This finding no longer matches the current code. `loadProdMemberships` now passes `ssl: getPgSslConfig()` to `pg.Client` instead of `ssl: { rejectUnauthorized: false }`. The imported helper in `scripts/db/pg-ssl.ts` returns `{ rejectUnauthorized: true }` by default and also keeps verification enabled when a CA is provided via `SUPABASE_DB_CA_CERT`, `SUPABASE_DB_CA_CERT_PATH`, or `NODE_EXTRA_CA_CERTS`. Git history shows commit `020a7389` added this helper and replaced the disabled-verification setting in `scripts/staging/import-prod-staff.ts`. I did not find a remaining disabled TLS verification setting in this script.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

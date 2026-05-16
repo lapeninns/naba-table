@@ -16,11 +16,13 @@ updateServicePeriods accepts a caller-supplied restaurantId and defaults to the 
 
 Require per-restaurant membership or onboarding ownership before calling this helper. Prefer passing the cookie-bound client after authorization, or move the authorization check into a route/service wrapper that is impossible to bypass for request-originated restaurant IDs.
 
+## Revalidation
+
+**Verdict:** fixed
+
+The current onboarding service-periods PATCH handler now requires restaurant authorization before using the service client. It calls withRestaurantAuthorization(req, restaurantId, { csrf: true, roles: RESTAURANT_ADMIN_ROLES }) and returns the guard response on failure. withRestaurantAuthorization validates the restaurant UUID, enforces CSRF for the unsafe method, resolves the session, and verifies membership with the required admin roles. The service-role updateServicePeriods call is only made after that per-restaurant guard passes. This removes the arbitrary-restaurant-id onboarding write described in the finding. Git blame ties the guard addition to 020a7389.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
-
-**Verdict:** fixed
-
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

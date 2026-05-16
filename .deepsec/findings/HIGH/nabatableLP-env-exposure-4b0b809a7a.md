@@ -16,10 +16,12 @@ The schema explicitly accepts NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY, and the obj
 
 Remove NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY from the schema and add a validate-env blocker that rejects secret-like NEXT_PUBLIC names such as SERVICE_ROLE, SECRET, TOKEN, and PRIVATE_KEY except for an explicit safe allowlist. Keep the service role key only in SUPABASE_SERVICE_ROLE_KEY.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-28)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+Current code no longer has NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY in the accepted env object, and I found no code reading that public variant. The new findBlockedPublicEnvKeys helper scans raw process.env for secret-looking NEXT_PUBLIC names even though the base Zod schema is passthrough. NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY is specifically covered by the SERVICE_ROLE pattern and is absent from PUBLIC_ENV_ALLOWLIST. scripts/validate-env.ts turns any such key into an Environment safety checks failed blocker, and validate:env is wired into prebuild/predev. This implements the recommendation to remove the public service-role variable and add a validation blocker. The remaining caveat is that runtime env parsing does not call the blocker directly, so deployments must continue using the repository validate:env gate.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)

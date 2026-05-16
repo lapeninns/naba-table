@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ The public token acceptance handler treats possession of an invitation token as 
 
 Do not create confirmed users or reset existing passwords from an invite token alone. For existing users, require an authenticated session whose verified email matches the invite. For new users, deliver account setup only through an email-verified Supabase OTP/recovery flow. Stop returning bearer invite tokens to inviters, or make returned links non-credential administrative references.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current code treats the invitation token as insufficient by itself: the handler requires an existing authenticated Supabase session before it looks up and accepts the invite. For existing users, acceptInviteForAuthenticatedUser normalizes and compares user.email to invite.email and throws INVITE_EMAIL_MISMATCH if they differ. For new users, this endpoint no longer creates a confirmed Supabase auth user at all, so a malicious inviter cannot manufacture a confirmed account for a victim email through this route. Membership creation is performed by the accept_restaurant_invite RPC after the email and role checks, not by auth admin user creation or password mutation. The RPC updates the pending invite and upserts the membership in one database function, so the acceptance side effects are now atomic at the database transaction level. This was patched in 020a7389, which added the atomic migration and rewrote the accept flow.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

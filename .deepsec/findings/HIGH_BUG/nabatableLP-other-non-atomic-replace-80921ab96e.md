@@ -16,13 +16,13 @@ updateServicePeriods deletes every service period for the restaurant before atte
 
 Perform the replacement in a single database transaction or RPC that validates the full payload first, deletes and inserts atomically, and rolls back on any failure. Also reject duplicate period ids before touching persisted rows.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The current service-period replacement still uses a non-atomic delete followed by insert. The helper validates names, times, booking option membership, and overlaps before deleting, but it does not check duplicate ids in the replacement array. A duplicate id can make the insert fail after all existing rows for the restaurant have already been deleted. Because there is no transaction or RPC, the old schedule is not restored on that failure. The same delete-first behavior can also remove or detach dependent capacity rules before replacement rows are inserted. This is a concrete data-loss bug for authorized writers and remains unfixed.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
-
-**Verdict:** fixed
-
-`updateServicePeriods` now rejects duplicate replacement ids before mutation and calls the service-role-only `replace_restaurant_service_periods` RPC instead of issuing separate delete and insert statements. The RPC upserts incoming service-period rows by id, preserving dependent rows for unchanged ids, then deletes obsolete rows inside the same database transaction.
-
-Evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16. The regression coverage verifies the helper calls the atomic replacement RPC and rejects duplicate service period ids before replacement.

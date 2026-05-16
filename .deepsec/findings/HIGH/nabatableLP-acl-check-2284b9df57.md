@@ -16,10 +16,12 @@ The service exposes create, update, and delete calls for global booking occasion
 
 Move authorization into the occasion route handlers: require an authenticated ops membership plus an owner/manager role or a dedicated platform-admin permission before any service-role occasion write.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current occasion mutation handlers now have backend authorization and CSRF enforcement. POST /api/ops/occasions calls withPlatformAdminAuthorization(request, { csrf: true }) before reading or writing booking_occasions. PATCH and DELETE /api/ops/occasions/[key] do the same before loading the existing row, updating, soft-deleting, or writing audit records. withPlatformAdminAuthorization delegates to withOpsMutation, which validates CSRF for unsafe methods, resolves the Supabase session, and then requires the user id or email to match the platform-admin environment allowlist. A normal low-privilege restaurant staff member no longer reaches the service-role booking_occasions writes. The service uses fetchJson, so legitimate clients attach the CSRF header expected by the new guard. These changes were included in commit 020a7389. The original backend authorization gap is patched.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-02)

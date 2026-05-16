@@ -16,14 +16,6 @@ runInlineAutoAssign launches planner and confirmation work inside CancellableAut
 
 Make timeout cancellation authoritative. Track a timedOut flag and check signal.aborted or that flag before creating holds, confirming, reloading, or persisting success. Ensure downstream hold and confirmation helpers accept and honor AbortSignal, and re-read the booking before returning if a DB transaction may have committed after timeout.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`runInlineAutoAssign` now tracks an authoritative timeout flag, checks that flag and `signal.aborted` before hold handling, confirmation, reload, and success persistence, and defers success `auto_assign_last_result` persistence until after `runWithTimeout` has returned without timing out. The timeout path still persists `INLINE_TIMEOUT`, but a timed-out operation no longer returns a booking or writes a success result afterward.
-
-Evidence: `pnpm exec vitest run tests/server/inline-auto-assign.test.ts` passed on 2026-05-16. The focused regression forces the timeout path, verifies the quote received an `AbortSignal`, verifies `atomicConfirmAndTransition` is not called after timeout, and verifies no success result is persisted. The combined focused command `pnpm exec vitest run tests/server/ops-bookings-create-route.test.ts tests/server/bookings-modification-flow.test.ts tests/server/inline-auto-assign.test.ts` passed, and targeted ESLint passed for the changed files.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-01)

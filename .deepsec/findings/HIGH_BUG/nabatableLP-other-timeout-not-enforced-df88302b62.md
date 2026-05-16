@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,12 +16,13 @@ attemptInlineModificationAssign calculates timeoutMs, but run() is awaited direc
 
 Wrap the quote/confirm operation in the same cancellable timeout pattern used by inline-auto-assign, pass an AbortSignal into quoteTablesForBooking and atomicConfirmAndTransition, and ensure fallback notification/background scheduling happens even when the inline attempt times out.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The current `attemptInlineModificationAssign` computes `timeoutMs`, but then awaits `run()` directly. There is no `AbortController`, no `Promise.race`, and no `CancellableAutoAssign` wrapper in this modification flow. `quoteTablesForBooking` and `atomicConfirmAndTransition` both support an `AbortSignal`, but this caller does not pass one. The timeout is only used after `run()` completes to relabel a completed `NO_HOLD` result as `INLINE_TIMEOUT` when the duration exceeded the threshold. Since `beginBookingModificationFlow` updates the booking to pending and clears assignments before this inline attempt, a slow planner or database operation can hold the request until an outer platform timeout and prevent the fallback email/background scheduling from running promptly. The creation flow in `server/bookings/inline-auto-assign.ts` shows the intended cancellable timeout pattern, confirming this path is missing the enforcement.
+
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)
-
-**Verdict:** fixed
-
-`attemptInlineModificationAssign` now wraps quote/confirm in the shared `CancellableAutoAssign` timeout helper, passes the timeout `AbortSignal` into both `quoteTablesForBooking` and `atomicConfirmAndTransition`, and returns `INLINE_TIMEOUT` on abort so `beginBookingModificationFlow` can persist the timeout result, send the pending email, and schedule background assignment fallback.
-
-Evidence: `pnpm exec vitest run tests/server/bookings-modification-flow.test.ts` passed on 2026-05-16. The focused regression covers timeout fallback after the 500ms minimum clamp and successful signal propagation into quote and confirm. Scoped lint also passed with `pnpm exec eslint --max-warnings=0 server/bookings/modification-flow.ts tests/server/bookings-modification-flow.test.ts`. Repo-level `pnpm run lint` and `pnpm run typecheck` remain red on unrelated pre-existing shadcn migration inventory and separate TypeScript errors.

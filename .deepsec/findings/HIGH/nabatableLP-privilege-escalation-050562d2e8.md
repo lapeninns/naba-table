@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ createRestaurantInvite sends the invite email but also returns the raw invite to
 
 Do not return raw invite tokens or invite URLs from authenticated invite-creation APIs. Only deliver the token to the invited mailbox, and change invite acceptance for existing users to require an authenticated session for the invited email or a separate email-verified password-reset/OTP flow. Avoid admin-updating an existing user's password based only on an invite token.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+CreateInviteResult now contains only { invite: RestaurantInvite }; it no longer includes token or inviteUrl. createRestaurantInvite still generates the raw token and passes it to sendTeamInviteEmail, but the token remains inside the email delivery flow and is not returned to the caller. The production create route at src/app/api/ops/team/invitations/route.ts serializes the invite with serializeInvite, which omits token_hash as well as any raw token or URL. I traced the accept route at src/app/api/team/invitations/[token]/accept/route.ts; it now requires a Supabase session and returns 401 unless the requester is signed in. acceptInviteForAuthenticatedUser checks that the authenticated user's email matches the invite email before calling the membership RPC. The accept payload schema no longer accepts password, and the security test asserts that auth.admin.createUser and auth.admin.updateUserById are not called even if a password is supplied. Commit 020a7389 removed token and inviteUrl from CreateInviteResult and added the authenticated matching-email accept flow.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)

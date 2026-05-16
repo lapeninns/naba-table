@@ -16,13 +16,13 @@ upsertCustomer selects an existing customer when either normalized email or norm
 
 Do not merge customer identities on a partial contact match from unauthenticated input. Require both supplied contact methods to match the same customer before reuse, only fill missing contact fields after verification, or create a separate customer record when email and phone disagree. Also avoid returning full booking rows from guest lookup paths.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The current code narrows but does not eliminate the issue. `upsertCustomer` resolves an existing customer by email first and phone second through `findCustomerByNormalizedIdentity`, so unauthenticated public booking input can still select an existing customer by email alone. It no longer overwrites a populated `phone_normalized`, but it intentionally fills a missing phone with the caller-supplied phone, and the tests explicitly cover that behavior. After that, `fetchBookingsForContact` requires both email and phone to match the customer record, then returns all active bookings for that `customer_id` using `BOOKING_SELECT = '*'`. An attacker who knows a victim email and targets a customer record with no stored phone can attach the attacker's phone through booking creation, then use the public lookup to retrieve that customer's active bookings. The exploit is narrower than the original wording because conflicting populated phones are preserved, but the unauthenticated identity merge and booking exposure remain real.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)
-
-**Verdict:** fixed
-
-Public booking creation now calls `upsertCustomer` with `identityMatchMode: 'strict'` and `allowExistingUpdates: false`, so unauthenticated input must match both normalized email and normalized phone on the same customer row before an existing customer id is reused. Strict duplicate-insert recovery also retries the same full-contact lookup and does not fall back to email-only or phone-only matching. Trusted ops flows can still opt into partial matching with explicit existing-profile updates, but the public guest create path cannot attach an attacker-controlled phone to an email-only customer record.
-
-Evidence: `pnpm exec vitest run tests/server/customers.test.ts tests/server/public-bookings-route.test.ts` passed on 2026-05-16. The regression coverage verifies strict public insert conflicts do not fall back to a single email match, and verifies `/api/bookings` uses strict, non-mutating customer identity options before booking creation.

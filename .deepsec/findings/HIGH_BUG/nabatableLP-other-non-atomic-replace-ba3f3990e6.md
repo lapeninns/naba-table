@@ -16,12 +16,6 @@ Each per-field import reads the current business-context section, splices one Go
 
 Make the replacement atomic with a database transaction/RPC or advisory lock, or change imports to upsert/delete only the targeted row with conditional drift checks. Avoid delete-then-insert outside a transaction.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The dual-sync business-context import port still delegates persistence to `updateRestaurantBusinessContext`, but that shared writer now commits requested family replacements through the service-role-only `replace_restaurant_business_context_core` RPC instead of application-level delete-then-insert chains. The helper validates the payload before the RPC call, and the migration performs the replacement inside one database function. Focused evidence: `pnpm exec vitest run tests/server/restaurants/atomic-replacements.test.ts tests/server/restaurant-business-context.test.ts tests/server/restaurant-business-context-routes.test.ts tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)

@@ -16,13 +16,7 @@ After persistLifecycleTransition succeeds, the route always clears assignments a
 
 Only run post-checkout side effects when the transition actually changed state to completed, or have persistLifecycleTransition expose a changed flag and skip review scheduling for no-op transitions.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`persistLifecycleTransition` now returns `changed: false` for `transition.skipUpdate` no-op transitions and `changed: true` for persisted updates. `src/app/api/ops/bookings/[id]/check-out/route.ts` only clears table assignments, invalidates dashboard caches, and schedules review-request side effects when `changed` is true. The deprecated status completion route uses the same guard. `tests/server/ops-booking-checkout-route.test.ts` verifies no-op check-out responses do not replay assignment cleanup, cache invalidation, or check-out side effects.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-25)

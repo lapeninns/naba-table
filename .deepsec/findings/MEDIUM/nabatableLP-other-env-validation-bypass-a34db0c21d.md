@@ -19,9 +19,3 @@ Add DUAL_SYNC_FAILURE_WEBHOOK_URL to the env schema with URL validation, expose 
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
-
-**Verdict:** fixed
-
-Dual-sync failure notification webhooks now use the validated `env.dualSync.failureWebhookUrl` path, with schema-level HTTPS enforcement before webhook construction.
-
-**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`

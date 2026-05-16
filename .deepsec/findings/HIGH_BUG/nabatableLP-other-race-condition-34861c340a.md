@@ -16,12 +16,6 @@ assignTablesDirectly validates table conflicts by loading context bookings and b
 
 Move conflict detection and insert into a single database transaction/RPC with row or advisory locks, or enforce a database exclusion constraint over table_id and assignment window. If soft holds remain part of the system, include active holds in the direct assignment conflict check or remove the direct path.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The direct helper keeps its pre-validation for operator feedback, but the write is no longer the old direct insert. `assignTablesDirectly` now commits through `assignTableToBooking`, which routes to the allocator v2 atomic assignment path and maps allocator conflicts back to direct-assignment errors. It then reloads the committed assignment rows rather than returning an optimistic insert result. Focused evidence: `tests/server/capacity/direct-assignment-atomic.test.ts` verifies atomic helper delegation; `pnpm exec vitest run tests/server/ops-table-delete-route.test.ts tests/server/ops-booking-table-assignment-route.test.ts tests/server/capacity/direct-assignment-atomic.test.ts`, targeted ESLint, targeted Prettier check, and `pnpm run typecheck` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)

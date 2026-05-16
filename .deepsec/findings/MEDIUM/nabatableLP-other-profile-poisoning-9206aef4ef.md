@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,10 +18,5 @@ Do not hydrate profiles from unverified customer rows selected only by email. On
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)
-
-**Verdict:** fixed
-
-Profile hydration now restricts customer fallback rows to the authenticated user by requiring the normalized email and either `auth_user_id` or `user_profile_id` to match the profile user id. Unverified public booking customer rows selected only by email can no longer populate missing authenticated profile fields.
-
-Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

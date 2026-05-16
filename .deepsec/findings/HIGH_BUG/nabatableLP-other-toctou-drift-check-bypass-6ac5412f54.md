@@ -16,12 +16,6 @@ The route reaches runPublish through runAutoExportForRestaurant. In the imported
 
 Move drift validation ahead of runBatchExportPorts, or pass only prevalidated export decisions into the batch port. Add a regression test where a stale pinned hash in a multi-decision batch causes no Google/core write.
 
-## Revalidation
-
-**Verdict:** fixed
-
-Auto-export still reaches the common `runPublish` path, but that path now only batches prepared export decisions that already passed pin validation, current field-hash comparison, policy checks, and operation-row creation. A stale multi-decision auto-export candidate therefore fails before batch provider writes. Focused evidence: the orchestrator stale-batch regression asserts no batch/per-field export port is invoked when pins are stale.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

@@ -16,11 +16,13 @@ The wizard uses client-controlled state.restaurantId in mutating onboarding call
 
 Add per-restaurant authorization to every /api/onboarding/restaurant/[id] mutating handler before any service-role write. Use requireAdminMembership or requireMembershipForRestaurant against the URL restaurant id and authenticated user id, and keep the client restaurantId as convenience state only.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The wizard does use client-controlled `state.restaurantId` in mutating calls for hours, service periods, zones, and tables. The underlying helpers are impactful: operating hours and service periods delete and recreate rows for the supplied `restaurant_id`, while zones and tables insert rows using service-role access. In the current route handlers, that client-controlled id is not trusted directly because each handler first calls `withRestaurantAuthorization` with admin roles. The guard resolves the authenticated user from the Supabase session and calls `requireMembershipForRestaurant` for the same route restaurant id before allowing the request to continue. If the user lacks owner or manager membership, the handler returns the guard response and never reaches `getServiceSupabaseClient`. The tables handler further validates that supplied zone ids are from the route restaurant before inserting table inventory. The `020a7389` diff confirms this was a patch over the older code that only verified CSRF and some logged-in user. The current implementation fixes the cross-tenant service-role write condition.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)

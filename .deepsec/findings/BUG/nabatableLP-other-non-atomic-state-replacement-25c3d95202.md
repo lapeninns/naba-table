@@ -18,8 +18,4 @@ Move the supersede-and-insert sequence into one database transaction/RPC, prefer
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-`replacePendingFoodMenusImportReviews` now calls the `replace_pending_food_menus_import_reviews` service-role RPC added in `20260516094700_atomic_foodmenus_import_reviews.sql`. The RPC supersedes old pending rows and inserts the fresh review batch in one PostgreSQL function call, so an insertion failure rolls back the supersede update. Focused evidence: `tests/server/google-business-profile-food-menus-storage.test.ts` passed on 2026-05-16 and verifies the storage helper uses the RPC.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

@@ -18,11 +18,5 @@ Enforce MAX_ONLINE_PARTY_SIZE in the server-side public booking schema and valid
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-01)
-
-**Verdict:** fixed
-
-The public booking schema now enforces `MAX_ONLINE_PARTY_SIZE` server-side, so unauthenticated direct POSTs above the online party cap are rejected during payload validation before customer upsert, capacity checks, or booking creation.
-
-Validation: `pnpm exec vitest run tests/server/booking-validation-security.test.ts tests/server/public-bookings-route.test.ts tests/server/ops-bookings-create-route.test.ts tests/server/public-booking-delete-route.test.ts tests/server/public-booking-session-recovery-source.test.ts tests/server/resend-webhook-route.test.ts`

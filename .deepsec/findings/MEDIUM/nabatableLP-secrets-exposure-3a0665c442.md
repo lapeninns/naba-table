@@ -16,10 +16,12 @@ Line 12 renders OnboardingWizard. In password sign-up mode, the imported wizard 
 
 Redact password before persisting onboarding state, or avoid persisting account details entirely after the signup request is sent.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The tables page renders `OnboardingWizard`, which uses the same `OnboardingProvider` and sessionStorage draft as the account and service steps. In password mode, `AccountStep` receives a `values` object that includes `password`, posts it to `/api/auth/signup`, and then stores the same object through `setAccount(values)`. The reducer stores that object verbatim as `state.account`. The provider serializes the full onboarding state to `sessionStorage` under `nabatable:onboarding:draft:v1`, without any password redaction. The persisted state is also restored into form defaults via `state.account?.password`, extending the exposure beyond the initial submit. A same-origin script running later in the onboarding flow can read the stored JSON and recover the plaintext password. I found no current mitigation in the provider, sanitizer, route layer, or proxy that removes the password after signup.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
-
-**Verdict:** fixed
-
-`OnboardingWizard` now stores only account email and mode after signup, and `OnboardingProvider` redacts account passwords on reducer updates, sessionStorage persistence, and draft restoration. Covered by `tests/components/OnboardingContextPersistence.test.tsx`.

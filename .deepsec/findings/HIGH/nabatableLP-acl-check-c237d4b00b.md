@@ -16,10 +16,12 @@ AvailabilityScheduleManager lets the settings UI create, update, and delete book
 
 Move occasion mutations behind a backend authorization check appropriate for global catalog changes, such as a platform-admin guard. If occasions are intended to be restaurant-specific, include restaurantId in the API contract and enforce requireAdminMembership for that restaurant before using the service-role client. Also restrict built-in occasion updates explicitly.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The component still contains createRequiredOccasions and save logic that call occasionService.createOccasion, updateOccasion, and deleteOccasion. Those service methods still target /api/ops/occasions and /api/ops/occasions/[key]. In current code, all unsafe occasion mutations are guarded by withPlatformAdminAuthorization with CSRF, and the user id from that guard is used for created_by, updated_by, and audit rows. The proxy-level requireOpsAuth is no longer the only protection; the mutation route itself enforces the platform-admin boundary. DELETE additionally rejects builtin occasions server-side and refuses to delete referenced occasions. The original role-authorization gap was real in shape but has been closed by commit 020a7389.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

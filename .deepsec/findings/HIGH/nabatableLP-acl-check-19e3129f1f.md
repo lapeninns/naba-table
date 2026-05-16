@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ PATCH and DELETE only check that the authenticated user has any restaurant_membe
 
 Replace the raw membership lookup with requireAdminMembership, or explicitly require owner/manager via isRestaurantAdminRole before calling updateZone or deleteZone. Apply the same rule consistently to zone creation.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-27)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+This duplicate ACL finding no longer matches the current handler behavior. PATCH checks the caller's membership role and rejects it unless isRestaurantAdminRole returns true before calling updateZone. DELETE performs the same role check before calling deleteZone. The shared role helper maps admin status to owner or manager, not merely to any restaurant membership. Non-admin staff can still authenticate to ops generally through requireOpsAuth, but they cannot mutate zones through this endpoint. The direct Supabase write path is also narrowed by the restrictive owner/manager zones policies in the current migrations.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-27)

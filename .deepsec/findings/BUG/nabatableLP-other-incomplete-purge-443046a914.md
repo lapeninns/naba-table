@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,10 +18,5 @@ Delete sms_delivery_log rows for the collected booking IDs before deleting booki
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
-
-**Verdict:** fixed
-
-`scripts/purge-restaurant-bookings.ts` includes `sms_delivery_log` in the transactional child-delete list keyed by `booking_id`, and the transaction processes child delete specs before deleting rows from `bookings`. SMS delivery rows tied to purged bookings are therefore removed before the booking delete can sever the booking link.
-
-Evidence: `pnpm exec vitest run tests/scripts/destructive-script-atomicity.test.ts` passed on 2026-05-16. `pnpm exec prettier --check tests/scripts/destructive-script-atomicity.test.ts scripts/purge-restaurant-bookings.ts` also passed.

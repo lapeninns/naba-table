@@ -16,11 +16,13 @@ After a password-mode signup, the handler calls setAccount(values), where values
 
 Never store the password in OnboardingState. Send it only in the signup request, then store only non-sensitive fields such as email and mode, and clear any existing persisted drafts that may contain password.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The current wizard still calls `setAccount(values)` immediately after a successful password signup request, and `values` includes the plaintext `password`. The onboarding reducer stores the account object as-is. `OnboardingProvider` then writes the entire onboarding state to `sessionStorage` with key `nabatable:onboarding:draft:v1`, only replacing `loading` and `error`. No sanitizer removes `password` during persistence or during draft restoration. The form also uses `state.account?.password` as a default value, proving the password is intentionally retained in client state rather than discarded after submission. An attacker who achieves same-origin JavaScript execution during the onboarding session can read the persisted JSON and extract the password without needing to intercept the original signup request. The issue remains present in current code and the reported medium severity is appropriate.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
-
-**Verdict:** fixed
-
-`OnboardingWizard` now stores only account email and mode after signup, no longer hydrates password defaults from onboarding state, and `OnboardingProvider` redacts account passwords on reducer updates, sessionStorage persistence, and draft restoration. Covered by `tests/components/OnboardingContextPersistence.test.tsx`.

@@ -16,11 +16,13 @@ The password limiter key is built from x-real-ip or the first x-forwarded-for va
 
 Use a trusted proxy-provided client IP source that strips inbound spoofed forwarding headers, or centralize IP extraction behind a helper that only trusts configured proxy headers. Add a secondary email/account-scoped limiter for password attempts so IP rotation cannot remove the cap.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The password limiter key is built by buildPasswordRateLimitId from x-real-ip, then the first x-forwarded-for value, then unknown. A direct attacker can rotate those headers to produce distinct identifiers like auth:password:1.2.3.4:victim@example.com and auth:password:5.6.7.8:victim@example.com, bypassing the route's 5-attempt window if the deployment does not overwrite those headers before Next sees them. There is no email-only password limiter in this handler to preserve a cap when IP identity changes. The magic-link path calls extractClientIp(req), which uses req.ip if present but otherwise trusts the first x-forwarded-for value. consumeMagicLinkSigninThrottle has an IP bucket and a global bucket; rotating x-forwarded-for bypasses the IP bucket, leaving only the coarse global limit of 120 per 10 minutes. CSRF is not a real barrier for this abuse because an unauthenticated client can obtain its own CSRF cookie/header pair and call the public endpoint directly. src/proxy.ts passes shared auth APIs through and does not canonicalize these IP headers. This is therefore a real application-level rate-limit bypass, with exploitability depending only on whether the outer edge strips or overwrites spoofed forwarding headers.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-19)
-
-**Verdict:** fixed
-
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

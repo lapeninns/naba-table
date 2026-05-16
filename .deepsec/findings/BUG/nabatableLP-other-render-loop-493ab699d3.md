@@ -16,12 +16,6 @@ The default `confettiStatuses = ['completed']` creates a new array on every rend
 
 Hoist the default confetti status array to a module-level constant and derive the status-change event inside one effect that updates `previousStatusRef`, so the confetti trigger is consumed once per actual status transition.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The default confetti status array is now hoisted, and `StatusTransitionAnimator` consumes transition detection in the same effect that updates `previousStatusRef`. Once a transition has scheduled the confetti hide timeout, the timeout's state update rerender sees no new status transition and cannot restart the animation. `tests/components/StatusTransitionAnimator.test.tsx` covers the no-restart behavior with fake timers.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

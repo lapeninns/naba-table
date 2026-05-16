@@ -16,11 +16,13 @@ clearBookingTableAssignments() catches every failure from lookup, atomic unassig
 
 Let cleanup failures propagate or return a required structured failure that callers must handle. Prefer one transactional RPC for status transition plus assignment/zone/idempotency cleanup.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+This duplicate cleanup finding is still valid. The helper catches every failure internally and returns `0`, including failures in the assignment lookup, atomic unassign RPC, fallback delete, `assigned_zone_id` clearing, and idempotency cleanup. Lifecycle callers persist the booking transition first and then call the cleanup helper. Because the helper does not throw, those callers continue as if cleanup succeeded. I verified this pattern in cancellation, no-show, check-out/status completion, and auto-complete paths. The result is a booking status transition that releases no capacity when cleanup fails.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
-
-**Verdict:** fixed
-
-This duplicate cleanup finding is fixed by the same strict cleanup path. `clearBookingTableAssignments` now propagates assignment lookup errors, throws if the atomic unassign plus fallback delete cannot clear rows, and throws if zone or idempotency cleanup fails. It no longer returns `0` for cleanup failures. Focused evidence: `tests/server/bookings/assignment-cleanup.test.ts` passed on 2026-05-16 and covers the negative paths that previously would have been swallowed.

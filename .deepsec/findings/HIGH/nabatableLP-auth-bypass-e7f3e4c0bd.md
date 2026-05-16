@@ -16,11 +16,13 @@ POST resolves the hostname from request headers, then buildCallbackUrl accepts a
 
 Do not derive auth callback origins from request headers. Choose the callback origin from a server-side allowlist keyed by the real surface, require exact hosts such as app/root/www for NEXT_PUBLIC_ROOT_DOMAIN, and reject unknown hosts. Avoid substring checks such as includes('localhost') and endsWith('nabatable.com').
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The vulnerable callback construction remains present. POST calls parseHostname(req), and that helper trusts request headers such as x-forwarded-host and origin before falling back to the actual request URL host. buildCallbackUrl treats hostname.includes('localhost') as local and hostname.endsWith('nabatable.com') as valid production, which is not a registrable-domain boundary check. As a result, evilnabatable.com and evil-nabatable.com are accepted as Nabatable hosts, while localhost.attacker.com is treated as a local host and used in an http callback URL. The resulting emailRedirectTo is passed to sendAuthMagicLink, whose buildCallbackMagicLink appends the Supabase token_hash to that attacker-influenced URL. The attack path is concrete for any known email that passes lookupMagicLinkProfile: spoof the host header used by parseHostname, trigger a magic-link email, capture the token when the victim clicks, and redeem it on the real callback. sanitizeRedirect only constrains the redirectedFrom destination; it does not validate the callback origin used for the emailed magic link. The proxy and route do not use the allowedHosts-style exact host set for this callback origin.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-19)
-
-**Verdict:** fixed
-
-The suffix-based callback construction was removed. The signin route now resolves `parseHostname(req)` through `resolveTrustedAuthHostname` before surface classification, redirect selection, and callback URL creation. `buildAuthCallbackUrl` only uses the trusted exact root/www/app or approved local host set, so `evilnabatable.com`, `evil-nabatable.com`, and `localhost.attacker.com` no longer become token-bearing callback origins. `sendAuthMagicLink` separately rejects untrusted `emailRedirectTo` values before Supabase token generation. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests.

@@ -16,14 +16,6 @@ stableJson passes Object.keys(value).sort() as a JSON.stringify replacer array. 
 
 Replace stableJson with a recursive canonical serializer that sorts keys at every object level while preserving arrays and primitive values. Add regression tests proving that nested changes to policy services, turn bands, table fields, adjacency edges, and holds all change their corresponding hashes.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`stableJson` in `server/capacity/v2/utils.ts` now uses a recursive canonicalizer instead of a top-level JSON replacer whitelist. Nested policy, snapshot, table, adjacency, and hold fields are preserved and sorted deeply before hashing.
-
-Evidence: `pnpm exec vitest run tests/server/capacity-v2-utils.test.ts` passed on 2026-05-16. The regression coverage verifies nested service-window changes and nested adjacency changes alter hashes while semantically identical key order still hashes identically.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

@@ -16,11 +16,13 @@ The handler takes the route `bookingId` and immediately uses `getServiceSupabase
 
 Validate the booking id, authenticate in the route handler, load the booking in a way that allows determining its restaurant, and call `requireMembershipForRestaurant` or `requireRestaurantMember` for that restaurant before any service-role reads or cleanup. Keep every service-role query explicitly scoped by `restaurant_id`, and avoid mutating cleanup work from an unguarded GET path.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-02)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-03)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current route starts by calling withBookingAuthorization(req, bookingId) and returns immediately if authorization fails. That guard validates the booking UUID, establishes a backend session, looks up the booking restaurant id, and then requires restaurant membership for that restaurant before the route creates any service-role clients. The service and tenant service clients are created only after authorization succeeds, and loadAssignmentContextPayload receives the authorized restaurantId. Inside the shared loader, the service-role booking lookup is also constrained by both bookingId and restaurantId. cleanupOrphanedAssignments can still run, but only after the route-level booking authorization has succeeded. This was patched in 020a7389 and the later loader refactor preserved the authorization-first flow.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-06)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-03)

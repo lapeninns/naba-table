@@ -16,11 +16,13 @@ sendAuthMagicLink trusts the caller-supplied emailRedirectTo, passes it to Supab
 
 Validate emailRedirectTo inside sendAuthMagicLink against exact configured HTTPS callback origins before calling generateLink or sending email. Do not derive auth callback origins from Origin/Referer/forwarded headers; prefer configured canonical app/root URLs. Fix caller host checks to require exact allowed hosts or a real subdomain boundary, and add regression tests for forged Origin/X-Forwarded-Host and evilnabatable.com-style suffixes.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+`sendAuthMagicLink` accepts `emailRedirectTo`, passes it directly to Supabase `auth.admin.generateLink`, and then builds the email link by appending `token_hash` and `type=magiclink` to that same caller-supplied URL. The signin route builds `emailRedirectTo` from `parseHostname(req)`, and `parseHostname` trusts `x-forwarded-host`, `x-original-host`, `origin`, and `referer` before falling back to `host`. Its `buildCallbackUrl` check accepts any hostname for which `hostname.endsWith('nabatable.com')`, so `evilnabatable.com` passes without requiring an exact host or subdomain boundary. An attacker can obtain their own CSRF cookie/header, POST a magic-link request for a victim email with a forged forwarded host in an environment where that header reaches the route, and cause the victim to receive a legitimate Supabase token link to the attacker-controlled origin. When the victim clicks, the attacker sees the `token_hash` and can replay it to the real `/api/auth/callback`, where the callback calls `verifyOtp` directly and establishes a victim session. The callback route has hardened final redirects, but that does not protect the token before redemption.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
-
-**Verdict:** fixed
-
-`sendAuthMagicLink` now validates `emailRedirectTo` with `normalizeTrustedMagicLinkRedirect` before it creates a service-role Supabase client or calls `auth.admin.generateLink`. The helper rejects non-canonical hosts, non-HTTPS production URLs, and non-callback paths, so a token-bearing email link cannot be generated for `evilnabatable.com` or `evil-nabatable.com`. The signin route also canonicalizes the request host with `resolveTrustedAuthHostname` and no longer uses the suffix-based callback builder. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including helper-level proof that untrusted callback origins fail before token generation.

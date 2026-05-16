@@ -16,11 +16,13 @@ The route derives hostname from request headers via parseHostname() and then bui
 
 Do not trust forwarded/origin/referer host headers from the request for auth callback generation. Build the callback host from configured allowed hosts/rootDomain, require exact host or dot-boundary subdomain checks, and reject values like evil-nabatable.com. Reuse the existing allowedHosts-style logic for callback URLs.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The current signin route still derives hostname from parseHostname(req), and parseHostname prioritizes x-forwarded-host, x-original-host, origin, referer, and host before req.nextUrl. buildCallbackUrl then accepts any hostname that includes localhost or endsWith the literal string nabatable.com. That suffix check accepts attacker-controlled registrable domains such as evil-nabatable.com and evilnabatable.com. For a known email with a profile and user_profile row, POST calls sendAuthMagicLink with emailRedirectTo built from that poisoned hostname. sendAuthMagicLink obtains a Supabase hashed_token and constructs the emailed link by appending token_hash and type=magiclink to emailRedirectTo, so the official email can point at the attacker-controlled host. A concrete attack is: obtain a CSRF cookie/header pair from the public app, POST mode=magic_link for the victim email with x-forwarded-host: evil-nabatable.com, wait for the victim to click the official magic-link email, capture token_hash on the attacker host, and redeem it against the real callback route to receive Nabatable session cookies. src/proxy.ts does not strip or normalize x-forwarded-host for shared /api/auth/signin requests, so there is no application-level mitigation before the route. Turnstile can add friction for public_guest traffic, but it is optional and is not a host allowlist.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-19)
-
-**Verdict:** fixed
-
-The signin route no longer lets spoofable forwarded/origin headers or suffix-matched hosts choose `emailRedirectTo`. `parseHostname` ignores `x-forwarded-host`, `x-original-host`, `Origin`, and `Referer`; `resolveTrustedAuthHostname` restricts auth host selection to exact canonical root, www, app, or approved local hosts; and `buildAuthCallbackUrl` builds the callback from that trusted host only. `sendAuthMagicLink` also rejects untrusted callback origins before calling Supabase `generateLink`, so future callers cannot bypass the route-level canonicalization. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including negative coverage for `x-forwarded-host: evil-nabatable.com` and direct `evil-nabatable.com` callback construction.

@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Move the idempotency claim and profile update into a single database transaction
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
-
-**Verdict:** fixed
-
-`src/app/api/profile/route.ts` no longer checks and records idempotency outside the mutation. The route calls `apply_profile_update_idempotent`, which inserts the `(profile_id, idempotency_key, payload_hash)` claim with `ON CONFLICT DO NOTHING` before updating `profiles`, returns `conflict` for mismatched replay hashes, and returns `idempotent` for matching replays. `tests/server/profile-route-idempotency.test.ts` verifies applied, idempotent replay, and conflict behavior through the route.

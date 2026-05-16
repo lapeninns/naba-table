@@ -16,12 +16,6 @@ The component sends whole-family replacement payloads for service areas, attribu
 
 Make each family replacement atomic, preferably through a database RPC/transaction that validates and replaces rows together. Mirror DB constraints in the route schema before deletion, and avoid delete-then-insert outside a transaction.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The UI still sends whole-family business-context payloads, but the server path behind those saves no longer deletes existing rows before a separate insert. The PUT route rejects malformed persisted ids and invalid DB enum values before calling the writer, while `updateRestaurantBusinessContext` validates the replacement rows and commits requested families through the service-role-only `replace_restaurant_business_context_core` RPC. Focused tests prove route rejection, direct writer rejection, RPC delegation, and absence of direct family-table inserts from the writer: `pnpm exec vitest run tests/server/restaurants/atomic-replacements.test.ts tests/server/restaurant-business-context.test.ts tests/server/restaurant-business-context-routes.test.ts` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

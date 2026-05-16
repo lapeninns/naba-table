@@ -16,13 +16,13 @@
 
 Move the replacement into a single database transaction/RPC, or implement a diff-based upsert/delete strategy that preserves existing rows and dependent records. Add optimistic concurrency checks or versioning for concurrent edits and make failures roll back all changes.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+updateServicePeriods still validates the new array, deletes every restaurant_service_periods row for the restaurant, and then inserts the replacement rows in a separate statement. There is no transaction or rollback if the insert fails after the delete. The route and helper do not reject duplicate supplied period ids, so a payload with the same UUID twice can pass local validation and fail on insert after existing rows are gone. The capacity rules migrations show service_period_id depends on restaurant_service_periods and may cascade or lose the association when service periods are deleted. Even a successful delete/reinsert can therefore destroy dependent capacity configuration before rows with the same ids are recreated. Concurrent writers also have no version check, so this is a real data-loss bug.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
-
-**Verdict:** fixed
-
-`updateServicePeriods` now rejects duplicate service-period ids before mutation and uses `replace_restaurant_service_periods` for the replacement. The service-role-only RPC performs upsert-first replacement inside a database transaction and only deletes rows omitted from the replacement set after incoming rows are valid, preserving dependent capacity configuration for unchanged ids and rolling back on failure.
-
-Evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts` passed on 2026-05-16. The regression coverage verifies direct delete-then-insert chains are not used and duplicate supplied period ids are rejected before the RPC call.

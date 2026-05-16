@@ -16,12 +16,6 @@ The script checks that the target slug is absent before entering the try block, 
 
 Track the restaurant ID returned by insertRestaurant() and run cleanup only when that ID exists. Delete by that inserted ID, not by slug. Prefer wrapping the clone in a transaction or using an advisory lock/unique insert flow that cannot clean up resources created by another actor.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/clone-restaurant-config.ts` now tracks `insertedRestaurantId` only after `insertRestaurant()` returns, and the catch handler calls `cleanupTargetById(insertedRestaurantId)` only when that id exists. The slug-keyed cleanup path was removed, so an insert failure caused by a concurrent creator of the target slug no longer looks up and deletes rows created by another actor. Focused script-integrity tests verify the cleanup target is the inserted id and that cleanup is ordered after id capture.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)

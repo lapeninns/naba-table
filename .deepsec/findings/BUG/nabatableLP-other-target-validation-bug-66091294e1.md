@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Parse the connection string and compare the Supabase project ref exactly from tr
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/apply-sql-file.ts` now requires an expected project ref from `--expected-ref` or `EXPECTED_PROJECT_REF`, normalizes it, and validates the connection string with `assertExactSupabaseProjectRef(connectionString, expectedProjectRef)` before connecting. The shared helper parses authoritative Supabase DB host/user fields instead of substring matching. Focused script-safety tests cover exact host/user ref validation and the SQL file runner ordering.

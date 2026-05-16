@@ -4,10 +4,6 @@
 **Project:** nabatableLP
 **Severity:** HIGH • **Confidence:** high • **Slug:** `rce`
 
-## Owners
-
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
-
 ## Finding
 
 The script loads .env.local and reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and database URL values before loading SOURCE_JS_PATH and executing the file contents with vm.runInContext. SOURCE_JS_PATH is environment-controlled and defaults to a local file outside the repo. Node's vm module is not a security boundary; in this context malicious source data can escape with patterns such as window.constructor.constructor("return process")() and read service-role/database credentials or execute privileged logic under the operator process. This is not web-remote RCE, but it is a high-impact supply-chain/local-file execution path for a script that holds production-capable credentials.
@@ -16,10 +12,8 @@ The script loads .env.local and reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE
 
 Do not execute the source menu file. Store the menu as JSON, or parse only a validated data literal with an AST/JSON parser that rejects functions, member expressions, constructors, and arbitrary statements. If a VM remains temporarily necessary, add a timeout and code-generation restrictions, but do not treat that as a full security boundary.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The exact target path is absent from the current HEAD; `git show HEAD:scripts/import-old-school-house-drinks-staging.ts` fails because the file no longer exists. `git show --name-status 72bb7412 -- scripts/import-old-school-house-drinks-staging.ts` shows the script was deleted. I also searched the current `scripts/` tree for `vm.runInContext`, `SOURCE_JS_PATH`, and the drink-menu import RPC names and found no successor importer carrying this VM execution path. Because the script is gone, there is no current operator command at this path that can load privileged Supabase or DB environment variables and then evaluate attacker-controlled menu JavaScript. The historical issue was real in the deleted script, but it is not reachable in the current codebase.

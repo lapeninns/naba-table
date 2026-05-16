@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ DELETE first checks for future booking_table_assignments and later deletes the t
 
 Perform the future-assignment check and table delete inside a single transactional RPC that locks the table and relevant assignment rows, or replace hard delete with a guarded soft delete. Ensure the final delete has a NOT EXISTS future-assignment predicate evaluated atomically.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The DELETE handler still performs a check-then-delete sequence in separate Supabase calls. It queries booking_table_assignments joined to bookings for rows with booking_date greater than or equal to tomorrowDate, and later calls deleteTableRecord without an atomic NOT EXISTS predicate or transaction. The schema still defines booking_table_assignments.table_id as a foreign key to table_inventory(id) with ON DELETE CASCADE. Assignment creation paths insert rows into booking_table_assignments independently, so a future assignment can be created after the lookup returns empty but before the table deletion commits. In that interleaving, deleting the table silently cascades to the newly-created assignment. The handler does not lock the table or relevant assignment rows, so the race remains exploitable as a data-loss bug.
+
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)
-
-**Verdict:** fixed
-
-The route no longer performs separate future-assignment lookup and table delete operations. Current `src/app/api/ops/tables/[id]/route.ts` calls `delete_table_inventory_guarded`, and `supabase/migrations/20260516083600_guard_table_inventory_delete.sql` locks the table row with `FOR UPDATE` before checking active/future assignments and deleting. New assignment inserts must satisfy the table FK and cannot pass through a concurrently locked/deleted table row without the database rechecking the final state. Focused evidence: `tests/server/ops-table-delete-route.test.ts` verifies the guarded RPC call and 409 mapping; targeted ESLint, targeted Prettier check, and `pnpm run typecheck` passed on 2026-05-16.

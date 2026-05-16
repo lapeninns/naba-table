@@ -16,10 +16,12 @@ The form accepts Google Maps and Google Review URLs and submits them through san
 
 Validate these fields before submit and enforce the same rules server-side. Require https: URLs and preferably allowlist expected hosts such as Google Maps and g.page; reject javascript:, data:, vbscript:, file:, and other non-web schemes before persistence or rendering.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current form no longer relies on URL input type or parseability-only checks before submit. Both the full form and contact subform call validateRestaurantDetails before sanitizePayload is submitted, and that validator now uses safeGoogleMapsUrl and safeGoogleReviewUrl from lib/security/safe-url.ts. Those helpers require https and an allowed Google/g.page/maps host, so javascript:, data:, vbscript:, file:, and arbitrary non-web schemes fail client validation. The server-side PATCH path also parses the same fields through updateRestaurantSchema in src/app/api/ops/restaurants/schema.ts, which uses the same safe URL helpers and rejects tampered requests before persistence. The lower-level restaurant update/read paths additionally normalize stored values with safeGoogleMapsUrl and safeGoogleReviewUrl, and public/email consumers sanitize legacy stored values before creating hrefs. The small unsaved 'Open map/review link' controls in the form only allow http/https via getHttpUrl and do not persist or expose values to guests. This was a valid class of issue historically, but the current code has the necessary client, server, and render-time mitigations.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

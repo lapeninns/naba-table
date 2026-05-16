@@ -16,10 +16,12 @@ The manager loads and mutates occasions through the global occasion service rath
 
 Do not expose global booking occasion mutations from restaurant settings. Either make occasions restaurant-scoped and require requireAdminMembership for the target restaurant on every mutation, or restrict /api/ops/occasions writes to a true platform-admin role enforced inside the route handler. Keep the UI aligned with that authorization boundary and prevent restaurant admins/staff from editing global catalog rows.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+I read the full manager and confirmed the availability workflow still loads global occasions through useOpsOccasions and saves occasion changes through useOccasionService. The key exploitability question is therefore the route-handler authorization, not the component state. Current /api/ops/occasions POST requires withPlatformAdminAuthorization(request, { csrf: true }) before building the service-role payload and writing booking_occasions. Current /api/ops/occasions/[key] PATCH and DELETE require the same platform-admin guard before fetching, updating, deleting, or auditing the global row. withPlatformAdminAuthorization only succeeds for configured platform admin user ids or emails, not arbitrary restaurant members. That means a host, server, or ordinary restaurant manager cannot mutate the global occasion catalog through this UI/API path unless they are also configured as a platform admin.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

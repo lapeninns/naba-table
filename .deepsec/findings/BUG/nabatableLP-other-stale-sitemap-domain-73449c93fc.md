@@ -20,15 +20,3 @@ Use NEXT_PUBLIC_SITE_URL before SITE_URL and fail generation when neither is set
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-09-04)
-
-**Verdict:** fixed
-
-`next-sitemap.config.js` now resolves `siteUrl` from `NEXT_PUBLIC_SITE_URL`,
-then `SITE_URL`, then the Nabatable canonical fallback
-`https://www.nabatable.com`. It no longer references the starter template host.
-
-Evidence:
-
-- `tests/config/link-config.test.ts` verifies `NEXT_PUBLIC_SITE_URL` precedence
-  and the Nabatable fallback when no env var is set.
-- `pnpm exec vitest run tests/config/link-config.test.ts`

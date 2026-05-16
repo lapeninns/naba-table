@@ -19,24 +19,3 @@ Add the shipped /invite/[token] acceptance page or change buildInviteUrl() to th
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-09)
-
-## Resolution
-
-**Verdict:** fixed
-
-`buildInviteUrl()` still generates `/invite/{token}`, and that path is now a
-shipped App Router page at `src/app/(public)/invite/[token]/page.tsx`. The page
-loads pending invite details server-side, renders the invite acceptance client,
-and handles revoked/accepted/expired/missing tokens without falling through to a
-missing route.
-
-Evidence:
-
-- `tests/guest/invite-page.test.tsx` covers pending invite rendering and expired
-  invite handling.
-- `tests/components/InviteAcceptanceClient.test.tsx` covers the authenticated
-  accept flow and unauthenticated sign-in redirect.
-- Playwright loaded `http://127.0.0.1:3000/invite/invalid-token-123`; the route
-  returned the expected invalid-token 404 state with title
-  `Team invitation · Nab a Table`.
-- `tasks/bug-links-config-invites-20260516-1010/artifacts/invite-invalid-token-route.png`

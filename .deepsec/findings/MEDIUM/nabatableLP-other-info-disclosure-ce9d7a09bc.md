@@ -16,10 +16,12 @@ The unauthenticated contact lookup calls fetchBookingsForContact and returns the
 
 Return a dedicated sanitized DTO for guest lookup. Exclude confirmation_token, idempotency keys, internal details, and unnecessary PII; require a signed recovery token or OTP for sensitive details.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The unauthenticated contact lookup is reachable on GET /api/bookings without me=1 and without a session-recovery token. Its current customer lookup requires both normalized email and normalized phone to match the same customer, which narrows the attacker prerequisite, but it is still not a session, OTP, or signed-token proof of control. Once a customer is found, fetchBookingsForContact selects '\*' from bookings for active statuses. The response returns those rows directly rather than mapping them through a public-safe DTO. Because the bookings row contains confirmation_token, idempotency_key, client_request_id, details, notes, and full contact PII, a caller who knows a guest's email and phone can harvest fields that should not be exposed from a public lookup. The IP rate limit reduces bulk abuse but does not mitigate disclosure for known contacts.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
-
-**Verdict:** fixed
-
-`src/app/api/bookings/route.ts` now maps both policy and legacy guest lookup rows through a guest-safe DTO before returning them. The DTO omits confirmation tokens, idempotency keys, client request ids, pending refs, details, and notes. Covered by `tests/server/public-bookings-route.test.ts`.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

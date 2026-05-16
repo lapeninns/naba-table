@@ -16,12 +16,6 @@ Lunch minutes are generated with Math.random() \* 105, then embedded directly in
 
 Generate minutes in the 0-59 range or normalize a total offset into hour/minute components before formatting.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/seed-bookings-week.ts` now constrains lunch seed minutes to `Math.floor(Math.random() * 60)`, so the generated `HH:mm:ss` values stay in the valid `00..59` minute range. The script is also guarded by `assertStagingScriptSafety` before service-role client construction.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-21)

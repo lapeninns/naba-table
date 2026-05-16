@@ -18,10 +18,4 @@ Enforce the rejectionAnalytics feature flag in the API route before loading data
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
-
-**Verdict:** fixed
-
-The rejections API now treats the navigation flag as UX only and independently enforces the same feature gate in the route handler before loading analytics.
-
-**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

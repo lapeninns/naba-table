@@ -18,8 +18,4 @@ Add requireMembershipForRestaurant({ userId: user.id, restaurantId, client: supa
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)
-
-**Verdict:** fixed
-
-The prefetch target `/api/ops/tables` now authorizes the requested `restaurantId` with `requireMembershipForRestaurant` before returning table data. The prefetch can no longer expose another restaurant's table inventory. Covered by `tests/server/ops-tables-route-security.test.ts`.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

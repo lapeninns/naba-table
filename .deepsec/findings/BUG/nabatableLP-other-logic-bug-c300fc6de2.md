@@ -18,17 +18,4 @@ Either throw after recording the failed attempt, or return a discriminated resul
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-`publishFoodMenusProjectionToGoogle` now records the failed publish attempt and
-then throws, instead of returning the failed attempt through the normal success
-result shape.
-
-Evidence:
-
-- `tests/server/google-business-profile-food-menus-sync.test.ts` covers a Google
-  publish failure and verifies the service rejects with the failed attempt
-  attached.
-- `pnpm exec vitest run tests/server/google-business-profile-food-menus-sync.test.ts`
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

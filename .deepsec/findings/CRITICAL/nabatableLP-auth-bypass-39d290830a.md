@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ The public invitation accept endpoint looks up an auth user by the invited email
 
 Do not update passwords for existing users from invitation acceptance. For existing accounts, require the user to authenticate normally or complete an email-verified password reset flow before attaching membership. Stop returning raw invite tokens to inviters, and consume/lock the invite atomically before side effects.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current accept handler no longer accepts or uses a caller-supplied password for auth account changes. It first obtains the Supabase session with getRouteHandlerSupabaseClient().auth.getUser() and returns 401 unless the requester is already signed in. The payload schema only accepts an optional name, and zod strips the legacy password field posted by the client, so there is no server-side password input reaching Supabase admin APIs. The route now calls acceptInviteForAuthenticatedUser, which compares the authenticated user's normalized email to the invite email before granting membership. I found no calls to service.auth.admin.updateUserById or createUser in this current file. The May 5 commit 020a7389 changed this route and server/team/invitations.ts as part of the security sprint, replacing the reported password-reset flow with authenticated acceptance.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

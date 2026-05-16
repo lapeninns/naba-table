@@ -16,10 +16,12 @@ parseHostname trusts x-forwarded-host, x-original-host, Origin, and Referer befo
 
 Do not use Origin or Referer for trusted host decisions, and only honor forwarded host headers after trusted proxy normalization. Prefer a fixed canonical callback origin or validate Host/req.nextUrl against an exact allowlist of rootDomain, www.rootDomain, and app.rootDomain. Also harden the auth callback builder to require exact hosts or dot-boundary subdomains, rejecting domains that merely end with the brand string.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The current parsing and callback construction path matches the finding. parseHostname accepts spoofable forwarded, Origin, and Referer values ahead of the actual Host, while sanitizeRedirect's exact allowed-host logic only applies to redirectedFrom targets and not to the callback hostname itself. In src/app/api/auth/signin/route.ts, buildCallbackUrl accepts any hostname ending in nabatable.com, which is not a registrable-domain or dot-boundary check. Because sendAuthMagicLink builds the final email link with the supplied emailRedirectTo plus token_hash, a poisoned hostname directly controls where the one-time magic-link token is sent. An attacker does not need a victim session to initiate this; they can send a server-side POST with their own CSRF cookie/header pair and a victim email that exists in profiles/user_profiles. Once the victim clicks the official email, the attacker-controlled callback host receives token_hash and can redeem it on the real app before the victim does. Spoofing app.nabatable.com also remains capable of misclassifying public requests as app_ops for the signin surface, which can skip the guest Turnstile branch, although the token-exfiltration case uses an attacker-controlled accepted suffix host. No current file I read validates the parsed hostname against exact root, www, and app hosts before building the magic-link URL.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-29)
-
-**Verdict:** fixed
-
-`parseHostname` no longer accepts `x-forwarded-host`, `x-original-host`, `Origin`, or `Referer` for auth host decisions; it resolves from `req.nextUrl`, `req.url`, then `Host`. The signin route now passes that value through `resolveTrustedAuthHostname`, which falls back to the configured canonical root/www host unless the host is exactly root, www, app, or approved local. `buildAuthCallbackUrl` replaced the suffix-based `endsWith('nabatable.com')` callback builder, and `sendAuthMagicLink` now validates `emailRedirectTo` with `normalizeTrustedMagicLinkRedirect` before Supabase `generateLink` can create a token. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including spoofed forwarded/origin headers, suffix-domain callbacks, and helper-level invalid redirect rejection.

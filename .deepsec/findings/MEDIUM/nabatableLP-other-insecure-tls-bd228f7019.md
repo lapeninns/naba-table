@@ -19,7 +19,3 @@ Do not disable TLS verification. Use verified TLS for Supabase Postgres connecti
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/staging/replay-perf-workload.ts` now uses `getPgSslConfig()`, which returns `rejectUnauthorized: true` and optional CA configuration. Covered by `tests/scripts/db-safety.test.ts`.

@@ -16,14 +16,6 @@ The script allows ROLE values of owner, admin, staff, and viewer, then writes th
 
 Import or mirror the canonical RESTAURANT_ROLE_OPTIONS from lib/owner/auth/roles.ts and restrict this script to owner, manager, host, and server. Consider failing if an existing membership has a non-canonical role.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/grant-restaurant-access.ts` no longer writes obsolete `admin`, `staff`, or `viewer` membership roles. It normalizes `ROLE` through the canonical restaurant role helper and fails closed when an existing row already contains a non-canonical role.
-
-Evidence: `pnpm exec vitest run tests/scripts/grant-restaurant-access-roles.test.ts` passed on 2026-05-16. `pnpm exec prettier --check scripts/grant-restaurant-access.ts tests/scripts/grant-restaurant-access-roles.test.ts` also passed.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

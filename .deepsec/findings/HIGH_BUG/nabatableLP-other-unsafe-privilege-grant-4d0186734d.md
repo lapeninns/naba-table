@@ -16,12 +16,6 @@ The script loads .env.local, creates a service-role client, and creates a restau
 
 Make OWNER_USER_ID or OWNER_EMAIL mandatory, require explicit target/environment confirmation, and refuse production by default unless a dedicated production seed confirmation is present.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/seed-restaurant.ts` now calls `assertSeedRestaurantSafety()` before importing server seed helpers or constructing a service-role client. That guard delegates to `assertStagingScriptSafety`, requiring exact staging project-ref validation, `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and `CONFIRM_STAGING_RESTAURANT_SEED=true`. The first-auth-user owner fallback was removed; `OWNER_USER_ID` or `OWNER_EMAIL` is mandatory.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

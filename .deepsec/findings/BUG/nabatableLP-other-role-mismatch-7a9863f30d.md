@@ -16,10 +16,12 @@ The client enables table deletion for isRestaurantAdminRole(activeMembership.rol
 
 Use the shared RESTAURANT_ADMIN_ROLES/isRestaurantAdminRole logic in the DELETE handler, or change the client gate if managers should not delete tables.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The client computes canDeleteTables with isRestaurantAdminRole(activeMembership.role), which includes owner and manager. I traced DELETE /api/ops/tables/[id] and the current handler also uses isRestaurantAdminRole(membership.role), rather than the older owner/admin string check described in the finding. The role helper in lib/owner/auth/roles.ts defines RESTAURANT_ADMIN_ROLES as owner and manager, and there is no admin restaurant role. Therefore managers who pass the client gate now also pass the backend role gate, assuming they are members of the table's restaurant. The delete route still returns 403 for host/server roles and 409 for future assignments, but not for managers solely because of a role-name mismatch. Git blame shows the delete role check was corrected in commit 020a7389.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

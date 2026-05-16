@@ -18,9 +18,4 @@ Normalize stripped paths so they always have exactly one leading slash and rejec
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-20)
-
-**Verdict:** fixed
-
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

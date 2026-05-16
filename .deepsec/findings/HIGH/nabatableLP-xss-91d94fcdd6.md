@@ -16,10 +16,12 @@ The public restaurant detail response returns the stored `googleMapUrl` unchange
 
 Validate and normalize public URLs at write time and before rendering/returning them. Restrict map/review/logo URLs to `https:` and, for map links, expected Google Maps hosts or generate the maps search URL from address data. Reject or null out `javascript:`, `data:`, and other non-http(s) schemes in ops schemas, Google import paths, and public DTO construction. Add regression tests proving `javascript:alert(1)` is rejected.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The target route still returns googleMapUrl from the RestaurantDetail object, but that object is now sanitized before it reaches the route. server/restaurants/getRestaurantBySlug.ts maps restaurant.google_map_url through safeGoogleMapsUrl, which requires https and an allowed Google Maps/Google host and rejects javascript:, data:, and other forbidden schemes. The ops create/update schemas and server-side create/update/details helpers also use safeGoogleMapsUrl for googleMapUrl writes, and the public page's getMapsHref re-sanitizes the stored value before rendering a link. Legacy malicious database values are therefore converted to null or a generated Google Maps search fallback at read/render time. The current behavior no longer exposes an anchor with href="javascript:...", and it does not depend on CSP to be safe.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)

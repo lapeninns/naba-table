@@ -16,12 +16,6 @@ quoteTablesForBooking derives holdExpiresAt from requestedWindowEndDate and then
 
 Base quote hold expiry on DateTime.now().plus({ seconds: holdTtlSeconds }) for temporary holds, and ensure callers that only need suggestions either use a side-effect-free quote path or release the hold when they do not confirm it.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`quoteTablesForBooking` now computes temporary quote hold expiry from `DateTime.now().toUTC().plus({ seconds: clampQuoteHoldTtlSeconds(...) })` instead of the requested reservation window end. `createTableHold` also no longer normalizes temporary holds forward to `endAt`, so future bookings keep the short quote TTL rather than blocking tables until the service window. Focused evidence: `pnpm exec vitest run tests/server/capacity/table-assignment-guards.test.ts tests/server/capacity/direct-assignment-atomic.test.ts` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-16)

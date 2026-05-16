@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,15 +18,5 @@ Create the parent directory with fs.mkdirSync(path.dirname(outputPath), { recurs
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
-
-**Verdict:** fixed
-
-The baseline script now supports an explicit `DB_PERF_BASELINE_OUTPUT_PATH` and
-creates the parent artifact directory before saving `baseline-results.json`.
-
-Evidence:
-
-- `tests/scripts/perf-script-safety.test.ts` verifies the configurable output
-  path marker and directory creation before artifact writes.
-- `pnpm exec vitest run tests/scripts/perf-script-safety.test.ts`

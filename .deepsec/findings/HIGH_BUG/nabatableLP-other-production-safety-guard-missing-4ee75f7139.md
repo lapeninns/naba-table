@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Add an expected project-ref guard and explicit target environment confirmation b
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/run-schema-optimization.ts` now uses the shared staging guard with the expected project ref, target environment marker, and `CONFIRM_STAGING_SCHEMA_OPTIMIZATION=true` before connecting. The script no longer accepts an arbitrary `SUPABASE_DB_URL` as sufficient authority for schema-changing SQL, and phase failures now throw instead of continuing to a successful exit. Focused script-safety tests assert the guard and hard-fail helpers are present and ordered before client construction.

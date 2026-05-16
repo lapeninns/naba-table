@@ -16,10 +16,12 @@ This page renders the tables settings client for any restaurant membership. The 
 
 Require requireAdminMembership or requireMembershipForRestaurant with owner/manager roles on all table and zone mutation handlers, and hide or disable mutation controls when permissions.canManageSettings is false.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current route handlers no longer stop at membership existence. Table create checks the user's membership role for the submitted restaurant id and requires `isRestaurantAdminRole`; table update/delete derive the restaurant from the existing table and apply the same owner/manager check. Zone create/update/delete likewise load the relevant restaurant membership and reject non-admin roles. These checks run server-side, so UI visibility does not grant write capability. The mutation handlers are also CSRF-protected. As a result, a host/server can no longer change capacity, table status, zones, or seating configuration through these APIs.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

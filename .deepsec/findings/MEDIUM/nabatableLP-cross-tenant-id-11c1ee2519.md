@@ -16,12 +16,6 @@ getEmailDeliveryLogEntryById loads any email_delivery_log row by id using the se
 
 Require an authorized restaurant scope before loading the delivery log entry. Accept restaurantId in the retry request or derive it from the selected tenant, verify membership first, and query the log with both id and restaurant_id. Return a generic 404/403 for missing or unauthorized rows before exposing retryability state.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`retryEmailDeliveryLogEntry` now accepts authorized restaurant ids and `getEmailDeliveryLogEntryById` scopes the service-role lookup with `restaurant_id in (...)`. The retry route derives that scope from the authenticated user's memberships before calling the helper. Covered by `tests/server/email-delivery-retry-route.test.ts` and `tests/server/email-delivery-log-retry-scope.test.ts`.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-20)

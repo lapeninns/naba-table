@@ -16,12 +16,6 @@ getTodayBookingsSummary selects and returns guest-controlled booking fields such
 
 Neutralize CSV formula prefixes in the shared CSV generator or at every export sink by prefixing formula-like cells with a single quote and preserving normal CSV quoting. Apply this to all user-controlled string fields before returning the CSV response.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`server/ops/bookings.ts` can continue returning domain values because `src/app/api/ops/bookings/export/route.ts` writes them through `generateCSV`, whose shared `escapeCSVField` neutralizes formula-leading cells. Covered by `tests/lib/csv-export.test.ts`.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-11)

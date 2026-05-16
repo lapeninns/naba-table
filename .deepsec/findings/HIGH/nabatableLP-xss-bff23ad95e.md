@@ -16,10 +16,12 @@ The preview pane renders server-provided email HTML directly with iframe srcDoc 
 
 Make the preview iframe inert by default, for example `sandbox=""` with no `allow-scripts` or `allow-same-origin`, and also fix the email renderer to safely serialize JSON-LD by escaping `<` such as `JSON.stringify(schema).replace(/</g, '\\u003c')`.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current target file no longer matches the vulnerable code described in the finding. EmailTemplatesPreviewPane renders preview.html through the shared Iframe, but it now passes sandbox="" and referrerPolicy="no-referrer" alongside srcDoc. The shared components/ui/iframe.tsx wrapper simply forwards iframe props, so the empty sandbox attribute reaches the browser and disables scripts without allow-scripts or allow-same-origin. I also traced the server renderer: server/emails/base.ts now imports safeJsonForHtmlScript and uses it for the JSON-LD script body, and lib/security/script-json.ts escapes <, >, &, U+2028, and U+2029. That means a ctaLabel like </script><script>...</script> is serialized as \u003c/script\u003e... and cannot break out of the JSON-LD script. The preview API still accepts draft variants, but the current iframe sandbox alone blocks script execution even if malicious HTML reached srcDoc. Git blame shows both the iframe sandbox and safe JSON serializer were added in 020a7389, and existing regression tests assert both defenses.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)

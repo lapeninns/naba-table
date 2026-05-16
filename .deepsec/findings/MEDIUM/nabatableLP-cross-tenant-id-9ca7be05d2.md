@@ -16,13 +16,7 @@ The handler passes the user-controlled booking id into loadLifecycleRouteContext
 
 Load bookings through an RLS-enforced tenant/session client, or collapse unauthorized and missing bookings to the same response. If service-role lookup is unavoidable, perform an atomic membership-scoped lookup/RPC and avoid returning booking-specific errors before authorization.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`loadLifecycleRouteContext` now returns `Booking not found` for bookings that exist but fail per-restaurant membership authorization, matching the missing-booking response before lifecycle checks proceed. Covered by `tests/server/ops-booking-lifecycle-context-security.test.ts`.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)

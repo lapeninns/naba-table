@@ -16,12 +16,6 @@ assignTablesDirectly checks existing bookings and conflicts before inserting ass
 
 Move direct assignment into a single database transaction/RPC that locks the booking/table resources and enforces non-overlap at write time. Prefer the existing allocator/hold conflict path or add a database exclusion/constraint-backed write and handle overlap errors as conflicts.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`assignTablesDirectly` no longer performs conflict validation and assignment insertion as separate owner operations. The helper now delegates the commit to `assignTableToBooking`, reusing the allocator v2 atomic repository/RPC path that treats overlap/conflict errors as assignment conflicts, and only reloads rows after the atomic commit returns. Focused evidence: `tests/server/capacity/direct-assignment-atomic.test.ts` covers the helper delegation; the focused table/assignment Vitest set, targeted ESLint, targeted Prettier check, and `pnpm run typecheck` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)

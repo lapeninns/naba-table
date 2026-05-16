@@ -16,12 +16,6 @@ The batch export port performs real Google writes via syncRestaurantProfileWithG
 
 Move batch execution until after per-field drift validation and operation row creation, or pre-filter the batch to decisions that have passed the exact same pin checks before any remote call. Add regression coverage where a multi-field profile export has a stale pinned hash and assert that neither Google patch helper is invoked.
 
-## Revalidation
-
-**Verdict:** fixed
-
-Profile batch exports now run only through `runBatchExportPorts` after `runPublish` has drift-checked the exact field pins and opened operation rows for the accepted write decisions. Stale profile export decisions are excluded before the batch port can call Google. Focused evidence: the orchestrator regression suite asserts stale multi-field export decisions do not call the batch or per-field export ports, while valid same-section exports go through the batch port only after operation rows exist.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

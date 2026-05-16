@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,10 +18,5 @@ Check shouldRedact(key, redactKeys) before special-casing Error, arrays, or obje
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-21)
-
-**Verdict:** fixed
-
-`lib/logger.ts` now checks sensitive keys before recursively processing errors, objects, and arrays, so nested values under token/password/session/secret-style keys are redacted before serialization. The logger redaction test covers nested objects, arrays, and `Error` instances under sensitive keys.
-
-Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

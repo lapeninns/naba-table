@@ -18,20 +18,5 @@ Either implement the `/account/invite/[token]` route or update the redirect dest
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
-
-**Verdict:** fixed
-
-`next.config.js` no longer redirects `/invite/:token` to missing
-`/account/invite/:token`. Invite links now resolve directly to the shipped
-`/invite/[token]` App Router page.
-
-Evidence:
-
-- `tests/config/link-config.test.ts` verifies there is no `/invite/:token`
-  redirect.
-- `tests/guest/invite-page.test.tsx` verifies `/invite/[token]` page wiring.
-- Playwright loaded `http://127.0.0.1:3000/invite/invalid-token-123`; the route
-  returned the expected invalid-token 404 state with title
-  `Team invitation · Nab a Table`.

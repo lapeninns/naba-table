@@ -16,10 +16,12 @@ The preview endpoint accepts draft variants, renders them to HTML, and returns p
 
 Use a safe JSON serializer for inline scripts, for example JSON.stringify(schema).replace(/</g, '\u003c'), and sandbox the preview iframe without allow-scripts. Consider rejecting HTML/script delimiter characters in editable template fields as defense in depth.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-04)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The preview endpoint still accepts draft variants, but those variants are parsed with previewRestaurantEmailTemplateSchema, which reuses updateRestaurantEmailTemplateSchema.shape.variants. The current variant schema wraps ctaLabel, headline, subject, and intro in plainTextSchema, which rejects script delimiters like </script> and unsafe control characters. More importantly, the renderer no longer embeds raw JSON.stringify output in the JSON-LD block: server/emails/base.ts now calls safeJsonForHtmlScript, escaping <, >, &, U+2028, and U+2029 before inserting JSON into the script tag. That means even a legacy stored ctaLabel containing </script><script> would serialize as \u003c/script\u003e and cannot terminate the JSON-LD script element. The ops UI also renders preview.html in the shared Iframe component with sandbox="" and no allow-scripts or allow-same-origin, so injected scripts would not execute in the app origin. The route requires restaurant read membership and applies a tenant-scoped preview rate limit, though those are secondary to the XSS fix. Commit 020a7389 added safeJsonForHtmlScript, script-delimiter validation, and the sandboxed iframe, so this preview XSS is patched.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

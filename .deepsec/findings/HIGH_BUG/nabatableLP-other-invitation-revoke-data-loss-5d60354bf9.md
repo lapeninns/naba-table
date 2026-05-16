@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,12 +16,7 @@ The route reads the invitation to check the restaurant, verifies admin membershi
 
 Replace the raw delete with revokeRestaurantInvite({ inviteId, restaurantId: invite.restaurant_id, authClient: supabase }), return the serialized invite, and ensure the update predicate includes id, restaurant_id, and status='pending'.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The route now uses `revokeRestaurantInvite({ inviteId, restaurantId: invite.restaurant_id, authClient: supabase })` and returns `{ invite: serializeInvite(revokedInvite) }`. The shared helper performs a status update with `id`, `restaurant_id`, and `status='pending'` predicates and never hard-deletes invitation rows. Focused evidence: `pnpm exec vitest run tests/server/team-invitations-security.test.ts tests/services/ops-team-service.test.ts tests/components/TeamSettingsComponents.test.tsx`, targeted ESLint, Prettier, and `pnpm run typecheck` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)

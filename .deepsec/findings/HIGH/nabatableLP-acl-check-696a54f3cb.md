@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,11 +16,13 @@ The handler only checks that a Supabase user exists, then trusts the URL `id` as
 
 Before using the service-role client, validate `restaurantId` and require membership or admin membership for that exact restaurant. Prefer the cookie-bound/RLS client where possible, and verify any supplied `zoneId` belongs to the same restaurant.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The cross-tenant table creation scenario is blocked in the current code by a route-level restaurant authorization guard. The handler validates and authorizes the URL restaurantId with withRestaurantAuthorization before using getServiceSupabaseClient or insertTable. withRestaurantAuthorization requires the authenticated user's membership in that same restaurant and restricts the role to owner or manager, so an arbitrary logged-in user cannot target another tenant. The route also verifies supplied zoneId values against zones.restaurant_id for the same restaurant and rejects mismatches with 400. Service-role insertTable still bypasses RLS once called, but it only receives payloads after the guard and zone checks succeed. Commit 020a7389 introduced this fix, including the replacement of validateCsrfToken/getUser with withRestaurantAuthorization. The focused Vitest run passed the onboarding route containment and zone ownership regression tests.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

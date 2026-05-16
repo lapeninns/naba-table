@@ -16,12 +16,6 @@ This route calls runAutoExportForRestaurant(), which converts open outbound cand
 
 Move all per-field drift validation before any batch export port is called. Build the batch input only from decisions that already passed the pinned hash checks, and avoid external writes before operation rows exist.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The shared `runPublish` path used by auto-export now filters batch exports through the prepared decision list. A decision enters that list only after field lookup, required-pin validation, exact `beforeCoreHash`/`beforeGbpHash` comparison, policy checks, and publish operation-row creation. `runBatchExportPorts` only receives those prepared export decisions, so stale candidates are rejected before any Google batch port call. Focused orchestrator tests cover stale pins preventing batch export calls and operation creation ordering.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

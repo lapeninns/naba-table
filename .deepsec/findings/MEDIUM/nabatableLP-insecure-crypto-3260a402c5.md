@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,10 +18,5 @@ Use certificate-verifying TLS for Postgres connections and supply the Supabase C
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/run-schema-optimization.ts` now builds its Postgres client with the shared `getPgSslConfig()` helper rather than an inline `ssl: { rejectUnauthorized: false }` option. The script safety test asserts this TLS bypass stays out of the script.
-
-Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

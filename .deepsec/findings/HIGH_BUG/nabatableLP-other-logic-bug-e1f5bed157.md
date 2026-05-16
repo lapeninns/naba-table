@@ -16,14 +16,6 @@ The planner sorts candidates by capacity descending, but when a candidate would 
 
 Replace the over-capacity break with continue for descending order, or change the iteration order so the pruning invariant is valid. Track each seed's index in sortedCandidates before calling dfs, and add regression tests where a larger candidate overflows but a later smaller candidate completes the party.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The combination planner now skips an over-capacity partner with `continue` instead of ending the loop, so smaller later candidates can still complete a valid merge. The heuristic seed loop also resolves each seed's actual index in the capacity-sorted candidate list before starting DFS, so seed ordering no longer reuses the heuristic loop index as if it were a sorted-candidate index.
-
-Evidence: `pnpm exec vitest run tests/server/capacity/selector-merge-policy.test.ts` passed on 2026-05-16. The regression coverage verifies a large candidate that overflows does not prevent a smaller adjacent table from completing a valid merged plan.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-16)

@@ -16,10 +16,12 @@ validateRestaurantDetails treats new URL(...) as sufficient validation for googl
 
 Replace syntax-only URL checks with a shared safeGoogleUrl parser that requires https and approved Google Maps/review hostnames. Apply the same parser in the client model and API schemas, and normalize or reject unsafe stored values before use.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current validateRestaurantDetails implementation rejects both unsafe schemes and direct non-Google destinations for googleMapUrl and googleReviewUrl. safeGoogleMapsUrl requires https plus an allowed Google/maps host, and safeGoogleReviewUrl additionally requires a review-looking path or g.page host. This means values such as javascript:alert(1), data:text/html,..., file://..., or https://phishing.example fail client validation. The same safe URL parser is reused in the ops restaurant API schemas, so a crafted PATCH/PUT request cannot persist those values by bypassing the React form. The restaurant service/update/read paths normalize these fields with the same helpers, and guest/public rendering uses safeGoogleMapsUrl or safePublicHref fallback behavior. The original parseability-only validation described by the finding has been replaced.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

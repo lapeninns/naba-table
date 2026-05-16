@@ -18,8 +18,4 @@ When nextState is in_sync, pass lastInSyncHash: coreHash (or gbpHash, they are e
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-`recomputeAllStates` now passes `lastInSyncHash` and `lastInSyncAt` whenever the computed next state is `in_sync`, using the current core/GBP hash as the baseline. `tests/server/dual-sync-recompute.test.ts` asserts that a fresh in-sync observation persists the last-known-good hash so later one-sided changes classify as dirty rather than drifted.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

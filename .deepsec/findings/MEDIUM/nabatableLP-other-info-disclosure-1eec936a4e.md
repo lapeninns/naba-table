@@ -16,11 +16,13 @@ The POST catch block returns error.message directly to the client. The createRes
 
 Log detailed errors server-side, but return a generic client message. Map expected cases such as duplicate slug or invalid input to controlled 4xx responses without exposing raw database messages.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The catch block still computes const message = error instanceof Error ? error.message : 'Unable to create restaurant' and returns that message to the caller. createRestaurant wraps Supabase insert failures as Failed to create restaurant: ${restaurantError.message} and membership failures as Failed to create restaurant membership: ${membershipError.message}. Those messages can include database/provider details such as constraint names, type errors, or schema information. The route also calls upsertRestaurantBusinessDescription after creation, and unexpected thrown Error messages would be exposed in the same way. Expected validation failures are handled separately as controlled 400 responses, but write-path failures are not mapped to safe client messages. This remains a valid information-disclosure issue for authenticated callers.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
-
-**Verdict:** fixed
-
-`src/app/api/ops/restaurants/route.ts` now logs a sanitized server-side failure summary and returns the stable client message `Unable to create restaurant` for unexpected creation failures. Covered by `tests/server/ops-restaurants-route-security.test.ts`.

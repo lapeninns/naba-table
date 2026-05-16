@@ -16,10 +16,12 @@ The PATCH handler takes restaurantId directly from the URL, verifies only that a
 
 Before calling updateServicePeriods, require admin membership for user.id and restaurantId, return 403 on MembershipAccessError, and prefer a tenant-scoped or RLS-aligned client after authorization.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current code does not trust the URL restaurant id after checking only that a user exists. It passes the id into withRestaurantAuthorization with owner/manager roles and CSRF protection before validating or applying the payload. The guard ultimately queries restaurant_memberships with both user_id and restaurant_id, so a valid session for another tenant is insufficient. Unauthorized users receive the guard response, and the route returns before getServiceSupabaseClient or updateServicePeriods is reached. The service-period replacement helper remains service-role backed, but it is now invoked only after tenant admin authorization succeeds. Commit 020a7389 is the relevant fix, replacing validateCsrfToken plus getUser with the shared restaurant authorization guard. The focused regression tests passed for this containment behavior.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

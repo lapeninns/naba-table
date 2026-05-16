@@ -18,10 +18,4 @@ Pin third-party and GitHub actions to full commit SHAs and add explicit least-pr
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
-
-**Verdict:** fixed
-
-The shadcn primitives workflow now pins `actions/checkout` and `actions/setup-node` to full commit SHAs, declares `contents: read`, and disables checkout credential persistence.
-
-**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

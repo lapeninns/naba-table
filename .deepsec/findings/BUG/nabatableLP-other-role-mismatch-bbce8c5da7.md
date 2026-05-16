@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ The delete role check allows owner or admin, but the project role constants are 
 
 Use the shared RESTAURANT_ADMIN_ROLES/isRestaurantAdminRole logic if managers should delete tables, or align the UI and response text if deletion is intentionally owner-only.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+This is the duplicate manager-role finding, and it is fixed in the current code. The backend deletion guard now calls isRestaurantAdminRole rather than checking for owner or a nonexistent admin role. That helper treats owner and manager as admin roles. A manager with a valid restaurant membership can pass the role check and proceed to the assignment-safety check. The previous UI/backend mismatch is no longer present in this handler.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)

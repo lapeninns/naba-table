@@ -16,10 +16,12 @@ The service can update restaurant profile fields and later fetches email preview
 
 Use a safe JSON serializer for inline scripts that escapes `<`, `>`, `&`, and line separators, and sandbox the email preview iframe without script execution unless scripts are strictly required.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The service can still update restaurant profile data and fetch preview HTML, so I traced the venue mapping, email renderer, and preview iframe. The vulnerable inline JSON-LD sink has been fixed: server/emails/base.ts imports safeJsonForHtmlScript and renderAnnotationScript embeds the escaped serialization instead of raw JSON.stringify(schema). That serializer replaces <, >, &, U+2028, and U+2029, so a restaurant name or address containing </script><script> no longer terminates the script element. Visible email fields such as venue name and address are also passed through escapeHtml in the email template. The preview pane renders srcDoc through an iframe with sandbox="", so scripts would be disabled even if markup reached the frame. Restaurant Google map/review URLs are also normalized with safeGoogleMapsUrl/safeGoogleReviewUrl before being used in email CTA decisions. These fixes are present in commit 020a7389. A stored restaurant field payload cannot execute script through the current ops preview path.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

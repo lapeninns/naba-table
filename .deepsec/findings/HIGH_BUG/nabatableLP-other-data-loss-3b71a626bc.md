@@ -16,12 +16,6 @@ The command center renders the unified availability manager, whose save path cal
 
 Move each replace operation into a single database transaction/RPC that validates, deletes, inserts, and rolls back atomically on failure. Consider an advisory lock per restaurant during availability saves.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The availability manager still saves through the operating-hours, service-period, and turn-band APIs, but those server writers no longer use application-level delete-then-insert replacement. `updateOperatingHours`, `updateServicePeriods`, and `replaceRestaurantTurnBands` each normalize and validate their payloads, then call service-role-only replacement RPCs that run the replacement inside a database transaction with per-restaurant locking. Focused evidence: `pnpm exec vitest run tests/server/restaurant-schedule-replacements.test.ts tests/server/restaurants/details.test.ts` passed on 2026-05-16, and `tests/server/restaurants/atomic-replacements.test.ts` verifies the business/schedule replacement helpers use RPCs rather than direct delete/insert chains.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

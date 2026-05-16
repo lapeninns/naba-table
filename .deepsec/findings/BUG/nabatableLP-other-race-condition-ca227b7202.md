@@ -16,12 +16,6 @@ decideFoodMenusImportReview reads a review, checks that it is pending, performs 
 
 Atomically claim the review before applying side effects, for example by updating it from pending to processing with a WHERE decision_status='pending' guard, then perform the mutation and final status update in a transaction/RPC.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`decideFoodMenusImportReview` now validates the action and calls `claimFoodMenusImportReviewDecision` before the first menu/settings side effect. The claim transitions `decision_status` from `pending` to `processing` with restaurant/review/status predicates, and final marking now requires `decision_status = 'processing'`. Focused evidence: `tests/server/google-business-profile-food-menus-sync.test.ts` passed on 2026-05-16 and verifies side effects do not run when the pending claim is lost.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

@@ -19,9 +19,3 @@ Remove the token from logs, or log only a one-way hash/truncated correlation ide
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-The two reported soft-hold release warning payloads now log booking/hold/error context only and no longer include `effectiveSessionToken`, `softHoldResult.sessionToken`, or a `sessionToken` field. The source safety test locks the two warning blocks against token fields.
-
-Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

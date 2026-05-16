@@ -16,13 +16,7 @@ The route delegates the user-controlled booking id to loadLifecycleRouteContext,
 
 Use a membership-scoped/RLS-enforced booking lookup, or return the same response for missing and unauthorized bookings after service-role lookup.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`loadLifecycleRouteContext` now returns `Booking not found` for bookings that exist but fail per-restaurant membership authorization, matching the missing-booking response before lifecycle checks proceed. Covered by `tests/server/ops-booking-lifecycle-context-security.test.ts`.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)

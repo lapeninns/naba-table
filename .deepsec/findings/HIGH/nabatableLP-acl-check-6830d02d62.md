@@ -16,10 +16,12 @@ The editor supports creating, updating, toggling, and deleting booking occasions
 
 Add route-handler authorization to the occasions APIs, ideally a platform-admin or explicit owner/manager policy for a scoped restaurant model. Do not rely on Next proxy auth, and prevent unsafe builtin updates server-side.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The editor still exposes create, update, toggle, and delete UI states, but it does not directly call the API. Tracing its parent save flow reaches the occasion service and then the /api/ops/occasions route family. The current POST handler in src/app/api/ops/occasions/route.ts requires withPlatformAdminAuthorization with CSRF before inserting or upserting booking_occasions. The current PATCH and DELETE handlers in src/app/api/ops/occasions/[key]/route.ts apply the same platform-admin authorization before updating, soft-deleting, or auditing rows. DELETE also blocks builtin occasion deletion and checks references before soft-delete. This removes the exploit scenario where any ops member could rename, disable, or delete global lunch/dinner metadata.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)

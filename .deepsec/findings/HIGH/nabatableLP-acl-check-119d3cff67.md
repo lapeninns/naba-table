@@ -16,10 +16,12 @@ PATCH takes restaurantId directly from the URL params, verifies only CSRF and th
 
 After getUser succeeds, require admin membership for restaurantId before any service-role write. Prefer the existing ops route pattern using requireAdminMembership, validate restaurantId as a UUID, and only use a service or tenant-scoped client after the membership check passes.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current service-periods PATCH handler calls withRestaurantAuthorization with csrf: true and RESTAURANT_ADMIN_ROLES immediately after reading the route id. That guard validates the id format, enforces CSRF for PATCH, resolves the authenticated user, and verifies owner or manager membership for the exact restaurant id. If the user is merely authenticated but does not have the required membership, requireMembershipForRestaurant maps that condition to a 403 response. The service-role client and updateServicePeriods call happen only after the guard returns ok: true. updateServicePeriods still deletes and reinserts rows by restaurant_id, so the original bug would have been high impact, but the current authorization gate prevents the cross-tenant path. Commit 020a7389 added this guard and removed the prior direct session-only check. The focused tenant authorization test suite passed, including the assertion that onboarding routes do not build service clients when authorization fails.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

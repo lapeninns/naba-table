@@ -19,11 +19,3 @@ Make active-hold overlap prevention fail closed and independent of a runtime fea
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-03)
-
-## Remediation
-
-**Verdict:** fixed
-
-Strict hold conflict enforcement is now always enabled for hold operations, RPC setup/verification failures throw before writes, and conflict-window query failures no longer fall back to legacy read-before-write checks.
-
-**Verification:** `pnpm exec vitest run tests/server/capacity/table-assignment-guards.test.ts tests/server/deepsec-final-controls-source.test.ts`

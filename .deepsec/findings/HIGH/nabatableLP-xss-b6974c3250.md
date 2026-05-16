@@ -16,10 +16,12 @@ googleMapUrl and googleReviewUrl are validated only with z.string().url(), which
 
 Replace generic .url() validation with a URL parser refinement that permits only https: and, for map/review fields, preferably an allowlist of expected Google hosts. Apply the same restriction across create, update, and details schemas before storing or rendering links.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+googleMapUrl and googleReviewUrl in both createRestaurantSchema and updateRestaurantSchema now use googleUrlSchema with safeGoogleMapsUrl or safeGoogleReviewUrl, not z.string().url(). The safe URL helpers reject javascript:, data:, vbscript:, file:, and blob: schemes, require https:, and constrain the host to Google/Maps-style hosts. createRestaurant, updateRestaurant, details reads, restaurant listing, public restaurant detail lookup, and email venue mapping also sanitize these values before storage or rendering. The public Open map link calls safeGoogleMapsUrl again and falls back to a safe Google Maps search URL. This removes the stored javascript: href exploit described in the finding. The safe-url regression tests explicitly cover rejection of javascript: and data: inputs.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

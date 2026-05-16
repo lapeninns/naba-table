@@ -16,12 +16,6 @@ runPublish invokes runBatchExportPorts before the per-decision loop computes bef
 
 Validate every decision, compute current field hashes, enforce pins, and create pending/running operation rows before invoking any batch export port. Pass only validated decisions into the batch path, and record failures through operation rows instead of precomputing side effects.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`runPublish` now performs decision validation and exact pin comparison before preparing any write, creates the pending operation rows for accepted write decisions, and only then calls `runBatchExportPorts` with the prepared export subset. Stale pins are returned as `CORE_DRIFT` or `GBP_DRIFT` without operation rows or provider port calls. Focused evidence: `tests/server/dual-sync-publish-orchestrator.test.ts` verifies stale batched exports do not call `applyExportBatchToGoogle` or `applyExportToGoogle`, and valid batched exports create operation rows before the batch port invocation.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

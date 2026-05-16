@@ -16,12 +16,6 @@ mapAssignTablesErrorToHttp returns AssignTablesRpcError.message, details, and hi
 
 Do not return internal details or hints from AssignTablesRpcError to clients. Use generic client-safe messages for HOLD_RESTAURANT_MISMATCH and server/RPC errors, log full details server-side only, and validate the submitted booking belongs to the same restaurant with a user/RLS-bound lookup before any service-role read.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`mapAssignTablesErrorToHttp` now returns a stable client-safe assignment message with no details or hints. `src/app/api/staff/auto/confirm/route.ts` also validates the submitted booking against the hold restaurant with the session-bound client before service-role confirmation. Covered by `tests/server/staff-auto-confirm-route-security.test.ts`.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-14)

@@ -16,11 +16,13 @@ createRestaurant inserts the restaurant, then inserts the owner membership in a 
 
 Create the restaurant and owner membership inside one database transaction/RPC, or at minimum check and surface compensation-delete failures so orphaned restaurants can be detected and repaired.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The implementation still performs restaurant creation and membership creation as two independent writes. The restaurant insert is committed before the membership insert is attempted. On membershipError, the code runs a best-effort delete of the restaurant and immediately throws without checking whether cleanup succeeded. There is no surrounding transaction, RPC, or deferred activation step in the current create flow. If the second write or cleanup fails, an active restaurant row can remain without the corresponding owner membership. This is a real integrity bug, though its practical trigger is failure handling rather than a request parameter an attacker can directly manipulate.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-The two-write restaurant creation path has been replaced with `create_restaurant_with_owner`, a transactional database function that inserts the restaurant and owner membership in one call. `createRestaurant` now calls that RPC after validation and slug resolution, and no longer performs best-effort compensation after a committed restaurant insert. Focused evidence: `tests/server/restaurants/create.test.ts` passed on 2026-05-16.

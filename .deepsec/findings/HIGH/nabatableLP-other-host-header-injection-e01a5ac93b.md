@@ -16,10 +16,12 @@ parseHostname trusts x-forwarded-host, x-original-host, Origin, and Referer befo
 
 Do not use Origin or Referer for trusted host decisions, and only honor forwarded host headers after trusted proxy normalization. Prefer a fixed canonical callback origin or req.nextUrl/Host validated against exact allowed hosts: rootDomain, www.rootDomain, and app.rootDomain with a label boundary. Also harden the auth callback builder so attacker-owned domains that merely end with the brand string are rejected.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+parseHostname still trusts x-forwarded-host, x-original-host, Origin, and Referer before Host or req.nextUrl and returns the first parsed hostname without checking it against the configured root/app host allowlist. The signin route uses that hostname to classify the surface, choose redirects, and build emailRedirectTo for magic-link email delivery. buildCallbackUrl only rejects non-local hostnames that do not end with the literal string nabatable.com, so attacker-owned domains such as evil-nabatable.com or evilnabatable.com pass the suffix check. sendAuthMagicLink then obtains a Supabase hashed token and constructs its own email button URL from emailRedirectTo and token_hash, so the poisoned host becomes the actual link sent to the victim. A direct attacker can satisfy this route's CSRF check with their own matching sr-csrf-token cookie and x-csrf-token header, request a magic link for a known registered victim email, and spoof a host-derived header to place the attacker domain in the email. If the victim clicks the legitimate email, the token_hash is delivered to the attacker-controlled host and can be redeemed against the real /api/auth/callback for a session. The proxy uses Host for routing but does not strip or canonicalize these trusted-by-route headers, and the callback route's trusted-origin logic cannot protect a link that first goes to the attacker domain. Rate limiting, profile lookup, and possible Turnstile enforcement add friction but do not fix the underlying host trust bug.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-29)
-
-**Verdict:** fixed
-
-The host trust chain was hardened at both the route and email-helper boundaries. `parseHostname` no longer reads spoofable forwarded/origin/referer headers for auth host selection, and `/api/auth/signin` now canonicalizes the parsed host through an exact configured root/www/app allowlist before building `emailRedirectTo`. The callback builder no longer accepts literal suffix matches, and `sendAuthMagicLink` rejects untrusted callback origins before token generation. The focused regression command `pnpm exec vitest run tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/auth/callback-route-security.test.ts tests/server/auth/magic-link-email.test.ts` passed with 17 tests, including the forged forwarded/origin header path and direct attacker-domain path.

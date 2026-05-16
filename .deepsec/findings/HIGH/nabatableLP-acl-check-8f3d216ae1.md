@@ -16,10 +16,12 @@ createZone, updateZone, and deleteZone perform sensitive seating-configuration w
 
 Replace the raw membership checks in the zone API callers with requireAdminMembership, or explicitly reject roles outside owner/manager before invoking these helpers. Also include restaurant_id in update/delete predicates where possible.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-24)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current ops zone routes now enforce admin roles before mutation. src/app/api/ops/zones/route.ts checks membership for the requested restaurant and then rejects the request unless isRestaurantAdminRole returns true before calling createZone. src/app/api/ops/zones/[id]/route.ts first loads the zone, checks membership for zone.restaurant_id, and rejects non-admin roles before updateZone or deleteZone. Hosts and servers can still be members, but they now receive 403 for create, patch, and delete. The 20260505141000 migration also adds restrictive owner/manager RLS policies for zone mutations as defense in depth. The described raw membership-only mutation path is no longer present in current code.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-24)

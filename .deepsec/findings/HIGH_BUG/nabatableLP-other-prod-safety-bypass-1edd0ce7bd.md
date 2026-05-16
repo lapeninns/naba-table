@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Validate the actual connection target before connecting or writing. Parse/verify
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/staging/seed-perf-dataset.ts` now validates both the linked Supabase project ref and actual DB connection ref before any apply-mode connection. Apply mode requires the expected staging ref, `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and `CONFIRM_STAGING_PERF_SEED=true`; dry-run still returns before database mutation. Focused script-safety tests assert the guard order and connection-ref validation.

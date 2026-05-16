@@ -19,7 +19,3 @@ Remove this stale script or route it through the safer SQL runner pattern with a
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-28)
-
-**Verdict:** fixed
-
-`scripts/execute-sql.ts` now routes the fixed SQL executor through `assertStagingScriptSafety` before any pg connection. The guard requires an exact staging project ref from `EXPECTED_PROJECT_REF`, `EXPECTED_STAGING_PROJECT_REF`, or the default staging ref, requires `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and requires `CONFIRM_SQL_EXECUTION=true`. Focused script-safety tests assert the staging guard and confirmation run before `await client.connect()`.

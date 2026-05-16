@@ -18,11 +18,5 @@ Use an inner embedded join for the filtered relation, for example booking_table_
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-23)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-06)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
-
-**Verdict:** fixed
-
-`src/app/api/ops/bookings/route.ts` now selects `booking_table_assignments!inner(...)` when `tableId` is present, so the embedded assignment filter constrains parent booking rows. Unfiltered list requests keep the regular embedded relation.
-
-Evidence: `pnpm exec vitest run tests/server/ops-bookings-list-route.test.ts tests/server/ops-booking-table-assignment-route.test.ts tests/services/ops-tables-service.test.ts` passed on 2026-05-16. `pnpm exec prettier --check src/app/api/ops/bookings/route.ts 'src/app/api/ops/bookings/[id]/tables/route.ts' src/services/ops/tables.ts tests/server/ops-booking-table-assignment-route.test.ts tests/server/ops-bookings-list-route.test.ts tests/services/ops-tables-service.test.ts` also passed.

@@ -20,16 +20,3 @@ Use the real App Router type for searchParams values, normalize each parameter t
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
-
-**Verdict:** fixed
-
-`src/app/app/(app)/bookings/page.tsx` now uses the real App Router search param
-shape and normalizes duplicated values before calling `.trim()`, `.split()`,
-date, time, table, and window parsers.
-
-Evidence:
-
-- `tests/server/ops-bookings-page-query-params.test.tsx` covers duplicated
-  bookings query params and verifies normalized props passed to the real client
-  boundary.
-- `pnpm exec vitest run tests/server/ops-bookings-page-query-params.test.tsx`

@@ -18,8 +18,4 @@ Move the supersede-and-insert sequence into one transactional database RPC, or i
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-FoodMenus pending-review replacement now goes through `replace_pending_food_menus_import_reviews`, a database RPC that supersedes existing pending rows and inserts replacement rows in one transaction. The old separate update-then-insert sequence is gone from the storage helper. Focused evidence: `tests/server/google-business-profile-food-menus-storage.test.ts` passed on 2026-05-16.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

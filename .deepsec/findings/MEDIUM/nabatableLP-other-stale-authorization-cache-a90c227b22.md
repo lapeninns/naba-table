@@ -4,10 +4,6 @@
 **Project:** nabatableLP
 **Severity:** MEDIUM • **Confidence:** medium • **Slug:** `other-stale-authorization-cache`
 
-## Owners
-
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
-
 ## Finding
 
 GET and PUT rely on ensureRestaurantAdminAccess before reading or mutating drink menu data. That helper ultimately calls requireAdminMembership, whose underlying requireMembershipForRestaurant trusts the process-local userMembershipsCache before querying the database. Because the cache is populated by the app layout for 30 seconds and no invalidation call sites were found, a recently demoted or removed owner/manager can continue to read or update drink items during the cache window.
@@ -15,13 +11,3 @@ GET and PUT rely on ensureRestaurantAdminAccess before reading or mutating drink
 ## Recommendation
 
 Ensure API permission checks perform a fresh membership lookup and do not consume the layout cache. Add an explicit uncached authorization path for route handlers or make cached membership reads display-only.
-
-## Revalidation
-
-**Verdict:** fixed
-
-`requireMembershipForRestaurant` defaults `useCache` to `false`, so `ensureRestaurantAdminAccess` and `requireAdminMembership` perform fresh membership lookups for API authorization unless a caller explicitly opts into cache. Covered by `tests/server/team-access-cache.test.ts`.
-
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

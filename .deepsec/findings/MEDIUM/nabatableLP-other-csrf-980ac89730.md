@@ -4,10 +4,6 @@
 **Project:** nabatableLP
 **Severity:** MEDIUM • **Confidence:** high • **Slug:** `other-csrf`
 
-## Owners
-
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
-
 ## Finding
 
 The PUT handler authenticates an admin and then accepts a JSON body to update menu item data through service-role-backed repository helpers. It never validates the CSRF token, so a same-site attacker/browser context that can send credentialed requests could mutate menu items as the victim admin.
@@ -15,11 +11,3 @@ The PUT handler authenticates an admin and then accepts a JSON body to update me
 ## Recommendation
 
 Call validateCsrfToken(request) before reading the JSON body and reject invalid or missing tokens with 403.
-
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
-
-**Verdict:** fixed
-
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.

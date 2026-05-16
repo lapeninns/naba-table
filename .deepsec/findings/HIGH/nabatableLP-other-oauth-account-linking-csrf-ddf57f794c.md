@@ -16,8 +16,12 @@ The public callback accepts only state and code, then completes Google authoriza
 
 Authenticate the callback with the cookie-bound Supabase user before exchanging the code. Verify the state belongs to that user, verify the user still has admin membership for the state restaurant_id, and bind the state to an httpOnly nonce/session cookie. Reject before consuming the state or exchanging the Google code when those checks fail.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The public callback reads state and code and calls completeGoogleBusinessProfileAuthorization without authenticating the current Supabase user. The OAuth state row stores requested_by_user_id when created, but consumeOAuthStateRecord and completeGoogleBusinessProfileAuthorization never compare that value to a current session. There is also no httpOnly nonce cookie binding the state to the browser that initiated the flow. A malicious restaurant admin can create a valid authorization URL for their own restaurant and send that Google URL to a victim who controls a Google Business Profile. If the victim consents, the callback exchanges the code with service-role logic and stores the victim's Google refresh token on the attacker's restaurant external profile. State randomness does not mitigate this because the attacker is using a legitimate state token they created.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
-
-**Verdict:** fixed

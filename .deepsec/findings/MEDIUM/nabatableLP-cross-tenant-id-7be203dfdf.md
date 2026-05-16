@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ After resolving the authenticated user, call requireMembershipForRestaurant({ us
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
-
-**Verdict:** fixed
-
-`src/app/api/ops/tables/route.ts` now calls `requireMembershipForRestaurant` for the requested `restaurantId` before `listTablesWithSummary` or `listTables` runs. Covered by `tests/server/ops-tables-route-security.test.ts`.

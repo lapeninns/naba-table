@@ -16,10 +16,12 @@ The route only enforces the bearer token if CRON_SECRET exists; otherwise it log
 
 Fail closed if CRON_SECRET is unset, and centralize cron authorization so all scheduled routes share the same strict behavior. Consider suppressing detailed per-tenant errors from HTTP responses.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current refresh route enters requireCronAuthAndRun before checking flags, parsing dryRun, or creating the service-role client. The shared cron auth helper fails closed with 503 if CRON_SECRETS, CRON_SECRET, and CRON_SECRET_PREVIOUS are all absent. It also rejects missing or incorrect bearer tokens with 401, then applies a rate limit and execution lock before running the callback. As a result, an unset CRON_SECRET no longer exposes runScheduledRefreshForAllTenants or dry-run tenant discovery to public callers. Git blame shows the refresh route wrapper and the fail-closed cron-auth helper came from commit 020a7389. The regression tests include the refresh route and assert that missing CRON_SECRET does not call runScheduledRefreshForAllTenants.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ The flow first updates the booking to the new pending details, then separately c
 
 Move the booking update plus assignment/idempotency cleanup into a single strict database RPC/transaction for modification flows. Treat cleanup failure as fatal and avoid silently continuing with stale assignments.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+`beginBookingModificationFlow` first calls `updateBookingRecord` and only afterward calls `clearBookingTableAssignments`. Those two operations are not wrapped in a database transaction or a single strict RPC. `clearBookingTableAssignments` catches any failure, logs a warning, and returns `0`, and the modification caller ignores that return value. The clearing helper also performs assigned-zone and idempotency cleanup as separate operations whose errors are not consistently checked after successful unassignment paths. A transient database failure, RPC failure, permission/RLS mismatch, or network interruption after the booking update can therefore leave the booking changed while old table assignments or idempotency rows remain attached. That is a real capacity-state consistency bug in the current code.
+
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)
-
-**Verdict:** fixed
-
-`beginBookingModificationFlow` now calls `updateBookingAndClearAssignmentsAtomically` for the pending modification write. The new `20260516095200_atomic_booking_modification_cleanup.sql` migration updates the booking, clears `assigned_zone_id`, deletes `booking_table_assignments`, and deletes `booking_assignment_idempotency` rows inside one PostgreSQL function call, so cleanup failure rolls back the booking update. Focused evidence: `tests/server/bookings-modification-flow.test.ts` passed on 2026-05-16 and verifies the modification flow uses the atomic helper.

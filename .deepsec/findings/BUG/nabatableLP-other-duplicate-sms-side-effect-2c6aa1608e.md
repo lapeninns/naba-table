@@ -18,10 +18,4 @@ Add a recent SMS delivery check keyed by bookingId, smsType='booking_confirmatio
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-11)
-
-**Verdict:** fixed
-
-`server/bookings/confirmation-notifications.ts` now checks `hasRecentSmsDelivery` for the booking id, `booking_confirmation` SMS type, recipient phone, and the confirmation dedupe window before sending a first-confirmation SMS. Repeat invocations skip SMS when a matching delivery already exists.
-
-Evidence: `pnpm exec vitest run tests/server/bookings/confirmation-notifications.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/bookings/confirmation-notifications.ts tests/server/bookings/confirmation-notifications.test.ts` also passed.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

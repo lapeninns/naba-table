@@ -20,9 +20,3 @@ Separate audit actor/request ids from resource ownership. Add a distinct authent
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-02)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-20)
-
-**Verdict:** fixed
-
-`ValidationContext` now separates the request/audit `actorId` from `authenticatedCustomerUserId`, and `BookingValidationService` writes `authUserId` only from `authenticatedCustomerUserId`. Public idempotency or client request ids remain in `clientRequestId` and cannot bind the booking owner.
-
-Validation: `pnpm exec vitest run tests/server/booking-validation-security.test.ts tests/server/public-bookings-route.test.ts tests/server/ops-bookings-create-route.test.ts tests/server/public-booking-delete-route.test.ts tests/server/public-booking-session-recovery-source.test.ts tests/server/resend-webhook-route.test.ts`

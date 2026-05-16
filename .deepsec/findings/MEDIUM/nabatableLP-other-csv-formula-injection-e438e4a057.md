@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,12 +16,7 @@ The export builds a CSV from booking fields that can be influenced by guests, in
 
 Centralize CSV formula mitigation in lib/export/csv.ts before quoting, for example prefix an apostrophe or otherwise neutralize fields whose trimmed value starts with '=', '+', '-', '@', tab, or carriage return. Apply it to all CSV exports.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`lib/export/csv.ts` neutralizes formula-leading values in `escapeCSVField` before quoting, and `/api/ops/bookings/export` emits CSV through `generateCSV`. Covered by `tests/lib/csv-export.test.ts`.
-
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

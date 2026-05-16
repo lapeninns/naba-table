@@ -16,12 +16,6 @@ When sync_confirmed_assignment_windows fails, the fallback path performs several
 
 Only enter fallback for known missing-RPC/schema-cache cases, inspect every Supabase write result for error, verify reloaded rows have the expected start/end/merge_group_id, and fail closed if any write did not apply. Prefer a single transactional RPC.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`synchronizeAssignments` now fails closed on unexpected `sync_confirmed_assignment_windows` RPC errors instead of falling back broadly. The fallback path is limited to missing-function/schema-cache cases, checks every Supabase write result for `error`, and verifies reloaded assignment rows match the expected start/end window and merge group before returning success. Focused evidence: `tests/server/capacity/table-assignment-guards.test.ts` covers unexpected RPC failure, fallback write failure, and stale reload detection; focused Vitest, targeted ESLint, and Prettier checks passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-17)

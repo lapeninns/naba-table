@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ createRestaurantInvite generates a bearer invite token, stores only its hash, se
 
 Do not return raw invite tokens or invite URLs from the admin create API. Deliver the token only to the invited email, and make acceptance prove control of the invited identity, such as by requiring an authenticated Supabase user whose email matches the invite or a separate email verification/OTP before setting or changing passwords.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current code closes both parts of the described attack. The invite creator no longer receives the raw token or inviteUrl from createRestaurantInvite, and the ops API response only includes serialized invite metadata without token_hash. Possession of the token alone is also no longer sufficient to set or change the invited account password. The public accept route first calls sessionClient.auth.getUser and rejects unauthenticated requests with 'Sign in as the invited email before accepting this invitation'. It then calls acceptInviteForAuthenticatedUser, which normalizes and compares user.email to invite.email and throws INVITE_EMAIL_MISMATCH on mismatch. The implementation uses the accept_restaurant_invite RPC to add membership and does not call Supabase admin password mutation APIs. The tests/server/team-invitations-security.test.ts file includes regression coverage for not exposing token/inviteUrl and for rejecting a mismatched session email. Commit 020a7389 is the patch that removed the raw return values and introduced the authenticated acceptance function.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)

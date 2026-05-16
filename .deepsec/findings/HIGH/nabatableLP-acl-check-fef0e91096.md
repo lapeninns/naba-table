@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ The ops occasions handler only verifies that a Supabase user exists, then uses t
 
 Add a backend authorization guard before any service-role access. For tenant-owned occasions, move the route under a restaurant id and call requireAdminMembership for that restaurant; for truly global occasions, require an explicit platform-admin/service authorization. Keep service-role writes behind that guard and add CSRF validation for the mutating request.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The duplicate global-occasion mutation concern is patched in the current POST path. The handler no longer only checks supabase.auth.getUser; it requires withPlatformAdminAuthorization with CSRF enabled before reading request JSON or touching booking_occasions. withPlatformAdminAuthorization rejects users who are not explicitly configured as platform admins, regardless of ordinary restaurant membership. The created_by and updated_by fields are now sourced from authorization.user.id after the guard succeeds. Because booking_occasions remains global, platform-admin authorization is the appropriate route-local control for this design. A low-privilege restaurant member can no longer create or reactivate global occasions through this handler.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-23)

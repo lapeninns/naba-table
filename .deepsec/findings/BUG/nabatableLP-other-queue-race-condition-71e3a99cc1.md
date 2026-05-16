@@ -16,12 +16,6 @@ During `flushQueue`, the code snapshots `[next, ...rest]` before awaiting `next.
 
 After a successful `perform()`, remove only the processed action from the latest queue state, for example with a functional `setPending((current) => current.filter((entry) => entry.id !== next.id))`, and update `queueRef.current` from that latest value.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`src/contexts/booking-offline-queue.tsx` no longer writes the stale `[...rest]` snapshot captured before `await next.perform()`. After a successful action, it filters the processed action id from the latest `queueRef.current`, updates the ref, and then updates React state. `tests/components/BookingOfflineQueue.test.tsx` verifies an action enqueued while a flush is in flight is not dropped and is processed after the first action resolves.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

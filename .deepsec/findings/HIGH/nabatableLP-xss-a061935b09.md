@@ -16,11 +16,13 @@ PATCH parses the request with updateRestaurantSchema and then persists googleMap
 
 Validate these fields with a shared safe URL helper that requires http: or https:, and use a stricter host allowlist for Google Maps/review URLs. Reject or neutralize any non-web URL scheme before persistence.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The PATCH handler now parses googleMapUrl and googleReviewUrl through updateRestaurantSchema fields built with googleUrlSchema and the safe Google URL helpers, not generic z.string().url(). A javascript: or data: URL fails because safeGoogleMapsUrl/safeGoogleReviewUrl require https: and expected Google hosts. The mutation is also wrapped in withCsrfProtectedMutation and requires requireAdminMembership before service-role updateRestaurant is called. updateRestaurant itself sanitizes googleMapUrl and googleReviewUrl again before writing to restaurants.google_map_url and restaurants.google_review_url, and it returns sanitized values after the update. On the public side, getRestaurantBySlug and PublicSections.getMapsHref sanitize the stored map URL before rendering the Open map anchor, falling back to a safe Google Maps search URL. This means the concrete stored-interaction XSS scenario in the finding no longer works in current code. Commit 020a7389 added lib/security/safe-url.ts and replaced the old generic URL validation/surfaces with safe Google URL handling, so this is fixed.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

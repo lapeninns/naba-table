@@ -18,9 +18,5 @@ Mirror the main booking detail recovery flow: accept `access_token`/`accessToken
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-The receipt page now mirrors the active recovery flow: modern `access_token`/`accessToken` query values are redirected through `/bookings/recover`, legacy `token` values are rejected, and the page gate accepts only authenticated sessions or a validated `sr_access` cookie before server prefetch. The dedicated guest receipt recovery-flow test covers all four branches.

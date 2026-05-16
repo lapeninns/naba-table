@@ -16,10 +16,12 @@ upsertRestaurantEmailTemplate persists admin-controlled variant fields directly 
 
 Escape JSON embedded in script tags with a safeJsonStringify implementation that encodes '<' as '\u003c' or '</' as '<\/'; also sandbox the preview iframe without allow-scripts unless script execution is required. Consider rejecting '<' in template fields as defense in depth.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The active shipped email templates page is /app/email-templates, which renders OpsEmailTemplatesClient and EmailTemplatesPreviewPane. That preview pane passes sandbox="" and referrerPolicy="no-referrer" to the iframe, so scripts in srcDoc are not allowed to execute and the frame is not same-origin. The older restaurant-settings EmailTemplatesSection contains an unsandboxed iframe, but grep showed it is not imported by a shipped page and the old settings route redirects to /app/email-templates. The server-side JSON-LD sink is also fixed with safeJsonForHtmlScript, which prevents </script> breakout even before sandboxing matters. The update schema now rejects script markup in ctaLabel, subject, headline, and intro, and visible fields are HTML-escaped. The described same-origin ops preview XSS chain is therefore patched in the current code.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

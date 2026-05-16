@@ -18,20 +18,5 @@ Redirect to an existing route such as /bookings/:bookingId, add the missing than
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
-
-**Verdict:** fixed
-
-The legacy `/thank-you?bookingId=` redirect now points at an existing route,
-`/bookings/:bookingId/thank-you`, and the query capture is constrained to one
-path segment with `(?<bookingId>[^/]+)`. The route then redirects to the
-canonical guest receipt while preserving query parameters.
-
-Evidence:
-
-- `src/app/(public)/bookings/[bookingId]/thank-you/page.tsx` exists.
-- `tests/config/link-config.test.ts` verifies the redirect destination and
-  constrained query capture.
-- `tests/guest/public-booking-redirects.test.ts` verifies the legacy route
-  redirects to `/guest/bookings/:bookingId/receipt` and preserves query params.

@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ The route correctly requires requireAdminMembership before replacing turn bands,
 
 Tighten restaurant_turn_bands RLS to owner/manager roles, or revoke authenticated write grants and force all writes through the admin-checked route/service role path.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The route itself still requires a real user session and then calls requireAdminMembership before reading or replacing turn bands. The original migration did grant authenticated users broad access through the permissive Staff can manage turn bands policy, but the current tree adds supabase/migrations/20260505141000_restrict_capacity_settings_mutations.sql. That migration creates restrictive INSERT, UPDATE, and DELETE policies on restaurant_turn_bands using public.user_restaurants_with_roles(ARRAY['owner','manager']). In PostgreSQL RLS, a host/server member may still satisfy the older permissive membership policy, but they cannot satisfy the restrictive owner/manager write predicate. The authenticated GRANT remains, but GRANT alone does not bypass RLS, so direct Supabase REST writes by non-admin staff are blocked in the current schema. I did not verify whether the migration has been applied to the remote database, but the repository state patches the described write bypass.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

@@ -18,20 +18,4 @@ Consume the state with a single conditional operation, for example an UPDATE/RPC
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-OAuth callback completion now conditionally consumes the state row with
-`consumed_at IS NULL` before exchanging the Google code. If a racing callback has
-already consumed the row, completion fails with `GBP_INVALID_STATE` before any
-credential exchange or profile writes.
-
-Evidence:
-
-- `server/google-business-profile/service.ts` uses a conditional update for
-  state consumption before calling the Google token exchange path.
-- `tests/server/google-business-profile-readonly-v1.test.ts` covers the losing
-  compare-and-set path and verifies `exchangeGoogleBusinessProfileCode` is not
-  called.
-- `pnpm exec vitest run tests/server/google-business-profile-readonly-v1.test.ts`
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

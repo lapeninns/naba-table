@@ -16,10 +16,12 @@ The pg fallback client uses ssl: { rejectUnauthorized: false } for the productio
 
 Remove the direct DB fallback if possible, or enable certificate validation with rejectUnauthorized: true and the appropriate CA configuration for the Supabase connection.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+I read the full target file and traced the direct Postgres fallback in resolveUserIdFromDb. The current code creates the pg Client with ssl: getPgSslConfig(), not with ssl: { rejectUnauthorized: false }. The imported helper scripts/db/pg-ssl.ts returns rejectUnauthorized: true in all branches, including the default case, inline CA case, and CA-file case. The original issue was real in commit 13edb9bb, where this script used ssl: { rejectUnauthorized: false } for the PRODUCTION_SUPABASE_DB_URL/SUPABASE_DB_URL/DATABASE_URL fallback, which would have allowed a MITM database endpoint to present an untrusted certificate. Commit 020a7389 replaced that insecure option with getPgSslConfig() and added the shared helper, so certificate validation is now enforced. The later ff0eb9d9 commit did not reintroduce the TLS bypass in this path. I also checked regression coverage in tests/scripts/db-safety.test.ts, which asserts getPgSslConfig({}) returns rejectUnauthorized: true and that database scripts do not contain rejectUnauthorized: false. Targeted verification was performed with pnpm exec vitest tests/scripts/db-safety.test.ts --run, and all 27 tests passed.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-16)

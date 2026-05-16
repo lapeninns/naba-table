@@ -16,12 +16,6 @@ The script resolves its SQL payload to generate_bookings.sql at the repository r
 
 Restore the intended SQL file, update sqlPath to an existing tracked SQL file, or remove this obsolete script. Check that the SQL file exists and is non-empty before opening a database connection.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/execute-sql.ts` now checks that `generate_bookings.sql` exists and is non-empty before constructing the pg client or opening a database connection. The same runner is also guarded by `assertStagingScriptSafety` before the file preflight. Focused script-safety tests assert both the staging guard and the pre-connect SQL file read.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-28)

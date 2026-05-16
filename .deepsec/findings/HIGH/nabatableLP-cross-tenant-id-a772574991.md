@@ -16,10 +16,12 @@ getAssignmentContext() calls /api/ops/bookings/{bookingId}/assignment-context wi
 
 Add route-handler authentication to the assignment-context route, load the booking's restaurant_id, call requireMembershipForRestaurant() for that restaurant before any service-role reads, and return 404/403 on failure.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-20)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current assignment-context route no longer matches the reported unauthenticated service-role read. src/app/api/ops/bookings/[id]/assignment-context/route.ts first calls withBookingAuthorization(req, bookingId, { action: 'assignment-context:read' }). That guard validates the session, loads the booking’s restaurant_id, and calls requireRestaurantMember for that restaurant before the handler creates service-role clients. The payload loader is then called with the authorized restaurantId and re-filters the booking lookup with .eq('restaurant_id', restaurantId). Tenant-scoped reads use getTenantServiceSupabaseClient(restaurantId) for tables, conflicts, holds, and assignments. A user from another restaurant who supplies a foreign booking UUID will be stopped by the route-level booking authorization and should receive a 403/404 rather than assignment context. This change is part of the 020a7389 security sprint patch. The original cross-tenant read path is no longer exploitable in the current code.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-06)

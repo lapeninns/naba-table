@@ -16,11 +16,12 @@ TableAssignmentPanel calls useTableAssignment, which fetches /api/ops/bookings/{
 
 Fix the assignment-context route, not the UI: validate the booking UUID, require a route-handler session, load the booking enough to identify restaurant_id, require membership for that exact restaurant before any service-role query, and only then use getTenantServiceSupabaseClient. Do not run orphan cleanup before authorization.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current API route contradicts the reported route-handler behavior. src/app/api/ops/bookings/[id]/assignment-context/route.ts now begins with withBookingAuthorization and returns immediately on failure. Only after that does it create the service-role and tenant service clients. The shared loader verifies the target booking belongs to authorization.restaurantId and filters all table and same-day booking reads by that same restaurant id. The cleanupOrphanedAssignments side effect still happens from the GET loader, but only after the same booking authorization and tenant scoping have succeeded. If middleware were not considered, the handler still has its own session and membership authorization path through withBookingAuthorization. The reported unauthenticated or cross-tenant service-role read is therefore patched.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

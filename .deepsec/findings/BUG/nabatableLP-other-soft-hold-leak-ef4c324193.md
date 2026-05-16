@@ -18,11 +18,5 @@ Call evaluateManualSelection with skipSoftHolds for this pre-check, or release v
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-19)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-19)
-
-**Verdict:** fixed
-
-`src/app/api/ops/bookings/[id]/tables/route.ts` now passes `skipSoftHolds: true` to `evaluateManualSelection` for the direct-assignment pre-check. The route still reuses the shared validation checks, but no longer creates a soft-hold token that it ignores before committing the direct assignment.
-
-Evidence: `pnpm exec vitest run tests/server/ops-bookings-list-route.test.ts tests/server/ops-booking-table-assignment-route.test.ts tests/services/ops-tables-service.test.ts` passed on 2026-05-16. `pnpm exec prettier --check src/app/api/ops/bookings/route.ts 'src/app/api/ops/bookings/[id]/tables/route.ts' src/services/ops/tables.ts tests/server/ops-booking-table-assignment-route.test.ts tests/server/ops-bookings-list-route.test.ts tests/services/ops-tables-service.test.ts` also passed.

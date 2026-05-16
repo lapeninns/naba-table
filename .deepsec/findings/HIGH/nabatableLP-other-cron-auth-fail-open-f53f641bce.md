@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `230744634+lapeninns@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ autoCompletePastBookings is a sensitive service-role job: it creates a service c
 
 Make the cron route fail closed when CRON_SECRET is unset or empty, cap the accepted limit, and keep this job callable only from authenticated cron infrastructure.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current cron route fails closed before reaching the service-role booking completion job. GET /api/cron/auto-complete-bookings delegates to requireCronAuthAndRun, and requireCronAuth returns 503 when no cron secret is configured instead of logging a warning and continuing. The same helper rejects missing or invalid bearer tokens with 401, enforces a cron rate limit, and prevents concurrent execution for the same job name. The route also clamps limit to a maximum of 200, so the uncapped request-amplification part of the finding is no longer present at the HTTP boundary. autoCompletePastBookings itself still trusts its options and uses getServiceSupabaseClient, but it is an internal job function and the live route now guards it correctly. This makes the described unauthenticated cross-tenant booking mutation path fixed in the current code.
+
+## Recent committers (`git log`)
+
+- lapeninns <230744634+lapeninns@users.noreply.github.com> (2026-05-15)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)

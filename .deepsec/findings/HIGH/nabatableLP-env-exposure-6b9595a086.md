@@ -16,10 +16,12 @@ validate-env imports envSchemas and treats schema.safeParse(process.env) as the 
 
 Remove NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY from the schema and add a validation blocker for public env names containing service-role, secret, token, password, or private key material, with an explicit allowlist for known public keys.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-28)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current `config/env.schema.ts` no longer declares `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` as an accepted schema field. Although the base schema remains passthrough, `scripts/validate-env.ts` now calls `findBlockedPublicEnvKeys(process.env)` before reporting success. That helper rejects non-allowlisted `NEXT_PUBLIC_*` names containing `SERVICE_ROLE`, `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE_KEY`, or `DATABASE_URL`, and the allowlist only includes intended public values such as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. The repository also has a test asserting `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` is returned as a blocked key. Git blame shows this blocker was added in `020a7389`. Therefore a public service-role env var should now fail validation instead of passing.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

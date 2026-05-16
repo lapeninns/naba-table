@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Create `artifactsDir` before starting the database write phase, or write the sum
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/staging/seed-perf-dataset.ts` now runs `fs.mkdirSync(artifactsDir, { recursive: true })` before constructing the pg client and connecting for apply mode, so the summary path is preflighted before remote mutations. Focused script-safety tests assert that artifact directory creation and the staging target guard precede `await client.connect()`.

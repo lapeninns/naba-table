@@ -16,24 +16,12 @@ acquireSoftHolds forwards caller-controlled tableIds and restaurantId into acqui
 
 Revoke authenticated EXECUTE unless these RPCs are strictly server-only. If direct authenticated RPC access is required, enforce restaurant membership and table-restaurant consistency inside each SECURITY DEFINER function, clamp TTL in the database, and scope release/check operations by authenticated user or restaurant rather than session token alone.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+This is a real database-level authorization gap, not just a helper-layer concern. The TypeScript clamp only applies when callers use acquireSoftHolds; direct authenticated RPC callers can pass p_ttl_seconds directly because the PL/pgSQL function does not clamp it. The function inserts a hold for any valid table_id and any valid restaurant_id supplied by the caller, without checking table ownership or caller membership. release_soft_holds deletes by p_session_token alone, so a leaked or conflict-returned token is enough to remove another user's hold. The migration history I checked still grants these functions to authenticated and does not add ownership checks. A concrete attack is an authenticated user calling the RPC with a victim table UUID and a long TTL to block assignment, then using returned blocking_session values to clear competing holds.
+
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-This was a true-positive database-level authorization gap. It is fixed by `supabase/migrations/20260516070700_harden_soft_hold_rpc_authorization.sql`.
-
-The migration keeps the application path server-only by revoking `PUBLIC`, `anon`, and `authenticated` execution on `acquire_soft_holds_atomic`, `release_soft_holds`, `check_soft_hold_ownership`, and `cleanup_expired_soft_holds`, then granting execute only to `service_role`. Current shipped callers already authorize the operator in Next.js route handlers before constructing service clients, so direct authenticated Supabase RPC execution is no longer part of the supported contract.
-
-The migration also hardens `acquire_soft_holds_atomic` itself: database-side TTL is clamped to 5-30 seconds, every requested table must exist in `table_inventory` for `p_restaurant_id`, an optional `p_booking_id` must belong to that restaurant, and conflict rows no longer return another session token through `blocking_session`.
-
-Evidence:
-
-- `pnpm exec vitest run tests/server/capacity/soft-holds-rpc-security.test.ts` passed: 3 tests.
-- `pnpm run security:regression` passed after adding the new soft-hold regression to the pack: 17 files, 113 tests.
-- `pnpm run security:guard:service-role` passed with the existing baseline: 7 existing exceptions, 0 new violations.
-- `pnpm exec eslint --max-warnings=0 tests/server/capacity/soft-holds-rpc-security.test.ts` passed.
-- `pnpm exec prettier --check package.json tests/server/capacity/soft-holds-rpc-security.test.ts tasks/deepsec-high-remediation-20260516-0659/research.md tasks/deepsec-high-remediation-20260516-0659/plan.md tasks/deepsec-high-remediation-20260516-0659/todo.md tasks/deepsec-high-remediation-20260516-0659/verification.md CONTINUITY.md` passed.
-
-Not yet applied to remote Supabase in this pass. Staging/prod apply remains a deployment step.

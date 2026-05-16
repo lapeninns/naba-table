@@ -19,7 +19,3 @@ Log internal errors server-side and return generic messages for 5xx and unexpect
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
-
-**Verdict:** fixed
-
-`src/app/api/staff/auto/confirm/route.ts` now logs internal Supabase/RPC failures server-side and returns stable `Unable to confirm table assignment` client errors with controlled codes only. Covered by `tests/server/staff-auto-confirm-route-security.test.ts`.

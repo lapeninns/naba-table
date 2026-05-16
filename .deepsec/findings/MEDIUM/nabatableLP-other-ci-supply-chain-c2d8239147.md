@@ -18,10 +18,4 @@ Pin third-party actions to full commit SHAs, manage updates with Dependabot or R
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
-
-**Verdict:** fixed
-
-The workflow no longer relies on mutable major action tags; checkout and setup-node are pinned to full SHAs with least-privilege permissions and `persist-credentials: false`.
-
-**Verification:** `pnpm exec vitest run tests/server/deepsec-final-controls-source.test.ts`
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

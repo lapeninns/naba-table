@@ -16,14 +16,6 @@ refreshOverrides sets cache.expiresAt after both successful and failed fetches, 
 
 Honor expiresAt independently of data.size, or track an initialized/lastRefresh status so an empty override set and temporary fetch failure are cached for the intended TTL.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`server/feature-flags-overrides.ts` now honors `cache.expiresAt` independently of the override map size. Empty override sets and temporary fetch failures are cached for the intended TTL instead of scheduling a new service-role read on every flag access.
-
-Evidence: `pnpm exec vitest run tests/server/feature-flags.test.ts` passed on 2026-05-16. `pnpm exec prettier --check server/feature-flags-overrides.ts tests/server/feature-flags.test.ts` also passed.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-29)

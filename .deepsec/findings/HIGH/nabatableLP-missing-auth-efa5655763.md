@@ -16,11 +16,13 @@ The cron authorization helper treats a missing CRON_SECRET as a warning conditio
 
 Fail closed when CRON_SECRET is missing before checking Authorization, preferably via a shared cron auth helper backed by validated env. Return 500/503 for server misconfiguration or 401 for unauthorized requests, and add tests for missing, wrong, and correct bearer tokens.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-20)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current POST handler is protected by requireCronAuthAndRun with the job name process-emails:post, so request JSON parsing and processEmailJobs are inside the authenticated callback. If no cron secret is configured, requireCronAuth returns a 503 response and the callback is never invoked. If a bearer token is missing or wrong, it returns 401 before any caller-supplied job envelopes are accepted. The GET path uses the same shared guard before draining due email intents or running delivery reconciliation. The current email-processing helper also verifies booking.restaurant_id matches payload.restaurantId before dispatching, which reduces forged-job impact even after authentication. Commit 020a7389 is the patch point: it removed the fail-open CRON_SECRET branch, added requireCronAuthAndRun, capped POST jobs to 25, and changed route error responses to generic cron failure messages. The focused Vitest run passed, including the regression cases for missing CRON_SECRET and wrong bearer tokens.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)

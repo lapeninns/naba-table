@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,12 +16,7 @@ The route delegates table assignment to assignTablesDirectly after only applicat
 
 Move conflict validation and insertion into a single database RPC/transaction with per-table locking or a database exclusion constraint over table_id and the assignment time range. Recheck conflicts inside that protected section before inserting.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`src/app/api/ops/bookings/[id]/assign-tables/route.ts` still delegates through `assignTablesDirectly`, but that helper no longer inserts into `booking_table_assignments` directly after its application-level validation. Current `server/capacity/table-assignment/direct-assignment.ts` delegates the commit to `assignTableToBooking`, which uses the allocator v2 atomic assignment repository and RPC conflict handling, then reloads the committed assignment rows for the existing response shape. Focused evidence: `tests/server/capacity/direct-assignment-atomic.test.ts` verifies the helper calls `assignTableToBooking` and does not own the insert path; the focused table/assignment Vitest set, targeted ESLint, targeted Prettier check, and `pnpm run typecheck` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

@@ -16,12 +16,6 @@ Lunch minutes are generated with Math.random() \* 105 and then formatted directl
 
 Generate minutes in the 0-59 range, or decompose offsets into hour and minute components as the dinner path does.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/seed-bookings-week.ts` now constrains lunch seed minutes to `0..59` before formatting `start_time` and `end_time`. Focused script-safety tests also keep the booking seed behind explicit staging/project-ref confirmation and explicit `RESTAURANT_ID`.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-21)

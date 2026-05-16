@@ -16,11 +16,13 @@ insertBookingRecord() inserts the booking and only afterward awaits recordBookin
 
 Wrap the primary booking mutation and profile update in a database transaction/RPC, or make profile maintenance idempotent and best-effort so it cannot make an already-committed booking operation appear failed. Add idempotency guards for cancellation/profile increments.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+`insertBookingRecord` inserts the booking and only then awaits `recordBookingForCustomerProfile`; if the profile upsert fails, the booking insert has already committed but the helper throws. `softCancelBooking` similarly updates the booking status to `cancelled` and then awaits `recordCancellationForCustomerProfile`; a later profile failure makes the caller see an error after the primary booking mutation succeeded. These functions are used in reachable paths, including cancellation routes and direct/fallback booking creation. The profile operations are not in the same transaction or RPC as the booking write. A client retry after a reported failure can create confusing duplicate or already-mutated states, and cancellation counters can diverge from booking state. The issue is therefore real as a state-consistency bug, not merely theoretical.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
-
-**Verdict:** fixed
-
-Booking/profile maintenance no longer reports a committed primary booking mutation as failed when derived customer profile updates fail. `insertBookingRecord` catches and logs profile maintenance failures after returning the inserted booking, and `softCancelBooking` records cancellation profile data only after a non-cancelled row is transitioned to `cancelled`. Repeated cancellation calls reload the existing booking and do not increment profile counters again. Focused evidence: `tests/server/bookings-profile-consistency.test.ts` passed on 2026-05-16 and covers these best-effort/idempotency paths.

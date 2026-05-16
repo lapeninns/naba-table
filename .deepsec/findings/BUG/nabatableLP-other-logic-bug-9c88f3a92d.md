@@ -18,18 +18,5 @@ Parse the query explicitly, for example treat only "true" or "1" as true and onl
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-07)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-26)
-
-**Verdict:** fixed
-
-`src/app/api/availability/route.ts` now normalizes `includeAlternatives` with
-`safeBool`, so omitted values and explicit `includeAlternatives=false` no longer
-enable alternative-slot planning.
-
-Evidence:
-
-- `tests/lib/query-params.test.ts` covers explicit false/zero boolean parsing.
-- `tests/server/availability-route-query-params.test.ts` verifies
-  `includeAlternatives=false` does not call `findAlternativeSlots`.
-- `pnpm exec vitest run tests/lib/query-params.test.ts tests/server/availability-route-query-params.test.ts`

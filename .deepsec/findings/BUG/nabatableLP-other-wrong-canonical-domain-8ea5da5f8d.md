@@ -20,15 +20,3 @@ Use `process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://nabata
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-09-04)
-
-**Verdict:** fixed
-
-`next-sitemap.config.js` no longer falls back to `https://shipfa.st`; sitemap
-generation now prefers `NEXT_PUBLIC_SITE_URL`, then `SITE_URL`, then
-`https://www.nabatable.com`.
-
-Evidence:
-
-- `tests/config/link-config.test.ts` verifies canonical host precedence and
-  fallback behavior.
-- `pnpm exec vitest run tests/config/link-config.test.ts`

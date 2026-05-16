@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,10 +16,13 @@ renderAnnotationScript serializes annotation data with raw JSON.stringify direct
 
 Replace JSON.stringify in script contexts with a safe serializer that escapes at least '<' as '\u003c' or '<\/' and also handles '&', '>', U+2028, and U+2029. Also sandbox the preview iframe without allow-same-origin/allow-scripts unless scripts are explicitly required.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-26)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current renderAnnotationScript no longer embeds raw JSON.stringify output in the script block. It imports safeJsonForHtmlScript and returns the JSON-LD as safeJsonForHtmlScript(schema), which escapes <, >, &, U+2028, and U+2029, so a value like </script><script> cannot terminate the JSON-LD script element. The actionUrl is also normalized through safePublicHref before being placed into the schema target. I traced the booking preview flow through renderRestaurantBookingEmailPreview and renderHtml; venue name/address and CTA label still reach the annotation, but the script-context serializer now neutralizes them. The shipped email-template UI at src/app/app/(app)/email-templates/page.tsx uses EmailTemplatesPreviewPane, whose iframe passes sandbox="", so scripts are disabled in the real preview surface as well. There is an older EmailTemplatesSection component with an unsandboxed srcDoc iframe, but grep found no shipped route importing it, and the restaurant settings route redirects to /app/email-templates. Git history shows commit 020a7389 changed server/emails/base.ts from JSON.stringify(schema) to safeJsonForHtmlScript(schema), which is the relevant patch.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-26)

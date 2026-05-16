@@ -19,15 +19,3 @@ Type tab as string | string[] | undefined and normalize arrays before calling no
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-05)
-
-**Verdict:** fixed
-
-`src/app/guest/bookings/page.tsx` now normalizes repeated `tab` query params
-before invoking the authenticated guest bookings view-model flow.
-
-Evidence:
-
-- `tests/guest/guest-bookings-page-query-params.test.tsx` verifies duplicated
-  `tab` values are reduced to the first string before the view model receives
-  them.
-- `pnpm exec vitest run tests/guest/guest-bookings-page-query-params.test.tsx`

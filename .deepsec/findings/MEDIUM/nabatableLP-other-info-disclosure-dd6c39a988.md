@@ -20,7 +20,3 @@ Resolve the caller state first. Reject unauthenticated requests and invalid reco
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-13)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
-
-**Verdict:** fixed
-
-`src/app/api/reservations/[id]/confirmation/route.ts` now validates caller identity or the recovery token before service-role booking lookup, validates the id format, and returns `Reservation not found` for missing or mismatched bookings. Covered by `tests/server/reservation-confirmation-route-security.test.ts`.

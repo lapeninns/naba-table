@@ -16,10 +16,12 @@ The preview route accepts draft template variants, renders them with renderResta
 
 Serialize inline JSON with a safe helper that escapes '<' such as JSON.stringify(schema).replace(/</g, '\u003c'), and sandbox the preview iframe without allow-scripts or allow-same-origin. Rejecting script delimiter characters in editable template fields would add defense in depth.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-04)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The exact JSON-LD breakout described is no longer viable. renderAnnotationScript now returns <script type="application/ld+json">${safeJsonForHtmlScript(schema)}</script> instead of raw JSON.stringify(schema), and safeJsonForHtmlScript replaces every < with \u003c. Therefore ctaLabel text such as </script><script>parent.fetch(...)</script> remains JSON string data and does not close the script element. The preview request schema also blocks script markup in ctaLabel and other primary editable text fields before renderRestaurantBookingEmailPreview receives draft variants. The preview iframe is now sandboxed with an empty sandbox attribute, so scripts are disabled even if another HTML injection path were introduced later. Existing persisted template data is also mitigated at render time by the safe serializer. Commit 020a7389 contains these changes, including the new lib/security/script-json.ts helper and the sandbox/referrerPolicy additions to EmailTemplatesPreviewPane.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)

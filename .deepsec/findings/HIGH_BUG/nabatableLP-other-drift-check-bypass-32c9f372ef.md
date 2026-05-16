@@ -16,12 +16,6 @@ The per-field drift checks only run when pinnedCoreHash or pinnedGbpHash is neit
 
 Distinguish not provided from expected null. Require pin properties on publish decisions and compare beforeCoreHash/beforeGbpHash even when the expected value is null, or model pins as an explicit object such as { present: true, hash: string | null }. Abort on snapshot-pin mismatch when field-level pins are absent.
 
-## Revalidation
-
-**Verdict:** fixed
-
-Publish decisions are now validated with `validatePublishDecisionPins`, which requires both `pinnedCoreHash` and `pinnedGbpHash` to be present as either a string or explicit `null`. `buildPublishPlan` and `runPublish` compare `beforeCoreHash` and `beforeGbpHash` directly against those pins, so an expected absent value is enforced instead of skipped. The publish and preview route schemas also reject omitted field-level pins. Focused evidence: `tests/server/dual-sync-publish-planner.test.ts`, `tests/server/dual-sync-publish-orchestrator.test.ts`, `tests/server/dual-sync-publish-route.test.ts`, and `tests/server/dual-sync-publish-preview-route.test.ts` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

@@ -16,12 +16,6 @@ The retry payload uses pendingRetryRow.attempt.id ?? pendingRetryRow.attempt.mes
 
 Expose the current retryable email_delivery_log row id as attempt.id from both the RPC and fallback feed paths, or derive it from the latest event id before retrying. Avoid falling back to provider messageId for a route that expects a delivery-log UUID.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The feed now exposes the retryable delivery-log row id and the retry hook no longer uses provider `messageId` as a fallback. `server/emails/email-delivery-log.ts` maps RPC `row.id` and fallback `currentEventId` to `OpsEmailDeliveryAttemptDTO.id`; `supabase/migrations/20260516115600_expose_email_delivery_attempt_retry_id.sql` updates `ops_email_delivery_attempts_feed` to return `f.current_id AS "id"`. `src/components/features/email-delivery/useOpsEmailDeliveryRetryState.ts` only posts that delivery-log id or a current event id and shows `Retry unavailable` instead of calling the retry API when the id is absent.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

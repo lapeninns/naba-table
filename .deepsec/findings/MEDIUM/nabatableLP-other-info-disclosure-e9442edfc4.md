@@ -18,9 +18,4 @@ Add an allowlist/redaction layer for analytics props before dispatch. Strip or h
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-02)
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)
-
-**Verdict:** fixed
-
-`lib/analytics/schema.ts` now drops sensitive identifier/error/contact keys and strips query strings from route-like props before dispatch. `lib/analytics.ts` also suppresses Plausible/PostHog dispatch from ops/app surfaces. Covered by `tests/lib/analytics-schema.test.ts` and `tests/lib/analytics.test.ts`.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)

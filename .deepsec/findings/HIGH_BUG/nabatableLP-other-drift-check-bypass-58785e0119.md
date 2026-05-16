@@ -16,12 +16,6 @@ The batch export port immediately calls Google mutation helpers for name/contact
 
 Run per-field drift validation before invoking any batch port, and pass only validated decisions into the batch. Prefer creating operation rows before external side effects so failed drift cannot mutate Google silently.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The profile batch port is no longer reachable with unvalidated decisions in the current publish path. `runPublish` validates required pins, checks current Core and Google field hashes, and opens operation rows before passing prepared export decisions into `runBatchExportPorts`; profile batch writes therefore run only after the drift/audit gate. Focused evidence: the orchestrator stale-pin and 2+ same-section batch tests assert stale decisions do not call the batch/per-field ports and valid batches create operations before `applyExportBatchToGoogle`.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

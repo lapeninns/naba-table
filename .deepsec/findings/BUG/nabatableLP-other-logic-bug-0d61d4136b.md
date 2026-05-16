@@ -18,8 +18,4 @@ Either add full foodMenus support to the publish request schema and orchestrator
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)
-
-**Verdict:** fixed
-
-FoodMenus publish support is wired end to end for normal field decisions. The route schemas use `DUAL_SYNC_SECTION_KEYS`, `foodMenus` remains an exportable registry section, and the orchestrator/recompute snapshot readers include the `foodMenus` section. The targeted publish route, preview route, and recompute tests prove FoodMenus decisions are accepted and hashed against actual FoodMenus snapshot data.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

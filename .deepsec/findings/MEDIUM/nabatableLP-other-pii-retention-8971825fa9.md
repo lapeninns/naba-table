@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,10 +18,5 @@ Add sms_delivery_log to the pre-booking deletion list, using booking_id, and kee
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)
-
-**Verdict:** fixed
-
-The restaurant booking purge deletes `sms_delivery_log` rows by `booking_id` in the same pre-booking child-delete list as email delivery logs. This prevents restaurant booking purges from leaving recipient phone PII behind as orphaned SMS rows.
-
-Validation: `pnpm exec vitest run tests/components/OnboardingContextPersistence.test.tsx tests/scripts/destructive-script-atomicity.test.ts tests/server/data-retention-security-source.test.ts`

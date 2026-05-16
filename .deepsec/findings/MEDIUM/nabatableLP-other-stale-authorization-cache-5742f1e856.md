@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,12 +16,7 @@ The route authorizes the requested restaurant via requireMembershipForRestaurant
 
 Do not use the layout membership cache for API authorization, especially before service-role reads. Make requireMembershipForRestaurant perform a fresh lookup by default for route handlers, or add a cache: false option and use it here; also invalidate membership cache on any membership write.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`src/app/api/ops/bookings/export/route.ts` calls `requireMembershipForRestaurant`, whose default authorization path ignores the process-wide layout cache and queries membership fresh. Covered by `tests/server/team-access-cache.test.ts`.
-
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

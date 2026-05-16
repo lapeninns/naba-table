@@ -16,12 +16,6 @@ The handler uses getServiceSupabaseClient() to query bookings by the user-contro
 
 Validate the route id format before any database call. For requests without a recovery token, resolve the user session before loading the booking. For recovery-token requests, validate the token signature before the service-role lookup, then load the booking only to perform the contact match. Return a uniform unauthenticated response before authorization is established so booking existence is not exposed.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`src/app/api/reservations/[id]/confirmation/route.ts` now validates the reservation id and authenticates the caller or validates the recovery token before creating the service-role client and loading the booking. Unauthorized callers and invalid recovery tokens are rejected before the booking lookup. Covered by `tests/server/reservation-confirmation-route-security.test.ts`.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-13)

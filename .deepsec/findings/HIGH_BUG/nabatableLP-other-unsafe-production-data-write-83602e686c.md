@@ -16,12 +16,6 @@ The script builds a Supabase service-role client directly from NEXT_PUBLIC_SUPAB
 
 Route this through the repo env/safety guard pattern, require an explicit --restaurant-id and --target, refuse production by default, and require a dedicated confirmation such as CONFIRM_SEED_BOOKINGS=true before any writes.
 
-## Revalidation
-
-**Verdict:** fixed
-
-`scripts/seed-bookings-week-final.ts` now calls `assertStagingScriptSafety` before constructing the service-role client. It requires exact staging project-ref validation, `DB_TARGET_ENV=staging` or `APP_ENV=staging`, and `CONFIRM_STAGING_BOOKING_SEED=true`. The script also requires an explicit `RESTAURANT_ID` instead of selecting the first restaurant in the connected project.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-21)

@@ -16,10 +16,12 @@ This signup page renders OnboardingWizard, which calls /api/onboarding/restauran
 
 Before every /api/onboarding/restaurant/[id] mutation, validate the id and require owner/admin membership for that restaurant, or bind onboarding progress to a server-side restaurant created by the current user. Avoid service-role writes until authorization is proven.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The wizard still builds onboarding update URLs from client state, so the URL id remains attacker-controlled input. Current handlers no longer trust that id as authorization. Each `/api/onboarding/restaurant/[id]/*` mutation now calls `withRestaurantAuthorization` with `RESTAURANT_ADMIN_ROLES` and CSRF enabled before using service-role helpers. `withRestaurantAuthorization` requires membership for the same restaurant id passed in the route. The tables route also rejects zone ids that do not belong to the authorized restaurant. Therefore an authenticated user who knows another restaurant UUID should receive 403 before the service-role write path is reached.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

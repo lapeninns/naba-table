@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Run each FK replacement as an atomic group where possible, abort immediately on 
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-06)
-
-**Verdict:** fixed
-
-`scripts/run-production-optimization.ts` no longer runs the FK drop/add/validate statements as independent best-effort commands. Each FK replacement is now a transactional command group, failures roll back the group and stop the FK phase, and the runner throws after the summary when any phase failed so the process exits non-zero. Focused script-safety tests assert the transactional FK helper and failed-phase hard stop are present.

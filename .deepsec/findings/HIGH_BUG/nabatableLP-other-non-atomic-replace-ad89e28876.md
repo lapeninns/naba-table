@@ -16,12 +16,6 @@ The PUT route validates the request shape and then calls updateRestaurantBusines
 
 Make each family replacement atomic, preferably via a Supabase RPC transaction that validates and replaces rows together. Also mirror DB constraints in the route schema, including UUID ids, enum values, max lengths, and primary-row uniqueness, before any delete runs.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The PUT route and shared writer now fail before mutation for malformed persisted ids and DB enum values, and the writer performs replacement through the atomic `replace_restaurant_business_context_core` RPC rather than deleting rows from application code. The writer also validates duplicate row ids and primary-category uniqueness before invoking the RPC. Focused route/service evidence covers invalid ids, invalid service-area and attribute enums, RPC delegation, and absence of direct family table inserts from `updateRestaurantBusinessContext`: `pnpm exec vitest run tests/server/restaurants/atomic-replacements.test.ts tests/server/restaurant-business-context.test.ts tests/server/restaurant-business-context-routes.test.ts` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

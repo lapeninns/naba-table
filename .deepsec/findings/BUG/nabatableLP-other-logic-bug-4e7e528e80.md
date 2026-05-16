@@ -18,8 +18,4 @@ Compute the base state first, then apply pending_export only to core_dirty or th
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)
-
-**Verdict:** fixed
-
-`computeFieldState` now takes previous core and GBP hashes and only preserves pending/failed overlays while the side chosen by that decision is unchanged. The open outbound candidate overlay is applied only to an effective core-side movement from a known last-in-sync baseline. `tests/server/dual-sync-state-compute.test.ts` covers stale outbound candidates, chosen-side movement, and both-sides-moved conflicts so pending/failed states no longer mask Google-side changes.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)

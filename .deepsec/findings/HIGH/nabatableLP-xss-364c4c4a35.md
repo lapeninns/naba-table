@@ -16,10 +16,12 @@ Restaurant email template fields are normalized and later interpolated as plain 
 
 Escape JSON before embedding it in any script tag, for example JSON.stringify(schema).replace(/</g, '\\u003c'), or use a shared safeJsonStringify helper. Also sandbox the preview iframe unless scripts are explicitly required.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-04)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+Template-controlled strings still flow through email template normalization and interpolation, but the JSON-LD script context is no longer raw. renderAnnotationScript now calls safeJsonForHtmlScript(schema), which converts '<' to \u003c and therefore prevents a </script> delimiter from being interpreted by the HTML parser. The visible HTML paths in server/emails/bookings.ts use escapeHtml for headline, intro, venue/address text, renderNote for cue/ask, and renderButton for ctaLabel/href. The current preview API validates draft variants through previewRestaurantEmailTemplateSchema, and the main preview pane uses a sandboxed iframe with no allow-scripts. A read-only restaurant member can still render saved templates, but the saved payload cannot break out of JSON-LD or execute in the shipped preview frame. This is a fixed historical issue rather than a current exploitable XSS.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-04)

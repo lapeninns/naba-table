@@ -20,9 +20,3 @@ Do not report raw query strings. Redact or drop sensitive parameters such as tok
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-04)
-
-**Verdict:** fixed
-
-Client-side monitoring and analytics paths now pass browser location values through `stripUrlQueryAndHash`, and ops/app surfaces are suppressed from third-party analytics dispatch. Query-string secrets such as reset, access, and onboarding tokens are no longer emitted through the reported analytics/error path fields.
-
-Validation: `pnpm exec vitest run tests/scripts/db-safety.test.ts tests/lib/logger-redaction.test.ts tests/lib/analytics-schema.test.ts tests/lib/analytics.test.ts`

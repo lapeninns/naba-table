@@ -16,12 +16,12 @@ main() calls ensureAuthUser before checking apply. ensureAuthUser can call gener
 
 Make dry-run resolution strictly read-only. Only call generateLink/createUser after apply and CONFIRM_PRODUCTION are true, or split ensureAuthUser into a non-mutating lookup phase and an apply-only creation phase.
 
+## Revalidation
+
+**Verdict:** true-positive
+
+The dry-run side effect still exists in the current script. `main()` resolves or creates the auth user first, then loads memberships, logs the before state, and only then returns when `apply` is false. The creation branch calls `supabase.auth.admin.createUser` with `email_confirm: true`, so a missing email can become a confirmed production auth account during a nominal dry run. The expected-project-ref guard and production URL selection reduce wrong-project risk but do not prevent this mutation. This is not web-remote RCE or unauthenticated exploitation; it is an operator-safety bug in a production administration script. The finding is real and exploitable by normal script invocation with a new target email.
+
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)
-
-**Verdict:** fixed
-
-`main()` now performs dry-run planning with `resolveExistingAuthUser(userEmail)` only, reports `wouldCreateAuthUser`, and returns on `!apply` before calling `ensureAuthUser(userEmail)`. The mutating `generateLink`/`createUser` path is only reached after apply mode and the existing production confirmation gate.
-
-Evidence: `pnpm exec vitest run tests/scripts/db-safety.test.ts` passed on 2026-05-16. The regression coverage verifies the dry-run branch appears before `ensureAuthUser(userEmail)` and that the script reports what would be created without creating an auth user.
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-16)

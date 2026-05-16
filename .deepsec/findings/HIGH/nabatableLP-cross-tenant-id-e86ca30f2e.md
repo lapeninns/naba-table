@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -16,11 +16,13 @@ The handler takes restaurantId directly from the URL and only verifies that some
 
 After authenticating the user, require membership or admin membership for the specific restaurantId before using the service client. Prefer an RLS-bound client where possible, or use a tenant-scoped service client only after the per-restaurant authorization check succeeds.
 
-## Recent committers (`git log`)
-
-- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)
+## Revalidation
 
 **Verdict:** fixed
 
-Recovered after the worktree reset from the 2026-05-16 DeepSec remediation session. The matching source, migration, and regression-test changes have been replayed onto `codex/deepsec-remediation-20260516`; this marker preserves the resolved backlog state for the finding.
+The current POST handler is no longer protected only by a generic authenticated-user check. It calls withRestaurantAuthorization(req, restaurantId, { csrf: true, roles: RESTAURANT_ADMIN_ROLES }) before parsing table input or constructing the service-role client. That shared guard enforces UUID shape, CSRF, a live Supabase session, and owner or manager membership for the route restaurant id. If the attacker knows another restaurant UUID but lacks membership for it, requireMembershipForRestaurant returns a 403 and insertTable is never called. The route also now requires every table to reference a zone and verifies the submitted zone ids belong to the same restaurant using the authorized Supabase client before inserting. Commit 020a7389 added these authorization and zone-ownership checks and removed the prior session-only path. The focused tenant authorization tests passed, including rejection of cross-restaurant zone ids and no service-client construction on failed authorization.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

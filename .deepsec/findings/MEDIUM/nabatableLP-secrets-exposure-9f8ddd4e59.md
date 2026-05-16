@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Remove positional password support. Require SUPABASE_DB_PASSWORD from a secret-m
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`scripts/find-supabase-region.ts` now reads the database password only from `SUPABASE_DB_PASSWORD`; positional password usage and `<db_password>` usage text have been removed. Covered by `tests/scripts/db-safety.test.ts`.

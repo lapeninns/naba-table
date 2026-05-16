@@ -20,7 +20,3 @@ Move the replace operation into a database RPC/transaction that validates, delet
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
-
-**Verdict:** fixed
-
-`updateOperatingHours` now delegates replacement to the service-role-only `replace_restaurant_operating_hours` RPC instead of issuing separate delete and insert statements. The helper validates duplicate override ids/dates before the RPC call, and the RPC performs the replacement as a single database transaction. Focused evidence: `tests/server/restaurant-schedule-replacements.test.ts` covers the atomic RPC call and duplicate-id rejection; focused Vitest, targeted ESLint, and `pnpm run typecheck` passed on 2026-05-16.

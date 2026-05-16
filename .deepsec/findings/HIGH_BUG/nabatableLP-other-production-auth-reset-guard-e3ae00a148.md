@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
 
 ## Finding
 
@@ -18,8 +18,5 @@ Require explicit production confirmation and an exact project-ref check before a
 
 ## Recent committers (`git log`)
 
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)
-
-**Verdict:** fixed
-
-`scripts/ensure-auth-user.ts` now runs `assertAuthUserScriptSafety()` before constructing the Supabase admin client. Production mode verifies the Supabase API ref and optional DB ref against the expected production ref and requires `CONFIRM_PRODUCTION_AUTH_RESET=true`; non-production mode delegates to `assertStagingScriptSafety` with `CONFIRM_STAGING_AUTH_RESET=true`. Focused script-safety tests assert the guard and exact-ref checks run before admin client use.

@@ -19,7 +19,3 @@ Atomically claim the job with a conditional update such as status='publishing' W
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
-
-**Verdict:** fixed
-
-`publishGoogleBusinessProfileWorkflowDraft` now claims the publish job before draft mutation and before Nabatable or Google side effects by updating `restaurant_external_profile_publish_jobs` to `publishing` with `id = jobId` and `status = 'preflight_ready'`, selecting the claimed row, and aborting if no row is returned. `retryGoogleBusinessProfileWorkflowGooglePush` now similarly claims the job before `pushDraftToGoogle` with `id = jobId` and `status IN ('google_failed', 'partially_published')`. Focused evidence: `tests/server/google-business-profile-workflow.test.ts` passed on 2026-05-16 and verifies both compare-and-set predicates plus the lost-claim failure path.
