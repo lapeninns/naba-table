@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Iframe } from '@/components/ui/iframe';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,12 +36,19 @@ import {
   useOpsSendRestaurantEmailTemplateTest,
   useOpsUpdateRestaurantEmailTemplate,
 } from '@/hooks/ops/useOpsRestaurantEmailTemplates';
-import { MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS, type RestaurantBookingEmailTemplateKey, type RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
+import {
+  MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
+  type RestaurantBookingEmailTemplateKey,
+  type RestaurantEmailTemplateVariant,
+} from '@/lib/restaurants/email-templates';
 import { cn } from '@/lib/utils';
 
 import { SettingsCard } from './shared/SettingsCard';
 
-import type { RestaurantEmailTemplate, RestaurantEmailTemplatesSnapshot } from '@/services/ops/restaurants';
+import type {
+  RestaurantEmailTemplate,
+  RestaurantEmailTemplatesSnapshot,
+} from '@/services/ops/restaurants';
 
 type EmailTemplatesSectionProps = {
   restaurantId: string | null;
@@ -77,7 +85,9 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
 
 function buildTemplateMap(snapshot: RestaurantEmailTemplatesSnapshot | undefined) {
   return new Map(
-    snapshot?.groups.flatMap((group) => group.templates).map((template) => [template.key, template]) ?? [],
+    snapshot?.groups
+      .flatMap((group) => group.templates)
+      .map((template) => [template.key, template]) ?? [],
   );
 }
 
@@ -97,13 +107,7 @@ function templateSupportsAskField(templateKey: RestaurantBookingEmailTemplateKey
   return templateKey === 'review_request';
 }
 
-function PreviewCanvas({
-  html,
-  device,
-}: {
-  html: string;
-  device: 'desktop' | 'mobile';
-}) {
+function PreviewCanvas({ html, device }: { html: string; device: 'desktop' | 'mobile' }) {
   return (
     <div
       className={cn(
@@ -119,7 +123,7 @@ function PreviewCanvas({
           {device === 'mobile' ? 'Mobile preview' : 'Desktop preview'}
         </span>
       </div>
-      <iframe
+      <Iframe
         title={`${device} email preview`}
         srcDoc={html}
         className={cn('w-full bg-white', device === 'mobile' ? 'h-[700px]' : 'h-[760px]')}
@@ -145,16 +149,22 @@ function VariantCountMeter({
   );
 }
 
-export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTemplatesSectionProps) {
+export function EmailTemplatesSection({
+  restaurantId,
+  restaurantName,
+}: EmailTemplatesSectionProps) {
   const templatesQuery = useOpsRestaurantEmailTemplates(restaurantId);
   const updateMutation = useOpsUpdateRestaurantEmailTemplate(restaurantId);
   const resetMutation = useOpsResetRestaurantEmailTemplate(restaurantId);
   const previewMutation = useOpsPreviewRestaurantEmailTemplate(restaurantId);
   const testSendMutation = useOpsSendRestaurantEmailTemplateTest(restaurantId);
 
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState<RestaurantBookingEmailTemplateKey | null>(null);
+  const [selectedTemplateKey, setSelectedTemplateKey] =
+    useState<RestaurantBookingEmailTemplateKey | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Partial<Record<RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant[]>>>({});
+  const [drafts, setDrafts] = useState<
+    Partial<Record<RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant[]>>
+  >({});
   const [searchQuery, setSearchQuery] = useState('');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [testEmail, setTestEmail] = useState('');
@@ -191,7 +201,7 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
       .filter((group) => group.templates.length > 0);
   }, [deferredSearch, templatesQuery.data]);
 
-  const baseTemplate = selectedTemplateKey ? templateMap.get(selectedTemplateKey) ?? null : null;
+  const baseTemplate = selectedTemplateKey ? (templateMap.get(selectedTemplateKey) ?? null) : null;
   const currentVariants = useMemo(() => {
     if (!selectedTemplateKey || !baseTemplate) return [];
     return drafts[selectedTemplateKey] ?? baseTemplate.variants;
@@ -199,7 +209,10 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
 
   const isCurrentDirty = useMemo(() => {
     if (!selectedTemplateKey || !baseTemplate) return false;
-    return normalizeVariantsForCompare(currentVariants) !== normalizeVariantsForCompare(baseTemplate.variants);
+    return (
+      normalizeVariantsForCompare(currentVariants) !==
+      normalizeVariantsForCompare(baseTemplate.variants)
+    );
   }, [baseTemplate, currentVariants, selectedTemplateKey]);
 
   const hasDirtyDrafts = useMemo(
@@ -208,7 +221,9 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
         if (!variants) return false;
         const template = templateMap.get(key as RestaurantBookingEmailTemplateKey);
         if (!template) return false;
-        return normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants);
+        return (
+          normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants)
+        );
       }),
     [drafts, templateMap],
   );
@@ -257,7 +272,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
     return () => window.clearTimeout(timeoutId);
   }, [currentVariants, previewMutation, restaurantId, selectedTemplateKey, selectedVariantId]);
 
-  const currentVariant = currentVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const currentVariant =
+    currentVariants.find((variant) => variant.id === selectedVariantId) ?? null;
   const showCueField = templateSupportsCueField(selectedTemplateKey);
   const showAskField = templateSupportsAskField(selectedTemplateKey);
 
@@ -285,11 +301,18 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
   };
 
   const handleAddVariant = () => {
-    if (!selectedTemplateKey || !baseTemplate || currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS) {
+    if (
+      !selectedTemplateKey ||
+      !baseTemplate ||
+      currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS
+    ) {
       return;
     }
 
-    const seed = currentVariant ?? currentVariants[currentVariants.length - 1] ?? baseTemplate.defaultVariants[0];
+    const seed =
+      currentVariant ??
+      currentVariants[currentVariants.length - 1] ??
+      baseTemplate.defaultVariants[0];
     const nextVariant: RestaurantEmailTemplateVariant = {
       ...seed,
       id: createVariantId(selectedTemplateKey),
@@ -372,7 +395,9 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
       return;
     }
 
-    const confirmed = window.confirm(`Reset "${template.title}" back to the system default variants?`);
+    const confirmed = window.confirm(
+      `Reset "${template.title}" back to the system default variants?`,
+    );
     if (!confirmed) return;
 
     try {
@@ -457,7 +482,10 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
 
   if (templatesQuery.error) {
     return (
-      <SettingsCard title="Email Templates" description="Manage booking confirmation, reminder, and review copy.">
+      <SettingsCard
+        title="Email Templates"
+        description="Manage booking confirmation, reminder, and review copy."
+      >
         <Alert variant="destructive">
           <AlertTitle>Unable to load email templates</AlertTitle>
           <AlertDescription>{templatesQuery.error.message}</AlertDescription>
@@ -473,7 +501,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
           <Sparkles className="size-4" />
           <AlertTitle>View only</AlertTitle>
           <AlertDescription>
-            You can review {restaurantName}&apos;s template setup here, but only owners and managers can change copy or send tests.
+            You can review {restaurantName}&apos;s template setup here, but only owners and managers
+            can change copy or send tests.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -515,7 +544,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                       const draftForTemplate = drafts[template.key];
                       const isDirty =
                         Boolean(draftForTemplate) &&
-                        normalizeVariantsForCompare(draftForTemplate ?? []) !== normalizeVariantsForCompare(template.variants);
+                        normalizeVariantsForCompare(draftForTemplate ?? []) !==
+                          normalizeVariantsForCompare(template.variants);
 
                       return (
                         <div
@@ -537,21 +567,33 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                           <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1">
                               <div className="font-medium text-foreground">{template.title}</div>
-                              <p className="text-xs leading-relaxed text-muted-foreground">{template.description}</p>
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                {template.description}
+                              </p>
                             </div>
-                            <Badge variant={getStatusBadgeVariant(template.status)}>{getStatusLabel(template.status)}</Badge>
+                            <Badge variant={getStatusBadgeVariant(template.status)}>
+                              {getStatusLabel(template.status)}
+                            </Badge>
                           </div>
 
                           <div className="mt-4 flex items-center justify-between gap-3">
                             <VariantCountMeter
-                              activeCount={(draftForTemplate ?? template.variants).filter((variant) => variant.isActive).length}
+                              activeCount={
+                                (draftForTemplate ?? template.variants).filter(
+                                  (variant) => variant.isActive,
+                                ).length
+                              }
                               totalCount={(draftForTemplate ?? template.variants).length}
                             />
                             {isDirty ? <Badge variant="outline">Unsaved</Badge> : null}
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
-                            <Button type="button" size="sm" variant={active ? 'default' : 'outline'}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={active ? 'default' : 'outline'}
+                            >
                               <PenSquare />
                               Edit
                             </Button>
@@ -575,7 +617,11 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                                 event.stopPropagation();
                                 void handleResetTemplate(template.key);
                               }}
-                              disabled={!templatesQuery.data?.canEdit || template.status === 'default' || resetMutation.isPending}
+                              disabled={
+                                !templatesQuery.data?.canEdit ||
+                                template.status === 'default' ||
+                                resetMutation.isPending
+                              }
                             >
                               <RefreshCcw />
                               Reset
@@ -603,7 +649,9 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
           headerAction={
             baseTemplate ? (
               <div className="flex items-center gap-2">
-                <Badge variant={getStatusBadgeVariant(baseTemplate.status)}>{getStatusLabel(baseTemplate.status)}</Badge>
+                <Badge variant={getStatusBadgeVariant(baseTemplate.status)}>
+                  {getStatusLabel(baseTemplate.status)}
+                </Badge>
                 {isCurrentDirty ? <Badge variant="outline">Unsaved</Badge> : null}
               </div>
             ) : null
@@ -637,7 +685,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs text-muted-foreground">
-                    System layout, booking facts, delivery rules, and destination URLs stay locked. Only copy variants are editable here.
+                    System layout, booking facts, delivery rules, and destination URLs stay locked.
+                    Only copy variants are editable here.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
@@ -652,7 +701,11 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                       type="button"
                       variant="outline"
                       onClick={() => void handleResetTemplate(baseTemplate.key)}
-                      disabled={!templatesQuery.data?.canEdit || resetMutation.isPending || baseTemplate.status === 'default'}
+                      disabled={
+                        !templatesQuery.data?.canEdit ||
+                        resetMutation.isPending ||
+                        baseTemplate.status === 'default'
+                      }
                     >
                       <RefreshCcw />
                       Reset to default
@@ -660,7 +713,9 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                     <Button
                       type="button"
                       onClick={() => void handleSave()}
-                      disabled={!templatesQuery.data?.canEdit || updateMutation.isPending || !isCurrentDirty}
+                      disabled={
+                        !templatesQuery.data?.canEdit || updateMutation.isPending || !isCurrentDirty
+                      }
                     >
                       <Save />
                       {updateMutation.isPending ? 'Saving…' : 'Save template'}
@@ -681,14 +736,18 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-foreground">Variant manager</div>
                   <p className="text-xs text-muted-foreground">
-                    Keep up to {MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants active or inactive. Only active variants rotate in production.
+                    Keep up to {MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants active or inactive.
+                    Only active variants rotate in production.
                   </p>
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleAddVariant}
-                  disabled={!templatesQuery.data?.canEdit || currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS}
+                  disabled={
+                    !templatesQuery.data?.canEdit ||
+                    currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS
+                  }
                 >
                   <Plus />
                   Add Variant
@@ -716,13 +775,19 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                           tabIndex={0}
                           className={cn(
                             'w-full rounded-2xl border p-3 text-left transition',
-                            active ? 'border-primary bg-primary/5 shadow-sm' : 'border-border/60 hover:bg-muted/30',
+                            active
+                              ? 'border-primary bg-primary/5 shadow-sm'
+                              : 'border-border/60 hover:bg-muted/30',
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1">
-                              <div className="text-sm font-medium text-foreground">{variant.name}</div>
-                              <div className="text-xs text-muted-foreground">{variant.headline}</div>
+                              <div className="text-sm font-medium text-foreground">
+                                {variant.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {variant.headline}
+                              </div>
                             </div>
                             <Badge variant={variant.isActive ? 'secondary' : 'outline'}>
                               {variant.isActive ? 'Active' : 'Inactive'}
@@ -745,7 +810,10 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                               type="button"
                               size="icon-sm"
                               variant="ghost"
-                              disabled={!templatesQuery.data?.canEdit || index === orderedVariants.length - 1}
+                              disabled={
+                                !templatesQuery.data?.canEdit ||
+                                index === orderedVariants.length - 1
+                              }
                               onClick={(event) => {
                                 event.stopPropagation();
                                 handleMoveVariant(variant.id, 1);
@@ -758,7 +826,9 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                               size="sm"
                               variant="ghost"
                               className="ml-auto"
-                              disabled={!templatesQuery.data?.canEdit || currentVariants.length <= 1}
+                              disabled={
+                                !templatesQuery.data?.canEdit || currentVariants.length <= 1
+                              }
                               onClick={(event) => {
                                 event.stopPropagation();
                                 handleDeleteVariant(variant.id);
@@ -860,7 +930,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                         disabled={!templatesQuery.data?.canEdit}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Use this as a subtle pre-visit priming line. Keep it gentle and never turn it into the main CTA.
+                        Use this as a subtle pre-visit priming line. Keep it gentle and never turn
+                        it into the main CTA.
                       </p>
                     </div>
                   ) : null}
@@ -881,7 +952,8 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                         disabled={!templatesQuery.data?.canEdit}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Use this for the direct post-visit ask, like adding a photo alongside the guest&apos;s review.
+                        Use this for the direct post-visit ask, like adding a photo alongside the
+                        guest&apos;s review.
                       </p>
                     </div>
                   ) : null}
@@ -907,8 +979,9 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
                     <Mail className="size-4" />
                     <AlertTitle>Supported placeholders</AlertTitle>
                     <AlertDescription>
-                      Use <code>{'{{firstName}}'}</code>, <code>{'{{venue}}'}</code>, <code>{'{{date}}'}</code>,{' '}
-                      <code>{'{{time}}'}</code>, and <code>{'{{party}}'}</code> inside your copy.
+                      Use <code>{'{{firstName}}'}</code>, <code>{'{{venue}}'}</code>,{' '}
+                      <code>{'{{date}}'}</code>, <code>{'{{time}}'}</code>, and{' '}
+                      <code>{'{{party}}'}</code> inside your copy.
                     </AlertDescription>
                   </Alert>
                 </div>
@@ -921,7 +994,10 @@ export function EmailTemplatesSection({ restaurantId, restaurantName }: EmailTem
           title="Live Preview"
           description="Preview the currently selected variant exactly as the renderer sees it."
           headerAction={
-            <Tabs value={previewDevice} onValueChange={(value) => setPreviewDevice(value as 'desktop' | 'mobile')}>
+            <Tabs
+              value={previewDevice}
+              onValueChange={(value) => setPreviewDevice(value as 'desktop' | 'mobile')}
+            >
               <TabsList>
                 <TabsTrigger value="desktop">
                   <Monitor />

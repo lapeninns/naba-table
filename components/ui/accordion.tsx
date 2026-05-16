@@ -30,6 +30,7 @@ const AccordionTrigger = React.forwardRef<
   <AccordionPrimitive.Header className="flex">
     <AccordionPrimitive.Trigger
       ref={ref}
+      type="button"
       className={cn(
         'group flex flex-1 items-center justify-between gap-3 rounded-lg px-4 py-3 text-left text-base font-medium transition-all hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className,

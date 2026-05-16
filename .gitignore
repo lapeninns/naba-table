@@ -41,6 +41,8 @@ pnpm-debug.log*
 stress-test-*.log
 test_output*.log
 test_single_output.log
+test-results/
+playwright-report/
 
 # temporary directories
 tmp/

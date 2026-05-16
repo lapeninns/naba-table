@@ -6,6 +6,7 @@ import {
   isLogoUrlColumnMissing,
   logLogoColumnFallback,
 } from '@/server/restaurants/logo-url-compat';
+import { getQaRestaurantFixtureBySlug } from '@/server/restaurants/qa-fixtures';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -32,6 +33,11 @@ export const getRestaurantBySlug = cache(async function getRestaurantBySlug(
   const normalized = slug.trim();
   if (!normalized) {
     return null;
+  }
+
+  const qaFixture = getQaRestaurantFixtureBySlug(normalized);
+  if (qaFixture) {
+    return qaFixture;
   }
 
   const supabase = getServiceSupabaseClient();

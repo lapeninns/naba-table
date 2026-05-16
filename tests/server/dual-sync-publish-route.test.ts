@@ -5,6 +5,7 @@ const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
 const runPublishMock = vi.hoisted(() => vi.fn());
 const defaultDualSyncPortsMock = vi.hoisted(() => vi.fn());
+const createDurableDualSyncGoogleEditThrottleMock = vi.hoisted(() => vi.fn());
 const enqueueDualSyncJobMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const assertDualSyncRestaurantNotPausedMock = vi.hoisted(() => vi.fn());
@@ -21,6 +22,10 @@ vi.mock('@/server/dual-sync/publish/orchestrator', () => ({
 
 vi.mock('@/server/dual-sync/publish/ports', () => ({
   defaultDualSyncPorts: defaultDualSyncPortsMock,
+}));
+
+vi.mock('@/server/dual-sync/publish/google-safety', () => ({
+  createDurableDualSyncGoogleEditThrottle: createDurableDualSyncGoogleEditThrottleMock,
 }));
 
 vi.mock('@/server/dual-sync/queue', () => ({
@@ -44,6 +49,9 @@ const ports = {
   applyImportToCore: vi.fn(),
   applyExportToGoogle: vi.fn(),
 };
+const googleEditThrottle = {
+  reserve: vi.fn(),
+};
 
 describe('dual-sync publish route', () => {
   beforeEach(() => {
@@ -51,10 +59,12 @@ describe('dual-sync publish route', () => {
     resolveRestaurantIdMock.mockReset();
     runPublishMock.mockReset();
     defaultDualSyncPortsMock.mockReset();
+    createDurableDualSyncGoogleEditThrottleMock.mockReset();
     enqueueDualSyncJobMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
     assertDualSyncRestaurantNotPausedMock.mockReset();
     isDualSyncRestaurantPausedErrorMock.mockReset();
+    googleEditThrottle.reserve.mockReset();
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
@@ -62,6 +72,7 @@ describe('dual-sync publish route', () => {
     assertDualSyncRestaurantNotPausedMock.mockResolvedValue(undefined);
     isDualSyncRestaurantPausedErrorMock.mockReturnValue(false);
     defaultDualSyncPortsMock.mockReturnValue(ports);
+    createDurableDualSyncGoogleEditThrottleMock.mockReturnValue(googleEditThrottle);
     runPublishMock.mockResolvedValue({
       summary: {
         publishJobId: 'job-1',
@@ -104,6 +115,7 @@ describe('dual-sync publish route', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(createDurableDualSyncGoogleEditThrottleMock).toHaveBeenCalledWith(serviceClient);
     expect(runPublishMock).toHaveBeenCalledWith(
       serviceClient,
       {
@@ -123,7 +135,11 @@ describe('dual-sync publish route', () => {
           },
         ],
       },
-      expect.objectContaining({ ports }),
+      expect.objectContaining({
+        ports,
+        googleEditThrottle,
+        refreshGoogleBeforePublish: true,
+      }),
     );
   });
 
@@ -165,6 +181,8 @@ describe('dual-sync publish route', () => {
       }),
     );
     expect(runPublishMock).not.toHaveBeenCalled();
+    expect(defaultDualSyncPortsMock).not.toHaveBeenCalled();
+    expect(createDurableDualSyncGoogleEditThrottleMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
       queued: true,
       job: { id: 'job-1', status: 'queued' },

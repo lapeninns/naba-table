@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
@@ -7,12 +7,24 @@ import {
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
+import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { fetchUserMembershipsCached, requireAdminMembership } from '@/server/team/access';
 
 import type { ReactNode } from 'react';
 
 export default async function RestaurantSettingsLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const qaOpsFixture = getQaOpsAuthFixture({
+    cookieValue: cookieStore.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+    host: headerStore.get('host'),
+  });
+
+  if (qaOpsFixture) {
+    return <RestaurantSettingsPageShell>{children}</RestaurantSettingsPageShell>;
+  }
+
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
@@ -28,7 +40,6 @@ export default async function RestaurantSettingsLayout({ children }: { children:
   }
 
   const memberships = await fetchUserMembershipsCached(user.id);
-  const cookieStore = await cookies();
   const activeRestaurantId = resolvePreferredOpsRestaurantId(
     memberships.map((membership) => membership.restaurant_id),
     cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,

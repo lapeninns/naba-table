@@ -110,9 +110,15 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
 }));
 
 import { GET } from '@/src/app/api/ops/bookings/route';
+import {
+  appHostRequest,
+  expectNoProtectedSideEffects,
+  SECURITY_RESTAURANTS,
+} from '@/tests/server/security/protected-route-helpers';
 
-const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
-const TABLE_ID = '22222222-2222-4222-8222-222222222222';
+const RESTAURANT_ID = SECURITY_RESTAURANTS.primary;
+const OTHER_RESTAURANT_ID = SECURITY_RESTAURANTS.other;
+const TABLE_ID = '33333333-3333-4333-8333-333333333333';
 
 function makeRequest(search = '') {
   return new NextRequest(`https://app.nabatable.com/api/ops/bookings${search}`);
@@ -135,6 +141,39 @@ describe('GET /api/ops/bookings', () => {
       source: 'memory',
     });
     mocks.range.mockResolvedValue({ data: [], error: null, count: 0 });
+  });
+
+  it('rejects unauthenticated requests before membership or service-role reads @p0 @api @security', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+
+    const response = await GET(appHostRequest('/api/ops/bookings'));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Authentication required' });
+    expect(mocks.fetchUserMemberships).not.toHaveBeenCalled();
+    expectNoProtectedSideEffects({
+      serviceFrom: mocks.from,
+      bookingsRange: mocks.range,
+    });
+  });
+
+  it('rejects wrong-restaurant reads before service-role booking queries @p0 @api @security', async () => {
+    const response = await GET(
+      appHostRequest(`/api/ops/bookings?restaurantId=${OTHER_RESTAURANT_ID}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Forbidden' });
+    expect(mocks.fetchUserMemberships).toHaveBeenCalledWith('user-1', expect.anything());
+    expectNoProtectedSideEffects({
+      serviceFrom: mocks.from,
+      bookingsRange: mocks.range,
+    });
   });
 
   it('uses the regular embedded assignments relation when not filtering by table', async () => {

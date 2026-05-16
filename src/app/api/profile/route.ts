@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 
 import { profileUpdateSchema, type ProfileUpdatePayload } from '@/lib/profile/schema';
 import { normalizeProfileRow, ensureProfileRow } from '@/lib/profile/server';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -73,7 +74,8 @@ export async function GET(): Promise<NextResponse> {
 
     if (authError) {
       console.error('[profile][get] failed to resolve auth', authError.message);
-      return jsonError(500, 'AUTH_RESOLUTION_FAILED', 'Unable to verify your session');
+      const mapped = mapSupabaseAuthError(authError);
+      return jsonError(mapped.status, mapped.code, mapped.message);
     }
 
     if (!user) {
@@ -107,7 +109,8 @@ async function putProfile(req: NextRequest): Promise<NextResponse> {
 
     if (authError) {
       console.error('[profile][put] failed to resolve auth', authError.message);
-      return jsonError(500, 'AUTH_RESOLUTION_FAILED', 'Unable to verify your session');
+      const mapped = mapSupabaseAuthError(authError);
+      return jsonError(mapped.status, mapped.code, mapped.message);
     }
 
     if (!user) {

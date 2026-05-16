@@ -47,4 +47,28 @@ describe('logger redaction', () => {
     expect(output).not.toContain('auth-code');
     expect(output).toContain('redacted');
   });
+
+  it('redacts sensitive headers, tokens, emails, and phones inside free-form strings', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });
+
+    logger.info('provider error', {
+      headers: {
+        'x-goog-api-key': 'structured-google-api-key',
+      },
+      message:
+        'Authorization: Bearer header-secret\nCookie: sid=cookie-secret\nX-Goog-Api-Key: google-api-key-secret\nemail guest@example.com phone +44 7700 900123 token=inline-secret',
+    });
+
+    const output = JSON.stringify(logSpy.mock.calls);
+    expect(output).not.toContain('structured-google-api-key');
+    expect(output).not.toContain('header-secret');
+    expect(output).not.toContain('cookie-secret');
+    expect(output).not.toContain('google-api-key-secret');
+    expect(output).not.toContain('guest@example.com');
+    expect(output).not.toContain('+44 7700 900123');
+    expect(output).not.toContain('inline-secret');
+    expect(output).toContain('[redacted-email]');
+    expect(output).toContain('[redacted-phone]');
+  });
 });

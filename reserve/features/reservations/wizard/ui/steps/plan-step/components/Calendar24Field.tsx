@@ -9,16 +9,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
 import { cn } from '@shared/lib/cn';
 
@@ -278,102 +268,50 @@ export function Calendar24Time({
       </Label>
       <div className="flex flex-col gap-2">
         <div className="relative">
-          {showSuggestions ? (
-            <Select
-              name="reservation-time"
-              value={inputValue}
-              onValueChange={(next) => time.onChange(next, { commit: true })}
-              disabled={isTimeDisabled || isTimeLoading}
-            >
-              <SelectTrigger
-                id={timeInputId}
-                className={cn(
-                  'h-12 w-full rounded-[var(--pg-radius-md)] border-border bg-background px-4 text-base font-semibold text-foreground shadow-[var(--pg-shadow-soft)] hover:bg-muted/40 focus:ring-ring/25',
-                  !inputValue && 'text-muted-foreground',
-                  time.error && 'border-destructive focus-visible:ring-destructive',
-                )}
-                aria-invalid={Boolean(time.error)}
-                aria-labelledby={timeLabelId}
-                aria-describedby={
-                  [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
-                }
-              >
-                <SelectValue placeholder="--:--" />
-              </SelectTrigger>
-              <SelectContent
-                className="pg-panel max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] rounded-[var(--pg-radius-lg)] border-border p-1 shadow-[var(--pg-shadow-floating)]"
-                position="popper"
-                sideOffset={8}
-              >
-                {[...groupedSuggestions.entries()].map(([label, slots], index) => (
-                  <React.Fragment key={label}>
-                    {index > 0 ? <SelectSeparator className="my-1 bg-border/70" /> : null}
-                    <SelectGroup>
-                      <SelectLabel className="px-3 py-2 font-[var(--pg-font-mono)] text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                        {label}
-                      </SelectLabel>
-                      {slots.map((slot) => (
-                        <SelectItem
-                          key={slot.value}
-                          value={slot.value}
-                          className="my-0.5 rounded-[var(--pg-radius-sm)] py-2.5 pl-8 pr-3 font-[var(--pg-font-mono)] text-sm font-semibold focus:bg-muted focus:text-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
-                        >
-                          {slot.display}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </React.Fragment>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <>
-              <Input
-                id={timeInputId}
-                name="reservation-time"
-                type="time"
-                value={isTimeDisabled && unavailableMessage ? '' : inputValue}
-                step={timeStepSeconds}
-                onChange={(event) => {
-                  if (isTimeDisabled) {
-                    return;
-                  }
-                  const value = event.target.value;
-                  time.onChange(value, { commit: false });
-                }}
-                onBlur={(event) => {
-                  if (isTimeDisabled) {
-                    time.onBlur?.();
-                    return;
-                  }
-                  time.onBlur?.();
-                  time.onChange(event.target.value, { commit: true });
-                }}
-                aria-invalid={Boolean(time.error)}
-                aria-label="Time"
-                aria-labelledby={timeLabelId}
-                aria-describedby={
-                  [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
-                }
-                placeholder="--:--"
-                className={cn(
-                  'h-12 appearance-none bg-background text-base font-normal [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
-                  !inputValue ? 'text-foreground' : undefined,
-                  time.error && 'border-destructive focus-visible:ring-destructive',
-                )}
-                disabled={isTimeDisabled || isTimeLoading}
-              />
-              {!inputValue && !isTimeLoading && !isTimeDisabled && (
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
-                  )}
-                >
-                  --:--
-                </span>
+          <Input
+            id={timeInputId}
+            name="reservation-time"
+            type="time"
+            value={isTimeDisabled && unavailableMessage ? '' : inputValue}
+            step={timeStepSeconds}
+            onChange={(event) => {
+              if (isTimeDisabled) {
+                return;
+              }
+              const value = event.target.value;
+              time.onChange(value, { commit: false });
+            }}
+            onBlur={(event) => {
+              if (isTimeDisabled) {
+                time.onBlur?.();
+                return;
+              }
+              time.onBlur?.();
+              time.onChange(event.target.value, { commit: true });
+            }}
+            aria-invalid={Boolean(time.error)}
+            aria-label="Time"
+            aria-labelledby={timeLabelId}
+            aria-describedby={
+              [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
+            }
+            placeholder="--:--"
+            className={cn(
+              'h-12 appearance-none bg-background text-base font-normal [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+              !inputValue ? 'text-foreground' : undefined,
+              time.error && 'border-destructive focus-visible:ring-destructive',
+            )}
+            disabled={isTimeDisabled || isTimeLoading}
+          />
+          {!inputValue && !isTimeLoading && !isTimeDisabled && (
+            <span
+              aria-hidden="true"
+              className={cn(
+                'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground transition-opacity',
               )}
-            </>
+            >
+              --:--
+            </span>
           )}
 
           {isTimeLoading && !inputValue ? (
@@ -383,11 +321,39 @@ export function Calendar24Time({
           ) : null}
         </div>
 
-        {!showSuggestions ? (
+        {showSuggestions ? (
+          <div className="grid gap-2" aria-label="Available times">
+            {[...groupedSuggestions.entries()].map(([label, slots]) => (
+              <div key={label} className="space-y-2">
+                <p className="px-1 font-[var(--pg-font-mono)] text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                  {label}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {slots.map((slot) => (
+                    <Button
+                      key={slot.value}
+                      type="button"
+                      variant={slot.value === inputValue ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="h-9 rounded-[var(--pg-radius-sm)] font-[var(--pg-font-mono)] text-sm font-semibold"
+                      aria-pressed={slot.value === inputValue}
+                      onClick={() => {
+                        time.onChange(slot.value, { commit: true });
+                        time.onBlur?.();
+                      }}
+                    >
+                      {slot.display}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
           <p className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]" aria-live="polite">
             {resolvedUnavailableMessage}
           </p>
-        ) : null}
+        )}
       </div>
       <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
         {TIME_DESCRIPTION}

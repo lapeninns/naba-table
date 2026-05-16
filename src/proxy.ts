@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server';
 import { buildCsrfCookieOptions, CSRF_COOKIE_NAME } from '@/lib/security/csrf';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { requireOpsAuth } from '@/server/auth/ops-guard';
+import {
+  QA_OPS_AUTH_COOKIE_NAME,
+  QA_OPS_USER_ID,
+  isQaOpsAuthFixtureAllowed,
+} from '@/server/auth/qa-ops-session';
 import { getMiddlewareSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -176,6 +181,16 @@ async function runOpsAuthWithTrustedHeader(
   buildResponse: (init: { request: { headers: Headers } }) => NextResponse,
 ): Promise<NextResponse> {
   const headers = buildTrustedRequestHeaders(req);
+  if (
+    isQaOpsAuthFixtureAllowed({
+      cookieValue: req.cookies.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+      host: req.headers.get('host') ?? req.nextUrl.host,
+    })
+  ) {
+    headers.set(TRUSTED_OPS_USER_HEADER, QA_OPS_USER_ID);
+    return buildResponse({ request: { headers } });
+  }
+
   const workingResponse = buildResponse({ request: { headers } });
   const guardResult = await requireOpsAuth(req, workingResponse);
   if (guardResult instanceof NextResponse) {
@@ -273,6 +288,15 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     // 6. All other page routes are restaurant pages - rewrite to /app/* and require auth
     const internalPath = `/app${url.pathname}${searchParams ? `?${searchParams}` : ''}`;
     const rewriteResponse = NextResponse.rewrite(new URL(internalPath, req.url));
+
+    if (
+      isQaOpsAuthFixtureAllowed({
+        cookieValue: req.cookies.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+        host,
+      })
+    ) {
+      return rewriteResponse;
+    }
 
     // Check authentication for protected restaurant pages
     const supabase = getMiddlewareSupabaseClient(req, rewriteResponse);

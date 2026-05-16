@@ -16,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
@@ -122,7 +123,7 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
           </div>
 
           <Form {...form}>
-            <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
+            <FormRoot className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
               <FormField
                 control={form.control}
                 name="name"
@@ -153,7 +154,7 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
                   'Accept invite'
                 )}
               </Button>
-            </form>
+            </FormRoot>
           </Form>
         </CardContent>
       </Card>

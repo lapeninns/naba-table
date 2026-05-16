@@ -57,6 +57,15 @@ function buildRateLimitId(req: NextRequest, email: string, mode: SignupMode) {
   return `signup:${mode}:${ip}:${email}`;
 }
 
+function isExistingAccountError(error: { message?: string | null }) {
+  const message = error.message?.toLowerCase() ?? '';
+  return (
+    message.includes('already registered') ||
+    message.includes('already been registered') ||
+    message.includes('already exists')
+  );
+}
+
 function setRateHeaders(
   response: NextResponse,
   limitResult: Awaited<ReturnType<typeof consumeRateLimit>>,
@@ -117,11 +126,19 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      const status = error.status ?? 400;
-      const response = NextResponse.json(
-        { message: error.message ?? 'Unable to create account' },
-        { status },
-      );
+      const response = isExistingAccountError(error)
+        ? NextResponse.json(
+            {
+              code: 'ACCOUNT_EXISTS',
+              message: 'An account already exists for this email.',
+              details: { field: 'email' },
+            },
+            { status: 409 },
+          )
+        : NextResponse.json(
+            { message: error.message ?? 'Unable to create account' },
+            { status: error.status ?? 400 },
+          );
       return setRateHeaders(response, rateResult);
     }
 

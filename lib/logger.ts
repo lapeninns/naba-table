@@ -11,6 +11,9 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 const DEFAULT_REDACT_KEYS = [
   'access_token',
+  'api-key',
+  'api_key',
+  'apikey',
   'authorization',
   'booking_recovery_token',
   'code',
@@ -23,6 +26,11 @@ const DEFAULT_REDACT_KEYS = [
   'token',
   'token_hash',
 ];
+
+const REDACTED_EMAIL = '[redacted-email]';
+const REDACTED_PHONE = '[redacted-phone]';
+const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+const PHONE_CANDIDATE_PATTERN = /(?:\+?\d[\d\s().-]{7,}\d)/g;
 
 const LOG_METHOD: Record<LogLevel, (message?: unknown, ...optionalParams: unknown[]) => void> = {
   debug: (message, ...optionalParams) => (console.debug ?? console.log)(message, ...optionalParams),
@@ -72,6 +80,36 @@ function shouldRedact(key: string, redactKeys: string[]): boolean {
   return redactKeys.some((needle) => lower.includes(needle));
 }
 
+function redactLooseSecrets(value: string): string {
+  return value
+    .replace(
+      /"(access_token|api[_-]?key|code|jwt|otp|password|refresh_token|secret|session|signature|token)"\s*:\s*"[^"]*"/gi,
+      (_match, key: string) => `"${key}":"***redacted***"`,
+    )
+    .replace(
+      /\b(access_token|api[_-]?key|code|jwt|otp|password|refresh_token|secret|session|signature|token)=([^&\s"'<>]+)/gi,
+      (_match, key: string) => `${key}=***redacted***`,
+    )
+    .replace(
+      /\b(authorization|cookie|set-cookie|x-[a-z0-9-]*api-key|api-key)\s*:\s*[^\r\n]+/gi,
+      (_match, key: string) => `${key}: ***redacted***`,
+    )
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer ***redacted***');
+}
+
+function redactPhones(value: string): string {
+  return value.replace(PHONE_CANDIDATE_PATTERN, (candidate) => {
+    const digits = candidate.replace(/\D/g, '');
+    return digits.length >= 9 ? REDACTED_PHONE : candidate;
+  });
+}
+
+function sanitizeString(value: string): string {
+  return redactPhones(
+    redactLooseSecrets(redactUrlQuery(value)).replace(EMAIL_PATTERN, REDACTED_EMAIL),
+  );
+}
+
 function serializeError(error: unknown, redactKeys: string[]): Record<string, unknown> {
   if (error instanceof Error) {
     return sanitizeMetadata(
@@ -119,7 +157,7 @@ function sanitizeMetadata(
           if (entry && typeof entry === 'object') {
             return sanitizeMetadata(entry as Record<string, unknown>, redactKeys, false, seen);
           }
-          return typeof entry === 'string' ? redactUrlQuery(entry) : entry;
+          return typeof entry === 'string' ? sanitizeString(entry) : entry;
         });
         continue;
       }
@@ -132,7 +170,7 @@ function sanitizeMetadata(
       continue;
     }
 
-    sanitized[key] = typeof value === 'string' ? redactUrlQuery(value) : value;
+    sanitized[key] = typeof value === 'string' ? sanitizeString(value) : value;
   }
   return sanitized;
 }

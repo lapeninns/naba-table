@@ -9,7 +9,15 @@ import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormRoot,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
@@ -29,7 +37,9 @@ const formSchema = z.object({
   password: passwordFieldSchema,
 });
 
-type AuthSuccess = { status: 'ok'; redirectTo: string } | { status: 'magic_link_sent'; redirectTo: string };
+type AuthSuccess =
+  | { status: 'ok'; redirectTo: string }
+  | { status: 'magic_link_sent'; redirectTo: string };
 type AuthResponse = AuthSuccess;
 
 const AUTH_ENDPOINT = '/api/auth/signin';
@@ -101,7 +111,8 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
     clientEnv.flags.forcePasswordSignIn ? AUTH_MODES.PASSWORD : AUTH_MODES.MAGIC_LINK,
   );
 
-  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/guest/bookings';
+  const targetPath =
+    redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/guest/bookings';
 
   useEffect(() => {
     track('auth_signin_viewed', { redirectedFrom: targetPath });
@@ -273,9 +284,10 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       emit('auth_signin_error', { method: 'password', code });
 
       if (error instanceof HttpError && error.status === 400) {
-        const field = typeof error.details === 'object' && error.details && 'field' in error.details
-          ? (error.details as { field?: string }).field
-          : undefined;
+        const field =
+          typeof error.details === 'object' && error.details && 'field' in error.details
+            ? (error.details as { field?: string }).field
+            : undefined;
         if (field === 'password') {
           form.setError('password', { type: 'manual', message: error.message });
         }
@@ -306,7 +318,9 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
       className="w-full max-w-full border-border/70 bg-white/95 shadow-lg shadow-primary/5 sm:max-w-md"
     >
       <CardHeader className="space-y-1.5 sm:space-y-2">
-        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">Welcome back</CardTitle>
+        <CardTitle className="text-2xl font-semibold tracking-tight text-foreground">
+          Welcome back
+        </CardTitle>
         <CardDescription className="text-sm text-muted-foreground">
           Sign in with a one-time magic link or switch to password.
         </CardDescription>
@@ -320,13 +334,14 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
           {AUTH_MODE_OPTIONS.map((option) => {
             const active = mode === option.id;
             return (
-              <button
+              <Button
                 key={option.id}
                 type="button"
+                variant="ghost"
                 role="tab"
                 aria-selected={active}
                 className={cn(
-                  'rounded-lg border border-transparent px-3 py-2 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2',
+                  'h-auto justify-start rounded-lg border border-transparent px-3 py-2 text-left text-sm transition focus-visible:ring-primary/40 focus-visible:ring-offset-2',
                   active
                     ? 'bg-white shadow-sm'
                     : 'bg-transparent text-muted-foreground hover:text-foreground',
@@ -336,13 +351,13 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
               >
                 <span className="block font-medium">{option.label}</span>
                 <span className="block text-xs text-muted-foreground">{option.helper}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
 
         <Form {...form}>
-          <form className="space-y-4 sm:space-y-5" onSubmit={onSubmit} noValidate>
+          <FormRoot className="space-y-4 sm:space-y-5" onSubmit={onSubmit} noValidate>
             <FormField
               control={form.control}
               name="email"
@@ -410,7 +425,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
                 submitLabel
               )}
             </Button>
-          </form>
+          </FormRoot>
         </Form>
       </CardContent>
     </Card>

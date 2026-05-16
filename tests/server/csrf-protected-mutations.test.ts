@@ -3,10 +3,41 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { POST as postCheckIn } from '@/src/app/api/ops/bookings/[id]/check-in/route';
+import { POST as postCheckOut } from '@/src/app/api/ops/bookings/[id]/check-out/route';
 import { POST as postNoShow } from '@/src/app/api/ops/bookings/[id]/no-show/route';
+import { POST as postUndoNoShow } from '@/src/app/api/ops/bookings/[id]/undo-no-show/route';
 import { POST as postProfileImage } from '@/src/app/api/profile/image/route';
 
 const TOKEN = 'csrf-token-for-tests';
+
+type LifecycleRouteHandler = (
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) => Promise<Response>;
+
+const lifecycleRoutes: { handler: LifecycleRouteHandler; label: string; path: string }[] = [
+  {
+    handler: postCheckIn,
+    label: 'check-in',
+    path: '/api/ops/bookings/booking-1/check-in',
+  },
+  {
+    handler: postCheckOut,
+    label: 'check-out',
+    path: '/api/ops/bookings/booking-1/check-out',
+  },
+  {
+    handler: postNoShow,
+    label: 'no-show',
+    path: '/api/ops/bookings/booking-1/no-show',
+  },
+  {
+    handler: postUndoNoShow,
+    label: 'undo-no-show',
+    path: '/api/ops/bookings/booking-1/undo-no-show',
+  },
+];
 
 function csrfHeaders(includeHeader = true, includeCookie = true): Headers {
   const headers = new Headers();
@@ -67,22 +98,25 @@ describe('CSRF-protected mutations', () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
-  it('does not parse JSON bodies on booking lifecycle CSRF failure', async () => {
-    const request = new NextRequest('https://app.nabatable.com/api/ops/bookings/booking-1/no-show', {
-      method: 'POST',
-      body: JSON.stringify({ reason: 'forged' }),
-    });
-    const jsonSpy = vi.spyOn(request, 'json');
+  it.each(lifecycleRoutes)(
+    'does not parse JSON bodies on $label lifecycle CSRF failure',
+    async ({ handler, path }) => {
+      const request = new NextRequest(`https://app.nabatable.com${path}`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: 'forged' }),
+      });
+      const jsonSpy = vi.spyOn(request, 'json');
 
-    const response = await postNoShow(request, {
-      params: Promise.resolve({ id: 'booking-1' }),
-    });
-    const body = await response.json();
+      const response = await handler(request, {
+        params: Promise.resolve({ id: 'booking-1' }),
+      });
+      const body = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(body.code).toBe('CSRF_INVALID');
-    expect(jsonSpy).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(403);
+      expect(body.code).toBe('CSRF_INVALID');
+      expect(jsonSpy).not.toHaveBeenCalled();
+    },
+  );
 
   it('does not parse form-data bodies on avatar upload CSRF failure', async () => {
     const formData = new FormData();

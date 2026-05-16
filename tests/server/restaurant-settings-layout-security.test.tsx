@@ -6,14 +6,16 @@ const redirectMock = vi.hoisted(() =>
   }),
 );
 const cookiesMock = vi.hoisted(() => vi.fn());
+const headersMock = vi.hoisted(() => vi.fn());
 const cookieGetMock = vi.hoisted(() => vi.fn());
+const headerGetMock = vi.hoisted(() => vi.fn());
 const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
 const fetchUserMembershipsCachedMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({ redirect: redirectMock }));
-vi.mock('next/headers', () => ({ cookies: cookiesMock }));
+vi.mock('next/headers', () => ({ cookies: cookiesMock, headers: headersMock }));
 
 vi.mock('@/components/features/restaurant-settings/RestaurantSettingsPageShell', () => ({
   RestaurantSettingsPageShell: ({ children }: { children: React.ReactNode }) => ({
@@ -42,6 +44,10 @@ describe('RestaurantSettingsLayout security', () => {
     cookieGetMock.mockReset();
     cookiesMock.mockReset();
     cookiesMock.mockResolvedValue({ get: cookieGetMock });
+    headerGetMock.mockReset();
+    headerGetMock.mockReturnValue('app.localhost:5180');
+    headersMock.mockReset();
+    headersMock.mockResolvedValue({ get: headerGetMock });
     getUserMock.mockReset();
     getServerComponentSupabaseClientMock.mockReset();
     getServerComponentSupabaseClientMock.mockResolvedValue({

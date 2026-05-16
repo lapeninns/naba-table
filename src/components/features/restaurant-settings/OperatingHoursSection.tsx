@@ -6,9 +6,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table } from '@/components/ui/table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
@@ -483,7 +485,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
             />
             <div className="overflow-hidden rounded-xl border">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
+                <Table className="min-w-full divide-y divide-border">
                   <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 text-left">Day</th>
@@ -593,19 +595,17 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-center">
-                              <input
+                              <Checkbox
                                 id={`weekly-${row.dayOfWeek}-closed`}
-                                type="checkbox"
                                 checked={row.isClosed}
                                 disabled={isDisabled}
-                                onChange={(event) =>
+                                onCheckedChange={(checked) =>
                                   handleWeeklyChange(index, {
-                                    isClosed: event.target.checked,
-                                    opensAt: event.target.checked ? '' : row.opensAt || '09:00',
-                                    closesAt: event.target.checked ? '' : row.closesAt || '18:00',
+                                    isClosed: Boolean(checked),
+                                    opensAt: checked ? '' : row.opensAt || '09:00',
+                                    closesAt: checked ? '' : row.closesAt || '18:00',
                                   })
                                 }
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                               />
                               <Label htmlFor={`weekly-${row.dayOfWeek}-closed`} className="sr-only">
                                 Closed all day
@@ -627,7 +627,7 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                       );
                     })}
                   </tbody>
-                </table>
+                </Table>
               </div>
             </div>
           </div>
@@ -775,19 +775,17 @@ export function OperatingHoursSection({ restaurantId }: OperatingHoursSectionPro
                           />
                         </div>
                         <div className="flex items-center gap-2">
-                          <input
+                          <Checkbox
                             id={`override-${index}-closed`}
-                            type="checkbox"
                             checked={row.isClosed}
                             disabled={isDisabled}
-                            onChange={(event) =>
+                            onCheckedChange={(checked) =>
                               handleOverrideChange(index, {
-                                isClosed: event.target.checked,
-                                opensAt: event.target.checked ? '' : row.opensAt || '09:00',
-                                closesAt: event.target.checked ? '' : row.closesAt || '18:00',
+                                isClosed: Boolean(checked),
+                                opensAt: checked ? '' : row.opensAt || '09:00',
+                                closesAt: checked ? '' : row.closesAt || '18:00',
                               })
                             }
-                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                           />
                           <Label htmlFor={`override-${index}-closed`} className="text-sm">
                             Closed all day

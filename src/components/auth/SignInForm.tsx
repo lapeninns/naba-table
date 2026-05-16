@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -56,7 +57,7 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full space-y-6">
+    <FormRoot onSubmit={handleSubmit} className="w-full space-y-6">
       {/* Email Field */}
       <div className="space-y-2">
         <Label htmlFor="email" className="flex items-center gap-2 text-sm font-semibold">
@@ -134,6 +135,6 @@ export function SignInForm({ redirectedFrom }: SignInFormProps) {
           or contact support.
         </p>
       </div>
-    </form>
+    </FormRoot>
   );
 }

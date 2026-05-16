@@ -1445,7 +1445,15 @@ describe('OpsEmailDeliveryClient', () => {
       }),
     );
 
-    expect(screen.getByRole('combobox', { name: /restaurant switcher/i })).toBeInTheDocument();
+    const restaurantSwitcher = await screen.findByRole('combobox', {
+      name: /restaurant switcher/i,
+    });
+    expect(restaurantSwitcher).toBeInTheDocument();
+    const testUser = userEvent.setup();
+    await testUser.click(restaurantSwitcher);
+    expect(
+      await screen.findByRole('option', { name: /second test restaurant/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText('UTC')).toBeInTheDocument();
   });
 
@@ -2093,6 +2101,8 @@ describe('OpsEmailDeliveryClient', () => {
       }),
     );
 
-    expect(screen.getByRole('combobox', { name: /restaurant switcher/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('combobox', { name: /restaurant switcher/i }),
+    ).toBeInTheDocument();
   });
 });
