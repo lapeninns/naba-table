@@ -10,7 +10,7 @@ import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
-import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
+import { getRestaurantSettingsRouteCopy } from './routes';
 
 export type RestaurantSettingsPageShellProps = {
   /**
@@ -54,25 +54,6 @@ function usePrefersReducedMotion() {
   return prefersReducedMotion;
 }
 
-function isRestaurantSettingsRouteActive(pathname: string, href: string) {
-  const normalizedHref = normalizeOpsPathname(href);
-  if (normalizedHref === '/settings/restaurant') {
-    return pathname === normalizedHref;
-  }
-  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
-}
-
-function isRestaurantSettingsNavItemActive(
-  pathname: string,
-  item: (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number],
-) {
-  if (isRestaurantSettingsRouteActive(pathname, item.href)) {
-    return true;
-  }
-
-  return (item.aliases ?? []).some((alias) => isRestaurantSettingsRouteActive(pathname, alias));
-}
-
 function RestaurantSettingsPageHeading({
   title,
   description,
@@ -85,11 +66,7 @@ function RestaurantSettingsPageHeading({
   const activeNavItem = useMemo(() => {
     if (!pathname) return null;
     const normalized = normalizeOpsPathname(pathname);
-    return (
-      RESTAURANT_SETTINGS_NAV_ITEMS.find((item) =>
-        isRestaurantSettingsNavItemActive(normalized, item),
-      ) ?? null
-    );
+    return getRestaurantSettingsRouteCopy(normalized);
   }, [pathname]);
 
   const resolvedTitle = title ?? activeNavItem?.title ?? DEFAULT_TITLE;

@@ -158,9 +158,9 @@ export function DualSyncFieldRow({
             <ToggleGroupItem
               value="export_to_google"
               disabled={!canExport || disabled}
-              aria-label="Export to Google"
+              aria-label="Send to Google"
             >
-              Export to Google
+              Send to Google
             </ToggleGroupItem>
             <ToggleGroupItem value="ignore" disabled={disabled} aria-label="Ignore field">
               Ignore

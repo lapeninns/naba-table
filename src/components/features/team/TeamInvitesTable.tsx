@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,7 @@ type TeamInvitesTableProps = {
 
 export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTableProps) {
   const [status, setStatus] = useState<TeamInviteStatus>('pending');
+  const [revokeTarget, setRevokeTarget] = useState<TeamInvite | null>(null);
   const {
     data: invites,
     error,
@@ -66,8 +68,16 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
     return buildTeamInviteRows(invites ?? []);
   }, [invites]);
 
-  const handleRevoke = (invite: TeamInvite) => {
-    revokeInvite.mutate({ restaurantId, inviteId: invite.id });
+  const handleRevoke = () => {
+    if (!revokeTarget || revokeInvite.isPending) {
+      return;
+    }
+    revokeInvite.mutate(
+      { restaurantId, inviteId: revokeTarget.id },
+      {
+        onSuccess: () => setRevokeTarget(null),
+      },
+    );
   };
 
   return (
@@ -76,10 +86,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
       description="Track outstanding invites and revoke access when an invitation is no longer needed."
       headerAction={
         <Select value={status} onValueChange={(value) => setStatus(value as TeamInviteStatus)}>
-          <SelectTrigger
-            className="w-full md:w-[160px]"
-            aria-label="Filter invitations by status"
-          >
+          <SelectTrigger className="w-full md:w-[160px]" aria-label="Filter invitations by status">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -101,15 +108,62 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
         ) : undefined
       }
     >
-        {isError ? (
-          <div className="pb-4">
-            <Alert variant="destructive">
-              <AlertTitle>Invitations could not be loaded</AlertTitle>
-              <AlertDescription>{error.message}</AlertDescription>
-            </Alert>
-          </div>
-        ) : null}
+      {isError ? (
+        <div className="pb-4">
+          <Alert variant="destructive">
+            <AlertTitle>Invitations could not be loaded</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
 
+      <div className="grid gap-3 md:hidden">
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-28 w-full rounded-lg" />
+          ))
+        ) : hasInvites ? (
+          inviteRows.map(({ invite, expiresLabel, isExpiredPending }) => (
+            <article key={invite.id} className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="break-all text-sm font-semibold text-foreground">
+                    {invite.email}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatTeamRole(invite.role)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <StatusBadge invite={invite} />
+                  {isExpiredPending ? <Badge variant="outline">Expired by date</Badge> : null}
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">Expires {expiresLabel}</p>
+              {invite.status === 'pending' && canManage ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 w-full"
+                  onClick={() => setRevokeTarget(invite)}
+                  disabled={revokeInvite.isPending}
+                >
+                  Revoke invite
+                </Button>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+            {status === 'pending'
+              ? 'No pending invitations. Invite teammates to collaborate on reservations.'
+              : 'No invitations match this filter.'}
+          </div>
+        )}
+      </div>
+
+      <div className="hidden md:block">
         <Table>
           <TableCaption className="sr-only">Restaurant team invitations</TableCaption>
           <TableHeader>
@@ -154,7 +208,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRevoke(invite)}
+                        onClick={() => setRevokeTarget(invite)}
                         disabled={revokeInvite.isPending}
                       >
                         Revoke
@@ -176,6 +230,25 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
             )}
           </TableBody>
         </Table>
+      </div>
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRevokeTarget(null);
+          }
+        }}
+        title="Revoke invitation?"
+        description={
+          revokeTarget
+            ? `${revokeTarget.email} will no longer be able to use this invitation to access the restaurant.`
+            : undefined
+        }
+        confirmLabel={revokeInvite.isPending ? 'Revoking…' : 'Revoke invite'}
+        cancelLabel="Keep invite"
+        tone="destructive"
+        onConfirm={handleRevoke}
+      />
     </SettingsCard>
   );
 }

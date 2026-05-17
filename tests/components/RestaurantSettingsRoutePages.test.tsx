@@ -9,7 +9,7 @@ import GoogleBusinessProfileSettingsPage, {
 import RestaurantMenuSettingsPage, {
   metadata as menuMetadata,
 } from '@/app/app/(app)/settings/restaurant/menu/page';
-import RestaurantSetupSettingsPage, {
+import RestaurantSettingsIndexPage, {
   metadata as overviewMetadata,
 } from '@/app/app/(app)/settings/restaurant/page';
 import RestaurantProfileSettingsPage, {
@@ -33,11 +33,6 @@ type RoutePageContract = {
 };
 
 const routePageContracts: RoutePageContract[] = [
-  {
-    metadata: overviewMetadata,
-    page: RestaurantSetupSettingsPage,
-    view: 'overview',
-  },
   {
     metadata: profileMetadata,
     page: RestaurantProfileSettingsPage,
@@ -71,6 +66,11 @@ const routePageContracts: RoutePageContract[] = [
 ];
 
 describe('restaurant settings route pages', () => {
+  it('keeps the index route as a profile redirect instead of a setup page', () => {
+    expect(overviewMetadata.title).toBe('Restaurant profile · Nab a Table Ops');
+    expect(() => RestaurantSettingsIndexPage()).toThrow(/NEXT_REDIRECT/);
+  });
+
   it.each(routePageContracts)('keeps the $view page as metadata plus view handoff', (contract) => {
     const element = contract.page();
 

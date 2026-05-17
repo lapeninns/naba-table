@@ -1,15 +1,12 @@
-import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
-import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
+import { redirect } from 'next/navigation';
 
 import type { Metadata } from 'next';
 
-const route = RESTAURANT_SETTINGS_ROUTE_MAP.overview;
-
 export const metadata: Metadata = {
-  title: `${route.title} · Nab a Table Ops`,
-  description: route.description,
+  title: 'Restaurant profile · Nab a Table Ops',
+  description: 'Public details, booking page URL, manager alerts, and optional discovery.',
 };
 
-export default function RestaurantSetupSettingsPage() {
-  return <OpsRestaurantSettingsClient view="overview" />;
+export default function RestaurantSettingsIndexPage() {
+  redirect('/app/settings/restaurant/profile');
 }

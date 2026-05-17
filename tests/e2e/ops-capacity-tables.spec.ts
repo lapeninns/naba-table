@@ -231,6 +231,34 @@ test.describe('ops capacity and table shipped routes', () => {
     });
   });
 
+  test('tables settings route uses compact mobile settings nav and table cards @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page.getByLabel('Choose restaurant settings page')).toBeVisible();
+    await expect(page.locator('main').getByText('Tables workflow')).toBeVisible();
+
+    await page
+      .locator('main')
+      .getByRole('button', { name: /^Inventory/ })
+      .click();
+
+    await expect(page.locator('main').getByRole('heading', { name: 'Table 1' })).toBeVisible();
+    await expect(page.locator('main').getByText('Main Dining · 4 covers')).toBeVisible();
+    await expect(page.locator('main').getByRole('button', { name: 'Edit' }).first()).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('button', { name: 'Delete' }).first(),
+    ).toBeVisible();
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-capacity-tables-settings-mobile.png'),
+      fullPage: true,
+    });
+  });
+
   test('legacy floor-plan routes redirect to the authenticated dashboard @p1 @browser @smoke @local-only', async ({
     page,
   }) => {

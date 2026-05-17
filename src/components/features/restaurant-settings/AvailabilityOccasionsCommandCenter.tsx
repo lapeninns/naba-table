@@ -1,7 +1,7 @@
 'use client';
 
 import { CalendarClock, ClipboardList, Clock3 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AvailabilityScheduleManager } from '@/components/features/restaurant-settings/AvailabilityScheduleManager';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -21,6 +21,7 @@ import {
 
 type AvailabilityOccasionsCommandCenterProps = {
   restaurantId: string | null;
+  initialWorkspace?: AvailabilityWorkspace;
 };
 
 type AvailabilityWorkspace = 'rules' | 'schedule' | 'booking-types';
@@ -153,8 +154,13 @@ function BookingRulesCard({ restaurantId }: { restaurantId: string | null }) {
 
 export function AvailabilityOccasionsCommandCenter({
   restaurantId,
+  initialWorkspace = 'rules',
 }: AvailabilityOccasionsCommandCenterProps) {
-  const [activeWorkspace, setActiveWorkspace] = useState<AvailabilityWorkspace>('rules');
+  const [activeWorkspace, setActiveWorkspace] = useState<AvailabilityWorkspace>(initialWorkspace);
+
+  useEffect(() => {
+    setActiveWorkspace(initialWorkspace);
+  }, [initialWorkspace]);
   const selectWorkspace = useCallback((workspace: AvailabilityWorkspace) => {
     setActiveWorkspace(workspace);
     const hash =

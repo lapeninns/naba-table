@@ -73,7 +73,7 @@ export function OpsMenuManagementClient() {
     <RestaurantSettingsCommandCenter
       eyebrow="Menu command center"
       title="Menu"
-      description="Manage food and drinks menus, sections, items, options, availability, and Google-compatible publishing fields from one workspace."
+      description="Manage food and drinks menus, sections, items, options, availability, and details that can be published to Google."
       metrics={[
         {
           label: 'Catalogue',
@@ -84,7 +84,7 @@ export function OpsMenuManagementClient() {
         },
         {
           label: 'Publishing fields',
-          value: 'Google-ready',
+          value: 'Ready for Google',
           description: 'labels, media, nutrition, and modifiers',
           variant: 'outline',
           Icon: ShoppingBasket,

@@ -183,7 +183,7 @@ describe('OpsMenuManagementClient', () => {
   it('shows the canonical empty state when no hierarchy menus exist', async () => {
     renderClient({ listMenus: vi.fn().mockResolvedValue({ menus: [] }) });
 
-    expect(await screen.findByText('No canonical menus')).toBeInTheDocument();
+    expect(await screen.findByText('No menus yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create menu/i })).toBeInTheDocument();
   });
 

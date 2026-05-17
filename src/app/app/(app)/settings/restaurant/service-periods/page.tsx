@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ServicePeriodsSettingsPage() {
-  return <OpsRestaurantSettingsClient view="availability" />;
+  return <OpsRestaurantSettingsClient view="availability" availabilityWorkspace="schedule" />;
 }

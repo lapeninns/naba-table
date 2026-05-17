@@ -286,7 +286,9 @@ test.describe('ops restaurant settings and team shipped routes', () => {
     await expect(page.getByRole('button', { name: 'Send invite' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Invitations' }).click();
-    await expect(page.locator('main').getByText('pending.manager@example.test')).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('cell', { name: 'pending.manager@example.test' }),
+    ).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-team-desktop.png'),
@@ -297,24 +299,50 @@ test.describe('ops restaurant settings and team shipped routes', () => {
   test('availability settings routes load shipped schedule and booking type surfaces @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
-    for (const routePath of [
-      '/settings/restaurant/availability',
-      '/settings/restaurant/operating-hours',
-      '/settings/restaurant/service-periods',
-      '/settings/restaurant/turn-durations',
-      '/settings/restaurant/occasions',
-    ]) {
+    for (const { routePath, heading, initialWorkspace } of [
+      {
+        routePath: '/settings/restaurant/availability',
+        heading: 'Availability & Booking types',
+        initialWorkspace: 'rules',
+      },
+      {
+        routePath: '/settings/restaurant/operating-hours',
+        heading: 'Operating hours',
+        initialWorkspace: 'schedule',
+      },
+      {
+        routePath: '/settings/restaurant/service-periods',
+        heading: 'Service periods',
+        initialWorkspace: 'schedule',
+      },
+      {
+        routePath: '/settings/restaurant/turn-durations',
+        heading: 'Reservation durations',
+        initialWorkspace: 'booking-types',
+      },
+      {
+        routePath: '/settings/restaurant/occasions',
+        heading: 'Booking types',
+        initialWorkspace: 'booking-types',
+      },
+    ] as const) {
       await page.goto(routePath, { waitUntil: 'domcontentloaded' });
       await waitForSettled(page);
 
       await expect(page).toHaveURL(new RegExp(`app\\.localhost:\\d+${routePath}`));
-      await expect(
-        page.getByRole('heading', { name: 'Availability & Booking types' }),
-      ).toBeVisible();
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
       await expect(page.locator('main').getByText('Availability sections')).toBeVisible();
-      await expect(
-        page.locator('#booking-rules').getByText('Booking rules', { exact: true }),
-      ).toBeVisible();
+      if (initialWorkspace === 'rules') {
+        await expect(
+          page.locator('#booking-rules').getByText('Booking rules', { exact: true }),
+        ).toBeVisible();
+      } else if (initialWorkspace === 'schedule') {
+        await expect(
+          page.locator('main').getByText('Operating hours and service windows together'),
+        ).toBeVisible();
+      } else {
+        await expect(page.locator('main').getByText('Booking types and turn times')).toBeVisible();
+      }
 
       await page
         .locator('main')

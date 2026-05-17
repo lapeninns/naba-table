@@ -9,6 +9,7 @@ import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 
+import type { AvailabilitySettingsWorkspace } from './routes';
 import type { RestaurantSettingsView } from './types';
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 
@@ -60,13 +61,6 @@ const AvailabilitySkeleton = () => (
       </div>
     </div>
   </div>
-);
-
-const RestaurantSetupOverview = dynamic(
-  () => import('./RestaurantSetupOverview').then((m) => m.RestaurantSetupOverview),
-  {
-    loading: () => <SettingsSectionSkeleton title="Loading setup overview" />,
-  },
 );
 
 const RestaurantProfileSection = dynamic(
@@ -143,11 +137,13 @@ const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
   view: RestaurantSettingsView;
+  availabilityWorkspace?: AvailabilitySettingsWorkspace;
 };
 
 export function OpsRestaurantSettingsClient({
   defaultRestaurantId,
   view,
+  availabilityWorkspace,
 }: OpsRestaurantSettingsClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
@@ -190,7 +186,6 @@ export function OpsRestaurantSettingsClient({
     RestaurantSettingsView,
     (context: { restaurantId: string | null }) => ReactNode
   > = {
-    overview: ({ restaurantId }) => <RestaurantSetupOverview restaurantId={restaurantId} />,
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection
@@ -199,7 +194,10 @@ export function OpsRestaurantSettingsClient({
       />
     ),
     availability: ({ restaurantId }) => (
-      <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />
+      <AvailabilityOccasionsCommandCenter
+        restaurantId={restaurantId}
+        initialWorkspace={availabilityWorkspace}
+      />
     ),
     menu: () => <OpsMenuManagementClient />,
     tables: () => <TableInventoryClient />,

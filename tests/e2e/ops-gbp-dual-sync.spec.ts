@@ -314,8 +314,8 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await page.getByRole('button', { name: /Profile \(1\)/ }).click();
     await expect(page.locator('#gbp-sync-review').getByText('Phone number')).toBeVisible();
 
-    await page.locator('#gbp-sync-review').getByRole('radio', { name: 'Export to Google' }).click();
-    await page.getByRole('button', { name: 'Publish (1)' }).click();
+    await page.locator('#gbp-sync-review').getByRole('radio', { name: 'Send to Google' }).click();
+    await page.getByRole('button', { name: 'Review and publish (1)' }).click();
 
     await expect(page.getByRole('dialog').getByText('Review publish plan')).toBeVisible();
     await expect(page.getByRole('dialog').getByText('High-risk publish review')).toBeVisible();

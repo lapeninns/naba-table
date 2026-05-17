@@ -95,6 +95,19 @@ const occasions = [
   },
 ];
 
+const emptyBusinessInfo = {
+  details: null,
+  addresses: [],
+  phoneNumbers: [],
+  links: [],
+  categories: [],
+  serviceAreas: [],
+  hours: [],
+  specialHours: [],
+  attributes: [],
+  serviceItems: [],
+};
+
 async function installCommandCenterApiMocks(page: Page) {
   await page.route('**/api/ops/**', async (route) => {
     const url = new URL(route.request().url());
@@ -112,6 +125,47 @@ async function installCommandCenterApiMocks(page: Page) {
 
     if (pathname === `/api/ops/restaurants/${restaurantId}`) {
       await route.fulfill({ json: { restaurant } });
+      return;
+    }
+
+    if (pathname === `/api/ops/restaurants/${restaurantId}/business-context`) {
+      const emptyContext = {
+        businessDetails: null,
+        links: [],
+        categories: [],
+        serviceAreas: [],
+        attributes: [],
+        serviceItems: [],
+      };
+      await route.fulfill({
+        json: { core: emptyContext, providerSnapshot: emptyContext },
+      });
+      return;
+    }
+
+    if (pathname === `/api/ops/restaurants/${restaurantId}/google-business-profile`) {
+      await route.fulfill({
+        json: {
+          isConfigured: false,
+          provider: 'google_business_profile',
+          status: 'unlinked',
+          pushEnabled: false,
+          connectedGoogleEmail: null,
+          connectedGoogleName: null,
+          externalAccountId: null,
+          externalAccountName: null,
+          externalLocationId: null,
+          externalLocationName: null,
+          externalLocationTitle: null,
+          externalPlaceId: null,
+          providerTimezone: null,
+          lastPullAt: null,
+          lastPushAt: null,
+          lastError: null,
+          availableLocations: [],
+          businessInfo: emptyBusinessInfo,
+        },
+      });
       return;
     }
 
@@ -184,26 +238,21 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await installCommandCenterApiMocks(page);
   });
 
-  test('overview route renders the setup command center @p1 @browser @smoke @local-only', async ({
+  test('index route redirects to the profile settings route @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
     await page.goto('/settings/restaurant', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant/);
-    await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
-    await expect(
-      page.getByLabel('Required setup').getByText('Public profile', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByLabel('Required setup').getByText('Booking availability', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByLabel('Required setup').getByText('Seating capacity', { exact: true }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
+    await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Restaurant profile' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
 
     await page.screenshot({
-      path: testInfo.outputPath('ops-settings-overview-command-center-desktop.png'),
+      path: testInfo.outputPath('ops-settings-index-redirect-profile-desktop.png'),
       fullPage: true,
     });
   });
@@ -221,7 +270,7 @@ test.describe('ops restaurant settings command-center primary routes', () => {
       'aria-current',
       'page',
     );
-    await expect(page.locator('main').getByText('No canonical menus')).toBeVisible();
+    await expect(page.locator('main').getByText('No menus yet')).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-menu-command-center-desktop.png'),

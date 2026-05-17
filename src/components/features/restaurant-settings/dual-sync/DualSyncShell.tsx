@@ -595,16 +595,16 @@ export function DualSyncShell({
                     <RefreshCw
                       className={cn('mr-1 size-4', refreshMutation.isPending && 'animate-spin')}
                     />
-                    Pull from Google
+                    Import latest Google details
                   </Button>
                 </DualSyncToolbarTip>
                 <DualSyncToolbarTip
-                  enabledHint={`Push ${autoExportable} queued export operation${autoExportable === 1 ? '' : 's'} that are ready for Google. Use after Publish when work was queued.`}
+                  enabledHint={`Send ${autoExportable} queued Google update${autoExportable === 1 ? '' : 's'} that are ready to publish. Use after reviewing changes when work was queued.`}
                   disabledHint={
                     syncPaused
                       ? pauseReason
                       : autoExportMutation.isPending
-                        ? 'Auto-publish is running…'
+                        ? 'Automatic publishing is running…'
                         : 'Nothing is queued to push to Google yet.'
                   }
                   disabled={syncPaused || autoExportable === 0 || autoExportMutation.isPending}
@@ -623,17 +623,19 @@ export function DualSyncShell({
                     />
                     {autoExportMutation.isPending
                       ? 'Running…'
-                      : `Auto-publish ${autoExportable > 0 ? `(${autoExportable})` : ''}`.trim()}
+                      : `Automatically publish approved changes ${
+                          autoExportable > 0 ? `(${autoExportable})` : ''
+                        }`.trim()}
                   </Button>
                 </DualSyncToolbarTip>
                 <DualSyncToolbarTip
-                  enabledHint="Preview your plan, then apply the Import / Export / Ignore choices you selected."
+                  enabledHint="Preview your choices, then apply the Import from Google, Send to Google, or Ignore decisions you selected."
                   disabledHint={
                     publishMutation.isPending || previewPublishMutation.isPending
                       ? 'Finish the running publish or preview first.'
                       : syncPaused
                         ? pauseReason
-                        : 'Choose Import from Google, Export to Google, or Ignore on at least one field.'
+                        : 'Choose Import from Google, Send to Google, or Ignore on at least one field.'
                   }
                   disabled={!canSubmit}
                 >
@@ -646,7 +648,9 @@ export function DualSyncShell({
                     <Send className="mr-1 size-4" />
                     {publishMutation.isPending
                       ? 'Publishing…'
-                      : `Publish ${decisionCount > 0 ? `(${decisionCount})` : ''}`.trim()}
+                      : `Review and publish ${
+                          decisionCount > 0 ? `(${decisionCount})` : ''
+                        }`.trim()}
                   </Button>
                 </DualSyncToolbarTip>
               </div>

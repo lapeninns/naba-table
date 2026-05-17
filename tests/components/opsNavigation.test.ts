@@ -21,7 +21,7 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     expect(settingsSection?.items).toHaveLength(1);
     expect(settingsSection?.items[0]).toMatchObject({
       title: 'Settings',
-      href: '/app/settings/restaurant',
+      href: '/app/settings/restaurant/profile',
     });
 
     const settingsItem = settingsSection?.items[0];

@@ -51,6 +51,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
 
   const form = useForm<TeamInviteFormValues>({
     resolver: zodResolver(teamInviteFormSchema),
+    mode: 'onChange',
     defaultValues: {
       email: '',
       role: 'host',
@@ -131,12 +132,20 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Hosts can manage bookings and guest communication. Use manager access only for
+                  trusted staff who should manage settings.
+                </p>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <Button type="submit" className="w-full md:w-auto" disabled={createInvite.isPending}>
+          <Button
+            type="submit"
+            className="w-full md:w-auto"
+            disabled={createInvite.isPending || !form.formState.isValid}
+          >
             {createInvite.isPending ? (
               <>
                 <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />

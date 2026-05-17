@@ -1092,7 +1092,7 @@ export function MenuHierarchyManagementPanel({
         <CardContent className="p-6">
           <OpsEmptyState
             title="Select a restaurant"
-            description="Choose an active restaurant before editing the canonical menu hierarchy."
+            description="Choose an active restaurant before editing its menu structure."
           />
         </CardContent>
       </Card>
@@ -1137,8 +1137,8 @@ export function MenuHierarchyManagementPanel({
         <Card className="border-border/70 shadow-sm">
           <CardContent className="p-6">
             <OpsEmptyState
-              title="No canonical menus"
-              description="Create the first Google-compatible menu for this restaurant."
+              title="No menus yet"
+              description="Create the first menu for this restaurant."
               action={
                 <Button type="button" onClick={() => setMenuDialogMode('create')}>
                   <Plus data-icon="inline-start" aria-hidden />
@@ -1155,7 +1155,7 @@ export function MenuHierarchyManagementPanel({
           <CardContent className="p-6">
             <OpsEmptyState
               title={`No ${preferredMenuKind === 'drinks' ? 'drinks' : 'food'} menu`}
-              description={`Create a canonical ${preferredMenuKind === 'drinks' ? 'drinks' : 'food'} catalogue before editing sections and items.`}
+              description={`Create a ${preferredMenuKind === 'drinks' ? 'drinks' : 'food'} menu before editing sections and items.`}
               action={
                 <Button type="button" onClick={() => setMenuDialogMode('create')}>
                   <Plus data-icon="inline-start" aria-hidden />
@@ -1706,7 +1706,7 @@ function ItemTable({
         <div className="p-6">
           <OpsEmptyState
             title="No items in this section"
-            description="Create the first canonical item for this menu section."
+            description="Create the first item for this menu section."
             action={
               <Button type="button" onClick={onCreateItem}>
                 <Plus data-icon="inline-start" aria-hidden />
@@ -2051,7 +2051,7 @@ function MenuDialog({
         <DialogHeader>
           <DialogTitle>{mode === 'edit' ? 'Edit menu' : 'Create menu'}</DialogTitle>
           <DialogDescription>
-            Menu-level Google FoodMenus fields live here before sections and items.
+            Menu details that can be published to Google live here before sections and items.
           </DialogDescription>
         </DialogHeader>
         <FormRoot className="flex flex-col gap-5" onSubmit={submit}>
@@ -2370,7 +2370,7 @@ function ItemDialog({
         <DialogHeader>
           <DialogTitle>{item ? 'Edit item' : 'Create item'}</DialogTitle>
           <DialogDescription>
-            Google FoodMenus fields are grouped above Nabatable-only operations metadata.
+            Details that can be published to Google are grouped above internal operations metadata.
           </DialogDescription>
         </DialogHeader>
         <FormRoot className="flex flex-col gap-5" onSubmit={submit}>
@@ -2583,7 +2583,7 @@ function ItemDialog({
                 Google nutrition facts
               </h4>
               <p className="mt-1 text-xs text-muted-foreground">
-                Google FoodMenus publishes calories, total fat, cholesterol, sodium, total
+                Google menu publishing includes calories, total fat, cholesterol, sodium, total
                 carbohydrate, and protein. Sugar, fibre, and saturated fat remain import-tolerated.
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -3127,8 +3127,8 @@ function OptionDialog({
         <DialogHeader>
           <DialogTitle>{option ? 'Edit item option' : 'Add item option'}</DialogTitle>
           <DialogDescription>
-            Google options are required variant choices for FoodMenus and remain separate from
-            Nabatable modifier groups.
+            Google options are required variant choices and remain separate from internal modifier
+            groups.
           </DialogDescription>
         </DialogHeader>
         <FormRoot className="flex flex-col gap-4" onSubmit={submit}>
@@ -3538,8 +3538,8 @@ function DeleteHierarchyDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {targetLabel}</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes {targetName} from the canonical menu hierarchy. Google publish still
-            requires the separate FoodMenus publish flow.
+            This removes {targetName} from the restaurant menu structure. Publishing changes to
+            Google is handled separately.
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? <p className="text-sm text-destructive">{error.message}</p> : null}

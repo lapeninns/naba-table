@@ -176,7 +176,7 @@ function FieldRequirement({ label }: { label: 'Required' | 'Optional' | 'Require
   return (
     <span
       aria-hidden="true"
-      className="rounded-sm border border-border/70 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground"
+      className="whitespace-nowrap rounded-sm border border-border/70 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground"
     >
       {label}
     </span>
@@ -306,6 +306,12 @@ function useRestaurantDetailsSubform({
     }
   };
 
+  const resetDraft = () => {
+    setState(savedState);
+    setErrors({});
+    setStatus(null);
+  };
+
   const submitPartial = async (
     event: React.FormEvent,
     payloadBuilder: (nextState: FormState) => Partial<RestaurantProfile>,
@@ -368,25 +374,33 @@ function useRestaurantDetailsSubform({
     errors,
     status,
     isSubmitting: updateMutation.isPending,
+    isDirty,
     handleChange,
     handleToggle,
+    resetDraft,
     submitPartial,
   };
 }
 
 function SubformActions({
   isSubmitting,
+  isDirty,
+  onReset,
   submitLabel,
   status,
 }: {
   isSubmitting: boolean;
+  isDirty: boolean;
+  onReset: () => void;
   submitLabel: string;
   status: SubformStatus;
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-col gap-1 text-sm">
-        <p className="text-muted-foreground">Saves this section only.</p>
+        <p className="text-muted-foreground">
+          {isDirty ? 'Unsaved changes in this section.' : 'No changes to save.'}
+        </p>
         {status ? (
           <p
             role={status.tone === 'error' ? 'alert' : 'status'}
@@ -396,9 +410,19 @@ function SubformActions({
           </p>
         ) : null}
       </div>
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Saving…' : submitLabel}
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onReset}
+          disabled={isSubmitting || !isDirty}
+        >
+          Cancel changes
+        </Button>
+        <Button type="submit" disabled={isSubmitting || !isDirty}>
+          {isSubmitting ? 'Saving…' : submitLabel}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -433,7 +457,7 @@ export function BrandIdentitySubform({
   onDraftChange,
   gbpFieldVerifications,
 }: RestaurantDetailsSubformProps) {
-  const { state, errors, status, isSubmitting, handleChange, submitPartial } =
+  const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
     useRestaurantDetailsSubform({
       initialValues,
       fields: BRAND_FIELDS,
@@ -534,6 +558,8 @@ export function BrandIdentitySubform({
 
         <SubformActions
           isSubmitting={isSubmitting}
+          isDirty={isDirty}
+          onReset={resetDraft}
           submitLabel="Save brand & identity"
           status={status}
         />
@@ -550,7 +576,7 @@ export function ContactLocationSubform({
   onDraftChange,
   gbpFieldVerifications,
 }: RestaurantDetailsSubformProps) {
-  const { state, errors, status, isSubmitting, handleChange, submitPartial } =
+  const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
     useRestaurantDetailsSubform({
       initialValues,
       fields: CONTACT_FIELDS,
@@ -888,6 +914,8 @@ export function ContactLocationSubform({
 
         <SubformActions
           isSubmitting={isSubmitting}
+          isDirty={isDirty}
+          onReset={resetDraft}
           submitLabel="Save contact details"
           status={status}
         />
@@ -903,15 +931,24 @@ export function ManagerNotificationsSubform({
   onDirtyChange,
   onDraftChange,
 }: RestaurantDetailsSubformProps) {
-  const { state, errors, status, isSubmitting, handleChange, handleToggle, submitPartial } =
-    useRestaurantDetailsSubform({
-      initialValues,
-      fields: NOTIFICATION_FIELDS,
-      analyticsSection: 'manager_notifications',
-      onDirtyChange,
-      onDraftChange,
-      restaurantId,
-    });
+  const {
+    state,
+    errors,
+    status,
+    isSubmitting,
+    isDirty,
+    handleChange,
+    handleToggle,
+    resetDraft,
+    submitPartial,
+  } = useRestaurantDetailsSubform({
+    initialValues,
+    fields: NOTIFICATION_FIELDS,
+    analyticsSection: 'manager_notifications',
+    onDirtyChange,
+    onDraftChange,
+    restaurantId,
+  });
   const summaryState = state.managerDailySummaryEnabled ? 'On' : 'Off';
 
   return (
@@ -1041,6 +1078,8 @@ export function ManagerNotificationsSubform({
 
         <SubformActions
           isSubmitting={isSubmitting}
+          isDirty={isDirty}
+          onReset={resetDraft}
           submitLabel="Save notifications"
           status={status}
         />
@@ -1056,7 +1095,7 @@ export function AdvancedIdentitySubform({
   onDirtyChange,
   onDraftChange,
 }: RestaurantDetailsSubformProps) {
-  const { state, errors, status, isSubmitting, handleChange, submitPartial } =
+  const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
     useRestaurantDetailsSubform({
       initialValues,
       fields: ADVANCED_FIELDS,
@@ -1157,6 +1196,8 @@ export function AdvancedIdentitySubform({
 
         <SubformActions
           isSubmitting={isSubmitting}
+          isDirty={isDirty}
+          onReset={resetDraft}
           submitLabel="Save booking link"
           status={status}
         />
@@ -1172,7 +1213,7 @@ export function BookingRulesSubform({
   onDirtyChange,
   onDraftChange,
 }: RestaurantDetailsSubformProps) {
-  const { state, errors, status, isSubmitting, handleChange, submitPartial } =
+  const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
     useRestaurantDetailsSubform({
       initialValues,
       fields: BOOKING_RULE_FIELDS,
@@ -1413,6 +1454,8 @@ export function BookingRulesSubform({
 
         <SubformActions
           isSubmitting={isSubmitting}
+          isDirty={isDirty}
+          onReset={resetDraft}
           submitLabel="Save booking rules"
           status={status}
         />

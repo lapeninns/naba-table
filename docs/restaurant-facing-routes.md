@@ -87,7 +87,7 @@ All routes are accessible at `app.nabatable.com/<route>`:
 ### Settings
 
 - `/settings` — Settings overview
-- `/settings/restaurant` — Restaurant settings home
+- `/settings/restaurant` — Redirect to restaurant profile
 - `/settings/restaurant/profile` — Restaurant profile
 - `/settings/restaurant/operating-hours` — Operating hours
 - `/settings/restaurant/service-periods` — Service periods

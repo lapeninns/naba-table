@@ -9,7 +9,6 @@ const navigationState = vi.hoisted(() => ({
 
 const dynamicState = vi.hoisted(() => ({
   names: [
-    'overview',
     'profile',
     'google-business-profile',
     'availability',
@@ -27,6 +26,9 @@ const prefetchState = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => navigationState.pathname,
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
 }));
 
 vi.mock('next/dynamic', () => ({
@@ -81,7 +83,6 @@ const membership: OpsMembership = {
 };
 
 const expectedViews: RestaurantSettingsView[] = [
-  'overview',
   'profile',
   'google-business-profile',
   'availability',
@@ -144,7 +145,9 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
         }
       >
         <OpsSessionProvider user={user} memberships={[membership]} initialRestaurantId="rest-1">
-          <RestaurantSettingsSubnav />
+          <OpsUnsavedChangesProvider>
+            <RestaurantSettingsSubnav />
+          </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
     </QueryClientProvider>,
@@ -199,7 +202,6 @@ describe('restaurant settings route contract', () => {
   it('keeps route metadata and nav items in sync for every shipped settings view', () => {
     expect(RESTAURANT_SETTINGS_ROUTES.map((route) => route.view)).toEqual(expectedViews);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => item.href)).toEqual([
-      '/app/settings/restaurant',
       '/app/settings/restaurant/profile',
       '/app/settings/restaurant/google-business-profile',
       '/app/settings/restaurant/availability',
@@ -269,16 +271,16 @@ describe('OpsRestaurantSettingsClient', () => {
 
 describe('RestaurantSettingsSubnav', () => {
   it('uses the focused settings shell and navigation baseline across settings routes', () => {
-    renderPageShell('/app/settings/restaurant');
+    renderPageShell('/app/settings/restaurant/profile');
 
     expect(screen.getByRole('link', { name: 'Close restaurant settings' })).toHaveAttribute(
       'href',
       '/app/dashboard',
     );
-    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant setup' })).toHaveClass(
+    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant profile' })).toHaveClass(
       'text-2xl',
     );
-    expect(screen.getByRole('link', { name: 'Restaurant setup' })).toHaveClass(
+    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveClass(
       'min-w-[160px]',
       'px-3',
       'py-2',
@@ -293,17 +295,15 @@ describe('RestaurantSettingsSubnav', () => {
       expect(screen.getByRole('link', { name: item.title })).toHaveAttribute('href', item.href);
     }
     expect(screen.getByRole('link', { name: 'Tables' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Restaurant setup' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Restaurant profile' })).not.toHaveAttribute(
       'aria-current',
     );
   });
 
-  it('maps availability aliases to the Availability page heading and active nav item', () => {
+  it('maps availability aliases to the focused alias page heading and active nav item', () => {
     renderPageShell('/app/settings/restaurant/service-periods');
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Service periods' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1, name: 'Restaurant' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Availability & Booking types' })).toHaveAttribute(
       'aria-current',
@@ -316,7 +316,6 @@ describe('RestaurantSettingsSubnav', () => {
     const serviceCalls = makePrefetchServiceCalls();
     renderSubnav('/app/settings/restaurant/profile', serviceCalls);
 
-    await user.hover(screen.getByRole('link', { name: 'Restaurant setup' }));
     await user.hover(screen.getByRole('link', { name: 'Restaurant profile' }));
     await user.hover(screen.getByRole('link', { name: 'Google Business Profile' }));
     await user.hover(screen.getByRole('link', { name: 'Availability & Booking types' }));

@@ -1,7 +1,6 @@
 import type { OccasionKey } from '@reserve/shared/occasions';
 
 export type RestaurantSettingsView =
-  | 'overview'
   | 'profile'
   | 'google-business-profile'
   | 'availability'
