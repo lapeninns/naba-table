@@ -13,6 +13,9 @@ type UnifiedActionBarProps = {
   activeSection: ProfileSectionDefinition;
   lastSavedAt: string | null;
   onSaveAll: () => void;
+  onCancelActive?: () => void;
+  gbpDriftCount?: number;
+  onCompareWithGoogle?: () => void;
   className?: string;
 };
 
@@ -38,6 +41,9 @@ export function UnifiedActionBar({
   activeSection,
   lastSavedAt,
   onSaveAll,
+  onCancelActive,
+  gbpDriftCount = 0,
+  onCompareWithGoogle,
   className,
 }: UnifiedActionBarProps) {
   const profileDirtyCount = dirtyFormSections.length;
@@ -56,10 +62,17 @@ export function UnifiedActionBar({
           className,
         )}
       >
-        <p>
-          Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>.
-          Save controls appear here when a profile section has a draft.
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>
+            . Save controls appear here when a profile section has a draft.
+          </p>
+          {gbpDriftCount > 0 && onCompareWithGoogle ? (
+            <Button type="button" variant="outline" size="sm" onClick={onCompareWithGoogle}>
+              Compare with Google
+            </Button>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -84,9 +97,16 @@ export function UnifiedActionBar({
         <span>{description}</span>
         <div className="flex flex-wrap items-center gap-2">
           {activeDirtySection ? (
-            <Button type="submit" form={activeDirtySection.formId} size="sm">
-              {activeDirtySection.actionLabel}
-            </Button>
+            <>
+              <Button type="submit" form={activeDirtySection.formId} size="sm">
+                {activeDirtySection.actionLabel}
+              </Button>
+              {onCancelActive ? (
+                <Button type="button" variant="outline" size="sm" onClick={onCancelActive}>
+                  Cancel changes
+                </Button>
+              ) : null}
+            </>
           ) : null}
           {profileDirtyCount > 1 ? (
             <Button
@@ -96,6 +116,11 @@ export function UnifiedActionBar({
               onClick={onSaveAll}
             >
               Save all
+            </Button>
+          ) : null}
+          {gbpDriftCount > 0 && onCompareWithGoogle ? (
+            <Button type="button" variant="outline" size="sm" onClick={onCompareWithGoogle}>
+              Compare with Google
             </Button>
           ) : null}
           {discoveryDirty && discoveryIsActive && !activeDirtySection ? (

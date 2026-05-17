@@ -165,6 +165,14 @@ describe('TeamInviteForm', () => {
     expect(screen.getByText('Invitation was not sent')).toBeInTheDocument();
     expect(screen.getByText('Invite already exists.')).toBeInTheDocument();
   });
+
+  it('renders invite field groups and save scope copy', () => {
+    render(<TeamInviteForm restaurantId="rest-1" />);
+
+    expect(screen.getByText('Who to invite')).toBeInTheDocument();
+    expect(screen.getByText('Access scope')).toBeInTheDocument();
+    expect(screen.getByText('Sends this invitation only.')).toBeInTheDocument();
+  });
 });
 
 describe('TeamInvitesTable', () => {
@@ -188,8 +196,10 @@ describe('TeamInvitesTable', () => {
     rerender(<TeamInvitesTable restaurantId="rest-1" canManage />);
 
     expect(
-      screen.getByText('No pending invitations. Invite teammates to collaborate on reservations.'),
-    ).toBeInTheDocument();
+      screen.getAllByText(
+        'No pending invitations. Invite teammates to collaborate on reservations.',
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it('shows query errors without hiding the table scaffold', () => {
@@ -217,17 +227,21 @@ describe('TeamInvitesTable', () => {
 
     render(<TeamInvitesTable restaurantId="rest-1" canManage />);
 
-    expect(screen.getByText('pending@example.com')).toBeInTheDocument();
-    expect(screen.getByText('accepted@example.com')).toBeInTheDocument();
+    expect(screen.getAllByText('pending@example.com').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('accepted@example.com').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Pending').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Accepted')).toBeInTheDocument();
+    expect(screen.getAllByText('Accepted').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Revoke' }));
+    await user.click(screen.getByRole('button', { name: 'Revoke invite' }));
 
-    expect(teamHooksState.revokeInvite.mutate).toHaveBeenCalledWith({
-      restaurantId: 'rest-1',
-      inviteId: 'pending-invite',
-    });
+    expect(teamHooksState.revokeInvite.mutate).toHaveBeenCalledWith(
+      {
+        restaurantId: 'rest-1',
+        inviteId: 'pending-invite',
+      },
+      expect.any(Object),
+    );
   });
 });
 

@@ -7,10 +7,22 @@ const mutateAsyncMock = vi.hoisted(() => vi.fn());
 const useOpsUpdateRestaurantBusinessContextMock = vi.hoisted(() => vi.fn());
 const toastSuccessMock = vi.hoisted(() => vi.fn());
 const toastErrorMock = vi.hoisted(() => vi.fn());
+const gbpFieldsMock = vi.hoisted(() => ({ fields: [] as unknown[] }));
 
 vi.mock('@/hooks/ops/useOpsRestaurantBusinessContext', () => ({
   useOpsRestaurantBusinessContext: useOpsRestaurantBusinessContextMock,
   useOpsUpdateRestaurantBusinessContext: useOpsUpdateRestaurantBusinessContextMock,
+}));
+
+vi.mock('@/hooks/ops/useOpsDualSync', () => ({
+  useOpsDualSync: () => ({
+    stateQuery: {
+      data: { fields: gbpFieldsMock.fields },
+      error: null,
+      isError: false,
+      isLoading: false,
+    },
+  }),
 }));
 
 vi.mock('sonner', () => ({
@@ -38,6 +50,7 @@ describe('RestaurantBusinessContextSection', () => {
     mutateAsyncMock.mockReset();
     toastSuccessMock.mockReset();
     toastErrorMock.mockReset();
+    gbpFieldsMock.fields = [];
 
     mutateAsyncMock.mockResolvedValue({
       core: {
@@ -194,7 +207,7 @@ describe('RestaurantBusinessContextSection', () => {
     );
   });
 
-  it('renders embedded discovery settings as ordered subsections instead of tabs', () => {
+  it('renders embedded discovery settings as ordered stacked cards instead of an accordion', () => {
     useOpsRestaurantBusinessContextMock.mockReturnValue({
       data: {
         core: {
@@ -226,6 +239,7 @@ describe('RestaurantBusinessContextSection', () => {
     render(<RestaurantBusinessContextSection restaurantId="rest-1" embedded />);
 
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^profile basics$/i })).not.toBeInTheDocument();
     const headings = screen
       .getAllByRole('heading', { level: 3 })
       .map(
@@ -243,37 +257,15 @@ describe('RestaurantBusinessContextSection', () => {
       'Services',
       'Where you serve',
     ]);
-    expect(screen.getByRole('button', { name: /^profile basics$/i })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
     expect(screen.getByRole('button', { name: /save profile basics/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^dining categories$/i }));
-    expect(screen.getByRole('button', { name: /^profile basics$/i })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(screen.getByRole('button', { name: /^dining categories$/i })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    fireEvent.click(screen.getByRole('button', { name: /^dining categories$/i }));
-    expect(screen.getByRole('button', { name: /^dining categories$/i })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(screen.queryByRole('button', { name: /add category/i })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^dining categories$/i }));
     expect(screen.getByRole('button', { name: /add category/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^amenities$/i }));
+    expect(screen.getByRole('button', { name: /save categories/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save links/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save attributes/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^online links$/i }));
     expect(screen.getByRole('button', { name: /add link/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^services$/i }));
     expect(screen.getByRole('button', { name: /save service items/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /^where you serve$/i }));
     expect(screen.getByRole('button', { name: /save service areas/i })).toBeInTheDocument();
-    expect(screen.getByText(/import details/i)).toBeInTheDocument();
+    expect(screen.getByText(/google suggestions are optional/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /gbp workspace/i })).toBeInTheDocument();
   });
 
@@ -395,6 +387,58 @@ describe('RestaurantBusinessContextSection', () => {
     );
   });
 
+  it('shows Google review badges on drifted discovery cards', () => {
+    gbpFieldsMock.fields = [
+      {
+        fieldKey: 'businessContext.attributes.has_wifi',
+        sectionKey: 'businessContext.attributes',
+        kind: 'businessContext.attribute',
+        label: 'Free Wi-Fi',
+        helpText: null,
+        conflictPolicy: 'manual',
+        deletePolicy: 'manual',
+        policy: {},
+        importable: true,
+        exportable: true,
+        sortOrder: 1,
+        coreValue: {},
+        gbpValue: {},
+        coreCanonicalHash: 'core',
+        gbpCanonicalHash: 'gbp',
+        capability: { canImport: true, canExport: true, canIgnore: true, blockedReasons: [] },
+        state: 'conflict',
+        lastInSyncAt: null,
+        lastInSyncHash: null,
+        lastCoreChangeAt: null,
+        lastGbpChangeAt: null,
+        openCandidate: null,
+      },
+    ];
+    useOpsRestaurantBusinessContextMock.mockReturnValue({
+      data: {
+        core: {
+          categories: [],
+          serviceAreas: [],
+          attributes: [],
+          serviceItems: [],
+        },
+        providerSnapshot: {
+          categories: [],
+          serviceAreas: [],
+          attributes: [],
+          serviceItems: [],
+        },
+      },
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+
+    render(<RestaurantBusinessContextSection restaurantId="rest-1" embedded />);
+
+    expect(screen.getAllByLabelText(/Google.*review/i)).not.toHaveLength(0);
+  });
+
   it('adds service-area chips and grouped amenity attributes from the embedded editor', async () => {
     const user = userEvent.setup();
 
@@ -424,7 +468,6 @@ describe('RestaurantBusinessContextSection', () => {
 
     render(<RestaurantBusinessContextSection restaurantId="rest-1" embedded />);
 
-    await user.click(screen.getByRole('button', { name: /where you serve/i }));
     await user.type(screen.getByLabelText(/new service area/i), 'Cambridge, UK');
     await user.click(screen.getByRole('button', { name: /add area/i }));
     expect(screen.getByText('Cambridge, UK')).toBeInTheDocument();
@@ -448,7 +491,6 @@ describe('RestaurantBusinessContextSection', () => {
       }),
     );
 
-    await user.click(screen.getByRole('button', { name: /amenities/i }));
     await user.click(screen.getByLabelText(/free wi-fi/i));
     await user.click(screen.getByRole('button', { name: /save attributes/i }));
 

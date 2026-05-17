@@ -183,9 +183,9 @@ export function RestaurantLogoUploader({
             )}
           </div>
           <div>
-            <Label className="text-sm font-medium text-foreground">Email branding</Label>
+            <Label className="text-sm font-medium text-foreground">Restaurant logo</Label>
             <p className="text-sm text-muted-foreground">
-              This logo saves immediately after upload and appears in guest booking emails.
+              Shown on the guest booking page and in booking emails.
             </p>
             <p className="text-xs text-muted-foreground">
               Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.

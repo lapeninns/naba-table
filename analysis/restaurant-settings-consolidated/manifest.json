@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-16T20:26:24.487Z",
+  "generatedAt": "2026-05-17T14:00:02.507Z",
   "appHost": "https://app.nabatable.com",
   "basePath": "/settings/restaurant",
   "outputDirectory": "analysis/restaurant-settings-consolidated",
@@ -10,8 +10,8 @@
       "preset": "overview",
       "outputFile": "analysis/restaurant-settings-consolidated/routes/overview.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant",
-      "filesIncluded": 71,
-      "totalContentBytes": 541520,
+      "filesIncluded": 64,
+      "totalContentBytes": 525866,
       "routes": ["/settings/restaurant"]
     },
     {
@@ -19,15 +19,15 @@
       "outputFile": "analysis/restaurant-settings-consolidated/routes/profile.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/profile",
       "filesIncluded": 112,
-      "totalContentBytes": 864885,
+      "totalContentBytes": 870746,
       "routes": ["/settings/restaurant/profile"]
     },
     {
       "preset": "google-business-profile",
       "outputFile": "analysis/restaurant-settings-consolidated/routes/google-business-profile.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/google-business-profile",
-      "filesIncluded": 104,
-      "totalContentBytes": 744408,
+      "filesIncluded": 105,
+      "totalContentBytes": 762368,
       "routes": ["/settings/restaurant/google-business-profile"]
     },
     {
@@ -35,7 +35,7 @@
       "outputFile": "analysis/restaurant-settings-consolidated/routes/availability.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/availability",
       "filesIncluded": 111,
-      "totalContentBytes": 840728,
+      "totalContentBytes": 854066,
       "routes": [
         "/settings/restaurant/availability",
         "/settings/restaurant/service-periods",
@@ -48,40 +48,40 @@
       "preset": "menu",
       "outputFile": "analysis/restaurant-settings-consolidated/routes/menu.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/menu",
-      "filesIncluded": 84,
-      "totalContentBytes": 702483,
+      "filesIncluded": 85,
+      "totalContentBytes": 719805,
       "routes": ["/settings/restaurant/menu"]
     },
     {
       "preset": "tables",
       "outputFile": "analysis/restaurant-settings-consolidated/routes/tables.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/tables",
-      "filesIncluded": 77,
-      "totalContentBytes": 592402,
+      "filesIncluded": 80,
+      "totalContentBytes": 621327,
       "routes": ["/settings/restaurant/tables"]
     },
     {
       "preset": "team",
       "outputFile": "analysis/restaurant-settings-consolidated/routes/team.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/team",
-      "filesIncluded": 77,
-      "totalContentBytes": 549740,
+      "filesIncluded": 80,
+      "totalContentBytes": 574181,
       "routes": ["/settings/restaurant/team"]
     },
     {
       "preset": "email-templates",
       "outputFile": "analysis/restaurant-settings-consolidated/routes/email-templates-redirect.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/email-templates",
-      "filesIncluded": 62,
-      "totalContentBytes": 505400,
+      "filesIncluded": 64,
+      "totalContentBytes": 525857,
       "routes": ["/settings/restaurant/email-templates"]
     },
     {
       "preset": "all",
       "outputFile": "analysis/restaurant-settings-consolidated/all-routes.json",
       "requestedUrl": "https://app.nabatable.com/settings/restaurant/*",
-      "filesIncluded": 207,
-      "totalContentBytes": 1677353,
+      "filesIncluded": 206,
+      "totalContentBytes": 1684806,
       "routes": [
         "/settings/restaurant",
         "/settings/restaurant/profile",

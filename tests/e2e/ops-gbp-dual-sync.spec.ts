@@ -305,7 +305,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await expect(page).toHaveURL(
       /app\.localhost:\d+\/settings\/restaurant\/google-business-profile/,
     );
-    await expect(page.locator('main').getByText('GBP overview')).toBeVisible();
+    await expect(page.locator('main').getByText('Google command center')).toBeVisible();
     await expect(page.locator('main').getByText('Review changes below')).toBeVisible();
     await expect(page.locator('main').getByText('Google workflow')).toBeVisible();
     await expect(

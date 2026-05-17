@@ -29,6 +29,7 @@ type ProfileOverviewCardProps = {
   onJumpToBooking: () => void;
   onJumpToNextAction: (() => void) | null;
   onFocusItem: (key: ReadinessItemKey) => void;
+  onCompareWithGoogle?: () => void;
 };
 
 const OPTIONAL_PREVIEW_LIMIT = 2;
@@ -63,6 +64,7 @@ export function ProfileOverviewCard({
   onJumpToBooking,
   onJumpToNextAction,
   onFocusItem,
+  onCompareWithGoogle,
 }: ProfileOverviewCardProps) {
   const hasBookingSlug = typeof bookingSlug === 'string' && bookingSlug.trim().length > 0;
   const optionalPreview = missingOptional.slice(0, OPTIONAL_PREVIEW_LIMIT);
@@ -112,9 +114,15 @@ export function ProfileOverviewCard({
                 {nextActionLabel}
               </Button>
             ) : null}
-            <Button type="button" variant="ghost" size="sm" asChild>
-              <Link href={googleHref}>Compare with Google</Link>
-            </Button>
+            {onCompareWithGoogle ? (
+              <Button type="button" variant="ghost" size="sm" onClick={onCompareWithGoogle}>
+                Compare with Google
+              </Button>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" asChild>
+                <Link href={googleHref}>Compare with Google</Link>
+              </Button>
+            )}
           </div>
         </div>
 

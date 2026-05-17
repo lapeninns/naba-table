@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +49,17 @@ vi.mock('@/lib/analytics/emit', () => ({
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => ({
     data: gbpConnectionData,
+  }),
+}));
+
+vi.mock('@/hooks/ops/useOpsDualSync', () => ({
+  useOpsDualSync: () => ({
+    stateQuery: {
+      data: { fields: [] },
+      error: null,
+      isError: false,
+      isLoading: false,
+    },
   }),
 }));
 
@@ -149,7 +160,7 @@ describe('RestaurantProfileSection', () => {
       screen.getByRole('textbox', { name: /business description/i }),
       'Family friendly pub',
     );
-    await user.click(screen.getByRole('button', { name: /^Contact/i }));
+    await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
     await user.clear(screen.getByRole('textbox', { name: /contact phone/i }));
     await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
 
@@ -221,9 +232,12 @@ describe('RestaurantProfileSection', () => {
       '/app/settings/restaurant/google-business-profile#gbp-connection',
     );
 
-    const contactRail = screen.getByRole('button', { name: /^Contact/i });
-    const bookingRail = screen.getByRole('button', { name: /^Booking link/i });
-    const managerAlertsRail = screen.getByRole('button', { name: /^Manager alerts/i });
+    const brandRail = screen.getByRole('button', { name: /^1 · Brand/i });
+    const contactRail = screen.getByRole('button', { name: /^3 · Contact/i });
+    const bookingRail = screen.getByRole('button', { name: /^2 · Booking link/i });
+    const managerAlertsRail = screen.getByRole('button', { name: /^4 · Manager alerts/i });
+    const discoveryRail = screen.getByRole('button', { name: /^5 · Discovery details/i });
+    expect(brandRail).toBeInTheDocument();
     expect(contactRail).toBeInTheDocument();
     expect(bookingRail).toBeInTheDocument();
     expect(managerAlertsRail).toBeInTheDocument();
@@ -235,11 +249,63 @@ describe('RestaurantProfileSection', () => {
     const openingDateField = screen.getByLabelText(/opening date/i);
     expect(openingDateField).not.toBeVisible();
 
-    const discoveryRail = screen.getByRole('button', { name: /^Discovery details/i });
     await user.click(discoveryRail);
     expect(discoveryRail).toHaveAttribute('aria-current', 'page');
     await waitFor(() => expect(openingDateField).toBeVisible());
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps profile subform save actions in the sticky bar and cancels the active draft', async () => {
+    const user = userEvent.setup();
+
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await screen.findAllByText('Brand and identity');
+    const description = screen.getByRole('textbox', { name: /business description/i });
+    await user.type(description, 'Family friendly pub');
+
+    expect(screen.getByText('1 unsaved profile section')).toBeInTheDocument();
+    const stickyBar = screen.getByText('1 unsaved profile section').closest('[role="alert"]');
+    expect(stickyBar).not.toBeNull();
+    expect(
+      within(stickyBar as HTMLElement).getByRole('button', { name: 'Save brand' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /save brand & identity/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(stickyBar as HTMLElement).getByRole('button', { name: 'Cancel changes' }),
+    );
+
+    await waitFor(() => expect(description).toHaveValue(''));
+    expect(screen.queryByText('1 unsaved profile section')).not.toBeInTheDocument();
+  });
+
+  it('renders contact blocks in Location, Public contact, After visit order', async () => {
+    const user = userEvent.setup();
+
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await screen.findAllByText('Brand and identity');
+    await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
+
+    const contactForm = document.getElementById('profile-contact');
+    expect(contactForm).not.toBeNull();
+    const location = within(contactForm as HTMLElement).getByText('Location');
+    const publicContact = within(contactForm as HTMLElement).getByText('Public contact');
+    const afterVisit = within(contactForm as HTMLElement).getByText('After visit');
+
+    expect(location.compareDocumentPosition(publicContact)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(publicContact.compareDocumentPosition(afterVisit)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(document.getElementById('restaurant-timezone')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-address')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-google-map')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-phone')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-email')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-google-review')).toBeInTheDocument();
   });
 
   it('focuses the exact required field from the command-center primary action', async () => {

@@ -76,10 +76,11 @@ export function LocationPickerCard({
           {data.connectedGoogleEmail ? (
             <>
               Authorized as{' '}
-              <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>.
+              <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>. Pick
+              the listing that matches this restaurant&apos;s address and name.
             </>
           ) : (
-            'Authorize a Google account to discover available locations.'
+            'Authorize a Google account to discover available locations, then pick the listing that matches this restaurant.'
           )}
         </CardDescription>
       </CardHeader>

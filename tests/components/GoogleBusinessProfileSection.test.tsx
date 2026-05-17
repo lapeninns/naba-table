@@ -18,7 +18,7 @@ const queryClientMock = vi.hoisted(() => ({
 }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-query')>();
+  const actual = await importOriginal();
   return {
     ...actual,
     useQueryClient: () => queryClientMock,
@@ -149,11 +149,11 @@ function expectSharedChrome() {
   expect(screen.getByText(/related settings/i)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /restaurant profile/i })).toHaveAttribute(
     'href',
-    '/app/settings/restaurant/profile#profile-discovery',
+    '/app/settings/restaurant/profile#profile-contact',
   );
   expect(screen.getByRole('link', { name: /availability & booking types/i })).toHaveAttribute(
     'href',
-    '/app/settings/restaurant/availability',
+    '/app/settings/restaurant/availability#availability-schedule',
   );
   expect(screen.getByText(/google is optional/i)).toBeInTheDocument();
 }
@@ -249,6 +249,35 @@ describe('GoogleBusinessProfileSection', () => {
     expectSharedChrome();
   });
 
+  it('pins Google callback errors above the connection overview', async () => {
+    mockSearchParams = new URLSearchParams('gbp=error&message=OAuth%20failed');
+    connectionResult.data = buildConnection({ status: 'unlinked' });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(await screen.findByText('Google connection failed')).toBeInTheDocument();
+    expect(screen.getByText('OAuth failed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry connect/i })).toBeInTheDocument();
+  });
+
+  it('pins authorization mutation errors with a retry action', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({ status: 'unlinked' });
+    startAuthorizationMutation.mutate.mockImplementation(
+      (_input: unknown, options: { onError: (error: Error) => void }) => {
+        options.onError(new Error('OAuth service down'));
+      },
+    );
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getAllByRole('button', { name: /connect google/i })[0]);
+
+    expect(await screen.findByText('Google authorization failed')).toBeInTheDocument();
+    expect(screen.getByText('OAuth service down')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry connect/i })).toBeInTheDocument();
+  });
+
   it('renders the location picker card when the status is authorized', () => {
     connectionResult.data = buildConnection({
       status: 'authorized',
@@ -275,6 +304,40 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getByRole('button', { name: /link location/i })).toBeInTheDocument();
     expect(document.getElementById('gbp-location')).toBeInTheDocument();
     expectSharedChrome();
+  });
+
+  it('pins link-location errors with a retry action', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = buildConnection({
+      status: 'authorized',
+      connectedGoogleEmail: 'ops@example.com',
+      availableLocations: [],
+    });
+    locationsResult.data = [
+      {
+        accountName: 'accounts/1',
+        accountId: 'a-1',
+        accountDisplayName: 'Ops Account',
+        locationName: 'locations/1',
+        locationId: 'l-1',
+        title: 'Nabatable Main',
+        addressText: '1 Test St, London',
+        placeId: 'place-1',
+      },
+    ];
+    linkMutation.mutate.mockImplementation(
+      (_input: unknown, options: { onError: (error: Error) => void }) => {
+        options.onError(new Error('Google rejected the location link'));
+      },
+    );
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(await screen.findByRole('button', { name: /link location/i }));
+
+    expect(await screen.findByText('Location link failed')).toBeInTheDocument();
+    expect(screen.getByText('Google rejected the location link')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry link/i })).toBeInTheDocument();
   });
 
   it('renders linked mode with one overview action surface', () => {
@@ -448,6 +511,53 @@ describe('GoogleBusinessProfileSection', () => {
         }),
       ),
     );
+  });
+
+  it('scrolls to the location hash when the picker is visible', async () => {
+    const scrollIntoView = vi.fn();
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame);
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    window.history.replaceState(
+      {},
+      '',
+      '/app/settings/restaurant/google-business-profile#gbp-location',
+    );
+    connectionResult.data = buildConnection({
+      status: 'authorized',
+      connectedGoogleEmail: 'ops@example.com',
+      availableLocations: [],
+    });
+    locationsResult.data = [
+      {
+        accountName: 'accounts/1',
+        accountId: 'a-1',
+        accountDisplayName: 'Ops Account',
+        locationName: 'locations/1',
+        locationId: 'l-1',
+        title: 'Nabatable Main',
+        addressText: '1 Test St, London',
+        placeId: 'place-1',
+      },
+    ];
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          block: 'start',
+          behavior: 'smooth',
+        }),
+      ),
+    );
+    expect(document.getElementById('gbp-location')).toBeInTheDocument();
   });
 });
 

@@ -19,6 +19,11 @@ import {
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { useOptionalGbpDrift } from '@/components/features/restaurant-settings/gbp-drift/useGbpDrift';
+import {
+  GbpDriftBadge,
+  findFoodMenuItemDriftField,
+} from '@/components/features/restaurant-settings/gbpDriftBadges';
 import {
   Accordion,
   AccordionContent,
@@ -111,10 +116,12 @@ import type {
   RestaurantMenuOptionPatch,
   RestaurantMenuSectionInput,
 } from '@/server/menu-hierarchy/types';
+import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
 type MenuHierarchyManagementPanelProps = {
   restaurantId: string | null;
   preferredMenuKind: Extract<MenuKind, 'food' | 'drinks'>;
+  gbpDriftFields?: ReadonlyArray<DualSyncFieldSummary>;
 };
 
 type MenuFormState = {
@@ -1016,6 +1023,7 @@ function buildOptionPayload(
 export function MenuHierarchyManagementPanel({
   restaurantId,
   preferredMenuKind,
+  gbpDriftFields = [],
 }: MenuHierarchyManagementPanelProps) {
   const hierarchyQuery = useOpsMenuHierarchy(restaurantId);
   const menus = useMemo(() => hierarchyQuery.data?.menus ?? [], [hierarchyQuery.data?.menus]);
@@ -1274,6 +1282,7 @@ export function MenuHierarchyManagementPanel({
           >
             <SectionAccordionTable
               menu={selectedMenu}
+              gbpDriftFields={gbpDriftFields}
               selectedSectionId={selectedSectionId}
               restaurantId={restaurantId}
               onSelectSection={setSelectedSectionId}
@@ -1365,6 +1374,7 @@ export function MenuHierarchyManagementPanel({
 
 function SectionAccordionTable({
   menu,
+  gbpDriftFields,
   selectedSectionId,
   restaurantId,
   onSelectSection,
@@ -1378,6 +1388,7 @@ function SectionAccordionTable({
   onDeleteOption,
 }: {
   menu: CanonicalRestaurantMenu;
+  gbpDriftFields: ReadonlyArray<DualSyncFieldSummary>;
   selectedSectionId: string | null;
   restaurantId: string;
   onSelectSection: (sectionId: string | null) => void;
@@ -1429,6 +1440,7 @@ function SectionAccordionTable({
       restaurantId={restaurantId}
       menu={menu}
       section={section}
+      gbpDriftFields={gbpDriftFields}
       onCreateItem={() => onCreateItem(section)}
       onEditItem={(item) => onEditItem(section, item)}
       onDeleteItem={(item) => onDeleteItem(section, item)}
@@ -1574,6 +1586,7 @@ function ItemTable({
   restaurantId,
   menu,
   section,
+  gbpDriftFields,
   onCreateItem,
   onEditItem,
   onDeleteItem,
@@ -1584,6 +1597,7 @@ function ItemTable({
   restaurantId: string;
   menu: CanonicalRestaurantMenu;
   section: CanonicalRestaurantMenuSection;
+  gbpDriftFields: ReadonlyArray<DualSyncFieldSummary>;
   onCreateItem: () => void;
   onEditItem: (item: CanonicalRestaurantMenuItem) => void;
   onDeleteItem: (item: CanonicalRestaurantMenuItem) => void;
@@ -1596,6 +1610,28 @@ function ItemTable({
 }) {
   const patchItem = useOpsPatchRestaurantMenuItem(restaurantId);
   const patchOption = useOpsPatchRestaurantMenuOption(restaurantId);
+  const [quickEditItem, setQuickEditItem] = useState<CanonicalRestaurantMenuItem | null>(null);
+  const quickEditDriftField = quickEditItem
+    ? findFoodMenuItemDriftField(gbpDriftFields, {
+        menuId: menu.id,
+        menuLabel: primaryLabel(menu, 'Menu'),
+        sectionId: section.id,
+        sectionLabel: primaryLabel(section, 'Section'),
+        externalItemId: quickEditItem.externalItemId,
+        itemId: quickEditItem.id,
+      })
+    : null;
+  const getItemGbpDriftFields = (item: CanonicalRestaurantMenuItem) => {
+    const field = findFoodMenuItemDriftField(gbpDriftFields, {
+      menuId: menu.id,
+      menuLabel: primaryLabel(menu, 'Menu'),
+      sectionId: section.id,
+      sectionLabel: primaryLabel(section, 'Section'),
+      externalItemId: item.externalItemId,
+      itemId: item.id,
+    });
+    return field ? [field] : [];
+  };
 
   const moveItem = async (item: CanonicalRestaurantMenuItem, index: number, direction: -1 | 1) => {
     const target = section.items[index + direction];
@@ -1657,6 +1693,19 @@ function ItemTable({
       sectionId: section.id,
       itemId: item.id,
       payload: { active },
+    });
+  };
+
+  const quickPatchItem = async (
+    item: CanonicalRestaurantMenuItem,
+    payload: RestaurantMenuItemPatch,
+  ) => {
+    if (!menu.id || !section.id || !item.id) return;
+    await patchItem.mutateAsync({
+      menuId: menu.id,
+      sectionId: section.id,
+      itemId: item.id,
+      payload,
     });
   };
 
@@ -1728,6 +1777,7 @@ function ItemTable({
                       <span className="truncate text-sm font-medium">
                         {primaryLabel(item, 'Menu item')}
                       </span>
+                      <GbpDriftBadge fields={getItemGbpDriftFields(item)} />
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm text-muted-foreground text-pretty">
                       {itemDescription(item)}
@@ -1742,6 +1792,7 @@ function ItemTable({
                     itemIndex={itemIndex}
                     itemsCount={section.items.length}
                     patchPending={patchItem.isPending}
+                    onQuickEditItem={setQuickEditItem}
                     onEditItem={onEditItem}
                     onMoveItem={moveItem}
                     onDeleteItem={onDeleteItem}
@@ -1797,6 +1848,7 @@ function ItemTable({
                           >
                             {primaryLabel(item, 'Menu item')}
                           </Button>
+                          <GbpDriftBadge fields={getItemGbpDriftFields(item)} />
                           <p className="mt-1 line-clamp-2 max-w-xl text-sm leading-5 text-muted-foreground text-pretty">
                             {itemDescription(item)}
                           </p>
@@ -1836,6 +1888,7 @@ function ItemTable({
                         itemIndex={itemIndex}
                         itemsCount={section.items.length}
                         patchPending={patchItem.isPending}
+                        onQuickEditItem={setQuickEditItem}
                         onEditItem={onEditItem}
                         onMoveItem={moveItem}
                         onDeleteItem={onDeleteItem}
@@ -1848,6 +1901,19 @@ function ItemTable({
           </div>
         </>
       ) : null}
+      <QuickEditItemDialog
+        gbpDriftField={quickEditDriftField}
+        item={quickEditItem}
+        open={quickEditItem !== null}
+        pending={patchItem.isPending}
+        onOpenChange={(open) => {
+          if (!open) setQuickEditItem(null);
+        }}
+        onSubmit={async (item, payload) => {
+          await quickPatchItem(item, payload);
+          setQuickEditItem(null);
+        }}
+      />
     </div>
   );
 }
@@ -1857,6 +1923,7 @@ function ItemActions({
   itemIndex,
   itemsCount,
   patchPending,
+  onQuickEditItem,
   onEditItem,
   onMoveItem,
   onDeleteItem,
@@ -1865,6 +1932,7 @@ function ItemActions({
   itemIndex: number;
   itemsCount: number;
   patchPending: boolean;
+  onQuickEditItem: (item: CanonicalRestaurantMenuItem) => void;
   onEditItem: (item: CanonicalRestaurantMenuItem) => void;
   onMoveItem: (
     item: CanonicalRestaurantMenuItem,
@@ -1888,9 +1956,13 @@ function ItemActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={() => onQuickEditItem(item)}>
+            <SlidersHorizontal aria-hidden />
+            Quick edit
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => onEditItem(item)}>
             <Pencil aria-hidden />
-            Edit item
+            Full edit
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={itemIndex === 0 || patchPending}
@@ -1913,6 +1985,148 @@ function ItemActions({
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function QuickEditItemDialog({
+  gbpDriftField,
+  item,
+  open,
+  pending,
+  onOpenChange,
+  onSubmit,
+}: {
+  gbpDriftField: DualSyncFieldSummary | null;
+  item: CanonicalRestaurantMenuItem | null;
+  open: boolean;
+  pending: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (item: CanonicalRestaurantMenuItem, payload: RestaurantMenuItemPatch) => Promise<void>;
+}) {
+  const gbpDrift = useOptionalGbpDrift();
+  const registerDraftOverride = gbpDrift?.registerDraftOverride;
+  const [price, setPrice] = useState('');
+  const [currencyCode, setCurrencyCode] = useState('GBP');
+  const [active, setActive] = useState(true);
+  const [soldOut, setSoldOut] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState(NONE_VALUE);
+
+  useEffect(() => {
+    if (!item) return;
+    setPrice(
+      typeof item.attributes.price?.amount === 'number' ? String(item.attributes.price.amount) : '',
+    );
+    setCurrencyCode(item.attributes.price?.currencyCode ?? 'GBP');
+    setActive(item.active);
+    const policy = item.extensions.availabilityPolicy as Record<string, unknown> | undefined;
+    setSoldOut(policy?.soldOut === true);
+    setAvailabilityStatus(
+      typeof policy?.availabilityStatus === 'string' ? policy.availabilityStatus : NONE_VALUE,
+    );
+  }, [item]);
+
+  useEffect(() => {
+    if (!open || !item || !gbpDriftField || !registerDraftOverride) return;
+    const amount = price.trim() ? Number(price) : null;
+    const baseValue =
+      gbpDriftField.coreValue && typeof gbpDriftField.coreValue === 'object'
+        ? gbpDriftField.coreValue
+        : gbpDriftField.gbpValue && typeof gbpDriftField.gbpValue === 'object'
+          ? gbpDriftField.gbpValue
+          : {};
+    registerDraftOverride(gbpDriftField.fieldKey, {
+      ...baseValue,
+      basePrice: Number.isFinite(amount) ? amount : null,
+      currency: currencyCode.trim() || 'GBP',
+    });
+    return () => {
+      registerDraftOverride(gbpDriftField.fieldKey, null);
+    };
+  }, [currencyCode, gbpDriftField, item, open, price, registerDraftOverride]);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!item) return;
+    const amount = price.trim() ? Number(price) : null;
+    await onSubmit(item, {
+      active,
+      attributes: {
+        ...item.attributes,
+        price: {
+          currencyCode: currencyCode.trim() || 'GBP',
+          amount: Number.isFinite(amount) ? amount : null,
+        },
+      },
+      extensions: {
+        ...item.extensions,
+        availabilityPolicy: {
+          ...(item.extensions.availabilityPolicy ?? {}),
+          availabilityStatus:
+            availabilityStatus === NONE_VALUE
+              ? null
+              : (availabilityStatus as 'available' | 'unavailable' | 'seasonal'),
+          soldOut,
+        },
+      },
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Quick edit item</DialogTitle>
+          <DialogDescription>
+            Save price, active state, and guest-visible availability without opening the full item
+            sheet.
+          </DialogDescription>
+        </DialogHeader>
+        <FormRoot className="flex flex-col gap-4" onSubmit={submit}>
+          <div className="grid gap-4 sm:grid-cols-[6rem_1fr]">
+            <Field label="Currency">
+              <Input
+                value={currencyCode}
+                onChange={(event) => setCurrencyCode(event.target.value)}
+              />
+            </Field>
+            <Field label="Price">
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(event) => setPrice(event.target.value)}
+              />
+            </Field>
+          </div>
+          <Field label="Availability flag">
+            <Select value={availabilityStatus} onValueChange={setAvailabilityStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_VALUE}>Not set</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="unavailable">Unavailable</SelectItem>
+                <SelectItem value="seasonal">Seasonal</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SwitchField label="Active" checked={active} onCheckedChange={setActive} />
+            <SwitchField label="Sold out" checked={soldOut} onCheckedChange={setSoldOut} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending || !item}>
+              {pending ? 'Saving...' : 'Save quick edit'}
+            </Button>
+          </DialogFooter>
+        </FormRoot>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -2377,7 +2591,7 @@ function ItemDialog({
           <div className="rounded-md border p-4">
             <div className="flex items-center gap-2">
               <Globe2 className="size-4 text-muted-foreground" aria-hidden />
-              <h3 className="text-sm font-semibold">Google core</h3>
+              <h3 className="text-sm font-semibold">Essentials</h3>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field label="Item name">
@@ -2514,7 +2728,7 @@ function ItemDialog({
             </Field>
             <div className="mt-4 rounded-md border bg-muted/20 p-3">
               <h4 className="text-xs font-medium uppercase text-muted-foreground">
-                Google portion size
+                Guest menu portion size
               </h4>
               <div className="mt-3 grid gap-3 md:grid-cols-4">
                 <Field label="Quantity">
@@ -2672,7 +2886,7 @@ function ItemDialog({
           <div className="rounded-md border p-4">
             <div className="flex items-center gap-2">
               <ImageIcon className="size-4 text-muted-foreground" aria-hidden />
-              <h3 className="text-sm font-semibold">GBP media-key manager</h3>
+              <h3 className="text-sm font-semibold">Google publishing</h3>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Select or paste GBP media keys for publishing. Local image URLs stay Nabatable-only.
@@ -2742,7 +2956,7 @@ function ItemDialog({
           <div className="rounded-md border p-4">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="size-4 text-muted-foreground" aria-hidden />
-              <h3 className="text-sm font-semibold">Availability</h3>
+              <h3 className="text-sm font-semibold">Guest menu</h3>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field label="Availability status">
@@ -3020,7 +3234,7 @@ function ItemDialog({
           </div>
 
           <div className="rounded-md border p-4">
-            <h3 className="text-sm font-semibold">Source/import metadata</h3>
+            <h3 className="text-sm font-semibold">Import metadata</h3>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <Field label="Source system">
                 <Input

@@ -10,6 +10,12 @@ export type RestaurantSettingsRoute = {
   description: string;
 };
 
+export type RestaurantSettingsOverviewRoute = {
+  href: string;
+  title: string;
+  description: string;
+};
+
 export type AvailabilitySettingsWorkspace = 'rules' | 'schedule' | 'booking-types';
 
 export type RestaurantSettingsAliasRoute = {
@@ -21,30 +27,36 @@ export type RestaurantSettingsAliasRoute = {
 
 export const RESTAURANT_SETTINGS_AVAILABILITY_ALIASES: RestaurantSettingsAliasRoute[] = [
   {
-    href: opsHref('/settings/restaurant/service-periods'),
+    href: opsHref('/settings/restaurant/service-periods#service-periods'),
     title: 'Service periods',
     description: 'Define lunch, dinner, and other booking windows inside operating hours.',
     availabilityWorkspace: 'schedule',
   },
   {
-    href: opsHref('/settings/restaurant/operating-hours'),
+    href: opsHref('/settings/restaurant/operating-hours#availability-hours'),
     title: 'Operating hours',
     description: 'Configure weekly open and close times plus date-specific overrides.',
     availabilityWorkspace: 'schedule',
   },
   {
-    href: opsHref('/settings/restaurant/turn-durations'),
+    href: opsHref('/settings/restaurant/turn-durations#booking-occasions'),
     title: 'Reservation durations',
     description: 'Configure table-time bands by booking type and party size.',
     availabilityWorkspace: 'booking-types',
   },
   {
-    href: opsHref('/settings/restaurant/occasions'),
+    href: opsHref('/settings/restaurant/occasions#booking-occasions'),
     title: 'Booking types',
     description: 'Control the lunch, dinner, and occasion types staff and guests can use.',
     availabilityWorkspace: 'booking-types',
   },
 ];
+
+export const RESTAURANT_SETTINGS_OVERVIEW_ROUTE: RestaurantSettingsOverviewRoute = {
+  href: opsHref('/settings/restaurant'),
+  title: 'Restaurant setup',
+  description: 'Track the required setup steps for profile, booking availability, and seating.',
+};
 
 export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
@@ -57,7 +69,7 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     view: 'google-business-profile',
     href: opsHref('/settings/restaurant/google-business-profile'),
     title: 'Google Business Profile',
-    description: 'Connect Google to review, import, and publish guest-facing restaurant details.',
+    description: 'Optional: connect Google to import and compare public details.',
   },
   {
     view: 'availability',
@@ -126,6 +138,10 @@ export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<
 
 export function getRestaurantSettingsRouteCopy(pathname: string) {
   const normalizedPathname = normalizeOpsPathname(pathname);
+  if (normalizedPathname === normalizeOpsPathname(RESTAURANT_SETTINGS_OVERVIEW_ROUTE.href)) {
+    return RESTAURANT_SETTINGS_OVERVIEW_ROUTE;
+  }
+
   const alias = RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.find(
     (item) => normalizeOpsPathname(item.href) === normalizedPathname,
   );

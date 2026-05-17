@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mutateAsyncMock = vi.hoisted(() => vi.fn());
 const analyticsTrackMock = vi.hoisted(() => vi.fn());
@@ -20,6 +20,7 @@ vi.mock('@/lib/analytics/emit', () => ({
 }));
 
 import {
+  AdvancedIdentitySubform,
   BookingRulesSubform,
   BrandIdentitySubform,
   ContactLocationSubform,
@@ -64,6 +65,11 @@ describe('RestaurantDetailsForm subforms', () => {
     mutateAsyncMock.mockResolvedValue(initialValues);
     analyticsTrackMock.mockReset();
     analyticsEmitMock.mockReset();
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'http://app.localhost:3000');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('saves brand and identity fields as a partial payload', async () => {
@@ -144,6 +150,14 @@ describe('RestaurantDetailsForm subforms', () => {
 
     render(<ContactLocationSubform restaurantId="rest-1" initialValues={initialValues} />);
 
+    expect(screen.getByText('Location')).toBeInTheDocument();
+    expect(screen.getByText('Public contact')).toBeInTheDocument();
+    expect(screen.getByText('After visit')).toBeInTheDocument();
+    expect(screen.getByText('Directions link for guests (Google Maps).')).toBeInTheDocument();
+    expect(
+      screen.getByText('Post-visit review link; not the same as website/menu links in Discovery.'),
+    ).toBeInTheDocument();
+
     await user.clear(screen.getByRole('textbox', { name: /contact phone/i }));
     await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
     await user.click(screen.getByRole('button', { name: /save contact details/i }));
@@ -160,6 +174,29 @@ describe('RestaurantDetailsForm subforms', () => {
     );
     expect(mutateAsyncMock.mock.calls[0][0]).not.toHaveProperty('bookingPolicy');
     expect(mutateAsyncMock.mock.calls[0][0]).not.toHaveProperty('reservationIntervalMinutes');
+  });
+
+  it('shows the full public booking URL preview and copies it as the primary action', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<AdvancedIdentitySubform restaurantId="rest-1" initialValues={initialValues} />);
+
+    expect(screen.getByText('/restaurants/old-crown-girton/book')).toBeInTheDocument();
+    expect(
+      screen.getByText('http://localhost:3000/restaurants/old-crown-girton/book'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /copy full url/i }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      'http://localhost:3000/restaurants/old-crown-girton/book',
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent('Full booking URL copied.');
   });
 
   it('saves manager alert fields and validates E.164 numbers', async () => {

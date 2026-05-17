@@ -1,6 +1,7 @@
 'use client';
 
 import { CalendarClock, ClipboardList, Clock3 } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AvailabilityScheduleManager } from '@/components/features/restaurant-settings/AvailabilityScheduleManager';
@@ -12,6 +13,7 @@ import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { cn } from '@/lib/utils';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
+import { getGbpDriftSectionBadge, useGbpDriftSectionStatus } from './GbpDriftProvider';
 import { SettingsCard, SettingsSectionNav, SETTINGS_COMMAND_CENTER_LAYOUT_CLASS } from './shared';
 import {
   BookingRulesSubform,
@@ -157,9 +159,32 @@ export function AvailabilityOccasionsCommandCenter({
   initialWorkspace = 'rules',
 }: AvailabilityOccasionsCommandCenterProps) {
   const [activeWorkspace, setActiveWorkspace] = useState<AvailabilityWorkspace>(initialWorkspace);
+  const reduceMotion = useReducedMotion();
+  const availabilityGbpStatus = useGbpDriftSectionStatus(['operatingHours', 'servicePeriods']);
+  const availabilityBadge = getGbpDriftSectionBadge(availabilityGbpStatus);
 
   useEffect(() => {
     setActiveWorkspace(initialWorkspace);
+  }, [initialWorkspace]);
+
+  useEffect(() => {
+    const hash =
+      window.location.hash.slice(1) ||
+      (initialWorkspace === 'rules'
+        ? 'booking-rules'
+        : initialWorkspace === 'schedule'
+          ? 'availability-schedule'
+          : 'booking-occasions');
+    const scrollToTarget = () => {
+      const target = document.getElementById(hash);
+      target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return Boolean(target);
+    };
+    window.requestAnimationFrame(() => {
+      if (!scrollToTarget()) {
+        window.setTimeout(scrollToTarget, 0);
+      }
+    });
   }, [initialWorkspace]);
   const selectWorkspace = useCallback((workspace: AvailabilityWorkspace) => {
     setActiveWorkspace(workspace);
@@ -193,6 +218,7 @@ export function AvailabilityOccasionsCommandCenter({
             href: '#availability-schedule',
             Icon: CalendarClock,
             isActive: activeWorkspace === 'schedule',
+            badge: availabilityBadge ?? undefined,
             onSelect: () => selectWorkspace('schedule'),
           },
           {
@@ -205,22 +231,52 @@ export function AvailabilityOccasionsCommandCenter({
           },
         ]}
       />
-      <div className="space-y-6">
-        <div
+      <div className="flex min-w-0 flex-col gap-6">
+        <motion.div
           hidden={activeWorkspace !== 'rules'}
-          className={cn(activeWorkspace !== 'rules' && 'hidden')}
+          aria-hidden={activeWorkspace !== 'rules'}
+          className={cn(
+            'will-change-auto',
+            activeWorkspace !== 'rules' && 'hidden',
+            activeWorkspace === 'rules' && 'motion-safe:will-change-transform',
+          )}
+          initial={false}
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  opacity: activeWorkspace === 'rules' ? 1 : 0,
+                  y: activeWorkspace === 'rules' ? 0 : 8,
+                }
+          }
+          transition={{ duration: 0.18, ease: 'easeOut' }}
         >
           <BookingRulesCard restaurantId={restaurantId} />
-        </div>
-        <div
+        </motion.div>
+        <motion.div
           hidden={activeWorkspace === 'rules'}
-          className={cn(activeWorkspace === 'rules' && 'hidden')}
+          aria-hidden={activeWorkspace === 'rules'}
+          className={cn(
+            'will-change-auto',
+            activeWorkspace === 'rules' && 'hidden',
+            activeWorkspace !== 'rules' && 'motion-safe:will-change-transform',
+          )}
+          initial={false}
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  opacity: activeWorkspace === 'rules' ? 0 : 1,
+                  y: activeWorkspace === 'rules' ? 8 : 0,
+                }
+          }
+          transition={{ duration: 0.18, ease: 'easeOut' }}
         >
           <AvailabilityScheduleManager
             restaurantId={restaurantId}
             activeWorkspace={activeWorkspace === 'booking-types' ? 'booking-types' : 'schedule'}
           />
-        </div>
+        </motion.div>
       </div>
     </section>
   );

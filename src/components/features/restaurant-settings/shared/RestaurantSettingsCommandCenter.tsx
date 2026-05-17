@@ -3,7 +3,15 @@
 import { ArrowRight, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
-import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -76,6 +84,7 @@ type RestaurantSettingsCommandCenterProps = {
   railTitle?: string;
   railDescription?: string;
   railItems?: RestaurantSettingsCommandRailItem[];
+  railClassName?: string;
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
@@ -96,6 +105,50 @@ export function SettingsSectionNav({
   footer,
   className,
 }: SettingsSectionNavProps) {
+  const itemRefs = useRef<Array<HTMLElement | null>>([]);
+  const focusRailItem = useCallback(
+    (nextIndex: number) => {
+      const count = items.length;
+      if (count === 0) {
+        return;
+      }
+      const normalizedIndex = (nextIndex + count) % count;
+      itemRefs.current[normalizedIndex]?.focus();
+    },
+    [items.length],
+  );
+  const handleRailItemKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>, index: number) => {
+      if (event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      switch (event.key) {
+        case 'ArrowDown':
+        case 'ArrowRight':
+          event.preventDefault();
+          focusRailItem(index + 1);
+          break;
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          event.preventDefault();
+          focusRailItem(index - 1);
+          break;
+        case 'Home':
+          event.preventDefault();
+          focusRailItem(0);
+          break;
+        case 'End':
+          event.preventDefault();
+          focusRailItem(items.length - 1);
+          break;
+        default:
+          break;
+      }
+    },
+    [focusRailItem, items.length],
+  );
+
   if (items.length === 0 && !footer) {
     return null;
   }
@@ -110,7 +163,7 @@ export function SettingsSectionNav({
       </CardHeader>
       {items.length > 0 ? (
         <CardContent className={SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS}>
-          {items.map((item) => {
+          {items.map((item, index) => {
             const Icon = item.Icon;
             const itemKey = item.href ?? item.label;
             const content = (
@@ -143,10 +196,14 @@ export function SettingsSectionNav({
               return (
                 <Button
                   key={itemKey}
+                  ref={(node) => {
+                    itemRefs.current[index] = node;
+                  }}
                   type="button"
                   variant="ghost"
                   aria-current={item.isActive ? 'page' : undefined}
                   onClick={item.onSelect}
+                  onKeyDown={(event) => handleRailItemKeyDown(event, index)}
                   className={cn(
                     SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
                     'h-full w-full',
@@ -163,9 +220,13 @@ export function SettingsSectionNav({
             return (
               <Button
                 key={itemKey}
+                ref={(node) => {
+                  itemRefs.current[index] = node;
+                }}
                 asChild
                 variant="ghost"
                 aria-current={item.isActive ? 'page' : undefined}
+                onKeyDown={(event) => handleRailItemKeyDown(event, index)}
                 className={cn(
                   SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
                   'h-full w-full',
@@ -201,6 +262,7 @@ export function RestaurantSettingsCommandCenter({
   railTitle = 'Workflow',
   railDescription,
   railItems = [],
+  railClassName,
   children,
   footer,
   className,
@@ -274,6 +336,7 @@ export function RestaurantSettingsCommandCenter({
         description={railDescription}
         items={railItems}
         footer={footer}
+        className={railClassName}
       />
 
       <div className="flex min-w-0 flex-col gap-4">{children}</div>

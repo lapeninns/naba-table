@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
+import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
+import { GbpDriftProvider, GbpDriftStatusPill } from './GbpDriftProvider';
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
 import { getRestaurantSettingsRouteCopy } from './routes';
 
@@ -91,6 +93,7 @@ function RestaurantSettingsPageHeading({
             <Badge variant="outline" className="font-medium text-foreground">
               {restaurantName}
             </Badge>
+            <GbpDriftStatusPill />
           </span>
         ) : null
       }
@@ -111,15 +114,18 @@ export function RestaurantSettingsPageShell({
   const reduceMotion = usePrefersReducedMotion();
 
   return (
-    <RestaurantSettingsFocusedShell envBanner={envBanner}>
-      <RestaurantSettingsPageHeading title={title} description={description} eyebrow={eyebrow} />
-      <motion.div
-        initial={reduceMotion ? false : { y: 8, opacity: 0 }}
-        animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
-        transition={{ duration: 0.18, ease: 'easeOut' }}
-      >
-        {children}
-      </motion.div>
-    </RestaurantSettingsFocusedShell>
+    <GbpDriftProvider>
+      <RestaurantSettingsFocusedShell envBanner={envBanner}>
+        <RestaurantSettingsPageHeading title={title} description={description} eyebrow={eyebrow} />
+        <GbpDriftStatusStrip />
+        <motion.div
+          initial={reduceMotion ? false : { y: 8, opacity: 0 }}
+          animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          {children}
+        </motion.div>
+      </RestaurantSettingsFocusedShell>
+    </GbpDriftProvider>
   );
 }

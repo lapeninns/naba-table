@@ -35,12 +35,28 @@ export const SETTINGS_COMPACT_FILTER_BAR_CLASS =
   'grid gap-3 rounded-md border border-border/60 bg-muted/30 p-3';
 
 export const SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS =
-  'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:flex-row sm:items-center sm:justify-between';
+  'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between';
 
 export const SETTINGS_COMPACT_STATUS_ROW_CLASS =
   'flex flex-wrap items-center gap-2 text-xs text-muted-foreground';
 
 export const SETTINGS_COMPACT_HELPER_TEXT_CLASS = 'text-xs leading-5 text-muted-foreground';
+
+const SAVE_SCOPE_MESSAGES = {
+  'availability-rules': 'Saves booking slot spacing and policy only.',
+  'availability-schedule':
+    'Saves weekly hours, service windows, date overrides, and booking types in this workspace.',
+  discovery: 'Saves this discovery panel only.',
+  menu: 'Saves only the selected menu, section, item, or option.',
+  tables: 'Saves only this table, zone, or inventory action.',
+  team: 'Sends this invitation only.',
+} as const;
+
+export type SettingsSaveScope = keyof typeof SAVE_SCOPE_MESSAGES;
+
+export function formatSaveScopeMessage(scope: SettingsSaveScope | string) {
+  return SAVE_SCOPE_MESSAGES[scope as SettingsSaveScope] ?? `Saves ${scope} only.`;
+}
 
 export const SETTINGS_COMMAND_CENTER_LAYOUT_CLASS = 'flex min-w-0 flex-col gap-4';
 
@@ -54,7 +70,7 @@ export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS =
   'h-auto min-w-0 items-start justify-start gap-3 whitespace-normal rounded-md px-2 py-2 text-left transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none motion-safe:hover:-translate-y-[1px]';
 
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS =
-  'bg-background text-foreground shadow-sm ring-1 ring-border';
+  'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/25';
 
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS =
   'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border';

@@ -9,8 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 import { type DayErrors } from './availabilityScheduleManagerUtils';
+import { GbpDriftBadge } from './gbpDriftBadges';
 import { type DayServiceConfig } from './servicePeriodsMapper';
 import { type WeeklyErrors, type WeeklyRow } from './types';
+
+import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
 type MealEditorProps = {
   disabled: boolean;
@@ -108,6 +111,8 @@ type AvailabilityScheduleDayCardProps = {
   onWeeklyChange: (index: number, patch: Partial<WeeklyRow>) => void;
   row: WeeklyRow;
   rowErrors: WeeklyErrors[number] | undefined;
+  weeklyDriftField?: DualSyncFieldSummary | null;
+  serviceDriftFields?: ReadonlyArray<DualSyncFieldSummary>;
 };
 
 export function AvailabilityScheduleDayCard({
@@ -119,6 +124,8 @@ export function AvailabilityScheduleDayCard({
   onWeeklyChange,
   row,
   rowErrors,
+  weeklyDriftField = null,
+  serviceDriftFields = [],
 }: AvailabilityScheduleDayCardProps) {
   return (
     <div
@@ -134,6 +141,7 @@ export function AvailabilityScheduleDayCard({
             <Badge variant={row.isClosed ? 'secondary' : 'outline'}>
               {row.isClosed ? 'Closed' : 'Open'}
             </Badge>
+            <GbpDriftBadge fields={[weeklyDriftField, ...serviceDriftFields]} />
           </div>
           <p className="text-sm text-muted-foreground">
             Set the day boundary first, then the service windows inside it.

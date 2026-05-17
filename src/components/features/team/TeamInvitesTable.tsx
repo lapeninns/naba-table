@@ -123,7 +123,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
             <Skeleton key={index} className="h-28 w-full rounded-lg" />
           ))
         ) : hasInvites ? (
-          inviteRows.map(({ invite, expiresLabel, isExpiredPending }) => (
+          inviteRows.map(({ invite, expiresLabel, createdLabel, isExpiredPending }) => (
             <article key={invite.id} className="rounded-lg border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -139,7 +139,9 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
                   {isExpiredPending ? <Badge variant="outline">Expired by date</Badge> : null}
                 </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">Expires {expiresLabel}</p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Sent {createdLabel} · Expires {expiresLabel}
+              </p>
               {invite.status === 'pending' && canManage ? (
                 <Button
                   type="button"
@@ -171,7 +173,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Expires</TableHead>
+              <TableHead>Sent date</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -185,7 +187,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
                 </TableRow>
               ))
             ) : hasInvites ? (
-              inviteRows.map(({ invite, expiresLabel, isExpiredPending }) => (
+              inviteRows.map(({ invite, createdLabel, isExpiredPending }) => (
                 <TableRow key={invite.id}>
                   <TableCell className="min-w-[220px] break-all font-medium">
                     {invite.email}
@@ -200,7 +202,7 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
                     </div>
                   </TableCell>
                   <TableCell className="min-w-[160px] text-muted-foreground">
-                    {expiresLabel}
+                    {createdLabel}
                   </TableCell>
                   <TableCell className="text-right">
                     {invite.status === 'pending' && canManage ? (

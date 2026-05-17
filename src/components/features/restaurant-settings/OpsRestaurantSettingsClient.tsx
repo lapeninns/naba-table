@@ -1,11 +1,13 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { opsHref } from '@/lib/url/opsHref';
 
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 
@@ -209,6 +211,25 @@ export function OpsRestaurantSettingsClient({
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
       {dualSyncSections && selectedRestaurantId ? (
         <div id="gbp-sync-review" className="scroll-mt-24">
+          {view === 'google-business-profile' ? (
+            <div className="mb-3 rounded-md border border-border/70 bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Compare Google vs saved Nabatable fields. Edits to values still happen on{' '}
+              <Link
+                href={opsHref('/settings/restaurant/profile#profile-contact')}
+                className="font-medium text-foreground underline"
+              >
+                Profile
+              </Link>{' '}
+              or{' '}
+              <Link
+                href={opsHref('/settings/restaurant/availability#availability-schedule')}
+                className="font-medium text-foreground underline"
+              >
+                Availability
+              </Link>
+              .
+            </div>
+          ) : null}
           <DualSyncShell
             restaurantId={selectedRestaurantId}
             sections={dualSyncSections}

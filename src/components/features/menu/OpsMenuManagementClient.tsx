@@ -6,6 +6,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import {
+  GbpDriftBadge,
+  useWorkspaceGbpDriftCheck,
+} from '@/components/features/restaurant-settings/gbpDriftBadges';
+import {
+  useGbpDriftSectionStatus,
+  useGbpDriftStatus,
+} from '@/components/features/restaurant-settings/GbpDriftProvider';
 import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
 import { Button } from '@/components/ui/button';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
@@ -17,12 +25,15 @@ import { MenuHierarchyManagementPanel } from './MenuHierarchyManagementPanel';
 type CatalogMode = 'food' | 'drinks';
 
 const MENU_SETTINGS_HREF = opsHref('/settings/restaurant/menu');
+const MENU_DRIFT_SECTIONS = ['foodMenus'] as const;
 
 export function OpsMenuManagementClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { memberships, activeRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
+  const { status: gbpStatus, reviewHref } = useGbpDriftStatus();
+  const menuGbpStatus = useGbpDriftSectionStatus('foodMenus');
   const catalogMode = useMemo<CatalogMode>(() => {
     const current = searchParams?.get('catalog');
     return current === 'drinks' ? 'drinks' : 'food';
@@ -37,6 +48,11 @@ export function OpsMenuManagementClient() {
       null,
     [activeMembership?.restaurantId, activeRestaurantId, memberships],
   );
+  const gbpDrift = useWorkspaceGbpDriftCheck({
+    restaurantId,
+    sectionKeys: MENU_DRIFT_SECTIONS,
+  });
+  const foodMenuDriftFields = gbpDrift.getFieldsBySection('foodMenus');
   const selectCatalogue = useCallback(
     (href: string) => {
       router.push(href);
@@ -69,6 +85,7 @@ export function OpsMenuManagementClient() {
       Icon: Beer,
     },
   ];
+  const menuReviewCount = menuGbpStatus.needsReviewCount;
   return (
     <RestaurantSettingsCommandCenter
       eyebrow="Menu command center"
@@ -84,9 +101,17 @@ export function OpsMenuManagementClient() {
         },
         {
           label: 'Publishing fields',
-          value: 'Ready for Google',
-          description: 'labels, media, nutrition, and modifiers',
-          variant: 'outline',
+          value:
+            menuReviewCount > 0
+              ? `${menuReviewCount} GBP review${menuReviewCount === 1 ? '' : 's'}`
+              : gbpStatus.kind === 'not_connected'
+                ? 'Google not linked'
+                : 'Ready for Google',
+          description:
+            menuReviewCount > 0
+              ? 'review menu drift in GBP workspace'
+              : 'labels, media, nutrition, and modifiers',
+          variant: menuReviewCount > 0 ? 'metric' : 'outline',
           Icon: ShoppingBasket,
         },
         {
@@ -99,6 +124,7 @@ export function OpsMenuManagementClient() {
       ]}
       railTitle="Menu catalogues"
       railDescription="Switch between food and drinks without leaving restaurant settings."
+      railClassName="hidden lg:block"
       railItems={catalogues.map((catalogue) => ({
         label: catalogue.label,
         description:
@@ -109,12 +135,22 @@ export function OpsMenuManagementClient() {
         isActive: catalogue.isActive,
         onSelect: () => selectCatalogue(catalogue.href),
       }))}
-      footer="Menu changes keep using the existing menu hierarchy editor and save contracts."
+      footer={
+        <span>
+          Google menu publishing is configured here; connection and field review live on{' '}
+          <Link href={reviewHref} className="underline">
+            Google Business Profile
+          </Link>
+          {menuReviewCount > 0
+            ? `, with ${menuReviewCount} menu item${menuReviewCount === 1 ? '' : 's'} waiting.`
+            : '.'}
+        </span>
+      }
     >
       <div className="flex min-w-0 flex-col gap-4">
         <nav
           aria-label="Menu catalogues"
-          className="inline-flex w-fit max-w-full rounded-lg border border-border/70 bg-background p-1 shadow-sm"
+          className="inline-flex w-fit max-w-full rounded-lg border border-border/70 bg-background p-1 shadow-sm lg:hidden"
         >
           {catalogues.map((catalogue) => {
             const Icon = catalogue.Icon;
@@ -138,9 +174,16 @@ export function OpsMenuManagementClient() {
           })}
         </nav>
         <section className="min-w-0 rounded-xl border border-border/70 bg-card p-3 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Google FoodMenus drift appears beside matching rows below.
+            </p>
+            <GbpDriftBadge fields={foodMenuDriftFields} label="Google menu review" />
+          </div>
           <MenuHierarchyManagementPanel
             restaurantId={restaurantId}
             preferredMenuKind={catalogMode}
+            gbpDriftFields={foodMenuDriftFields}
           />
         </section>
       </div>

@@ -37,6 +37,23 @@ const restaurant = {
   role: 'owner',
 };
 
+const emptyDualSyncState = {
+  restaurantId,
+  coreSnapshot: {},
+  gbpSnapshot: {},
+  coreSnapshotHash: 'qa-core-hash',
+  gbpSnapshotHash: 'qa-gbp-hash',
+  fields: [],
+  outboundQueue: {
+    totalOpen: 0,
+    autoExportable: 0,
+    missingBaseline: 0,
+    lastQueuedAt: null,
+  },
+  lastSnapshot: null,
+  control: null,
+};
+
 async function installOpsApiMocks(page: Page) {
   await page.route('**/api/ops/**', async (route) => {
     const url = new URL(route.request().url());
@@ -138,6 +155,11 @@ async function installOpsApiMocks(page: Page) {
       return;
     }
 
+    if (pathname === `/api/ops/restaurants/${restaurantId}/dual-sync/state`) {
+      await route.fulfill({ json: emptyDualSyncState });
+      return;
+    }
+
     await route.fulfill({ json: {} });
   });
 }
@@ -189,6 +211,24 @@ test.describe('authenticated ops app-host shipped routes', () => {
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-profile-authenticated-desktop.png'),
+      fullPage: true,
+    });
+  });
+
+  test('restaurant profile discovery anchor renders authenticated shipped route proof @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/settings/restaurant/profile#profile-discovery', {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
+    await expect(page.locator('main').getByText('Discovery details').first()).toBeVisible();
+    await expect(page.locator('main').getByText('Dining categories').first()).toBeVisible();
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-settings-profile-discovery-authenticated-desktop.png'),
       fullPage: true,
     });
   });

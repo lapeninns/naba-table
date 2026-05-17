@@ -10,9 +10,12 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { GbpDriftFieldBadge } from '@/components/features/restaurant-settings/gbp-drift/GbpDriftFieldBadge';
+import { useOptionalGbpDrift } from '@/components/features/restaurant-settings/gbp-drift/useGbpDrift';
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
+import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import {
   Accordion,
   AccordionContent,
@@ -26,16 +29,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
+import { getProfileFieldKey } from '@/lib/dual-sync/field-key-meta';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
+import { buildPublicBookingUrl } from '@/lib/site-url';
 import { cn } from '@/lib/utils';
 
 import {
@@ -107,9 +113,16 @@ function gbpStatusPresentation(status: Exclude<GbpFieldStatus, 'unavailable'>) {
 }
 
 function GbpStatusBadge(props: {
+  field?: GbpComparableField;
   verification?: ProfileFieldVerification;
   status: GbpFieldStatus;
 }) {
+  const fieldKey = props.field ? getProfileFieldKey(props.field) : null;
+  const gbpDrift = useOptionalGbpDrift();
+  if (fieldKey && gbpDrift?.fieldViewByKey.has(fieldKey)) {
+    return <GbpDriftFieldBadge fieldKey={fieldKey} />;
+  }
+
   if (props.status === 'unavailable' || !props.verification) {
     return null;
   }
@@ -216,8 +229,10 @@ type RestaurantDetailsSubformProps = {
   restaurantId: string | null;
   initialValues: RestaurantDetailsFormValues;
   formId?: string;
+  actionPlacement?: 'inline' | 'stickyBar';
   onDirtyChange?: (dirty: boolean) => void;
   onDraftChange?: (draft: RestaurantDetailsDraftValues, dirty: boolean) => void;
+  onResetDraftChange?: (resetDraft: (() => void) | null) => void;
   gbpFieldVerifications?: Partial<Record<GbpComparableField, ProfileFieldVerification>>;
 };
 
@@ -306,11 +321,11 @@ function useRestaurantDetailsSubform({
     }
   };
 
-  const resetDraft = () => {
+  const resetDraft = useCallback(() => {
     setState(savedState);
     setErrors({});
     setStatus(null);
-  };
+  }, [savedState]);
 
   const submitPartial = async (
     event: React.FormEvent,
@@ -383,23 +398,34 @@ function useRestaurantDetailsSubform({
 }
 
 function SubformActions({
+  actionPlacement = 'inline',
   isSubmitting,
   isDirty,
   onReset,
   submitLabel,
   status,
+  saveScopeMessage,
 }: {
+  actionPlacement?: 'inline' | 'stickyBar';
   isSubmitting: boolean;
   isDirty: boolean;
   onReset: () => void;
   submitLabel: string;
   status: SubformStatus;
+  saveScopeMessage?: string;
 }) {
+  const submitInStickyBar = actionPlacement === 'stickyBar';
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-col gap-1 text-sm">
         <p className="text-muted-foreground">
           {isDirty ? 'Unsaved changes in this section.' : 'No changes to save.'}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {submitInStickyBar
+            ? 'Use the sticky profile bar to save this section.'
+            : (saveScopeMessage ?? 'Saves this section only.')}
         </p>
         {status ? (
           <p
@@ -419,12 +445,24 @@ function SubformActions({
         >
           Cancel changes
         </Button>
-        <Button type="submit" disabled={isSubmitting || !isDirty}>
-          {isSubmitting ? 'Saving…' : submitLabel}
-        </Button>
+        {submitInStickyBar ? null : (
+          <Button type="submit" disabled={isSubmitting || !isDirty}>
+            {isSubmitting ? 'Saving…' : submitLabel}
+          </Button>
+        )}
       </div>
     </div>
   );
+}
+
+function useResetDraftRegistration(
+  onResetDraftChange: RestaurantDetailsSubformProps['onResetDraftChange'],
+  resetDraft: () => void,
+) {
+  useEffect(() => {
+    onResetDraftChange?.(resetDraft);
+    return () => onResetDraftChange?.(null);
+  }, [onResetDraftChange, resetDraft]);
 }
 
 const BRAND_FIELDS = ['name', 'businessDescription'] as const satisfies readonly DetailsField[];
@@ -453,8 +491,10 @@ export function BrandIdentitySubform({
   restaurantId,
   initialValues,
   formId,
+  actionPlacement = 'inline',
   onDirtyChange,
   onDraftChange,
+  onResetDraftChange,
   gbpFieldVerifications,
 }: RestaurantDetailsSubformProps) {
   const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
@@ -467,6 +507,7 @@ export function BrandIdentitySubform({
       restaurantId,
     });
   const gbpStatuses = getGbpStatuses(state, gbpFieldVerifications);
+  useResetDraftRegistration(onResetDraftChange, resetDraft);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -494,7 +535,11 @@ export function BrandIdentitySubform({
               Restaurant Name <span className="text-destructive">*</span>
             </Label>
             <FieldRequirement label="Required" />
-            <GbpStatusBadge status={gbpStatuses.name} verification={gbpFieldVerifications?.name} />
+            <GbpStatusBadge
+              field="name"
+              status={gbpStatuses.name}
+              verification={gbpFieldVerifications?.name}
+            />
           </div>
           <Input
             id="restaurant-name"
@@ -519,6 +564,7 @@ export function BrandIdentitySubform({
             <Label htmlFor="restaurant-business-description">Business description</Label>
             <FieldRequirement label="Optional" />
             <GbpStatusBadge
+              field="businessDescription"
               status={gbpStatuses.businessDescription}
               verification={gbpFieldVerifications?.businessDescription}
             />
@@ -557,6 +603,7 @@ export function BrandIdentitySubform({
         </div>
 
         <SubformActions
+          actionPlacement={actionPlacement}
           isSubmitting={isSubmitting}
           isDirty={isDirty}
           onReset={resetDraft}
@@ -572,8 +619,10 @@ export function ContactLocationSubform({
   restaurantId,
   initialValues,
   formId,
+  actionPlacement = 'inline',
   onDirtyChange,
   onDraftChange,
+  onResetDraftChange,
   gbpFieldVerifications,
 }: RestaurantDetailsSubformProps) {
   const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
@@ -585,6 +634,7 @@ export function ContactLocationSubform({
       onDraftChange,
       restaurantId,
     });
+  useResetDraftRegistration(onResetDraftChange, resetDraft);
   const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
   const [timezoneSearch, setTimezoneSearch] = useState('');
   const timezoneOptionsId = useId();
@@ -628,27 +678,12 @@ export function ContactLocationSubform({
           )
         }
       >
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-md bg-muted/30 px-3 py-2">
-            <p className="text-sm font-medium text-foreground">Public contact</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Email and phone are the fallback details guests see when they need help.
-            </p>
-          </div>
-          <div className="rounded-md bg-muted/30 px-3 py-2">
-            <p className="text-sm font-medium text-foreground">Location confidence</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Address, timezone, and map link should agree before the profile is treated as ready.
-            </p>
-          </div>
-          <div className="rounded-md bg-muted/30 px-3 py-2">
-            <p className="text-sm font-medium text-foreground">After-visit path</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Review links support follow-up emails without changing booking rules.
-            </p>
-          </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-foreground">Location</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Keep the restaurant&apos;s address, timezone, and directions aligned for guests.
+          </p>
         </div>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
@@ -745,39 +780,81 @@ export function ContactLocationSubform({
 
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-email">Contact Email</Label>
+              <Label htmlFor="restaurant-address">Address</Label>
               <FieldRequirement label="Optional" />
+              <GbpStatusBadge
+                field="address"
+                status={gbpStatuses.address}
+                verification={gbpFieldVerifications?.address}
+              />
             </div>
             <Input
-              id="restaurant-email"
-              type="email"
-              value={state.contactEmail}
-              onChange={(event) => handleChange('contactEmail', event.target.value)}
-              aria-invalid={Boolean(errors.contactEmail)}
-              aria-describedby={
-                errors.contactEmail ? 'restaurant-email-error' : 'restaurant-email-help'
-              }
-              className={cn(
-                errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
-              )}
+              id="restaurant-address"
+              value={state.address}
+              onChange={(event) => handleChange('address', event.target.value)}
+              aria-describedby="restaurant-address-help"
             />
-            <p id="restaurant-email-help" className="text-xs text-muted-foreground">
-              {FIELD_TOOLTIPS.contactEmail}
+            <p id="restaurant-address-help" className="text-xs text-muted-foreground">
+              {FIELD_TOOLTIPS.address}
             </p>
-            {errors.contactEmail ? (
-              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
-                {errors.contactEmail}
-              </p>
-            ) : null}
           </div>
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="restaurant-google-map">Map link</Label>
+            <FieldRequirement label="Optional" />
+            <GbpStatusBadge
+              field="googleMapUrl"
+              status={gbpStatuses.googleMapUrl}
+              verification={gbpFieldVerifications?.googleMapUrl}
+            />
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.googleMapUrl}
+              ariaLabel="Why add a map link?"
+            />
+          </div>
+          <Input
+            id="restaurant-google-map"
+            type="url"
+            inputMode="url"
+            placeholder="https://maps.google.com/..."
+            value={state.googleMapUrl}
+            onChange={(event) => handleChange('googleMapUrl', event.target.value)}
+            aria-invalid={Boolean(errors.googleMapUrl)}
+            aria-describedby={
+              errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
+            }
+            className={cn(
+              errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
+            Directions link for guests (Google Maps).
+          </p>
+          <ExternalUrlButton href={mapUrl} label="Open map link" />
+          {errors.googleMapUrl ? (
+            <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
+              {errors.googleMapUrl}
+            </p>
+          ) : null}
+        </div>
+
+        <Separator />
+
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-foreground">Public contact</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Phone and email are the fallback details guests use when they need help.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <Label htmlFor="restaurant-phone">Contact Phone</Label>
               <FieldRequirement label="Optional" />
               <GbpStatusBadge
+                field="contactPhone"
                 status={gbpStatuses.contactPhone}
                 verification={gbpFieldVerifications?.contactPhone}
               />
@@ -807,112 +884,89 @@ export function ContactLocationSubform({
 
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-address">Address</Label>
+              <Label htmlFor="restaurant-email">Contact Email</Label>
               <FieldRequirement label="Optional" />
-              <GbpStatusBadge
-                status={gbpStatuses.address}
-                verification={gbpFieldVerifications?.address}
-              />
             </div>
             <Input
-              id="restaurant-address"
-              value={state.address}
-              onChange={(event) => handleChange('address', event.target.value)}
-              aria-describedby="restaurant-address-help"
+              id="restaurant-email"
+              type="email"
+              value={state.contactEmail}
+              onChange={(event) => handleChange('contactEmail', event.target.value)}
+              aria-invalid={Boolean(errors.contactEmail)}
+              aria-describedby={
+                errors.contactEmail ? 'restaurant-email-error' : 'restaurant-email-help'
+              }
+              className={cn(
+                errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
+              )}
             />
-            <p id="restaurant-address-help" className="text-xs text-muted-foreground">
-              {FIELD_TOOLTIPS.address}
+            <p id="restaurant-email-help" className="text-xs text-muted-foreground">
+              {FIELD_TOOLTIPS.contactEmail}
             </p>
+            {errors.contactEmail ? (
+              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
+                {errors.contactEmail}
+              </p>
+            ) : null}
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-google-map">Map link</Label>
-              <FieldRequirement label="Optional" />
-              <GbpStatusBadge
-                status={gbpStatuses.googleMapUrl}
-                verification={gbpFieldVerifications?.googleMapUrl}
-              />
-              <HelpTooltip
-                description={FIELD_TOOLTIPS.googleMapUrl}
-                ariaLabel="Why add a map link?"
-              />
-            </div>
-            <Input
-              id="restaurant-google-map"
-              type="url"
-              inputMode="url"
-              placeholder="https://maps.google.com/..."
-              value={state.googleMapUrl}
-              onChange={(event) => handleChange('googleMapUrl', event.target.value)}
-              aria-invalid={Boolean(errors.googleMapUrl)}
-              aria-describedby={
-                errors.googleMapUrl ? 'restaurant-google-map-error' : 'restaurant-google-map-help'
-              }
-              className={cn(
-                errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
-              )}
-            />
-            <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
-              {FIELD_TOOLTIPS.googleMapUrl}
-            </p>
-            <ExternalUrlButton href={mapUrl} label="Open map link" />
-            {errors.googleMapUrl ? (
-              <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
-                {errors.googleMapUrl}
-              </p>
-            ) : null}
-          </div>
+        <Separator />
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Label htmlFor="restaurant-google-review">Guest review link</Label>
-              <FieldRequirement label="Optional" />
-              <GbpStatusBadge
-                status={gbpStatuses.googleReviewUrl}
-                verification={gbpFieldVerifications?.googleReviewUrl}
-              />
-              <HelpTooltip
-                description={FIELD_TOOLTIPS.googleReviewUrl}
-                ariaLabel="Why add a guest review link?"
-              />
-            </div>
-            <Input
-              id="restaurant-google-review"
-              type="url"
-              inputMode="url"
-              placeholder="https://g.page/r/YourRestaurant/review"
-              value={state.googleReviewUrl}
-              onChange={(event) => handleChange('googleReviewUrl', event.target.value)}
-              aria-invalid={Boolean(errors.googleReviewUrl)}
-              aria-describedby={
-                errors.googleReviewUrl
-                  ? 'restaurant-google-review-error'
-                  : 'restaurant-google-review-help'
-              }
-              className={cn(
-                errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60',
-              )}
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-foreground">After visit</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Review links support follow-up emails without changing website or menu links.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="restaurant-google-review">Guest review link</Label>
+            <FieldRequirement label="Optional" />
+            <GbpStatusBadge
+              field="googleReviewUrl"
+              status={gbpStatuses.googleReviewUrl}
+              verification={gbpFieldVerifications?.googleReviewUrl}
             />
-            <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
-              {FIELD_TOOLTIPS.googleReviewUrl}
-            </p>
-            <ExternalUrlButton href={reviewUrl} label="Open review link" />
-            {errors.googleReviewUrl ? (
-              <p
-                id="restaurant-google-review-error"
-                className="text-xs text-destructive"
-                role="alert"
-              >
-                {errors.googleReviewUrl}
-              </p>
-            ) : null}
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.googleReviewUrl}
+              ariaLabel="Why add a guest review link?"
+            />
           </div>
+          <Input
+            id="restaurant-google-review"
+            type="url"
+            inputMode="url"
+            placeholder="https://g.page/r/YourRestaurant/review"
+            value={state.googleReviewUrl}
+            onChange={(event) => handleChange('googleReviewUrl', event.target.value)}
+            aria-invalid={Boolean(errors.googleReviewUrl)}
+            aria-describedby={
+              errors.googleReviewUrl
+                ? 'restaurant-google-review-error'
+                : 'restaurant-google-review-help'
+            }
+            className={cn(
+              errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
+            Post-visit review link; not the same as website/menu links in Discovery.
+          </p>
+          <ExternalUrlButton href={reviewUrl} label="Open review link" />
+          {errors.googleReviewUrl ? (
+            <p
+              id="restaurant-google-review-error"
+              className="text-xs text-destructive"
+              role="alert"
+            >
+              {errors.googleReviewUrl}
+            </p>
+          ) : null}
         </div>
 
         <SubformActions
+          actionPlacement={actionPlacement}
           isSubmitting={isSubmitting}
           isDirty={isDirty}
           onReset={resetDraft}
@@ -928,8 +982,10 @@ export function ManagerNotificationsSubform({
   restaurantId,
   initialValues,
   formId,
+  actionPlacement = 'inline',
   onDirtyChange,
   onDraftChange,
+  onResetDraftChange,
 }: RestaurantDetailsSubformProps) {
   const {
     state,
@@ -949,6 +1005,7 @@ export function ManagerNotificationsSubform({
     onDraftChange,
     restaurantId,
   });
+  useResetDraftRegistration(onResetDraftChange, resetDraft);
   const summaryState = state.managerDailySummaryEnabled ? 'On' : 'Off';
 
   return (
@@ -1077,6 +1134,7 @@ export function ManagerNotificationsSubform({
         </div>
 
         <SubformActions
+          actionPlacement={actionPlacement}
           isSubmitting={isSubmitting}
           isDirty={isDirty}
           onReset={resetDraft}
@@ -1092,8 +1150,10 @@ export function AdvancedIdentitySubform({
   restaurantId,
   initialValues,
   formId,
+  actionPlacement = 'inline',
   onDirtyChange,
   onDraftChange,
+  onResetDraftChange,
 }: RestaurantDetailsSubformProps) {
   const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
     useRestaurantDetailsSubform({
@@ -1104,9 +1164,11 @@ export function AdvancedIdentitySubform({
       onDraftChange,
       restaurantId,
     });
+  useResetDraftRegistration(onResetDraftChange, resetDraft);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const bookingSlug = state.slug.trim();
   const bookingPath = bookingSlug ? `/restaurants/${bookingSlug}/book` : null;
+  const bookingUrl = bookingSlug ? buildPublicBookingUrl(bookingSlug) : null;
   const handleCopyBookingPath = async () => {
     if (!bookingPath || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       setCopyStatus('Copy is unavailable in this browser.');
@@ -1118,6 +1180,19 @@ export function AdvancedIdentitySubform({
       setCopyStatus('Booking path copied.');
     } catch {
       setCopyStatus('Unable to copy booking path.');
+    }
+  };
+  const handleCopyBookingUrl = async () => {
+    if (!bookingUrl || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setCopyStatus('Copy is unavailable in this browser.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(bookingUrl);
+      setCopyStatus('Full booking URL copied.');
+    } catch {
+      setCopyStatus('Unable to copy full booking URL.');
     }
   };
 
@@ -1167,10 +1242,21 @@ export function AdvancedIdentitySubform({
         <div className="rounded-md border border-border/70 bg-muted/20 p-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Public booking path</p>
-              <p className="mt-1 break-all font-mono text-xs tabular-nums text-muted-foreground">
-                {bookingPath ?? 'Add a slug to generate the public booking path.'}
-              </p>
+              <p className="text-sm font-medium text-foreground">Public booking preview</p>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <p className="text-xs font-medium text-foreground">Relative path</p>
+                  <p className="mt-1 break-all font-mono text-xs tabular-nums text-muted-foreground">
+                    {bookingPath ?? 'Add a slug to generate the public booking path.'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-foreground">Full URL</p>
+                  <p className="mt-1 break-all font-mono text-xs tabular-nums text-muted-foreground">
+                    {bookingUrl ?? 'Add a slug to generate the full public booking URL.'}
+                  </p>
+                </div>
+              </div>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
                 Change this only when the public guest link should change across menus, QR codes,
                 and saved browser bookmarks.
@@ -1181,20 +1267,26 @@ export function AdvancedIdentitySubform({
                 </p>
               ) : null}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleCopyBookingPath}
-              disabled={!bookingPath}
-            >
-              <Copy data-icon="inline-start" aria-hidden />
-              Copy path
-            </Button>
+            <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+              <Button type="button" size="sm" onClick={handleCopyBookingUrl} disabled={!bookingUrl}>
+                <Copy data-icon="inline-start" aria-hidden />
+                Copy full URL
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCopyBookingPath}
+                disabled={!bookingPath}
+              >
+                Copy path
+              </Button>
+            </div>
           </div>
         </div>
 
         <SubformActions
+          actionPlacement={actionPlacement}
           isSubmitting={isSubmitting}
           isDirty={isDirty}
           onReset={resetDraft}
@@ -1210,8 +1302,10 @@ export function BookingRulesSubform({
   restaurantId,
   initialValues,
   formId,
+  actionPlacement = 'inline',
   onDirtyChange,
   onDraftChange,
+  onResetDraftChange,
 }: RestaurantDetailsSubformProps) {
   const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
     useRestaurantDetailsSubform({
@@ -1222,6 +1316,7 @@ export function BookingRulesSubform({
       onDraftChange,
       restaurantId,
     });
+  useResetDraftRegistration(onResetDraftChange, resetDraft);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -1247,6 +1342,12 @@ export function BookingRulesSubform({
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <p className="text-sm font-semibold text-foreground">Guest booking grid</p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Controls slot spacing and the default table time guests receive.
+            </p>
+          </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-interval" className="inline-flex items-center gap-1">
@@ -1332,7 +1433,15 @@ export function BookingRulesSubform({
           </div>
         </div>
 
+        <Separator />
+
         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <p className="text-sm font-semibold text-foreground">Service cutoffs</p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Keeps late seating and booking lifecycle timing separate from the visible slot grid.
+            </p>
+          </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
               <Label htmlFor="restaurant-last-seating" className="inline-flex items-center gap-1">
@@ -1432,6 +1541,13 @@ export function BookingRulesSubform({
         </div>
 
         <div className="flex flex-col gap-1.5">
+          <Separator />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Guest-facing policy</p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Shown where booking terms or reservation guidance are needed.
+            </p>
+          </div>
           <div className="flex items-center gap-1">
             <Label htmlFor="restaurant-policy">Booking Policy</Label>
             <FieldRequirement label="Optional" />
@@ -1453,11 +1569,13 @@ export function BookingRulesSubform({
         </div>
 
         <SubformActions
+          actionPlacement={actionPlacement}
           isSubmitting={isSubmitting}
           isDirty={isDirty}
           onReset={resetDraft}
           submitLabel="Save booking rules"
           status={status}
+          saveScopeMessage={formatSaveScopeMessage('availability-rules')}
         />
       </FormRoot>
     </TooltipProvider>

@@ -81,7 +81,7 @@ export function GbpOverviewCard({
               </Badge>
             </div>
             <div className="space-y-1">
-              <CardTitle className="text-xl leading-tight">GBP overview</CardTitle>
+              <CardTitle className="text-xl leading-tight">Google account</CardTitle>
               <CardDescription className="max-w-2xl text-sm leading-6">
                 {stageLabel}. Google is optional; use it when you want faster imports or a listing
                 comparison.
@@ -148,9 +148,12 @@ export function GbpOverviewCard({
       </CardHeader>
       <CardContent className="border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-5">
         <dl className="grid gap-3 md:grid-cols-3">
-          <OverviewDatum label="Business location" value={locationTitle} />
           <OverviewDatum label="Google account" value={accountLabel} />
+          <OverviewDatum label="Connection status" value={stageLabel} />
           <OverviewDatum label="Last checked" value={formatLastSync(lastPullAt)} />
+        </dl>
+        <dl className="mt-3 grid gap-3">
+          <OverviewDatum label="Business location" value={locationTitle} />
         </dl>
       </CardContent>
     </Card>

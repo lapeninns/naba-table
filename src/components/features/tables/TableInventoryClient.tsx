@@ -19,6 +19,7 @@ import {
   Table2,
   Trash2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
@@ -69,6 +70,7 @@ import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import {
@@ -208,6 +210,12 @@ function TableForm({
       </DialogHeader>
 
       <div className="grid gap-4 max-h-[70vh] overflow-y-auto pr-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Capacity</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Start with the table number, covers, and accepted party-size range.
+          </p>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="tableNumber">Table number *</Label>
           <Input
@@ -253,6 +261,12 @@ function TableForm({
           </div>
         </div>
 
+        <div>
+          <p className="text-sm font-semibold text-foreground">Placement</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Put the table in a zone and decide whether it is active for service.
+          </p>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="zoneId">Zone</Label>
           <Select
@@ -310,7 +324,10 @@ function TableForm({
               className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
             >
               <span className="flex min-w-0 flex-col gap-1">
-                <span className="text-sm font-medium text-foreground">More table details</span>
+                <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                  Classification &amp; service notes
+                  {isFirstTable ? <Badge variant="outline">Optional</Badge> : null}
+                </span>
                 <span className="text-xs font-normal text-muted-foreground">
                   Add section, classification, seating type, mobility, status, and notes when
                   needed.
@@ -972,6 +989,27 @@ export default function TableInventoryClient() {
               <Skeleton className="h-24 w-full rounded-lg" />
             </>
           )}
+          <div className="rounded-lg border border-border/70 bg-muted/20 p-4 sm:col-span-2 xl:col-span-4">
+            <p className="text-sm font-semibold text-foreground">
+              Capacity depends on setup nearby
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Covers per service depend on turn times and booking types. Keep public address details
+              aligned when planning the dining room.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={opsHref('/settings/restaurant/availability#booking-occasions')}>
+                  Open availability
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={opsHref('/settings/restaurant/profile#profile-contact')}>
+                  Open profile
+                </Link>
+              </Button>
+            </div>
+          </div>
         </section>
 
         {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
@@ -1155,9 +1193,16 @@ export default function TableInventoryClient() {
                   'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
                 )}
               >
+                <div className="md:col-span-2">
+                  <p className="text-sm font-semibold text-foreground">Inventory filters</p>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Add tables with number and capacity first; zones and classification can come
+                    later.
+                  </p>
+                </div>
                 <div className="flex items-center gap-3">
-                  <Label htmlFor="table-zone-filter" className="text-sm">
-                    Filter by Zone
+                  <Label htmlFor="table-zone-filter" className="text-sm font-medium">
+                    Zone
                   </Label>
                   <Select value={filterZone} onValueChange={setFilterZone}>
                     <SelectTrigger id="table-zone-filter" className="w-full md:w-[220px]">
@@ -1176,8 +1221,8 @@ export default function TableInventoryClient() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Label htmlFor="table-status-filter" className="text-sm">
-                    Show
+                  <Label htmlFor="table-status-filter" className="text-sm font-medium">
+                    Status
                   </Label>
                   <Select
                     value={tableStatusFilter}
@@ -1322,7 +1367,7 @@ export default function TableInventoryClient() {
                       <TableRow>
                         <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                           {tables.length === 0
-                            ? 'Add your first tables. Start with table number and capacity; advanced details can come later.'
+                            ? 'No table records yet. Add tables with number and capacity first; advanced details can come later.'
                             : 'No tables match this filter. Try showing all zones or tables.'}
                         </TableCell>
                       </TableRow>

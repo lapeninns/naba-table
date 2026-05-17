@@ -17,6 +17,8 @@ export type ProfileSectionDefinition = {
   paneDescription: string;
   /** Sentence answering "what does this control for guests vs staff?". */
   audience: string;
+  /** Readiness step displayed in the Profile rail. */
+  setupStep?: number;
   icon: LucideIcon;
   /** Hash anchor preserved for backwards compatibility with deep links. */
   anchorId: string;
@@ -30,6 +32,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Brand and identity',
     paneDescription: 'Logo, name, and short public description guests recognise first.',
     audience: 'Guest-facing.',
+    setupStep: 1,
     icon: Building2,
     anchorId: 'profile-identity',
   },
@@ -40,6 +43,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Public booking page URL',
     paneDescription: 'The link guests open to book this restaurant.',
     audience: 'Guest-facing. Required to take bookings.',
+    setupStep: 2,
     icon: ScanLine,
     anchorId: 'profile-booking-url',
   },
@@ -50,6 +54,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Contact and location',
     paneDescription: 'Phone, email, address, directions, and review links.',
     audience: 'Guest-facing.',
+    setupStep: 3,
     icon: MapPin,
     anchorId: 'profile-contact',
   },
@@ -60,6 +65,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Manager alerts',
     paneDescription: 'Internal booking-summary alerts for managers.',
     audience: 'Staff-only. Guests never see these settings.',
+    setupStep: 4,
     icon: MegaphoneIcon,
     anchorId: 'profile-notifications',
   },
@@ -71,6 +77,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneDescription:
       'Categories, links, and attributes that help guests and directories describe your restaurant.',
     audience: 'Guest-facing. Optional.',
+    setupStep: 5,
     icon: Compass,
     anchorId: 'profile-discovery',
   },

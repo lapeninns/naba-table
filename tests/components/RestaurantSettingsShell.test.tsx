@@ -61,6 +61,7 @@ import {
   RESTAURANT_SETTINGS_NAV_ITEMS,
   RESTAURANT_SETTINGS_ROUTES,
 } from '@/components/features/restaurant-settings/routes';
+import { SettingsSectionNav } from '@/components/features/restaurant-settings/shared';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
@@ -215,10 +216,10 @@ describe('restaurant settings route contract', () => {
         (item) => item.href === '/app/settings/restaurant/availability',
       )?.aliases,
     ).toEqual([
-      '/app/settings/restaurant/service-periods',
-      '/app/settings/restaurant/operating-hours',
-      '/app/settings/restaurant/turn-durations',
-      '/app/settings/restaurant/occasions',
+      '/app/settings/restaurant/service-periods#service-periods',
+      '/app/settings/restaurant/operating-hours#availability-hours',
+      '/app/settings/restaurant/turn-durations#booking-occasions',
+      '/app/settings/restaurant/occasions#booking-occasions',
     ]);
   });
 });
@@ -309,6 +310,52 @@ describe('RestaurantSettingsSubnav', () => {
       'aria-current',
       'page',
     );
+  });
+
+  it('keeps the active mobile nav item visually anchored', () => {
+    renderSubnav('/app/settings/restaurant/google-business-profile');
+
+    expect(screen.getByRole('link', { name: 'Google Business Profile' })).toHaveClass(
+      'border-b-2',
+      'lg:border-l-2',
+      'bg-primary/10',
+      'ring-primary/25',
+    );
+  });
+
+  it('supports arrow-key focus movement inside settings workflow rails', async () => {
+    const user = userEvent.setup();
+    const firstSelect = vi.fn();
+    const secondSelect = vi.fn();
+    const thirdSelect = vi.fn();
+
+    render(
+      <SettingsSectionNav
+        title="Workflow"
+        items={[
+          { label: 'First', onSelect: firstSelect },
+          { label: 'Second', onSelect: secondSelect },
+          { label: 'Third', onSelect: thirdSelect },
+        ]}
+      />,
+    );
+
+    const first = screen.getByRole('button', { name: /first/i });
+    const second = screen.getByRole('button', { name: /second/i });
+    const third = screen.getByRole('button', { name: /third/i });
+
+    first.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(second).toHaveFocus();
+
+    await user.keyboard('{End}');
+    expect(third).toHaveFocus();
+
+    await user.keyboard('{ArrowDown}');
+    expect(first).toHaveFocus();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(third).toHaveFocus();
   });
 
   it('prefetches each settings route with the active restaurant service contract', async () => {

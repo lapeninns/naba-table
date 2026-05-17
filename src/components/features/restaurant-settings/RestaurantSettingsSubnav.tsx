@@ -1,14 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  CalendarClock,
-  LayoutGrid,
-  MapPinned,
-  Store,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { CalendarClock, LayoutGrid, MapPinned, Store, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useMemo, type ComponentPropsWithoutRef, type MouseEvent } from 'react';
@@ -19,9 +12,12 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
@@ -30,13 +26,22 @@ import { queryKeys } from '@/lib/query/keys';
 import { normalizeOpsPathname } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
+import {
+  getGbpDriftNavBadge,
+  getGbpDriftSectionBadge,
+  useGbpDriftStatus,
+} from './GbpDriftProvider';
+import { mergeGbpDriftSectionStatuses } from './gbpDriftStatus';
 import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
 import { SETTINGS_COMPACT_STATUS_ROW_CLASS } from './shared';
+
+import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 type Prefetcher = () => Promise<unknown> | undefined;
 type SettingsHref = (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number]['href'];
 type PrefetchMap = Partial<Record<SettingsHref, Prefetcher>>;
 type NavIconMap = Record<SettingsHref, LucideIcon>;
+type NavDriftSectionMap = Partial<Record<SettingsHref, ReadonlyArray<DualSyncSectionKey>>>;
 
 const NAV_ICONS: NavIconMap = {
   '/app/settings/restaurant/profile': Store,
@@ -46,6 +51,57 @@ const NAV_ICONS: NavIconMap = {
   '/app/settings/restaurant/tables': LayoutGrid,
   '/app/settings/restaurant/team': Users,
 };
+
+const NAV_DRIFT_SECTIONS: NavDriftSectionMap = {
+  '/app/settings/restaurant/profile': [
+    'profile',
+    'businessContext.categories',
+    'businessContext.serviceAreas',
+    'businessContext.attributes',
+    'businessContext.serviceItems',
+  ],
+  '/app/settings/restaurant/google-business-profile': [
+    'profile',
+    'operatingHours',
+    'servicePeriods',
+    'businessContext.categories',
+    'businessContext.serviceAreas',
+    'businessContext.attributes',
+    'businessContext.serviceItems',
+    'foodMenus',
+  ],
+  '/app/settings/restaurant/availability': ['operatingHours', 'servicePeriods'],
+  '/app/settings/restaurant/menu': ['foodMenus'],
+};
+
+const NAV_GROUPS: Array<{
+  label: string;
+  hrefs: SettingsHref[];
+}> = [
+  {
+    label: 'Required setup',
+    hrefs: [
+      '/app/settings/restaurant/profile',
+      '/app/settings/restaurant/availability',
+      '/app/settings/restaurant/tables',
+    ],
+  },
+  {
+    label: 'Operations',
+    hrefs: ['/app/settings/restaurant/menu', '/app/settings/restaurant/team'],
+  },
+  {
+    label: 'Integrations',
+    hrefs: ['/app/settings/restaurant/google-business-profile'],
+  },
+];
+
+const GROUPED_NAV_ITEMS = NAV_GROUPS.map((group) => ({
+  ...group,
+  items: group.hrefs
+    .map((href) => RESTAURANT_SETTINGS_NAV_ITEMS.find((item) => item.href === href))
+    .filter((item): item is (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number] => Boolean(item)),
+}));
 
 function isRestaurantSettingsRouteActive(pathname: string, href: string) {
   const normalizedHref = normalizeOpsPathname(href);
@@ -70,6 +126,7 @@ type RestaurantSettingsSubnavItemProps = {
   title: string;
   active: boolean;
   Icon: LucideIcon;
+  badge?: string;
 } & Pick<ComponentPropsWithoutRef<typeof Link>, 'href' | 'onMouseEnter' | 'onFocus' | 'onClick'>;
 
 function RestaurantSettingsSubnavItem({
@@ -77,6 +134,7 @@ function RestaurantSettingsSubnavItem({
   title,
   active,
   Icon,
+  badge,
   onMouseEnter,
   onFocus,
   onClick,
@@ -90,9 +148,9 @@ function RestaurantSettingsSubnavItem({
       onFocus={onFocus}
       onClick={onClick}
       className={cn(
-        'group relative flex min-w-[160px] shrink-0 items-start gap-2 rounded-md border-l-2 border-transparent px-3 py-2 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color,border-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none lg:min-w-0 lg:flex-1',
+        'group relative flex min-w-[160px] shrink-0 items-start gap-2 rounded-md border-b-2 border-l-0 border-transparent px-3 py-2 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color,border-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none lg:min-w-0 lg:flex-1 lg:border-b-0 lg:border-l-2',
         active
-          ? 'border-primary bg-background text-foreground shadow-sm ring-1 ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-md'
+          ? 'border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/25 motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-md'
           : 'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-sm',
       )}
     >
@@ -100,7 +158,7 @@ function RestaurantSettingsSubnavItem({
         className={cn(
           'mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md border transition-[transform,background-color,color,border-color] duration-200 ease-out motion-reduce:transition-none [&_svg]:size-3.5',
           active
-            ? 'border-border bg-primary/10 text-primary motion-safe:group-hover:scale-105'
+            ? 'border-primary/30 bg-primary/15 text-primary motion-safe:group-hover:scale-105'
             : 'border-border/70 bg-background text-muted-foreground group-hover:text-foreground motion-safe:group-hover:scale-105',
         )}
         aria-hidden="true"
@@ -108,9 +166,19 @@ function RestaurantSettingsSubnavItem({
         <Icon className="transition-transform duration-200 ease-out motion-reduce:transition-none motion-safe:group-hover:scale-110" />
       </span>
       <span className="min-w-0">
-        <span className="block min-w-0 text-wrap leading-5 text-foreground transition-colors duration-200 motion-reduce:transition-none">
+        <span
+          className={cn(
+            'block min-w-0 text-wrap leading-5 transition-colors duration-200 motion-reduce:transition-none',
+            active ? 'text-primary' : 'text-foreground',
+          )}
+        >
           {title}
         </span>
+        {badge ? (
+          <Badge variant={active ? 'secondary' : 'outline'} className="mt-1 w-fit">
+            {badge}
+          </Badge>
+        ) : null}
       </span>
     </Link>
   );
@@ -140,6 +208,27 @@ export function RestaurantSettingsSubnav({
     menuHierarchyService,
   } = useOpsServices();
   const { activeRestaurantId } = useOpsSession();
+  const { status: gbpStatus } = useGbpDriftStatus();
+
+  const getNavBadge = useCallback(
+    (href: SettingsHref): string | undefined => {
+      const sectionKeys = NAV_DRIFT_SECTIONS[href];
+      if (!sectionKeys) {
+        return undefined;
+      }
+
+      if (href === '/app/settings/restaurant/google-business-profile') {
+        return getGbpDriftNavBadge(gbpStatus) ?? undefined;
+      }
+
+      return (
+        getGbpDriftSectionBadge(
+          mergeGbpDriftSectionStatuses(gbpStatus.sectionStatuses, sectionKeys),
+        ) ?? undefined
+      );
+    },
+    [gbpStatus],
+  );
 
   const prefetchMap = useMemo<PrefetchMap>(() => {
     const id = activeRestaurantId;
@@ -280,13 +369,17 @@ export function RestaurantSettingsSubnav({
               <SelectValue placeholder="Choose settings page" />
             </SelectTrigger>
             <SelectContent>
-              <SelectGroup>
-                {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => (
-                  <SelectItem key={item.href} value={item.href}>
-                    {item.title}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
+              {GROUPED_NAV_ITEMS.map((group, groupIndex) => (
+                <SelectGroup key={group.label}>
+                  {groupIndex > 0 ? <SelectSeparator /> : null}
+                  <SelectLabel>{group.label}</SelectLabel>
+                  {group.items.map((item) => (
+                    <SelectItem key={item.href} value={item.href}>
+                      {item.title}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -305,24 +398,40 @@ export function RestaurantSettingsSubnav({
             isFocused ? 'flex min-w-0 flex-col' : 'flex min-w-max lg:min-w-0 lg:flex-col',
           )}
         >
-          {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => {
-            const active =
-              normalizedPathname != null
-                ? isRestaurantSettingsNavItemActive(normalizedPathname, item)
-                : false;
-            return (
-              <RestaurantSettingsSubnavItem
-                key={item.href}
-                href={item.href}
-                title={item.title}
-                active={active}
-                Icon={NAV_ICONS[item.href] ?? LayoutGrid}
-                onMouseEnter={() => prefetchSettingsView(item.href)}
-                onFocus={() => prefetchSettingsView(item.href)}
-                onClick={handleLinkClick}
-              />
-            );
-          })}
+          {GROUPED_NAV_ITEMS.map((group, groupIndex) => (
+            <div key={group.label} className="flex min-w-0 flex-col gap-1.5">
+              {groupIndex > 0 ? <Separator className="my-1 hidden lg:block" /> : null}
+              <p className="hidden px-3 text-[0.6875rem] font-medium uppercase leading-4 text-muted-foreground lg:block">
+                {group.label}
+              </p>
+              <div
+                className={cn(
+                  'gap-1.5',
+                  isFocused ? 'flex min-w-0 flex-col' : 'flex min-w-max lg:min-w-0 lg:flex-col',
+                )}
+              >
+                {group.items.map((item) => {
+                  const active =
+                    normalizedPathname != null
+                      ? isRestaurantSettingsNavItemActive(normalizedPathname, item)
+                      : false;
+                  return (
+                    <RestaurantSettingsSubnavItem
+                      key={item.href}
+                      href={item.href}
+                      title={item.title}
+                      active={active}
+                      Icon={NAV_ICONS[item.href] ?? LayoutGrid}
+                      badge={getNavBadge(item.href)}
+                      onMouseEnter={() => prefetchSettingsView(item.href)}
+                      onFocus={() => prefetchSettingsView(item.href)}
+                      onClick={handleLinkClick}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       <p className={cn(SETTINGS_COMPACT_STATUS_ROW_CLASS, 'sr-only')}>

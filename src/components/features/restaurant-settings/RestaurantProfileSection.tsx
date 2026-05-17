@@ -23,6 +23,8 @@ import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { opsHref } from '@/lib/url/opsHref';
 
+import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
+import { useGbpDriftSectionStatus, useGbpDriftStatus } from './GbpDriftProvider';
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import {
   PROFILE_SECTION_DEFINITIONS,
@@ -124,6 +126,17 @@ function ProfileShell({ railItems, children }: ProfileShellProps) {
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
+  const { status: gbpStatus, reviewHref } = useGbpDriftStatus();
+  const gbpDrift = useOptionalGbpDrift();
+  const registerGbpDraftOverride = gbpDrift?.registerDraftOverride;
+  const clearGbpDraftOverrides = gbpDrift?.clearDraftOverrides;
+  const profileDriftStatus = useGbpDriftSectionStatus([
+    'profile',
+    'businessContext.categories',
+    'businessContext.serviceAreas',
+    'businessContext.attributes',
+    'businessContext.serviceItems',
+  ]);
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
   const [dirtyState, setDirtyState] = useState<Record<ProfileDirtyKey, boolean>>({
     brand: false,
@@ -143,6 +156,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   const editStartedEmittedRef = useRef(false);
   const dropoffEmittedRef = useRef(false);
   const dirtySectionsRef = useRef<ProfileDirtySection[]>([]);
+  const resetDraftHandlersRef = useRef<Partial<Record<ProfileDirtyKey, () => void>>>({});
   const formDirty = Object.values(dirtyState).some(Boolean);
   const dirtySections = useMemo(
     () => PROFILE_DIRTY_SECTIONS.filter((item) => dirtyState[item.key]),
@@ -199,6 +213,34 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     [draftValues, initialValues],
   );
   const previewLogoUrl = logoPreviewUrl === undefined ? (data?.logoUrl ?? null) : logoPreviewUrl;
+  useEffect(() => {
+    if (!registerGbpDraftOverride) return;
+    registerGbpDraftOverride('profile.name', previewValues.name);
+    registerGbpDraftOverride('profile.businessDescription', previewValues.businessDescription);
+    registerGbpDraftOverride('profile.contactPhone', previewValues.contactPhone);
+    registerGbpDraftOverride('profile.address', previewValues.address);
+    registerGbpDraftOverride('profile.googleMapUrl', previewValues.googleMapUrl);
+    registerGbpDraftOverride('profile.googleReviewUrl', previewValues.googleReviewUrl);
+    return () => {
+      clearGbpDraftOverrides?.([
+        'profile.name',
+        'profile.businessDescription',
+        'profile.contactPhone',
+        'profile.address',
+        'profile.googleMapUrl',
+        'profile.googleReviewUrl',
+      ]);
+    };
+  }, [
+    clearGbpDraftOverrides,
+    previewValues.address,
+    previewValues.businessDescription,
+    previewValues.contactPhone,
+    previewValues.googleMapUrl,
+    previewValues.googleReviewUrl,
+    previewValues.name,
+    registerGbpDraftOverride,
+  ]);
   const readiness = useMemo(
     () => deriveReadiness(previewValues, previewLogoUrl),
     [previewLogoUrl, previewValues],
@@ -237,18 +279,53 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   const googleDifferenceCount = Object.values(profileVerification.fields).filter(
     (field) => field.status === 'drifted',
   ).length;
+  const hasGbpDriftContext = gbpStatus.kind !== 'no_profile' && gbpStatus.kind !== 'unknown';
+  const liveProfileReviewCount = gbpDrift
+    ? gbpDrift.driftCountBySection.profile +
+      gbpDrift.driftCountBySection['businessContext.categories'] +
+      gbpDrift.driftCountBySection['businessContext.serviceAreas'] +
+      gbpDrift.driftCountBySection['businessContext.attributes'] +
+      gbpDrift.driftCountBySection['businessContext.serviceItems']
+    : 0;
+  const profileReviewCount = Math.max(
+    googleDifferenceCount,
+    profileDriftStatus.needsReviewCount,
+    liveProfileReviewCount,
+  );
+  const handleCompareProfileWithGoogle = useCallback(() => {
+    gbpDrift?.openCompare({
+      sectionKeys: [
+        'profile',
+        'businessContext.categories',
+        'businessContext.serviceAreas',
+        'businessContext.attributes',
+        'businessContext.serviceItems',
+      ],
+      filter: profileReviewCount > 0 ? 'drifted_only' : 'all',
+    });
+  }, [gbpDrift, profileReviewCount]);
   const googleStatusLabel =
-    gbpConnectionQuery.data?.status === 'linked'
-      ? googleDifferenceCount > 0
-        ? `${googleDifferenceCount} Google difference${googleDifferenceCount === 1 ? '' : 's'}`
-        : 'Google in sync'
-      : 'Google not linked';
+    hasGbpDriftContext && gbpStatus.kind === 'connected_with_review' && profileReviewCount > 0
+      ? `${profileReviewCount} GBP review item${profileReviewCount === 1 ? '' : 's'}`
+      : gbpConnectionQuery.data?.status === 'linked'
+        ? googleDifferenceCount > 0
+          ? `${googleDifferenceCount} Google difference${googleDifferenceCount === 1 ? '' : 's'}`
+          : 'Google in sync'
+        : hasGbpDriftContext && gbpStatus.kind === 'connected_outdated'
+          ? 'Refresh Google'
+          : hasGbpDriftContext && gbpStatus.kind === 'not_connected'
+            ? 'Google not linked'
+            : 'Google not linked';
   const googleStatusDetail =
-    gbpConnectionQuery.data?.status === 'linked'
-      ? googleDifferenceCount > 0
-        ? 'Review differences before importing so guest-facing details stay intentional.'
-        : 'Google fields match this profile snapshot.'
-      : 'Link Google only when you need import or side-by-side comparison.';
+    hasGbpDriftContext && gbpStatus.kind === 'connected_with_review' && profileReviewCount > 0
+      ? 'Review profile and discovery drift in the Google workspace before importing or exporting.'
+      : gbpConnectionQuery.data?.status === 'linked'
+        ? googleDifferenceCount > 0
+          ? 'Review differences before importing so guest-facing details stay intentional.'
+          : 'Google fields match this profile snapshot.'
+        : hasGbpDriftContext && gbpStatus.kind === 'connected_outdated'
+          ? gbpStatus.detail
+          : 'Link Google only when you need import or side-by-side comparison.';
   const updateDirtyState = useCallback((key: ProfileDirtyKey, dirty: boolean) => {
     setDirtyState((current) => (current[key] === dirty ? current : { ...current, [key]: dirty }));
   }, []);
@@ -291,6 +368,16 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     }),
     [updateSectionDraft],
   );
+  const registerResetDraftHandler = useCallback(
+    (key: ProfileDirtyKey, resetDraft: (() => void) | null) => {
+      if (!resetDraft) {
+        delete resetDraftHandlersRef.current[key];
+        return;
+      }
+      resetDraftHandlersRef.current[key] = resetDraft;
+    },
+    [],
+  );
   const handleSaveAllProfileForms = useCallback(() => {
     emitProfileEditorAnalytics('restaurant_profile_save_all_clicked', {
       restaurant_id: restaurantId,
@@ -307,6 +394,10 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       }
     });
   }, [dirtyFormSections, readiness.missing.length, readiness.score, restaurantId]);
+  const handleCancelActiveSection = useCallback(() => {
+    const section = findProfileSection(activeSectionId);
+    resetDraftHandlersRef.current[section.dirtyKey]?.();
+  }, [activeSectionId]);
   const handleSelectProfileSection = useCallback((sectionId: ProfileSectionId) => {
     const section = findProfileSection(sectionId);
     setActiveSectionId(sectionId);
@@ -480,7 +571,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       const isDirty = dirtyState[section.dirtyKey];
       const isMissingRequired = missingRequiredSectionIds.has(section.id);
       return {
-        label: section.navLabel,
+        label: section.setupStep ? `${section.setupStep} · ${section.navLabel}` : section.navLabel,
         description: section.audience,
         isActive: section.id === activeSectionId,
         onSelect: () => handleSelectProfileSection(section.id),
@@ -515,8 +606,12 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                   restaurantId={restaurantId}
                   initialValues={initialValues}
                   formId={PROFILE_SECTION_FORMS.brand}
+                  actionPlacement="stickyBar"
                   onDirtyChange={dirtyHandlers.brand}
                   onDraftChange={draftHandlers.brand}
+                  onResetDraftChange={(resetDraft) =>
+                    registerResetDraftHandler('brand', resetDraft)
+                  }
                   gbpFieldVerifications={profileVerification.fields}
                 />
               </>
@@ -526,8 +621,12 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                 restaurantId={restaurantId}
                 initialValues={initialValues}
                 formId={PROFILE_SECTION_FORMS.contact}
+                actionPlacement="stickyBar"
                 onDirtyChange={dirtyHandlers.contact}
                 onDraftChange={draftHandlers.contact}
+                onResetDraftChange={(resetDraft) =>
+                  registerResetDraftHandler('contact', resetDraft)
+                }
                 gbpFieldVerifications={profileVerification.fields}
               />
             ) : null}
@@ -536,8 +635,12 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                 restaurantId={restaurantId}
                 initialValues={initialValues}
                 formId={PROFILE_SECTION_FORMS.advanced}
+                actionPlacement="stickyBar"
                 onDirtyChange={dirtyHandlers.advanced}
                 onDraftChange={draftHandlers.advanced}
+                onResetDraftChange={(resetDraft) =>
+                  registerResetDraftHandler('advanced', resetDraft)
+                }
               />
             ) : null}
             {section.id === 'notifications' ? (
@@ -545,8 +648,12 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                 restaurantId={restaurantId}
                 initialValues={initialValues}
                 formId={PROFILE_SECTION_FORMS.notifications}
+                actionPlacement="stickyBar"
                 onDirtyChange={dirtyHandlers.notifications}
                 onDraftChange={draftHandlers.notifications}
+                onResetDraftChange={(resetDraft) =>
+                  registerResetDraftHandler('notifications', resetDraft)
+                }
               />
             ) : null}
             {section.id === 'discovery' ? (
@@ -570,11 +677,18 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           missingRequired={readiness.missingRequired}
           missingOptional={readiness.missing.filter((item) => !item.required)}
           googleStatusLabel={
-            gbpConnectionQuery.data?.status === 'linked' ? googleStatusLabel : 'Not linked'
+            gbpConnectionQuery.data?.status === 'linked' || hasGbpDriftContext
+              ? googleStatusLabel
+              : 'Not linked'
           }
           googleStatusDetail={googleStatusDetail}
-          googleDifferenceCount={googleDifferenceCount}
-          googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
+          googleDifferenceCount={profileReviewCount}
+          googleHref={
+            hasGbpDriftContext && profileReviewCount > 0
+              ? reviewHref
+              : `${REVIEW_GBP_HREF}#gbp-connection`
+          }
+          onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
           nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
           nextActionDescription={
             nextReadinessItem
@@ -594,6 +708,9 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           activeSection={activeSection}
           lastSavedAt={data?.updatedAt ?? null}
           onSaveAll={handleSaveAllProfileForms}
+          onCancelActive={handleCancelActiveSection}
+          gbpDriftCount={profileReviewCount}
+          onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
         />
       </div>
     </ProfileShell>

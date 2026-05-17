@@ -44,6 +44,12 @@ import {
   validateHours,
   validateServices,
 } from './availabilityScheduleManagerUtils';
+import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
+import {
+  GbpDriftBadge,
+  findServicePeriodDriftField,
+  useWorkspaceGbpDriftCheck,
+} from './gbpDriftBadges';
 import {
   buildServicePeriodPayload,
   buildServicePeriodState,
@@ -56,6 +62,7 @@ import {
   SETTINGS_COMPACT_HELPER_TEXT_CLASS,
   SETTINGS_COMPACT_STATUS_ROW_CLASS,
   SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
+  formatSaveScopeMessage,
 } from './shared';
 import { validateTurnBandRows, type TurnBandRowError } from './TurnBandsEditor';
 import {
@@ -66,6 +73,7 @@ import {
   type WeeklyRow,
 } from './types';
 
+import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { ServicePeriodRow, TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
 
@@ -73,6 +81,8 @@ type AvailabilityScheduleManagerProps = {
   restaurantId: string | null;
   activeWorkspace?: 'schedule' | 'booking-types';
 };
+
+const AVAILABILITY_DRIFT_SECTIONS = ['operatingHours', 'servicePeriods'] as const;
 
 type SaveState = {
   variant: 'destructive' | 'success' | 'warning';
@@ -94,6 +104,12 @@ export function AvailabilityScheduleManager({
   const updateTurnBands = useOpsUpdateTurnBands(restaurantId);
   const occasionService = useOccasionService();
   const queryClient = useQueryClient();
+  const registryDrift = useOptionalGbpDrift();
+  const registerDriftDraftOverride = registryDrift?.registerDraftOverride;
+  const gbpDrift = useWorkspaceGbpDriftCheck({
+    restaurantId,
+    sectionKeys: AVAILABILITY_DRIFT_SECTIONS,
+  });
 
   const [weeklyRows, setWeeklyRows] = useState<WeeklyRow[]>(defaultWeeklyRows);
   const [overrideRows, setOverrideRows] = useState<OverrideRow[]>([]);
@@ -165,12 +181,78 @@ export function AvailabilityScheduleManager({
     updateTurnBands.isPending;
   const hasLocalChanges = hoursDirty || servicesDirty || occasionsDirty || turnBandsDirty;
   const hasRequiredOccasions = Boolean(occasionKeys.lunch && occasionKeys.dinner);
+  const servicePeriodDriftFields = gbpDrift.getFieldsBySection('servicePeriods');
+  const availabilityDraftOverrides = useMemo(() => {
+    const entries: Array<readonly [string, unknown]> = weeklyRows.map((row) => [
+      `operatingHours.weekly.${row.dayOfWeek}`,
+      {
+        opensAt: row.opensAt,
+        closesAt: row.closesAt,
+        isClosed: row.isClosed,
+      },
+    ]);
+
+    for (const day of dayConfigs) {
+      if (occasionKeys.lunch && day.lunch.enabled) {
+        const field = findServicePeriodDriftField(servicePeriodDriftFields, {
+          dayOfWeek: day.dayOfWeek,
+          startTime: day.lunch.startTime,
+          endTime: day.lunch.endTime,
+          bookingOption: occasionKeys.lunch,
+          name: day.lunch.name,
+        });
+        if (field) {
+          entries.push([
+            field.fieldKey,
+            {
+              name: day.lunch.name,
+              dayOfWeek: day.dayOfWeek,
+              startTime: day.lunch.startTime,
+              endTime: day.lunch.endTime,
+              bookingOption: occasionKeys.lunch,
+            },
+          ]);
+        }
+      }
+
+      if (occasionKeys.dinner && day.dinner.enabled) {
+        const field = findServicePeriodDriftField(servicePeriodDriftFields, {
+          dayOfWeek: day.dayOfWeek,
+          startTime: day.dinner.startTime,
+          endTime: day.dinner.endTime,
+          bookingOption: occasionKeys.dinner,
+          name: day.dinner.name,
+        });
+        if (field) {
+          entries.push([
+            field.fieldKey,
+            {
+              name: day.dinner.name,
+              dayOfWeek: day.dayOfWeek,
+              startTime: day.dinner.startTime,
+              endTime: day.dinner.endTime,
+              bookingOption: occasionKeys.dinner,
+            },
+          ]);
+        }
+      }
+    }
+
+    return entries;
+  }, [dayConfigs, occasionKeys.dinner, occasionKeys.lunch, servicePeriodDriftFields, weeklyRows]);
 
   useRegisterOpsUnsavedChanges(
     'availability-command-center',
     hasLocalChanges,
     'You have unsaved availability changes in this settings workspace. Leave without saving them?',
   );
+
+  useEffect(() => {
+    if (!registerDriftDraftOverride) return;
+    for (const [fieldKey, value] of availabilityDraftOverrides) {
+      registerDriftDraftOverride(fieldKey, value);
+    }
+  }, [availabilityDraftOverrides, registerDriftDraftOverride]);
 
   useEffect(() => {
     if (
@@ -760,26 +842,24 @@ export function AvailabilityScheduleManager({
           </Alert>
         ) : null}
 
-        {customRows.length > 0 ? (
-          <Alert>
-            <UtensilsCrossed className="size-4" />
-            <AlertTitle>Additional service periods are preserved</AlertTitle>
-            <AlertDescription>
-              {customRows.length} custom service period{customRows.length === 1 ? '' : 's'} sit
-              outside the lunch-dinner layout. They will be preserved unchanged by this availability
-              save flow.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
         {isScheduleWorkspace ? (
           <Alert>
             <Clock3 className="size-4" />
-            <AlertTitle>How availability saving works</AlertTitle>
+            <AlertTitle>Availability save scope</AlertTitle>
             <AlertDescription>
-              This page owns the day-to-day availability workflow. Weekly hours, service windows,
-              overrides, and booking types (with per-party-size turn times) now live in one editable
-              surface with one save action.
+              <ul className="flex list-disc flex-col gap-1 pl-5">
+                <li>
+                  Weekly hours, service windows, date overrides, and booking types save together
+                  from this workspace.
+                </li>
+                {customRows.length > 0 ? (
+                  <li>
+                    {customRows.length} custom service period
+                    {customRows.length === 1 ? '' : 's'} sit outside the lunch-dinner layout and
+                    will be preserved unchanged.
+                  </li>
+                ) : null}
+              </ul>
             </AlertDescription>
           </Alert>
         ) : null}
@@ -792,6 +872,15 @@ export function AvailabilityScheduleManager({
             </TabsList>
 
             <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
+              <div id="availability-hours" className="scroll-mt-28">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">Weekly open hours</p>
+                  <GbpDriftBadge fields={gbpDrift.getFieldsBySection('operatingHours')} />
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Set the outer open and close window for each day.
+                </p>
+              </div>
               <div
                 className={cn(
                   SETTINGS_COMPACT_STATUS_ROW_CLASS,
@@ -804,22 +893,67 @@ export function AvailabilityScheduleManager({
                   <span className="font-medium text-foreground">Dinner</span>.
                 </span>
               </div>
-              {weeklyRows.map((row, index) => (
-                <AvailabilityScheduleDayCard
-                  key={row.dayOfWeek}
-                  day={dayConfigs[index]}
-                  dayError={serviceErrors[row.dayOfWeek]}
-                  hasRequiredOccasions={hasRequiredOccasions}
-                  onMealTimeChange={handleMealTimeChange}
-                  onMealToggle={handleMealToggle}
-                  onWeeklyChange={handleWeeklyChange}
-                  row={row}
-                  rowErrors={weeklyErrors[row.dayOfWeek]}
-                />
-              ))}
+              <div id="service-periods" className="scroll-mt-28">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">
+                    Meal windows (lunch / dinner inside open hours)
+                  </p>
+                  <GbpDriftBadge fields={servicePeriodDriftFields} />
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Use each day card to switch lunch and dinner windows on or off inside the open
+                  hours.
+                </p>
+              </div>
+              {weeklyRows.map((row, index) => {
+                const day = dayConfigs[index];
+                const serviceFields: DualSyncFieldSummary[] = [];
+                if (day && occasionKeys.lunch && day.lunch.enabled) {
+                  const field = findServicePeriodDriftField(servicePeriodDriftFields, {
+                    dayOfWeek: day.dayOfWeek,
+                    startTime: day.lunch.startTime,
+                    endTime: day.lunch.endTime,
+                    bookingOption: occasionKeys.lunch,
+                    name: day.lunch.name,
+                  });
+                  if (field) serviceFields.push(field);
+                }
+                if (day && occasionKeys.dinner && day.dinner.enabled) {
+                  const field = findServicePeriodDriftField(servicePeriodDriftFields, {
+                    dayOfWeek: day.dayOfWeek,
+                    startTime: day.dinner.startTime,
+                    endTime: day.dinner.endTime,
+                    bookingOption: occasionKeys.dinner,
+                    name: day.dinner.name,
+                  });
+                  if (field) serviceFields.push(field);
+                }
+
+                return (
+                  <AvailabilityScheduleDayCard
+                    key={row.dayOfWeek}
+                    day={day}
+                    dayError={serviceErrors[row.dayOfWeek]}
+                    hasRequiredOccasions={hasRequiredOccasions}
+                    onMealTimeChange={handleMealTimeChange}
+                    onMealToggle={handleMealToggle}
+                    onWeeklyChange={handleWeeklyChange}
+                    row={row}
+                    rowErrors={weeklyErrors[row.dayOfWeek]}
+                    weeklyDriftField={gbpDrift.getField(`operatingHours.weekly.${row.dayOfWeek}`)}
+                    serviceDriftFields={serviceFields}
+                  />
+                );
+              })}
             </TabsContent>
 
             <TabsContent value="overrides" className="mt-0">
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-foreground">Date overrides</p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Closures and special hours override the weekly template.
+                </p>
+              </div>
               <AvailabilityOverridesEditor
                 onAdd={addOverride}
                 onChange={handleOverrideChange}
@@ -837,33 +971,66 @@ export function AvailabilityScheduleManager({
             <AlertTitle>Booking types control guest choices</AlertTitle>
             <AlertDescription>
               Keep lunch and dinner active, then tune duration and turn-time rules so the booking
-              grid matches how service actually runs.
+              grid matches how service actually runs. Booking slot spacing lives under{' '}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={() => {
+                  window.history.replaceState(null, '', '#booking-rules');
+                  document
+                    .getElementById('booking-rules')
+                    ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                }}
+              >
+                Booking rules
+              </Button>
+              .
             </AlertDescription>
           </Alert>
         ) : null}
 
         {isBookingTypesWorkspace ? (
-          <AvailabilityOccasionsEditor
-            occasions={occasionDrafts}
-            onChange={(next) => {
-              setOccasionDrafts(next);
-              setOccasionsDirty(true);
-              clearSaveState();
-            }}
-            turnBands={turnBandsDraft}
-            turnBandDefaults={turnBandDefaults}
-            turnBandErrors={turnBandErrors}
-            onTurnBandsChange={handleTurnBandsChange}
-          />
+          <div id="booking-occasions" className="flex scroll-mt-28 flex-col gap-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Booking types</p>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Name the guest choices that appear in the booking flow.
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">Turn times by party size</p>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Set how long each party-size band blocks tables for each booking type.
+              </p>
+            </div>
+            <AvailabilityOccasionsEditor
+              occasions={occasionDrafts}
+              onChange={(next) => {
+                setOccasionDrafts(next);
+                setOccasionsDirty(true);
+                clearSaveState();
+              }}
+              turnBands={turnBandsDraft}
+              turnBandDefaults={turnBandDefaults}
+              turnBandErrors={turnBandErrors}
+              onTurnBandsChange={handleTurnBandsChange}
+            />
+          </div>
         ) : null}
       </CardContent>
 
       <CardFooter
         className={cn(SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, 'border-primary/20 shadow-lg')}
       >
-        <div className={SETTINGS_COMPACT_HELPER_TEXT_CLASS}>
-          Saves the full availability workflow. Save once to persist weekly hours, service windows,
-          date overrides, and booking types (with their turn times).
+        <div className={cn(SETTINGS_COMPACT_HELPER_TEXT_CLASS, 'flex flex-col gap-1')}>
+          <p>{formatSaveScopeMessage('availability-schedule')}</p>
+          {saveState?.details?.length ? (
+            <p>
+              {saveState.details.length} save result detail
+              {saveState.details.length === 1 ? '' : 's'} shown above.
+            </p>
+          ) : null}
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button

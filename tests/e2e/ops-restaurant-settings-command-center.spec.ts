@@ -37,6 +37,23 @@ const restaurant = {
   role: 'owner',
 };
 
+const emptyDualSyncState = {
+  restaurantId,
+  coreSnapshot: {},
+  gbpSnapshot: {},
+  coreSnapshotHash: 'qa-core-hash',
+  gbpSnapshotHash: 'qa-gbp-hash',
+  fields: [],
+  outboundQueue: {
+    totalOpen: 0,
+    autoExportable: 0,
+    missingBaseline: 0,
+    lastQueuedAt: null,
+  },
+  lastSnapshot: null,
+  control: null,
+};
+
 const operatingHours = {
   updatedAt: '2026-05-16T00:00:00.000Z',
   weekly: Array.from({ length: 7 }, (_, dayOfWeek) => ({
@@ -169,18 +186,46 @@ async function installCommandCenterApiMocks(page: Page) {
       return;
     }
 
+    if (pathname === `/api/ops/restaurants/${restaurantId}/dual-sync/state`) {
+      await route.fulfill({ json: emptyDualSyncState });
+      return;
+    }
+
     if (pathname === `/api/ops/restaurants/${restaurantId}/hours`) {
       await route.fulfill({ json: operatingHours });
       return;
     }
 
     if (pathname === `/api/ops/restaurants/${restaurantId}/service-periods`) {
-      await route.fulfill({ json: { servicePeriods } });
+      await route.fulfill({ json: { periods: servicePeriods } });
       return;
     }
 
     if (pathname === '/api/ops/occasions') {
       await route.fulfill({ json: { occasions } });
+      return;
+    }
+
+    if (pathname === '/api/ops/team/invitations') {
+      await route.fulfill({
+        json: {
+          invites: [
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              restaurantId,
+              email: 'pending.manager@example.test',
+              role: 'manager',
+              status: 'pending',
+              expiresAt: '2026-06-16T12:00:00.000Z',
+              invitedBy: '99999999-9999-4999-8999-999999999999',
+              acceptedAt: null,
+              revokedAt: null,
+              createdAt: '2026-05-16T12:00:00.000Z',
+              updatedAt: '2026-05-16T12:00:00.000Z',
+            },
+          ],
+        },
+      });
       return;
     }
 
@@ -238,21 +283,46 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await installCommandCenterApiMocks(page);
   });
 
-  test('index route redirects to the profile settings route @p1 @browser @smoke @local-only', async ({
+  test('index route renders the setup overview @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
     await page.goto('/settings/restaurant', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
-    await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Restaurant profile' })).toHaveAttribute(
-      'aria-current',
-      'page',
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant$/);
+    await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
+    await expect(page.locator('main').getByText('Required setup', { exact: true })).toBeVisible();
+    await expect(page.locator('main').getByText('3/3 complete')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open availability' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/availability#booking-rules',
+    );
+    await expect(page.getByRole('link', { name: 'Open tables' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/tables#table-capacity-summary',
     );
 
     await page.screenshot({
-      path: testInfo.outputPath('ops-settings-index-redirect-profile-desktop.png'),
+      path: testInfo.outputPath('ops-settings-setup-overview-desktop.png'),
+      fullPage: true,
+    });
+  });
+
+  test('index route keeps the setup overview usable at tablet width @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.goto('/settings/restaurant', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page.getByLabel('Choose restaurant settings page')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open profile' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open availability' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open tables' })).toBeVisible();
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-settings-setup-overview-tablet.png'),
       fullPage: true,
     });
   });
@@ -265,15 +335,35 @@ test.describe('ops restaurant settings command-center primary routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/menu/);
     await expect(page.getByRole('heading', { name: 'Menu', exact: true })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Menu catalogues' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Food Menu' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    await expect(page.locator('main').getByText('Menu catalogues')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Food Menu/ })).toBeVisible();
     await expect(page.locator('main').getByText('No menus yet')).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-menu-command-center-desktop.png'),
+      fullPage: true,
+    });
+  });
+
+  test('availability route renders schedule workspace proof @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/settings/restaurant/availability#availability-schedule', {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/availability/);
+    await expect(page.getByRole('heading', { name: 'Availability & Booking types' })).toBeVisible();
+    await expect(page.locator('main').getByText('Availability sections')).toBeVisible();
+    await page.locator('main').getByText('Schedule', { exact: true }).click();
+    await expect(page.locator('main').getByText('Weekly schedule').first()).toBeVisible();
+    await expect(
+      page.locator('main').getByText('Operating hours and service windows together'),
+    ).toBeVisible();
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-settings-availability-schedule-desktop.png'),
       fullPage: true,
     });
   });

@@ -38,7 +38,6 @@ export function RestaurantSettingsFocusedShell({
       null
     );
   }, [activeMembership?.restaurantName, activeRestaurantId, memberships]);
-
   const handleExitClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!confirmNavigation()) {
       event.preventDefault();
@@ -48,12 +47,7 @@ export function RestaurantSettingsFocusedShell({
   return (
     <div className="flex min-h-svh flex-col bg-background">
       <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 sm:px-6">
-        <Button
-          asChild
-          variant="ghost"
-          size="icon-sm"
-          className="shrink-0 text-muted-foreground"
-        >
+        <Button asChild variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground">
           <Link
             href={SETTINGS_EXIT_HREF}
             aria-label="Close restaurant settings"
