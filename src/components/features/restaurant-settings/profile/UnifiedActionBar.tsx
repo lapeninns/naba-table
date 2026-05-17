@@ -67,11 +67,6 @@ export function UnifiedActionBar({
             Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>
             . Save controls appear here when a profile section has a draft.
           </p>
-          {gbpDriftCount > 0 && onCompareWithGoogle ? (
-            <Button type="button" variant="outline" size="sm" onClick={onCompareWithGoogle}>
-              Compare with Google
-            </Button>
-          ) : null}
         </div>
       </div>
     );

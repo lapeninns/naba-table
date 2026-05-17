@@ -28,8 +28,8 @@ import { useGbpDriftSectionStatus, useGbpDriftStatus } from './GbpDriftProvider'
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import {
   PROFILE_SECTION_DEFINITIONS,
-  ProfileOverviewCard,
   ProfileSectionPane,
+  ProfileStatusBar,
   UnifiedActionBar,
   findProfileSection,
   type ProfileSectionId,
@@ -122,7 +122,7 @@ function ProfileShell({ railItems, children }: ProfileShellProps) {
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
-  const { status: gbpStatus, reviewHref } = useGbpDriftStatus();
+  const { status: gbpStatus } = useGbpDriftStatus();
   const gbpDrift = useOptionalGbpDrift();
   const registerGbpDraftOverride = gbpDrift?.registerDraftOverride;
   const clearGbpDraftOverrides = gbpDrift?.clearDraftOverrides;
@@ -288,6 +288,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     profileDriftStatus.needsReviewCount,
     liveProfileReviewCount,
   );
+  const isGoogleLinked = gbpConnectionQuery.data?.status === 'linked' || gbpDrift?.isLinked;
   const handleCompareProfileWithGoogle = useCallback(() => {
     gbpDrift?.openCompare({
       sectionKeys: [
@@ -300,18 +301,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       filter: profileReviewCount > 0 ? 'drifted_only' : 'all',
     });
   }, [gbpDrift, profileReviewCount]);
-  const googleStatusLabel =
-    hasGbpDriftContext && gbpStatus.kind === 'connected_with_review' && profileReviewCount > 0
-      ? `${profileReviewCount} GBP review item${profileReviewCount === 1 ? '' : 's'}`
-      : gbpConnectionQuery.data?.status === 'linked'
-        ? googleDifferenceCount > 0
-          ? `${googleDifferenceCount} Google difference${googleDifferenceCount === 1 ? '' : 's'}`
-          : 'Google in sync'
-        : hasGbpDriftContext && gbpStatus.kind === 'connected_outdated'
-          ? 'Refresh Google'
-          : hasGbpDriftContext && gbpStatus.kind === 'not_connected'
-            ? 'Google not linked'
-            : 'Google not linked';
   const googleStatusDetail =
     hasGbpDriftContext && gbpStatus.kind === 'connected_with_review' && profileReviewCount > 0
       ? 'Review profile and discovery drift in the Google workspace before importing or exporting.'
@@ -579,6 +568,27 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   return (
     <ProfileShell railItems={railItems}>
       <div className="flex flex-col gap-4">
+        <ProfileStatusBar
+          bookingSlug={previewValues.slug || null}
+          readinessScore={readiness.score}
+          readinessStageLabel={readinessStageLabel}
+          completedCount={readiness.completed.length}
+          totalCount={readiness.missing.length + readiness.completed.length}
+          requiredRemainingCount={readiness.missingRequired.length}
+          googleHint={isGoogleLinked ? null : googleStatusDetail}
+          googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
+          nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
+          nextActionDescription={
+            nextReadinessItem
+              ? 'Complete the next required item to make the booking link reliable for guests.'
+              : 'Required profile fields are complete. You can now polish discovery details.'
+          }
+          onJumpToBooking={() => handleFocusReadinessItem('bookingUrl')}
+          onJumpToNextAction={
+            nextReadinessItem ? () => handleFocusReadinessItem(nextReadinessItem.key) : null
+          }
+        />
+
         {PROFILE_SECTION_DEFINITIONS.map((section) => (
           <ProfileSectionPane
             key={section.id}
@@ -660,42 +670,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
             ) : null}
           </ProfileSectionPane>
         ))}
-
-        <ProfileOverviewCard
-          restaurantName={derivedRestaurantName}
-          logoUrl={previewLogoUrl ?? null}
-          bookingSlug={previewValues.slug || null}
-          readinessScore={readiness.score}
-          readinessStageLabel={readinessStageLabel}
-          completedCount={readiness.completed.length}
-          totalCount={readiness.missing.length + readiness.completed.length}
-          missingRequired={readiness.missingRequired}
-          missingOptional={readiness.missing.filter((item) => !item.required)}
-          googleStatusLabel={
-            gbpConnectionQuery.data?.status === 'linked' || hasGbpDriftContext
-              ? googleStatusLabel
-              : 'Not linked'
-          }
-          googleStatusDetail={googleStatusDetail}
-          googleDifferenceCount={profileReviewCount}
-          googleHref={
-            hasGbpDriftContext && profileReviewCount > 0
-              ? reviewHref
-              : `${REVIEW_GBP_HREF}#gbp-connection`
-          }
-          onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
-          nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
-          nextActionDescription={
-            nextReadinessItem
-              ? 'Complete the next required item to make the booking link reliable for guests.'
-              : 'Required profile fields are complete. You can now polish discovery details.'
-          }
-          onJumpToBooking={() => handleFocusReadinessItem('bookingUrl')}
-          onJumpToNextAction={
-            nextReadinessItem ? () => handleFocusReadinessItem(nextReadinessItem.key) : null
-          }
-          onFocusItem={handleFocusReadinessItem}
-        />
 
         <UnifiedActionBar
           dirtyFormSections={dirtyFormSections}

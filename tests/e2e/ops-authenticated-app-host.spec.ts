@@ -164,6 +164,24 @@ async function installOpsApiMocks(page: Page) {
   });
 }
 
+async function expectProfileStatusBar(page: Page) {
+  const readinessRing = page.getByRole('img', { name: /Profile readiness/ });
+  await expect(readinessRing).toBeVisible();
+  await expect(page.locator('main').getByText('Required fields complete')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Review booking URL' })).toBeVisible();
+  await expect(page.getByRole('link', { exact: true, name: 'Link Google' })).toHaveAttribute(
+    'href',
+    '/app/settings/restaurant/google-business-profile#gbp-connection',
+  );
+  await expect(page.getByRole('link', { name: 'Compare with Google' })).toHaveCount(0);
+
+  const readinessBox = await readinessRing.boundingBox();
+  const identityPaneBox = await page.locator('#profile-identity').boundingBox();
+  expect(readinessBox).not.toBeNull();
+  expect(identityPaneBox).not.toBeNull();
+  expect(readinessBox!.y).toBeLessThan(identityPaneBox!.y);
+}
+
 test.describe('authenticated ops app-host shipped routes', () => {
   test.use({ baseURL: appHostBaseUrl, viewport: { width: 1280, height: 900 } });
 
@@ -208,9 +226,26 @@ test.describe('authenticated ops app-host shipped routes', () => {
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
     await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
     await expect(page.locator('main').getByText('QA App Host Restaurant').first()).toBeVisible();
+    await expectProfileStatusBar(page);
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-profile-authenticated-desktop.png'),
+      fullPage: true,
+    });
+  });
+
+  test('restaurant profile status bar wraps on tablet @p1 @browser @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 768, height: 900 });
+    await page.goto('/settings/restaurant/profile', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
+    await expectProfileStatusBar(page);
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-settings-profile-authenticated-tablet.png'),
       fullPage: true,
     });
   });

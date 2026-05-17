@@ -223,14 +223,16 @@ describe('RestaurantProfileSection', () => {
 
     await screen.findAllByText('Brand and identity');
     expect(screen.getByRole('navigation', { name: 'Profile sections' })).toBeInTheDocument();
-    expect(screen.getByText('Old Crown Girton')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /old crown girton/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /profile readiness/i })).toBeInTheDocument();
     expect(screen.getAllByText(/\/old-crown-girton/).length).toBeGreaterThan(0);
-    expect(screen.getByText('Not linked')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review URL' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Compare with Google' })).toHaveAttribute(
+    expect(screen.queryByText('Not linked')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review booking URL' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
       'href',
       '/app/settings/restaurant/google-business-profile#gbp-connection',
     );
+    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
 
     const brandRail = screen.getByRole('button', { name: /^1 · Brand/i });
     const contactRail = screen.getByRole('button', { name: /^3 · Contact/i });
@@ -335,15 +337,16 @@ describe('RestaurantProfileSection', () => {
     expect(container.querySelector('#profile-discovery')).not.toBeNull();
   });
 
-  it('renders the optional Google comparison action without command-center footer links', async () => {
+  it('renders the optional Google connection action without command-center footer links', async () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
 
-    expect(screen.getByRole('link', { name: 'Compare with Google' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
       'href',
       '/app/settings/restaurant/google-business-profile#gbp-connection',
     );
+    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /availability & booking types/i }),
     ).not.toBeInTheDocument();
