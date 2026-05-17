@@ -7,11 +7,44 @@ import { Button } from '@/components/ui/button';
 
 import { useGbpDrift } from './useGbpDrift';
 
-export function GbpDriftStatusStrip() {
+type GbpDriftStatusStripProps = {
+  compact?: boolean;
+};
+
+export function GbpDriftStatusStrip({ compact = false }: GbpDriftStatusStripProps) {
   const { isLinked, totalDriftCount, openCompare, isLoading } = useGbpDrift();
 
   if (!isLinked) {
     return null;
+  }
+
+  if (compact) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 sm:px-4">
+        <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+          {isLoading
+            ? 'Checking Google comparison…'
+            : totalDriftCount > 0
+              ? `${totalDriftCount} field${totalDriftCount === 1 ? '' : 's'} differ from Google.`
+              : 'In sync with Google for comparable fields.'}
+        </p>
+        <Button
+          type="button"
+          variant={totalDriftCount > 0 ? 'default' : 'outline'}
+          size="sm"
+          className="h-8 shrink-0"
+          onClick={() => openCompare({ filter: totalDriftCount > 0 ? 'drifted_only' : 'all' })}
+        >
+          <GitCompareArrows data-icon="inline-start" className="size-3.5" aria-hidden />
+          Compare
+          {totalDriftCount > 0 ? (
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+              {totalDriftCount}
+            </Badge>
+          ) : null}
+        </Button>
+      </div>
+    );
   }
 
   return (

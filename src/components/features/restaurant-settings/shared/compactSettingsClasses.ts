@@ -60,17 +60,29 @@ export function formatSaveScopeMessage(scope: SettingsSaveScope | string) {
 
 export const SETTINGS_COMMAND_CENTER_LAYOUT_CLASS = 'flex min-w-0 flex-col gap-4';
 
-export const SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS =
-  'grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
+/** Docked below settings chrome; does not scroll with page content. */
+export const SETTINGS_COMMAND_CENTER_DOCKED_NAV_CLASS =
+  'shrink-0 border-b border-border/60 bg-background';
 
+/** Sticky section navbar when rendered inside the scroll region. */
+export const SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS =
+  'sticky top-0 z-10 mb-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90';
+
+export const SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS =
+  'flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pb-px sm:px-6';
+
+/** @deprecated Card rail wrapper replaced by SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS. */
 export const SETTINGS_COMMAND_CENTER_RAIL_CARD_CLASS =
   'border-border/70 bg-card text-card-foreground shadow-sm';
 
+/** @deprecated Use SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS. */
+export const SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS = SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS;
+
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS =
-  'h-auto min-w-0 items-start justify-start gap-3 whitespace-normal rounded-md px-2 py-2 text-left transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none motion-safe:hover:-translate-y-[1px]';
+  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-none border-b-2 border-transparent px-3 text-sm font-medium transition-[color,border-color] duration-200 motion-reduce:transition-none';
 
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS =
-  'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/25';
+  'border-primary text-foreground shadow-none hover:bg-transparent';
 
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS =
-  'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border';
+  'text-muted-foreground hover:border-border/80 hover:bg-transparent hover:text-foreground';

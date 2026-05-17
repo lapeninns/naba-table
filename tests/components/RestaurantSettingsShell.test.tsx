@@ -197,6 +197,19 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
   prefetchState.prefetchIfStale.mockClear();
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 });
 
 describe('restaurant settings route contract', () => {
@@ -278,13 +291,17 @@ describe('RestaurantSettingsSubnav', () => {
       'href',
       '/app/dashboard',
     );
-    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant profile' })).toHaveClass(
-      'text-2xl',
-    );
-    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveClass(
-      'min-w-[160px]',
-      'px-3',
-      'py-2',
+    const profileHeading = screen.getByRole('heading', {
+      level: 1,
+      name: 'Restaurant profile',
+    });
+    expect(profileHeading).toHaveClass('text-sm');
+    expect(
+      screen.queryByText(/Public details, booking page URL, manager alerts/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/profile',
     );
     expect(screen.getByRole('navigation', { name: 'Restaurant settings' })).toBeInTheDocument();
   });
@@ -304,23 +321,28 @@ describe('RestaurantSettingsSubnav', () => {
   it('maps availability aliases to the focused alias page heading and active nav item', () => {
     renderPageShell('/app/settings/restaurant/service-periods');
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Service periods' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Service periods/i })).toBeInTheDocument();
+    const availabilityLinks = screen.getAllByRole('link', { name: 'Availability & Booking types' });
+    expect(
+      availabilityLinks.some(
+        (link) => link.getAttribute('href') === '/app/settings/restaurant/availability',
+      ),
+    ).toBe(true);
+    expect(
+      screen.queryByText(/Define lunch, dinner, and other booking windows/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1, name: 'Restaurant' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Availability & Booking types' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(
+      availabilityLinks.some((link) => link.getAttribute('aria-current') === 'page'),
+    ).toBe(true);
   });
 
   it('keeps the active mobile nav item visually anchored', () => {
     renderSubnav('/app/settings/restaurant/google-business-profile');
 
-    expect(screen.getByRole('link', { name: 'Google Business Profile' })).toHaveClass(
-      'border-b-2',
-      'lg:border-l-2',
-      'bg-primary/10',
-      'ring-primary/25',
-    );
+    const gbpLink = screen.getByRole('link', { name: 'Google Business Profile' });
+    expect(gbpLink).toHaveAttribute('aria-current', 'page');
+    expect(gbpLink.closest('[data-sidebar="menu-button"]')).toHaveAttribute('data-active', 'true');
   });
 
   it('supports arrow-key focus movement inside settings workflow rails', async () => {

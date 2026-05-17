@@ -201,7 +201,7 @@ export function AvailabilityOccasionsCommandCenter({
     <section className={SETTINGS_COMMAND_CENTER_LAYOUT_CLASS} aria-label="Availability sections">
       <SettingsSectionNav
         title="Availability sections"
-        description="Work top-down: rules first, then the weekly schedule and booking types."
+        showHeader={false}
         items={[
           {
             label: 'Booking rules',

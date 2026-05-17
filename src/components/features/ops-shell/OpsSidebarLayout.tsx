@@ -41,6 +41,8 @@ import { cn } from '@/lib/utils';
 
 import { OPS_SUPPORT_ITEM, filterOpsNavigationSections, isNavItemActive } from './navigation';
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
+import { SidebarCollapseTrigger } from './patterns/SidebarCollapseTrigger';
+import { SidebarCollapsedRailToggle } from './patterns/SidebarCollapsedRailToggle';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
 import { useOpsRoutePrefetch } from './useOpsRoutePrefetch';
 
@@ -71,10 +73,10 @@ export function OpsSidebarLayout({
           >
             <a href="#ops-content">Skip to content</a>
           </Button>
-          <div className="flex h-12 items-center gap-3 border-b border-border/60 px-[var(--pg-gutter)]">
+          <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border/60 px-[var(--pg-gutter)] md:hidden">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
             {headerSlot ? (
-              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
+              <div className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
                 {headerSlot}
               </div>
             ) : null}
@@ -120,7 +122,15 @@ function OpsSidebarPanel() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <OpsRestaurantSwitch />
+        <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:hidden">
+          <OpsRestaurantSwitch className="min-w-0 flex-1" />
+          <SidebarCollapseTrigger />
+        </div>
+        <div className="hidden justify-center px-2 py-1 group-data-[collapsible=icon]:flex">
+          <SidebarCollapsedRailToggle openLabel="Open sidebar">
+            <OpsRestaurantSwitch className="[&_[data-sidebar=menu-button]]:size-8 [&_[data-sidebar=menu-button]]:p-0" />
+          </SidebarCollapsedRailToggle>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         {!pathname ? (

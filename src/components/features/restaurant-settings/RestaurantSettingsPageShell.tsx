@@ -5,14 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
-import { Badge } from '@/components/ui/badge';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
 import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
 import { GbpDriftProvider, GbpDriftStatusPill } from './GbpDriftProvider';
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
-import { getRestaurantSettingsRouteCopy } from './routes';
+import { getRestaurantSettingsHeadingContext } from './restaurantSettingsHeading';
 
 export type RestaurantSettingsPageShellProps = {
   /**
@@ -65,14 +63,25 @@ function RestaurantSettingsPageHeading({
   const { memberships, activeRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
 
-  const activeNavItem = useMemo(() => {
+  const headingContext = useMemo(() => {
     if (!pathname) return null;
-    const normalized = normalizeOpsPathname(pathname);
-    return getRestaurantSettingsRouteCopy(normalized);
+    return getRestaurantSettingsHeadingContext(pathname);
   }, [pathname]);
 
-  const resolvedTitle = title ?? activeNavItem?.title ?? DEFAULT_TITLE;
-  const resolvedDescription = description ?? activeNavItem?.description ?? DEFAULT_DESCRIPTION;
+  const useExplicitOverrides = title != null || description != null;
+  const resolvedTitle = title ?? headingContext?.pageTitle ?? DEFAULT_TITLE;
+  const resolvedDescription =
+    description ?? headingContext?.pageDescription ?? DEFAULT_DESCRIPTION;
+  const suppressVisiblePageTitle =
+    !useExplicitOverrides && (headingContext?.suppressVisiblePageTitle ?? false);
+  const hidePageIntro =
+    !useExplicitOverrides && (headingContext?.hidePageIntro ?? false);
+  const showRestaurantMetaOnPage =
+    useExplicitOverrides || (headingContext?.showRestaurantMetaOnPage ?? true);
+
+  if (hidePageIntro) {
+    return null;
+  }
 
   const restaurantName =
     activeMembership?.restaurantName ??
@@ -81,21 +90,34 @@ function RestaurantSettingsPageHeading({
     memberships[0]?.restaurantName ??
     null;
 
+  if (suppressVisiblePageTitle) {
+    return (
+      <header className="mb-6 flex flex-col gap-3">
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+          {resolvedDescription}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <GbpDriftStatusPill />
+        </div>
+      </header>
+    );
+  }
+
   return (
     <OpsPageHeader
       eyebrow={eyebrow}
       title={resolvedTitle}
       subtitle={resolvedDescription}
       meta={
-        restaurantName ? (
+        showRestaurantMetaOnPage && restaurantName ? (
           <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>Editing</span>
-            <Badge variant="outline" className="font-medium text-foreground">
-              {restaurantName}
-            </Badge>
+            <span className="font-medium text-foreground">{restaurantName}</span>
             <GbpDriftStatusPill />
           </span>
-        ) : null
+        ) : (
+          <GbpDriftStatusPill />
+        )
       }
       headingLevel="h1"
       titleClassName="text-2xl"
@@ -111,13 +133,19 @@ export function RestaurantSettingsPageShell({
   children,
   envBanner,
 }: RestaurantSettingsPageShellProps) {
+  const pathname = usePathname();
   const reduceMotion = usePrefersReducedMotion();
+  const hidePageIntro = useMemo(() => {
+    if (!pathname) return false;
+    if (title != null || description != null) return false;
+    return getRestaurantSettingsHeadingContext(pathname).hidePageIntro;
+  }, [description, pathname, title]);
 
   return (
     <GbpDriftProvider>
       <RestaurantSettingsFocusedShell envBanner={envBanner}>
         <RestaurantSettingsPageHeading title={title} description={description} eyebrow={eyebrow} />
-        <GbpDriftStatusStrip />
+        <GbpDriftStatusStrip compact={hidePageIntro} />
         <motion.div
           initial={reduceMotion ? false : { y: 8, opacity: 0 }}
           animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}

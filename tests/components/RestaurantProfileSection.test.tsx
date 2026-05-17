@@ -222,7 +222,7 @@ describe('RestaurantProfileSection', () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
-    expect(screen.getByText('Profile sections')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Profile sections' })).toBeInTheDocument();
     expect(screen.getByText('Old Crown Girton')).toBeInTheDocument();
     expect(screen.getAllByText(/\/old-crown-girton/).length).toBeGreaterThan(0);
     expect(screen.getByText('Not linked')).toBeInTheDocument();

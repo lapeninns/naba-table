@@ -1,17 +1,15 @@
 'use client';
 
-import { X } from 'lucide-react';
-import Link from 'next/link';
-import { useMemo, type MouseEvent, type ReactNode } from 'react';
+import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { SidebarInset, SidebarProvider, SidebarRail } from '@/components/ui/sidebar';
 import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
-import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
-import { RestaurantSettingsSubnav } from './RestaurantSettingsSubnav';
+import { RestaurantSettingsChromeHeader } from './RestaurantSettingsChromeHeader';
+import { RestaurantSettingsSectionNavSlotContext } from './RestaurantSettingsSectionNavSlot';
+import { RestaurantSettingsSidebar } from './RestaurantSettingsSidebar';
 import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
 
 export type RestaurantSettingsFocusedShellProps = {
@@ -19,25 +17,21 @@ export type RestaurantSettingsFocusedShellProps = {
   envBanner?: string | null;
 };
 
-const SETTINGS_EXIT_HREF = opsHref('/dashboard');
-
 export function RestaurantSettingsFocusedShell({
   children,
   envBanner,
 }: RestaurantSettingsFocusedShellProps) {
   const { confirmNavigation } = useOpsUnsavedChanges();
-  const { memberships, activeRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
+  const [sectionNav, setSectionNav] = useState<ReactNode | null>(null);
 
-  const restaurantName = useMemo(() => {
-    return (
-      activeMembership?.restaurantName ??
-      memberships.find((membership) => membership.restaurantId === activeRestaurantId)
-        ?.restaurantName ??
-      memberships[0]?.restaurantName ??
-      null
-    );
-  }, [activeMembership?.restaurantName, activeRestaurantId, memberships]);
+  const sectionNavSlot = useMemo(
+    () => ({
+      setSectionNav,
+      hasDockedSectionNav: sectionNav != null,
+    }),
+    [sectionNav],
+  );
+
   const handleExitClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!confirmNavigation()) {
       event.preventDefault();
@@ -45,53 +39,45 @@ export function RestaurantSettingsFocusedShell({
   };
 
   return (
-    <div className="flex min-h-svh flex-col bg-background">
-      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 sm:px-6">
-        <Button asChild variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground">
-          <Link
-            href={SETTINGS_EXIT_HREF}
-            aria-label="Close restaurant settings"
-            onClick={handleExitClick}
-          >
-            <X className="size-4" aria-hidden />
-          </Link>
-        </Button>
-        <Separator orientation="vertical" className="h-5" />
-        <p className="min-w-0 truncate text-sm font-medium text-foreground">Restaurant settings</p>
-        {restaurantName ? (
-          <p className="ml-auto hidden max-w-[min(40vw,16rem)] truncate text-xs text-muted-foreground sm:block">
-            {restaurantName}
-          </p>
-        ) : null}
-      </header>
-
-      {envBanner ? (
-        <p
-          className="border-b border-border/60 bg-muted/40 px-4 py-2 text-center text-xs text-muted-foreground sm:px-6"
-          role="status"
+    <SidebarProvider className="flex h-svh min-h-0 w-full overflow-hidden bg-background">
+      <RestaurantSettingsSidebar />
+      <SidebarRail />
+      <SidebarInset className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <Button
+          asChild
+          variant="link"
+          className="sr-only h-auto p-0 focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-40 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow"
         >
-          {envBanner}
-        </p>
-      ) : null}
+          <a href="#ops-content">Skip to content</a>
+        </Button>
+        <RestaurantSettingsSectionNavSlotContext.Provider value={sectionNavSlot}>
+          <RestaurantSettingsChromeHeader onExitClick={handleExitClick} />
+          {sectionNav}
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="shrink-0 border-b border-border/60 bg-muted/15 lg:w-72 lg:border-b-0 lg:border-r">
-          <RestaurantSettingsSubnav
-            variant="focused"
-            className="lg:sticky lg:top-14 lg:max-h-[calc(100svh-3.5rem)]"
-          />
-        </aside>
-        <main
-          id="ops-content"
+          {envBanner ? (
+            <p
+              className="shrink-0 border-b border-border/60 bg-muted/40 px-4 py-2 text-center text-xs text-muted-foreground sm:px-6"
+              role="status"
+            >
+              {envBanner}
+            </p>
+          ) : null}
+
+          <div
+            id="ops-content"
           tabIndex={-1}
           className={cn(
-            'min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 lg:py-8',
+            'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto',
+            sectionNavSlot.hasDockedSectionNav
+              ? 'px-4 pb-6 pt-4 sm:px-8 lg:pb-8'
+              : 'px-4 py-6 sm:px-8 lg:py-8',
             SETTINGS_COMPACT_PAGE_CONTENT_CLASS,
           )}
         >
           {children}
-        </main>
-      </div>
-    </div>
+        </div>
+        </RestaurantSettingsSectionNavSlotContext.Provider>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

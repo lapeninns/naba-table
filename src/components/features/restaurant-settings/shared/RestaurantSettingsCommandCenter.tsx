@@ -1,11 +1,13 @@
 'use client';
 
-import { ArrowRight, type LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentProps,
@@ -16,16 +18,18 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
+import { useRestaurantSettingsSectionNavSlot } from '../RestaurantSettingsSectionNavSlot';
+
 import {
+  SETTINGS_COMMAND_CENTER_DOCKED_NAV_CLASS,
   SETTINGS_COMMAND_CENTER_LAYOUT_CLASS,
-  SETTINGS_COMMAND_CENTER_RAIL_CARD_CLASS,
-  SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS,
+  SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS,
+  SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS,
 } from './compactSettingsClasses';
 
 type BadgeVariant = ComponentProps<typeof Badge>['variant'];
@@ -96,6 +100,12 @@ export type SettingsSectionNavProps = {
   items?: RestaurantSettingsCommandRailItem[];
   footer?: ReactNode;
   className?: string;
+  /** When false, only `title` is exposed to assistive tech (page heading covers the section). */
+  showHeader?: boolean;
+  /** Pin the nav to the top of the scrolling settings main pane. */
+  sticky?: boolean;
+  /** When `chrome`, render tabs directly under the settings header (default in focused shell). */
+  dock?: 'chrome' | 'inline';
 };
 
 export function SettingsSectionNav({
@@ -104,7 +114,11 @@ export function SettingsSectionNav({
   items = [],
   footer,
   className,
+  showHeader = Boolean(description),
+  sticky = true,
+  dock = 'chrome',
 }: SettingsSectionNavProps) {
+  const sectionNavSlot = useRestaurantSettingsSectionNavSlot();
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const focusRailItem = useCallback(
     (nextIndex: number) => {
@@ -149,106 +163,135 @@ export function SettingsSectionNav({
     [focusRailItem, items.length],
   );
 
+  const renderNavItem = (item: RestaurantSettingsCommandRailItem, index: number) => {
+    const Icon = item.Icon;
+    const itemKey = item.href ?? item.label;
+    const content = (
+      <>
+        {Icon ? <Icon className="size-3.5 shrink-0" aria-hidden /> : null}
+        <span>{item.label}</span>
+        {item.badge ? (
+          <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">
+            {item.badge}
+          </Badge>
+        ) : null}
+      </>
+    );
+    const itemClassName = cn(
+      SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
+      item.isActive
+        ? SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS
+        : SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS,
+    );
+
+    if (item.onSelect) {
+      return (
+        <Button
+          key={itemKey}
+          ref={(node) => {
+            itemRefs.current[index] = node;
+          }}
+          type="button"
+          variant="ghost"
+          aria-current={item.isActive ? 'page' : undefined}
+          onClick={item.onSelect}
+          onKeyDown={(event) => handleRailItemKeyDown(event, index)}
+          className={itemClassName}
+        >
+          {content}
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        key={itemKey}
+        ref={(node) => {
+          itemRefs.current[index] = node;
+        }}
+        asChild
+        variant="ghost"
+        aria-current={item.isActive ? 'page' : undefined}
+        onKeyDown={(event) => handleRailItemKeyDown(event, index)}
+        className={itemClassName}
+      >
+        <Link href={item.href ?? '#'}>{content}</Link>
+      </Button>
+    );
+  };
+
+  const shouldDockInChrome = dock === 'chrome' && sectionNavSlot != null;
+  const navClassName = cn(
+    shouldDockInChrome
+      ? SETTINGS_COMMAND_CENTER_DOCKED_NAV_CLASS
+      : sticky
+        ? SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS
+        : 'mb-4 border-b border-border/60',
+    className,
+  );
+
+  const itemsSignature = items
+    .map((item) => `${item.label}:${item.isActive ? '1' : '0'}:${item.badge ?? ''}`)
+    .join('|');
+
+  const nav = useMemo(
+    () => (
+    <nav aria-label={title} className={navClassName}>
+      {showHeader ? (
+        <motion.div
+          className="flex flex-col gap-1 border-b border-border/60 px-4 py-2.5 sm:px-6"
+          initial={false}
+        >
+          <p className="text-sm font-medium text-foreground">{title}</p>
+          {description ? (
+            <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+          ) : null}
+        </motion.div>
+      ) : (
+        <span className="sr-only">{title}</span>
+      )}
+      {items.length > 0 ? (
+        <div className={SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS} role="list">
+          {items.map((item, index) => (
+            <motion.div key={item.href ?? item.label} role="listitem">
+              {renderNavItem(item, index)}
+            </motion.div>
+          ))}
+        </div>
+      ) : null}
+      {footer ? (
+        <p className="border-t border-border/60 px-4 py-1.5 text-xs leading-5 text-muted-foreground sm:px-6">
+          {footer}
+        </p>
+      ) : null}
+    </nav>
+    ),
+    [description, footer, items, itemsSignature, navClassName, showHeader, title],
+  );
+
+  useLayoutEffect(() => {
+    if (!shouldDockInChrome || !sectionNavSlot) {
+      return;
+    }
+
+    if (items.length === 0 && !footer) {
+      sectionNavSlot.setSectionNav(null);
+      return;
+    }
+
+    sectionNavSlot.setSectionNav(nav);
+    return () => sectionNavSlot.setSectionNav(null);
+  }, [footer, items.length, itemsSignature, nav, sectionNavSlot, shouldDockInChrome, title]);
+
   if (items.length === 0 && !footer) {
     return null;
   }
 
-  return (
-    <Card className={cn(SETTINGS_COMMAND_CENTER_RAIL_CARD_CLASS, className)}>
-      <CardHeader className="gap-1 border-b border-border/60 px-4 py-3">
-        <CardTitle className="text-base">{title}</CardTitle>
-        {description ? (
-          <CardDescription className="text-xs leading-5">{description}</CardDescription>
-        ) : null}
-      </CardHeader>
-      {items.length > 0 ? (
-        <CardContent className={SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS}>
-          {items.map((item, index) => {
-            const Icon = item.Icon;
-            const itemKey = item.href ?? item.label;
-            const content = (
-              <>
-                {Icon ? (
-                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground">
-                    <Icon className="size-4" aria-hidden />
-                  </span>
-                ) : null}
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2 text-sm font-medium leading-5">
-                    {item.label}
-                    <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-                  </span>
-                  {item.description ? (
-                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground break-words">
-                      {item.description}
-                    </span>
-                  ) : null}
-                </span>
-                {item.badge ? (
-                  <Badge variant="outline" className="shrink-0">
-                    {item.badge}
-                  </Badge>
-                ) : null}
-              </>
-            );
+  if (shouldDockInChrome) {
+    return null;
+  }
 
-            if (item.onSelect) {
-              return (
-                <Button
-                  key={itemKey}
-                  ref={(node) => {
-                    itemRefs.current[index] = node;
-                  }}
-                  type="button"
-                  variant="ghost"
-                  aria-current={item.isActive ? 'page' : undefined}
-                  onClick={item.onSelect}
-                  onKeyDown={(event) => handleRailItemKeyDown(event, index)}
-                  className={cn(
-                    SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
-                    'h-full w-full',
-                    item.isActive
-                      ? SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS
-                      : SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS,
-                  )}
-                >
-                  {content}
-                </Button>
-              );
-            }
-
-            return (
-              <Button
-                key={itemKey}
-                ref={(node) => {
-                  itemRefs.current[index] = node;
-                }}
-                asChild
-                variant="ghost"
-                aria-current={item.isActive ? 'page' : undefined}
-                onKeyDown={(event) => handleRailItemKeyDown(event, index)}
-                className={cn(
-                  SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
-                  'h-full w-full',
-                  item.isActive
-                    ? SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS
-                    : SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS,
-                )}
-              >
-                <Link href={item.href ?? '#'}>{content}</Link>
-              </Button>
-            );
-          })}
-        </CardContent>
-      ) : null}
-      {footer ? (
-        <>
-          <Separator />
-          <div className="px-4 py-3 text-xs leading-5 text-muted-foreground">{footer}</div>
-        </>
-      ) : null}
-    </Card>
-  );
+  return nav;
 }
 
 export function RestaurantSettingsCommandCenter({

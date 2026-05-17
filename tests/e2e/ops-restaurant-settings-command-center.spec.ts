@@ -315,7 +315,8 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await page.goto('/settings/restaurant', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await expect(page.getByLabel('Choose restaurant settings page')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Restaurant settings' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Restaurant profile' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open profile' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open availability' })).toBeVisible();

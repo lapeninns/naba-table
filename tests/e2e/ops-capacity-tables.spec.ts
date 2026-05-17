@@ -238,7 +238,9 @@ test.describe('ops capacity and table shipped routes', () => {
     await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await expect(page.getByLabel('Choose restaurant settings page')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Toggle restaurant settings navigation' }),
+    ).toBeVisible();
     await expect(page.locator('main').getByText('Tables workflow')).toBeVisible();
 
     await page
