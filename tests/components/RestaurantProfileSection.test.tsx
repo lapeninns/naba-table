@@ -159,7 +159,7 @@ describe('RestaurantProfileSection', () => {
       'bottom-0',
     );
     expect(
-      screen.getByText(/save profile changes without leaving this command center/i),
+      screen.getByText(/save profile changes without leaving this settings workspace/i),
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save all' }));
 
@@ -211,12 +211,15 @@ describe('RestaurantProfileSection', () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
-    expect(screen.getByText('Profile command center')).toBeInTheDocument();
     expect(screen.getByText('Profile sections')).toBeInTheDocument();
-    expect(screen.getByText('Booking URL')).toBeInTheDocument();
-    expect(screen.getByText('Next action')).toBeInTheDocument();
-    expect(screen.getByText('Readiness')).toBeInTheDocument();
+    expect(screen.getByText('Old Crown Girton')).toBeInTheDocument();
+    expect(screen.getAllByText(/\/old-crown-girton/).length).toBeGreaterThan(0);
     expect(screen.getByText('Not linked')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review URL' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Compare with Google' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/google-business-profile#gbp-connection',
+    );
 
     const contactRail = screen.getByRole('button', { name: /^Contact/i });
     const bookingRail = screen.getByRole('button', { name: /^Booking link/i });
@@ -229,12 +232,14 @@ describe('RestaurantProfileSection', () => {
     expect(screen.getByRole('textbox', { name: /booking page url/i })).toBeInTheDocument();
     expect(bookingRail).toHaveAttribute('aria-current', 'page');
 
-    expect(screen.queryByLabelText(/opening date/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^Discovery details/i }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /discovery details/i })).toBeInTheDocument();
-    await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    const openingDateField = screen.getByLabelText(/opening date/i);
+    expect(openingDateField).not.toBeVisible();
+
+    const discoveryRail = screen.getByRole('button', { name: /^Discovery details/i });
+    await user.click(discoveryRail);
+    expect(discoveryRail).toHaveAttribute('aria-current', 'page');
+    await waitFor(() => expect(openingDateField).toBeVisible());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('focuses the exact required field from the command-center primary action', async () => {
@@ -264,19 +269,19 @@ describe('RestaurantProfileSection', () => {
     expect(container.querySelector('#profile-discovery')).not.toBeNull();
   });
 
-  it('renders the optional Google comparison action and the related-settings footer', async () => {
+  it('renders the optional Google comparison action without command-center footer links', async () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
 
-    const availabilityLink = screen.getByRole('link', { name: /availability & booking types/i });
-    expect(availabilityLink).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Compare with Google' })).toHaveAttribute(
       'href',
-      '/app/settings/restaurant/availability#booking-rules',
+      '/app/settings/restaurant/google-business-profile#gbp-connection',
     );
-
-    const teamLink = screen.getByRole('link', { name: /^team$/i });
-    expect(teamLink).toHaveAttribute('href', '/app/settings/restaurant/team');
+    expect(
+      screen.queryByRole('link', { name: /availability & booking types/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^team$/i })).not.toBeInTheDocument();
   });
 });
 

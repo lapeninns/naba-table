@@ -1,7 +1,5 @@
 'use client';
 
-import { ArrowRight, Compass } from 'lucide-react';
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
@@ -14,12 +12,9 @@ import {
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
-import { useOpsRestaurantBusinessContext } from '@/hooks/ops/useOpsRestaurantBusinessContext';
 import {
   useOpsRestaurantDetails,
   useOpsUpdateRestaurantDetails,
@@ -27,12 +22,9 @@ import {
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { opsHref } from '@/lib/url/opsHref';
-import { cn } from '@/lib/utils';
 
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import {
-  DiscoverySheet,
-  PROFILE_DISCOVERY_DEFINITION,
   PROFILE_SECTION_DEFINITIONS,
   ProfileOverviewCard,
   ProfileSectionPane,
@@ -53,6 +45,8 @@ import {
 } from './restaurantProfileModel';
 import {
   SettingsCard,
+  SettingsSectionNav,
+  SETTINGS_COMMAND_CENTER_LAYOUT_CLASS,
   type RestaurantSettingsCommandRailItem,
 } from './shared';
 
@@ -73,8 +67,6 @@ function isProfileAnchorId(value: string): value is ProfileAnchorId {
 }
 
 const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
-const AVAILABILITY_BOOKING_RULES_HREF = opsHref('/settings/restaurant/availability#booking-rules');
-const TEAM_HREF = opsHref('/settings/restaurant/team');
 const DEFAULT_ACTIVE_SECTION_ID: ProfileSectionId = 'brand';
 
 const READINESS_FIELD_TARGETS: Partial<
@@ -107,118 +99,24 @@ function emitProfileEditorAnalytics(
   void emit(eventName, props);
 }
 
-const PROFILE_FOOTER = (
-  <span>
-    Booking rules now live with the schedule on{' '}
-    <Link href={AVAILABILITY_BOOKING_RULES_HREF} className="underline">
-      Availability &amp; Booking types
-    </Link>
-    . Manage staff invites in{' '}
-    <Link href={TEAM_HREF} className="underline">
-      Team
-    </Link>
-    . Google is optional and only needed when you want import or comparison support.
-  </span>
-);
-
 type ProfileShellProps = {
   railItems?: RestaurantSettingsCommandRailItem[];
   children: ReactNode;
 };
 
 /**
- * Shared command-center frame around every Profile state (loaded, loading,
- * error, no-restaurant). Keeps the same restaurant-settings layout contract as
- * the Availability route so editing starts directly under the header.
+ * Shared compact frame around every Profile state (loaded, loading,
+ * error, no-restaurant). Keeps editing directly under the page heading.
  */
-function ProfileShell({
-  railItems,
-  children,
-}: ProfileShellProps) {
-  const hasRail = (railItems?.length ?? 0) > 0;
-
+function ProfileShell({ railItems, children }: ProfileShellProps) {
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+    <section className={SETTINGS_COMMAND_CENTER_LAYOUT_CLASS} aria-label="Profile sections">
+      <SettingsSectionNav
+        title="Profile sections"
+        description="Required items make the booking link usable. Discovery is optional and saves per panel."
+        items={railItems}
+      />
       <div className="flex min-w-0 flex-col gap-4">{children}</div>
-      {hasRail ? (
-        <aside className="xl:sticky xl:top-20 xl:self-start">
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="gap-1 px-4 py-3">
-              <CardTitle className="text-base">Profile sections</CardTitle>
-              <CardDescription className="text-xs leading-5">
-                Required items make the booking link usable. Discovery stays optional and saves in
-                its own drawer.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-1 px-2 pb-3">
-              {(railItems ?? []).map((item) => {
-                const Icon = item.Icon;
-                const itemKey = item.href ?? item.label;
-                const content = (
-                  <>
-                    {Icon ? (
-                      <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground">
-                        <Icon className="size-4" aria-hidden />
-                      </span>
-                    ) : null}
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-2 text-sm font-medium leading-5">
-                        {item.label}
-                        <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-                      </span>
-                      {item.description ? (
-                        <span className="mt-0.5 block text-xs leading-5 text-muted-foreground break-words">
-                          {item.description}
-                        </span>
-                      ) : null}
-                    </span>
-                    {item.badge ? (
-                      <span className="shrink-0 rounded-md border border-border/70 px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </>
-                );
-
-                if (item.onSelect) {
-                  return (
-                    <Button
-                      key={itemKey}
-                      type="button"
-                      variant="ghost"
-                      aria-current={item.isActive ? 'page' : undefined}
-                      onClick={item.onSelect}
-                      className={cn(
-                        'h-auto items-start justify-start gap-3 whitespace-normal px-2 py-2 text-left',
-                        item.isActive && 'bg-primary/10 text-foreground',
-                      )}
-                    >
-                      {content}
-                    </Button>
-                  );
-                }
-
-                return (
-                  <Button
-                    key={itemKey}
-                    asChild
-                    variant="ghost"
-                    aria-current={item.isActive ? 'page' : undefined}
-                    className={cn(
-                      'h-auto items-start justify-start gap-3 whitespace-normal px-2 py-2 text-left',
-                      item.isActive && 'bg-primary/10 text-foreground',
-                    )}
-                  >
-                    <Link href={item.href ?? '#'}>{content}</Link>
-                  </Button>
-                );
-              })}
-            </CardContent>
-            <Separator />
-            <div className="px-4 py-3 text-xs leading-5 text-muted-foreground">{PROFILE_FOOTER}</div>
-          </Card>
-        </aside>
-      ) : null}
     </section>
   );
 }
@@ -226,9 +124,6 @@ function ProfileShell({
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
-  // The discovery drawer save scope is owned by RestaurantBusinessContextSection,
-  // but we still subscribe here so the rail can surface a Draft badge.
-  void useOpsRestaurantBusinessContext(restaurantId);
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
   const [dirtyState, setDirtyState] = useState<Record<ProfileDirtyKey, boolean>>({
     brand: false,
@@ -239,7 +134,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   });
   const [activeSectionId, setActiveSectionId] =
     useState<ProfileSectionId>(DEFAULT_ACTIVE_SECTION_ID);
-  const [discoverySheetOpen, setDiscoverySheetOpen] = useState(false);
   const [sectionDrafts, setSectionDrafts] = useState<
     Partial<Record<ProfileDirtyKey, RestaurantDetailsDraftValues>>
   >({});
@@ -273,10 +167,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     const applyHash = () => {
       const raw = window.location.hash.slice(1);
       if (!raw || !isProfileAnchorId(raw)) {
-        return;
-      }
-      if (raw === PROFILE_DISCOVERY_DEFINITION.anchorId) {
-        setDiscoverySheetOpen(true);
         return;
       }
       const section = PROFILE_SECTION_DEFINITIONS.find((item) => item.anchorId === raw);
@@ -424,16 +314,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     requestAnimationFrame(() => {
       document.getElementById(section.anchorId)?.scrollIntoView({ block: 'start' });
     });
-  }, []);
-  const handleOpenDiscovery = useCallback(() => {
-    setDiscoverySheetOpen(true);
-    window.history.replaceState(null, '', '#profile-discovery');
-  }, []);
-  const handleDiscoveryOpenChange = useCallback((open: boolean) => {
-    setDiscoverySheetOpen(open);
-    if (!open && window.location.hash === `#${PROFILE_DISCOVERY_DEFINITION.anchorId}`) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    }
   }, []);
   const handleFocusReadinessItem = useCallback((key: ReadinessItemKey) => {
     const target = READINESS_FIELD_TARGETS[key];
@@ -595,7 +475,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
 
   const discoveryDirty = dirtyState.discovery;
   const activeSection = findProfileSection(activeSectionId);
-  const sectionRailItems: RestaurantSettingsCommandRailItem[] = PROFILE_SECTION_DEFINITIONS.map(
+  const railItems: RestaurantSettingsCommandRailItem[] = PROFILE_SECTION_DEFINITIONS.map(
     (section) => {
       const isDirty = dirtyState[section.dirtyKey];
       const isMissingRequired = missingRequiredSectionIds.has(section.id);
@@ -609,54 +489,10 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       };
     },
   );
-  const discoveryRailItem: RestaurantSettingsCommandRailItem = {
-    label: PROFILE_DISCOVERY_DEFINITION.navLabel,
-    description: PROFILE_DISCOVERY_DEFINITION.description,
-    onSelect: handleOpenDiscovery,
-    Icon: Compass,
-    badge: discoveryDirty ? 'Draft' : undefined,
-  };
-  const railItems: RestaurantSettingsCommandRailItem[] = [
-    ...sectionRailItems,
-    discoveryRailItem,
-  ];
 
   return (
     <ProfileShell railItems={railItems}>
       <div className="flex flex-col gap-4">
-        <ProfileOverviewCard
-          restaurantName={derivedRestaurantName}
-          logoUrl={previewLogoUrl ?? null}
-          bookingSlug={previewValues.slug || null}
-          readinessScore={readiness.score}
-          readinessStageLabel={readinessStageLabel}
-          completedCount={readiness.completed.length}
-          totalCount={readiness.missing.length + readiness.completed.length}
-          missingRequired={readiness.missingRequired}
-          missingOptional={readiness.missing.filter((item) => !item.required)}
-          googleStatusLabel={
-            gbpConnectionQuery.data?.status === 'linked'
-              ? googleStatusLabel
-              : 'Not linked'
-          }
-          googleStatusDetail={googleStatusDetail}
-          googleDifferenceCount={googleDifferenceCount}
-          googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
-          nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
-          nextActionDescription={
-            nextReadinessItem
-              ? 'Complete the next required item to make the booking link reliable for guests.'
-              : 'Required profile fields are complete. You can now polish discovery details.'
-          }
-          onJumpToBooking={() => handleFocusReadinessItem('bookingUrl')}
-          onJumpToNextAction={
-            nextReadinessItem
-              ? () => handleFocusReadinessItem(nextReadinessItem.key)
-              : null
-          }
-          onFocusItem={handleFocusReadinessItem}
-        />
-
         {PROFILE_SECTION_DEFINITIONS.map((section) => (
           <ProfileSectionPane
             key={section.id}
@@ -713,8 +549,44 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
                 onDraftChange={draftHandlers.notifications}
               />
             ) : null}
+            {section.id === 'discovery' ? (
+              <RestaurantBusinessContextSection
+                restaurantId={restaurantId}
+                embedded
+                onDirtyChange={dirtyHandlers.discovery}
+              />
+            ) : null}
           </ProfileSectionPane>
         ))}
+
+        <ProfileOverviewCard
+          restaurantName={derivedRestaurantName}
+          logoUrl={previewLogoUrl ?? null}
+          bookingSlug={previewValues.slug || null}
+          readinessScore={readiness.score}
+          readinessStageLabel={readinessStageLabel}
+          completedCount={readiness.completed.length}
+          totalCount={readiness.missing.length + readiness.completed.length}
+          missingRequired={readiness.missingRequired}
+          missingOptional={readiness.missing.filter((item) => !item.required)}
+          googleStatusLabel={
+            gbpConnectionQuery.data?.status === 'linked' ? googleStatusLabel : 'Not linked'
+          }
+          googleStatusDetail={googleStatusDetail}
+          googleDifferenceCount={googleDifferenceCount}
+          googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
+          nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
+          nextActionDescription={
+            nextReadinessItem
+              ? 'Complete the next required item to make the booking link reliable for guests.'
+              : 'Required profile fields are complete. You can now polish discovery details.'
+          }
+          onJumpToBooking={() => handleFocusReadinessItem('bookingUrl')}
+          onJumpToNextAction={
+            nextReadinessItem ? () => handleFocusReadinessItem(nextReadinessItem.key) : null
+          }
+          onFocusItem={handleFocusReadinessItem}
+        />
 
         <UnifiedActionBar
           dirtyFormSections={dirtyFormSections}
@@ -722,18 +594,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           activeSection={activeSection}
           lastSavedAt={data?.updatedAt ?? null}
           onSaveAll={handleSaveAllProfileForms}
-          onOpenDiscovery={handleOpenDiscovery}
         />
       </div>
-
-      <div id={PROFILE_DISCOVERY_DEFINITION.anchorId} className="sr-only" aria-hidden="true" />
-      <DiscoverySheet open={discoverySheetOpen} onOpenChange={handleDiscoveryOpenChange}>
-        <RestaurantBusinessContextSection
-          restaurantId={restaurantId}
-          embedded
-          onDirtyChange={dirtyHandlers.discovery}
-        />
-      </DiscoverySheet>
     </ProfileShell>
   );
 }

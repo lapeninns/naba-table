@@ -13,7 +13,6 @@ type UnifiedActionBarProps = {
   activeSection: ProfileSectionDefinition;
   lastSavedAt: string | null;
   onSaveAll: () => void;
-  onOpenDiscovery: () => void;
   className?: string;
 };
 
@@ -39,15 +38,16 @@ export function UnifiedActionBar({
   activeSection,
   lastSavedAt,
   onSaveAll,
-  onOpenDiscovery,
   className,
 }: UnifiedActionBarProps) {
   const profileDirtyCount = dirtyFormSections.length;
+  const unsavedSectionCount = profileDirtyCount + (discoveryDirty ? 1 : 0);
   const activeDirtySection = dirtyFormSections.find(
     (section) => section.key === activeSection.dirtyKey,
   );
+  const discoveryIsActive = activeSection.id === 'discovery';
 
-  if (profileDirtyCount === 0 && !discoveryDirty) {
+  if (unsavedSectionCount === 0) {
     return (
       <div
         role="status"
@@ -58,22 +58,19 @@ export function UnifiedActionBar({
       >
         <p>
           Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>.
-          Save controls appear here when a profile section or Discovery has a draft.
+          Save controls appear here when a profile section has a draft.
         </p>
       </div>
     );
   }
 
-  const title =
-    profileDirtyCount > 0
-      ? `${profileDirtyCount} unsaved profile section${profileDirtyCount === 1 ? '' : 's'}`
-      : 'Discovery has unsaved draft changes';
+  const title = `${unsavedSectionCount} unsaved profile section${unsavedSectionCount === 1 ? '' : 's'}`;
   const description =
-    profileDirtyCount > 0 && discoveryDirty
-      ? 'Profile sections save from this bar. Discovery saves inside its own drawer.'
-      : profileDirtyCount > 0
-        ? 'Save profile changes without leaving this command center.'
-        : 'Open Discovery to review and save its panel-level draft.';
+    discoveryDirty && profileDirtyCount > 0
+      ? 'Save profile forms from this bar. Discovery panels save individually in the section below.'
+      : discoveryDirty
+        ? 'Save each discovery panel below when you are ready.'
+        : 'Save profile changes without leaving this settings workspace.';
 
   return (
     <Alert
@@ -101,10 +98,10 @@ export function UnifiedActionBar({
               Save all
             </Button>
           ) : null}
-          {discoveryDirty ? (
-            <Button type="button" variant="outline" size="sm" onClick={onOpenDiscovery}>
-              Review discovery draft
-            </Button>
+          {discoveryDirty && discoveryIsActive && !activeDirtySection ? (
+            <span className="text-xs text-muted-foreground">
+              Use each panel&apos;s save action.
+            </span>
           ) : null}
         </div>
       </AlertDescription>

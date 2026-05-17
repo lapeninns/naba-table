@@ -5,6 +5,7 @@ import type { RestaurantSettingsView } from './types';
 export type RestaurantSettingsRoute = {
   view: RestaurantSettingsView;
   href: string;
+  aliases?: string[];
   title: string;
   description: string;
 };
@@ -31,6 +32,12 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
     view: 'availability',
     href: opsHref('/settings/restaurant/availability'),
+    aliases: [
+      opsHref('/settings/restaurant/service-periods'),
+      opsHref('/settings/restaurant/operating-hours'),
+      opsHref('/settings/restaurant/turn-durations'),
+      opsHref('/settings/restaurant/occasions'),
+    ],
     title: 'Availability & Booking types',
     description:
       'Booking rules, weekly hours, overrides, meal windows, booking types, and dining-duration bands.',
@@ -57,13 +64,18 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
 
 export type RestaurantSettingsNavItem = Pick<
   RestaurantSettingsRoute,
-  'href' | 'title' | 'description'
+  'href' | 'aliases' | 'title' | 'description'
 >;
 
 const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
   const route = RESTAURANT_SETTINGS_ROUTES.find((item) => item.view === view);
   if (!route) throw new Error(`Missing restaurant settings route for view: ${view}`);
-  return { href: route.href, title: route.title, description: route.description };
+  return {
+    href: route.href,
+    aliases: route.aliases,
+    title: route.title,
+    description: route.description,
+  };
 };
 
 export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [

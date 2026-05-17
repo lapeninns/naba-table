@@ -3,7 +3,7 @@ import { Building2, Compass, MapPin, MegaphoneIcon, ScanLine } from 'lucide-reac
 import type { ProfileDirtyKey } from '../restaurantProfileModel';
 import type { LucideIcon } from 'lucide-react';
 
-export type ProfileSectionId = 'brand' | 'contact' | 'advanced' | 'notifications';
+export type ProfileSectionId = 'brand' | 'contact' | 'advanced' | 'notifications' | 'discovery';
 
 export type ProfileSectionDefinition = {
   id: ProfileSectionId;
@@ -63,15 +63,18 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     icon: MegaphoneIcon,
     anchorId: 'profile-notifications',
   },
+  {
+    id: 'discovery',
+    dirtyKey: 'discovery',
+    navLabel: 'Discovery details',
+    paneTitle: 'Discovery details',
+    paneDescription:
+      'Categories, links, and attributes that help guests and directories describe your restaurant.',
+    audience: 'Guest-facing. Optional.',
+    icon: Compass,
+    anchorId: 'profile-discovery',
+  },
 ] as const;
-
-/** Discovery is a separate save subsystem and lives in the side-nav as its own group. */
-export const PROFILE_DISCOVERY_DEFINITION = {
-  navLabel: 'Discovery details',
-  description: 'Optional. Saved per panel inside its own drawer.',
-  icon: Compass,
-  anchorId: 'profile-discovery',
-} as const;
 
 export function findProfileSection(id: ProfileSectionId): ProfileSectionDefinition {
   const match = PROFILE_SECTION_DEFINITIONS.find((section) => section.id === id);

@@ -41,3 +41,20 @@ export const SETTINGS_COMPACT_STATUS_ROW_CLASS =
   'flex flex-wrap items-center gap-2 text-xs text-muted-foreground';
 
 export const SETTINGS_COMPACT_HELPER_TEXT_CLASS = 'text-xs leading-5 text-muted-foreground';
+
+export const SETTINGS_COMMAND_CENTER_LAYOUT_CLASS = 'flex min-w-0 flex-col gap-4';
+
+export const SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS =
+  'grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
+
+export const SETTINGS_COMMAND_CENTER_RAIL_CARD_CLASS =
+  'border-border/70 bg-card text-card-foreground shadow-sm';
+
+export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS =
+  'h-auto min-w-0 items-start justify-start gap-3 whitespace-normal rounded-md px-2 py-2 text-left transition-[background-color,color,box-shadow,transform] duration-200 motion-reduce:transition-none motion-safe:hover:-translate-y-[1px]';
+
+export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS =
+  'bg-background text-foreground shadow-sm ring-1 ring-border';
+
+export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS =
+  'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border';

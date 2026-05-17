@@ -1,18 +1,16 @@
 'use client';
 
+import { motion } from 'motion/react';
 import { usePathname } from 'next/navigation';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
-import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Badge } from '@/components/ui/badge';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
-import { RestaurantSettingsSubnav } from './RestaurantSettingsSubnav';
+import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
 import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
-import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
 
 export type RestaurantSettingsPageShellProps = {
   /**
@@ -24,11 +22,37 @@ export type RestaurantSettingsPageShellProps = {
   description?: string;
   eyebrow?: string;
   children: ReactNode;
+  envBanner?: string | null;
 };
 
 const DEFAULT_TITLE = 'Restaurant';
 const DEFAULT_DESCRIPTION =
   'Configure the restaurant profile, availability, reservation durations, menu, tables, and team access.';
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!mediaQuery) {
+      return;
+    }
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    mediaQuery.addEventListener?.('change', handleChange);
+    return () => mediaQuery.removeEventListener?.('change', handleChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 function isRestaurantSettingsRouteActive(pathname: string, href: string) {
   const normalizedHref = normalizeOpsPathname(href);
@@ -38,12 +62,22 @@ function isRestaurantSettingsRouteActive(pathname: string, href: string) {
   return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
 }
 
-export function RestaurantSettingsPageShell({
+function isRestaurantSettingsNavItemActive(
+  pathname: string,
+  item: (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number],
+) {
+  if (isRestaurantSettingsRouteActive(pathname, item.href)) {
+    return true;
+  }
+
+  return (item.aliases ?? []).some((alias) => isRestaurantSettingsRouteActive(pathname, alias));
+}
+
+function RestaurantSettingsPageHeading({
   title,
   description,
-  eyebrow = 'Settings',
-  children,
-}: RestaurantSettingsPageShellProps) {
+  eyebrow,
+}: Pick<RestaurantSettingsPageShellProps, 'title' | 'description' | 'eyebrow'>) {
   const pathname = usePathname();
   const { memberships, activeRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
@@ -53,7 +87,7 @@ export function RestaurantSettingsPageShell({
     const normalized = normalizeOpsPathname(pathname);
     return (
       RESTAURANT_SETTINGS_NAV_ITEMS.find((item) =>
-        isRestaurantSettingsRouteActive(normalized, item.href),
+        isRestaurantSettingsNavItemActive(normalized, item),
       ) ?? null
     );
   }, [pathname]);
@@ -69,29 +103,46 @@ export function RestaurantSettingsPageShell({
     null;
 
   return (
-    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
-      <OpsPageHeader
-        eyebrow={eyebrow}
-        title={resolvedTitle}
-        subtitle={resolvedDescription}
-        meta={
-          restaurantName ? (
-            <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>Editing</span>
-              <Badge variant="outline" className="font-medium text-foreground">
-                {restaurantName}
-              </Badge>
-              <span className="hidden sm:inline">Change restaurant from the sidebar.</span>
-            </span>
-          ) : null
-        }
-        headingLevel="h1"
-        titleClassName="text-2xl"
-      />
+    <OpsPageHeader
+      eyebrow={eyebrow}
+      title={resolvedTitle}
+      subtitle={resolvedDescription}
+      meta={
+        restaurantName ? (
+          <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>Editing</span>
+            <Badge variant="outline" className="font-medium text-foreground">
+              {restaurantName}
+            </Badge>
+          </span>
+        ) : null
+      }
+      headingLevel="h1"
+      titleClassName="text-2xl"
+      className="mb-6"
+    />
+  );
+}
 
-      <RestaurantSettingsSubnav />
+export function RestaurantSettingsPageShell({
+  title,
+  description,
+  eyebrow = 'Settings',
+  children,
+  envBanner,
+}: RestaurantSettingsPageShellProps) {
+  const reduceMotion = usePrefersReducedMotion();
 
-      <div className={SETTINGS_COMPACT_PAGE_CONTENT_CLASS}>{children}</div>
-    </OpsPageShell>
+  return (
+    <RestaurantSettingsFocusedShell envBanner={envBanner}>
+      <RestaurantSettingsPageHeading title={title} description={description} eyebrow={eyebrow} />
+      <motion.div
+        initial={reduceMotion ? false : { y: 8, opacity: 0 }}
+        animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
+        transition={{ duration: 0.18, ease: 'easeOut' }}
+      >
+        {children}
+      </motion.div>
+    </RestaurantSettingsFocusedShell>
   );
 }

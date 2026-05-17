@@ -218,7 +218,8 @@ test.describe('ops capacity and table shipped routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/tables/);
-    await expect(page.locator('main').getByText('Tables command center')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+    await expect(page.locator('main').getByText('Tables workflow')).toBeVisible();
     await expect(page.locator('main').getByText('Ready for bookings')).toBeVisible();
     await expect(page.locator('main').getByText('2 active tables, 8 covers')).toBeVisible();
     await expect(page.locator('main').getByText('Dinner')).toBeVisible();

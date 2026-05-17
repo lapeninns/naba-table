@@ -8,6 +8,7 @@ import {
 } from '@/lib/ops/session';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
+import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { fetchUserMembershipsCached, requireAdminMembership } from '@/server/team/access';
 
@@ -21,8 +22,12 @@ export default async function RestaurantSettingsLayout({ children }: { children:
     host: headerStore.get('host'),
   });
 
+  const opsEnvBanner = resolveOpsEnvBanner();
+
   if (qaOpsFixture) {
-    return <RestaurantSettingsPageShell>{children}</RestaurantSettingsPageShell>;
+    return (
+      <RestaurantSettingsPageShell envBanner={opsEnvBanner}>{children}</RestaurantSettingsPageShell>
+    );
   }
 
   const supabase = await getServerComponentSupabaseClient();
@@ -60,5 +65,7 @@ export default async function RestaurantSettingsLayout({ children }: { children:
     redirect('/app/bookings');
   }
 
-  return <RestaurantSettingsPageShell>{children}</RestaurantSettingsPageShell>;
+  return (
+    <RestaurantSettingsPageShell envBanner={opsEnvBanner}>{children}</RestaurantSettingsPageShell>
+  );
 }

@@ -18,9 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useOpsDisconnectGoogleBusinessProfile,
@@ -36,7 +35,7 @@ import {
 } from '@/services/ops/restaurants';
 import { invalidateOpsIntegrationQueries } from '@src/hooks/ops/opsIntegrationQueries';
 
-import { type RestaurantSettingsCommandRailItem } from '../shared';
+import { RestaurantSettingsCommandCenter, type RestaurantSettingsCommandRailItem } from '../shared';
 import { ConnectCard } from './components/ConnectCard';
 import { GbpOverviewCard } from './components/GbpOverviewCard';
 import { LocationPickerCard } from './components/LocationPickerCard';
@@ -197,6 +196,8 @@ function GbpFrame({
       ? 'gbp-location'
       : 'gbp-connection';
   const workflowSettled = stage === 'linked';
+  const accountLabel = getConnectedAccountLabel(data);
+  const hasLinkedLocation = Boolean(data?.externalLocationId);
 
   const railItems: RestaurantSettingsCommandRailItem[] = [
     {
@@ -231,61 +232,51 @@ function GbpFrame({
   ];
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+    <RestaurantSettingsCommandCenter
+      eyebrow="Google command center"
+      title="Google Business Profile"
+      description="Connect Google only when you need import, comparison, and sync-review support for public restaurant details."
+      metrics={[
+        {
+          label: 'Connection',
+          value: getStageLabel(stage),
+          description: accountLabel,
+          variant: workflowSettled ? 'default' : stage === 'issue' ? 'destructive' : 'secondary',
+          Icon: ShieldCheck,
+        },
+        {
+          label: 'Location',
+          value: hasLinkedLocation ? 'Mapped' : locationEnabled ? 'Choose one' : 'Locked',
+          description: getLocationTitle(data),
+          variant: hasLinkedLocation ? 'secondary' : 'outline',
+          Icon: MapPin,
+        },
+        {
+          label: 'Review',
+          value: hasSyncWorkspace ? 'Available' : 'Unavailable',
+          description: hasSyncWorkspace ? 'compare imports and exports' : 'connection only',
+          variant: hasSyncWorkspace ? 'metric' : 'outline',
+          Icon: SearchCheck,
+        },
+      ]}
+      railTitle="Google workflow"
+      railDescription={
+        workflowSettled
+          ? hasSyncWorkspace
+            ? 'Setup complete. Jump to review or reconnect.'
+            : 'Setup complete. Reconnect if needed.'
+          : 'Jump to the current setup step.'
+      }
+      railItems={railItems}
+      footer={<GbpFooter />}
+    >
       <div className="flex min-w-0 flex-col gap-4">
         <div id="gbp-connection" className="scroll-mt-24">
           {overview}
         </div>
         {children}
       </div>
-      <aside className="xl:sticky xl:top-20 xl:self-start">
-        <Card className="border-border/70 shadow-sm">
-          <CardHeader className="gap-1 px-4 py-3">
-            <CardTitle className="text-base">Google workflow</CardTitle>
-            <CardDescription className="text-xs leading-5">
-              {workflowSettled
-                ? hasSyncWorkspace
-                  ? 'Setup complete. Jump to review or reconnect.'
-                  : 'Setup complete. Reconnect if needed.'
-                : 'Jump to the current setup step.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1 px-2 pb-3">
-            {railItems.map((item) => (
-              <Button
-                key={item.label}
-                type="button"
-                variant="ghost"
-                onClick={item.onSelect}
-                className="h-auto min-w-0 items-start justify-start gap-3 whitespace-normal px-2 py-2 text-left"
-              >
-                {item.Icon ? (
-                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground">
-                    <item.Icon className="size-4" aria-hidden />
-                  </span>
-                ) : null}
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium leading-5">{item.label}</span>
-                  {item.description ? (
-                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground break-words">
-                      {item.description}
-                    </span>
-                  ) : null}
-                </span>
-                {item.badge ? (
-                  <Badge variant="outline" className="shrink-0">
-                    {item.badge}
-                  </Badge>
-                ) : null}
-              </Button>
-            ))}
-          </CardContent>
-          <CardContent className="border-t border-border/60 px-4 py-3 text-xs leading-5 text-muted-foreground">
-            <GbpFooter />
-          </CardContent>
-        </Card>
-      </aside>
-    </section>
+    </RestaurantSettingsCommandCenter>
   );
 }
 

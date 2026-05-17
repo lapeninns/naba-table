@@ -261,7 +261,9 @@ describe('AvailabilityScheduleManager', () => {
   it('renders the ready schedule editor with save controls disabled until edits exist', async () => {
     renderManager();
 
-    expect(await screen.findByText('How this command center works')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Operating hours and service windows together'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Weekly schedule' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Date overrides' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save configuration' })).toBeDisabled();

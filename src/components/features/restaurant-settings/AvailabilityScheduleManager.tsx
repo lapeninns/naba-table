@@ -169,7 +169,7 @@ export function AvailabilityScheduleManager({
   useRegisterOpsUnsavedChanges(
     'availability-command-center',
     hasLocalChanges,
-    'You have unsaved availability changes in this command center. Leave without saving them?',
+    'You have unsaved availability changes in this settings workspace. Leave without saving them?',
   );
 
   useEffect(() => {
@@ -766,8 +766,8 @@ export function AvailabilityScheduleManager({
             <AlertTitle>Additional service periods are preserved</AlertTitle>
             <AlertDescription>
               {customRows.length} custom service period{customRows.length === 1 ? '' : 's'} sit
-              outside the lunch-dinner layout. They will be preserved unchanged by this command
-              center.
+              outside the lunch-dinner layout. They will be preserved unchanged by this availability
+              save flow.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -775,7 +775,7 @@ export function AvailabilityScheduleManager({
         {isScheduleWorkspace ? (
           <Alert>
             <Clock3 className="size-4" />
-            <AlertTitle>How this command center works</AlertTitle>
+            <AlertTitle>How availability saving works</AlertTitle>
             <AlertDescription>
               This page owns the day-to-day availability workflow. Weekly hours, service windows,
               overrides, and booking types (with per-party-size turn times) now live in one editable

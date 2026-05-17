@@ -281,7 +281,7 @@ test.describe('ops restaurant settings and team shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/team/);
     await expect(page.getByRole('heading', { name: 'Team' })).toBeVisible();
-    await expect(page.locator('main').getByText('Team command center')).toBeVisible();
+    await expect(page.locator('main').getByText('Team workflow')).toBeVisible();
     await expect(page.locator('main').getByText('Invite a team member')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Send invite' })).toBeVisible();
 
@@ -301,13 +301,17 @@ test.describe('ops restaurant settings and team shipped routes', () => {
       '/settings/restaurant/availability',
       '/settings/restaurant/operating-hours',
       '/settings/restaurant/service-periods',
+      '/settings/restaurant/turn-durations',
       '/settings/restaurant/occasions',
     ]) {
       await page.goto(routePath, { waitUntil: 'domcontentloaded' });
       await waitForSettled(page);
 
       await expect(page).toHaveURL(new RegExp(`app\\.localhost:\\d+${routePath}`));
-      await expect(page.locator('main').getByText('Availability command center')).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Availability & Booking types' }),
+      ).toBeVisible();
+      await expect(page.locator('main').getByText('Availability sections')).toBeVisible();
       await expect(
         page.locator('#booking-rules').getByText('Booking rules', { exact: true }),
       ).toBeVisible();

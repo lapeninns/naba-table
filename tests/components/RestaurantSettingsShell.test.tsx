@@ -61,6 +61,7 @@ import {
 } from '@/components/features/restaurant-settings/routes';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
+import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
 
 import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
 import type { OpsMembership, OpsUser } from '@/types/ops';
@@ -178,9 +179,11 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
         }
       >
         <OpsSessionProvider user={user} memberships={[membership]} initialRestaurantId="rest-1">
-          <RestaurantSettingsPageShell>
-            <div>Route content</div>
-          </RestaurantSettingsPageShell>
+          <OpsUnsavedChangesProvider>
+            <RestaurantSettingsPageShell>
+              <div>Route content</div>
+            </RestaurantSettingsPageShell>
+          </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
     </QueryClientProvider>,
@@ -205,6 +208,16 @@ describe('restaurant settings route contract', () => {
       '/app/settings/restaurant/team',
     ]);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS).toHaveLength(RESTAURANT_SETTINGS_ROUTES.length);
+    expect(
+      RESTAURANT_SETTINGS_NAV_ITEMS.find(
+        (item) => item.href === '/app/settings/restaurant/availability',
+      )?.aliases,
+    ).toEqual([
+      '/app/settings/restaurant/service-periods',
+      '/app/settings/restaurant/operating-hours',
+      '/app/settings/restaurant/turn-durations',
+      '/app/settings/restaurant/occasions',
+    ]);
   });
 });
 
@@ -255,13 +268,12 @@ describe('OpsRestaurantSettingsClient', () => {
 });
 
 describe('RestaurantSettingsSubnav', () => {
-  it('uses the compact page and navigation baseline across settings routes', () => {
+  it('uses the focused settings shell and navigation baseline across settings routes', () => {
     renderPageShell('/app/settings/restaurant');
 
-    expect(screen.getByTestId('ops-page-shell')).toHaveClass(
-      'mx-auto',
-      'max-w-[1200px]',
-      'space-y-5',
+    expect(screen.getByRole('link', { name: 'Close restaurant settings' })).toHaveAttribute(
+      'href',
+      '/app/dashboard',
     );
     expect(screen.getByRole('heading', { level: 1, name: 'Restaurant setup' })).toHaveClass(
       'text-2xl',
@@ -271,7 +283,7 @@ describe('RestaurantSettingsSubnav', () => {
       'px-3',
       'py-2',
     );
-    expect(screen.getByText('Change restaurant from the sidebar.')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Restaurant settings' })).toBeInTheDocument();
   });
 
   it('renders every shipped settings route from the shared nav contract', () => {
@@ -283,6 +295,19 @@ describe('RestaurantSettingsSubnav', () => {
     expect(screen.getByRole('link', { name: 'Tables' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Restaurant setup' })).not.toHaveAttribute(
       'aria-current',
+    );
+  });
+
+  it('maps availability aliases to the Availability page heading and active nav item', () => {
+    renderPageShell('/app/settings/restaurant/service-periods');
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Restaurant' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Availability & Booking types' })).toHaveAttribute(
+      'aria-current',
+      'page',
     );
   });
 

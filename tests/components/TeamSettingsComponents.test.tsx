@@ -113,7 +113,11 @@ describe('OpsTeamManagementClient', () => {
   it('shows limited permissions and hides the invite form for non-manager roles', () => {
     renderTeamClient([makeMembership({ role: 'host' })]);
 
-    expect(screen.getByText('Team command center')).toBeInTheDocument();
+    expect(screen.getByText('Team workflow')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Invitations/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect(screen.getByText('Limited permissions')).toBeInTheDocument();
     expect(screen.queryByText('Invite a team member')).not.toBeInTheDocument();
     expect(screen.getByText('Team invitations')).toBeInTheDocument();

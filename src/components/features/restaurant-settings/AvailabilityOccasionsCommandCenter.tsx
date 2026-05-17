@@ -12,7 +12,7 @@ import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { cn } from '@/lib/utils';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
-import { RestaurantSettingsCommandCenter, SettingsCard } from './shared';
+import { SettingsCard, SettingsSectionNav, SETTINGS_COMMAND_CENTER_LAYOUT_CLASS } from './shared';
 import {
   BookingRulesSubform,
   COMMON_TIMEZONES,
@@ -167,63 +167,38 @@ export function AvailabilityOccasionsCommandCenter({
   }, []);
 
   return (
-    <RestaurantSettingsCommandCenter
-      eyebrow="Availability command center"
-      title="Availability & Booking types"
-      description="Configure the operating week, special-date overrides, service windows, booking rules, and booking types from one route without splitting schedule decisions across separate pages."
-      metrics={[
-        {
-          label: 'Workflow',
-          value: 'Single save surface',
-          description: 'schedule and booking types',
-          variant: 'secondary',
-          Icon: CalendarClock,
-        },
-        {
-          label: 'Rules location',
-          value: 'Here',
-          description: 'not the profile page',
-          variant: 'outline',
-          Icon: ClipboardList,
-        },
-        {
-          label: 'Booking impact',
-          value: 'Live capacity',
-          description: 'times guests can choose',
-          variant: 'metric',
-          Icon: Clock3,
-        },
-      ]}
-      railTitle="Availability sections"
-      railDescription="Work top-down: rules first, then the weekly schedule and booking types."
-      railItems={[
-        {
-          label: 'Booking rules',
-          description: 'Reservation rhythm, default duration, seating buffer, and booking policy.',
-          href: '#booking-rules',
-          Icon: ClipboardList,
-          isActive: activeWorkspace === 'rules',
-          onSelect: () => selectWorkspace('rules'),
-        },
-        {
-          label: 'Schedule',
-          description: 'Weekly hours, service windows, and date overrides.',
-          href: '#availability-schedule',
-          Icon: CalendarClock,
-          isActive: activeWorkspace === 'schedule',
-          onSelect: () => selectWorkspace('schedule'),
-        },
-        {
-          label: 'Booking types',
-          description: 'Lunch, dinner, and turn-time rules by party size.',
-          href: '#booking-occasions',
-          Icon: Clock3,
-          isActive: activeWorkspace === 'booking-types',
-          onSelect: () => selectWorkspace('booking-types'),
-        },
-      ]}
-      footer="Booking rules live with availability because they directly affect reservation times across the restaurant."
-    >
+    <section className={SETTINGS_COMMAND_CENTER_LAYOUT_CLASS} aria-label="Availability sections">
+      <SettingsSectionNav
+        title="Availability sections"
+        description="Work top-down: rules first, then the weekly schedule and booking types."
+        items={[
+          {
+            label: 'Booking rules',
+            description:
+              'Reservation rhythm, default duration, seating buffer, and booking policy.',
+            href: '#booking-rules',
+            Icon: ClipboardList,
+            isActive: activeWorkspace === 'rules',
+            onSelect: () => selectWorkspace('rules'),
+          },
+          {
+            label: 'Schedule',
+            description: 'Weekly hours, service windows, and date overrides.',
+            href: '#availability-schedule',
+            Icon: CalendarClock,
+            isActive: activeWorkspace === 'schedule',
+            onSelect: () => selectWorkspace('schedule'),
+          },
+          {
+            label: 'Booking types',
+            description: 'Lunch, dinner, and turn-time rules by party size.',
+            href: '#booking-occasions',
+            Icon: Clock3,
+            isActive: activeWorkspace === 'booking-types',
+            onSelect: () => selectWorkspace('booking-types'),
+          },
+        ]}
+      />
       <div className="space-y-6">
         <div
           hidden={activeWorkspace !== 'rules'}
@@ -241,6 +216,6 @@ export function AvailabilityOccasionsCommandCenter({
           />
         </div>
       </div>
-    </RestaurantSettingsCommandCenter>
+    </section>
   );
 }

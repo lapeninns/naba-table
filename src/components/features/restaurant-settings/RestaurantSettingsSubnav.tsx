@@ -47,6 +47,17 @@ function isRestaurantSettingsRouteActive(pathname: string, href: string) {
   return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
 }
 
+function isRestaurantSettingsNavItemActive(
+  pathname: string,
+  item: (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number],
+) {
+  if (isRestaurantSettingsRouteActive(pathname, item.href)) {
+    return true;
+  }
+
+  return (item.aliases ?? []).some((alias) => isRestaurantSettingsRouteActive(pathname, alias));
+}
+
 type RestaurantSettingsSubnavItemProps = {
   title: string;
   active: boolean;
@@ -64,13 +75,14 @@ function RestaurantSettingsSubnavItem({
   return (
     <Link
       href={href}
+      aria-label={title}
       aria-current={active ? 'page' : undefined}
       onMouseEnter={onMouseEnter}
       onFocus={onFocus}
       className={cn(
-        'group flex min-w-[160px] shrink-0 items-start gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none lg:min-w-0 lg:flex-1',
+        'group relative flex min-w-[160px] shrink-0 items-start gap-2 rounded-md border-l-2 border-transparent px-3 py-2 text-left text-sm font-medium transition-[transform,box-shadow,background-color,color,ring-color,border-color] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none lg:min-w-0 lg:flex-1',
         active
-          ? 'bg-background text-foreground shadow-sm ring-1 ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-md'
+          ? 'border-primary bg-background text-foreground shadow-sm ring-1 ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-md'
           : 'text-muted-foreground hover:bg-background/70 hover:text-foreground hover:ring-1 hover:ring-border motion-safe:hover:-translate-y-[1px] motion-safe:hover:shadow-sm',
       )}
     >
@@ -94,7 +106,14 @@ function RestaurantSettingsSubnavItem({
   );
 }
 
-export function RestaurantSettingsSubnav() {
+type RestaurantSettingsSubnavProps = Pick<ComponentPropsWithoutRef<'nav'>, 'className'> & {
+  variant?: 'inline' | 'focused';
+};
+
+export function RestaurantSettingsSubnav({
+  className,
+  variant = 'inline',
+}: RestaurantSettingsSubnavProps) {
   const pathname = usePathname();
   const normalizedPathname = useMemo(
     () => (pathname != null ? normalizeOpsPathname(pathname) : null),
@@ -216,14 +235,28 @@ export function RestaurantSettingsSubnav() {
     [prefetchMap],
   );
 
+  const isFocused = variant === 'focused';
+
   return (
-    <nav aria-label="Restaurant settings" className="min-w-0">
-      <div className="min-w-0 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-2 lg:overflow-visible">
-        <div className="flex min-w-max gap-1.5 lg:min-w-0 lg:flex-wrap xl:flex-nowrap">
+    <nav aria-label="Restaurant settings" className={cn('min-w-0', className)}>
+      <div
+        className={cn(
+          'min-w-0 p-2',
+          isFocused
+            ? 'lg:overflow-y-auto lg:py-4 lg:pr-3'
+            : 'overflow-x-auto rounded-lg border border-border/60 bg-muted/30 lg:sticky lg:top-20 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:border-r lg:bg-muted/20',
+        )}
+      >
+        <div
+          className={cn(
+            'gap-1.5',
+            isFocused ? 'flex min-w-0 flex-col' : 'flex min-w-max lg:min-w-0 lg:flex-col',
+          )}
+        >
           {RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => {
             const active =
               normalizedPathname != null
-                ? isRestaurantSettingsRouteActive(normalizedPathname, item.href)
+                ? isRestaurantSettingsNavItemActive(normalizedPathname, item)
                 : false;
             return (
               <RestaurantSettingsSubnavItem

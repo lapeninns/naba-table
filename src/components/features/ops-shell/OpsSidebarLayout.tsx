@@ -34,7 +34,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
-import { OpsUnsavedChangesProvider, useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
+import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
@@ -60,8 +60,7 @@ export function OpsSidebarLayout({
   envBanner,
 }: OpsSidebarLayoutProps) {
   return (
-    <OpsUnsavedChangesProvider>
-      <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
         <OpsSidebarPanel />
         <SidebarRail />
         <SidebarInset className="bg-background">
@@ -104,7 +103,6 @@ export function OpsSidebarLayout({
           </div>
         </SidebarInset>
       </SidebarProvider>
-    </OpsUnsavedChangesProvider>
   );
 }
 
@@ -200,9 +198,9 @@ function OpsSidebarNav({
 
   return (
     <>
-      {sections.map((section) => (
-        <SidebarGroup key={section.label}>
-          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+      {sections.map((section, sectionIndex) => (
+        <SidebarGroup key={section.label ?? `section-${sectionIndex}`}>
+          {section.label ? <SidebarGroupLabel>{section.label}</SidebarGroupLabel> : null}
           <SidebarGroupContent>
             <SidebarMenu>
               {section.items.map((item) => {
