@@ -18,4 +18,4 @@ Do not include the whole query result object in the effect dependencies. Depend 
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

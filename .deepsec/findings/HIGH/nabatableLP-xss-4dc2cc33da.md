@@ -16,12 +16,6 @@ PATCH validates and persists template variants, but the schema permits '<' and '
 
 Use a safe JSON serializer for script contexts, e.g. JSON.stringify(data).replace(/</g, '\\u003c'), and sandbox the preview iframe without script or same-origin privileges unless scripts are required. If email templates are plain text only, also reject '<' in stored template fields.
 
-## Revalidation
-
-**Verdict:** fixed
-
-PATCH still persists template variants, but it now validates them with updateRestaurantEmailTemplateSchema before calling upsertRestaurantEmailTemplate. That schema applies plainTextSchema to ctaLabel, subject, headline, and intro, rejecting script markup such as </script> and unsafe control characters. The write path is also restaurant-admin gated through ensureTemplateWriteAccess and requireAdminMembership, so only owners/managers can edit templates, although the important XSS fix is the output encoding. Saved variants later rendered in previews flow into renderAnnotationScript, which now uses safeJsonForHtmlScript rather than raw JSON.stringify, so < characters in annotation.actionName are encoded as \u003c and cannot break out of the JSON-LD script. EmailTemplatesPreviewPane additionally renders srcDoc in an iframe with sandbox="", disabling scripts. This protects both newly saved variants and old database values that might predate the schema change. Commit 020a7389 introduced the schema hardening, safe JSON serializer, and sandboxed preview iframe, so the stored XSS finding is fixed.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)

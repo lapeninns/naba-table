@@ -16,12 +16,6 @@ The contact/location subform submits googleMapUrl and googleReviewUrl directly f
 
 Use a shared URL validator before submit and on the server that requires https and an allowlist of expected Google Maps/review hosts. Reject or clear existing nonconforming stored values before rendering public links or email CTAs.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The current submit path is no longer an arbitrary external URL sink. RestaurantDetailsForm and ContactLocationSubform both validate googleMapUrl and googleReviewUrl through validateRestaurantDetails before calling sanitizePayload, and the validator requires safeGoogleMapsUrl or safeGoogleReviewUrl to accept the value. The shared safe-url helper requires https and Google/g.page/maps.app.goo.gl-style hosts, so a direct phishing URL such as https://evil.example is rejected. A forged request cannot bypass this by skipping the browser because updateRestaurantSchema and the details route schemas apply the same sanitizer/refinement server-side. The service layer also stores safeGoogleMapsUrl/safeGoogleReviewUrl output and public page/email readers sanitize stored links again. Therefore the specific persisted non-Google external-link attack described in the finding is patched in the current code.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

@@ -18,4 +18,4 @@ Fix ImplicitAuthHandler to use the same strict redirect sanitizer as the server 
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

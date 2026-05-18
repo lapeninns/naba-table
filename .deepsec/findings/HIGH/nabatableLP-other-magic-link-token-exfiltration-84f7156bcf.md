@@ -16,13 +16,7 @@ sendAuthMagicLink accepts emailRedirectTo from callers, passes it to Supabase as
 
 Resolve magic-link callbacks inside this helper against a fixed configured app origin or exact allow-list, reject arbitrary or suffix-matched hosts, and only pass validated callback URLs to Supabase and email rendering.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-The helper itself performs no allow-list validation on `emailRedirectTo`; it only constructs `new URL(emailRedirectTo)` after Supabase has already generated the token. The signin caller still has a suffix-based host check, and the signup caller builds from `req.nextUrl.origin` without central validation in this helper. HTML escaping in the email template prevents markup injection, but it does not prevent the link destination from being an attacker origin. The sensitive value is the Supabase `hashed_token`, and the helper deliberately places it into the chosen callback URL. A robust fix needs validation at this helper boundary, because any current or future caller can otherwise pass an unsafe callback origin.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-12)

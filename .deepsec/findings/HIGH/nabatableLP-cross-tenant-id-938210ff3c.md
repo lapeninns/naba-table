@@ -16,12 +16,6 @@ Line 12 exposes the OnboardingWizard tables step. That step sends the client-con
 
 Require requireAdminMembership({ userId: user.id, restaurantId }) before zone/table inserts. Also verify any supplied zoneId belongs to the same restaurant before inserting table_inventory rows.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The table step still constructs `/api/onboarding/restaurant/${state.restaurantId}/zones` and `/tables` from client state, so direct API tampering remains possible at the request layer. In current code, both onboarding zone and table handlers enforce `withRestaurantAuthorization` with `RESTAURANT_ADMIN_ROLES` before the service-role client is used. `withRestaurantAuthorization` calls `withOpsMutation` for CSRF and session validation, then `requireRestaurantMember`, which checks `restaurant_memberships` for the authenticated user id and the route restaurant id. The zone helper `createZone` inserts using the supplied restaurant id, but it is only reached after that admin membership check. The table route additionally verifies that every supplied zone id belongs to the same restaurant before calling `insertTable`. The `020a7389` security sprint diff shows the previous code only checked CSRF and a Supabase user, and the patch added both membership authorization and zone ownership validation. This makes the originally described cross-tenant insert path fixed in the current tree.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

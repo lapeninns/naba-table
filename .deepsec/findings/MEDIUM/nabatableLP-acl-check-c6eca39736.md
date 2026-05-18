@@ -19,9 +19,3 @@ Revoke authenticated EXECUTE and keep these RPCs server-only, or add membership 
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)
-
-**Verdict:** fixed
-
-`supabase/migrations/20260516070700_harden_soft_hold_rpc_authorization.sql` revokes soft-hold RPC execution from `PUBLIC`, `anon`, and `authenticated`, grants execution to `service_role` only, validates requested tables belong to the supplied restaurant, validates optional booking ownership, and no longer returns blocking session tokens. The source migration test locks those permissions and validations.
-
-Validation: `pnpm exec vitest run tests/server/capacity/soft-holds-rpc-security.test.ts`

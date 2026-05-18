@@ -18,4 +18,4 @@ Add requireMembershipForRestaurant({ userId: user.id, restaurantId, client: supa
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

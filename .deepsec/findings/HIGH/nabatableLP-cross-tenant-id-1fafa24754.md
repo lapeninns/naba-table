@@ -16,12 +16,6 @@ Line 12 exposes the OnboardingWizard service-period step. That step sends the cl
 
 Before any service-role write, call requireAdminMembership({ userId: user.id, restaurantId }) and return 403 on failure. Do not trust the onboarding client state as authorization input; use the membership check as the tenant boundary.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The page itself only exposes the service step of `OnboardingWizard`, and the wizard still sends `PATCH /api/onboarding/restaurant/${state.restaurantId}/service-periods`. The historical attack described in the finding was valid because `updateServicePeriods` deletes all existing service-period rows for the route restaurant id and reinserts the submitted list. Current `service-periods/route.ts` no longer relies on mere authentication; it imports `RESTAURANT_ADMIN_ROLES` and `withRestaurantAuthorization`, then returns the authorization failure response before any service-role write. The guard uses the server-resolved Supabase session user id, not client state, and checks a `restaurant_memberships` row for the exact route restaurant id with owner/manager role. CSRF is still required through the same guard, but CSRF possession alone no longer gives cross-tenant write capability. The `git show 020a7389` diff shows the vulnerable `validateCsrfToken` plus `getRouteHandlerSupabaseClient().auth.getUser()` block was removed and replaced by this membership check. The current code therefore patches the reported cross-tenant overwrite path.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

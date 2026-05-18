@@ -163,10 +163,6 @@ export function useOpsTableAssignmentActions(params: {
     const { invalidateSummary = true, refetchSummary = true } = options;
 
     if (invalidateSummary) {
-      console.log('[table-assignments] Invalidating summary cache:', {
-        summaryKey,
-        refetchSummary,
-      });
       queryClient.invalidateQueries({
         queryKey: summaryKey,
         // Ensure active queries are refetched to update the UI immediately
@@ -214,11 +210,6 @@ export function useOpsTableAssignmentActions(params: {
               : booking,
           ),
         };
-        console.log('[table-assign] Optimistic update applied:', {
-          bookingId: variables.bookingId,
-          tableId: variables.tableId,
-          tableName: variables.tableName,
-        });
         return updated;
       });
 
@@ -255,10 +246,6 @@ export function useOpsTableAssignmentActions(params: {
               };
             }),
           };
-          console.log('[table-assign] Server response applied:', {
-            bookingId: variables.bookingId,
-            tableAssignments: data.tableAssignments,
-          });
           return updated;
         });
       }

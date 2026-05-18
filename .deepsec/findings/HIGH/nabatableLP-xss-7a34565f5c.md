@@ -16,12 +16,7 @@ The route accepts googleMapUrl and googleReviewUrl with z.string().url(), which 
 
 Replace generic .url() validation with an allowlist for http: and https: URLs, and preferably restrict map/review links to expected Google domains. Normalize or reject existing unsafe schemes before rendering.
 
-## Revalidation
-
-**Verdict:** fixed
-
-Current code rejects the specific payload class described in the finding before persistence. googleMapUrl is parsed through googleUrlField(safeGoogleMapsUrl), and googleReviewUrl is parsed through googleUrlField(safeGoogleReviewUrl); both helpers require https: and expected Google hosts, with review URLs also requiring review-related paths. If an attacker submits javascript:alert(document.domain), preprocessing leaves it as the original string and the refine step fails because the sanitizer returns null. The server-side storage path adds defense in depth because updateRestaurantDetails and updateRestaurant sanitize again before writing to restaurants.google_map_url/google_review_url. The public page no longer trusts the raw database value either, since getRestaurantBySlug and getMapsHref sanitize before rendering the Open map link. A compromised manager could only store an allowed HTTPS Google URL through this route now, not a script URL. Commit 020a7389 introduced safe-url validation and public read sanitization for this flow, so this is fixed in the current tree.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-27)

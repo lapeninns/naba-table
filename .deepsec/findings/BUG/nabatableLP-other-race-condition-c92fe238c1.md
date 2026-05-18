@@ -16,13 +16,7 @@ recordBookingForCustomerProfile and recordCancellationForCustomerProfile read th
 
 Move these aggregate updates into a database RPC or transaction that uses row locking or atomic INSERT ... ON CONFLICT DO UPDATE expressions that increment totals from the existing row.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-`recordBookingForCustomerProfile` reads the existing `customer_profiles` row, computes absolute totals in application code, and upserts the new aggregate values. `recordCancellationForCustomerProfile` does the same for `total_cancellations`. There is no row lock, SQL increment expression, or transactional RPC around the read-modify-write sequence. Two concurrent bookings for the same customer can both read `total_bookings = N` and both write `N + 1`, losing one increment. The same race exists for covers, cancellations, `last_booking_at`, and marketing opt-in timestamp fields. This is a real data-integrity bug under normal concurrent traffic.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)

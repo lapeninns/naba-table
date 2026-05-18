@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
+**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
 
 ## Finding
 
@@ -18,5 +18,4 @@ Use a shared strict redirect validator before router.replace: reject backslashes
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)

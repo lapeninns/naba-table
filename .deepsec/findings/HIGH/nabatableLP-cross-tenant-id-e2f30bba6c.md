@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
+**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
 
 ## Finding
 
@@ -16,13 +16,6 @@ beginBookingModificationFlow builds pendingPayload by spreading the caller-provi
 
 Do not accept restaurant_id from modification payloads. Derive the restaurant id from existingBooking.restaurant_id, reject any mismatch, and constrain updates with both id and the original restaurant_id. Prefer a tenant-scoped client for the existing restaurant and add regression tests for public booking updates that include a different restaurantId.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The helper still spreads `payload` into `pendingPayload`, so the helper itself would remain safer if it explicitly rejected a mismatched `restaurant_id`. However, I traced the current exposed callers and the concrete public attack described in the finding is blocked now. In `src/app/api/bookings/[id]/route.ts`, the full-update path rejects a body `restaurantId` that differs from `existingBooking.restaurant_id` before building the modification payload, and then derives `restaurantId` from the existing booking rather than trusting the request body. The dashboard-format public path has no `restaurantId` in its schema, and the ops route calls the helper with a tenant-scoped client and no `restaurant_id` in the payload. Session-recovery lookups are also constrained to the token restaurant and booking contact before update. The original cross-tenant route-level exploit is therefore patched in current code, though moving the invariant into the helper would still be good defense in depth.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)

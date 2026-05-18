@@ -16,12 +16,6 @@ This helper persists restaurant-controlled template variants directly into `rest
 
 Use a safe JSON serializer for inline script data, for example escaping `<` as `\u003c` or replacing `</` with `<\/`, and sandbox the preview iframe without `allow-same-origin`/`allow-scripts` unless required. Keep HTML escaping for visible email fields, but do not rely on it for JSON embedded in script tags.
 
-## Revalidation
-
-**Verdict:** fixed
-
-upsertRestaurantEmailTemplate still stores the provided variants, but the current rendering sink has been hardened. server/emails/base.ts imports safeJsonForHtmlScript and uses it in renderAnnotationScript instead of raw JSON.stringify. That helper escapes <, >, &, U+2028, and U+2029, so a value containing </script> becomes escaped data and cannot terminate the JSON-LD script. The current save schema also rejects script markup in subject, headline, intro, and ctaLabel, including the payload style named in the finding. Visible email fields are HTML-escaped through escapeHtml/renderNote/renderButton. Git blame shows safeJsonForHtmlScript was added in 020a7389, so the JSON-LD breakout path is fixed.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-02)

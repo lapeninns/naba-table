@@ -16,13 +16,7 @@ PATCH validates with the imported updateRestaurantSchema and then stores googleM
 
 Use a shared URL schema that only permits http: and https:, with stricter domain allowlists for Google Maps/review URLs where possible. Sanitize existing stored values before rendering.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The imported updateRestaurantSchema no longer accepts arbitrary absolute URLs for Google profile links. It preprocesses and validates googleMapUrl with safeGoogleMapsUrl and googleReviewUrl with safeGoogleReviewUrl, which allow only HTTPS Google Maps/review destinations and reject script-capable schemes. The route performs CSRF validation and admin membership authorization before constructing the service-role client and calling updateRestaurant. The lower-level updateRestaurant function repeats the sanitization before assigning google_map_url/google_review_url, so bypassing the route schema would still not store javascript:. Public rendering is also hardened because getRestaurantBySlug returns safeGoogleMapsUrl(restaurant.google_map_url) and PublicSections.getMapsHref revalidates before using href. An attacker with manager access cannot persist a javascript: map link through this endpoint in the current tree. The relevant patch is commit 020a7389, which introduced safe-url helpers and replaced the generic z.url validators for these fields.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-08)

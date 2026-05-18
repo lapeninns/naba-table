@@ -16,12 +16,6 @@ getMapsHref returns restaurant.googleMapUrl directly and RestaurantDetailPage re
 
 Validate and normalize googleMapUrl on write and before render with an allowlist: require https:, and preferably restrict hosts to Google Maps domains. Fall back to the encoded maps search URL when validation fails.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The current PublicSections.tsx no longer returns restaurant.googleMapUrl directly from getMapsHref. It calls safeGoogleMapsUrl first, and that helper parses the URL, requires https:, restricts hosts to Google/Google Maps domains, and rejects forbidden schemes such as javascript:, data:, vbscript:, file:, and blob:. If the stored value is invalid, getMapsHref falls back to a generated Google Maps search URL passed through safePublicHref. I also traced the data path through getRestaurantBySlug plus restaurant create/update/details helpers, and those paths now sanitize googleMapUrl with safeGoogleMapsUrl as well. The route schema also validates Google map URLs against the same sanitizer rather than accepting arbitrary z.string().url() schemes. The relevant hardening appears in commit 020a7389, which added safe-url handling and changed this component. A stored javascript: value would now be mapped to null/fallback and would not be rendered as an executable href.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-02)

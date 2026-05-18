@@ -16,12 +16,7 @@ The panel invokes autoAssign(), apply(), and unassignAll(), which trace to POST 
 
 Validate validateCsrfToken(req) at the start of the affected mutating route handlers and return 419 on failure. Keep the existing client-side CSRF header injection, and cover POST and DELETE table-assignment paths consistently.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-This is partially fixed but still exploitable through the quote leg of the panel flow. The current /api/ops/bookings/[id]/assign-tables POST and DELETE handlers are wrapped in withCsrfProtectedMutation, so the apply() and unassignAll() paths no longer rely only on session cookies. However, /api/staff/auto/quote still imports no CSRF helper and performs no validateCsrfToken or withCsrfProtectedMutation check before parsing JSON, resolving the Supabase user from cookies, checking membership, and calling quoteTables. The browser fetchJson helper adds x-csrf-token, but the server route does not require it, so the client-side header is not a defense. A same-site attacker context that can send credentialed POSTs and knows a booking UUID for the victim's restaurant can create table_holds by hitting /api/staff/auto/quote, although it cannot directly assign or unassign tables through the patched assign-tables route. Because quoteTables persists holds that participate in planner availability, the remaining CSRF impact is unauthorized hold creation and availability disruption rather than direct assignment mutation.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)

@@ -16,12 +16,6 @@ This hook sends the current email template variants to the preview endpoint and 
 
 Escape JSON embedded in HTML script contexts in the email renderer, for example with a safeJsonStringify helper that replaces `<` with `\u003c` or at least escapes `</` as `<\/`. Also sandbox the preview iframe without `allow-scripts` unless scripts are explicitly required.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The client-side hook still previews current variants and saves edited variants, but the vulnerable server/render path has been changed. Preview and save requests are validated by previewRestaurantEmailTemplateSchema and updateRestaurantEmailTemplateSchema, including script-delimiter rejection for the CTA label and primary template copy fields. The renderer’s JSON-LD script now calls safeJsonForHtmlScript instead of raw JSON.stringify, so </script> is emitted as escaped unicode rather than closing the script element. The preview pane passes sandbox="" to the iframe component, which strips script execution even if malicious HTML somehow reached srcDoc. I also checked the email base wrapper and body rendering, and normal visible text fields are HTML-escaped. This was patched by the security sprint changes in 020a7389. A saved malicious variant cannot execute same-origin script through the current preview path.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-04)

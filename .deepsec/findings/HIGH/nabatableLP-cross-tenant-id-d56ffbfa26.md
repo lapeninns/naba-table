@@ -16,12 +16,6 @@ This page renders OnboardingWizard at step 3. The imported HoursStep sends PATCH
 
 Before any `/api/onboarding/restaurant/[id]/*` mutation uses a service-role client, verify that the authenticated user is an owner/manager for that exact restaurant with `requireAdminMembership` or an equivalent onboarding ownership check. Treat client-held onboarding state as untrusted.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The reported data flow from the page to `HoursStep` and then to `/api/onboarding/restaurant/[id]/hours` still exists. The backend behavior has changed: the hours handler now requires `withRestaurantAuthorization(req, restaurantId, { csrf: true, roles: RESTAURANT_ADMIN_ROLES })`. That guard performs per-restaurant membership validation before any service-role client is used. The related onboarding service-periods, zones, tables, and complete endpoints have the same owner/manager guard. The tables endpoint additionally verifies zone ownership before insert. The concrete overwrite attack against another restaurant's operating hours or setup data is therefore patched.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

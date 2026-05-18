@@ -47,6 +47,9 @@ playwright-report/
 # temporary directories
 tmp/
 tasks/
+/analysis/
+/.cursor/plans/
+/.deepsec/findings/
 
 # backups
 /backups/

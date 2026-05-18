@@ -18,4 +18,4 @@ Add per-user and per-restaurant rate limits around each handler before upstream 
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

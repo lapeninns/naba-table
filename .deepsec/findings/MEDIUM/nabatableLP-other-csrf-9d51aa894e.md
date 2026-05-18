@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
+**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
 
 ## Finding
 
@@ -18,5 +18,4 @@ Require validateCsrfToken(req) before reading formData or uploading the file.
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-10-26)

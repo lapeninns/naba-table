@@ -18,4 +18,5 @@ Normalize stripped paths so they always have exactly one leading slash and rejec
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-20)

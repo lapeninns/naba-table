@@ -16,12 +16,6 @@ resolveCtaUrlForTemplate uses venue.googleReviewUrl and venue.googleMapUrl direc
 
 Normalize CTA destinations through a server-side allowlist before rendering. Require http: or https: at minimum, and preferably restrict Google map/review links to expected Google hosts. Fall back to the safe manage URL when validation fails, and add the same protocol refinement to the restaurant URL schemas.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The vulnerable path described in the finding no longer emits arbitrary stored Google URLs. For review*request, resolveCtaUrlForTemplate returns safeGoogleReviewUrl(venue.googleReviewUrl) or safeGoogleMapsUrl(venue.googleMapUrl) or manageUrl; for reminders it returns safeGoogleMapsUrl(venue.googleMapUrl) or manageUrl. Those helpers require HTTPS and known Google hosts, so javascript: and data: inputs become null. The venue values are also sanitized on read from the restaurants table in resolveVenueDetails, and restaurant create/update/detail schemas now validate with the same sanitizer. renderHtml adds a final safePublicHref(ctaUrl, manageUrl) before renderButton, which prevents unsafe schemes even if a non-template caller passes a dangerous ctaUrl. The email preview API returns preview.html, but the shipped preview iframe is sandboxed with scripts disabled. This was patched by commit 020a7389, which added safe-url helpers and replaced raw restaurant.google*\* URL use in server/emails/bookings.ts.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)

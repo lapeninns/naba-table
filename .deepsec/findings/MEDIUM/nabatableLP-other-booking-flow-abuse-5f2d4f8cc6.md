@@ -18,5 +18,5 @@ Enforce MAX_ONLINE_PARTY_SIZE in the server-side public booking schema and valid
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-01)

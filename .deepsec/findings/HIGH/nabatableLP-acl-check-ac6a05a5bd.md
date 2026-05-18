@@ -16,14 +16,6 @@ POST /api/ops/restaurants only verifies that a Supabase user exists, then uses t
 
 Add an explicit route-handler authorization decision before parsing/mutating: either remove this ops POST and force creation through the CSRF-protected onboarding endpoint, or require an appropriate server-side role/platform permission. Add CSRF validation and per-user/IP rate limiting for restaurant creation.
 
-## Revalidation
-
-**Verdict:** fixed
-
-POST `/api/ops/restaurants` now requires `withPlatformAdminAuthorization(req, { csrf: true })` before parsing the request body or creating a service-role Supabase client. It also applies a per-user rate limit with scope `ops.restaurants.create` before parsing or mutating. The service-role client and `createRestaurant` call are reached only after the platform-admin guard and rate limit pass, and the owner membership is created for the authorized platform admin user id.
-
-Evidence: `pnpm exec vitest run tests/server/ops-restaurants-route-security.test.ts` passed on 2026-05-16.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

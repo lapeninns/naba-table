@@ -16,13 +16,7 @@ upsertCustomer logs normalized email and phone for every customer resolution, an
 
 Remove contact values from these logs, or log only stable non-reversible hashes and non-PII identifiers such as restaurant id and customer id.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-`upsertCustomer` logs normalized email and phone in the `Resolving customer` message for every call. It also logs update payloads, which can include a supplied name and phone, and logs customer IDs tied to those contact values. This helper is called from public booking creation using unauthenticated guest input and a service-role client. Those logs can therefore contain real guest contact information outside the database access-control and retention model. I did not find redaction or hashing applied to these specific log statements. The finding is exploitable by ordinary booking submissions and affects production observability data.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)

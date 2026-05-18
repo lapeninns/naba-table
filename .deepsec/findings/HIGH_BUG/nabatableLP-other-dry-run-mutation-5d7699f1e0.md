@@ -16,12 +16,6 @@ main() calls ensureAuthUser before checking apply. ensureAuthUser can call gener
 
 Make dry-run resolution strictly read-only. Only call generateLink/createUser after apply and CONFIRM_PRODUCTION are true, or split ensureAuthUser into a non-mutating lookup phase and an apply-only creation phase.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-The dry-run side effect still exists in the current script. `main()` resolves or creates the auth user first, then loads memberships, logs the before state, and only then returns when `apply` is false. The creation branch calls `supabase.auth.admin.createUser` with `email_confirm: true`, so a missing email can become a confirmed production auth account during a nominal dry run. The expected-project-ref guard and production URL selection reduce wrong-project risk but do not prevent this mutation. This is not web-remote RCE or unauthenticated exploitation; it is an operator-safety bug in a production administration script. The finding is real and exploitable by normal script invocation with a new target email.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-16)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)

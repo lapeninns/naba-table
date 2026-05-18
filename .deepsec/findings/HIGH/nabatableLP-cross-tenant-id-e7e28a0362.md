@@ -6,7 +6,7 @@
 
 ## Owners
 
-**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
+**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
 
 ## Finding
 
@@ -16,13 +16,6 @@ beginBookingModificationFlow() receives existingBooking but builds pendingPayloa
 
 Do not accept restaurant_id from modification payloads. Derive it from existingBooking.restaurant_id inside the helper, or reject any payload restaurant_id that differs from existingBooking.restaurant_id. Also reject restaurantId changes at the route schema/handler boundary.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The target helper still accepts `restaurant_id` in `UpdateBookingPayload`, but the currently exposed public path no longer lets an attacker choose a different tenant. The full self-serve update route checks `data.restaurantId` against `existingBooking.restaurant_id` and returns `RESTAURANT_LOCKED` on mismatch. It then calls `requireRestaurantContext(existingBooking.restaurant_id)` and passes that derived value as `restaurant_id`, so the request body value is not used for the update. The dashboard update route strips unknown fields through its schema and derives the restaurant from the existing booking, while the ops route uses `getTenantServiceSupabaseClient(existingBooking.restaurant_id)` and omits `restaurant_id` from the modification payload. I found no other live caller that passes untrusted `restaurant_id` into `beginBookingModificationFlow`. The reported guest cross-tenant mutation path is fixed, with the residual note that the helper should still enforce the invariant internally.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-28)

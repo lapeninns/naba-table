@@ -16,13 +16,7 @@ This component performs create, update, delete, and toggle mutations through the
 
 Move authorization into the /api/ops/occasions handlers. Require a platform-level admin role for global occasion catalog changes, or redesign occasions to be restaurant-scoped and require requireAdminMembership for the target restaurant before any service-role write. Also validate CSRF for these session-cookie mutations.
 
-## Revalidation
-
-**Verdict:** fixed
-
-OccasionsSection still performs create, update, delete, and toggle mutations through useOccasionService, so I traced that service to the current ops occasion API routes. The service has no client-side role enforcement, but that is not relied on for security. The current POST route calls withPlatformAdminAuthorization(request, { csrf: true }) before using getServiceSupabaseClient to upsert booking_occasions. The current PATCH and DELETE route for [key] uses the same platform-admin guard before any service-role update or soft-delete. withPlatformAdminAuthorization uses withOpsMutation plus explicit PLATFORM_ADMIN_USER_IDS or PLATFORM_ADMIN_EMAILS checks, so a normal ops member cannot satisfy it. The missing backend role authorization described in the finding is therefore fixed.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)

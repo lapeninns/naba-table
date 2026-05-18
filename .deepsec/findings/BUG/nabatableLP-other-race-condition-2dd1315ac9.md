@@ -16,13 +16,7 @@ recordBookingForCustomerProfile and recordCancellationForCustomerProfile read th
 
 Move these aggregate updates into a single database RPC or SQL upsert that increments from the existing row atomically, e.g. ON CONFLICT DO UPDATE SET total_bookings = customer_profiles.total_bookings + 1, total_covers = customer_profiles.total_covers + excluded_delta, and total_cancellations = customer_profiles.total_cancellations + 1.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-This duplicate aggregate-counter finding is still valid. Both profile-update helpers calculate new aggregate values from a stale application-side snapshot and then upsert absolute values. Supabase/PostgREST does not make that read-compute-upsert sequence atomic across concurrent requests. Concurrent bookings or cancellations for the same customer can overwrite each other's increments even though the source booking rows are independently committed. The affected fields include total bookings, covers, cancellations, last booking time, and marketing opt-in tracking. A database-side `ON CONFLICT DO UPDATE` increment or locked RPC is needed to close this.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-27)

@@ -33,7 +33,7 @@ describe('secret scan fallback', () => {
 
   it('@p1 @security does not ignore real-looking secrets because nearby prose says test', () => {
     const findings = scanSecretText(
-      "OPENAI_API_KEY='sk-proj-abcdefghijklmnopqrstuvwxyz1234567890' # test credential",
+      "OPENAI_API_KEY='sk-proj-" + "abcdefghijklmnopqrstuvwxyz1234567890' # test credential",
       'config.ts',
     );
 

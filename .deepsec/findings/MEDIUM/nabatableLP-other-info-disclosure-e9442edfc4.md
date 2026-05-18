@@ -18,4 +18,5 @@ Add an allowlist/redaction layer for analytics props before dispatch. Strip or h
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-02)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-15)

@@ -16,12 +16,6 @@ This component exposes restaurant name/profile and contact/location fields throu
 
 Use a safe JSON serializer for script contexts that escapes `<`/`</script>` (for example `<` to `\u003c`), sandbox email preview iframes, and restrict profile URLs to expected https/http schemes and preferably Google hosts for map/review fields.
 
-## Revalidation
-
-**Verdict:** fixed
-
-A manager can still store profile text such as restaurant name or address, and not every profile text field rejects script-looking text at validation time. The relevant email sinks are now safe: renderHtml escapes visible venue/profile-derived content with escapeHtml, including venue.name and venue.address. The Schema.org JSON-LD block in server/emails/base.ts no longer uses raw JSON.stringify in a script context; renderAnnotationScript calls safeJsonForHtmlScript, which escapes <, >, &, and line separators so </script><script> payloads cannot terminate the JSON-LD script. There is a Vitest covering this exact script-breakout pattern in tests/lib/security/script-json.test.ts. The preview iframe in EmailTemplatesPreviewPane now renders srcDoc with sandbox="" and referrerPolicy="no-referrer", so scripts inside preview HTML are also blocked by the browser. These mitigations were added in commit 020a7389, so the described stored-XSS email preview chain is patched.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-02)

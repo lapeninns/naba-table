@@ -16,13 +16,7 @@ This component's create/update/delete/toggle paths call the occasion service for
 
 Add an explicit backend authorization check to `src/app/api/ops/occasions/route.ts` and `src/app/api/ops/occasions/[key]/route.ts` before service-role writes. Require an appropriate admin/platform role, and keep the UI hidden or disabled for users without that permission.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The component-level behavior still matches the finding: createMutation, updateMutation, deleteMutation, and toggleMutation call the occasion service. The backend no longer matches the vulnerable description. Current src/app/api/ops/occasions/route.ts imports withPlatformAdminAuthorization and requires it for POST with CSRF before any service-role insert or upsert. Current src/app/api/ops/occasions/[key]/route.ts requires the same guard for PATCH and DELETE. The guard is stronger than restaurant admin membership because it is a configured platform-admin check for a global catalog. Git history shows the authorization changes in 020a7389 Apply security sprint fixes and staging migrations.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-05)

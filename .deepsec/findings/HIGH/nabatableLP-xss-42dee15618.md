@@ -16,12 +16,6 @@ validateDetailsInput() only trims googleMapUrl and updateRestaurantDetails() for
 
 Validate public URL fields in a shared server-side helper before persistence. Require http: or https:, and for googleMapUrl/googleReviewUrl preferably restrict to expected Google Maps/review hostnames. Reject javascript:, data:, file:, and other non-web schemes.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The current details update path no longer only trims googleMapUrl. validateDetailsInput calls safeGoogleMapsUrl and safeGoogleReviewUrl, and updateRestaurant also applies those helpers before writing google_map_url and google_review_url. The ops details route schema uses googleUrlField with the same helpers, so javascript: and data: inputs fail validation before the helper call. Even if an unsafe legacy value exists in the database, getRestaurantDetails and the public getRestaurantBySlug path return sanitized map URLs. PublicSections.getMapsHref then sanitizes again before rendering the Open map href. Git blame attributes the server-side sanitizer additions to 020a7389, so the described executable public map href path is fixed.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

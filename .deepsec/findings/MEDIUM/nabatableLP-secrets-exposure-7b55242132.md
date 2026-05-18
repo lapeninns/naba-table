@@ -16,12 +16,6 @@ GET /api/bookings accepts only email, phone, and restaurantId for the contact-qu
 
 Return an explicit public-safe booking DTO from guest lookup/create flows. Exclude confirmation_token, idempotency_key, details, internal assignment fields, and unnecessary PII. Make the guest lookup policy fail closed instead of falling back to the legacy full-row lookup when the RPC is missing or errors.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-On the guest/root host, src/proxy.ts lets /api/bookings pass through without ops auth, so the contact-query GET path is public. The route validates email, phone, and restaurantId/default restaurant, applies only an IP-scoped rate limit, then calls fetchBookingsForContact when no session-recovery token is supplied. guestLookupPolicy defaults to false in lib/env.ts, and even when enabled the route deliberately falls back to the legacy helper if the RPC is missing or errors. fetchBookingsForContact first finds the matching customer and then selects BOOKING_SELECT, which is the literal '\*'. The bookings Row type includes confirmation_token, confirmation_token_expires_at, confirmation_token_used_at, client_request_id, idempotency_key, details, customer_email, customer_phone, notes, and assignment fields. The route returns { bookings, access } directly, with no DTO applied to the legacy lookup result. The POST part of the finding is partly stale because current POST uses toGuestBookingDTO and no longer returns a full bookings list in the body, but the unauthenticated GET lookup still exposes full active booking rows and is enough to make the finding exploitable.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)

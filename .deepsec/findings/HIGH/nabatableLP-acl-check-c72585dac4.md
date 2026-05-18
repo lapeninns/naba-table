@@ -16,12 +16,6 @@ The UI only renders Manager, Host, and Server options, but the submitted role is
 
 Enforce inviteable roles server-side. Use a dedicated allowlist that excludes owner for manager callers, or require an existing owner to invite/assign owner. Reuse that same allowlist in the UI schema, but do not rely on the UI as the control.
 
-## Revalidation
-
-**Verdict:** fixed
-
-I verified the full client-to-server-to-acceptance path for role tampering. The UI still only presents Manager, Host, and Server, and a crafted client value of owner can still reach the POST schema because createSchema uses RESTAURANT_ROLE_OPTIONS. The important current mitigation is server-side: after requireAdminMembership, the route calls assertInvitableRole with the authenticated actor user id, restaurant id, and requested role. assertInvitableRole checks the actor's actual membership and consults INVITABLE_ROLES_BY_ACTOR_ROLE, where managers cannot invite owner. If a manager tries role:"owner", the route returns 403 before inserting an invitation. Even if an old forbidden invite existed, acceptInviteForAuthenticatedUser calls assertInviteRoleStillAllowed before the accept_restaurant_invite RPC, preventing the owner membership upsert. Existing tests cover manager-owner rejection and owner-owner allowance, and git blame attributes this enforcement to 020a7389.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

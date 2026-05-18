@@ -16,12 +16,6 @@ Custom email template fields are normalized with only trimming/fallbacks and lat
 
 Escape JSON before embedding it in script tags, for example JSON.stringify(...).replace(/</g, '\\u003c'), or use a shared safeJsonStringify helper. Also sandbox the preview iframe without allow-scripts unless scripts are required, and consider rejecting script-breakout substrings in template fields as defense in depth.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The dangerous sink identified in the finding, server/emails/base.ts renderAnnotationScript, now embeds JSON-LD with safeJsonForHtmlScript instead of raw JSON.stringify. safeJsonForHtmlScript escapes '<', '>', '&', U+2028, and U+2029, so a template value containing </script><script>... is serialized as escaped JSON text and cannot close the application/ld+json script tag. The shipped preview component, EmailTemplatesPreviewPane, also renders srcDoc through the shared Iframe component with sandbox="", which blocks script execution even if HTML somehow contained a script. Normal email HTML rendering escapes template-controlled headline, intro, cue, ask, CTA label, title, and preheader via escapeHtml/renderNote/renderButton/renderEmailBase paths. The ops save/preview schemas also reject script markup for the highest-risk text fields such as subject, headline, intro, and ctaLabel. The old unsandboxed EmailTemplatesSection iframe exists in source but is not imported by the shipped /app/email-templates route, which uses OpsEmailTemplatesClient and EmailTemplatesPreviewPane. The stored preview XSS path described here is patched.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-04)

@@ -18,4 +18,5 @@ Make the implementation and consent text match. Either reduce the remembered-con
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-01)

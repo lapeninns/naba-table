@@ -16,12 +16,6 @@ The table inventory UI exposes create/update table actions and create/update/del
 
 Enforce requireAdminMembership server-side for table and zone inventory mutations, and hide/disable the client controls based on the same owner/manager role. If some lower-role actions are intended, split them into narrow endpoints with explicit role rules.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The client still exposes add/edit table and zone controls more broadly than ideal, with only table deletion visibly gated by isRestaurantAdminRole. However, the backing mutation APIs now enforce the admin role server-side. POST /api/ops/tables reads the restaurant membership and rejects non-admin roles with Insufficient permissions for table management. PATCH and DELETE /api/ops/tables/[id] fetch the table, resolve its restaurant, require a matching membership, and then call isRestaurantAdminRole before updating or deleting. POST /api/ops/zones and PATCH/DELETE /api/ops/zones/[id] perform the same owner-or-manager role check before mutating zones. The current residual issue is UX noise for non-admins, not an exploitable ACL bypass, because host/server members receive 403 responses from the mutation routes.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

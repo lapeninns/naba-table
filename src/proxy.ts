@@ -218,8 +218,6 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  console.log(`[Proxy] Host: ${host}, Path: ${url.pathname}, isApp: ${isApp}`);
-
   const rootHost = buildHostWithPort(rootDomain, port);
   const appHost = buildHostWithPort(`app.${rootDomain}`, port);
 

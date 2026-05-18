@@ -16,12 +16,6 @@ Supabase server cookie defaults compute `secureCookies` as `env.node.appEnv !== 
 
 Set Secure based on runtime protocol or production environment, independent of COOKIE_DOMAIN. Require a valid production root domain during env validation if cross-subdomain cookies are required, and add/verify HSTS at the edge.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-`secureCookies` is currently computed as `env.node.appEnv !== 'development' && COOKIE_DOMAIN !== undefined`. `COOKIE_DOMAIN` is undefined when `NEXT_PUBLIC_ROOT_DOMAIN` is missing, empty, or effectively `localhost`, because `resolveCookieDomain` returns undefined for host-only cookies. The production env schema requires app/site URLs but does not require `NEXT_PUBLIC_ROOT_DOMAIN`, so a production-like deployment can pass env validation while producing host-only Supabase auth cookies with `secure: false`. The Secure attribute should not depend on whether a Domain attribute is present. If such a deployment accepts or is reachable over HTTP, those auth cookies can be sent over plaintext. The same pattern also appears in the signout route's cookie config.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)

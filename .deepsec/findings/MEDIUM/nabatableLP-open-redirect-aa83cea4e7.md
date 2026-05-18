@@ -18,4 +18,4 @@ Store only relative app paths for OAuth return destinations, or validate absolut
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

@@ -16,12 +16,6 @@ The page renders the availability settings client at line 12. Following that imp
 
 Make occasions restaurant-scoped and expose them under a restaurant-bound API that calls requireAdminMembership for that restaurant before using a service-role client. If occasions are intentionally platform-global, restrict these handlers to a platform-admin role and do not expose mutation controls through restaurant settings. Add negative authorization tests for host/server/non-member users.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The UI still reaches `AvailabilityScheduleManager` and can call `occasionService.createOccasion`, `updateOccasion`, and `deleteOccasion`, but the backend path has changed. The current POST/PATCH/DELETE handlers for `/api/ops/occasions` all run `withPlatformAdminAuthorization(..., { csrf: true })` before service-role writes. `withPlatformAdminAuthorization` is not just a session check: it wraps `withOpsMutation`, verifies CSRF for unsafe methods, then checks configured platform-admin ids/emails. A normal owner, manager, host, or server who is not a platform admin receives `PLATFORM_ADMIN_REQUIRED` before any catalog mutation. Because the global table is now protected by a platform-admin guard, the described cross-tenant integrity attack is patched.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-02)

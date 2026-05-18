@@ -18,4 +18,4 @@ Add a per-user/per-restaurant rate limit, cooldown, or job de-duplication around
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-28)

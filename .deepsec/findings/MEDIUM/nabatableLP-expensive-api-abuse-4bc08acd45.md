@@ -18,4 +18,4 @@ Make the cron route hard-fail when CRON_SECRET is missing, validate the secret t
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-21)

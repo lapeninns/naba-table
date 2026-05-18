@@ -18,4 +18,4 @@ Do not disable certificate verification. Prefer the Supabase Admin API path, or 
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-16)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-03-25)

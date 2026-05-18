@@ -18,4 +18,4 @@ Add a foodMenus case returning snapshot.foodMenus ?? { items: [] } and cover sin
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-30)

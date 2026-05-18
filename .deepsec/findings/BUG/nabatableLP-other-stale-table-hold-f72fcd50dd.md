@@ -20,7 +20,3 @@ Use the quote/confirm flow with the returned holdId, or make smart assign use a 
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-06)
-
-**Verdict:** fixed
-
-The smart-assign hook now requires the quote `holdId` and calls `bookingService.confirmHoldAssignment` rather than directly assigning the quoted table ids. The auto-assign body no longer calls `bookingService.assignTablesDirect`, so the quote hold is consumed by the confirm flow. Focused evidence: `tests/components/useTableAssignment-smart-assign.test.ts` passed on 2026-05-16.

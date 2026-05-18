@@ -16,12 +16,6 @@ Password attempts are rate-limited with buildPasswordRateLimitId using x-real-ip
 
 Derive client IP and surface only from trusted platform metadata or a trusted-proxy parser that strips untrusted hops. Add email/account-level throttles for password attempts and magic links, and base Turnstile decisions on the configured route/surface rather than request-supplied host headers.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-The current code uses spoofable request metadata for both abuse-control identity and surface classification. Password throttling reads x-real-ip and x-forwarded-for directly in buildPasswordRateLimitId, while magic-link throttling reads x-forwarded-for through extractClientIp when req.ip is unavailable. A client can rotate those header values to evade per-IP counters, and the password path has no separate account-scoped limiter. The Turnstile decision is based on classifySigninSurface(hostname, rootDomain), where hostname comes from parseHostname(req). Because parseHostname prioritizes x-forwarded-host and x-original-host, a request to the public shared /api/auth/signin endpoint can claim x-forwarded-host: app.nabatable.com and be classified as app_ops, skipping the public_guest CAPTCHA branch. CSRF does not prevent this because the endpoint is public and attackers can mint their own double-submit cookie/header pair. src/proxy.ts does not sanitize those forwarded headers for shared auth APIs before the route handles them. The global magic-link limiter is only a partial backstop and does not fix the spoofed per-IP or spoofed surface decision.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-23)

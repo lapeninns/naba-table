@@ -18,4 +18,4 @@ Add validateCsrfToken checks to the dual-sync refresh, publish, and auto-export 
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-10)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

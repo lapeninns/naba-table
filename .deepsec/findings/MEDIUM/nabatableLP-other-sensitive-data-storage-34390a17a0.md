@@ -16,12 +16,6 @@ OnboardingWizard accepts password signups and then stores the submitted form val
 
 Never persist password fields. After successful signup, store only non-secret account metadata such as email and mode, and explicitly omit account.password when writing onboarding state to sessionStorage.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-The signup page renders `OnboardingWizard`, whose account step includes a password field for password signups. After a successful `/api/auth/signup` call, the component calls `setAccount(values)`, and `values` includes the plaintext `password` when the selected mode is `password`. `OnboardingContext` persists the entire onboarding state to `window.sessionStorage` on every state change. The persistence code spreads `...state` into `persistedState` and does not remove `state.account.password`. `sanitizePersistedState` also spreads persisted data back into state without dropping password. A same-origin script running in that tab can read `sessionStorage['nabatable:onboarding:draft:v1']` and recover the submitted password until the tab/session data is cleared.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

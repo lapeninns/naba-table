@@ -36,6 +36,10 @@ describe('auth callback security', () => {
           data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
           error: null,
         }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'guest@example.com' } },
+          error: null,
+        }),
       },
     });
     getServiceSupabaseClientMock.mockReturnValue({
@@ -79,6 +83,10 @@ describe('auth callback security', () => {
           data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
           error: null,
         }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'guest@example.com' } },
+          error: null,
+        }),
       },
     });
     getServiceSupabaseClientMock.mockReturnValue({
@@ -114,6 +122,10 @@ describe('auth callback security', () => {
       auth: {
         verifyOtp: vi.fn().mockResolvedValue({
           data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
+          error: null,
+        }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'guest@example.com' } },
           error: null,
         }),
       },
@@ -152,6 +164,10 @@ describe('auth callback security', () => {
           data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
           error: null,
         }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'guest@example.com' } },
+          error: null,
+        }),
       },
     });
     getServiceSupabaseClientMock.mockReturnValue({
@@ -181,6 +197,10 @@ describe('auth callback security', () => {
           data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
           error: null,
         }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1', email: 'guest@example.com' } },
+          error: null,
+        }),
       },
     });
     getServiceSupabaseClientMock.mockReturnValue({
@@ -201,5 +221,28 @@ describe('auth callback security', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://www.nabatable.com/guest/dashboard');
+  });
+
+  it('@p1 @security does not use the service-role customer linker when getUser returns no verified user', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        verifyOtp: vi.fn().mockResolvedValue({
+          data: { session: { user: { id: 'user-1', email: 'guest@example.com' } } },
+          error: null,
+        }),
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: null,
+        }),
+      },
+    });
+
+    await GET(
+      new NextRequest(
+        'https://www.nabatable.com/api/auth/callback?token_hash=secret-token&redirectedFrom=%2Fguest%2Fdashboard',
+      ),
+    );
+
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
   });
 });

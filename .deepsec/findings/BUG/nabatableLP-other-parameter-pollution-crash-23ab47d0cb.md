@@ -18,5 +18,5 @@ Type search params as string | string[] and normalize code with a helper that se
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-09)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-12-25)

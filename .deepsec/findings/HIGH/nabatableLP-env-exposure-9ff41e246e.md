@@ -16,12 +16,6 @@ baseEnvSchema explicitly accepts NEXT*PUBLIC_SUPABASE_SERVICE_ROLE_KEY. NEXT_PUB
 
 Remove this variable from the schema and add a validation blocker for any NEXT*PUBLIC*\* service-role or secret key. Keep service-role keys only in server-only variables such as SUPABASE_SERVICE_ROLE_KEY.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The explicit NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY field has been removed from baseEnvSchema. The current config defines PUBLIC_ENV_SECRET_PATTERNS including SERVICE_ROLE, SECRET, TOKEN, PASSWORD, PRIVATE_KEY, and DATABASE_URL, plus a strict NEXT_PUBLIC allowlist. findBlockedPublicEnvKeys flags NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY because it is not allowlisted and contains SERVICE_ROLE. scripts/validate-env.ts calls that blocker and exits nonzero, and package.json runs validate:env in prebuild and predev. The Zod schema remains passthrough, so schema.safeParse alone is not the complete enforcement point, but the repo’s env validation gate now fails closed for this variable. I verified the env-schema-target regression test for NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY passes.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-28)

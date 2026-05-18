@@ -18,4 +18,4 @@ Return a sanitized feed DTO for this dashboard. Strip events[].metadata and even
 
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

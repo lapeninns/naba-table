@@ -16,12 +16,6 @@ validateRestaurantDetails treats new URL(...) as sufficient validation for googl
 
 Replace parseability-only checks with a canonical safe URL validator that requires https: and optionally restricts the hostname to approved Google domains. Reuse that validator in the client model and API schemas before storing the values.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The model no longer treats new URL(...) as sufficient validation for the Google link fields. validateRestaurantDetails imports safeGoogleMapsUrl and safeGoogleReviewUrl and rejects review/map values unless those helpers return a normalized safe URL. Those helpers only allow https for the Google URL validators and explicitly exclude dangerous schemes such as javascript:, data:, vbscript:, file:, and blob:. sanitizePayload still trims and returns the submitted string, but it is called only after validation in the form path, and it is not the server trust boundary. Server schemas in src/app/api/ops/restaurants/schema.ts and src/app/api/ops/restaurants/[id]/details/route.ts apply the same safe URL validation to tampered requests. Restaurant read/update/email/public render paths also re-sanitize stored values, so legacy unsafe values do not become hrefs or email CTA destinations. The finding is therefore fixed in current code.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-08)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-01)

@@ -16,12 +16,6 @@ updateOperatingHours() deletes all operating-hours rows for the restaurant and t
 
 Replace the delete-then-insert sequence with a single transactional RPC. Validate duplicate override IDs/dates and weekly coverage before mutating, and roll back the delete if any insert fails.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-updateOperatingHours still performs a delete of all restaurant_operating_hours rows and then a separate insert of the replacement rows. There is no transaction, RPC, or rollback between those two database operations. The helper validates weekly duplicate days, but it does not reject duplicate override ids or validate that an override date is a real calendar date beyond the YYYY-MM-DD regex. The ops PUT route accepts optional override UUIDs, so a duplicate override id in one payload can cause the insert to fail after the delete has already succeeded. An invalid date string that matches the regex can similarly fail at the database cast after deletion. A restaurant admin or sync path can therefore wipe the schedule on insert failure, so the finding is real.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

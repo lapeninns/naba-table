@@ -4,6 +4,10 @@
 **Project:** nabatableLP
 **Severity:** BUG • **Confidence:** high • **Slug:** `other-input-validation`
 
+## Owners
+
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
+
 ## Finding
 
 parseDecimalCell uses Number.parseFloat and parseIntegerCell uses Number.parseInt, both of which accept partial numeric prefixes. Values such as "12abc" or "10foo" are imported as 12 and 10 instead of being rejected. Because those parsed numbers then pass the Zod schema, malformed CSV data can silently corrupt prices, scores, nutrition fields, and modifier limits.
@@ -11,3 +15,7 @@ parseDecimalCell uses Number.parseFloat and parseIntegerCell uses Number.parseIn
 ## Recommendation
 
 Validate the entire trimmed cell before parsing, for example with strict decimal/integer regexes or Number(trimmed) plus a full-format check. Reject cells with any trailing or embedded non-numeric characters.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-03)

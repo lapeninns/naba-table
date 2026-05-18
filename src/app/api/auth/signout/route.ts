@@ -64,7 +64,6 @@ async function postSignOut() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
-            console.log(`[auth/signout] Setting cookie: ${name}`);
             cookieStore.set({ name, value, ...buildCookieConfig(options) });
           });
         } catch (error) {
@@ -81,9 +80,7 @@ async function postSignOut() {
   const { error } = await supabase.auth.signOut();
 
   if (error) {
-    if (isMissingSessionAuthError(error)) {
-      console.info('[auth/signout] Session already missing; proceeding with cookie expiry.');
-    } else {
+    if (!isMissingSessionAuthError(error)) {
       console.error('[auth/signout] Sign-out warning:', error.message);
     }
   }
@@ -94,13 +91,9 @@ async function postSignOut() {
     .filter((c) => c.name.startsWith('sb-'))
     .map((c) => c.name);
 
-  console.log('[auth/signout] Deleting auth cookies:', authCookieNames);
-
   for (const name of authCookieNames) {
     expireAuthCookie(cookieStore, name);
   }
-
-  console.log('[auth/signout] User signed out successfully');
 
   return NextResponse.json({
     success: true,

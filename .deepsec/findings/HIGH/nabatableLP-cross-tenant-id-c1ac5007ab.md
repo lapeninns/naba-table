@@ -16,12 +16,6 @@ createZone trusts input.restaurantId and inserts it directly as restaurant_id. T
 
 Before calling createZone from onboarding routes, verify the authenticated user owns or is an admin/member of the route restaurant id. Prefer requireAdminMembership for setup/configuration writes, or bind the onboarding restaurant to the creating user and enforce that relationship before using a service-role client.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The helper still trusts its input, but the traced onboarding route is no longer the auth-only service-role caller described in the finding. src/app/api/onboarding/restaurant/[id]/zones/route.ts now resolves the route restaurantId and calls withRestaurantAuthorization with csrf true and RESTAURANT_ADMIN_ROLES before calling createZone. That guard validates the session, validates the restaurant id shape, checks CSRF for the POST, and requires owner or manager membership for the same restaurant id. Only after authorization succeeds does the route obtain getServiceSupabaseClient and insert zones. Git history shows this was changed in 020a7389, replacing the previous validateCsrfToken plus auth.getUser-only flow. An authenticated user without admin membership in the target restaurant now fails before the service-role write.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2025-11-24)

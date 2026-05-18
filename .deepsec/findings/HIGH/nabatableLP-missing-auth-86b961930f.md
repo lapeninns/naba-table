@@ -16,12 +16,6 @@ The full-update fallback in PUT does not require a session or signed session-rec
 
 Remove the unauthenticated legacy update path, or require a valid session-recovery access token/session before any mutation. Do not accept restaurantId changes from guest self-service updates; require it to match existingBooking.restaurant_id. Return a sanitized DTO instead of the full updated row.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The current full-update fallback no longer just logs auth failures and continues. After parsing the legacy update schema, it validates a supplied session-recovery token or calls tenantSupabase.auth.getUser(), and it returns 401 when neither a valid recovery token nor a Supabase user is present. After loading the booking with the service client, the recovery-token path must match restaurant, email, and phone, while the authenticated path must satisfy isBookingOwnedByUser by auth_user_id or normalized email. The route also rejects any submitted restaurantId that differs from existingBooking.restaurant_id before building the update payload. The actual update uses the existing restaurant context, and updateBookingRecord is called with the restaurantId guard. Git blame shows the auth gate and restaurant-lock checks were added in commit 020a7389. An attacker who only knows a booking UUID and contact details can no longer reach this mutation unauthenticated or move the booking to another tenant through data.restaurantId.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-24)

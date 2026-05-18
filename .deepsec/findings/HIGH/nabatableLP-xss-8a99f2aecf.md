@@ -16,12 +16,6 @@ Restaurant details only trim googleMapUrl/googleReviewUrl/logoUrl and pass them 
 
 Normalize restaurant URL fields with a shared server-side validator that only permits http: and https:, preferably https: plus expected Google Maps/review host allowlists for map/review fields. Apply the same validation in route schemas and before persisting.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The current code applies a shared scheme and host sanitizer before persistence for googleMapUrl and googleReviewUrl. safeGoogleMapsUrl only returns HTTPS URLs on Google/Maps hosts, and safeGoogleReviewUrl additionally checks for review-like destinations. updateRestaurantDetails passes the validated values to updateRestaurant, which repeats the same sanitizer before writing the database columns. The public restaurant detail page also revalidates the stored map URL before it reaches the anchor href. logoUrl is still only trimmed in this helper, but that field is not the public map link sink described in the finding. The unsafe public map-link scheme persistence issue is therefore patched in the current code.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

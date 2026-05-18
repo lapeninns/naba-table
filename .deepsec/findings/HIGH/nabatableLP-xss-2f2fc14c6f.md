@@ -16,12 +16,6 @@ This route parses attacker-controlled restaurant creation input with the shared 
 
 Restrict stored external URLs to `https:` and expected Google Maps/Review hostnames before persistence. Reuse a central safe URL validator for create/update schemas and reject `javascript:`, `data:`, and other non-web schemes.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The route still accepts attacker-controlled JSON and passes it through createRestaurantSchema before calling createRestaurant, so the original data path still exists. The current shared createRestaurantSchema no longer uses a generic z.string().url() for googleMapUrl; it uses googleUrlSchema with safeGoogleMapsUrl, which requires https: and an allowed Google/Maps host. createRestaurant also sanitizes googleMapUrl and googleReviewUrl again before persistence, so bypassing the route schema would still store null for javascript: or data: values. The public restaurant page also calls safeGoogleMapsUrl before rendering the Open map href and falls back to a generated Google Maps search URL. Existing malicious stored values are therefore filtered on read/render as well as on new writes. I also verified the targeted safe-url and restaurant schema regression tests pass.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2025-12-02)

@@ -16,13 +16,7 @@ clearBookingTableAssignments() catches every error from the assignment lookup, a
 
 Do not swallow cleanup failures for state transitions that require releasing capacity. Move the full release operation into a single database RPC/transaction that selects current assignments, unassigns them, clears zone/idempotency state, and returns or throws atomically. Make callers fail or retry when release fails.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-`clearBookingTableAssignments` wraps the lookup, `unassign_tables_atomic` RPC, fallback delete, zone-lock update, and idempotency cleanup in one broad `try/catch`. On any error it logs a warning and returns `0`, so callers cannot distinguish “nothing to clear” from “cleanup failed.” Several lifecycle paths call it after the primary status transition has already been persisted, including public cancellation, ops no-show, ops check-out/status completion, and the auto-complete job. Those callers either ignore the return value or wrap it in another catch that cannot fire because the helper swallowed the error. A failed cleanup can therefore leave active table assignments or zone/idempotency state behind after the booking is cancelled, no-showed, or completed. That stale state can block future reservations or misrepresent capacity while the API still reports the lifecycle mutation as successful.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-01)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-03)

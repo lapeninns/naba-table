@@ -16,12 +16,6 @@ updateRestaurantDetails reads the current restaurant, merges omitted fields from
 
 Only send fields that are actually present in the input, or use optimistic concurrency with updated_at/version checks. If a full replacement API is needed, make that contract explicit and separate from the partial-update helper.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-updateRestaurantDetails still reads the current restaurant, merges omitted fields from that snapshot, and then builds a full UpdateRestaurantInput payload. updateRestaurant writes every defined field in that payload, so fields omitted by the caller can still be overwritten with values from the stale pre-update snapshot. There is no updated_at/version predicate or compare-and-swap guard around the write. The route can submit partial details, and internal code such as applyProfileImportToCore constructs partial profile updates with only timezone plus one imported field. Two overlapping updates that read the same initial state can therefore clobber each other when the later full payload writes stale unrelated fields. This is a real lost-update bug and the reported HIGH_BUG severity is reasonable for profile/sync data integrity.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-05)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

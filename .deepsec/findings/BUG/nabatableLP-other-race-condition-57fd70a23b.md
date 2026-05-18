@@ -4,6 +4,10 @@
 **Project:** nabatableLP
 **Severity:** BUG • **Confidence:** high • **Slug:** `other-race-condition`
 
+## Owners
+
+**Suggested assignee:** `159779640+amanshresthaa@users.noreply.github.com` _(via last-committer)_
+
 ## Finding
 
 The handler checks menuItemExternalIdExistsForRestaurant before calling upsertMenuItem. The underlying RPC uses ON CONFLICT (restaurant_id, external_item_id) DO UPDATE, so concurrent POSTs using the same new externalItemId can both pass the pre-check and the later request updates/replaces the first item's data instead of returning the intended conflict response.
@@ -11,3 +15,7 @@ The handler checks menuItemExternalIdExistsForRestaurant before calling upsertMe
 ## Recommendation
 
 Make create atomic in the database: use insert-only behavior for this endpoint and translate unique violations to 409, or move the existence check and write into one locked transaction/RPC.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-18)

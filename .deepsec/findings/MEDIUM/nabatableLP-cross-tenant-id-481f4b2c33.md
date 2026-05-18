@@ -16,12 +16,6 @@ The table listing helpers trust a caller-supplied restaurantId and only apply da
 
 Add requireMembershipForRestaurant({ userId, restaurantId }) to GET /api/ops/tables before calling these helpers, matching /api/ops/tables/timeline and /api/ops/operations-hub. Keep tenant RLS policies for table_inventory and zones as defense in depth.
 
-## Revalidation
-
-**Verdict:** true-positive
-
-The current GET /api/ops/tables route authenticates a Supabase user but does not call requireMembershipForRestaurant for the query-string restaurantId. It then passes that caller-controlled restaurantId into listTablesWithSummary or listTables, whose only tenant handling is .eq('restaurant_id', restaurantId). The proxy requireOpsAuth only proves the user belongs to some restaurant and does not authorize this specific restaurant id. The nearby timeline and operations-hub routes do perform requireMembershipForRestaurant, which confirms this GET route is the outlier. I checked the repo migrations and found mutation-focused RLS hardening for table_inventory and zones, but no in-repo tenant-scoped SELECT policy that would serve as a reliable mitigation for this endpoint. An authenticated staff user can therefore target another restaurantId and the route will return whatever table_inventory and zones rows the authenticated database policy exposes for that id, including table numbers, capacities, status, notes, zones, and summary data.
-
 ## Recent committers (`git log`)
 
 - amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-29)

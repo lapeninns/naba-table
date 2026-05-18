@@ -16,12 +16,6 @@ The preview pane renders server-generated email HTML directly with `srcDoc={prev
 
 Do both defenses: render previews in an iframe with a restrictive sandbox such as `sandbox=""` or at most `sandbox="allow-same-origin"` without scripts, and fix the email renderer to safely serialize JSON for script contexts by escaping `<`/`</script>` or using a `safeJsonStringify` helper.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The exploitable condition described here has been patched in the current code. The shipped /app/email-templates route uses OpsEmailTemplatesClient, which renders EmailTemplatesPreviewPane, and the iframe in that pane now has sandbox="" with no script or same-origin allowances. The Iframe component is a thin wrapper, so the sandbox is not swallowed or transformed. I traced the HTML source through the preview API to renderRestaurantBookingEmailPreview and renderEmailBase; the JSON-LD annotation now uses safeJsonForHtmlScript instead of raw JSON.stringify(schema). Visible template fields in the email body are escaped with escapeHtml, while the specific JSON-LD breakout vector is neutralized by escaping < before insertion into the script context. The API schema also rejects explicit script markup in CTA labels and other main text fields via plainTextSchema. This was fixed by 020a7389, which touched EmailTemplatesPreviewPane, server/emails/base.ts, lib/security/script-json.ts, and the related tests.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-11)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-04)

@@ -16,13 +16,7 @@ The handler accepts an arbitrary booking id from the route, immediately uses get
 
 Add backend auth inside the route: validate the booking id, require a Supabase session, load the booking through an authenticated/RLS client or perform a minimal service lookup only after a safe authorization design, then call requireMembershipForRestaurant/requireRestaurantMember for the resolved restaurant before any service-role reads or cleanup. Move cleanup side effects behind an authenticated mutation path or only run them after authorization.
 
-## Revalidation
-
-**Verdict:** fixed
-
-The endpoint now has backend auth in the route itself, not just proxy-level ops auth. withBookingAuthorization uses withOpsMutation, which either trusts the proxy-set x-ops-user-id header or falls back to requireSession when the header is absent, so direct route access still needs a valid Supabase session. It then resolves the booking's restaurant and calls requireRestaurantMember for that restaurant. If the caller is not a member, the route returns before service-role reads, rate-limited context loading, or cleanup side effects. The current route also rate-limits by the authorized restaurantId and userId. Therefore the missing-auth and cross-tenant service-role read described in the finding is no longer present.
-
 ## Recent committers (`git log`)
 
-- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-05-06)
+- amanshresthaa <159779640+amanshresthaa@users.noreply.github.com> (2026-04-02)
 - amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-01-03)

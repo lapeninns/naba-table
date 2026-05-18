@@ -338,14 +338,6 @@ export async function POST(req: NextRequest) {
       redirectedFrom: absoluteRedirect,
       rememberMe,
     });
-    console.log('[Auth/signin] Magic link details:', {
-      hostname,
-      rootDomain,
-      redirectTarget,
-      absoluteRedirect,
-      emailRedirectTo,
-      surface,
-    });
 
     try {
       await sendAuthMagicLink({
