@@ -50,6 +50,10 @@ const SAVE_SCOPE_MESSAGES = {
   menu: 'Saves only the selected menu, section, item, or option.',
   tables: 'Saves only this table, zone, or inventory action.',
   team: 'Sends this invitation only.',
+  'profile-brand': 'Saves local brand details only. Sync with Google remains optional.',
+  'profile-contact': 'Saves local phone and address only. Sync with Google remains optional.',
+  'profile-advanced': 'Saves timezone and external details only.',
+  'profile-notifications': 'Saves manager alert preferences only.',
 } as const;
 
 export type SettingsSaveScope = keyof typeof SAVE_SCOPE_MESSAGES;

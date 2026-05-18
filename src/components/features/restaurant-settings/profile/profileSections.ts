@@ -1,9 +1,9 @@
-import { Building2, Compass, MapPin, MegaphoneIcon, ScanLine } from 'lucide-react';
+import { Building2, MapPin, MegaphoneIcon, ScanLine } from 'lucide-react';
 
 import type { ProfileDirtyKey } from '../restaurantProfileModel';
 import type { LucideIcon } from 'lucide-react';
 
-export type ProfileSectionId = 'brand' | 'contact' | 'advanced' | 'notifications' | 'discovery';
+export type ProfileSectionId = 'brand' | 'contact' | 'advanced' | 'notifications';
 
 export type ProfileSectionDefinition = {
   id: ProfileSectionId;
@@ -68,18 +68,6 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     setupStep: 4,
     icon: MegaphoneIcon,
     legacyHash: 'profile-notifications',
-  },
-  {
-    id: 'discovery',
-    dirtyKey: 'discovery',
-    navLabel: 'Discovery details',
-    paneTitle: 'Discovery details',
-    paneDescription:
-      'Categories, links, and attributes that help guests and directories describe your restaurant.',
-    audience: 'Guest-facing. Optional.',
-    setupStep: 5,
-    icon: Compass,
-    legacyHash: 'profile-discovery',
   },
 ] as const;
 

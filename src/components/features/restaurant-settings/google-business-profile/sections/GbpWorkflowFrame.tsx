@@ -1,6 +1,8 @@
 import { MapPin, SearchCheck, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import {
   RestaurantSettingsCommandCenter,
   type RestaurantSettingsCommandRailItem,
@@ -143,6 +145,19 @@ export function GbpWorkflowFrame({
       footer={<GbpFooter />}
     >
       <div className="flex min-w-0 flex-col gap-4">
+        {stage !== 'linked' && (
+          <Card className="border-sky-500/20 bg-sky-500/5">
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm font-medium text-sky-700 dark:text-sky-400">
+                Google integration is 100% optional
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Connecting your Google Business Profile is designed to import address details and hours quickly. 
+                If you prefer, you can skip this step and enter details manually in Nabatable.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
         <div id="gbp-connection" className="scroll-mt-24">
           {overview}
         </div>

@@ -116,7 +116,7 @@ describe('RestaurantDetailsForm subforms', () => {
       expect(onDraftChange).toHaveBeenLastCalledWith({}, false);
       expect(onDirtyChange).toHaveBeenLastCalledWith(false);
     });
-    expect(screen.getByText('Saves this section only.')).toBeInTheDocument();
+    expect(screen.getByText('Saves local brand details only. Sync with Google remains optional.')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Saved just now.');
     expect(analyticsTrackMock).toHaveBeenCalledWith(
       'restaurant_profile_section_saved',

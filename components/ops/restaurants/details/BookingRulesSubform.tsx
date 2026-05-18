@@ -221,7 +221,7 @@ export function BookingRulesSubform({
                 htmlFor="restaurant-lifecycle-grace"
                 className="inline-flex items-center gap-1"
               >
-                Grace period (minutes) <span className="text-destructive">*</span>
+                Late grace period (minutes) <span className="text-destructive">*</span>
               </Label>
               <FieldRequirement label="Required" />
               <HelpTooltip

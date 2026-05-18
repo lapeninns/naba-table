@@ -140,7 +140,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     resetSectionDraft(activeSection.dirtyKey);
   }, [activeSection.dirtyKey, resetSectionDraft]);
 
-  const discoveryDirty = dirtyState.discovery;
   const railItems: RestaurantSettingsCommandRailItem[] = useMemo(
     () => buildRailItems({ dirtyState, missingRequiredSectionIds }),
     [buildRailItems, dirtyState, missingRequiredSectionIds],
@@ -206,7 +205,6 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           dirtyHandlers={dirtyHandlers}
           draftHandlers={draftHandlers}
           dirtyFormSections={dirtyFormSections}
-          discoveryDirty={discoveryDirty}
           missingRequiredSectionIds={missingRequiredSectionIds}
           initialValues={initialValues}
           restaurantName={derivedRestaurantName}

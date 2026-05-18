@@ -238,22 +238,16 @@ describe('RestaurantProfileSection', () => {
     const contactRail = screen.getByRole('button', { name: /^3 · Contact/i });
     const bookingRail = screen.getByRole('button', { name: /^2 · Booking link/i });
     const managerAlertsRail = screen.getByRole('button', { name: /^4 · Manager alerts/i });
-    const discoveryRail = screen.getByRole('button', { name: /^5 · Discovery details/i });
     expect(brandRail).toBeInTheDocument();
     expect(contactRail).toBeInTheDocument();
     expect(bookingRail).toBeInTheDocument();
     expect(managerAlertsRail).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Discovery details/i })).not.toBeInTheDocument();
 
     await user.click(bookingRail);
     expect(screen.getByRole('textbox', { name: /booking page url/i })).toBeInTheDocument();
     expect(bookingRail).toHaveAttribute('aria-current', 'page');
 
-    const openingDateField = screen.getByLabelText(/opening date/i);
-    expect(openingDateField).not.toBeVisible();
-
-    await user.click(discoveryRail);
-    expect(discoveryRail).toHaveAttribute('aria-current', 'page');
-    await waitFor(() => expect(openingDateField).toBeVisible());
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

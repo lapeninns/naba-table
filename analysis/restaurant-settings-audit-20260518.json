@@ -1,0 +1,193 @@
+{
+  "auditDate": "2026-05-18",
+  "auditScope": "app/settings/restaurant/*",
+  "modules": [
+    {
+      "id": "shell",
+      "name": "Shell & Sidebar Subnavigation",
+      "severity": "Low",
+      "redesignType": "none",
+      "dimensions": {
+        "jobClarity": 5,
+        "setupVsMaintenance": 5,
+        "saveContractClarity": 5,
+        "visualSystemDensity": 5,
+        "complexityLineCount": 5,
+        "regressionSurface": 5,
+        "browserProofGap": 5
+      },
+      "scoreNotes": "The PageShell, FocusedShell, and Sidebar are extremely strong, utilizing prefetching and dirty state guards to prevent loss of focus or data. Graded 5/5 across dimensions.",
+      "fileReferences": [
+        "src/components/features/restaurant-settings/RestaurantSettingsFocusedShell.tsx",
+        "src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx",
+        "src/components/features/restaurant-settings/RestaurantSettingsSidebar.tsx",
+        "src/components/features/restaurant-settings/routes.ts",
+        "src/components/features/restaurant-settings/useRestaurantSettingsNav.ts"
+      ],
+      "testReferences": [
+        "tests/components/RestaurantSettingsShell.test.tsx",
+        "tests/components/RestaurantSettingsRoutePages.test.tsx",
+        "tests/components/isRestaurantSettingsPathname.test.ts"
+      ],
+      "browserProofStatus": "verified"
+    },
+    {
+      "id": "overview",
+      "name": "Setup Overview Page",
+      "severity": "Low",
+      "redesignType": "none",
+      "dimensions": {
+        "jobClarity": 5,
+        "setupVsMaintenance": 5,
+        "saveContractClarity": 5,
+        "visualSystemDensity": 4,
+        "complexityLineCount": 5,
+        "regressionSurface": 5,
+        "browserProofGap": 4
+      },
+      "scoreNotes": "The setup overview index page represents a massive step forward since the May diagnostic, successfully presenting a guided checklist and visual Readiness Ring to reduce setup ambiguity.",
+      "fileReferences": [
+        "src/components/features/restaurant-settings/overview/RestaurantSetupOverview.tsx",
+        "src/components/features/restaurant-settings/overview/buildSetupCards.ts"
+      ],
+      "testReferences": ["tests/components/RestaurantSetupOverview.test.tsx"],
+      "browserProofStatus": "verified"
+    },
+    {
+      "id": "profile",
+      "name": "Restaurant Profile & Brand Details",
+      "severity": "Medium",
+      "redesignType": "IA",
+      "dimensions": {
+        "jobClarity": 4,
+        "setupVsMaintenance": 3,
+        "saveContractClarity": 3,
+        "visualSystemDensity": 4,
+        "complexityLineCount": 3,
+        "regressionSurface": 4,
+        "browserProofGap": 4
+      },
+      "scoreNotes": "While the booking slug has been extracted, optional Discovery details are still embedded inside Profile rendering, increasing cognitive load on the first-time operator. Needs visual and IA polish to fully isolate core details.",
+      "fileReferences": [
+        "src/components/features/restaurant-settings/RestaurantProfileSection.tsx",
+        "src/components/features/restaurant-settings/profile/ProfileLoadedView.tsx",
+        "src/components/features/restaurant-settings/profile/ProfileStatusBar.tsx",
+        "src/components/features/restaurant-settings/profile/UnifiedActionBar.tsx",
+        "components/ops/restaurants/details/RestaurantDetailsForm.tsx"
+      ],
+      "testReferences": [
+        "tests/components/RestaurantProfileSection.test.tsx",
+        "tests/components/ProfileStatusBar.test.tsx",
+        "tests/components/RestaurantDetailsForm.test.tsx"
+      ],
+      "browserProofStatus": "verified"
+    },
+    {
+      "id": "discovery",
+      "name": "Discovery Details & Business Context",
+      "severity": "Critical",
+      "redesignType": "IA",
+      "dimensions": {
+        "jobClarity": 2,
+        "setupVsMaintenance": 2,
+        "saveContractClarity": 3,
+        "visualSystemDensity": 3,
+        "complexityLineCount": 2,
+        "regressionSurface": 4,
+        "browserProofGap": 4
+      },
+      "scoreNotes": "Discovery details contain 6 complex optional panels (attributes, links, categories, service areas, service items) loaded directly under the default profile layout. The cognitive load is extremely high and the save model uses per-family hooks. Promotion to a standalone `/settings/restaurant/discovery` route is recommended.",
+      "fileReferences": [
+        "src/components/features/restaurant-settings/RestaurantBusinessContextSection.tsx",
+        "src/components/features/restaurant-settings/discovery/DiscoveryPanelsFrame.tsx",
+        "src/components/features/restaurant-settings/discovery/panels/AttributesPanel.tsx",
+        "src/components/features/restaurant-settings/discovery/panels/ServiceAreasPanel.tsx",
+        "src/components/features/restaurant-settings/discovery/panels/CategoriesPanel.tsx",
+        "src/components/features/restaurant-settings/useRestaurantBusinessContextEditor.ts"
+      ],
+      "testReferences": ["tests/components/RestaurantBusinessContextSection.test.tsx"],
+      "browserProofStatus": "verified"
+    },
+    {
+      "id": "availability",
+      "name": "Availability & Scheduling Workspaces",
+      "severity": "High",
+      "redesignType": "decompose",
+      "dimensions": {
+        "jobClarity": 3,
+        "setupVsMaintenance": 3,
+        "saveContractClarity": 2,
+        "visualSystemDensity": 4,
+        "complexityLineCount": 2,
+        "regressionSurface": 4,
+        "browserProofGap": 4
+      },
+      "scoreNotes": "AvailabilityScheduleManager (874 lines) and OperatingHoursSection (832 lines) are massive. They mix weekly schedules, date exceptions, service periods, and occasions. Standardizing save boundaries and decomposing along workspace tabs (Rules / Schedule / Occasions) is critical.",
+      "fileReferences": [
+        "src/components/features/restaurant-settings/AvailabilityScheduleManager.tsx",
+        "src/components/features/restaurant-settings/OperatingHoursSection.tsx",
+        "src/components/features/restaurant-settings/AvailabilityOccasionsEditor.tsx",
+        "src/components/features/restaurant-settings/ServicePeriodsSection.tsx",
+        "src/components/features/restaurant-settings/TurnDurationsSection.tsx",
+        "src/components/features/restaurant-settings/OccasionsSection.tsx"
+      ],
+      "testReferences": ["tests/components/AvailabilitySettingsComponents.test.tsx"],
+      "browserProofStatus": "verified"
+    },
+    {
+      "id": "gbp-dualsync",
+      "name": "Google Business Profile & Dual Sync",
+      "severity": "High",
+      "redesignType": "visual",
+      "dimensions": {
+        "jobClarity": 3,
+        "setupVsMaintenance": 4,
+        "saveContractClarity": 3,
+        "visualSystemDensity": 4,
+        "complexityLineCount": 2,
+        "regressionSurface": 5,
+        "browserProofGap": 5
+      },
+      "scoreNotes": "DualSyncShell (812 lines) handles immense compare/sync logic. While E2E and unit test coverage is exceptional, GBP needs to be clearly labeled as 'optional' to prevent admins from reading it as a prerequisite. Error alert banners should be pinned.",
+      "fileReferences": [
+        "src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx",
+        "src/components/features/restaurant-settings/dual-sync/DualSyncShell.tsx",
+        "src/components/features/restaurant-settings/gbp-drift/GbpDriftProvider.tsx",
+        "src/components/features/restaurant-settings/gbpDriftBadges.tsx"
+      ],
+      "testReferences": [
+        "tests/components/GoogleBusinessProfileSection.test.tsx",
+        "tests/components/DualSyncShellPublishFlow.test.tsx",
+        "tests/components/GbpDriftProvider.test.ts",
+        "tests/e2e/ops-gbp-dual-sync.spec.ts"
+      ],
+      "browserProofStatus": "verified"
+    },
+    {
+      "id": "boundaries",
+      "name": "Cross-Route Boundary Clients (Menu, Tables, Team)",
+      "severity": "Medium",
+      "redesignType": "decompose",
+      "dimensions": {
+        "jobClarity": 4,
+        "setupVsMaintenance": 3,
+        "saveContractClarity": 4,
+        "visualSystemDensity": 4,
+        "complexityLineCount": 2,
+        "regressionSurface": 5,
+        "browserProofGap": 4
+      },
+      "scoreNotes": "Menu Management and Table Inventory are heavy. MenuItemSheet (994 lines) and DrinkItemSheet (1072 lines) lack quick-edit drawers for pricing and stock status. Table creation mixes physical table mapping with complex zoning and seating classifications.",
+      "fileReferences": [
+        "src/components/features/tables/TableInventoryClient.tsx",
+        "src/components/features/menu/OpsMenuManagementClient.tsx",
+        "src/components/features/team/OpsTeamManagementClient.tsx"
+      ],
+      "testReferences": [
+        "tests/e2e/ops-capacity-tables.spec.ts",
+        "tests/e2e/ops-settings-team.spec.ts"
+      ],
+      "browserProofStatus": "verified"
+    }
+  ]
+}

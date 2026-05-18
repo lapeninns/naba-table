@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 import AvailabilitySettingsPage, {
   metadata as availabilityMetadata,
 } from '@/app/app/(app)/settings/restaurant/availability/page';
+import RestaurantDiscoverySettingsPage, {
+  metadata as discoveryMetadata,
+} from '@/app/app/(app)/settings/restaurant/discovery/page';
 import GoogleBusinessProfileSettingsPage, {
   metadata as googleBusinessProfileMetadata,
 } from '@/app/app/(app)/settings/restaurant/google-business-profile/page';
@@ -38,6 +41,11 @@ const routePageContracts: RoutePageContract[] = [
     metadata: profileMetadata,
     page: RestaurantProfileSettingsPage,
     view: 'profile',
+  },
+  {
+    metadata: discoveryMetadata,
+    page: RestaurantDiscoverySettingsPage,
+    view: 'discovery',
   },
   {
     metadata: googleBusinessProfileMetadata,

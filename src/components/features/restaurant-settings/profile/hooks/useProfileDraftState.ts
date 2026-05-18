@@ -22,7 +22,6 @@ export function useProfileDraftState(data: RestaurantProfile | null | undefined)
     brand: false,
     contact: false,
     notifications: false,
-    discovery: false,
     advanced: false,
   });
   const [sectionDrafts, setSectionDrafts] = useState<
@@ -77,7 +76,6 @@ export function useProfileDraftState(data: RestaurantProfile | null | undefined)
       brand: (dirty) => updateDirtyState('brand', dirty),
       contact: (dirty) => updateDirtyState('contact', dirty),
       notifications: (dirty) => updateDirtyState('notifications', dirty),
-      discovery: (dirty) => updateDirtyState('discovery', dirty),
       advanced: (dirty) => updateDirtyState('advanced', dirty),
     }),
     [updateDirtyState],

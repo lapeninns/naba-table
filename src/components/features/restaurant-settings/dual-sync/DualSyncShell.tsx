@@ -15,8 +15,8 @@
 
 'use client';
 
-import { AlertCircle, PauseCircle, PlayCircle, RefreshCw, Send, Zap } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { AlertCircle, Filter, PauseCircle, PlayCircle, RefreshCw, Send, Zap } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -32,6 +32,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  useOpsGoogleBusinessProfileConnection,
+  useOpsStartGoogleBusinessProfileAuthorization,
+} from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { cn } from '@/lib/utils';
 
 import { DualSyncFieldRow } from './DualSyncFieldRow';
@@ -53,6 +57,7 @@ import { DualSyncPendingCandidatesPanel } from './panels/jobs/DualSyncPendingCan
 import { DualSyncPublishJobsPanel } from './panels/jobs/DualSyncPublishJobsPanel';
 import { DualSyncQueueJobsPanel } from './panels/jobs/DualSyncQueueJobsPanel';
 import { DualSyncOperationsPanel } from './panels/operations/DualSyncOperationsPanel';
+import { PersistentGbpErrorAlert } from '../google-business-profile/sections/PersistentGbpErrorAlert';
 
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 import type {
@@ -134,6 +139,25 @@ export function DualSyncShell({
   const [publishPreviewOpen, setPublishPreviewOpen] = useState(false);
   const [publishResult, setPublishResult] = useState<DualSyncPublishResponse | null>(null);
   const [publishResultOpen, setPublishResultOpen] = useState(false);
+  const [showDriftOnly, setShowDriftOnly] = useState(true);
+
+  const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
+  const startAuthMutation = useOpsStartGoogleBusinessProfileAuthorization(restaurantId);
+  const needsReauth = connectionQuery.data?.status === 'reauth_required';
+
+  const handleReconnect = useCallback(() => {
+    if (startAuthMutation.isPending) {
+      return;
+    }
+    startAuthMutation.mutate(undefined, {
+      onSuccess: ({ authorizationUrl }) => {
+        window.location.assign(authorizationUrl);
+      },
+      onError: (err) => {
+        toast.error(err.message);
+      },
+    });
+  }, [startAuthMutation]);
 
   const outboundQueue = stateQuery.data?.outboundQueue ?? null;
   const control = stateQuery.data?.control ?? null;
@@ -371,9 +395,24 @@ export function DualSyncShell({
         onOpenChange={setPublishResultOpen}
       />
       <TooltipProvider delayDuration={250}>
-        <Card className={cn('space-y-4', className)}>
-          <CardHeader className="flex flex-col gap-3 pb-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4">
+          {needsReauth && (
+            <div className="sticky top-0 z-20 shadow-md">
+              <PersistentGbpErrorAlert
+                error={{
+                  kind: 'authorization',
+                  title: 'Google OAuth session expired',
+                  message: 'Your Google Business Profile connection has expired. Please reconnect to resume importing or exporting listings.',
+                }}
+                actionLabel="Reconnect Google"
+                onAction={handleReconnect}
+                isActionPending={startAuthMutation.isPending}
+              />
+            </div>
+          )}
+          <Card className={cn('space-y-4', className)}>
+            <CardHeader className="flex flex-col gap-3 pb-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <CardTitle className="text-base">Google Business Profile sync</CardTitle>
                 {totalOpen > 0 ? (
@@ -394,6 +433,15 @@ export function DualSyncShell({
                 ) : null}
               </div>
               <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+                <Button
+                  variant={showDriftOnly ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowDriftOnly(!showDriftOnly)}
+                  className="h-9 px-3"
+                >
+                  <Filter className="mr-1.5 size-4" />
+                  {showDriftOnly ? 'Differences only' : 'All fields'}
+                </Button>
                 <DualSyncToolbarTip
                   enabledHint={
                     syncPaused
@@ -554,16 +602,24 @@ export function DualSyncShell({
             <Accordion {...accordionProps} className="space-y-3">
               {orderedSectionKeys.map((sectionKey) => {
                 const fields = fieldsBySection.get(sectionKey) ?? [];
+                const displayedFields = showDriftOnly
+                  ? fields.filter((f) => f.state !== 'in_sync')
+                  : fields;
                 const bulkSummary = getDualSyncSectionBulkSummary(fields, decisions);
                 const sectionProgress = getSectionProgress(fields, decisions);
                 const hasSectionReview = sectionProgress.needsReviewCount > 0;
                 return (
-                  <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
-                    <AccordionTrigger className="text-sm font-semibold">
-                      <div className="flex w-full flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-left">
-                          {DUAL_SYNC_SECTION_LABEL[sectionKey]} ({fields.length})
-                        </span>
+                   <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
+                     <AccordionTrigger className="text-sm font-semibold">
+                       <div className="flex w-full flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between">
+                         <span className="text-left flex items-center gap-2">
+                           <span>{DUAL_SYNC_SECTION_LABEL[sectionKey]}</span>
+                           <Badge variant="outline" className="font-normal font-mono text-[10px] py-0 px-1.5 h-4">
+                             {showDriftOnly
+                               ? `${displayedFields.length} drifted`
+                               : `${fields.length} total`}
+                           </Badge>
+                         </span>
                         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-56">
                           <div className="text-muted-foreground flex items-center justify-between gap-2 font-mono text-[10px] font-normal tabular-nums">
                             {hasSectionReview ? (
@@ -649,15 +705,21 @@ export function DualSyncShell({
                           </div>
                         </div>
                       ) : null}
-                      {fields.map((field) => (
-                        <DualSyncFieldRow
-                          key={field.fieldKey}
-                          field={field}
-                          selectedAction={decisions[field.fieldKey]?.action ?? null}
-                          onChangeAction={(next) => onSelectAction(field.fieldKey, next)}
-                          disabled={writeBlocked}
-                        />
-                      ))}
+                      {displayedFields.length > 0 ? (
+                        displayedFields.map((field) => (
+                          <DualSyncFieldRow
+                            key={field.fieldKey}
+                            field={field}
+                            selectedAction={decisions[field.fieldKey]?.action ?? null}
+                            onChangeAction={(next) => onSelectAction(field.fieldKey, next)}
+                            disabled={writeBlocked}
+                          />
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted-foreground py-6 text-center border rounded-md border-dashed border-border/70 bg-muted/5">
+                          All fields in this section are in sync.
+                        </div>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -806,7 +868,8 @@ export function DualSyncShell({
             </Accordion>
           </CardContent>
         </Card>
-      </TooltipProvider>
-    </>
-  );
+      </div>
+    </TooltipProvider>
+  </>
+);
 }

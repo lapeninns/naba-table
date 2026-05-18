@@ -9,7 +9,6 @@ import type { ProfileDirtySection } from '../restaurantProfileModel';
 
 type UnifiedActionBarProps = {
   dirtyFormSections: readonly (ProfileDirtySection & { formId: string })[];
-  discoveryDirty: boolean;
   activeSection: ProfileSectionDefinition;
   lastSavedAt: string | null;
   onSaveAll: () => void;
@@ -37,7 +36,6 @@ function formatSavedAt(value: string | null): string {
 
 export function UnifiedActionBar({
   dirtyFormSections,
-  discoveryDirty,
   activeSection,
   lastSavedAt,
   onSaveAll,
@@ -47,13 +45,11 @@ export function UnifiedActionBar({
   className,
 }: UnifiedActionBarProps) {
   const profileDirtyCount = dirtyFormSections.length;
-  const unsavedSectionCount = profileDirtyCount + (discoveryDirty ? 1 : 0);
   const activeDirtySection = dirtyFormSections.find(
     (section) => section.key === activeSection.dirtyKey,
   );
-  const discoveryIsActive = activeSection.id === 'discovery';
 
-  if (unsavedSectionCount === 0) {
+  if (profileDirtyCount === 0) {
     return (
       <div
         role="status"
@@ -72,13 +68,8 @@ export function UnifiedActionBar({
     );
   }
 
-  const title = `${unsavedSectionCount} unsaved profile section${unsavedSectionCount === 1 ? '' : 's'}`;
-  const description =
-    discoveryDirty && profileDirtyCount > 0
-      ? 'Save profile forms from this bar. Discovery panels save individually in the section below.'
-      : discoveryDirty
-        ? 'Save each discovery panel below when you are ready.'
-        : 'Save profile changes without leaving this settings workspace.';
+  const title = `${profileDirtyCount} unsaved profile section${profileDirtyCount === 1 ? '' : 's'}`;
+  const description = 'Save profile changes without leaving this settings workspace.';
 
   return (
     <Alert
@@ -117,11 +108,6 @@ export function UnifiedActionBar({
             <Button type="button" variant="outline" size="sm" onClick={onCompareWithGoogle}>
               Compare with Google
             </Button>
-          ) : null}
-          {discoveryDirty && discoveryIsActive && !activeDirtySection ? (
-            <span className="text-xs text-muted-foreground">
-              Use each panel&apos;s save action.
-            </span>
           ) : null}
         </div>
       </AlertDescription>

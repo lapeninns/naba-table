@@ -34,7 +34,6 @@ type ProfileLoadedViewProps = {
     Record<ProfileDirtyKey, (draft: RestaurantDetailsDraftValues, dirty: boolean) => void>
   >;
   dirtyFormSections: readonly (ProfileDirtySection & { formId: string })[];
-  discoveryDirty: boolean;
   missingRequiredSectionIds: ReadonlySet<ProfileSectionId>;
   initialValues: RestaurantDetailsFormValues;
   restaurantName: string;
@@ -71,7 +70,6 @@ export function ProfileLoadedView({
   dirtyHandlers,
   draftHandlers,
   dirtyFormSections,
-  discoveryDirty,
   missingRequiredSectionIds,
   initialValues,
   restaurantName,
@@ -145,7 +143,6 @@ export function ProfileLoadedView({
 
         <UnifiedActionBar
           dirtyFormSections={dirtyFormSections}
-          discoveryDirty={discoveryDirty}
           activeSection={activeSection}
           lastSavedAt={profile?.updatedAt ?? null}
           onSaveAll={onSaveAll}

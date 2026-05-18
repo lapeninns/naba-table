@@ -63,7 +63,13 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     view: 'profile',
     href: opsHref('/settings/restaurant/profile'),
     title: 'Restaurant profile',
-    description: 'Public details, booking page URL, manager alerts, and optional discovery.',
+    description: 'Public details, booking page URL, and manager alerts.',
+  },
+  {
+    view: 'discovery',
+    href: opsHref('/settings/restaurant/discovery'),
+    title: 'Discovery details',
+    description: 'Categories, links, and attributes that help guests find your restaurant.',
   },
   {
     view: 'google-business-profile',
@@ -118,6 +124,7 @@ const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
 
 export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('profile'),
+  getRoute('discovery'),
   getRoute('google-business-profile'),
   getRoute('availability'),
   getRoute('menu'),

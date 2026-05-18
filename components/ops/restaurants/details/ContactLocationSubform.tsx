@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
+import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -390,6 +391,7 @@ export function ContactLocationSubform({
           onReset={resetDraft}
           submitLabel="Save contact details"
           status={status}
+          saveScopeMessage={formatSaveScopeMessage('profile-contact')}
         />
       </FormRoot>
     </TooltipProvider>

@@ -251,20 +251,20 @@ test.describe('authenticated ops app-host shipped routes', () => {
     });
   });
 
-  test('restaurant profile discovery anchor renders authenticated shipped route proof @p1 @browser @smoke @local-only', async ({
+  test('restaurant discovery details renders authenticated shipped route proof @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
-    await page.goto('/settings/restaurant/profile#profile-discovery', {
+    await page.goto('/settings/restaurant/discovery', {
       waitUntil: 'domcontentloaded',
     });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/discovery/);
     await expect(page.locator('main').getByText('Discovery details').first()).toBeVisible();
     await expect(page.locator('main').getByText('Dining categories').first()).toBeVisible();
 
     await page.screenshot({
-      path: testInfo.outputPath('ops-settings-profile-discovery-authenticated-desktop.png'),
+      path: testInfo.outputPath('ops-settings-discovery-authenticated-desktop.png'),
       fullPage: true,
     });
   });

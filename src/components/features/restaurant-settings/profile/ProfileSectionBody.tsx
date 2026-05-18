@@ -9,7 +9,6 @@ import {
   type RestaurantDetailsFormValues,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
 
-import { RestaurantBusinessContextSection } from '../RestaurantBusinessContextSection';
 import { RestaurantLogoUploader } from '../RestaurantLogoUploader';
 import { PROFILE_SECTION_FORMS, type ProfileDirtyKey } from '../restaurantProfileModel';
 
@@ -112,16 +111,6 @@ export function ProfileSectionBody({
         onDirtyChange={dirtyHandlers.notifications}
         onDraftChange={draftHandlers.notifications}
         onResetDraftChange={(resetDraft) => onResetDraftChange('notifications', resetDraft)}
-      />
-    );
-  }
-
-  if (section.id === 'discovery') {
-    return (
-      <RestaurantBusinessContextSection
-        restaurantId={restaurantId}
-        embedded
-        onDirtyChange={dirtyHandlers.discovery}
       />
     );
   }

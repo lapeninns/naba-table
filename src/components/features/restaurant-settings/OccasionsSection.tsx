@@ -235,7 +235,7 @@ export function OccasionsSection() {
                 <TableHead className="w-[180px]">Label</TableHead>
                 <TableHead>Short</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Duration</TableHead>
+                <TableHead>Table time</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -337,7 +337,7 @@ export function OccasionsSection() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="occasion-duration">Default duration (minutes)</Label>
+                <Label htmlFor="occasion-duration">Default table time (minutes)</Label>
                 <Input
                   id="occasion-duration"
                   type="number"

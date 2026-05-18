@@ -4,6 +4,7 @@ import { Copy } from 'lucide-react';
 import { useState } from 'react';
 
 import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
+import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -168,6 +169,7 @@ export function AdvancedIdentitySubform({
           onReset={resetDraft}
           submitLabel="Save booking link"
           status={status}
+          saveScopeMessage={formatSaveScopeMessage('profile-advanced')}
         />
       </FormRoot>
     </TooltipProvider>

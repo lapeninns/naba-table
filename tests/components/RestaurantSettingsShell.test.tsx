@@ -10,6 +10,7 @@ const navigationState = vi.hoisted(() => ({
 const dynamicState = vi.hoisted(() => ({
   names: [
     'profile',
+    'discovery',
     'google-business-profile',
     'availability',
     'menu',
@@ -85,6 +86,7 @@ const membership: OpsMembership = {
 
 const expectedViews: RestaurantSettingsView[] = [
   'profile',
+  'discovery',
   'google-business-profile',
   'availability',
   'menu',
@@ -107,6 +109,7 @@ function renderWithOpsSession(ui: ReactElement, memberships: OpsMembership[] = [
 function makePrefetchServiceCalls() {
   return {
     getGoogleBusinessProfileConnection: vi.fn().mockResolvedValue({}),
+    getBusinessContext: vi.fn().mockResolvedValue({}),
     getOperatingHours: vi.fn().mockResolvedValue({}),
     getProfile: vi.fn().mockResolvedValue({}),
     getServicePeriods: vi.fn().mockResolvedValue([]),
@@ -135,6 +138,7 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
               getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
+              getBusinessContext: serviceCalls.getBusinessContext,
               getOperatingHours: serviceCalls.getOperatingHours,
               getProfile: serviceCalls.getProfile,
               getServicePeriods: serviceCalls.getServicePeriods,
@@ -172,6 +176,7 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
               getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
+              getBusinessContext: serviceCalls.getBusinessContext,
               getOperatingHours: serviceCalls.getOperatingHours,
               getProfile: serviceCalls.getProfile,
               getServicePeriods: serviceCalls.getServicePeriods,
@@ -217,6 +222,7 @@ describe('restaurant settings route contract', () => {
     expect(RESTAURANT_SETTINGS_ROUTES.map((route) => route.view)).toEqual(expectedViews);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => item.href)).toEqual([
       '/app/settings/restaurant/profile',
+      '/app/settings/restaurant/discovery',
       '/app/settings/restaurant/google-business-profile',
       '/app/settings/restaurant/availability',
       '/app/settings/restaurant/menu',
@@ -332,9 +338,9 @@ describe('RestaurantSettingsSubnav', () => {
       screen.queryByText(/Define lunch, dinner, and other booking windows/i),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 1, name: 'Restaurant' })).not.toBeInTheDocument();
-    expect(
-      availabilityLinks.some((link) => link.getAttribute('aria-current') === 'page'),
-    ).toBe(true);
+    expect(availabilityLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(
+      true,
+    );
   });
 
   it('keeps the active mobile nav item visually anchored', () => {
@@ -386,6 +392,7 @@ describe('RestaurantSettingsSubnav', () => {
     renderSubnav('/app/settings/restaurant/profile', serviceCalls);
 
     await user.hover(screen.getByRole('link', { name: 'Restaurant profile' }));
+    await user.hover(screen.getByRole('link', { name: 'Discovery details' }));
     await user.hover(screen.getByRole('link', { name: 'Google Business Profile' }));
     await user.hover(screen.getByRole('link', { name: 'Availability & Booking types' }));
     await user.hover(screen.getByRole('link', { name: 'Menu' }));
@@ -394,6 +401,7 @@ describe('RestaurantSettingsSubnav', () => {
 
     await waitFor(() => {
       expect(serviceCalls.getProfile).toHaveBeenCalledWith('rest-1');
+      expect(serviceCalls.getBusinessContext).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.getGoogleBusinessProfileConnection).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.getOperatingHours).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.getServicePeriods).toHaveBeenCalledWith('rest-1');

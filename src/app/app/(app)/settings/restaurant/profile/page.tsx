@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Restaurant profile · Nab a Table Ops',
-  description: 'Brand, contact details, team alerts, and public discovery.',
+  description: 'Brand, contact details, booking page URL, and team alerts.',
 };
 
 export default function RestaurantProfileSettingsPage() {

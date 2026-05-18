@@ -40,7 +40,11 @@ export const RESTAURANT_SETTINGS_NAV_GROUPS: Array<{
   },
   {
     label: 'Operations',
-    hrefs: ['/app/settings/restaurant/menu', '/app/settings/restaurant/team'],
+    hrefs: [
+      '/app/settings/restaurant/discovery',
+      '/app/settings/restaurant/menu',
+      '/app/settings/restaurant/team',
+    ],
   },
   {
     label: 'Integrations',
@@ -58,8 +62,8 @@ export const GROUPED_RESTAURANT_SETTINGS_NAV_ITEMS = RESTAURANT_SETTINGS_NAV_GRO
 );
 
 const NAV_DRIFT_SECTIONS: NavDriftSectionMap = {
-  '/app/settings/restaurant/profile': [
-    'profile',
+  '/app/settings/restaurant/profile': ['profile'],
+  '/app/settings/restaurant/discovery': [
     'businessContext.categories',
     'businessContext.serviceAreas',
     'businessContext.attributes',
@@ -147,6 +151,13 @@ export function useRestaurantSettingsNav() {
           queryClient,
           queryKey: queryKeys.opsRestaurants.detail(id),
           queryFn: () => restaurantService.getProfile(id),
+          enabled: true,
+        }),
+      '/app/settings/restaurant/discovery': () =>
+        prefetchIfStale({
+          queryClient,
+          queryKey: queryKeys.opsRestaurants.businessContext(id),
+          queryFn: () => restaurantService.getBusinessContext(id),
           enabled: true,
         }),
       '/app/settings/restaurant/google-business-profile': () =>

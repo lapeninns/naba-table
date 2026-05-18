@@ -72,6 +72,13 @@ const RestaurantProfileSection = dynamic(
   },
 );
 
+const RestaurantBusinessContextSection = dynamic(
+  () => import('./RestaurantBusinessContextSection').then((m) => m.RestaurantBusinessContextSection),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading discovery details" />,
+  },
+);
+
 const GoogleBusinessProfileSection = dynamic(
   () =>
     import('./google-business-profile/GoogleBusinessProfileSection').then(
@@ -186,6 +193,12 @@ export function OpsRestaurantSettingsClient({
     (context: { restaurantId: string | null }) => ReactNode
   > = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
+    discovery: ({ restaurantId }) => (
+      <RestaurantBusinessContextSection
+        restaurantId={restaurantId}
+        embedded={false}
+      />
+    ),
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection
         restaurantId={restaurantId}
