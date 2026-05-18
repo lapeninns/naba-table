@@ -11,7 +11,6 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { opsHref } from '@/lib/url/opsHref';
@@ -25,6 +24,7 @@ import {
   type GbpDriftSectionStatus,
   type GbpDriftStatus,
 } from './gbpDriftStatus';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 
@@ -57,15 +57,8 @@ export function GbpDriftProvider({
   restaurantId: explicitRestaurantId,
   children,
 }: GbpDriftProviderProps) {
-  const { memberships, activeRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
-  const restaurantId =
-    explicitRestaurantId ??
-    activeMembership?.restaurantId ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId)
-      ?.restaurantId ??
-    memberships[0]?.restaurantId ??
-    null;
+  const settingsContext = useRestaurantSettingsContext();
+  const restaurantId = explicitRestaurantId ?? settingsContext.restaurantId;
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const { stateQuery } = useOpsDualSync({ restaurantId });
 

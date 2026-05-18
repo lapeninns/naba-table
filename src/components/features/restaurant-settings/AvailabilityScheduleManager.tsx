@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Clock3, RotateCcw, Save, UtensilsCrossed } from 'lucide-react';
+import { AlertCircle, RotateCcw, Save } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,8 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOccasionService } from '@/contexts/ops-services';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
@@ -27,9 +25,13 @@ import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 
-import { AvailabilityOccasionsEditor } from './AvailabilityOccasionsEditor';
-import { AvailabilityOverridesEditor } from './AvailabilityOverridesEditor';
-import { AvailabilityScheduleDayCard } from './AvailabilityScheduleDayCard';
+import {
+  AvailabilityScheduleErrorState,
+  BookingTypesWorkspace,
+  LoadingAvailabilityScheduleState,
+  NoRestaurantAvailabilityScheduleState,
+  ScheduleWorkspace,
+} from './availability';
 import {
   buildOperatingHoursPayload,
   buildMissingRequiredOccasions,
@@ -45,11 +47,7 @@ import {
   validateServices,
 } from './availabilityScheduleManagerUtils';
 import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
-import {
-  GbpDriftBadge,
-  findServicePeriodDriftField,
-  useWorkspaceGbpDriftCheck,
-} from './gbpDriftBadges';
+import { findServicePeriodDriftField, useWorkspaceGbpDriftCheck } from './gbpDriftBadges';
 import {
   buildServicePeriodPayload,
   buildServicePeriodState,
@@ -60,7 +58,6 @@ import {
   SETTINGS_COMPACT_CARD_CONTENT_CLASS,
   SETTINGS_COMPACT_CARD_HEADER_CLASS,
   SETTINGS_COMPACT_HELPER_TEXT_CLASS,
-  SETTINGS_COMPACT_STATUS_ROW_CLASS,
   SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
   formatSaveScopeMessage,
 } from './shared';
@@ -73,7 +70,6 @@ import {
   type WeeklyRow,
 } from './types';
 
-import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { ServicePeriodRow, TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
 
@@ -691,14 +687,7 @@ export function AvailabilityScheduleManager({
   ]);
 
   if (!restaurantId) {
-    return (
-      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-        <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
-          <CardTitle>Weekly schedule</CardTitle>
-          <CardDescription>Select a restaurant to manage availability.</CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return <NoRestaurantAvailabilityScheduleState />;
   }
 
   const loadError =
@@ -711,21 +700,7 @@ export function AvailabilityScheduleManager({
   if (loadError) {
     const message =
       loadError instanceof Error ? loadError.message : 'Unable to load availability settings.';
-    return (
-      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-        <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
-          <CardTitle>Weekly schedule</CardTitle>
-          <CardDescription>Unable to load the unified availability editor.</CardDescription>
-        </CardHeader>
-        <CardContent className={SETTINGS_COMPACT_CARD_CONTENT_CLASS}>
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" />
-            <AlertTitle>Availability editor unavailable</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
+    return <AvailabilityScheduleErrorState message={message} />;
   }
 
   if (
@@ -735,22 +710,7 @@ export function AvailabilityScheduleManager({
     turnBandsQuery.isLoading ||
     !hasInitialized
   ) {
-    return (
-      <Card className={SETTINGS_COMPACT_CARD_CLASS}>
-        <CardHeader className={SETTINGS_COMPACT_CARD_HEADER_CLASS}>
-          <Badge variant="outline" className="w-fit">
-            Weekly schedule
-          </Badge>
-          <CardTitle className="text-xl">Operating hours and service windows together</CardTitle>
-          <CardDescription>Loading the integrated availability editor.</CardDescription>
-        </CardHeader>
-        <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-3')}>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-36 w-full rounded-xl" />
-          ))}
-        </CardContent>
-      </Card>
-    );
+    return <LoadingAvailabilityScheduleState />;
   }
 
   const canSave =
@@ -843,180 +803,41 @@ export function AvailabilityScheduleManager({
         ) : null}
 
         {isScheduleWorkspace ? (
-          <Alert>
-            <Clock3 className="size-4" />
-            <AlertTitle>Availability save scope</AlertTitle>
-            <AlertDescription>
-              <ul className="flex list-disc flex-col gap-1 pl-5">
-                <li>
-                  Weekly hours, service windows, date overrides, and booking types save together
-                  from this workspace.
-                </li>
-                {customRows.length > 0 ? (
-                  <li>
-                    {customRows.length} custom service period
-                    {customRows.length === 1 ? '' : 's'} sit outside the lunch-dinner layout and
-                    will be preserved unchanged.
-                  </li>
-                ) : null}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {isScheduleWorkspace ? (
-          <Tabs defaultValue="schedule" className="flex flex-col gap-4">
-            <TabsList className="h-auto w-full justify-start gap-2 overflow-x-auto p-1 sm:w-fit">
-              <TabsTrigger value="schedule">Weekly schedule</TabsTrigger>
-              <TabsTrigger value="overrides">Date overrides</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
-              <div id="availability-hours" className="scroll-mt-28">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">Weekly open hours</p>
-                  <GbpDriftBadge fields={gbpDrift.getFieldsBySection('operatingHours')} />
-                </div>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Set the outer open and close window for each day.
-                </p>
-              </div>
-              <div
-                className={cn(
-                  SETTINGS_COMPACT_STATUS_ROW_CLASS,
-                  'justify-between rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2',
-                )}
-              >
-                <span>
-                  Turn times per party size are set on each booking occasion — including{' '}
-                  <span className="font-medium text-foreground">Lunch</span> and{' '}
-                  <span className="font-medium text-foreground">Dinner</span>.
-                </span>
-              </div>
-              <div id="service-periods" className="scroll-mt-28">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">
-                    Meal windows (lunch / dinner inside open hours)
-                  </p>
-                  <GbpDriftBadge fields={servicePeriodDriftFields} />
-                </div>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Use each day card to switch lunch and dinner windows on or off inside the open
-                  hours.
-                </p>
-              </div>
-              {weeklyRows.map((row, index) => {
-                const day = dayConfigs[index];
-                const serviceFields: DualSyncFieldSummary[] = [];
-                if (day && occasionKeys.lunch && day.lunch.enabled) {
-                  const field = findServicePeriodDriftField(servicePeriodDriftFields, {
-                    dayOfWeek: day.dayOfWeek,
-                    startTime: day.lunch.startTime,
-                    endTime: day.lunch.endTime,
-                    bookingOption: occasionKeys.lunch,
-                    name: day.lunch.name,
-                  });
-                  if (field) serviceFields.push(field);
-                }
-                if (day && occasionKeys.dinner && day.dinner.enabled) {
-                  const field = findServicePeriodDriftField(servicePeriodDriftFields, {
-                    dayOfWeek: day.dayOfWeek,
-                    startTime: day.dinner.startTime,
-                    endTime: day.dinner.endTime,
-                    bookingOption: occasionKeys.dinner,
-                    name: day.dinner.name,
-                  });
-                  if (field) serviceFields.push(field);
-                }
-
-                return (
-                  <AvailabilityScheduleDayCard
-                    key={row.dayOfWeek}
-                    day={day}
-                    dayError={serviceErrors[row.dayOfWeek]}
-                    hasRequiredOccasions={hasRequiredOccasions}
-                    onMealTimeChange={handleMealTimeChange}
-                    onMealToggle={handleMealToggle}
-                    onWeeklyChange={handleWeeklyChange}
-                    row={row}
-                    rowErrors={weeklyErrors[row.dayOfWeek]}
-                    weeklyDriftField={gbpDrift.getField(`operatingHours.weekly.${row.dayOfWeek}`)}
-                    serviceDriftFields={serviceFields}
-                  />
-                );
-              })}
-            </TabsContent>
-
-            <TabsContent value="overrides" className="mt-0">
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-foreground">Date overrides</p>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Closures and special hours override the weekly template.
-                </p>
-              </div>
-              <AvailabilityOverridesEditor
-                onAdd={addOverride}
-                onChange={handleOverrideChange}
-                onRemove={removeOverride}
-                rowErrors={overrideErrors}
-                rows={overrideRows}
-              />
-            </TabsContent>
-          </Tabs>
+          <ScheduleWorkspace
+            customRowsCount={customRows.length}
+            dayConfigs={dayConfigs}
+            getWeeklyDriftField={gbpDrift.getField}
+            hasRequiredOccasions={hasRequiredOccasions}
+            occasionKeys={occasionKeys}
+            onAddOverride={addOverride}
+            onMealTimeChange={handleMealTimeChange}
+            onMealToggle={handleMealToggle}
+            onOverrideChange={handleOverrideChange}
+            onRemoveOverride={removeOverride}
+            onWeeklyChange={handleWeeklyChange}
+            operatingHoursDriftFields={gbpDrift.getFieldsBySection('operatingHours')}
+            overrideErrors={overrideErrors}
+            overrideRows={overrideRows}
+            serviceErrors={serviceErrors}
+            servicePeriodDriftFields={servicePeriodDriftFields}
+            weeklyErrors={weeklyErrors}
+            weeklyRows={weeklyRows}
+          />
         ) : null}
 
         {isBookingTypesWorkspace ? (
-          <Alert>
-            <UtensilsCrossed className="size-4" />
-            <AlertTitle>Booking types control guest choices</AlertTitle>
-            <AlertDescription>
-              Keep lunch and dinner active, then tune duration and turn-time rules so the booking
-              grid matches how service actually runs. Booking slot spacing lives under{' '}
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0 text-xs"
-                onClick={() => {
-                  window.history.replaceState(null, '', '#booking-rules');
-                  document
-                    .getElementById('booking-rules')
-                    ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-                }}
-              >
-                Booking rules
-              </Button>
-              .
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {isBookingTypesWorkspace ? (
-          <div id="booking-occasions" className="flex scroll-mt-28 flex-col gap-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Booking types</p>
-              <p className="text-xs leading-5 text-muted-foreground">
-                Name the guest choices that appear in the booking flow.
-              </p>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Turn times by party size</p>
-              <p className="text-xs leading-5 text-muted-foreground">
-                Set how long each party-size band blocks tables for each booking type.
-              </p>
-            </div>
-            <AvailabilityOccasionsEditor
-              occasions={occasionDrafts}
-              onChange={(next) => {
-                setOccasionDrafts(next);
-                setOccasionsDirty(true);
-                clearSaveState();
-              }}
-              turnBands={turnBandsDraft}
-              turnBandDefaults={turnBandDefaults}
-              turnBandErrors={turnBandErrors}
-              onTurnBandsChange={handleTurnBandsChange}
-            />
-          </div>
+          <BookingTypesWorkspace
+            occasionDrafts={occasionDrafts}
+            onOccasionsChange={(next) => {
+              setOccasionDrafts(next);
+              setOccasionsDirty(true);
+              clearSaveState();
+            }}
+            onTurnBandsChange={handleTurnBandsChange}
+            turnBandDefaults={turnBandDefaults}
+            turnBandErrors={turnBandErrors}
+            turnBandsDraft={turnBandsDraft}
+          />
         ) : null}
       </CardContent>
 

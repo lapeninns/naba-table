@@ -167,7 +167,7 @@ async function installOpsApiMocks(page: Page) {
 async function expectProfileStatusBar(page: Page) {
   const readinessRing = page.getByRole('img', { name: /Profile readiness/ });
   await expect(readinessRing).toBeVisible();
-  await expect(page.locator('main').getByText('Required fields complete')).toBeVisible();
+  await expect(page.locator('main').getByText('All prerequisites complete')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Review booking URL' })).toBeVisible();
   await expect(page.getByRole('link', { exact: true, name: 'Link Google' })).toHaveAttribute(
     'href',
@@ -176,10 +176,11 @@ async function expectProfileStatusBar(page: Page) {
   await expect(page.getByRole('link', { name: 'Compare with Google' })).toHaveCount(0);
 
   const readinessBox = await readinessRing.boundingBox();
-  const identityPaneBox = await page.locator('#profile-identity').boundingBox();
+  const activePane = page.locator('main').getByText('Brand and identity').first();
+  const paneBox = await activePane.boundingBox();
   expect(readinessBox).not.toBeNull();
-  expect(identityPaneBox).not.toBeNull();
-  expect(readinessBox!.y).toBeLessThan(identityPaneBox!.y);
+  expect(paneBox).not.toBeNull();
+  expect(readinessBox!.y).toBeLessThan(paneBox!.y);
 }
 
 test.describe('authenticated ops app-host shipped routes', () => {

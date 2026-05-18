@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DualSyncQueueJobsPanel } from '@/components/features/restaurant-settings/dual-sync/DualSyncQueueJobsPanel';
+import { DualSyncQueueJobsPanel } from '@/components/features/restaurant-settings/dual-sync/panels/jobs/DualSyncQueueJobsPanel';
 
 import type { DualSyncJob } from '@/server/dual-sync';
 import type { ListDualSyncJobsResponse } from '@/services/ops/dual-sync';

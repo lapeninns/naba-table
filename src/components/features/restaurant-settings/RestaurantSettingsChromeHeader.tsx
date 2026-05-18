@@ -2,18 +2,16 @@
 
 import { ChevronRight, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useMemo, type MouseEvent } from 'react';
+import { type MouseEvent } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { GbpDriftStatusPill } from './GbpDriftProvider';
-import { getRestaurantSettingsHeadingContext } from './restaurantSettingsHeading';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 const SETTINGS_EXIT_HREF = opsHref('/dashboard');
 
@@ -21,38 +19,18 @@ type RestaurantSettingsChromeHeaderProps = {
   onExitClick: (event: MouseEvent<HTMLAnchorElement>) => void;
 };
 
-export function RestaurantSettingsChromeHeader({ onExitClick }: RestaurantSettingsChromeHeaderProps) {
-  const pathname = usePathname();
+export function RestaurantSettingsChromeHeader({
+  onExitClick,
+}: RestaurantSettingsChromeHeaderProps) {
   const { hasUnsavedChanges } = useOpsUnsavedChanges();
-  const { memberships, activeRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
-
-  const heading = useMemo(() => {
-    if (!pathname) return null;
-    return getRestaurantSettingsHeadingContext(pathname);
-  }, [pathname]);
-
-  const restaurantName = useMemo(() => {
-    return (
-      activeMembership?.restaurantName ??
-      memberships.find((membership) => membership.restaurantId === activeRestaurantId)
-        ?.restaurantName ??
-      memberships[0]?.restaurantName ??
-      null
-    );
-  }, [activeMembership?.restaurantName, activeRestaurantId, memberships]);
+  const { headingContext: heading, restaurantName } = useRestaurantSettingsContext();
 
   const breadcrumb = heading?.chromeBreadcrumb;
 
   return (
     <header className="z-10 flex h-12 shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 sm:px-6">
       <div className="flex min-w-0 items-center gap-2">
-        <Button
-          asChild
-          variant="ghost"
-          size="icon-sm"
-          className="shrink-0 text-muted-foreground"
-        >
+        <Button asChild variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground">
           <Link
             href={SETTINGS_EXIT_HREF}
             aria-label="Close restaurant settings"

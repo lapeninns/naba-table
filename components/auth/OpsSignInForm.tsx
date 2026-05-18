@@ -344,15 +344,15 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
               )}
             />
 
-            <TabsContent value={AUTH_MODES.PASSWORD} className="mt-0">
+            <TabsContent value={AUTH_MODES.PASSWORD} tabIndex={-1} className="mt-0">
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
+                    <div className="relative">
+                      <FormControl>
                         <Input
                           {...field}
                           type={showPassword ? 'text' : 'password'}
@@ -360,29 +360,29 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
                           placeholder="Enter your password"
                           className="h-11 touch-manipulation pr-11 text-base"
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        >
-                          {showPassword ? (
-                            <EyeOff aria-hidden="true" />
-                          ) : (
-                            <Eye aria-hidden="true" />
-                          )}
-                        </Button>
-                      </div>
-                    </FormControl>
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? (
+                          <EyeOff aria-hidden="true" />
+                        ) : (
+                          <Eye aria-hidden="true" />
+                        )}
+                      </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </TabsContent>
 
-            <TabsContent value={AUTH_MODES.MAGIC_LINK} className="mt-0">
+            <TabsContent value={AUTH_MODES.MAGIC_LINK} tabIndex={-1} className="mt-0">
               {/* Magic link doesn't need extra fields, just email above */}
             </TabsContent>
 

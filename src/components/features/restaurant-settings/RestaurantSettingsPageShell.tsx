@@ -1,16 +1,14 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 
 import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
 import { GbpDriftProvider, GbpDriftStatusPill } from './GbpDriftProvider';
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
-import { getRestaurantSettingsHeadingContext } from './restaurantSettingsHeading';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 export type RestaurantSettingsPageShellProps = {
   /**
@@ -59,36 +57,20 @@ function RestaurantSettingsPageHeading({
   description,
   eyebrow,
 }: Pick<RestaurantSettingsPageShellProps, 'title' | 'description' | 'eyebrow'>) {
-  const pathname = usePathname();
-  const { memberships, activeRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
-
-  const headingContext = useMemo(() => {
-    if (!pathname) return null;
-    return getRestaurantSettingsHeadingContext(pathname);
-  }, [pathname]);
+  const { headingContext, restaurantName } = useRestaurantSettingsContext();
 
   const useExplicitOverrides = title != null || description != null;
   const resolvedTitle = title ?? headingContext?.pageTitle ?? DEFAULT_TITLE;
-  const resolvedDescription =
-    description ?? headingContext?.pageDescription ?? DEFAULT_DESCRIPTION;
+  const resolvedDescription = description ?? headingContext?.pageDescription ?? DEFAULT_DESCRIPTION;
   const suppressVisiblePageTitle =
     !useExplicitOverrides && (headingContext?.suppressVisiblePageTitle ?? false);
-  const hidePageIntro =
-    !useExplicitOverrides && (headingContext?.hidePageIntro ?? false);
+  const hidePageIntro = !useExplicitOverrides && (headingContext?.hidePageIntro ?? false);
   const showRestaurantMetaOnPage =
     useExplicitOverrides || (headingContext?.showRestaurantMetaOnPage ?? true);
 
   if (hidePageIntro) {
     return null;
   }
-
-  const restaurantName =
-    activeMembership?.restaurantName ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId)
-      ?.restaurantName ??
-    memberships[0]?.restaurantName ??
-    null;
 
   if (suppressVisiblePageTitle) {
     return (
@@ -133,13 +115,10 @@ export function RestaurantSettingsPageShell({
   children,
   envBanner,
 }: RestaurantSettingsPageShellProps) {
-  const pathname = usePathname();
   const reduceMotion = usePrefersReducedMotion();
-  const hidePageIntro = useMemo(() => {
-    if (!pathname) return false;
-    if (title != null || description != null) return false;
-    return getRestaurantSettingsHeadingContext(pathname).hidePageIntro;
-  }, [description, pathname, title]);
+  const { headingContext } = useRestaurantSettingsContext();
+  const hidePageIntro =
+    title == null && description == null ? (headingContext?.hidePageIntro ?? false) : false;
 
   return (
     <GbpDriftProvider>

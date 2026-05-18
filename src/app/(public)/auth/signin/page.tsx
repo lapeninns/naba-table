@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { GuestSignInForm } from '@/components/auth/GuestSignInForm';
 import { GuestPanel } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { hasRedirectedFrom } from '@/lib/auth/signin-redirect-guard';
 import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { ensureCsrfCookie } from '@/server/security/csrf';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
@@ -133,6 +134,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const hostPort = hostHeader.includes(':') ? hostHeader.split(':').pop() : undefined;
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
   const resolvedParams = await searchParams;
+  const cameFromAuthGuard = hasRedirectedFrom(resolvedParams?.redirectedFrom);
   const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
   const opsRedirectedFromParam = resolveOpsRedirectTarget(resolvedParams?.redirectedFrom);
 
@@ -177,7 +179,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   // Only redirect authenticated users if there's no error
   // Using getUser() which validates the JWT with the server, not just reads cached session
   // This prevents redirect loops after logout since getSession() returns stale cached data
-  if (!hasError) {
+  if (!hasError && !cameFromAuthGuard) {
     const supabase = await getServerComponentSupabaseClient();
     const {
       data: { user },

@@ -9,6 +9,7 @@ import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
 import { cn } from '@/lib/utils';
 
 import { fieldNeedsOperatorChoice } from './dual-sync/workspace-progress';
+import { openSettingsCompare } from './gbp/openSettingsCompare';
 import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
 
 import type { DualSyncSectionKey } from '@/server/dual-sync';
@@ -122,7 +123,8 @@ export function GbpDriftBadge({
   const handleCompare = () => {
     if (!drift) return;
     if (visibleFields.length === 1) {
-      drift.openCompare({
+      openSettingsCompare(drift.openCompare, {
+        preset: 'field',
         fieldKey: visibleFields[0].fieldKey,
         sectionKey: visibleFields[0].sectionKey as DualSyncSectionKey,
       });

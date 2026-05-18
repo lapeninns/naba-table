@@ -86,6 +86,18 @@ describe('proxy GBP callback public API routing', () => {
     expect(requireOpsAuthMock).not.toHaveBeenCalled();
   });
 
+  it('rewrites guest routes on the app host in local dev instead of redirecting', async () => {
+    const response = await handleRouting(
+      new NextRequest('http://app.localhost:3000/guest/dashboard'),
+    );
+
+    expect(response.headers.get('location')).toBeNull();
+    expect(response.headers.get('x-middleware-rewrite')).toBe(
+      'http://app.localhost:3000/guest/dashboard',
+    );
+    expect(requireOpsAuthMock).not.toHaveBeenCalled();
+  });
+
   it('does not let double-slash app paths redirect to an external host', async () => {
     const response = await handleRouting(new NextRequest('http://localhost/app//evil'));
 

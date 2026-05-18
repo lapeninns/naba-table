@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { useOptionalGbpDrift } from './useGbpDrift';
+import { openSettingsCompare } from '../gbp/openSettingsCompare';
 
 export type GbpDriftFieldBadgeProps = {
   readonly fieldKey: string;
@@ -29,7 +30,13 @@ export function GbpDriftFieldBadge({ fieldKey, className }: GbpDriftFieldBadgePr
       variant="ghost"
       size="sm"
       className={cn('h-6 px-0 hover:bg-transparent', className)}
-      onClick={() => drift.openCompare({ fieldKey, sectionKey: view.sectionKey })}
+      onClick={() =>
+        openSettingsCompare(drift.openCompare, {
+          preset: 'field',
+          fieldKey,
+          sectionKey: view.sectionKey,
+        })
+      }
       aria-label={`Compare ${view.label} with Google`}
     >
       <Badge

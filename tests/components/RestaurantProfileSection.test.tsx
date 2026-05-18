@@ -292,7 +292,7 @@ describe('RestaurantProfileSection', () => {
     await screen.findAllByText('Brand and identity');
     await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
 
-    const contactForm = document.getElementById('profile-contact');
+    const contactForm = document.getElementById('restaurant-profile-contact-form');
     expect(contactForm).not.toBeNull();
     const location = within(contactForm as HTMLElement).getByText('Location');
     const publicContact = within(contactForm as HTMLElement).getByText('Public contact');
@@ -326,15 +326,35 @@ describe('RestaurantProfileSection', () => {
     await waitFor(() => expect(slugInput).toHaveFocus());
   });
 
-  it('exposes the promised hash anchors for each profile card', async () => {
+  it('does not render legacy hash ids on profile cards', async () => {
     const { container } = render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
-    expect(container.querySelector('#profile-identity')).not.toBeNull();
-    expect(container.querySelector('#profile-contact')).not.toBeNull();
-    expect(container.querySelector('#profile-booking-url')).not.toBeNull();
-    expect(container.querySelector('#profile-notifications')).not.toBeNull();
-    expect(container.querySelector('#profile-discovery')).not.toBeNull();
+    expect(container.querySelector('#profile-identity')).toBeNull();
+    expect(container.querySelector('#profile-contact')).toBeNull();
+    expect(container.querySelector('#profile-booking-url')).toBeNull();
+    expect(container.querySelector('#profile-notifications')).toBeNull();
+    expect(container.querySelector('#profile-discovery')).toBeNull();
+  });
+
+  it('opens the matching section from a legacy hash and clears the url hash', async () => {
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+
+    window.location.hash = '#profile-contact';
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await waitFor(() => expect(screen.getByText('Contact and location')).toBeVisible());
+
+    await waitFor(() =>
+      expect(replaceState).toHaveBeenCalledWith(
+        null,
+        '',
+        expect.not.stringContaining('#profile-contact'),
+      ),
+    );
+
+    replaceState.mockRestore();
+    window.location.hash = '';
   });
 
   it('renders the optional Google connection action without command-center footer links', async () => {

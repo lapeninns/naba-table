@@ -106,11 +106,15 @@ function buildRedirect(
   const base = `${req.nextUrl.protocol}//${targetHost}`;
   const suffix = searchParams ? `?${searchParams}` : '';
   const safePathname = normalizeProxyRedirectPath(pathname);
-  const url = new URL(`${safePathname}${suffix}`, base);
-  const response = NextResponse.redirect(url, status);
-  // Ensure cross-host redirects are absolute for clarity and correctness.
-  response.headers.set('location', url.toString());
-  return response;
+  const destination = new URL(`${safePathname}${suffix}`, base).toString();
+  // Use an explicit Location header so Next does not rewrite cross-host redirects
+  // into same-host relative paths (which loops on app.localhost guest routes).
+  return new NextResponse(null, {
+    status,
+    headers: {
+      Location: destination,
+    },
+  });
 }
 
 function stripLeadingAppPrefix(pathname: string) {
@@ -224,8 +228,16 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     // RESTAURANT-FACING SUBDOMAIN (app.localhost / app.domain.com)
     // ─────────────────────────────────────────────────────────────────────
 
-    // 1. Redirect guest routes to root domain - guests shouldn't be on app subdomain
+    // 1. Guest routes live outside /app/* — rewrite in dev/proxy (redirect loops when
+    // Next relativizes cross-host Location headers onto app.localhost).
     if (url.pathname.startsWith('/guest')) {
+      if (rootDomain === 'localhost') {
+        const rewriteUrl = new URL(
+          `${url.pathname}${searchParams ? `?${searchParams}` : ''}`,
+          req.url,
+        );
+        return NextResponse.rewrite(rewriteUrl);
+      }
       return buildRedirect(req, rootHost, url.pathname, searchParams);
     }
 
@@ -233,6 +245,13 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     if (url.pathname.startsWith('/app')) {
       const stripped = stripLeadingAppPrefix(url.pathname);
       if (stripped === '/guest' || stripped.startsWith('/guest/')) {
+        if (rootDomain === 'localhost') {
+          const rewriteUrl = new URL(
+            `${stripped}${searchParams ? `?${searchParams}` : ''}`,
+            req.url,
+          );
+          return NextResponse.rewrite(rewriteUrl);
+        }
         return buildRedirect(req, rootHost, stripped, searchParams);
       }
       return buildRedirect(req, host, stripped, searchParams);

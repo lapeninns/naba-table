@@ -20,8 +20,8 @@ export type ProfileSectionDefinition = {
   /** Readiness step displayed in the Profile rail. */
   setupStep?: number;
   icon: LucideIcon;
-  /** Hash anchor preserved for backwards compatibility with deep links. */
-  anchorId: string;
+  /** Legacy hash segment for inbound deep links only (not rendered as a DOM id). */
+  legacyHash: string;
 };
 
 export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = [
@@ -34,7 +34,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     audience: 'Guest-facing.',
     setupStep: 1,
     icon: Building2,
-    anchorId: 'profile-identity',
+    legacyHash: 'profile-identity',
   },
   {
     id: 'advanced',
@@ -45,7 +45,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     audience: 'Guest-facing. Required to take bookings.',
     setupStep: 2,
     icon: ScanLine,
-    anchorId: 'profile-booking-url',
+    legacyHash: 'profile-booking-url',
   },
   {
     id: 'contact',
@@ -56,7 +56,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     audience: 'Guest-facing.',
     setupStep: 3,
     icon: MapPin,
-    anchorId: 'profile-contact',
+    legacyHash: 'profile-contact',
   },
   {
     id: 'notifications',
@@ -67,7 +67,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     audience: 'Staff-only. Guests never see these settings.',
     setupStep: 4,
     icon: MegaphoneIcon,
-    anchorId: 'profile-notifications',
+    legacyHash: 'profile-notifications',
   },
   {
     id: 'discovery',
@@ -79,7 +79,7 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     audience: 'Guest-facing. Optional.',
     setupStep: 5,
     icon: Compass,
-    anchorId: 'profile-discovery',
+    legacyHash: 'profile-discovery',
   },
 ] as const;
 
@@ -89,4 +89,8 @@ export function findProfileSection(id: ProfileSectionId): ProfileSectionDefiniti
     throw new Error(`Unknown profile section id: ${id}`);
   }
   return match;
+}
+
+export function findProfileSectionByLegacyHash(hash: string): ProfileSectionDefinition | undefined {
+  return PROFILE_SECTION_DEFINITIONS.find((section) => section.legacyHash === hash);
 }

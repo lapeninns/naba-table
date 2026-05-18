@@ -47,6 +47,16 @@ describe('OpsSignInForm', () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
   });
 
+  it('tabs from email to password input without focusing the tab panel wrapper', async () => {
+    const user = userEvent.setup();
+    render(<OpsSignInForm />);
+
+    await user.click(screen.getByLabelText('Email address'));
+    await user.tab();
+
+    expect(screen.getByPlaceholderText('Enter your password')).toHaveFocus();
+  });
+
   it('submits non-empty legacy passwords unchanged instead of applying creation policy', async () => {
     const user = userEvent.setup();
     render(<OpsSignInForm redirectedFrom="/app/bookings" />);

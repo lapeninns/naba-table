@@ -6,10 +6,10 @@ import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 import type { AvailabilitySettingsWorkspace } from './routes';
 import type { RestaurantSettingsView } from './types';
@@ -147,8 +147,12 @@ export function OpsRestaurantSettingsClient({
   view,
   availabilityWorkspace,
 }: OpsRestaurantSettingsClientProps) {
-  const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
+  const {
+    memberships,
+    activeRestaurantId,
+    restaurantId: selectedRestaurantId,
+    setActiveRestaurantId,
+  } = useRestaurantSettingsContext();
 
   useEffect(() => {
     if (activeRestaurantId) {
@@ -174,13 +178,6 @@ export function OpsRestaurantSettingsClient({
     );
   }
 
-  const selectedMembership =
-    activeMembership ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId) ??
-    memberships[0] ??
-    null;
-
-  const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
   const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
   const hasSyncWorkspace = Boolean(dualSyncSections && selectedRestaurantId);
 

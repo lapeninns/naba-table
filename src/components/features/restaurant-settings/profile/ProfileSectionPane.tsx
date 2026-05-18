@@ -24,7 +24,6 @@ export function ProfileSectionPane({
 }: ProfileSectionPaneProps) {
   return (
     <Card
-      id={section.anchorId}
       variant="compact"
       hidden={!isActive}
       className={cn('border-border/70 shadow-none', !isActive && 'hidden')}

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DualSyncPublishJobsPanel } from '@/components/features/restaurant-settings/dual-sync/DualSyncPublishJobsPanel';
+import { DualSyncPublishJobsPanel } from '@/components/features/restaurant-settings/dual-sync/panels/jobs/DualSyncPublishJobsPanel';
 
 import type { DualSyncPublishBatch, DualSyncPublishOperationGroup } from '@/server/dual-sync';
 import type { DualSyncPublishJobRollup } from '@/server/dual-sync/publish/operations';

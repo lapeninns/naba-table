@@ -60,6 +60,10 @@ vi.mock('@/contexts/ops-session', () => ({
   useOpsActiveMembership: () => overviewState.activeMembership,
 }));
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/app/settings/restaurant',
+}));
+
 vi.mock('@/contexts/ops-services', () => ({
   useTableInventoryService: () => overviewState.tableService,
 }));

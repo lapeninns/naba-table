@@ -16,7 +16,7 @@
 'use client';
 
 import { AlertCircle, PauseCircle, PlayCircle, RefreshCw, Send, Zap } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -32,56 +32,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
 import { cn } from '@/lib/utils';
 
 import { DualSyncFieldRow } from './DualSyncFieldRow';
 import { DualSyncFreshnessChip } from './DualSyncFreshnessChip';
 import { DualSyncHeatmap } from './DualSyncHeatmap';
-import { DualSyncOperationalHealthPanel } from './DualSyncOperationalHealthPanel';
-import { DualSyncOperationsPanel } from './DualSyncOperationsPanel';
-import { DualSyncPendingCandidatesPanel } from './DualSyncPendingCandidatesPanel';
-import { DualSyncPublishJobsPanel } from './DualSyncPublishJobsPanel';
 import { DualSyncPublishPreviewDialog } from './DualSyncPublishPreviewDialog';
 import { DualSyncPublishResultDialog } from './DualSyncPublishResultDialog';
-import { DualSyncQueueJobsPanel } from './DualSyncQueueJobsPanel';
 import { DualSyncToolbarTip } from './DualSyncToolbarTip';
 import { summarizeFieldsToHeatmap } from './heatmap';
 import {
-  computeSectionReviewProgress,
-  computeWorkspaceReviewProgress,
-  fieldNeedsOperatorChoice,
-} from './workspace-progress';
+  DUAL_SYNC_PANEL_VALUES,
+  DUAL_SYNC_SECTION_LABEL,
+  getDualSyncSectionBulkSummary,
+  isDualSyncSectionKey,
+  useDualSyncWorkspace,
+} from './hooks/useDualSyncWorkspace';
+import { DualSyncOperationalHealthPanel } from './panels/health/DualSyncOperationalHealthPanel';
+import { DualSyncPendingCandidatesPanel } from './panels/jobs/DualSyncPendingCandidatesPanel';
+import { DualSyncPublishJobsPanel } from './panels/jobs/DualSyncPublishJobsPanel';
+import { DualSyncQueueJobsPanel } from './panels/jobs/DualSyncQueueJobsPanel';
+import { DualSyncOperationsPanel } from './panels/operations/DualSyncOperationsPanel';
 
-import type { DualSyncDecisionAction, DualSyncSectionKey } from '@/server/dual-sync';
+import type { DualSyncSectionKey } from '@/server/dual-sync';
 import type {
-  DualSyncFieldSummary,
   DualSyncPublishPreviewResponse,
   DualSyncPublishRequest,
   DualSyncPublishResponse,
 } from '@/services/ops/dual-sync';
-
-const SECTION_LABEL: Record<DualSyncSectionKey, string> = {
-  profile: 'Profile',
-  operatingHours: 'Operating hours',
-  servicePeriods: 'Service periods',
-  'businessContext.categories': 'Categories',
-  'businessContext.serviceAreas': 'Service areas',
-  'businessContext.attributes': 'Attributes',
-  'businessContext.serviceItems': 'Service items',
-  foodMenus: 'Food menus',
-};
-
-const SECTION_ORDER: ReadonlyArray<DualSyncSectionKey> = [
-  'profile',
-  'operatingHours',
-  'servicePeriods',
-  'businessContext.categories',
-  'businessContext.serviceAreas',
-  'businessContext.attributes',
-  'businessContext.serviceItems',
-  'foodMenus',
-];
 
 export interface DualSyncShellProps {
   readonly restaurantId: string;
@@ -95,52 +73,9 @@ export interface DualSyncShellProps {
   readonly singleOpenSections?: boolean;
 }
 
-interface DecisionEntry {
-  readonly action: DualSyncDecisionAction;
-}
-
-interface SectionBulkSummary {
-  readonly importable: number;
-  readonly exportable: number;
-  readonly ignorable: number;
-  readonly selected: number;
-}
-
 interface PendingPublishPreview {
   readonly request: DualSyncPublishRequest;
   readonly plan: DualSyncPublishPreviewResponse;
-}
-
-const isDualSyncSectionKey = (value: string): value is DualSyncSectionKey =>
-  SECTION_ORDER.includes(value as DualSyncSectionKey);
-
-function canApplyFieldAction(field: DualSyncFieldSummary, action: DualSyncDecisionAction): boolean {
-  if (field.conflictPolicy === 'unsupported') return false;
-  if (action === 'import_from_google') return field.capability.canImport;
-  if (action === 'export_to_google') return field.capability.canExport;
-  return field.capability.canIgnore;
-}
-
-function getSectionBulkSummary(
-  fields: ReadonlyArray<DualSyncFieldSummary>,
-  decisions: Record<string, DecisionEntry>,
-): SectionBulkSummary {
-  return fields.reduce<SectionBulkSummary>(
-    (summary, field) => {
-      const actionable = fieldNeedsOperatorChoice(field);
-      return {
-        importable:
-          summary.importable +
-          (actionable && canApplyFieldAction(field, 'import_from_google') ? 1 : 0),
-        exportable:
-          summary.exportable +
-          (actionable && canApplyFieldAction(field, 'export_to_google') ? 1 : 0),
-        ignorable: summary.ignorable + (actionable && canApplyFieldAction(field, 'ignore') ? 1 : 0),
-        selected: summary.selected + (decisions[field.fieldKey] ? 1 : 0),
-      };
-    },
-    { importable: 0, exportable: 0, ignorable: 0, selected: 0 },
-  );
 }
 
 export function DualSyncShell({
@@ -149,17 +84,6 @@ export function DualSyncShell({
   className,
   singleOpenSections = false,
 }: DualSyncShellProps) {
-  const METRICS_VALUE = '__metrics';
-  const PENDING_CANDIDATES_VALUE = '__pendingCandidates';
-  const QUEUE_JOBS_VALUE = '__queueJobs';
-  const PUBLISHES_VALUE = '__publishes';
-  const OPERATIONS_VALUE = '__operations';
-  const [showOperationalHealth, setShowOperationalHealth] = useState(false);
-  const [showOperations, setShowOperations] = useState(false);
-  const [showPendingCandidates, setShowPendingCandidates] = useState(false);
-  const [showQueueJobs, setShowQueueJobs] = useState(false);
-  const [showPublishJobs, setShowPublishJobs] = useState(false);
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const {
     stateQuery,
     refreshMutation,
@@ -175,18 +99,37 @@ export function DualSyncShell({
     metricsQuery,
     publishJobsQuery,
     publishJobDetailQuery,
-  } = useOpsDualSync({
+    decisions,
+    setDecisions,
+    decisionCount,
+    fieldsBySection,
+    getSectionProgress,
+    onBulkSelectSection,
+    onClearSection,
+    onSelectAction,
+    openSection,
+    orderedAccordionValues,
+    orderedSectionKeys,
+    selectedJobId,
+    setOpenSection,
+    setSelectedJobId,
+    setShowOperationalHealth,
+    setShowOperations,
+    setShowPendingCandidates,
+    setShowPublishJobs,
+    setShowQueueJobs,
+    showOperationalHealth,
+    showOperations,
+    showPendingCandidates,
+    showPublishJobs,
+    showQueueJobs,
+    visibleFields,
+    workspaceProgress,
+  } = useDualSyncWorkspace({
     restaurantId,
-    operationsRequest: showOperations ? { limit: 50 } : undefined,
-    candidatesRequest: showPendingCandidates ? { limit: 50, statuses: ['open'] } : undefined,
-    jobsRequest: showQueueJobs
-      ? { limit: 25, statuses: ['queued', 'running', 'retrying', 'dead_letter', 'failed'] }
-      : undefined,
-    metricsRequest: showOperationalHealth ? { windowHours: 24, limit: 200 } : undefined,
-    publishJobsRequest: showPublishJobs ? { jobLimit: 25 } : undefined,
-    publishJobDetailId: showPublishJobs ? selectedJobId : null,
+    sections,
+    singleOpenSections,
   });
-  const [decisions, setDecisions] = useState<Record<string, DecisionEntry>>({});
   const [publishPreview, setPublishPreview] = useState<PendingPublishPreview | null>(null);
   const [publishPreviewOpen, setPublishPreviewOpen] = useState(false);
   const [publishResult, setPublishResult] = useState<DualSyncPublishResponse | null>(null);
@@ -204,113 +147,12 @@ export function DualSyncShell({
     () => summarizeFieldsToHeatmap(stateQuery.data?.fields ?? []),
     [stateQuery.data?.fields],
   );
-  const [openSection, setOpenSection] = useState<string | undefined>(undefined);
-
-  const visibleFields = useMemo<ReadonlyArray<DualSyncFieldSummary>>(() => {
-    const all = stateQuery.data?.fields ?? [];
-    if (!sections || sections.length === 0) {
-      return all.filter((field) => isDualSyncSectionKey(field.sectionKey));
-    }
-    const allowed = new Set<DualSyncSectionKey>(sections);
-    return all.filter((field) =>
-      isDualSyncSectionKey(field.sectionKey)
-        ? allowed.has(field.sectionKey as DualSyncSectionKey)
-        : false,
-    );
-  }, [stateQuery.data, sections]);
-
-  const workspaceProgress = useMemo(
-    () => computeWorkspaceReviewProgress(visibleFields, decisions),
-    [visibleFields, decisions],
-  );
   const writeBlocked = syncPaused || publishMutation.isPending || previewPublishMutation.isPending;
-
-  const fieldsBySection = useMemo(() => {
-    const grouped = new Map<DualSyncSectionKey, DualSyncFieldSummary[]>();
-    for (const field of visibleFields) {
-      if (!isDualSyncSectionKey(field.sectionKey)) continue;
-      const arr = grouped.get(field.sectionKey) ?? [];
-      arr.push(field);
-      grouped.set(field.sectionKey, arr);
-    }
-    for (const arr of grouped.values()) {
-      arr.sort((a, b) => a.sortOrder - b.sortOrder);
-    }
-    return grouped;
-  }, [visibleFields]);
-  const orderedSectionKeys = useMemo(
-    () => SECTION_ORDER.filter((key) => fieldsBySection.has(key)),
-    [fieldsBySection],
-  );
-  const orderedAccordionValues = useMemo(() => {
-    const values = orderedSectionKeys.map((key) => key as string);
-    values.push(METRICS_VALUE);
-    values.push(PENDING_CANDIDATES_VALUE);
-    values.push(QUEUE_JOBS_VALUE);
-    values.push(PUBLISHES_VALUE, OPERATIONS_VALUE);
-    return values;
-  }, [orderedSectionKeys]);
-
-  // Reset decisions when the underlying state set changes.
-  useEffect(() => {
-    setDecisions({});
-  }, [stateQuery.data?.coreSnapshotHash, stateQuery.data?.gbpSnapshotHash]);
-
-  const decisionCount = Object.keys(decisions).length;
   const canSubmit =
     decisionCount > 0 &&
     !syncPaused &&
     !publishMutation.isPending &&
     !previewPublishMutation.isPending;
-
-  useEffect(() => {
-    if (!singleOpenSections) {
-      return;
-    }
-    setOpenSection((current) => {
-      if (current && orderedAccordionValues.includes(current)) {
-        return current;
-      }
-      return orderedAccordionValues[0];
-    });
-  }, [orderedAccordionValues, singleOpenSections]);
-
-  const onSelectAction = (fieldKey: string, next: DualSyncDecisionAction | null) => {
-    setDecisions((prev) => {
-      const updated = { ...prev };
-      if (next === null) {
-        delete updated[fieldKey];
-      } else {
-        updated[fieldKey] = { action: next };
-      }
-      return updated;
-    });
-  };
-
-  const onBulkSelectSection = (
-    fields: ReadonlyArray<DualSyncFieldSummary>,
-    action: DualSyncDecisionAction,
-  ) => {
-    setDecisions((prev) => {
-      const updated = { ...prev };
-      for (const field of fields) {
-        if (fieldNeedsOperatorChoice(field) && canApplyFieldAction(field, action)) {
-          updated[field.fieldKey] = { action };
-        }
-      }
-      return updated;
-    });
-  };
-
-  const onClearSection = (fields: ReadonlyArray<DualSyncFieldSummary>) => {
-    setDecisions((prev) => {
-      const updated = { ...prev };
-      for (const field of fields) {
-        delete updated[field.fieldKey];
-      }
-      return updated;
-    });
-  };
 
   const onClickRefresh = async () => {
     if (syncPaused) {
@@ -712,15 +554,15 @@ export function DualSyncShell({
             <Accordion {...accordionProps} className="space-y-3">
               {orderedSectionKeys.map((sectionKey) => {
                 const fields = fieldsBySection.get(sectionKey) ?? [];
-                const bulkSummary = getSectionBulkSummary(fields, decisions);
-                const sectionProgress = computeSectionReviewProgress(fields, decisions);
+                const bulkSummary = getDualSyncSectionBulkSummary(fields, decisions);
+                const sectionProgress = getSectionProgress(fields, decisions);
                 const hasSectionReview = sectionProgress.needsReviewCount > 0;
                 return (
                   <AccordionItem key={sectionKey} value={sectionKey} className="border-b">
                     <AccordionTrigger className="text-sm font-semibold">
                       <div className="flex w-full flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-left">
-                          {SECTION_LABEL[sectionKey]} ({fields.length})
+                          {DUAL_SYNC_SECTION_LABEL[sectionKey]} ({fields.length})
                         </span>
                         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-56">
                           <div className="text-muted-foreground flex items-center justify-between gap-2 font-mono text-[10px] font-normal tabular-nums">
@@ -744,8 +586,8 @@ export function DualSyncShell({
                             className="h-1.5"
                             aria-label={
                               hasSectionReview
-                                ? `Draft progress for ${SECTION_LABEL[sectionKey]}`
-                                : `${SECTION_LABEL[sectionKey]} has no fields needing review`
+                                ? `Draft progress for ${DUAL_SYNC_SECTION_LABEL[sectionKey]}`
+                                : `${DUAL_SYNC_SECTION_LABEL[sectionKey]} has no fields needing review`
                             }
                           />
                         </div>
@@ -821,8 +663,8 @@ export function DualSyncShell({
                 );
               })}
               <AccordionItem
-                key={METRICS_VALUE}
-                value={METRICS_VALUE}
+                key={DUAL_SYNC_PANEL_VALUES.metrics}
+                value={DUAL_SYNC_PANEL_VALUES.metrics}
                 className="border-b"
                 onClick={() => {
                   if (!showOperationalHealth) setShowOperationalHealth(true);
@@ -845,8 +687,8 @@ export function DualSyncShell({
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem
-                key={PENDING_CANDIDATES_VALUE}
-                value={PENDING_CANDIDATES_VALUE}
+                key={DUAL_SYNC_PANEL_VALUES.pendingCandidates}
+                value={DUAL_SYNC_PANEL_VALUES.pendingCandidates}
                 className="border-b"
                 onClick={() => {
                   if (!showPendingCandidates) setShowPendingCandidates(true);
@@ -882,8 +724,8 @@ export function DualSyncShell({
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem
-                key={QUEUE_JOBS_VALUE}
-                value={QUEUE_JOBS_VALUE}
+                key={DUAL_SYNC_PANEL_VALUES.queueJobs}
+                value={DUAL_SYNC_PANEL_VALUES.queueJobs}
                 className="border-b"
                 onClick={() => {
                   if (!showQueueJobs) setShowQueueJobs(true);
@@ -909,8 +751,8 @@ export function DualSyncShell({
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem
-                key={PUBLISHES_VALUE}
-                value={PUBLISHES_VALUE}
+                key={DUAL_SYNC_PANEL_VALUES.publishes}
+                value={DUAL_SYNC_PANEL_VALUES.publishes}
                 className="border-b"
                 onClick={() => {
                   if (!showPublishJobs) setShowPublishJobs(true);
@@ -938,8 +780,8 @@ export function DualSyncShell({
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem
-                key={OPERATIONS_VALUE}
-                value={OPERATIONS_VALUE}
+                key={DUAL_SYNC_PANEL_VALUES.operations}
+                value={DUAL_SYNC_PANEL_VALUES.operations}
                 className="border-b"
                 onClick={() => {
                   if (!showOperations) setShowOperations(true);

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 import { useGbpDrift } from './useGbpDrift';
+import { openSettingsCompare } from '../gbp/openSettingsCompare';
 
 type GbpDriftStatusStripProps = {
   compact?: boolean;
@@ -33,7 +34,12 @@ export function GbpDriftStatusStrip({ compact = false }: GbpDriftStatusStripProp
           variant={totalDriftCount > 0 ? 'default' : 'outline'}
           size="sm"
           className="h-8 shrink-0"
-          onClick={() => openCompare({ filter: totalDriftCount > 0 ? 'drifted_only' : 'all' })}
+          onClick={() =>
+            openSettingsCompare(openCompare, {
+              preset: 'globalDrifted',
+              filter: totalDriftCount > 0 ? 'drifted_only' : 'all',
+            })
+          }
         >
           <GitCompareArrows data-icon="inline-start" className="size-3.5" aria-hidden />
           Compare
@@ -63,7 +69,12 @@ export function GbpDriftStatusStrip({ compact = false }: GbpDriftStatusStripProp
         type="button"
         variant={totalDriftCount > 0 ? 'default' : 'outline'}
         size="sm"
-        onClick={() => openCompare({ filter: totalDriftCount > 0 ? 'drifted_only' : 'all' })}
+        onClick={() =>
+          openSettingsCompare(openCompare, {
+            preset: 'globalDrifted',
+            filter: totalDriftCount > 0 ? 'drifted_only' : 'all',
+          })
+        }
       >
         <GitCompareArrows data-icon="inline-start" aria-hidden />
         Compare with Google

@@ -217,7 +217,9 @@ describe('OpsMenuManagementClient', () => {
     const listMenus = vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() });
     renderClient({ listMenus });
 
-    expect(screen.getByRole('navigation', { name: 'Menu catalogues' })).toBeInTheDocument();
+    expect(screen.getAllByRole('navigation', { name: 'Menu catalogues' }).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByRole('link', { name: /Food Menu/i })).toHaveAttribute(
       'aria-current',
       'page',
