@@ -886,4 +886,3 @@ GRANT EXECUTE ON FUNCTION public.replace_gbp_canonical_business_info(
   text[],
   jsonb
 ) TO service_role;
-

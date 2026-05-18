@@ -15,6 +15,11 @@ type CommandResult = {
   stdout: string;
 };
 
+type ExternalScannerResult = {
+  failures: number;
+  missing: string[];
+};
+
 export type SecretFinding = {
   file: string;
   line: number;
@@ -84,6 +89,14 @@ const SECRET_PATTERNS: SecretPattern[] = [
 
 const PLACEHOLDER_LINE_PATTERN =
   /\b(?:changeme|dummy|example|fake|fixture|mock|placeholder|redacted|sample|test|xxxx)\b/i;
+
+function parseBooleanEnv(value: string | undefined): boolean {
+  return /^(true|1|yes)$/i.test(value?.trim() ?? '');
+}
+
+export function allowsBuiltInOnlySecretScan(env: NodeJS.ProcessEnv = process.env): boolean {
+  return parseBooleanEnv(env.SECRET_SCAN_ALLOW_BUILT_IN_ONLY);
+}
 
 function run(command: string, args: string[]): CommandResult {
   const result = spawnSync(command, args, {
@@ -177,8 +190,9 @@ function scanFile(file: string): SecretFinding[] {
   return scanSecretText(buffer.toString('utf8'), file);
 }
 
-function runOptionalExternalScanners(): number {
+function runExternalScanners(): ExternalScannerResult {
   let failures = 0;
+  const missing: string[] = [];
 
   if (commandExists('gitleaks')) {
     const result = run('gitleaks', ['detect', '--no-banner', '--redact']);
@@ -186,7 +200,7 @@ function runOptionalExternalScanners(): number {
     process.stderr.write(result.stderr ?? '');
     if (result.status !== 0) failures += 1;
   } else {
-    console.log('[secret:scan] gitleaks not found; using built-in scanner.');
+    missing.push('gitleaks');
   }
 
   if (commandExists('trufflehog')) {
@@ -201,14 +215,14 @@ function runOptionalExternalScanners(): number {
     process.stderr.write(result.stderr ?? '');
     if (result.status !== 0) failures += 1;
   } else {
-    console.log('[secret:scan] trufflehog not found; using built-in scanner.');
+    missing.push('trufflehog');
   }
 
-  return failures;
+  return { failures, missing };
 }
 
 export function runSecretScan(): number {
-  const externalFailures = runOptionalExternalScanners();
+  const externalResult = runExternalScanners();
   const findings = gitTrackedAndUntrackedFiles().flatMap(scanFile);
 
   if (findings.length > 0) {
@@ -219,9 +233,29 @@ export function runSecretScan(): number {
     return 1;
   }
 
-  if (externalFailures > 0) {
-    console.error(`[secret:scan] ${externalFailures} external scanner(s) reported findings.`);
+  if (externalResult.failures > 0) {
+    console.error(
+      `[secret:scan] ${externalResult.failures} external scanner(s) reported findings.`,
+    );
     return 1;
+  }
+
+  if (externalResult.missing.length > 0 && !allowsBuiltInOnlySecretScan()) {
+    console.error(
+      `[secret:scan] missing required external scanner(s): ${externalResult.missing.join(', ')}.`,
+    );
+    console.error(
+      '[secret:scan] install the missing scanner(s), or set SECRET_SCAN_ALLOW_BUILT_IN_ONLY=true for an explicit local fallback run.',
+    );
+    return 1;
+  }
+
+  if (externalResult.missing.length > 0) {
+    console.warn(
+      `[secret:scan] ${externalResult.missing.join(
+        ', ',
+      )} not found; SECRET_SCAN_ALLOW_BUILT_IN_ONLY=true accepted the built-in scanner fallback.`,
+    );
   }
 
   console.log('[secret:scan] no potential secrets found.');

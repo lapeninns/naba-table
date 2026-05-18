@@ -55,4 +55,3 @@ REVOKE ALL ON FUNCTION public.unassign_tables_atomic(uuid, uuid[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.unassign_tables_atomic(uuid, uuid[]) FROM anon;
 REVOKE ALL ON FUNCTION public.unassign_tables_atomic(uuid, uuid[]) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.unassign_tables_atomic(uuid, uuid[]) TO service_role;
-

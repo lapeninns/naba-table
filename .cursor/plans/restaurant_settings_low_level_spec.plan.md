@@ -25,8 +25,8 @@ isProject: false
 
 # Restaurant settings — low-level implementation spec
 
-**Purpose:** Executable detail for engineers and agents: file paths, DOM anchors, props, payloads, and test assertions.  
-**Companion docs:** [profile_field_ia_polish_277a018c.plan.md](profile_field_ia_polish_277a018c.plan.md) (mid-level), [gbp_settings_ia_audit_9f954672.plan.md](gbp_settings_ia_audit_9f954672.plan.md) (GBP audit).  
+**Purpose:** Executable detail for engineers and agents: file paths, DOM anchors, props, payloads, and test assertions.
+**Companion docs:** [profile_field_ia_polish_277a018c.plan.md](profile_field_ia_polish_277a018c.plan.md) (mid-level), [gbp_settings_ia_audit_9f954672.plan.md](gbp_settings_ia_audit_9f954672.plan.md) (GBP audit).
 **Task folder:** `tasks/restaurant-settings-field-ia-YYYYMMDD-HHMM/`
 
 ---
@@ -122,7 +122,7 @@ type RestaurantDetailsSubformProps = {
 
 ## 2. Profile route — verification spec (implemented)
 
-**URL:** `http://app.localhost:3000/settings/restaurant/profile`  
+**URL:** `http://app.localhost:3000/settings/restaurant/profile`
 **Root component:** [`RestaurantProfileSection.tsx`](src/components/features/restaurant-settings/RestaurantProfileSection.tsx)
 
 ### 2.1 Section rail contract
@@ -205,7 +205,7 @@ it('prefixes rail labels with setup steps', () => { ... });
 
 ## 3. Setup overview — verification + tests
 
-**URL:** `/settings/restaurant`  
+**URL:** `/settings/restaurant`
 **Component:** [`RestaurantSetupOverview.tsx`](src/components/features/restaurant-settings/RestaurantSetupOverview.tsx)
 
 ### 3.1 Readiness logic (do not change without product sign-off)
@@ -241,7 +241,7 @@ Mock: `useOpsRestaurantDetails`, `useOpsOperatingHours`, `useOpsServicePeriods`,
 
 ## 4. Google Business Profile — low-level spec
 
-**URL:** `/settings/restaurant/google-business-profile`  
+**URL:** `/settings/restaurant/google-business-profile`
 **Components:** [`GoogleBusinessProfileSection.tsx`](src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx), [`OpsRestaurantSettingsClient.tsx`](src/components/features/restaurant-settings/OpsRestaurantSettingsClient.tsx) (`DualSyncShell`)
 
 ### 4.1 Anchors
@@ -264,7 +264,7 @@ Mock: `useOpsRestaurantDetails`, `useOpsOperatingHours`, `useOpsServicePeriods`,
 | Address       | read-only                        | `addressText`                                                                    |
 | Primary CTA   | Link location                    | `linkMutation` payload: `accountName`, `accountId`, `locationName`, `locationId` |
 
-**Helper (add under card title if missing):**  
+**Helper (add under card title if missing):**
 _"Pick the Google listing that matches this restaurant's name and address."_
 
 ### 4.3 State matrix (all must use `GbpFrame` + overview actions)
@@ -310,7 +310,7 @@ Assertions:
 
 ## 5. Availability — low-level spec
 
-**URL:** `/settings/restaurant/availability` (+ aliases)  
+**URL:** `/settings/restaurant/availability` (+ aliases)
 **Components:** [`AvailabilityOccasionsCommandCenter.tsx`](src/components/features/restaurant-settings/AvailabilityOccasionsCommandCenter.tsx), [`AvailabilityScheduleManager.tsx`](src/components/features/restaurant-settings/AvailabilityScheduleManager.tsx), [`BookingRulesCard`](src/components/features/restaurant-settings/AvailabilityOccasionsCommandCenter.tsx)
 
 ### 5.1 Workspace visibility
@@ -357,7 +357,7 @@ Inside `#availability-schedule` card:
 
 ### 5.4 Save footer (`AvailabilityScheduleManager`)
 
-**Button:** disabled unless `canSave` (dirty + validation).  
+**Button:** disabled unless `canSave` (dirty + validation).
 **Adjacent copy:** `<p>{formatSaveScopeMessage('availability-schedule')}</p>`
 
 **PATCH domains (unchanged):** hours, services, occasions, turn bands — single handler; partial failure surfaces `saveState.details[]`.
@@ -388,7 +388,7 @@ it('scrolls to availability-schedule when initialWorkspace is schedule', () => {
 
 ## 6. Menu — low-level spec
 
-**URL:** `/settings/restaurant/menu?catalog=food|drinks`  
+**URL:** `/settings/restaurant/menu?catalog=food|drinks`
 **Components:** [`OpsMenuManagementClient.tsx`](src/components/features/menu/OpsMenuManagementClient.tsx), [`MenuHierarchyManagementPanel.tsx`](src/components/features/menu/MenuHierarchyManagementPanel.tsx)
 
 ### 6.1 Layout breakpoints
@@ -400,7 +400,7 @@ it('scrolls to availability-schedule when initialWorkspace is schedule', () => {
 
 ### 6.2 Quick edit dialog
 
-**Trigger:** row action **Quick edit** → sets `quickEditItem`  
+**Trigger:** row action **Quick edit** → sets `quickEditItem`
 **Component:** dialog in `MenuHierarchyManagementPanel` (~line 2014)
 
 **Fields:**
@@ -446,7 +446,7 @@ it('opens full sheet with Essentials section expanded', async () => {});
 
 ## 7. Tables — low-level spec
 
-**URL:** `/settings/restaurant/tables`  
+**URL:** `/settings/restaurant/tables`
 **Component:** [`TableInventoryClient.tsx`](src/components/features/tables/TableInventoryClient.tsx)
 
 ### 7.1 Workspaces
@@ -488,7 +488,7 @@ it('submits create payload with only core fields when collapsible closed', () =>
 
 ## 8. Team — low-level spec
 
-**URL:** `/settings/restaurant/team`  
+**URL:** `/settings/restaurant/team`
 **Component:** [`OpsTeamManagementClient.tsx`](src/components/features/team/OpsTeamManagementClient.tsx)
 
 ### 8.1 Workspaces

@@ -1,6 +1,6 @@
 # Nabatable — Immersive Restaurant Settings Command Center (Final Aligned Prompt)
 
-**Version:** token-aligned · Nabatable Ops app theme · Shadcn/Luma  
+**Version:** token-aligned · Nabatable Ops app theme · Shadcn/Luma
 **Target:** `https://app.nabatable.com/settings/restaurant/*` (local: `http://app.localhost:3000/settings/restaurant/*`)
 
 **Source bundles:** `analysis/restaurant-settings-consolidated/` · see `manifest.json`

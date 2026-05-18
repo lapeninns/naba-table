@@ -177,4 +177,3 @@ describe('deriveGbpDriftStatus', () => {
     expect(status.shortLabel).toBe('Refresh');
   });
 });
-

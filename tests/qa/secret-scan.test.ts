@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { redactSecretSnippet, scanSecretText } from '@/scripts/qa/secret-scan';
+import {
+  allowsBuiltInOnlySecretScan,
+  redactSecretSnippet,
+  scanSecretText,
+} from '@/scripts/qa/secret-scan';
 
 describe('secret scan fallback', () => {
   it('detects high-confidence secrets in text', () => {
@@ -30,5 +34,11 @@ describe('secret scan fallback', () => {
   it('redacts matched snippets before printing', () => {
     const value = 'OPENAI_API_KEY=sk-proj-' + 'abcdefghijklmnopqrstuvwxyz';
     expect(redactSecretSnippet(value, 'openai')).toBe('[redacted:openai]');
+  });
+
+  it('requires an explicit opt-in for built-in-only scanner runs', () => {
+    expect(allowsBuiltInOnlySecretScan({})).toBe(false);
+    expect(allowsBuiltInOnlySecretScan({ SECRET_SCAN_ALLOW_BUILT_IN_ONLY: 'false' })).toBe(false);
+    expect(allowsBuiltInOnlySecretScan({ SECRET_SCAN_ALLOW_BUILT_IN_ONLY: 'true' })).toBe(true);
   });
 });

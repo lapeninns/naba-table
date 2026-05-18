@@ -25,8 +25,8 @@ isProject: false
 
 # Restaurant profile in-section field IA improvements
 
-**Risk tier:** Medium (single ops surface, UI-only; no API/schema changes)  
-**Route:** `http://app.localhost:3000/settings/restaurant/profile`  
+**Risk tier:** Medium (single ops surface, UI-only; no API/schema changes)
+**Route:** `http://app.localhost:3000/settings/restaurant/profile`
 **Task folder (required before edits):** `tasks/profile-field-ia-YYYYMMDD-HHMM/` with `research.md`, `plan.md`, `todo.md`, `verification.md` per [docs/sdlc/task-harness.md](docs/sdlc/task-harness.md)
 
 ## Current state (baseline)

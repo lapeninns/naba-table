@@ -152,7 +152,7 @@ export function GbpWorkflowFrame({
                 Google integration is 100% optional
               </CardTitle>
               <CardDescription className="text-xs">
-                Connecting your Google Business Profile is designed to import address details and hours quickly. 
+                Connecting your Google Business Profile is designed to import address details and hours quickly.
                 If you prefer, you can skip this step and enter details manually in Nabatable.
               </CardDescription>
             </CardHeader>
