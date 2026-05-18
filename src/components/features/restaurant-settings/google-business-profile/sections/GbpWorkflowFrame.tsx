@@ -146,14 +146,15 @@ export function GbpWorkflowFrame({
     >
       <div className="flex min-w-0 flex-col gap-4">
         {stage !== 'linked' && (
-          <Card className="border-sky-500/20 bg-sky-500/5">
+          <Card className="border-primary/20 bg-primary/5">
             <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium text-sky-700 dark:text-sky-400">
+              <CardTitle className="text-sm font-medium text-primary">
                 Google integration is 100% optional
               </CardTitle>
               <CardDescription className="text-xs">
-                Connecting your Google Business Profile is designed to import address details and hours quickly.
-                If you prefer, you can skip this step and enter details manually in Nabatable.
+                Connecting your Google Business Profile is designed to import address details and
+                hours quickly. If you prefer, you can skip this step and enter details manually in
+                Nabatable.
               </CardDescription>
             </CardHeader>
           </Card>

@@ -87,7 +87,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
   },
 ];
 
-const PLACEHOLDER_LINE_PATTERN =
+const PLACEHOLDER_SECRET_VALUE_PATTERN =
   /\b(?:changeme|dummy|example|fake|fixture|mock|placeholder|redacted|sample|test|xxxx)\b/i;
 
 function parseBooleanEnv(value: string | undefined): boolean {
@@ -159,7 +159,7 @@ export function scanSecretText(source: string, file: string): SecretFinding[] {
     for (const match of source.matchAll(pattern.regex)) {
       const index = match.index ?? 0;
       const line = lineForIndex(source, index);
-      if (PLACEHOLDER_LINE_PATTERN.test(line)) continue;
+      if (PLACEHOLDER_SECRET_VALUE_PATTERN.test(match[0])) continue;
 
       findings.push({
         file,

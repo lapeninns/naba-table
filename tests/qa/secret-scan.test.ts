@@ -31,6 +31,21 @@ describe('secret scan fallback', () => {
     ).toEqual([]);
   });
 
+  it('@p1 @security does not ignore real-looking secrets because nearby prose says test', () => {
+    const findings = scanSecretText(
+      "OPENAI_API_KEY='sk-proj-abcdefghijklmnopqrstuvwxyz1234567890' # test credential",
+      'config.ts',
+    );
+
+    expect(findings).toEqual([
+      expect.objectContaining({
+        file: 'config.ts',
+        line: 1,
+        rule: 'openai-api-key',
+      }),
+    ]);
+  });
+
   it('redacts matched snippets before printing', () => {
     const value = 'OPENAI_API_KEY=sk-proj-' + 'abcdefghijklmnopqrstuvwxyz';
     expect(redactSecretSnippet(value, 'openai')).toBe('[redacted:openai]');

@@ -101,7 +101,7 @@ export function RestaurantSettingsSidebarNav({
                         <span className="truncate">{item.title}</span>
                         {hasUnsaved && (
                           <span
-                            className="ml-1.5 size-1.5 shrink-0 rounded-full bg-amber-500 animate-pulse"
+                            className="ml-1.5 size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
                             aria-label="Unsaved changes alert"
                             title="Unsaved changes in this tab"
                           />
