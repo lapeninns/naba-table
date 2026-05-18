@@ -2,9 +2,9 @@
 
 import { Settings2 } from 'lucide-react';
 
-import { Sidebar, SidebarHeader } from '@/components/ui/sidebar';
-import { SidebarCollapseTrigger } from '@/components/features/ops-shell/patterns/SidebarCollapseTrigger';
 import { SidebarCollapsedRailToggle } from '@/components/features/ops-shell/patterns/SidebarCollapsedRailToggle';
+import { SidebarCollapseTrigger } from '@/components/features/ops-shell/patterns/SidebarCollapseTrigger';
+import { Sidebar, SidebarHeader } from '@/components/ui/sidebar';
 
 import { RestaurantSettingsSidebarNav } from './RestaurantSettingsSidebarNav';
 import { useRestaurantSettingsNav } from './useRestaurantSettingsNav';

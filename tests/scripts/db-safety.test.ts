@@ -131,23 +131,42 @@ describe('script DB safety', () => {
   it('requires staging env, exact project ref, and confirmation for staging writes', () => {
     const expectedProjectRef = 'actualrefabcdefghijk';
     const apiUrl = `https://${expectedProjectRef}.supabase.co`;
+    const previousAppEnv = process.env.APP_ENV;
+    const previousDbTargetEnv = process.env.DB_TARGET_ENV;
 
-    expect(
-      assertStagingScriptSafety({
-        apiUrl,
-        expectedProjectRef,
-        targetEnv: 'staging',
-        confirmation: 'true',
-      }),
-    ).toBe(expectedProjectRef);
+    delete process.env.APP_ENV;
+    delete process.env.DB_TARGET_ENV;
 
-    expect(() =>
-      assertStagingScriptSafety({
-        apiUrl,
-        expectedProjectRef,
-        confirmation: 'true',
-      }),
-    ).toThrow(/DB_TARGET_ENV=staging or APP_ENV=staging/);
+    try {
+      expect(
+        assertStagingScriptSafety({
+          apiUrl,
+          expectedProjectRef,
+          targetEnv: 'staging',
+          confirmation: 'true',
+        }),
+      ).toBe(expectedProjectRef);
+
+      expect(() =>
+        assertStagingScriptSafety({
+          apiUrl,
+          expectedProjectRef,
+          confirmation: 'true',
+        }),
+      ).toThrow(/DB_TARGET_ENV=staging or APP_ENV=staging/);
+    } finally {
+      if (previousAppEnv === undefined) {
+        delete process.env.APP_ENV;
+      } else {
+        process.env.APP_ENV = previousAppEnv;
+      }
+
+      if (previousDbTargetEnv === undefined) {
+        delete process.env.DB_TARGET_ENV;
+      } else {
+        process.env.DB_TARGET_ENV = previousDbTargetEnv;
+      }
+    }
 
     expect(() =>
       assertStagingScriptSafety({

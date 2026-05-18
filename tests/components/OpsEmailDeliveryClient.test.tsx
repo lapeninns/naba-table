@@ -7,6 +7,7 @@ import { OpsEmailDeliveryClient } from '@/components/features/email-delivery/Ops
 import { OpsSidebarLayout } from '@/components/features/ops-shell/OpsSidebarLayout';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
+import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
 
 import type { BookingService } from '@/services/ops/bookings';
 import type {
@@ -84,6 +85,11 @@ function createRestaurantService() {
       name: 'Test Restaurant',
       timezone: 'UTC',
     }),
+    getProfile: vi.fn().mockResolvedValue({
+      id: 'rest-1',
+      name: 'Test Restaurant',
+      timezone: 'UTC',
+    }),
   };
 }
 
@@ -152,21 +158,19 @@ function createBookingServiceMock(
   } as unknown as BookingService;
 }
 
-function renderClient(
+function renderOpsEmailDeliveryTree(
+  queryClient: QueryClient,
   getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
   options?: {
     getRestaurantEmailDeliverySummary?: BookingService['getRestaurantEmailDeliverySummary'];
     getRestaurantEmailQueue?: BookingService['getRestaurantEmailQueue'];
     retryEmailDelivery?: BookingService['retryEmailDelivery'];
+    sessionMemberships?: OpsMembership[];
   },
 ) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, refetchOnWindowFocus: false },
-    },
-  });
+  const sessionMemberships = options?.sessionMemberships ?? memberships;
 
-  return render(
+  return (
     <QueryClientProvider client={queryClient}>
       <OpsServicesProvider
         factories={{
@@ -180,14 +184,38 @@ function renderClient(
           restaurantService: () => createRestaurantService() as never,
         }}
       >
-        <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
-          <OpsSidebarLayout>
-            <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
-          </OpsSidebarLayout>
+        <OpsSessionProvider
+          user={user}
+          memberships={sessionMemberships}
+          initialRestaurantId="rest-1"
+        >
+          <OpsUnsavedChangesProvider>
+            <OpsSidebarLayout>
+              <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
+            </OpsSidebarLayout>
+          </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderClient(
+  getRestaurantEmailDeliveryFeed: BookingService['getRestaurantEmailDeliveryFeed'],
+  options?: {
+    getRestaurantEmailDeliverySummary?: BookingService['getRestaurantEmailDeliverySummary'];
+    getRestaurantEmailQueue?: BookingService['getRestaurantEmailQueue'];
+    retryEmailDelivery?: BookingService['retryEmailDelivery'];
+    sessionMemberships?: OpsMembership[];
+  },
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false },
+    },
+  });
+
+  return render(renderOpsEmailDeliveryTree(queryClient, getRestaurantEmailDeliveryFeed, options));
 }
 
 describe('OpsEmailDeliveryClient', () => {
@@ -857,28 +885,14 @@ describe('OpsEmailDeliveryClient', () => {
     );
 
     rerender(
-      <QueryClientProvider
-        client={
-          new QueryClient({
-            defaultOptions: {
-              queries: { retry: false, refetchOnWindowFocus: false },
-            },
-          })
-        }
-      >
-        <OpsServicesProvider
-          factories={{
-            bookingService: () => createBookingServiceMock(getRestaurantEmailDeliveryFeed),
-            restaurantService: () => createRestaurantService() as never,
-          }}
-        >
-          <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
-            <OpsSidebarLayout>
-              <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
-            </OpsSidebarLayout>
-          </OpsSessionProvider>
-        </OpsServicesProvider>
-      </QueryClientProvider>,
+      renderOpsEmailDeliveryTree(
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false, refetchOnWindowFocus: false },
+          },
+        }),
+        getRestaurantEmailDeliveryFeed,
+      ),
     );
 
     expect(await screen.findByText('No email deliveries found')).toBeInTheDocument();
@@ -1009,28 +1023,14 @@ describe('OpsEmailDeliveryClient', () => {
     );
 
     rerender(
-      <QueryClientProvider
-        client={
-          new QueryClient({
-            defaultOptions: {
-              queries: { retry: false, refetchOnWindowFocus: false },
-            },
-          })
-        }
-      >
-        <OpsServicesProvider
-          factories={{
-            bookingService: () => createBookingServiceMock(getRestaurantEmailDeliveryFeed),
-            restaurantService: () => createRestaurantService() as never,
-          }}
-        >
-          <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
-            <OpsSidebarLayout>
-              <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
-            </OpsSidebarLayout>
-          </OpsSessionProvider>
-        </OpsServicesProvider>
-      </QueryClientProvider>,
+      renderOpsEmailDeliveryTree(
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false, refetchOnWindowFocus: false },
+          },
+        }),
+        getRestaurantEmailDeliveryFeed,
+      ),
     );
 
     resolveSettled();
@@ -1280,10 +1280,18 @@ describe('OpsEmailDeliveryClient', () => {
       .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
       .mockResolvedValue(makeSuccessResponse());
 
-    renderClient(getRestaurantEmailDeliveryFeed);
+    renderClient(getRestaurantEmailDeliveryFeed, {
+      sessionMemberships: [memberships[0]],
+    });
 
-    expect(await screen.findByText('Test Restaurant')).toBeInTheDocument();
-    expect(screen.getByText('UTC')).toBeInTheDocument();
+    const header = await screen.findByRole('heading', { name: 'Email Delivery' });
+    const headerMeta = header.closest('.flex.flex-col.gap-1');
+
+    expect(headerMeta).not.toBeNull();
+    await waitFor(() => {
+      expect(within(headerMeta as HTMLElement).getByText('Test Restaurant')).toBeInTheDocument();
+    });
+    expect(within(headerMeta as HTMLElement).getByText('UTC')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /go to bookings/i })).toHaveAttribute(
       'href',
       '/app/bookings',

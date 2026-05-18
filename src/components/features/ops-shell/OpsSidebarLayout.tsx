@@ -41,9 +41,9 @@ import { cn } from '@/lib/utils';
 
 import { OPS_SUPPORT_ITEM, filterOpsNavigationSections, isNavItemActive } from './navigation';
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
-import { SidebarCollapseTrigger } from './patterns/SidebarCollapseTrigger';
-import { SidebarCollapsedRailToggle } from './patterns/SidebarCollapsedRailToggle';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
+import { SidebarCollapsedRailToggle } from './patterns/SidebarCollapsedRailToggle';
+import { SidebarCollapseTrigger } from './patterns/SidebarCollapseTrigger';
 import { useOpsRoutePrefetch } from './useOpsRoutePrefetch';
 
 import type { OpsNavigationSection } from './navigation';

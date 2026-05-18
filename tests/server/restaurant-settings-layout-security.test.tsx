@@ -13,6 +13,9 @@ const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
 const fetchUserMembershipsCachedMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
+const resolveServiceRoleSupabaseUrlMock = vi.hoisted(() =>
+  vi.fn(() => process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co'),
+);
 
 vi.mock('next/navigation', () => ({ redirect: redirectMock }));
 vi.mock('next/headers', () => ({ cookies: cookiesMock, headers: headersMock }));
@@ -26,6 +29,7 @@ vi.mock('@/components/features/restaurant-settings/RestaurantSettingsPageShell',
 
 vi.mock('@/server/supabase', () => ({
   getServerComponentSupabaseClient: getServerComponentSupabaseClientMock,
+  resolveServiceRoleSupabaseUrl: resolveServiceRoleSupabaseUrlMock,
 }));
 
 vi.mock('@/server/team/access', () => ({
