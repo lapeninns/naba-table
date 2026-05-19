@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { GuestSignInForm } from '@/components/auth/GuestSignInForm';
 import { GuestPanel } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { hasRedirectedFrom } from '@/lib/auth/signin-redirect-guard';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { ensureCsrfCookie } from '@/server/security/csrf';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -43,32 +45,26 @@ const OPS_REDIRECT_PREFIXES = [
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//'))
+  const sanitized = sanitizeLocalRedirectPath(candidate, {
+    fallback: '',
+    allowedPrefixes: ALLOWED_REDIRECT_PREFIXES,
+  });
+  if (!sanitized) {
     return undefined;
-
-  const parsed = new URL(candidate, 'https://sajiloreservex.local');
-  const pathname = parsed.pathname;
-
-  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-
-  return isAllowed ? candidate : undefined;
+  }
+  return sanitized;
 }
 
 function resolveOpsRedirectTarget(raw: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//'))
+  const sanitized = sanitizeLocalRedirectPath(candidate, {
+    fallback: '',
+    allowedPrefixes: OPS_REDIRECT_PREFIXES,
+  });
+  if (!sanitized) {
     return undefined;
-
-  const parsed = new URL(candidate, 'https://sajiloreservex.local');
-  const pathname = parsed.pathname;
-
-  const isAllowed = OPS_REDIRECT_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-
-  return isAllowed ? candidate : undefined;
+  }
+  return sanitized;
 }
 
 function isOpsRedirectTarget(target: string | undefined): boolean {
@@ -138,6 +134,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const hostPort = hostHeader.includes(':') ? hostHeader.split(':').pop() : undefined;
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
   const resolvedParams = await searchParams;
+  const cameFromAuthGuard = hasRedirectedFrom(resolvedParams?.redirectedFrom);
   const redirectedFromParam = resolveRedirectTarget(resolvedParams?.redirectedFrom);
   const opsRedirectedFromParam = resolveOpsRedirectTarget(resolvedParams?.redirectedFrom);
 
@@ -148,11 +145,8 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       : `https://app.${rootDomain.toLowerCase().replace(/^www\./, '')}/auth/signin`;
 
   const restaurantSignInUrlObj = new URL(restaurantSignInUrlBase);
-  if (resolvedParams?.redirectedFrom) {
-    const rawParam = Array.isArray(resolvedParams.redirectedFrom)
-      ? resolvedParams.redirectedFrom[0]
-      : resolvedParams.redirectedFrom;
-    restaurantSignInUrlObj.searchParams.set('redirectedFrom', rawParam);
+  if (opsRedirectedFromParam) {
+    restaurantSignInUrlObj.searchParams.set('redirectedFrom', opsRedirectedFromParam);
   }
   const restaurantSignInUrl = restaurantSignInUrlObj.toString();
 
@@ -185,7 +179,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   // Only redirect authenticated users if there's no error
   // Using getUser() which validates the JWT with the server, not just reads cached session
   // This prevents redirect loops after logout since getSession() returns stale cached data
-  if (!hasError) {
+  if (!hasError && !cameFromAuthGuard) {
     const supabase = await getServerComponentSupabaseClient();
     const {
       data: { user },

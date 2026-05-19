@@ -14,9 +14,10 @@ vi.mock('@/lib/env', () => ({
 }));
 
 import {
-  buildGoogleBusinessProfileFoodMenusName,
   buildGoogleBusinessProfileAuthUrl,
+  buildGoogleBusinessProfileFoodMenusName,
   getGoogleBusinessProfileFoodMenus,
+  getGoogleBusinessProfileLocationProfile,
   listGoogleBusinessProfileLocations,
   patchGoogleBusinessProfileLocation,
   updateGoogleBusinessProfileFoodMenus,
@@ -190,5 +191,62 @@ describe('google business profile client', () => {
       'Content-Type': 'application/json',
       'X-Goog-User-Project': '23639420332',
     });
+  });
+
+  it('marks service items unavailable when the optional fetch fails', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            name: 'locations/456',
+            title: 'Old Crown Girton',
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: 'upstream_error',
+          }),
+          { status: 500 },
+        ),
+      );
+
+    const profile = await getGoogleBusinessProfileLocationProfile('token-1', '456');
+
+    expect(profile.title).toBe('Old Crown Girton');
+    expect(profile.__nabatableOptionalFetchStatus?.serviceItems).toBe('unavailable');
+    expect(Object.prototype.hasOwnProperty.call(profile, 'serviceItems')).toBe(false);
+  });
+
+  it('marks service items fetched when Google returns an explicit empty segment', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            name: 'locations/456',
+            title: 'Old Crown Girton',
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            serviceItems: [],
+          }),
+          { status: 200 },
+        ),
+      );
+
+    const profile = await getGoogleBusinessProfileLocationProfile('token-1', '456');
+
+    expect(profile.__nabatableOptionalFetchStatus?.serviceItems).toBe('fetched');
+    expect(profile.serviceItems).toEqual([]);
   });
 });

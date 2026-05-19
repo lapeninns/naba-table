@@ -9,6 +9,7 @@ import {
 } from '@/server/auth/magic-link-email';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
+import { extractClientIp } from '@/server/security/request';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -17,7 +18,12 @@ type SignupMode = 'password' | 'magic_link';
 
 const requestSchema = z
   .object({
-    email: z.string().trim().min(1, 'Email is required').email('Enter a valid email').transform((v) => v.toLowerCase()),
+    email: z
+      .string()
+      .trim()
+      .min(1, 'Email is required')
+      .email('Enter a valid email')
+      .transform((v) => v.toLowerCase()),
     password: z.string().trim().optional(),
     mode: z.enum(['password', 'magic_link']).default('magic_link'),
     redirectedFrom: z.string().optional(),
@@ -47,13 +53,23 @@ function buildCallbackUrl(origin: string, redirectedFrom: string | undefined) {
 }
 
 function buildRateLimitId(req: NextRequest, email: string, mode: SignupMode) {
-  const realIp = req.headers.get('x-real-ip')?.trim();
-  const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const ip = realIp ?? forwardedFor ?? 'unknown';
+  const ip = extractClientIp(req);
   return `signup:${mode}:${ip}:${email}`;
 }
 
-function setRateHeaders(response: NextResponse, limitResult: Awaited<ReturnType<typeof consumeRateLimit>>) {
+function isExistingAccountError(error: { message?: string | null }) {
+  const message = error.message?.toLowerCase() ?? '';
+  return (
+    message.includes('already registered') ||
+    message.includes('already been registered') ||
+    message.includes('already exists')
+  );
+}
+
+function setRateHeaders(
+  response: NextResponse,
+  limitResult: Awaited<ReturnType<typeof consumeRateLimit>>,
+) {
   response.headers.set('X-RateLimit-Limit', limitResult.limit.toString());
   response.headers.set('X-RateLimit-Remaining', limitResult.remaining.toString());
   response.headers.set('X-RateLimit-Reset', limitResult.resetAt.toString());
@@ -75,7 +91,10 @@ export async function POST(req: NextRequest) {
   const validated = requestSchema.safeParse(parsedBody);
   if (!validated.success) {
     const issue = validated.error.issues[0];
-    return NextResponse.json({ message: issue.message, details: { field: issue.path[0] ?? undefined } }, { status: 400 });
+    return NextResponse.json(
+      { message: issue.message, details: { field: issue.path[0] ?? undefined } },
+      { status: 400 },
+    );
   }
 
   const { email, password, mode } = validated.data;
@@ -89,7 +108,10 @@ export async function POST(req: NextRequest) {
 
   if (!rateResult.ok) {
     const retryAfter = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
-    const response = NextResponse.json({ message: 'Too many attempts. Please try again later.' }, { status: 429 });
+    const response = NextResponse.json(
+      { message: 'Too many attempts. Please try again later.' },
+      { status: 429 },
+    );
     response.headers.set('Retry-After', retryAfter.toString());
     return setRateHeaders(response, rateResult);
   }
@@ -104,8 +126,19 @@ export async function POST(req: NextRequest) {
     });
 
     if (error) {
-      const status = error.status ?? 400;
-      const response = NextResponse.json({ message: error.message ?? 'Unable to create account' }, { status });
+      const response = isExistingAccountError(error)
+        ? NextResponse.json(
+            {
+              code: 'ACCOUNT_EXISTS',
+              message: 'An account already exists for this email.',
+              details: { field: 'email' },
+            },
+            { status: 409 },
+          )
+        : NextResponse.json(
+            { message: error.message ?? 'Unable to create account' },
+            { status: error.status ?? 400 },
+          );
       return setRateHeaders(response, rateResult);
     }
 
@@ -134,13 +167,13 @@ export async function POST(req: NextRequest) {
       error,
       'We could not send a magic link right now. Please try again.',
     );
-    const response = NextResponse.json(
-      { message: failure.message },
-      { status: failure.status },
-    );
+    const response = NextResponse.json({ message: failure.message }, { status: failure.status });
     return setRateHeaders(response, rateResult);
   }
 
-  const response = NextResponse.json({ status: 'magic_link_sent', redirectTo: redirectedFrom }, { status: 202 });
+  const response = NextResponse.json(
+    { status: 'magic_link_sent', redirectTo: redirectedFrom },
+    { status: 202 },
+  );
   return setRateHeaders(response, rateResult);
 }

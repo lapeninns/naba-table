@@ -1,17 +1,42 @@
 'use client';
 
-import { ArrowRight, type LucideIcon } from 'lucide-react';
-import Link from 'next/link';
+import { type LucideIcon } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
-import type { ComponentProps, ReactNode } from 'react';
+import { SETTINGS_COMMAND_CENTER_LAYOUT_CLASS } from './compactSettingsClasses';
+import { SettingsSectionNav, type RestaurantSettingsCommandRailItem } from './SettingsSectionNav';
 
 type BadgeVariant = ComponentProps<typeof Badge>['variant'];
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!mediaQuery) {
+      return;
+    }
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    mediaQuery.addEventListener?.('change', handleChange);
+    return () => mediaQuery.removeEventListener?.('change', handleChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 export type RestaurantSettingsCommandMetric = {
   label: string;
@@ -21,25 +46,18 @@ export type RestaurantSettingsCommandMetric = {
   Icon?: LucideIcon;
 };
 
-export type RestaurantSettingsCommandRailItem = {
-  label: string;
-  description?: string;
-  href?: string;
-  isActive?: boolean;
-  onSelect?: () => void;
-  badge?: string;
-  Icon?: LucideIcon;
-};
-
 type RestaurantSettingsCommandCenterProps = {
   eyebrow: string;
   title: string;
   description: string;
   metrics?: RestaurantSettingsCommandMetric[];
+  showHeader?: boolean;
+  showMetrics?: boolean;
   primaryAction?: ReactNode;
   railTitle?: string;
   railDescription?: string;
   railItems?: RestaurantSettingsCommandRailItem[];
+  railClassName?: string;
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
@@ -50,27 +68,38 @@ export function RestaurantSettingsCommandCenter({
   title,
   description,
   metrics = [],
+  showHeader = true,
+  showMetrics = true,
   primaryAction,
   railTitle = 'Workflow',
   railDescription,
   railItems = [],
+  railClassName,
   children,
   footer,
   className,
 }: RestaurantSettingsCommandCenterProps) {
-  const hasRail = railItems.length > 0 || footer;
+  const reduceMotion = usePrefersReducedMotion();
+  const visibleMetrics = showMetrics ? metrics : [];
 
   return (
-    <section className={cn('grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]', className)}>
-      <div className="flex min-w-0 flex-col gap-4">
-        <Card className="overflow-hidden border-border/70 shadow-sm">
-          <CardHeader className="gap-4 px-4 py-4 sm:px-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0 space-y-2">
+    <motion.section
+      className={cn(SETTINGS_COMMAND_CENTER_LAYOUT_CLASS, className)}
+      initial={reduceMotion ? false : { y: 10, opacity: 0 }}
+      animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
+      {showHeader ? (
+        <Card className="overflow-hidden border-border/70 bg-card shadow-sm">
+          <CardHeader className="gap-4 border-b border-border/60 bg-muted/30 px-4 py-4 sm:px-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-2">
               <Badge variant="outline" className="w-fit">
                 {eyebrow}
               </Badge>
-              <div className="space-y-1">
-                <CardTitle className="text-2xl leading-tight">{title}</CardTitle>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-2xl leading-tight tracking-tight text-foreground">
+                  {title}
+                </CardTitle>
                 <CardDescription className="max-w-3xl text-sm leading-6">
                   {description}
                 </CardDescription>
@@ -81,13 +110,16 @@ export function RestaurantSettingsCommandCenter({
             ) : null}
           </CardHeader>
 
-          {metrics.length > 0 ? (
-            <CardContent className="border-t border-border/60 bg-muted/20 px-4 py-3 sm:px-5">
+          {visibleMetrics.length > 0 ? (
+            <CardContent className="bg-card px-4 py-3 sm:px-5">
               <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {metrics.map((item) => {
+                {visibleMetrics.map((item) => {
                   const Icon = item.Icon;
                   return (
-                    <div key={item.label} className="min-w-0 rounded-md border bg-background p-3">
+                    <div
+                      key={item.label}
+                      className="min-w-0 rounded-lg border border-border/60 bg-background p-3 shadow-none"
+                    >
                       <dt className="flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
                         {Icon ? <Icon className="size-3.5 shrink-0" aria-hidden /> : null}
                         {item.label}
@@ -109,94 +141,17 @@ export function RestaurantSettingsCommandCenter({
             </CardContent>
           ) : null}
         </Card>
-
-        {children}
-      </div>
-
-      {hasRail ? (
-        <aside className="xl:sticky xl:top-20 xl:self-start">
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="gap-1 px-4 py-3">
-              <CardTitle className="text-base">{railTitle}</CardTitle>
-              {railDescription ? (
-                <CardDescription className="text-xs leading-5">{railDescription}</CardDescription>
-              ) : null}
-            </CardHeader>
-            {railItems.length > 0 ? (
-              <CardContent className="flex flex-col gap-1 px-2 pb-3">
-                {railItems.map((item) => {
-                  const Icon = item.Icon;
-                  const itemKey = item.href ?? item.label;
-                  const content = (
-                    <>
-                      {Icon ? (
-                        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground">
-                          <Icon className="size-4" aria-hidden />
-                        </span>
-                      ) : null}
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-2 text-sm font-medium leading-5">
-                          {item.label}
-                          <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-                        </span>
-                        {item.description ? (
-                          <span className="mt-0.5 block text-xs leading-5 text-muted-foreground break-words">
-                            {item.description}
-                          </span>
-                        ) : null}
-                      </span>
-                      {item.badge ? (
-                        <Badge variant="outline" className="shrink-0">
-                          {item.badge}
-                        </Badge>
-                      ) : null}
-                    </>
-                  );
-
-                  if (item.onSelect) {
-                    return (
-                      <Button
-                        key={itemKey}
-                        type="button"
-                        variant="ghost"
-                        aria-current={item.isActive ? 'page' : undefined}
-                        onClick={item.onSelect}
-                        className={cn(
-                          'h-auto items-start justify-start gap-3 whitespace-normal px-2 py-2 text-left',
-                          item.isActive && 'bg-primary/10 text-foreground',
-                        )}
-                      >
-                        {content}
-                      </Button>
-                    );
-                  }
-
-                  return (
-                    <Button
-                      key={itemKey}
-                      asChild
-                      variant="ghost"
-                      aria-current={item.isActive ? 'page' : undefined}
-                      className={cn(
-                        'h-auto items-start justify-start gap-3 whitespace-normal px-2 py-2 text-left',
-                        item.isActive && 'bg-primary/10 text-foreground',
-                      )}
-                    >
-                      <Link href={item.href ?? '#'}>{content}</Link>
-                    </Button>
-                  );
-                })}
-              </CardContent>
-            ) : null}
-            {footer ? (
-              <>
-                <Separator />
-                <div className="px-4 py-3 text-xs leading-5 text-muted-foreground">{footer}</div>
-              </>
-            ) : null}
-          </Card>
-        </aside>
       ) : null}
-    </section>
+
+      <SettingsSectionNav
+        title={railTitle}
+        description={railDescription}
+        items={railItems}
+        footer={footer}
+        className={railClassName}
+      />
+
+      <div className="flex min-w-0 flex-col gap-4">{children}</div>
+    </motion.section>
   );
 }

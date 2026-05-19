@@ -149,7 +149,7 @@ function AccountStep({ onComplete }: { onComplete: () => void }) {
     defaultValues: {
       email: state.account?.email ?? '',
       mode: state.account?.mode ?? 'magic_link',
-      password: state.account?.password ?? '',
+      password: '',
     },
   });
 
@@ -164,7 +164,7 @@ function AccountStep({ onComplete }: { onComplete: () => void }) {
       });
       track('user_signed_up', { method: values.mode });
       emit('user_signed_up', { method: values.mode });
-      setAccount(values);
+      setAccount({ email: values.email, mode: values.mode });
       setStep(2);
       onComplete();
     } catch (error) {

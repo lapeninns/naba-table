@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 import AvailabilitySettingsPage, {
   metadata as availabilityMetadata,
 } from '@/app/app/(app)/settings/restaurant/availability/page';
+import RestaurantDiscoverySettingsPage, {
+  metadata as discoveryMetadata,
+} from '@/app/app/(app)/settings/restaurant/discovery/page';
 import GoogleBusinessProfileSettingsPage, {
   metadata as googleBusinessProfileMetadata,
 } from '@/app/app/(app)/settings/restaurant/google-business-profile/page';
 import RestaurantMenuSettingsPage, {
   metadata as menuMetadata,
 } from '@/app/app/(app)/settings/restaurant/menu/page';
-import RestaurantSetupSettingsPage, {
+import RestaurantSettingsIndexPage, {
   metadata as overviewMetadata,
 } from '@/app/app/(app)/settings/restaurant/page';
 import RestaurantProfileSettingsPage, {
@@ -22,6 +25,7 @@ import RestaurantTeamSettingsPage, {
   metadata as teamMetadata,
 } from '@/app/app/(app)/settings/restaurant/team/page';
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { RestaurantSetupOverview } from '@/components/features/restaurant-settings/RestaurantSetupOverview';
 
 import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
 import type { Metadata } from 'next';
@@ -34,14 +38,14 @@ type RoutePageContract = {
 
 const routePageContracts: RoutePageContract[] = [
   {
-    metadata: overviewMetadata,
-    page: RestaurantSetupSettingsPage,
-    view: 'overview',
-  },
-  {
     metadata: profileMetadata,
     page: RestaurantProfileSettingsPage,
     view: 'profile',
+  },
+  {
+    metadata: discoveryMetadata,
+    page: RestaurantDiscoverySettingsPage,
+    view: 'discovery',
   },
   {
     metadata: googleBusinessProfileMetadata,
@@ -71,6 +75,15 @@ const routePageContracts: RoutePageContract[] = [
 ];
 
 describe('restaurant settings route pages', () => {
+  it('keeps the index route as the setup overview instead of a profile handoff page', () => {
+    expect(overviewMetadata.title).toBe('Restaurant setup · Nab a Table Ops');
+    expect(RestaurantSettingsIndexPage()).toEqual(
+      expect.objectContaining({
+        type: RestaurantSetupOverview,
+      }),
+    );
+  });
+
   it.each(routePageContracts)('keeps the $view page as metadata plus view handoff', (contract) => {
     const element = contract.page();
 

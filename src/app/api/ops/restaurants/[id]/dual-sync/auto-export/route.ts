@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       'DUAL_SYNC_AUTO_CANDIDATES_DISABLED',
     );
   }
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-auto-export');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-auto-export', req);
   if (access instanceof NextResponse) return access;
 
   let body: z.infer<typeof requestSchema>;

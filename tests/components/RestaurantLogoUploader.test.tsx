@@ -57,6 +57,11 @@ describe('RestaurantLogoUploader', () => {
       />,
     );
 
+    expect(screen.getByText('Restaurant logo')).toBeInTheDocument();
+    expect(
+      screen.getByText('Shown on the guest booking page and in booking emails.'),
+    ).toBeInTheDocument();
+
     await user.upload(
       screen.getByLabelText(/upload restaurant logo/i),
       new File(['<svg></svg>'], 'logo.svg', { type: 'image/svg+xml' }),

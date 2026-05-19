@@ -234,10 +234,6 @@ export const env = {
     // When we store adjacency edges both directions (A->B and B->A), we can query by table_a only.
     // Default stays true for backwards compatibility unless explicitly overridden in env.
     const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
-    const strictConflictsDefault =
-      typeof parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED === 'boolean'
-        ? parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED
-        : parsed.APP_ENV === 'staging';
     return {
       guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
       opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
@@ -307,7 +303,7 @@ export const env = {
       },
       holds: {
         enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
-        strictConflicts: strictConflictsDefault,
+        strictConflicts: true,
         minTtlSeconds: 180,
       },
       adjacency: {
@@ -454,6 +450,13 @@ export const env = {
       bookingShortLinksBaseUrl: parsed.BOOKING_SHORT_LINKS_BASE_URL ?? null,
       bookingShortLinksInternalUrl: parsed.BOOKING_SHORT_LINKS_INTERNAL_URL ?? null,
       bookingShortLinksInternalToken: parsed.BOOKING_SHORT_LINKS_INTERNAL_TOKEN ?? null,
+    } as const;
+  },
+
+  get dualSync() {
+    const parsed = parseEnv();
+    return {
+      failureWebhookUrl: parsed.DUAL_SYNC_FAILURE_WEBHOOK_URL ?? null,
     } as const;
   },
 } as const;

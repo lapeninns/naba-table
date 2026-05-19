@@ -221,6 +221,33 @@ function mapSummary(dto: TableInventorySummaryDto | undefined): TableInventorySu
   };
 }
 
+function buildUpdateTablePayload(payload: UpdateTablePayload): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  const entries = {
+    tableNumber: payload.tableNumber,
+    capacity: payload.capacity,
+    minPartySize: payload.minPartySize,
+    maxPartySize: payload.maxPartySize,
+    section: payload.section,
+    category: payload.category,
+    seatingType: payload.seatingType,
+    mobility: payload.mobility,
+    zoneId: payload.zoneId,
+    status: payload.status,
+    active: payload.active,
+    position: payload.position,
+    notes: payload.notes,
+  };
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (value !== undefined) {
+      body[key] = value;
+    }
+  }
+
+  return body;
+}
+
 export function createBrowserTableInventoryService(): TableInventoryService {
   return {
     async list(restaurantId, params = {}) {
@@ -272,26 +299,13 @@ export function createBrowserTableInventoryService(): TableInventoryService {
     },
 
     async update(tableId, payload) {
+      const body = buildUpdateTablePayload(payload);
       const response = await fetchJson<{ table: TableInventoryDto }>(
         `${OPS_TABLES_BASE}/${tableId}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tableNumber: payload.tableNumber,
-            capacity: payload.capacity,
-            minPartySize: payload.minPartySize,
-            maxPartySize: payload.maxPartySize,
-            section: payload.section,
-            category: payload.category,
-            seatingType: payload.seatingType,
-            mobility: payload.mobility,
-            zoneId: payload.zoneId,
-            status: payload.status,
-            active: payload.active,
-            position: payload.position ?? null,
-            notes: payload.notes ?? null,
-          }),
+          body: JSON.stringify(body),
         },
       );
       return mapTableInventory(response.table);

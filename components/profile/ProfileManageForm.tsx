@@ -12,10 +12,23 @@ import { z } from 'zod';
 import { GuestCard, GuestSection, GuestStatus } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormRoot,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useGuestProfile } from '@/guest/hooks';
-import { useUpdateProfile, useUploadProfileAvatar, coerceProfileUpdatePayload } from '@/hooks/useProfile';
+import {
+  useUpdateProfile,
+  useUploadProfileAvatar,
+  coerceProfileUpdatePayload,
+} from '@/hooks/useProfile';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
@@ -35,10 +48,16 @@ const formSchema = z.object({
     .superRefine((value, ctx) => {
       if (value.length === 0) return;
       if (value.length < 2) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Name must be at least 2 characters' });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Name must be at least 2 characters',
+        });
       }
       if (value.length > 80) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Name must be 80 characters or fewer' });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Name must be 80 characters or fewer',
+        });
       }
     }),
   phone: profilePhoneSchema,
@@ -177,7 +196,10 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       });
       form.setValue('image', uploadResult.url ?? '', { shouldDirty: true });
       setAvatarError(null);
-      announceStatus({ message: 'Avatar uploaded — save changes to apply it everywhere.', tone: 'info' });
+      announceStatus({
+        message: 'Avatar uploaded — save changes to apply it everywhere.',
+        tone: 'info',
+      });
     } catch (error) {
       console.error('[profile/manage] avatar upload failed', error);
       const message = "We couldn't upload your image. Please try again.";
@@ -222,9 +244,18 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
   const watchedPhone = form.watch('phone');
   const watchedImage = form.watch('image');
 
-  const hasNameChanged = useMemo(() => watchedName.trim() !== (currentProfile.name ?? '').trim(), [currentProfile.name, watchedName]);
-  const hasPhoneChanged = useMemo(() => watchedPhone.trim() !== (currentProfile.phone ?? '').trim(), [currentProfile.phone, watchedPhone]);
-  const hasImageChanged = useMemo(() => (watchedImage?.trim() ?? '') !== (currentProfile.image ?? '').trim(), [currentProfile.image, watchedImage]);
+  const hasNameChanged = useMemo(
+    () => watchedName.trim() !== (currentProfile.name ?? '').trim(),
+    [currentProfile.name, watchedName],
+  );
+  const hasPhoneChanged = useMemo(
+    () => watchedPhone.trim() !== (currentProfile.phone ?? '').trim(),
+    [currentProfile.phone, watchedPhone],
+  );
+  const hasImageChanged = useMemo(
+    () => (watchedImage?.trim() ?? '') !== (currentProfile.image ?? '').trim(),
+    [currentProfile.image, watchedImage],
+  );
   const hasAvatarChanged = avatarState.removed || Boolean(avatarState.file) || hasImageChanged;
 
   const isSubmitting = updateProfile.isPending || uploadAvatar.isPending;
@@ -235,7 +266,9 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     setTimeout(() => statusRef.current?.focus(), 0);
   };
 
-  const announceStatus = (next: { message: string; tone: StatusTone; live?: 'polite' | 'assertive' } | null) => {
+  const announceStatus = (
+    next: { message: string; tone: StatusTone; live?: 'polite' | 'assertive' } | null,
+  ) => {
     if (!next) {
       setStatus(null);
       return;
@@ -259,7 +292,10 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     announceStatus(null);
 
     if (avatarState.file) {
-      announceStatus({ message: 'Please wait for your avatar upload to finish before saving.', tone: 'info' });
+      announceStatus({
+        message: 'Please wait for your avatar upload to finish before saving.',
+        tone: 'info',
+      });
       return;
     }
 
@@ -273,7 +309,10 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       desiredImage = null;
     } else {
       const currentImageValue = form.getValues('image')?.trim();
-      desiredImage = currentImageValue && currentImageValue.length > 0 ? currentImageValue : currentProfile.image ?? null;
+      desiredImage =
+        currentImageValue && currentImageValue.length > 0
+          ? currentImageValue
+          : (currentProfile.image ?? null);
     }
 
     const draft: Record<string, string | null> = {};
@@ -281,12 +320,16 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
     if (phoneHasChanged) draft.phone = trimmedPhone.length > 0 ? trimmedPhone : null;
     if (hasAvatarChanged) draft.image = desiredImage;
 
-    const changedKeys = Object.keys(draft).filter((key): key is 'name' | 'phone' | 'image' =>
-      key === 'name' || key === 'phone' || key === 'image'
+    const changedKeys = Object.keys(draft).filter(
+      (key): key is 'name' | 'phone' | 'image' =>
+        key === 'name' || key === 'phone' || key === 'image',
     );
 
     if (changedKeys.length === 0) {
-      announceStatus({ message: 'No changes detected — update a field before saving.', tone: 'info' });
+      announceStatus({
+        message: 'No changes detected — update a field before saving.',
+        tone: 'info',
+      });
       return;
     }
 
@@ -301,14 +344,16 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
         image: updated.image ?? '',
       });
       setAvatarState((prev) => {
-        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) URL.revokeObjectURL(prev.previewUrl);
+        if (prev.previewUrl && prev.previewUrl.startsWith('blob:'))
+          URL.revokeObjectURL(prev.previewUrl);
         return { file: null, previewUrl: null, removed: false };
       });
       setAvatarError(null);
       if (result.idempotent) {
-        const description = changedKeys.length > 0
-          ? `We already saved your ${formatFieldList(changedKeys)} — everything is up to date.`
-          : 'We already saved those details — everything is up to date.';
+        const description =
+          changedKeys.length > 0
+            ? `We already saved your ${formatFieldList(changedKeys)} — everything is up to date.`
+            : 'We already saved those details — everything is up to date.';
         announceStatus({ message: description, tone: 'info' });
       } else {
         announceStatus({ message: 'Profile updated successfully!', tone: 'success' });
@@ -318,15 +363,22 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
       if (error instanceof HttpError) {
         if (error.code === 'IDEMPOTENCY_KEY_CONFLICT') {
           announceStatus({
-            message: 'We already processed a recent update. Refresh the page to make sure you are editing the latest details.',
+            message:
+              'We already processed a recent update. Refresh the page to make sure you are editing the latest details.',
             tone: 'warning',
           });
           return;
         }
-        announceStatus({ message: error.message || "We couldn't update your profile. Please try again.", tone: 'danger' });
+        announceStatus({
+          message: error.message || "We couldn't update your profile. Please try again.",
+          tone: 'danger',
+        });
         return;
       }
-      announceStatus({ message: "We couldn't update your profile. Please try again.", tone: 'danger' });
+      announceStatus({
+        message: "We couldn't update your profile. Please try again.",
+        tone: 'danger',
+      });
     }
   });
 
@@ -334,10 +386,14 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={onSubmit} className="space-y-8" noValidate>
-
+      <FormRoot onSubmit={onSubmit} className="space-y-8" noValidate>
         {/* Avatar Section */}
-        <GuestSection title={currentProfile.name || 'Your Profile'} description="Update your photo and personal details. A clear photo helps restaurants recognize you." padding="md" className="bg-white">
+        <GuestSection
+          title={currentProfile.name || 'Your Profile'}
+          description="Update your photo and personal details. A clear photo helps restaurants recognize you."
+          padding="md"
+          className="bg-white"
+        >
           <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-start">
             {/* Avatar */}
             <div className="relative group">
@@ -353,7 +409,8 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-slate-300">
-                    {currentProfile.name?.slice(0, 1).toUpperCase() ?? currentProfile.email.slice(0, 1).toUpperCase()}
+                    {currentProfile.name?.slice(0, 1).toUpperCase() ??
+                      currentProfile.email.slice(0, 1).toUpperCase()}
                   </div>
                 )}
               </div>
@@ -385,7 +442,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                 )}
               </div>
 
-              <input
+              <Input
                 id="avatar-upload"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/svg+xml"
@@ -508,7 +565,8 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
                     onClick={() => {
                       form.reset();
                       setAvatarState((prev) => {
-                        if (prev.previewUrl && prev.previewUrl.startsWith('blob:')) URL.revokeObjectURL(prev.previewUrl);
+                        if (prev.previewUrl && prev.previewUrl.startsWith('blob:'))
+                          URL.revokeObjectURL(prev.previewUrl);
                         return { file: null, previewUrl: null, removed: false };
                       });
                       setAvatarError(null);
@@ -538,7 +596,7 @@ export function ProfileManageForm({ initialProfile }: ProfileManageFormProps) {
             </div>
           </GuestCard>
         </div>
-      </form>
+      </FormRoot>
     </Form>
   );
 }

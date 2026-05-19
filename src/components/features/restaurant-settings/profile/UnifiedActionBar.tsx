@@ -9,11 +9,12 @@ import type { ProfileDirtySection } from '../restaurantProfileModel';
 
 type UnifiedActionBarProps = {
   dirtyFormSections: readonly (ProfileDirtySection & { formId: string })[];
-  discoveryDirty: boolean;
   activeSection: ProfileSectionDefinition;
   lastSavedAt: string | null;
   onSaveAll: () => void;
-  onOpenDiscovery: () => void;
+  onCancelActive?: () => void;
+  gbpDriftCount?: number;
+  onCompareWithGoogle?: () => void;
   className?: string;
 };
 
@@ -35,11 +36,12 @@ function formatSavedAt(value: string | null): string {
 
 export function UnifiedActionBar({
   dirtyFormSections,
-  discoveryDirty,
   activeSection,
   lastSavedAt,
   onSaveAll,
-  onOpenDiscovery,
+  onCancelActive,
+  gbpDriftCount = 0,
+  onCompareWithGoogle,
   className,
 }: UnifiedActionBarProps) {
   const profileDirtyCount = dirtyFormSections.length;
@@ -47,7 +49,7 @@ export function UnifiedActionBar({
     (section) => section.key === activeSection.dirtyKey,
   );
 
-  if (profileDirtyCount === 0 && !discoveryDirty) {
+  if (profileDirtyCount === 0) {
     return (
       <div
         role="status"
@@ -56,24 +58,18 @@ export function UnifiedActionBar({
           className,
         )}
       >
-        <p>
-          Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>.
-          Save controls appear here when a profile section or Discovery has a draft.
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>
+            . Save controls appear here when a profile section has a draft.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const title =
-    profileDirtyCount > 0
-      ? `${profileDirtyCount} unsaved profile section${profileDirtyCount === 1 ? '' : 's'}`
-      : 'Discovery has unsaved draft changes';
-  const description =
-    profileDirtyCount > 0 && discoveryDirty
-      ? 'Profile sections save from this bar. Discovery saves inside its own drawer.'
-      : profileDirtyCount > 0
-        ? 'Save profile changes without leaving this command center.'
-        : 'Open Discovery to review and save its panel-level draft.';
+  const title = `${profileDirtyCount} unsaved profile section${profileDirtyCount === 1 ? '' : 's'}`;
+  const description = 'Save profile changes without leaving this settings workspace.';
 
   return (
     <Alert
@@ -87,9 +83,16 @@ export function UnifiedActionBar({
         <span>{description}</span>
         <div className="flex flex-wrap items-center gap-2">
           {activeDirtySection ? (
-            <Button type="submit" form={activeDirtySection.formId} size="sm">
-              {activeDirtySection.actionLabel}
-            </Button>
+            <>
+              <Button type="submit" form={activeDirtySection.formId} size="sm">
+                {activeDirtySection.actionLabel}
+              </Button>
+              {onCancelActive ? (
+                <Button type="button" variant="outline" size="sm" onClick={onCancelActive}>
+                  Cancel changes
+                </Button>
+              ) : null}
+            </>
           ) : null}
           {profileDirtyCount > 1 ? (
             <Button
@@ -101,9 +104,9 @@ export function UnifiedActionBar({
               Save all
             </Button>
           ) : null}
-          {discoveryDirty ? (
-            <Button type="button" variant="outline" size="sm" onClick={onOpenDiscovery}>
-              Review discovery draft
+          {gbpDriftCount > 0 && onCompareWithGoogle ? (
+            <Button type="button" variant="outline" size="sm" onClick={onCompareWithGoogle}>
+              Compare with Google
             </Button>
           ) : null}
         </div>

@@ -343,6 +343,10 @@ export type GoogleBusinessProfileConnection = {
   businessInfo: GoogleBusinessProfileBusinessInfo;
 };
 
+export type GoogleBusinessProfileAuthorizationStart = {
+  authorizationUrl: string;
+};
+
 export type GoogleBusinessProfileDraftSectionKey =
   | 'profile'
   | 'operatingHours'
@@ -1004,6 +1008,9 @@ export interface RestaurantService {
   getGoogleBusinessProfileAvailableLocations(
     restaurantId: string,
   ): Promise<GoogleBusinessProfileAvailableLocation[]>;
+  startGoogleBusinessProfileAuthorization(
+    restaurantId: string,
+  ): Promise<GoogleBusinessProfileAuthorizationStart>;
   getGoogleBusinessProfileWorkflow(restaurantId: string): Promise<GoogleBusinessProfileWorkflow>;
   createGoogleBusinessProfileDraft(restaurantId: string): Promise<GoogleBusinessProfileWorkflow>;
   updateGoogleBusinessProfileDraft(
@@ -1136,6 +1143,10 @@ export class NotImplementedRestaurantService implements RestaurantService {
 
   getGoogleBusinessProfileAvailableLocations(): Promise<GoogleBusinessProfileAvailableLocation[]> {
     this.error('getGoogleBusinessProfileAvailableLocations not implemented');
+  }
+
+  startGoogleBusinessProfileAuthorization(): Promise<GoogleBusinessProfileAuthorizationStart> {
+    this.error('startGoogleBusinessProfileAuthorization not implemented');
   }
 
   getGoogleBusinessProfileWorkflow(): Promise<GoogleBusinessProfileWorkflow> {
@@ -1438,6 +1449,15 @@ export function createBrowserRestaurantService(): RestaurantService {
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business/locations`,
       );
       return response.locations;
+    },
+
+    async startGoogleBusinessProfileAuthorization(restaurantId: string) {
+      return fetchJson<GoogleBusinessProfileAuthorizationStart>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/connect`,
+        {
+          method: 'POST',
+        },
+      );
     },
 
     async getGoogleBusinessProfileWorkflow(restaurantId: string) {

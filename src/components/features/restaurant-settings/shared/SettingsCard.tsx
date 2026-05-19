@@ -44,11 +44,17 @@ export function SettingsCard({
   stickyFooter = false,
 }: SettingsCardProps) {
   return (
-    <Card className={cn('w-full', SETTINGS_COMPACT_CARD_CLASS, className)}>
-      <CardHeader className={cn(SETTINGS_COMPACT_CARD_HEADER_CLASS, headerClassName)}>
+    <Card className={cn('w-full overflow-hidden', SETTINGS_COMPACT_CARD_CLASS, className)}>
+      <CardHeader
+        className={cn(
+          SETTINGS_COMPACT_CARD_HEADER_CLASS,
+          'border-b border-border/60 bg-muted/30',
+          headerClassName,
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <CardTitle className="text-base leading-6">{title}</CardTitle>
+            <CardTitle className="text-base leading-6 text-foreground">{title}</CardTitle>
             {description ? (
               <CardDescription className="text-xs leading-5">{description}</CardDescription>
             ) : null}

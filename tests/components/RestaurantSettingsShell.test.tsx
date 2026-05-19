@@ -9,8 +9,8 @@ const navigationState = vi.hoisted(() => ({
 
 const dynamicState = vi.hoisted(() => ({
   names: [
-    'overview',
     'profile',
+    'discovery',
     'google-business-profile',
     'availability',
     'menu',
@@ -27,6 +27,9 @@ const prefetchState = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({
   usePathname: () => navigationState.pathname,
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
 }));
 
 vi.mock('next/dynamic', () => ({
@@ -59,8 +62,10 @@ import {
   RESTAURANT_SETTINGS_NAV_ITEMS,
   RESTAURANT_SETTINGS_ROUTES,
 } from '@/components/features/restaurant-settings/routes';
+import { SettingsSectionNav } from '@/components/features/restaurant-settings/shared';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
+import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
 
 import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
 import type { OpsMembership, OpsUser } from '@/types/ops';
@@ -80,8 +85,8 @@ const membership: OpsMembership = {
 };
 
 const expectedViews: RestaurantSettingsView[] = [
-  'overview',
   'profile',
+  'discovery',
   'google-business-profile',
   'availability',
   'menu',
@@ -104,6 +109,7 @@ function renderWithOpsSession(ui: ReactElement, memberships: OpsMembership[] = [
 function makePrefetchServiceCalls() {
   return {
     getGoogleBusinessProfileConnection: vi.fn().mockResolvedValue({}),
+    getBusinessContext: vi.fn().mockResolvedValue({}),
     getOperatingHours: vi.fn().mockResolvedValue({}),
     getProfile: vi.fn().mockResolvedValue({}),
     getServicePeriods: vi.fn().mockResolvedValue([]),
@@ -132,6 +138,7 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
               getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
+              getBusinessContext: serviceCalls.getBusinessContext,
               getOperatingHours: serviceCalls.getOperatingHours,
               getProfile: serviceCalls.getProfile,
               getServicePeriods: serviceCalls.getServicePeriods,
@@ -143,7 +150,9 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
         }
       >
         <OpsSessionProvider user={user} memberships={[membership]} initialRestaurantId="rest-1">
-          <RestaurantSettingsSubnav />
+          <OpsUnsavedChangesProvider>
+            <RestaurantSettingsSubnav />
+          </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
     </QueryClientProvider>,
@@ -167,6 +176,7 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
             occasionService: () => ({ listOccasions: serviceCalls.listOccasions }),
             restaurantService: () => ({
               getGoogleBusinessProfileConnection: serviceCalls.getGoogleBusinessProfileConnection,
+              getBusinessContext: serviceCalls.getBusinessContext,
               getOperatingHours: serviceCalls.getOperatingHours,
               getProfile: serviceCalls.getProfile,
               getServicePeriods: serviceCalls.getServicePeriods,
@@ -178,9 +188,11 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
         }
       >
         <OpsSessionProvider user={user} memberships={[membership]} initialRestaurantId="rest-1">
-          <RestaurantSettingsPageShell>
-            <div>Route content</div>
-          </RestaurantSettingsPageShell>
+          <OpsUnsavedChangesProvider>
+            <RestaurantSettingsPageShell>
+              <div>Route content</div>
+            </RestaurantSettingsPageShell>
+          </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
     </QueryClientProvider>,
@@ -190,14 +202,27 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
   prefetchState.prefetchIfStale.mockClear();
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 });
 
 describe('restaurant settings route contract', () => {
   it('keeps route metadata and nav items in sync for every shipped settings view', () => {
     expect(RESTAURANT_SETTINGS_ROUTES.map((route) => route.view)).toEqual(expectedViews);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS.map((item) => item.href)).toEqual([
-      '/app/settings/restaurant',
       '/app/settings/restaurant/profile',
+      '/app/settings/restaurant/discovery',
       '/app/settings/restaurant/google-business-profile',
       '/app/settings/restaurant/availability',
       '/app/settings/restaurant/menu',
@@ -205,6 +230,16 @@ describe('restaurant settings route contract', () => {
       '/app/settings/restaurant/team',
     ]);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS).toHaveLength(RESTAURANT_SETTINGS_ROUTES.length);
+    expect(
+      RESTAURANT_SETTINGS_NAV_ITEMS.find(
+        (item) => item.href === '/app/settings/restaurant/availability',
+      )?.aliases,
+    ).toEqual([
+      '/app/settings/restaurant/service-periods#service-periods',
+      '/app/settings/restaurant/operating-hours#availability-hours',
+      '/app/settings/restaurant/turn-durations#booking-occasions',
+      '/app/settings/restaurant/occasions#booking-occasions',
+    ]);
   });
 });
 
@@ -255,19 +290,26 @@ describe('OpsRestaurantSettingsClient', () => {
 });
 
 describe('RestaurantSettingsSubnav', () => {
-  it('uses the compact page and navigation baseline across settings routes', () => {
-    renderPageShell('/app/settings/restaurant');
+  it('uses the focused settings shell and navigation baseline across settings routes', () => {
+    renderPageShell('/app/settings/restaurant/profile');
 
-    expect(screen.getByRole('main')).toHaveClass('gap-4', 'pg-container');
-    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant setup' })).toHaveClass(
-      'text-2xl',
+    expect(screen.getByRole('link', { name: 'Close restaurant settings' })).toHaveAttribute(
+      'href',
+      '/app/dashboard',
     );
-    expect(screen.getByRole('link', { name: 'Restaurant setup' })).toHaveClass(
-      'min-w-[160px]',
-      'px-3',
-      'py-2',
+    const profileHeading = screen.getByRole('heading', {
+      level: 1,
+      name: 'Restaurant profile',
+    });
+    expect(profileHeading).toHaveClass('text-sm');
+    expect(
+      screen.queryByText(/Public details, booking page URL, manager alerts/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/profile',
     );
-    expect(screen.getByText('Change restaurant from the sidebar.')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Restaurant settings' })).toBeInTheDocument();
   });
 
   it('renders every shipped settings route from the shared nav contract', () => {
@@ -277,9 +319,71 @@ describe('RestaurantSettingsSubnav', () => {
       expect(screen.getByRole('link', { name: item.title })).toHaveAttribute('href', item.href);
     }
     expect(screen.getByRole('link', { name: 'Tables' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Restaurant setup' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Restaurant profile' })).not.toHaveAttribute(
       'aria-current',
     );
+  });
+
+  it('maps availability aliases to the focused alias page heading and active nav item', () => {
+    renderPageShell('/app/settings/restaurant/service-periods');
+
+    expect(screen.getByRole('heading', { level: 1, name: /Service periods/i })).toBeInTheDocument();
+    const availabilityLinks = screen.getAllByRole('link', { name: 'Availability & Booking types' });
+    expect(
+      availabilityLinks.some(
+        (link) => link.getAttribute('href') === '/app/settings/restaurant/availability',
+      ),
+    ).toBe(true);
+    expect(
+      screen.queryByText(/Define lunch, dinner, and other booking windows/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Restaurant' })).not.toBeInTheDocument();
+    expect(availabilityLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(
+      true,
+    );
+  });
+
+  it('keeps the active mobile nav item visually anchored', () => {
+    renderSubnav('/app/settings/restaurant/google-business-profile');
+
+    const gbpLink = screen.getByRole('link', { name: 'Google Business Profile' });
+    expect(gbpLink).toHaveAttribute('aria-current', 'page');
+    expect(gbpLink.closest('[data-sidebar="menu-button"]')).toHaveAttribute('data-active', 'true');
+  });
+
+  it('supports arrow-key focus movement inside settings workflow rails', async () => {
+    const user = userEvent.setup();
+    const firstSelect = vi.fn();
+    const secondSelect = vi.fn();
+    const thirdSelect = vi.fn();
+
+    render(
+      <SettingsSectionNav
+        title="Workflow"
+        items={[
+          { label: 'First', onSelect: firstSelect },
+          { label: 'Second', onSelect: secondSelect },
+          { label: 'Third', onSelect: thirdSelect },
+        ]}
+      />,
+    );
+
+    const first = screen.getByRole('button', { name: /first/i });
+    const second = screen.getByRole('button', { name: /second/i });
+    const third = screen.getByRole('button', { name: /third/i });
+
+    first.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(second).toHaveFocus();
+
+    await user.keyboard('{End}');
+    expect(third).toHaveFocus();
+
+    await user.keyboard('{ArrowDown}');
+    expect(first).toHaveFocus();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(third).toHaveFocus();
   });
 
   it('prefetches each settings route with the active restaurant service contract', async () => {
@@ -287,8 +391,8 @@ describe('RestaurantSettingsSubnav', () => {
     const serviceCalls = makePrefetchServiceCalls();
     renderSubnav('/app/settings/restaurant/profile', serviceCalls);
 
-    await user.hover(screen.getByRole('link', { name: 'Restaurant setup' }));
     await user.hover(screen.getByRole('link', { name: 'Restaurant profile' }));
+    await user.hover(screen.getByRole('link', { name: 'Discovery details' }));
     await user.hover(screen.getByRole('link', { name: 'Google Business Profile' }));
     await user.hover(screen.getByRole('link', { name: 'Availability & Booking types' }));
     await user.hover(screen.getByRole('link', { name: 'Menu' }));
@@ -297,6 +401,7 @@ describe('RestaurantSettingsSubnav', () => {
 
     await waitFor(() => {
       expect(serviceCalls.getProfile).toHaveBeenCalledWith('rest-1');
+      expect(serviceCalls.getBusinessContext).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.getGoogleBusinessProfileConnection).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.getOperatingHours).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.getServicePeriods).toHaveBeenCalledWith('rest-1');

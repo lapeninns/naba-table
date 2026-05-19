@@ -6,11 +6,16 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { isGoogleBusinessProfileError } from '@/server/google-business-profile/errors';
 
+import type { NextRequest } from 'next/server';
+
 export type RouteContext = {
   params: Promise<{ id: string | string[] }>;
 };
 
-export async function requireGoogleBusinessAdminAccess(params: RouteContext['params']) {
+export async function requireGoogleBusinessAdminAccess(
+  params: RouteContext['params'],
+  req?: NextRequest,
+) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return NextResponse.json(
@@ -19,7 +24,7 @@ export async function requireGoogleBusinessAdminAccess(params: RouteContext['par
     );
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business', req);
   if (access instanceof NextResponse) {
     return access;
   }

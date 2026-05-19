@@ -446,14 +446,7 @@ export async function autoCompletePastBookings(
           throw new Error('Check-out transition failed');
         }
 
-        try {
-          await clearBookingTableAssignments(supabase, currentBooking.id);
-        } catch (clearError) {
-          console.warn('[cron][auto-complete] failed to clear table assignments', {
-            bookingId: currentBooking.id,
-            error: formatError(clearError),
-          });
-        }
+        await clearBookingTableAssignments(supabase, currentBooking.id);
 
         try {
           const { data: fullBooking } = await supabase

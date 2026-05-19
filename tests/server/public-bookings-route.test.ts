@@ -196,7 +196,7 @@ function buildSchedule() {
   };
 }
 
-function buildRequest() {
+function buildRequest(overrides: Record<string, unknown> = {}) {
   return new NextRequest('https://www.nabatable.com/api/bookings', {
     method: 'POST',
     body: JSON.stringify({
@@ -210,6 +210,7 @@ function buildRequest() {
       email: 'alex@example.com',
       phone: '+447700900123',
       marketingOptIn: true,
+      ...overrides,
     }),
   });
 }
@@ -258,6 +259,16 @@ describe('public POST /api/bookings capacity handling', () => {
     extractClientIpMock.mockReturnValue('127.0.0.1');
     createBookingValidationServiceMock.mockReset();
     mapValidationFailureMock.mockReset();
+  });
+
+  it('rejects online public bookings above the server-side party cap', async () => {
+    const response = await POST(buildRequest({ party: 13 }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('VALIDATION_FAILED');
+    expect(upsertCustomerMock).not.toHaveBeenCalled();
+    expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
   });
 
   it('returns 409 with alternatives before createBookingWithCapacityCheck when the pre-check fails', async () => {
@@ -327,9 +338,7 @@ describe('public POST /api/bookings capacity handling', () => {
     expect(response.headers.get('Retry-After')).toBe('1');
     expect(body.code).toBe('BOOKING_CONFLICT');
     expect(body.retryable).toBe(true);
-    expect(body.alternatives).toEqual([
-      { time: '20:15', available: true, utilizationPercent: 65 },
-    ]);
+    expect(body.alternatives).toEqual([{ time: '20:15', available: true, utilizationPercent: 65 }]);
   });
 
   it('adds alternatives to unified validation capacity failures', async () => {
@@ -384,9 +393,91 @@ describe('public POST /api/bookings capacity handling', () => {
 
     expect(response.status).toBe(409);
     expect(response.headers.get('X-Capacity-Exceeded')).toBe('true');
-    expect(body.alternatives).toEqual([
-      { time: '18:45', available: true, utilizationPercent: 75 },
-    ]);
+    expect(body.alternatives).toEqual([{ time: '18:45', available: true, utilizationPercent: 75 }]);
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+  });
+
+  it('does not continue booking creation when strict public customer identity conflicts', async () => {
+    checkSlotAvailabilityMock.mockResolvedValue({
+      available: true,
+      metadata: {
+        servicePeriod: 'Dinner',
+        maxCovers: 20,
+        bookedCovers: 12,
+        availableCovers: 8,
+        utilizationPercent: 60,
+        maxParties: 10,
+        bookedParties: 4,
+        availableParties: 6,
+      },
+    });
+    upsertCustomerMock.mockRejectedValueOnce({
+      code: '23505',
+      message:
+        'duplicate key value violates unique constraint "customers_restaurant_id_email_normalized_key"',
+    });
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('DUPLICATE_RESOURCE');
+    expect(upsertCustomerMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        restaurantId: '11111111-1111-4111-8111-111111111111',
+        email: 'alex@example.com',
+        phone: '+447700900123',
+        identityMatchMode: 'strict',
+        allowExistingUpdates: false,
+      }),
+    );
+    expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+    expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+  });
+
+  it('scopes public idempotency recovery to the resolved customer id', async () => {
+    const recoveredBooking = {
+      id: 'booking-1',
+      restaurant_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: 'cust-1',
+      booking_date: '2026-07-01',
+      start_time: '19:00',
+      end_time: '20:30',
+      start_at: null,
+      end_at: null,
+      reference: 'NB123456',
+      party_size: 4,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      status: 'pending',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+      notes: null,
+      marketing_opt_in: true,
+      client_request_id: '11111111-1111-4111-8111-222222222222',
+      idempotency_key: 'existing-key',
+      pending_ref: null,
+      confirmation_token: null,
+      confirmation_token_expires_at: null,
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    };
+    const recoverBuilder = createQueryBuilder();
+    recoverBuilder.maybeSingle.mockResolvedValueOnce({ data: recoveredBooking, error: null });
+    fromMock.mockReturnValueOnce(recoverBuilder);
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.duplicate).toBe(true);
+    expect(body.booking.id).toBe('booking-1');
+    expect(recoverBuilder.eq).toHaveBeenCalledWith('restaurant_id', recoveredBooking.restaurant_id);
+    expect(recoverBuilder.eq).toHaveBeenCalledWith('customer_id', 'cust-1');
+    expect(recoverBuilder.eq).toHaveBeenCalledWith('idempotency_key', expect.any(String));
+    expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+    expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
   });
 });

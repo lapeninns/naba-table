@@ -73,6 +73,30 @@ describe('recomputeAllStates', () => {
     expect(upsertFieldStateMock).toHaveBeenCalled();
   });
 
+  it('persists a last-known-good baseline when recompute observes in_sync', async () => {
+    const snap = makeSnapshot();
+    const expectedDescriptionHash = hashCanonicalJson('Tasty');
+
+    await recomputeAllStates({
+      client,
+      restaurantId: RESTAURANT_ID,
+      coreSnapshot: snap,
+      gbpSnapshot: snap,
+      includeCoreOnly: false,
+    });
+
+    expect(upsertFieldStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fieldKey: 'profile.businessDescription',
+        state: 'in_sync',
+        coreValueHash: expectedDescriptionHash,
+        gbpValueHash: expectedDescriptionHash,
+        lastInSyncHash: expectedDescriptionHash,
+        lastInSyncAt: expect.any(String),
+      }),
+    );
+  });
+
   it('marks unsupported for core-only fields when included', async () => {
     const snap = makeSnapshot();
 

@@ -6,6 +6,7 @@ import {
   linkGoogleBusinessProfileLocation,
   syncGoogleBusinessProfileBusinessInformation,
 } from '@/server/google-business-profile/service';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
 import {
   googleBusinessErrorResponse,
@@ -23,7 +24,7 @@ const selectLocationSchema = z.object({
 });
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
-  const resolved = await requireGoogleBusinessAdminAccess(params);
+  const resolved = await requireGoogleBusinessAdminAccess(params, req);
   if (resolved instanceof NextResponse) {
     return resolved;
   }
@@ -34,6 +35,15 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       { error: 'Invalid payload', details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId: resolved.restaurantId,
+    action: 'location-selection-sync',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {

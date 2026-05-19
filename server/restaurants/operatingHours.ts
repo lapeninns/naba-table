@@ -16,6 +16,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public'>;
 type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
+type ReplacementRpcClient = DbClient & {
+  rpc(
+    fn: 'replace_restaurant_operating_hours',
+    args: { p_restaurant_id: string; p_rows: OperatingHoursInsert[] },
+  ): Promise<{ error: { message?: string } | null }>;
+};
 
 export type WeeklyOperatingHour = {
   dayOfWeek: number;
@@ -191,6 +197,15 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
   if (!DATE_REGEX.test(entry.effectiveDate)) {
     throw new Error(`Override effectiveDate must be YYYY-MM-DD`);
   }
+  const [year, month, day] = entry.effectiveDate.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`Override effectiveDate must be a real calendar date`);
+  }
 
   const isClosed = entry.isClosed ?? false;
   const opensAt = canonicalOptionalTime(
@@ -347,6 +362,19 @@ export async function updateOperatingHours(
   });
 
   const validatedOverrides = payload.overrides.map((entry) => validateOverride(entry));
+  const uniqueOverrideIds = new Set<string>();
+  const uniqueOverrideDates = new Set<string>();
+  validatedOverrides.forEach((entry) => {
+    if (uniqueOverrideIds.has(entry.id)) {
+      throw new Error(`Duplicate operating-hours override id ${entry.id}`);
+    }
+    uniqueOverrideIds.add(entry.id);
+
+    if (uniqueOverrideDates.has(entry.effectiveDate)) {
+      throw new Error(`Duplicate operating-hours override date ${entry.effectiveDate}`);
+    }
+    uniqueOverrideDates.add(entry.effectiveDate);
+  });
 
   const insertRows: OperatingHoursInsert[] = [
     ...validatedWeekly.map<OperatingHoursInsert>((entry) => ({
@@ -375,22 +403,16 @@ export async function updateOperatingHours(
     })),
   ];
 
-  const { error: deleteError } = await client
-    .from('restaurant_operating_hours')
-    .delete()
-    .eq('restaurant_id', restaurantId);
+  const { error: replaceError } = await (client as ReplacementRpcClient).rpc(
+    'replace_restaurant_operating_hours',
+    {
+      p_restaurant_id: restaurantId,
+      p_rows: insertRows,
+    },
+  );
 
-  if (deleteError) {
-    throw deleteError;
-  }
-
-  if (insertRows.length > 0) {
-    const { error: insertError } = await client
-      .from('restaurant_operating_hours')
-      .insert(insertRows);
-    if (insertError) {
-      throw insertError;
-    }
+  if (replaceError) {
+    throw replaceError;
   }
 
   return getOperatingHours(restaurantId, client);

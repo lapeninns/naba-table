@@ -466,7 +466,7 @@ export function AvailabilityOccasionsEditor({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="availability-occasion-duration">Default duration (minutes)</Label>
+                <Label htmlFor="availability-occasion-duration">Default table time (minutes)</Label>
                 <Input
                   id="availability-occasion-duration"
                   type="number"

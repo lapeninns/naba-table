@@ -73,7 +73,10 @@ export function TableAssignmentFilters({
         <div className="grid grid-cols-1 gap-2">
           <div className="grid grid-cols-2 gap-2">
             <Select value={zoneFilter} onValueChange={onZoneFilterChange}>
-              <SelectTrigger className="h-8 bg-muted/20 text-[11px] font-bold uppercase tracking-wider">
+              <SelectTrigger
+                aria-label="Table zone filter"
+                className="h-8 bg-muted/20 text-[11px] font-bold uppercase tracking-wider"
+              >
                 <SelectValue placeholder="Zone" />
               </SelectTrigger>
               <SelectContent>
@@ -86,7 +89,10 @@ export function TableAssignmentFilters({
             </Select>
 
             <Select value={sortBy} onValueChange={(value) => onSortByChange(value as SortOption)}>
-              <SelectTrigger className="h-8 bg-muted/20 text-[11px] font-bold uppercase tracking-wider">
+              <SelectTrigger
+                aria-label="Table sort order"
+                className="h-8 bg-muted/20 text-[11px] font-bold uppercase tracking-wider"
+              >
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
@@ -125,6 +131,7 @@ export function TableAssignmentFilters({
           </div>
           <ToggleGroup
             type="single"
+            aria-label="Capacity fit filter"
             value={fitFilter}
             onValueChange={(value) => {
               if (!value) return;

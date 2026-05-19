@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   cancelOutboundCandidate,
   listOutboundCandidates,
+  upsertOutboundCandidate,
 } from '@/server/dual-sync/outbound/candidates';
 
 import type { Database } from '@/types/supabase';
@@ -10,34 +11,50 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface MockChain {
   readonly update: ReturnType<typeof vi.fn>;
+  readonly insert: ReturnType<typeof vi.fn>;
   readonly select: ReturnType<typeof vi.fn>;
   readonly eq: ReturnType<typeof vi.fn>;
   readonly in: ReturnType<typeof vi.fn>;
   readonly order: ReturnType<typeof vi.fn>;
   readonly limit: ReturnType<typeof vi.fn>;
   readonly maybeSingle: ReturnType<typeof vi.fn>;
-  readonly then: (resolve: (value: { data: unknown; error: null }) => unknown) => unknown;
+  readonly single: ReturnType<typeof vi.fn>;
+  readonly then: (resolve: (value: { data: unknown; error: unknown }) => unknown) => unknown;
 }
 
-function makeChain(result: unknown): MockChain {
+function makeChain(result: unknown, error: unknown = null): MockChain {
   const chain: Partial<MockChain> = {};
   const fluent = vi.fn(() => chain as MockChain);
   Object.assign(chain, {
+    insert: fluent,
     update: fluent,
     select: fluent,
     eq: fluent,
     in: fluent,
     order: fluent,
     limit: fluent,
-    maybeSingle: vi.fn(async () => ({ data: result, error: null })),
-    then: (resolve: (value: { data: unknown; error: null }) => unknown) =>
-      Promise.resolve(resolve({ data: result, error: null })),
+    maybeSingle: vi.fn(async () => ({ data: result, error })),
+    single: vi.fn(async () => ({ data: result, error })),
+    then: (resolve: (value: { data: unknown; error: unknown }) => unknown) =>
+      Promise.resolve(resolve({ data: result, error })),
   });
   return chain as MockChain;
 }
 
 function clientFor(chain: MockChain) {
   return { from: vi.fn(() => chain) } as unknown as SupabaseClient<Database>;
+}
+
+function clientForSequence(chains: MockChain[]) {
+  return {
+    from: vi.fn(() => {
+      const next = chains.shift();
+      if (!next) {
+        throw new Error('Unexpected query chain');
+      }
+      return next;
+    }),
+  } as unknown as SupabaseClient<Database>;
 }
 
 function makeCandidateRow(overrides: Record<string, unknown> = {}) {
@@ -61,6 +78,71 @@ function makeCandidateRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('dual-sync outbound candidate helpers', () => {
+  it('refreshes an existing candidate only while it is still open', async () => {
+    const existing = makeCandidateRow();
+    const refreshed = makeCandidateRow({
+      proposed_value: 'Newer name',
+      proposed_value_hash: 'hash-newer',
+    });
+    const readChain = makeChain(existing);
+    const updateChain = makeChain(refreshed);
+
+    const candidate = await upsertOutboundCandidate({
+      client: clientForSequence([readChain, updateChain]),
+      restaurantId: 'rest-1',
+      sectionKey: 'profile',
+      fieldKey: 'profile.name',
+      proposedValue: 'Newer name',
+      proposedValueHash: 'hash-newer',
+      baselineGbpHash: 'hash-old',
+      createdByUserId: 'user-2',
+    });
+
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        proposed_value: 'Newer name',
+        proposed_value_hash: 'hash-newer',
+        created_by_user_id: 'user-2',
+      }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'cand-1');
+    expect(updateChain.eq).toHaveBeenCalledWith('status', 'open');
+    expect(candidate.proposedValueHash).toBe('hash-newer');
+  });
+
+  it('retries as an open-row update when a concurrent insert wins the partial unique index race', async () => {
+    const insertRaceError = {
+      code: '23505',
+      message: 'duplicate key value violates unique constraint',
+    };
+    const readMissingChain = makeChain(null);
+    const insertChain = makeChain(null, insertRaceError);
+    const readRacedChain = makeChain(makeCandidateRow({ id: 'cand-raced' }));
+    const updateChain = makeChain(makeCandidateRow({ id: 'cand-raced' }));
+
+    const candidate = await upsertOutboundCandidate({
+      client: clientForSequence([readMissingChain, insertChain, readRacedChain, updateChain]),
+      restaurantId: 'rest-1',
+      sectionKey: 'profile',
+      fieldKey: 'profile.name',
+      proposedValue: 'Latest name',
+      proposedValueHash: 'hash-latest',
+      baselineGbpHash: 'hash-old',
+    });
+
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurant_id: 'rest-1',
+        provider: 'google_business_profile',
+        field_key: 'profile.name',
+        status: 'open',
+      }),
+    );
+    expect(updateChain.eq).toHaveBeenCalledWith('id', 'cand-raced');
+    expect(updateChain.eq).toHaveBeenCalledWith('status', 'open');
+    expect(candidate.id).toBe('cand-raced');
+  });
+
   it('lists scoped candidates with status filters and a capped limit', async () => {
     const chain = makeChain([
       makeCandidateRow(),

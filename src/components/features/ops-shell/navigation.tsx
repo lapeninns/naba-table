@@ -3,17 +3,12 @@ import {
   CalendarDays,
   CircleHelp,
   DoorOpen,
-  Globe2,
-  LayoutGrid,
   Mail,
   MailCheck,
   MessageSquare,
-  Clock3,
+  Settings2,
   TrendingDown,
-  UtensilsCrossed,
-  SlidersHorizontal,
   Users,
-  UsersRound,
 } from 'lucide-react';
 
 import type { OpsFeatureFlags } from '@/types/ops';
@@ -30,7 +25,7 @@ export type OpsNavigationItem = {
 };
 
 export type OpsNavigationSection = {
-  label: string;
+  label?: string;
   items: OpsNavigationItem[];
 };
 
@@ -111,50 +106,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
     ],
   },
   {
-    label: 'Restaurant Settings',
     items: [
       {
-        title: 'Restaurant Profile',
-        description: 'Branding, contact, booking policy',
+        title: 'Settings',
+        description: 'Restaurant profile, hours, menu, tables, and team',
         href: path('/settings/restaurant/profile'),
-        icon: SlidersHorizontal,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/profile')),
-      },
-      {
-        title: 'Google Business Profile',
-        description: 'Connect Google and review sync alignment',
-        href: path('/settings/restaurant/google-business-profile'),
-        icon: Globe2,
-        match: (pathname) =>
-          pathname.startsWith(path('/settings/restaurant/google-business-profile')),
-      },
-      {
-        title: 'Availability & Booking types',
-        description: 'Hours, overrides, meal windows, and occasions',
-        href: path('/settings/restaurant/availability'),
-        icon: Clock3,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/availability')),
-      },
-      {
-        title: 'Menu',
-        description: 'Manage menu items and modifiers',
-        href: path('/settings/restaurant/menu'),
-        icon: UtensilsCrossed,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/menu')),
-      },
-      {
-        title: 'Tables',
-        description: 'Manage table inventory',
-        href: path('/settings/restaurant/tables'),
-        icon: LayoutGrid,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/tables')),
-      },
-      {
-        title: 'Team',
-        description: 'Manage staff invitations',
-        href: path('/settings/restaurant/team'),
-        icon: UsersRound,
-        match: (pathname) => pathname.startsWith(path('/settings/restaurant/team')),
+        icon: Settings2,
+        match: (pathname) => pathname.startsWith(path('/settings/restaurant')),
       },
     ],
   },

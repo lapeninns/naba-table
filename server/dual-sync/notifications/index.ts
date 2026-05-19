@@ -4,13 +4,12 @@
  * Public surface for the notifications port + composition helpers.
  */
 
+import { env } from '@/lib/env';
+
 import { createConsoleNotificationPort } from './console';
 import { createWebhookNotificationPort } from './webhook';
 
-import type {
-  DualSyncNotificationEvent,
-  DualSyncNotificationPort,
-} from './types';
+import type { DualSyncNotificationEvent, DualSyncNotificationPort } from './types';
 
 export type {
   DualSyncNotificationEvent,
@@ -52,7 +51,7 @@ export function combineNotificationPorts(
 export interface BuildDefaultNotificationPortOptions {
   /**
    * Optional override for the webhook URL. Defaults to
-   * `process.env.DUAL_SYNC_FAILURE_WEBHOOK_URL`.
+   * the validated `DUAL_SYNC_FAILURE_WEBHOOK_URL` env entry.
    */
   readonly webhookUrl?: string | null;
   readonly headers?: Readonly<Record<string, string>>;
@@ -65,11 +64,7 @@ export interface BuildDefaultNotificationPortOptions {
 export function buildDefaultNotificationPort(
   options: BuildDefaultNotificationPortOptions = {},
 ): DualSyncNotificationPort {
-  const fromEnv =
-    typeof process !== 'undefined' && process.env
-      ? process.env.DUAL_SYNC_FAILURE_WEBHOOK_URL ?? null
-      : null;
-  const url = options.webhookUrl ?? fromEnv;
+  const url = options.webhookUrl ?? env.dualSync.failureWebhookUrl;
   const console_ = createConsoleNotificationPort();
   if (!url) return console_;
   const webhook = createWebhookNotificationPort({
@@ -78,8 +73,7 @@ export function buildDefaultNotificationPort(
     onError: (error) => {
       // Surface webhook transport failures via the console port so they
       // appear in the same logs operators already watch.
-      const message =
-        error instanceof Error ? error.message : 'Unknown webhook transport error';
+      const message = error instanceof Error ? error.message : 'Unknown webhook transport error';
       console.warn('[dual-sync:webhook-transport]', message);
     },
   });

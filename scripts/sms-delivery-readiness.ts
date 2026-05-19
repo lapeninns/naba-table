@@ -6,6 +6,8 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { Pool } from 'pg';
 
+import { getPgSslConfig } from './db/pg-ssl';
+
 const projectRoot = process.cwd();
 const MIGRATION_VERSION = '20260510110100';
 const MIGRATION_NAME = 'add_sms_delivery_log_query_indexes';
@@ -536,7 +538,7 @@ async function querySupabaseDatabase(target: Target, sql: string): Promise<unkno
   const pool = new Pool({
     connectionString,
     max: 1,
-    ssl: { rejectUnauthorized: false },
+    ssl: getPgSslConfig(),
   });
 
   try {

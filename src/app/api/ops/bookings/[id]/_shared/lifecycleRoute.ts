@@ -44,6 +44,7 @@ type PersistTransitionResult =
         checkedInAt: string | null;
         checkedOutAt: string | null;
         updatedAt: string | null;
+        changed: boolean;
       };
       response?: never;
     }
@@ -143,11 +144,12 @@ export async function loadLifecycleRouteContext(input: {
     await requireMembershipForRestaurant({
       userId: user.id,
       restaurantId: bookingRow.restaurant_id,
+      client: supabase,
     });
   } catch (accessError) {
     console.error(`[ops][${logLabel}] access denied`, accessError);
     return {
-      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+      response: NextResponse.json({ error: 'Booking not found' }, { status: 404 }),
     };
   }
 
@@ -226,6 +228,7 @@ export async function persistLifecycleTransition(input: {
         checkedInAt: transition.response.checkedInAt ?? null,
         checkedOutAt: transition.response.checkedOutAt ?? null,
         updatedAt: transition.response.updatedAt ?? null,
+        changed: false,
       },
     };
   }
@@ -284,6 +287,7 @@ export async function persistLifecycleTransition(input: {
       checkedInAt: resultRow?.checked_in_at ?? finalCheckedInAt,
       checkedOutAt: resultRow?.checked_out_at ?? finalCheckedOutAt,
       updatedAt: resultRow?.updated_at ?? finalUpdatedAt,
+      changed: true,
     },
   };
 }

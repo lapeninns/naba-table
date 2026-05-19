@@ -432,6 +432,9 @@ export class DevRestaurantService implements RestaurantService {
   getGoogleBusinessProfileAvailableLocations = this.unimplemented<
     RestaurantService['getGoogleBusinessProfileAvailableLocations']
   >('getGoogleBusinessProfileAvailableLocations');
+  startGoogleBusinessProfileAuthorization = this.unimplemented<
+    RestaurantService['startGoogleBusinessProfileAuthorization']
+  >('startGoogleBusinessProfileAuthorization');
   getGoogleBusinessProfileWorkflow = this.unimplemented<
     RestaurantService['getGoogleBusinessProfileWorkflow']
   >('getGoogleBusinessProfileWorkflow');

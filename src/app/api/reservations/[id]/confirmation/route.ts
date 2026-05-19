@@ -9,12 +9,14 @@ import {
 } from '@/server/security/session-recovery-access-token';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
+import type { SessionRecoveryAccessTokenPayload } from '@/server/security/session-recovery-access-token';
 import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const unauthorized = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-const forbidden = NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+const unauthorized = () => NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+const notFound = () => NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function extractSessionRecoveryAccessToken(req: NextRequest): string | null {
   return (
@@ -37,25 +39,14 @@ export async function GET(
     return NextResponse.json({ error: 'Reservation id required' }, { status: 400 });
   }
 
-  const service = getServiceSupabaseClient();
-  const { data: booking, error } = await service
-    .from('bookings')
-    .select(
-      'id, reference, auth_user_id, customer_email, customer_phone, restaurant_id, customer_name, start_at, booking_date, start_time, party_size, status, notes',
-    )
-    .eq('id', normalized)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[api.reservations.confirmation] booking lookup failed', error);
-    return NextResponse.json({ error: 'Unable to load reservation' }, { status: 500 });
-  }
-
-  if (!booking) {
-    return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
+  if (!UUID_REGEX.test(normalized)) {
+    return NextResponse.json({ error: 'Invalid reservation id' }, { status: 400 });
   }
 
   const recoveryToken = extractSessionRecoveryAccessToken(req);
+  let authenticatedUser: { id: string; email?: string | null } | null = null;
+  let recoveryAccess: SessionRecoveryAccessTokenPayload | null = null;
+
   if (recoveryToken) {
     const secret = env.security.sessionRecoveryAccessTokenSecret;
     if (!secret) {
@@ -73,18 +64,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
     }
 
-    if (
-      !sessionRecoveryTokenMatchesBookingContact({
-        payload: tokenResult.payload,
-        booking: {
-          restaurantId: booking.restaurant_id,
-          email: booking.customer_email,
-          phone: booking.customer_phone,
-        },
-      })
-    ) {
-      return forbidden;
-    }
+    recoveryAccess = tokenResult.payload;
   } else {
     const supabase = await getRouteHandlerSupabaseClient();
     const {
@@ -93,17 +73,52 @@ export async function GET(
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return unauthorized;
+      return unauthorized();
     }
 
+    authenticatedUser = user;
+  }
+
+  const service = getServiceSupabaseClient();
+  const { data: booking, error } = await service
+    .from('bookings')
+    .select(
+      'id, reference, auth_user_id, customer_email, customer_phone, restaurant_id, customer_name, start_at, booking_date, start_time, party_size, status, notes',
+    )
+    .eq('id', normalized)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[api.reservations.confirmation] booking lookup failed', error);
+    return NextResponse.json({ error: 'Unable to load reservation' }, { status: 500 });
+  }
+
+  if (!booking) {
+    return notFound();
+  }
+
+  if (recoveryAccess) {
+    if (
+      !sessionRecoveryTokenMatchesBookingContact({
+        payload: recoveryAccess,
+        booking: {
+          restaurantId: booking.restaurant_id,
+          email: booking.customer_email,
+          phone: booking.customer_phone,
+        },
+      })
+    ) {
+      return notFound();
+    }
+  } else {
     const customerEmail = booking.customer_email ? normalizeEmail(booking.customer_email) : null;
-    const userEmail = user.email ? normalizeEmail(user.email) : null;
+    const userEmail = authenticatedUser?.email ? normalizeEmail(authenticatedUser.email) : null;
     const matchesAuthUser =
-      (booking.auth_user_id && booking.auth_user_id === user.id) ||
+      (booking.auth_user_id && booking.auth_user_id === authenticatedUser?.id) ||
       (customerEmail && userEmail && customerEmail === userEmail);
 
     if (!matchesAuthUser) {
-      return forbidden;
+      return notFound();
     }
   }
 
@@ -120,10 +135,7 @@ export async function GET(
       .maybeSingle();
 
     if (restaurantError) {
-      console.error(
-        '[api.reservations.confirmation] restaurant lookup failed',
-        restaurantError,
-      );
+      console.error('[api.reservations.confirmation] restaurant lookup failed', restaurantError);
     } else if (restaurant) {
       venueName = restaurant.name ?? null;
       venueAddress = restaurant.address ?? null;

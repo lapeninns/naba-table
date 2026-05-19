@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DualSyncOperationalHealthPanel } from '@/components/features/restaurant-settings/dual-sync/DualSyncOperationalHealthPanel';
+import { DualSyncOperationalHealthPanel } from '@/components/features/restaurant-settings/dual-sync/panels/health/DualSyncOperationalHealthPanel';
 
 import type { DualSyncOperationalMetrics } from '@/server/dual-sync/observability';
 import type { GetDualSyncMetricsResponse } from '@/services/ops/dual-sync';

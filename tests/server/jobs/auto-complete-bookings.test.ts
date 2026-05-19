@@ -300,4 +300,25 @@ describe('autoCompletePastBookings', () => {
       }),
     );
   });
+
+  it('does not count auto-complete as successful when assignment cleanup fails', async () => {
+    const booking = makeBooking({
+      id: 'cleanup-fails',
+      booking_date: '2026-05-09',
+      start_at: '2026-05-09T18:00:00.000Z',
+      end_at: '2026-05-09T19:15:00.000Z',
+    });
+    installSupabase([booking]);
+    clearBookingTableAssignmentsMock.mockRejectedValueOnce(new Error('cleanup failed'));
+
+    const summary = await autoCompletePastBookings({ now: NOW });
+
+    expect(summary.candidates).toBe(1);
+    expect(summary.completed).toBe(0);
+    expect(summary.errors).toBe(1);
+    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'cleanup-fails',
+    );
+  });
 });

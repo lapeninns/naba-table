@@ -48,6 +48,16 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return access;
   }
 
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId,
+    action: 'connection-state-read',
+    limit: 60,
+  });
+  if (rateLimit) {
+    return rateLimit;
+  }
+
   try {
     const state = await getGoogleBusinessProfileConnectionState(restaurantId);
     return NextResponse.json(state);
@@ -64,7 +74,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     return errorResponse('Missing restaurant id', 400);
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
     return access;
   }
@@ -100,7 +110,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return errorResponse('Missing restaurant id', 400);
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
     return access;
   }
@@ -166,7 +176,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     return errorResponse('Missing restaurant id', 400);
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', _req);
   if (access instanceof NextResponse) {
     return access;
   }

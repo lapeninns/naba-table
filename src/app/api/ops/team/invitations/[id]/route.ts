@@ -113,6 +113,18 @@ async function deleteTeamInvitation(_request: NextRequest, context: RouteParams)
 
     return NextResponse.json({ invite: serializeInvite(revokedInvite) });
   } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'INVITE_NOT_FOUND'
+    ) {
+      return NextResponse.json(
+        { error: 'Invitation is no longer pending', code: 'INVITE_NOT_FOUND' },
+        { status: 409 },
+      );
+    }
+
     console.error('[ops][team][invitations][DELETE]', error);
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
   }

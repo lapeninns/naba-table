@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   googleBusinessProfileWorkflowTestUtils,
@@ -58,6 +58,46 @@ function buildSelectedBusinessContextDraft(): GoogleBusinessProfileWorkflowDraft
   } as GoogleBusinessProfileWorkflowDraft;
 }
 
+function createPublishJobUpdateClient(result: { data: unknown; error: unknown }) {
+  const filters: Array<{ column: string; operator: 'eq' | 'in'; value: unknown }> = [];
+  const maybeSingle = vi.fn().mockResolvedValue(result);
+  const builder = {
+    eq: vi.fn((column: string, value: unknown) => {
+      filters.push({ column, operator: 'eq', value });
+      return builder;
+    }),
+    in: vi.fn((column: string, value: unknown) => {
+      filters.push({ column, operator: 'in', value });
+      return builder;
+    }),
+    maybeSingle,
+    select: vi.fn(() => builder),
+  };
+  const update = vi.fn(() => builder);
+  const from = vi.fn(() => ({ update }));
+
+  return {
+    client: { from },
+    filters,
+    from,
+    maybeSingle,
+    update,
+  };
+}
+
+function buildPublishClaimContext() {
+  return {
+    selectedApprovals: { profile: { selected: true } },
+    decisions: [],
+    sections: ['profile'],
+    nabatableUpdates: [],
+    pullOnlyItems: [],
+    googleUpdateMasks: ['title'],
+    warnings: [],
+    errors: [],
+  };
+}
+
 describe('google business profile approval workflow helpers', () => {
   it('rejects draft edits and publishes for terminal or system-owned states', () => {
     expect(() => googleBusinessProfileWorkflowTestUtils.assertDraftEditable('published')).toThrow(
@@ -97,6 +137,77 @@ describe('google business profile approval workflow helpers', () => {
     expect(captured).not.toBeNull();
     expect(captured?.name).toBe('GBP_DRAFT_NOT_APPROVED');
     expect(captured?.message).toMatch(/review and approve.*before applying/i);
+  });
+
+  it('claims preflight publish jobs with a status compare-and-set before side effects', async () => {
+    const claimedJob = { id: 'job-1', status: 'publishing' };
+    const { client, filters, from, update } = createPublishJobUpdateClient({
+      data: claimedJob,
+      error: null,
+    });
+
+    const result = await googleBusinessProfileWorkflowTestUtils.claimPublishJobForPublishing({
+      jobId: 'job-1',
+      actorUserId: 'user-1',
+      context: buildPublishClaimContext() as never,
+      client: client as never,
+    });
+
+    expect(result).toBe(claimedJob);
+    expect(from).toHaveBeenCalledWith('restaurant_external_profile_publish_jobs');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'publishing',
+        published_by_user_id: 'user-1',
+      }),
+    );
+    expect(filters).toEqual([
+      { column: 'id', operator: 'eq', value: 'job-1' },
+      { column: 'status', operator: 'eq', value: 'preflight_ready' },
+    ]);
+  });
+
+  it('rejects a preflight publish job when the compare-and-set claim loses the race', async () => {
+    const { client } = createPublishJobUpdateClient({ data: null, error: null });
+
+    await expect(
+      googleBusinessProfileWorkflowTestUtils.claimPublishJobForPublishing({
+        jobId: 'job-1',
+        actorUserId: 'user-1',
+        context: buildPublishClaimContext() as never,
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({ name: 'GBP_PUBLISH_JOB_INVALID_STATE' });
+  });
+
+  it('claims Google retry jobs only from retryable statuses', async () => {
+    const claimedJob = { id: 'job-1', status: 'publishing' };
+    const { client, filters, update } = createPublishJobUpdateClient({
+      data: claimedJob,
+      error: null,
+    });
+
+    const result = await googleBusinessProfileWorkflowTestUtils.claimPublishJobForGoogleRetry({
+      jobId: 'job-1',
+      actorUserId: 'user-1',
+      client: client as never,
+    });
+
+    expect(result).toBe(claimedJob);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'publishing',
+        google_retry_by_user_id: 'user-1',
+      }),
+    );
+    expect(filters).toEqual([
+      { column: 'id', operator: 'eq', value: 'job-1' },
+      {
+        column: 'status',
+        operator: 'in',
+        value: ['google_failed', 'partially_published'],
+      },
+    ]);
   });
 
   it('clones publishable provider business-context rows into core-safe rows', () => {

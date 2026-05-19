@@ -15,6 +15,8 @@ import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useOpsTurnBands, useOpsUpdateTurnBands } from '@/hooks/ops/useOpsTurnBands';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 
+import { ConfirmDialog } from './ConfirmDialog';
+
 import type { TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
 
 type TurnDurationsSectionProps = {
@@ -61,7 +63,10 @@ function serializePayload(payload: TurnBandsPayload): string {
   return JSON.stringify(sorted);
 }
 
-function validatePayload(payload: TurnBandsPayload): { ok: boolean; errors: Record<string, RowError[]> } {
+function validatePayload(payload: TurnBandsPayload): {
+  ok: boolean;
+  errors: Record<string, RowError[]>;
+} {
   const errors: Record<string, RowError[]> = {};
 
   Object.entries(payload ?? {}).forEach(([optionKey, rows]) => {
@@ -120,6 +125,7 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
 
   const [draft, setDraft] = useState<TurnBandsPayload>({});
   const [errors, setErrors] = useState<Record<string, RowError[]>>({});
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const baselineSerialized = useMemo(
     () => serializePayload(turnBandsQuery.data?.bands ?? {}),
@@ -164,7 +170,8 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
         const meta = optionMeta.get(key);
         return {
           key,
-          label: meta?.label ?? key.replace(/(^|_)([a-z])/g, (_, _p, letter) => letter.toUpperCase()),
+          label:
+            meta?.label ?? key.replace(/(^|_)([a-z])/g, (_, _p, letter) => letter.toUpperCase()),
           description: meta?.description ?? null,
           displayOrder: meta?.displayOrder ?? null,
           defaults: defaults[key] ?? [],
@@ -178,14 +185,17 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
       });
   }, [optionKeys, optionMeta, turnBandsQuery.data?.defaults]);
 
-  const updateRow = useCallback((optionKey: string, index: number, field: keyof TurnBandInput, value: number) => {
-    setDraft((prev) => {
-      const rows = [...(prev[optionKey] ?? [])];
-      const current = rows[index] ?? { maxPartySize: 0, durationMinutes: 0 };
-      rows[index] = { ...current, [field]: value };
-      return { ...prev, [optionKey]: rows };
-    });
-  }, []);
+  const updateRow = useCallback(
+    (optionKey: string, index: number, field: keyof TurnBandInput, value: number) => {
+      setDraft((prev) => {
+        const rows = [...(prev[optionKey] ?? [])];
+        const current = rows[index] ?? { maxPartySize: 0, durationMinutes: 0 };
+        rows[index] = { ...current, [field]: value };
+        return { ...prev, [optionKey]: rows };
+      });
+    },
+    [],
+  );
 
   const applySortedRows = useCallback((optionKey: string) => {
     setDraft((prev) => {
@@ -200,7 +210,7 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
       const rows = prev[optionKey] ?? [];
       const last = rows[rows.length - 1];
       const defaultSeed = defaults[0] ?? null;
-      const nextMax = last?.maxPartySize ? last.maxPartySize + 2 : defaultSeed?.maxPartySize ?? 2;
+      const nextMax = last?.maxPartySize ? last.maxPartySize + 2 : (defaultSeed?.maxPartySize ?? 2);
       const nextDuration = last?.durationMinutes ?? defaultSeed?.durationMinutes ?? 0;
       const updated = [...rows, { maxPartySize: nextMax, durationMinutes: nextDuration }];
       return { ...prev, [optionKey]: sortRows(updated) };
@@ -222,15 +232,13 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
     setErrors((prev) => ({ ...prev, [optionKey]: [] }));
   }, []);
 
-  const resetAll = useCallback(async () => {
+  const confirmResetAll = useCallback(async () => {
     if (!restaurantId) return;
-    if (!window.confirm('Reset all custom durations back to defaults?')) {
-      return;
-    }
     try {
       const snapshot = await updateMutation.mutateAsync({});
       setDraft(snapshot.bands ?? {});
       setErrors({});
+      setResetDialogOpen(false);
     } catch (error) {
       console.error('[turn-durations] reset failed', error);
     }
@@ -306,11 +314,16 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              Adjust how long tables are held for each booking option. Changes apply immediately to new bookings.
+              Adjust how long tables are held for each booking option. Changes apply immediately to
+              new bookings.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={resetAll} disabled={updateMutation.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setResetDialogOpen(true)}
+              disabled={updateMutation.isPending}
+            >
               <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
               Reset to defaults
             </Button>
@@ -327,7 +340,9 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
             const hasOverrides = rows.length > 0;
             const defaultsSummary =
               option.defaults.length > 0
-                ? option.defaults.map((band) => `<=${band.maxPartySize}: ${band.durationMinutes} min`).join(', ')
+                ? option.defaults
+                    .map((band) => `<=${band.maxPartySize}: ${band.durationMinutes} min`)
+                    .join(', ')
                 : 'Defaults follow lunch/dinner service bands.';
 
             return (
@@ -382,7 +397,10 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
                       const sizeId = `${option.key}-size-${index}`;
                       const durationId = `${option.key}-duration-${index}`;
                       return (
-                        <div key={`${option.key}-${index}`} className="grid grid-cols-12 items-start gap-3">
+                        <div
+                          key={`${option.key}-${index}`}
+                          className="grid grid-cols-12 items-start gap-3"
+                        >
                           <div className="col-span-5 space-y-1">
                             <Label className="sr-only" htmlFor={sizeId}>
                               Max party size
@@ -394,7 +412,14 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
                               min={1}
                               value={Number.isFinite(row.maxPartySize) ? row.maxPartySize : ''}
                               aria-invalid={Boolean(error.maxPartySize)}
-                              onChange={(event) => updateRow(option.key, index, 'maxPartySize', Number(event.target.value))}
+                              onChange={(event) =>
+                                updateRow(
+                                  option.key,
+                                  index,
+                                  'maxPartySize',
+                                  Number(event.target.value),
+                                )
+                              }
                               onBlur={() => applySortedRows(option.key)}
                             />
                             {error.maxPartySize ? (
@@ -411,10 +436,17 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
                               type="number"
                               inputMode="numeric"
                               min={1}
-                              value={Number.isFinite(row.durationMinutes) ? row.durationMinutes : ''}
+                              value={
+                                Number.isFinite(row.durationMinutes) ? row.durationMinutes : ''
+                              }
                               aria-invalid={Boolean(error.durationMinutes)}
                               onChange={(event) =>
-                                updateRow(option.key, index, 'durationMinutes', Number(event.target.value))
+                                updateRow(
+                                  option.key,
+                                  index,
+                                  'durationMinutes',
+                                  Number(event.target.value),
+                                )
                               }
                             />
                             {error.durationMinutes ? (
@@ -442,6 +474,16 @@ export function TurnDurationsSection({ restaurantId }: TurnDurationsSectionProps
           })}
         </div>
       </section>
+      <ConfirmDialog
+        open={resetDialogOpen}
+        onOpenChange={setResetDialogOpen}
+        title="Reset reservation durations?"
+        description="All custom duration bands will be removed and the restaurant will use default table times for new bookings."
+        confirmLabel={updateMutation.isPending ? 'Resetting…' : 'Reset to defaults'}
+        cancelLabel="Keep custom durations"
+        tone="destructive"
+        onConfirm={() => void confirmResetAll()}
+      />
     </TooltipProvider>
   );
 }

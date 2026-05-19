@@ -74,7 +74,7 @@ const updateSchema = z.object({
   restaurantId: z.string().uuid().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
-  party: z.number().int().min(1),
+  party: z.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE),
   bookingType: bookingTypeEnum,
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
@@ -179,6 +179,13 @@ function isBookingOwnedByUser(
     Boolean(normalizedUserEmail) && Boolean(bookingEmail) && normalizedUserEmail === bookingEmail;
   const authMatches = booking.auth_user_id ? booking.auth_user_id === userId : false;
   return emailMatches || authMatches;
+}
+
+function isBookingBoundToAuthenticatedUser(
+  booking: Pick<Tables<'bookings'>, 'auth_user_id'>,
+  userId: string,
+): boolean {
+  return Boolean(booking.auth_user_id) && booking.auth_user_id === userId;
 }
 
 function respondWithPendingLock() {
@@ -402,8 +409,16 @@ async function handleDashboardUpdate(params: {
   existingBooking: Tables<'bookings'>;
   actor: DashboardActor;
   serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
+  enforceGuestSelfServiceLock?: boolean;
 }) {
-  const { bookingId, data, existingBooking, actor, serviceSupabase } = params;
+  const {
+    bookingId,
+    data,
+    existingBooking,
+    actor,
+    serviceSupabase,
+    enforceGuestSelfServiceLock = false,
+  } = params;
 
   if (isPendingBookingLocked(existingBooking)) {
     return respondWithPendingLock();
@@ -428,6 +443,17 @@ async function handleDashboardUpdate(params: {
       client: serviceSupabase,
     });
     const initialScheduleTimezone = initialSchedule.timezone ?? 'Europe/London';
+
+    if (enforceGuestSelfServiceLock) {
+      const guestLock = evaluateGuestModificationLock({
+        booking: existingBooking,
+        timezone: initialScheduleTimezone,
+      });
+      const lockedResponse = respondWithGuestModificationLock(guestLock);
+      if (lockedResponse) {
+        return lockedResponse;
+      }
+    }
 
     let startVenue: VenueDateTime;
     try {
@@ -796,6 +822,7 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
         existingBooking: bookingRecord,
         actor,
         serviceSupabase: getServiceSupabaseClient(),
+        enforceGuestSelfServiceLock: true,
       });
     }
   }
@@ -843,6 +870,7 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
       existingBooking: bookingRecord,
       actor,
       serviceSupabase,
+      enforceGuestSelfServiceLock: true,
     });
   }
 
@@ -1207,6 +1235,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           email: bookingRecord.customer_email ?? (tokenEmail || null),
         },
         serviceSupabase,
+        enforceGuestSelfServiceLock: true,
       });
     }
 
@@ -1596,6 +1625,16 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         client: serviceSupabase,
       });
 
+      const cancellationLock = evaluateGuestModificationLock({
+        booking: existingBooking,
+        timezone: schedule.timezone ?? 'Europe/London',
+      });
+
+      const cancellationLockedResponse = respondWithGuestModificationLock(cancellationLock);
+      if (cancellationLockedResponse) {
+        return cancellationLockedResponse;
+      }
+
       const startParts = resolveBookingStart(existingBooking, schedule.timezone ?? 'Europe/London');
       if (startParts) {
         try {
@@ -1724,8 +1763,8 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     const normalizedEmail = normalizeEmail(userEmail);
 
-    // Verify the booking belongs to the authenticated user
-    if (normalizeEmail(existingBooking.customer_email) !== normalizedEmail) {
+    // Authenticated cancellation requires a booking-bound user id. Guest bookings use sr_access.
+    if (!isBookingBoundToAuthenticatedUser(existingBooking, user.id)) {
       return NextResponse.json(
         { error: 'You can only cancel your own reservation', code: 'FORBIDDEN' },
         { status: 403 },

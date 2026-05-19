@@ -77,6 +77,7 @@ export async function getEmailQueueStatus(
   includeJobs = false,
   options?: {
     jobLimit?: number | 'all';
+    restaurantId?: string | null;
   },
 ): Promise<EmailQueueStatusSnapshot> {
   return getEmailQueueStatusFromIntents(includeJobs, options);

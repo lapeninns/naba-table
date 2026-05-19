@@ -11,6 +11,7 @@ import {
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
 import { publishFoodMenusProjectionToGoogle } from '@/server/google-business-profile/food-menus-sync';
 import { getGoogleBusinessProfileFoodMenusContext } from '@/server/google-business-profile/service';
+import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -28,9 +29,19 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const access = await ensureRestaurantAdminAccess(
     restaurantId,
     'google-business-profile-food-menus-publish',
+    request,
   );
   if (access instanceof NextResponse) {
     return access;
+  }
+
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId,
+    action: 'food-menus-publish',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   let payload: z.infer<typeof FoodMenusPublishRequestSchema>;

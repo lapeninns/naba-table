@@ -6,23 +6,24 @@ import {
   markTokenUsed,
   toPublicConfirmation,
   TokenValidationError,
+  isConfirmationTokenFormat,
 } from '@/server/bookings/confirmation-token';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { extractClientIp, anonymizeIp } from '@/server/security/request';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 
-const tokenSchema = z.string().min(64).max(64);
+const tokenSchema = z.string().refine(isConfirmationTokenFormat);
 
 /**
  * GET /api/bookings/confirm?token=xxx
- * 
+ *
  * Public endpoint for guest confirmation page access.
  * Validates a one-time confirmation token and returns booking details.
- * 
+ *
  * Rate limited: 20 requests per minute per IP
- * 
+ *
  * @returns 200 with booking details if valid
  * @returns 400 if token format invalid
  * @returns 404 if token not found

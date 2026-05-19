@@ -1,12 +1,35 @@
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
+import {
+  OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
+  resolvePreferredOpsRestaurantId,
+} from '@/lib/ops/session';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
+import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
+import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
+import { fetchUserMembershipsCached, requireAdminMembership } from '@/server/team/access';
 
 import type { ReactNode } from 'react';
 
 export default async function RestaurantSettingsLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const qaOpsFixture = getQaOpsAuthFixture({
+    cookieValue: cookieStore.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+    host: headerStore.get('host'),
+  });
+
+  const opsEnvBanner = resolveOpsEnvBanner();
+
+  if (qaOpsFixture) {
+    return (
+      <RestaurantSettingsPageShell envBanner={opsEnvBanner}>{children}</RestaurantSettingsPageShell>
+    );
+  }
+
   const supabase = await getServerComponentSupabaseClient();
   const {
     data: { user },
@@ -21,5 +44,28 @@ export default async function RestaurantSettingsLayout({ children }: { children:
     redirect(withRedirectedFrom('/app/auth/signin', '/app/settings/restaurant/profile'));
   }
 
-  return <RestaurantSettingsPageShell>{children}</RestaurantSettingsPageShell>;
+  const memberships = await fetchUserMembershipsCached(user.id);
+  const activeRestaurantId = resolvePreferredOpsRestaurantId(
+    memberships.map((membership) => membership.restaurant_id),
+    cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,
+  );
+
+  if (!activeRestaurantId) {
+    redirect('/app/bookings');
+  }
+
+  try {
+    await requireAdminMembership({ userId: user.id, restaurantId: activeRestaurantId });
+  } catch (membershipError) {
+    console.warn('[settings/restaurant] denied non-admin settings access', {
+      userId: user.id,
+      restaurantId: activeRestaurantId,
+      error: membershipError instanceof Error ? membershipError.message : String(membershipError),
+    });
+    redirect('/app/bookings');
+  }
+
+  return (
+    <RestaurantSettingsPageShell envBanner={opsEnvBanner}>{children}</RestaurantSettingsPageShell>
+  );
 }

@@ -7,6 +7,11 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
+type MaybeQueryBuilder = {
+  select?: (columns: string) => MaybeQueryBuilder;
+  eq?: (column: string, value: string) => MaybeQueryBuilder;
+  maybeSingle?: () => Promise<{ data: DualSyncRestaurantControlRow | null; error: unknown }>;
+};
 
 export const DUAL_SYNC_RESTAURANT_PAUSED_CODE = 'DUAL_SYNC_RESTAURANT_PAUSED' as const;
 
@@ -68,14 +73,31 @@ export async function getDualSyncRestaurantControl({
   readonly restaurantId: string;
 }): Promise<DualSyncRestaurantControl> {
   const db = getDualSyncDbClient(client);
-  const { data, error } = await db
-    .from('dual_sync_restaurant_controls')
-    .select(
-      'restaurant_id,provider,sync_paused,pause_reason,paused_by_user_id,paused_at,resumed_at,created_at,updated_at',
-    )
-    .eq('restaurant_id', restaurantId)
-    .eq('provider', DUAL_SYNC_PROVIDER)
-    .maybeSingle();
+  const maybeDb = db as unknown as { from?: (table: string) => MaybeQueryBuilder | undefined };
+  if (typeof maybeDb.from !== 'function') {
+    return defaultControl(restaurantId);
+  }
+
+  const table = maybeDb.from('dual_sync_restaurant_controls');
+  if (!table || typeof table.select !== 'function') {
+    return defaultControl(restaurantId);
+  }
+  const selected = table.select(
+    'restaurant_id,provider,sync_paused,pause_reason,paused_by_user_id,paused_at,resumed_at,created_at,updated_at',
+  );
+  if (!selected || typeof selected.eq !== 'function') {
+    return defaultControl(restaurantId);
+  }
+  const byRestaurant = selected.eq('restaurant_id', restaurantId);
+  if (!byRestaurant || typeof byRestaurant.eq !== 'function') {
+    return defaultControl(restaurantId);
+  }
+  const byProvider = byRestaurant.eq('provider', DUAL_SYNC_PROVIDER);
+  if (!byProvider || typeof byProvider.maybeSingle !== 'function') {
+    return defaultControl(restaurantId);
+  }
+
+  const { data, error } = await byProvider.maybeSingle();
 
   if (error) throw error;
   return data ? mapControl(data) : defaultControl(restaurantId);

@@ -10,6 +10,8 @@ import React, {
 } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 /* ============================================================================
@@ -236,52 +238,53 @@ export function SearchBar({ onSearch }: { onSearch?: () => void }) {
     <div className="flex flex-col md:flex-row items-center bg-background rounded-3xl md:rounded-full border border-border shadow-[0_6px_16px_rgba(0,0,0,0.08)] p-2 max-w-4xl w-full mx-auto relative z-20">
       {/* Location */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50 md:rounded-l-full">
-        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
+        <Label className="mb-0.5 block text-xs font-bold uppercase tracking-wide text-foreground">
           Where
-        </label>
-        <input
+        </Label>
+        <Input
           type="text"
           placeholder="Search destinations"
-          className="w-full bg-transparent border-none p-0 text-sm text-muted-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none"
+          className="h-auto w-full border-0 bg-transparent p-0 text-sm text-muted-foreground shadow-none placeholder:text-muted-foreground/70 focus-visible:ring-0"
         />
         <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-border group-hover:hidden"></div>
       </div>
 
       {/* Date */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50">
-        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
+        <Label className="mb-0.5 block text-xs font-bold uppercase tracking-wide text-foreground">
           Date
-        </label>
+        </Label>
         <div className="text-sm text-muted-foreground">Add dates</div>
         <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-border group-hover:hidden"></div>
       </div>
 
       {/* Time */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group border-b md:border-b-0 border-border transition-colors hover:bg-muted/50">
-        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
+        <Label className="mb-0.5 block text-xs font-bold uppercase tracking-wide text-foreground">
           Time
-        </label>
+        </Label>
         <div className="text-sm text-muted-foreground">Add time</div>
         <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-8 w-[1px] bg-border group-hover:hidden"></div>
       </div>
 
       {/* Guests */}
       <div className="w-full md:flex-1 px-6 py-3 cursor-pointer relative group transition-colors hover:bg-muted/50 md:rounded-r-full md:mr-2">
-        <label className="block text-xs font-bold text-foreground mb-0.5 uppercase tracking-wide">
+        <Label className="mb-0.5 block text-xs font-bold uppercase tracking-wide text-foreground">
           Who
-        </label>
+        </Label>
         <div className="text-sm text-muted-foreground">Add guests</div>
       </div>
 
       {/* Search Button */}
       <div className="p-2 w-full md:w-auto">
-        <button
+        <Button
+          type="button"
           onClick={onSearch}
-          className="bg-primary hover:bg-primary/90 text-white p-4 rounded-full transition-all shadow-md hover:scale-105 flex items-center justify-center gap-2 w-full md:w-auto active:scale-95"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary p-4 text-white shadow-md transition-all hover:scale-105 hover:bg-primary/90 active:scale-95 md:w-auto"
         >
           <Search className="w-5 h-5 font-bold" />
           <span className="font-semibold px-2 md:hidden lg:inline">Search</span>
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -190,8 +190,12 @@ describe('TableInventoryClient', () => {
 
     renderClient({ tableService, zoneService });
 
-    expect(screen.getByText('Tables command center')).toBeInTheDocument();
     expect(await screen.findByText('Bookable tables')).toBeInTheDocument();
+    expect(screen.getByText('Tables workflow')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Capacity summary/ })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
     expect((await screen.findAllByText('2 tables')).length).toBeGreaterThan(0);
     expect(screen.getByText('8 covers')).toBeInTheDocument();
 

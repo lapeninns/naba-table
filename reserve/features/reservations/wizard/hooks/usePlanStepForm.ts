@@ -185,6 +185,7 @@ function useUnavailableDateTracking({
   const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
     () => new Map(),
   );
+  const unavailableDatesRef = useRef<Map<string, PlanStepUnavailableReason>>(new Map());
   const [overrideDates, setOverrideDates] = useState<Set<string>>(() => new Set());
   const [loadingDates, setLoadingDates] = useState<Set<string>>(() => new Set());
 
@@ -208,6 +209,11 @@ function useUnavailableDateTracking({
 
   const updateUnavailableDate = useCallback(
     (dateKey: string, reason: PlanStepUnavailableReason | null) => {
+      const existingRefValue = unavailableDatesRef.current.get(dateKey) ?? null;
+      if (existingRefValue === reason) {
+        return;
+      }
+
       setUnavailableDates((prev) => {
         const existing = prev.get(dateKey) ?? null;
         if (existing === reason) {
@@ -219,6 +225,7 @@ function useUnavailableDateTracking({
         } else {
           nextMap.delete(dateKey);
         }
+        unavailableDatesRef.current = nextMap;
         return nextMap;
       });
     },
@@ -231,11 +238,21 @@ function useUnavailableDateTracking({
         updateUnavailableDate(isoKey, reason);
       });
       setOverrideDates((prev) => {
-        const next = new Set(prev);
-        for (const dateKey of mask.overrideDates ?? []) {
-          next.add(dateKey);
+        const overrideDateKeys = mask.overrideDates ?? [];
+        if (overrideDateKeys.length === 0) {
+          return prev;
         }
-        return next;
+
+        const next = new Set(prev);
+        let changed = false;
+        for (const dateKey of overrideDateKeys) {
+          if (next.has(dateKey)) {
+            continue;
+          }
+          next.add(dateKey);
+          changed = true;
+        }
+        return changed ? next : prev;
       });
     },
     [normalizedMinTimestamp, updateUnavailableDate],
@@ -344,7 +361,9 @@ function useUnavailableDateTracking({
   useEffect(() => {
     maskPrefetchedMonthsRef.current.clear();
     setLoadingDates(new Set());
-    setUnavailableDates(new Map());
+    const nextUnavailableDates = new Map<string, PlanStepUnavailableReason>();
+    unavailableDatesRef.current = nextUnavailableDates;
+    setUnavailableDates(nextUnavailableDates);
     setOverrideDates(new Set());
   }, [restaurantSlug]);
 
@@ -542,6 +561,11 @@ export function usePlanStepForm({
   );
 
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
+  const detailsRef = useRef(state.details);
+
+  useEffect(() => {
+    detailsRef.current = state.details;
+  }, [state.details]);
 
   useEffect(() => {
     form.reset(
@@ -566,12 +590,12 @@ export function usePlanStepForm({
 
   const updateField = useCallback(
     <K extends keyof BookingDetails>(key: K, value: BookingDetails[K]) => {
-      if (state.details[key] === value) {
+      if (detailsRef.current[key] === value) {
         return;
       }
       actions.updateDetails(key, value);
     },
-    [actions, state.details],
+    [actions],
   );
 
   const fallbackTime = enabledSlots[0]?.value ?? '';
@@ -835,6 +859,13 @@ export function usePlanStepForm({
     form.handleSubmit(submitForm, handleError)();
   }, [form, handleError, submitForm]);
 
+  const prefetchMonth = useCallback(
+    (month: Date) => {
+      debouncedPrefetch(month);
+    },
+    [debouncedPrefetch],
+  );
+
   const planStepActions = useMemo<StepAction[]>(
     () => [
       {
@@ -863,9 +894,7 @@ export function usePlanStepForm({
       selectTime,
       changeParty,
       commitNotes,
-      prefetchMonth: (month: Date) => {
-        debouncedPrefetch(month);
-      },
+      prefetchMonth,
     },
     minDate: normalizedMinDate,
     intervalMinutes,

@@ -157,8 +157,7 @@ function buildManualChecks(params: {
   slackBudget: number;
 }): ManualSelectionCheck[] {
   const checks: ManualSelectionCheck[] = [];
-  const { summary, tables, adjacency, conflicts, holdConflicts, slackBudget } =
-    params;
+  const { summary, tables, adjacency, conflicts, holdConflicts, slackBudget } = params;
 
   const unavailableTables = findUnavailableTables(tables);
   checks.push({
@@ -219,7 +218,10 @@ function buildManualChecks(params: {
   }
 
   if (tables.length > 1) {
-    const allMovable = tables.every((table) => deriveTableRules({ capacity: table.capacity, mobility: table.mobility }).canBeMerged);
+    const allMovable = tables.every(
+      (table) =>
+        deriveTableRules({ capacity: table.capacity, mobility: table.mobility }).canBeMerged,
+    );
     checks.push({
       id: 'movable',
       status: allMovable ? 'ok' : 'error',
@@ -782,7 +784,6 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
         console.warn('[capacity][manual] Failed to release soft-holds after hold creation', {
           bookingId,
           holdId: hold.id,
-          sessionToken: effectiveSessionToken,
           error: error instanceof Error ? error.message : String(error),
         });
       },
@@ -1255,7 +1256,6 @@ export async function instantTableAssignment(
           console.warn('[capacity][manual][instant] Failed to release soft-holds', {
             bookingId,
             holdId: hold.id,
-            sessionToken: softHoldResult?.sessionToken,
             error: releaseError instanceof Error ? releaseError.message : String(releaseError),
           });
         },

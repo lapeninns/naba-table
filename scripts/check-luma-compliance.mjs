@@ -8,9 +8,13 @@ const ROOT = process.cwd();
 const ARGS = process.argv.slice(2);
 const REPORT_JSON_ARG = ARGS.filter((arg) => arg.startsWith('--report-json=')).at(-1);
 const REPORT_JSON_PATH = REPORT_JSON_ARG?.slice('--report-json='.length);
+const BASELINE_ARG = ARGS.filter((arg) => arg.startsWith('--baseline=')).at(-1);
+const BASELINE_PATH = BASELINE_ARG?.slice('--baseline='.length);
+const UPDATE_BASELINE = ARGS.includes('--update-baseline');
 const FAIL_ON_ARG = ARGS.filter((arg) => arg.startsWith('--fail-on=')).at(-1);
 const FAIL_ON = FAIL_ON_ARG?.slice('--fail-on='.length) ?? 'none';
 const MAX_EXAMPLES_PER_GROUP = 20;
+const BASELINE_VERSION = 1;
 
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx', '.css']);
 
@@ -288,8 +292,103 @@ function writeJsonReport(filePath, report) {
   fs.writeFileSync(`${absolutePath}`, `${JSON.stringify(report, null, 2)}\n`);
 }
 
-function shouldFail(findings) {
+function baselineKey(finding) {
+  return `${finding.severity}::${finding.kind}::${finding.file}`;
+}
+
+function buildBaseline(report) {
+  return {
+    version: BASELINE_VERSION,
+    generatedAt: report.generatedAt,
+    description:
+      'Pinned Radix Luma semantic-token migration debt. Update only after reviewing intentional debt movement.',
+    scanRoots: report.scanRoots,
+    approvedRecipePaths: report.approvedRecipePaths,
+    counts: {
+      total: report.counts.total,
+      bySeverity: report.counts.bySeverity,
+      byKind: report.counts.byKind,
+      byFileKind: countBy(report.findings, baselineKey),
+    },
+  };
+}
+
+function writeBaseline(filePath, report) {
+  if (!filePath) {
+    console.error('Missing --baseline path for --update-baseline.');
+    process.exit(2);
+  }
+
+  writeJsonReport(filePath, buildBaseline(report));
+  console.log(`\nUpdated Luma baseline at ${filePath}.`);
+}
+
+function readBaseline(filePath) {
+  if (!filePath) return null;
+
+  const absolutePath = path.resolve(ROOT, filePath);
+  if (!fileExists(absolutePath)) {
+    console.error(`Missing Luma baseline file: ${filePath}`);
+    process.exit(2);
+  }
+
+  const baseline = JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+  if (baseline.version !== BASELINE_VERSION || !baseline.counts?.byFileKind) {
+    console.error(`Unsupported Luma baseline format: ${filePath}`);
+    process.exit(2);
+  }
+  return baseline;
+}
+
+function scopedFindings(findings) {
+  if (FAIL_ON === 'none') return findings;
+  if (FAIL_ON === 'review') return findings;
+  if (FAIL_ON === 'exception')
+    return findings.filter((finding) => finding.severity === 'exception');
+
+  console.error(`Unknown --fail-on value "${FAIL_ON}". Use none, exception, or review.`);
+  process.exit(2);
+}
+
+function compareWithBaseline(findings, baseline) {
+  if (!baseline) return null;
+
+  const currentCounts = countBy(scopedFindings(findings), baselineKey);
+  const baselineCounts = baseline.counts.byFileKind;
+  const regressions = Object.entries(currentCounts)
+    .map(([key, current]) => {
+      const allowed = baselineCounts[key] ?? 0;
+      return { allowed, current, key };
+    })
+    .filter((item) => item.current > item.allowed)
+    .sort((left, right) => left.key.localeCompare(right.key));
+
+  return { baseline, regressions };
+}
+
+function printBaselineComparison(comparison) {
+  if (!comparison) return;
+
+  if (comparison.regressions.length === 0) {
+    console.log(
+      `\nPassed Luma baseline ratchet for --fail-on=${FAIL_ON}: no above-baseline finding counts.`,
+    );
+    return;
+  }
+
+  console.error(`\nLuma baseline ratchet exceeded (${comparison.regressions.length} group(s)).`);
+  for (const { allowed, current, key } of comparison.regressions.slice(0, MAX_EXAMPLES_PER_GROUP)) {
+    const [severity, kind, file] = key.split('::');
+    console.error(`  ${file} [${severity}/${kind}]: ${current} found, ${allowed} allowed`);
+  }
+  if (comparison.regressions.length > MAX_EXAMPLES_PER_GROUP) {
+    console.error(`  ... ${comparison.regressions.length - MAX_EXAMPLES_PER_GROUP} more`);
+  }
+}
+
+function shouldFail(findings, baselineComparison) {
   if (FAIL_ON === 'none') return false;
+  if (baselineComparison) return baselineComparison.regressions.length > 0;
   if (FAIL_ON === 'review') return findings.length > 0;
   if (FAIL_ON === 'exception') {
     return findings.some((finding) => finding.severity === 'exception');
@@ -320,6 +419,9 @@ const report = {
 };
 
 writeJsonReport(REPORT_JSON_PATH, report);
+if (UPDATE_BASELINE) {
+  writeBaseline(BASELINE_PATH, report);
+}
 
 console.log(`Scanned ${files.length} Radix Luma governed UI/style files.`);
 printFindings(
@@ -335,6 +437,9 @@ if (REPORT_JSON_PATH) {
   console.log(`\nWrote JSON report to ${REPORT_JSON_PATH}.`);
 }
 
+const baselineComparison = compareWithBaseline(findings, readBaseline(BASELINE_PATH));
+printBaselineComparison(baselineComparison);
+
 if (findings.length === 0) {
   console.log('\nPassed: no Luma compliance findings.');
 } else {
@@ -343,7 +448,7 @@ if (findings.length === 0) {
   );
 }
 
-if (shouldFail(findings)) {
-  console.error(`\nFailed --fail-on=${FAIL_ON}: Luma compliance findings remain.`);
+if (shouldFail(findings, baselineComparison)) {
+  console.error(`\nFailed --fail-on=${FAIL_ON}: Luma baseline ratchet exceeded.`);
   process.exit(1);
 }

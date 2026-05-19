@@ -24,16 +24,13 @@ import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
-import { passwordPolicySchema, validatePasswordStrength } from '@/lib/security/passwordPolicy';
+import { validatePasswordForSignIn } from '@/lib/security/passwordPolicy';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
-
-const passwordFieldSchema = z
-  .union([passwordPolicySchema, z.literal('').transform(() => undefined)])
-  .optional();
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 
 const formSchema = z.object({
   email: z.string().trim().min(1, 'Enter your email address').email('Enter a valid email address'),
-  password: passwordFieldSchema,
+  password: z.string().optional(),
 });
 
 type AuthResponse = { status: 'ok'; redirectTo: string };
@@ -95,7 +92,17 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
   const statusRef = useRef<HTMLDivElement | null>(null);
   const [mode, setMode] = useState<AuthMode>(AUTH_MODES.PASSWORD);
 
-  const targetPath = redirectedFrom && redirectedFrom.startsWith('/') ? redirectedFrom : '/app';
+  const targetPath = sanitizeLocalRedirectPath(redirectedFrom, {
+    fallback: '/app',
+    allowedPrefixes: [
+      '/app',
+      '/dashboard',
+      '/bookings',
+      '/customers',
+      '/settings',
+      '/new-bookings',
+    ],
+  });
 
   useEffect(() => {
     track('auth_ops_signin_viewed', { redirectedFrom: targetPath });
@@ -178,8 +185,7 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
       return;
     }
 
-    const password = values.password?.trim();
-    const validation = validatePasswordStrength(password);
+    const validation = validatePasswordForSignIn(values.password);
     if (!validation.success) {
       form.setError('password', { type: 'manual', message: validation.error });
       focusStatus();
@@ -338,15 +344,15 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
               )}
             />
 
-            <TabsContent value={AUTH_MODES.PASSWORD} className="mt-0">
+            <TabsContent value={AUTH_MODES.PASSWORD} tabIndex={-1} className="mt-0">
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
+                    <div className="relative">
+                      <FormControl>
                         <Input
                           {...field}
                           type={showPassword ? 'text' : 'password'}
@@ -354,29 +360,29 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
                           placeholder="Enter your password"
                           className="h-11 touch-manipulation pr-11 text-base"
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        >
-                          {showPassword ? (
-                            <EyeOff aria-hidden="true" />
-                          ) : (
-                            <Eye aria-hidden="true" />
-                          )}
-                        </Button>
-                      </div>
-                    </FormControl>
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? (
+                          <EyeOff aria-hidden="true" />
+                        ) : (
+                          <Eye aria-hidden="true" />
+                        )}
+                      </Button>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </TabsContent>
 
-            <TabsContent value={AUTH_MODES.MAGIC_LINK} className="mt-0">
+            <TabsContent value={AUTH_MODES.MAGIC_LINK} tabIndex={-1} className="mt-0">
               {/* Magic link doesn't need extra fields, just email above */}
             </TabsContent>
 

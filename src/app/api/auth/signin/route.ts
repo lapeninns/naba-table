@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
+  buildAuthCallbackUrl,
   defaultRedirectForHost,
   parseHostname,
+  resolveTrustedAuthHostname,
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
-import {
-  isMagicLinkDeliveryError,
-  sendAuthMagicLink,
-} from '@/server/auth/magic-link-email';
+import { isMagicLinkDeliveryError, sendAuthMagicLink } from '@/server/auth/magic-link-email';
 import { recordMagicLinkSigninAudit } from '@/server/auth/signin-audit';
 import { classifySigninSurface } from '@/server/auth/signin-surface';
 import { consumeMagicLinkSigninThrottle } from '@/server/auth/signin-throttle';
@@ -19,10 +18,7 @@ import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { extractClientIp } from '@/server/security/request';
 import { verifyTurnstileToken } from '@/server/security/turnstile';
-import {
-  getRouteHandlerSupabaseClient,
-  getServiceSupabaseClient,
-} from '@/server/supabase';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
@@ -74,42 +70,8 @@ function normalizeHttpStatus(status: number | undefined, fallback: number): numb
   return parsed;
 }
 
-function buildCallbackUrl(
-  hostname: string,
-  redirectedFrom: string | undefined,
-  rememberMe: boolean,
-  pathname: string = '/api/auth/callback',
-) {
-  let validHostname = hostname;
-
-  const isLocal = hostname.includes('localhost');
-  const isValidDomain = hostname.endsWith('nabatable.com');
-
-  if (!isLocal && !isValidDomain) {
-    console.warn(
-      `[Auth] Invalid hostname '${hostname}' detected. Falling back to 'nabatable.com'`,
-    );
-    validHostname = 'nabatable.com';
-  }
-
-  if (isLocal) {
-    validHostname = hostname.includes(':') ? hostname : `${hostname}:3000`;
-  }
-
-  const protocol = validHostname.includes('localhost') ? 'http' : 'https';
-  const url = new URL(pathname, `${protocol}://${validHostname}`);
-
-  if (redirectedFrom) {
-    url.searchParams.set('redirectedFrom', redirectedFrom);
-  }
-  url.searchParams.set('rememberMe', rememberMe ? '1' : '0');
-  return url.toString();
-}
-
 function buildPasswordRateLimitId(req: NextRequest, email: string) {
-  const realIp = req.headers.get('x-real-ip')?.trim();
-  const forwardedFor = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const ip = realIp ?? forwardedFor ?? 'unknown';
+  const ip = extractClientIp(req);
   return `auth:password:${ip}:${email}`;
 }
 
@@ -172,8 +134,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
     }
 
-    const hostname = parseHostname(req);
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
+    const parsedHostname = parseHostname(req);
+    const hostname = resolveTrustedAuthHostname(parsedHostname, rootDomain);
+
+    if (hostname !== parsedHostname) {
+      console.warn('[Auth/signin] Rejected untrusted request hostname for auth callback', {
+        parsedHostname,
+        rootDomain,
+        fallbackHostname: hostname,
+      });
+    }
 
     let parsedBody: unknown;
     try {
@@ -191,8 +162,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, mode, redirectedFrom, rememberMe, captchaToken } =
-      validated.data;
+    const { email, password, mode, redirectedFrom, rememberMe, captchaToken } = validated.data;
     const redirectTarget =
       sanitizeRedirect(redirectedFrom, rootDomain, hostname) ??
       defaultRedirectForHost(hostname, rootDomain);
@@ -226,10 +196,7 @@ export async function POST(req: NextRequest) {
           status === 401 || status === 400
             ? 'Invalid email or password'
             : 'Unable to sign in right now. Please try again.';
-        const response = NextResponse.json(
-          { message },
-          { status: status === 400 ? 401 : status },
-        );
+        const response = NextResponse.json({ message }, { status: status === 400 ? 401 : status });
         return setRateHeaders(response, rateResult);
       }
 
@@ -260,10 +227,7 @@ export async function POST(req: NextRequest) {
         userAgent,
         surface,
         redirectedFrom,
-        outcome:
-          blockedScope === 'ip'
-            ? 'blocked_rate_limit_ip'
-            : 'blocked_rate_limit_global',
+        outcome: blockedScope === 'ip' ? 'blocked_rate_limit_ip' : 'blocked_rate_limit_global',
         throttleScope: blockedScope,
         throttleLimit: throttleResult.blocked.result.limit,
         throttleRemaining: throttleResult.blocked.result.remaining,
@@ -311,13 +275,12 @@ export async function POST(req: NextRequest) {
         token: captchaToken,
         remoteIp: clientIp,
         expectedAction: GUEST_MAGIC_LINK_TURNSTILE_ACTION,
-        expectedHostname: hostname || undefined,
+        expectedHostname: parsedHostname || hostname || undefined,
       });
 
       if (!captchaResult.ok) {
         const captchaOutcome =
-          captchaResult.reason === 'verify_unavailable' ||
-          captchaResult.reason === 'missing_secret'
+          captchaResult.reason === 'verify_unavailable' || captchaResult.reason === 'missing_secret'
             ? 'captcha_verify_unavailable'
             : 'blocked_captcha_invalid';
 
@@ -355,8 +318,7 @@ export async function POST(req: NextRequest) {
         userAgent,
         surface,
         redirectedFrom,
-        outcome:
-          lookupStatus === 'not_found' ? 'suppressed_unknown_email' : 'lookup_error',
+        outcome: lookupStatus === 'not_found' ? 'suppressed_unknown_email' : 'lookup_error',
         throttleScope: 'ip',
         throttleLimit: primaryRateResult.limit,
         throttleRemaining: primaryRateResult.remaining,
@@ -370,14 +332,11 @@ export async function POST(req: NextRequest) {
       return setRateHeaders(response, primaryRateResult);
     }
 
-    const emailRedirectTo = buildCallbackUrl(hostname, absoluteRedirect, rememberMe);
-    console.log('[Auth/signin] Magic link details:', {
+    const emailRedirectTo = buildAuthCallbackUrl({
       hostname,
       rootDomain,
-      redirectTarget,
-      absoluteRedirect,
-      emailRedirectTo,
-      surface,
+      redirectedFrom: absoluteRedirect,
+      rememberMe,
     });
 
     try {
@@ -387,8 +346,7 @@ export async function POST(req: NextRequest) {
         intent: 'signin',
       });
     } catch (error) {
-      const sendErrorReason =
-        error instanceof Error ? error.message : String(error);
+      const sendErrorReason = error instanceof Error ? error.message : String(error);
 
       console.error('[Auth/signin] Magic link delivery failed', {
         status: isMagicLinkDeliveryError(error) ? error.status : undefined,

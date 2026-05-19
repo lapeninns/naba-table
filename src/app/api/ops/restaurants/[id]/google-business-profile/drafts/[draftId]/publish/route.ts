@@ -92,7 +92,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Missing restaurant or draft id' }, { status: 400 });
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile-publish');
+  const access = await ensureRestaurantAdminAccess(
+    restaurantId,
+    'google-business-profile-publish',
+    req,
+  );
   if (access instanceof NextResponse) {
     return access;
   }

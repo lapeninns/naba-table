@@ -6,9 +6,11 @@
  * clean, stale, high-risk, failure, and partial-success replay drills.
  */
 
-import type { DualSyncPublishDecision } from '../publish';
+import { computeReplayDecisionPins } from './runner';
+
 import type { DualSyncFakeGoogleOperation } from './fake-google';
 import type { DualSyncReplayScenario } from './runner';
+import type { DualSyncPublishDecision } from '../publish';
 import type { DualSyncOperationFailure } from '../publish/types';
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 
@@ -143,6 +145,23 @@ function decision(overrides: Partial<DualSyncPublishDecision> = {}): DualSyncPub
   };
 }
 
+function pinnedDecision({
+  coreSnapshot,
+  gbpSnapshot,
+  overrides,
+}: {
+  readonly coreSnapshot: DualSyncCanonicalSnapshot;
+  readonly gbpSnapshot: DualSyncCanonicalSnapshot;
+  readonly overrides?: Partial<DualSyncPublishDecision>;
+}): DualSyncPublishDecision {
+  const base = decision(overrides);
+  return {
+    ...base,
+    ...computeReplayDecisionPins({ coreSnapshot, gbpSnapshot, fieldKey: base.fieldKey }),
+    ...overrides,
+  };
+}
+
 export const DUAL_SYNC_STORED_REPLAY_FIXTURES: ReadonlyArray<DualSyncStoredReplayFixture> = [
   {
     name: 'clean in-sync profile',
@@ -159,87 +178,115 @@ export const DUAL_SYNC_STORED_REPLAY_FIXTURES: ReadonlyArray<DualSyncStoredRepla
       ],
     },
   },
-  {
-    name: 'stale core decision',
-    scenario: {
+  (() => {
+    const coreSnapshot = createReplaySnapshot({
+      profile: {
+        ...createReplaySnapshot().profile,
+        businessDescription: 'Updated Core copy.',
+      },
+    });
+    const gbpSnapshot = createReplaySnapshot();
+    return {
       name: 'stale core decision',
-      restaurantId: 'fixture-restaurant',
-      coreSnapshot: createReplaySnapshot({
-        profile: {
-          ...createReplaySnapshot().profile,
-          businessDescription: 'Updated Core copy.',
-        },
-      }),
-      gbpSnapshot: createReplaySnapshot(),
-      publishInput: {
-        actorUserId: 'fixture-user',
-        decisions: [decision({ pinnedCoreHash: 'stale-core-hash' })],
-      },
-    },
-    expected: {
-      acceptedCount: 0,
-      rejectedCount: 1,
-      rejectedCodes: ['CORE_DRIFT'],
-    },
-  },
-  {
-    name: 'stale google decision',
-    scenario: {
-      name: 'stale google decision',
-      restaurantId: 'fixture-restaurant',
-      coreSnapshot: createReplaySnapshot(),
-      gbpSnapshot: createReplaySnapshot({
-        profile: {
-          ...createReplaySnapshot().profile,
-          businessDescription: 'Updated Google copy.',
-        },
-      }),
-      publishInput: {
-        actorUserId: 'fixture-user',
-        decisions: [decision({ action: 'import_from_google', pinnedGbpHash: 'stale-gbp-hash' })],
-      },
-    },
-    expected: {
-      acceptedCount: 0,
-      rejectedCount: 1,
-      rejectedCodes: ['GBP_DRIFT'],
-    },
-  },
-  {
-    name: 'high-risk food menu export',
-    scenario: {
-      name: 'high-risk food menu export',
-      restaurantId: 'fixture-restaurant',
-      coreSnapshot: createReplaySnapshot({
-        foodMenus: {
-          items: [
-            {
-              ...createReplaySnapshot().foodMenus!.items[0]!,
-              description: 'Updated menu description.',
-              basePrice: 13.25,
-            },
+      scenario: {
+        name: 'stale core decision',
+        restaurantId: 'fixture-restaurant',
+        coreSnapshot,
+        gbpSnapshot,
+        publishInput: {
+          actorUserId: 'fixture-user',
+          decisions: [
+            pinnedDecision({
+              coreSnapshot,
+              gbpSnapshot,
+              overrides: { pinnedCoreHash: 'stale-core-hash' },
+            }),
           ],
         },
-      }),
-      gbpSnapshot: createReplaySnapshot(),
-      publishInput: {
-        actorUserId: 'fixture-user',
-        decisions: [
-          decision({
-            fieldKey: FOOD_MENU_TIKKA_FIELD_KEY,
-            sectionKey: 'foodMenus',
-            action: 'export_to_google',
-          }),
+      },
+      expected: {
+        acceptedCount: 0,
+        rejectedCount: 1,
+        rejectedCodes: ['CORE_DRIFT'],
+      },
+    };
+  })(),
+  (() => {
+    const coreSnapshot = createReplaySnapshot();
+    const gbpSnapshot = createReplaySnapshot({
+      profile: {
+        ...createReplaySnapshot().profile,
+        businessDescription: 'Updated Google copy.',
+      },
+    });
+    return {
+      name: 'stale google decision',
+      scenario: {
+        name: 'stale google decision',
+        restaurantId: 'fixture-restaurant',
+        coreSnapshot,
+        gbpSnapshot,
+        publishInput: {
+          actorUserId: 'fixture-user',
+          decisions: [
+            pinnedDecision({
+              coreSnapshot,
+              gbpSnapshot,
+              overrides: { action: 'import_from_google', pinnedGbpHash: 'stale-gbp-hash' },
+            }),
+          ],
+        },
+      },
+      expected: {
+        acceptedCount: 0,
+        rejectedCount: 1,
+        rejectedCodes: ['GBP_DRIFT'],
+      },
+    };
+  })(),
+  (() => {
+    const coreSnapshot = createReplaySnapshot({
+      foodMenus: {
+        items: [
+          {
+            ...createReplaySnapshot().foodMenus!.items[0]!,
+            description: 'Updated menu description.',
+            basePrice: 13.25,
+          },
         ],
       },
-    },
-    expected: {
-      acceptedCount: 1,
-      rejectedCount: 0,
-      warningCodes: ['PREFLIGHT_REQUIRED', 'HIGH_RISK', 'DESTRUCTIVE_WRITE'],
-      writeGroups: ['location.foodMenus'],
-    },
-  },
+    });
+    const gbpSnapshot = createReplaySnapshot();
+    return {
+      name: 'high-risk food menu export',
+      scenario: {
+        name: 'high-risk food menu export',
+        restaurantId: 'fixture-restaurant',
+        coreSnapshot,
+        gbpSnapshot,
+        publishInput: {
+          actorUserId: 'fixture-user',
+          decisions: [
+            pinnedDecision({
+              coreSnapshot,
+              gbpSnapshot,
+              overrides: {
+                fieldKey: FOOD_MENU_TIKKA_FIELD_KEY,
+                sectionKey: 'foodMenus',
+                action: 'export_to_google',
+              },
+            }),
+          ],
+        },
+      },
+      expected: {
+        acceptedCount: 1,
+        rejectedCount: 0,
+        warningCodes: ['PREFLIGHT_REQUIRED', 'HIGH_RISK', 'DESTRUCTIVE_WRITE'],
+        writeGroups: ['location.foodMenus'],
+      },
+    };
+  })(),
 ];
 
 export const DUAL_SYNC_FAKE_GOOGLE_FAILURE_FIXTURES: ReadonlyArray<DualSyncFakeGoogleFailureFixture> =

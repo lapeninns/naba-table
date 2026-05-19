@@ -26,7 +26,8 @@ import type {
 
 type LocationPickerCardProps = {
   data: GoogleBusinessProfileConnection;
-  connectHref: string;
+  onConnect: () => void;
+  isConnecting: boolean;
   selectedLocation: GoogleBusinessProfileAvailableLocation | null;
   selectedLocationValue: string;
   onSelectedLocationValueChange: (value: string) => void;
@@ -50,7 +51,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export function LocationPickerCard({
   data,
-  connectHref,
+  onConnect,
+  isConnecting,
   selectedLocation,
   selectedLocationValue,
   onSelectedLocationValueChange,
@@ -74,10 +76,11 @@ export function LocationPickerCard({
           {data.connectedGoogleEmail ? (
             <>
               Authorized as{' '}
-              <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>.
+              <span className="font-medium text-foreground">{data.connectedGoogleEmail}</span>. Pick
+              the listing that matches this restaurant&apos;s address and name.
             </>
           ) : (
-            'Authorize a Google account to discover available locations.'
+            'Authorize a Google account to discover available locations, then pick the listing that matches this restaurant.'
           )}
         </CardDescription>
       </CardHeader>
@@ -90,8 +93,14 @@ export function LocationPickerCard({
                 The existing Google authorization can no longer be used. Reconnect to restore sync
                 access.
               </span>
-              <Button asChild size="sm" variant="outline">
-                <a href={connectHref}>Reconnect Google</a>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onConnect}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Reconnect Google'}
               </Button>
             </AlertDescription>
           </Alert>

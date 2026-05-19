@@ -1,14 +1,20 @@
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
+
+import {
+  isRestaurantRole,
+  RESTAURANT_ROLE_OPTIONS,
+  type RestaurantRole,
+} from '../lib/owner/auth/roles';
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
@@ -16,23 +22,31 @@ if (fs.existsSync(envLocalPath)) {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const confirmProduction = process.env.CONFIRM_PRODUCTION === "true";
+const confirmProduction = process.env.CONFIRM_PRODUCTION === 'true';
 const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || null;
 const restaurantId = process.env.RESTAURANT_ID?.trim() || null;
 const restaurantSlug = process.env.RESTAURANT_SLUG?.trim() || null;
 const userEmail = process.env.USER_EMAIL?.trim() || null;
 const userId = process.env.USER_ID?.trim() || null;
-const role = (process.env.ROLE?.trim() || "owner").toLowerCase();
+const role = normalizeRole(process.env.ROLE);
 
-const allowedRoles = new Set(["owner", "admin", "staff", "viewer"]);
+function normalizeRole(value: string | undefined): RestaurantRole {
+  const candidate = (value?.trim() || 'owner').toLowerCase();
+  if (isRestaurantRole(candidate)) {
+    return candidate;
+  }
+
+  console.error(`ROLE must be one of: ${RESTAURANT_ROLE_OPTIONS.join(', ')}.`);
+  process.exit(1);
+}
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.");
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
   process.exit(1);
 }
 
 if (!confirmProduction) {
-  console.error("CONFIRM_PRODUCTION=true is required to modify production data.");
+  console.error('CONFIRM_PRODUCTION=true is required to modify production data.');
   process.exit(1);
 }
 
@@ -41,17 +55,12 @@ if (expectedProjectRef && !supabaseUrl?.includes(expectedProjectRef)) {
   process.exit(1);
 }
 if (!restaurantId && !restaurantSlug) {
-  console.error("Set RESTAURANT_ID or RESTAURANT_SLUG.");
+  console.error('Set RESTAURANT_ID or RESTAURANT_SLUG.');
   process.exit(1);
 }
 
 if (!userId && !userEmail) {
-  console.error("Set USER_ID or USER_EMAIL.");
-  process.exit(1);
-}
-
-if (!allowedRoles.has(role)) {
-  console.error(`ROLE must be one of: ${Array.from(allowedRoles).join(", ")}.`);
+  console.error('Set USER_ID or USER_EMAIL.');
   process.exit(1);
 }
 
@@ -63,9 +72,9 @@ async function resolveRestaurantId(): Promise<string> {
   if (restaurantId) return restaurantId;
 
   const { data, error } = await supabase
-    .from("restaurants")
-    .select("id, name, slug")
-    .eq("slug", restaurantSlug)
+    .from('restaurants')
+    .select('id, name, slug')
+    .eq('slug', restaurantSlug)
     .maybeSingle();
 
   if (error) {
@@ -83,9 +92,9 @@ async function resolveUserId(): Promise<string> {
   if (userId) return userId;
 
   const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, email")
-    .eq("email", userEmail)
+    .from('profiles')
+    .select('id, email')
+    .eq('email', userEmail)
     .maybeSingle();
 
   if (profileError) {
@@ -97,9 +106,9 @@ async function resolveUserId(): Promise<string> {
   }
 
   const { data: userProfile, error: userProfileError } = await supabase
-    .from("user_profiles")
-    .select("id, email")
-    .eq("email", userEmail)
+    .from('user_profiles')
+    .select('id, email')
+    .eq('email', userEmail)
     .maybeSingle();
 
   if (userProfileError) {
@@ -118,9 +127,7 @@ async function resolveUserId(): Promise<string> {
   for (let page = 1; page <= maxPages; page += 1) {
     const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: pageSize });
     if (error) {
-      throw new Error(
-        `Failed to list auth users: ${error.message}. Provide USER_ID to continue.`,
-      );
+      throw new Error(`Failed to list auth users: ${error.message}. Provide USER_ID to continue.`);
     }
 
     const match = data.users.find((user) => user.email?.toLowerCase() === userEmail?.toLowerCase());
@@ -141,10 +148,10 @@ async function grantAccess(): Promise<void> {
   const resolvedUserId = await resolveUserId();
 
   const { data: existing, error: existingError } = await supabase
-    .from("restaurant_memberships")
-    .select("role")
-    .eq("restaurant_id", resolvedRestaurantId)
-    .eq("user_id", resolvedUserId)
+    .from('restaurant_memberships')
+    .select('role')
+    .eq('restaurant_id', resolvedRestaurantId)
+    .eq('user_id', resolvedUserId)
     .maybeSingle();
 
   if (existingError) {
@@ -152,26 +159,32 @@ async function grantAccess(): Promise<void> {
   }
 
   if (existing) {
+    if (!isRestaurantRole(existing.role)) {
+      throw new Error(
+        `Existing membership has unsupported role "${existing.role}". Clean it up before granting access.`,
+      );
+    }
+
     if (existing.role === role) {
-      console.log("Membership already exists with desired role.");
+      console.log('Membership already exists with desired role.');
       return;
     }
 
     const { error: updateError } = await supabase
-      .from("restaurant_memberships")
+      .from('restaurant_memberships')
       .update({ role })
-      .eq("restaurant_id", resolvedRestaurantId)
-      .eq("user_id", resolvedUserId);
+      .eq('restaurant_id', resolvedRestaurantId)
+      .eq('user_id', resolvedUserId);
 
     if (updateError) {
       throw new Error(`Failed to update membership: ${updateError.message}`);
     }
 
-    console.log("Membership role updated.");
+    console.log('Membership role updated.');
     return;
   }
 
-  const { error: insertError } = await supabase.from("restaurant_memberships").insert({
+  const { error: insertError } = await supabase.from('restaurant_memberships').insert({
     restaurant_id: resolvedRestaurantId,
     user_id: resolvedUserId,
     role,
@@ -181,10 +194,13 @@ async function grantAccess(): Promise<void> {
     throw new Error(`Failed to insert membership: ${insertError.message}`);
   }
 
-  console.log("Membership created.");
+  console.log('Membership created.');
 }
 
 void grantAccess().catch((error) => {
-  console.error("[grant-restaurant-access] Failed:", error instanceof Error ? error.message : error);
+  console.error(
+    '[grant-restaurant-access] Failed:',
+    error instanceof Error ? error.message : error,
+  );
   process.exit(1);
 });

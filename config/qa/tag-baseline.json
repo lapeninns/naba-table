@@ -1,0 +1,2504 @@
+{
+  "files": [
+    {
+      "file": "tests/a11y/bookingDialog.a11y.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/a11y/planStepForm.a11y.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/a11y/tableAssignmentPanel.a11y.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/cloudflare/booking-short-links-storage.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/cloudflare/booking-short-links.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/cloudflare/email-queue-gateway.test.ts",
+      "tagged": 5,
+      "testTitles": 5,
+      "untagged": 0
+    },
+    {
+      "file": "tests/cloudflare/sms-summary-gateway.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/auth/GuestSignInForm.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/auth/ImplicitAuthHandler.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/auth/OpsSignInForm.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/AvailabilitySettingsComponents.test.tsx",
+      "tagged": 0,
+      "testTitles": 15,
+      "untagged": 15
+    },
+    {
+      "file": "tests/components/BookingListClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/BookingOfflineQueue.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/businessContextModel.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/ButtonAndBadge.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/ConfirmationDialog.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/CustomersTable.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/dual-sync-freshness.test.ts",
+      "tagged": 0,
+      "testTitles": 13,
+      "untagged": 13
+    },
+    {
+      "file": "tests/components/dual-sync-heatmap.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/DualSyncFieldRow.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/DualSyncOperationalHealthPanel.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/DualSyncPendingCandidatesPanel.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/DualSyncPublishJobsPanel.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/DualSyncPublishPreviewDialog.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/DualSyncPublishResultDialog.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/DualSyncQueueJobsPanel.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/DualSyncShellPublishFlow.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/EmailTemplatesPreviewPane.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/features/bookings/opsBookingsSelectors.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/features/customers/buildDefaultOpsCustomersListParams.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/features/customers/opsCustomersSelectors.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliverySelectors.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/features/ops-shell/useOpsRoutePrefetch.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/GbpCompareDialog.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/GbpDriftProvider.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/GbpDriftStatus.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/GbpOmnichannelDriftProvider.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/GoogleBusinessProfileSection.test.tsx",
+      "tagged": 0,
+      "testTitles": 19,
+      "untagged": 19
+    },
+    {
+      "file": "tests/components/googleBusinessProfileVerification.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/GuestsSummaryMetrics.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/InviteAcceptanceClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/isRestaurantSettingsPathname.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/OnboardingContextPersistence.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/openSettingsCompare.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/OpsBookingCard.test.tsx",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/OpsBookingCardActions.noShow.test.tsx",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/OpsBookingCardViewModel.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/components/OpsBookingsSearchInput.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/OpsDashboardFilters.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/OpsDashboardListUtils.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/components/OpsDashboardStateUtils.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/components/OpsDashboardSummarySelectors.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/OpsEmailDeliveryAnalytics.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/OpsEmailDeliveryClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 39,
+      "untagged": 39
+    },
+    {
+      "file": "tests/components/OpsEmailDeliveryFilterBar.test.tsx",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/components/OpsEmailDeliveryPaginationBar.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/OpsEmailDeliverySummaryMetrics.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/OpsEmailDeliveryTable.test.tsx",
+      "tagged": 0,
+      "testTitles": 14,
+      "untagged": 14
+    },
+    {
+      "file": "tests/components/OpsEmailQueuePanel.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/OpsMenuManagementClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/components/opsNavigation.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/OpsShell.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/ProfileStatusBar.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/ReceiptClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/ReservationDetailClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/RestaurantBusinessContextSection.test.tsx",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/components/RestaurantDetailsForm.test.tsx",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/components/RestaurantLogoUploader.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/RestaurantProfileSection.test.tsx",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/components/RestaurantSettingsRoutePages.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/RestaurantSettingsShell.test.tsx",
+      "tagged": 0,
+      "testTitles": 11,
+      "untagged": 11
+    },
+    {
+      "file": "tests/components/RestaurantSetupOverview.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/StaleBoundary.test.tsx",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/components/StatusTransitionAnimator.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/TableCardGrid.keyboard.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/TableInventoryClient.test.tsx",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/TeamSettingsComponents.test.tsx",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/components/useOpsDashboardBookingActions.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/useTableAssignment-smart-assign.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/components/VirtualizedAllTablesSection.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/workspace-progress.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/config/env-schema-target.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/config/link-config.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/config/observability-config.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/config/vercel-crons.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/e2e/guest-auth-pages.spec.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/e2e/guest-booking-manage.spec.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/e2e/guest-booking.spec.ts",
+      "tagged": 2,
+      "testTitles": 2,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/guest-dev-harnesses.spec.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/e2e/guest-mocked-api-coverage.spec.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/e2e/guest-portal-redirects.spec.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/e2e/guest-public-marketing.spec.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/e2e/guest-public-pages.spec.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/e2e/guest-receipt-pages.spec.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/e2e/guest-reserve-routes.spec.ts",
+      "tagged": 1,
+      "testTitles": 6,
+      "untagged": 5
+    },
+    {
+      "file": "tests/e2e/onboarding-routes.spec.ts",
+      "tagged": 2,
+      "testTitles": 5,
+      "untagged": 3
+    },
+    {
+      "file": "tests/e2e/ops-app-host-redirects.spec.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-authenticated-app-host.spec.ts",
+      "tagged": 4,
+      "testTitles": 4,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-capacity-tables.spec.ts",
+      "tagged": 3,
+      "testTitles": 3,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-customers-delivery.spec.ts",
+      "tagged": 3,
+      "testTitles": 3,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-email-delivery-dev-harness.spec.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/e2e/ops-gbp-dual-sync.spec.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-guests-dev-harness.spec.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/e2e/ops-restaurant-settings-command-center.spec.ts",
+      "tagged": 4,
+      "testTitles": 4,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-settings-team.spec.ts",
+      "tagged": 3,
+      "testTitles": 3,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ui-visual-routes.spec.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/guest/auth-aware-content.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/guest/booking-derivations.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/guest/booking-return-paths.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/guest/bookingDateTime.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/guest/guest-bookings-page-query-params.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/guest/guest-bookings-params.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/guest/guest-receipt-recovery-flow.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/guest/guest-view-models.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/guest/invite-page.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/guest/public-booking-message-pages.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/guest/public-booking-redirects.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/guest/public-booking-wizard-client.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/guest/public-bookings-page.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/guest/public-restaurants-pages.test.tsx",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/guest/reservationAdapter.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/hooks/fetchBookingsByContact.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/hooks/useCancelBooking.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/hooks/useCreateReservation.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/hooks/useGlobalShortcuts.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/hooks/useOpsDualSync.test.tsx",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/hooks/useOpsGoogleBusinessProfile.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/hooks/useUpdateBooking.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/hooks/useUpdateRestaurant.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/analytics-schema.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/analytics.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/auth/signin-redirect-guard.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/lib/calendar-event.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/csv-export.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/lib/customerHistory.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/lib/dual-sync-compare-field.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/lib/email-delivery/grouping.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/lib/email-delivery/search.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/lib/env.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/lib/logger-redaction.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/opsCustomersConstants.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/opsHref.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/lib/opsSession.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/password-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/posthog/error-filter.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/lib/posthog/pageview.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/lib/profile-server.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/lib/query-params.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/lib/query-persist.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/lib/restaurant-email-templates.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/lib/restaurant-settings-heading.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/lib/safe-local-path.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/security/safe-url.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/security/script-json.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/site-url.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/lib/sms-delivery-grouping.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/sms-delivery-sanitize.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/lib/sms-phone-redaction.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/supabase/realtime-client.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/lib/swrUiState.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/lib/twilio-sms.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/ops/buildOpsBookingsFilters.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/performance/qa-performance-smoke.test.ts",
+      "tagged": 1,
+      "testTitles": 9,
+      "untagged": 8
+    },
+    {
+      "file": "tests/qa/artifact-sanitizer.test.ts",
+      "tagged": 3,
+      "testTitles": 3,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/background-workers-command.test.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/capacity-tables-command.test.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/changed-path-selector.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/qa/ci-workflow.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/qa/cleanup-registry.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/qa/config.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/qa/customers-delivery-command.test.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/environment-remote-target.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/qa/environment.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/qa/gbp-dual-sync-command.test.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/guarded-command.test.ts",
+      "tagged": 5,
+      "testTitles": 5,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/luma-guard-baseline.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/qa/next-dev-lock.test.ts",
+      "tagged": 2,
+      "testTitles": 2,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/observability-privacy-command.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/qa/onboarding-command.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/qa/ops-auth-fixture.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/qa/performance-command.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/qa/playwright-config-guard.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/qa/pr-baseline.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/qa/rc-pack-command.test.ts",
+      "tagged": 1,
+      "testTitles": 6,
+      "untagged": 5
+    },
+    {
+      "file": "tests/qa/redaction-tags.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/qa/reserve-app-command.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/qa/run-id-artifacts.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/qa/secret-scan.test.ts",
+      "tagged": 1,
+      "testTitles": 5,
+      "untagged": 4
+    },
+    {
+      "file": "tests/qa/security-regression-command.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/qa/settings-team-command.test.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
+      "file": "tests/qa/tag-audit.test.ts",
+      "tagged": 3,
+      "testTitles": 8,
+      "untagged": 5
+    },
+    {
+      "file": "tests/qa/ui-regression-command.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/reserve/api-client.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/reserve/booking-formatting.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/reserve/buildReservationDraft.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/reserve/contactValidation.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/reserve/detailsFormSchema.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/reserve/mapErrorToMessage.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/reserve/occasion-availability.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/reserve/plan-step-advisory.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/reserve/reservation-config.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/reserve/reservation-schedule-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/reserve/review-step-capacity-error.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/reserve/service-slots.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/reserve/timeoutRecovery.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/reserve/useCreateOpsReservation.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/reserve/wizardDraftStorage.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/scripts/db-safety.test.ts",
+      "tagged": 0,
+      "testTitles": 27,
+      "untagged": 27
+    },
+    {
+      "file": "tests/scripts/destructive-script-atomicity.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/grant-restaurant-access-roles.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/perf-script-safety.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/restaurant-config-script-integrity.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/review-email-backfill-safety.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/sms-delivery-preview-deployment-check.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/scripts/sms-delivery-preview-webhook-check.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/sms-delivery-readiness.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/scripts/sms-delivery-staging-smoke.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/scripts/sms-delivery-staging-verify.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/scripts/sms-delivery-vercel-preview-audit.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/scripts/source-literal.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/scripts/vercel-preview-env-run.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/auth/callback-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/auth/magic-link-email.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/auth/password-confirmation.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/auth/signin-page-redirect-loop.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/auth/signin-route-magic-link-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/auth/signin-throttle.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/auth/signup-onboarding-route.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/availability-route-query-params.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/booking-sms-delivery-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/booking-validation-security.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/bookings-confirm-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/bookings-modification-flow.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/bookings-profile-consistency.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/bookings-recover-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/bookings/assignment-cleanup.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/bookings/booking-access.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/bookings/confirmation-notifications.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/bookings/manage-url.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/bookings/past-time-validation.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/bookings/short-link.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/bookings/timeValidation.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/bookings/waitingList.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/calendar-mask-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity-v2-utils.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/availability-status-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/booking-window-fallback.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/demand-profiles.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/direct-assignment-atomic.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/planner-cache-key.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/planner-reason.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/policy-retry.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/seatability.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/selector-fallback-reason.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/selector-merge-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/soft-holds-rpc-security.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/table-assignment-guards.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/capacity/table-assignment-unassign.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/client-error-route.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/cron-routes-auth.test.ts",
+      "tagged": 0,
+      "testTitles": 11,
+      "untagged": 11
+    },
+    {
+      "file": "tests/server/csrf-protected-mutations.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/customers.test.ts",
+      "tagged": 0,
+      "testTitles": 11,
+      "untagged": 11
+    },
+    {
+      "file": "tests/server/data-retention-security-source.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/deepsec-final-controls-source.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/delivery-reconciler.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/delivery-staleness.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/dual-sync-apply-core-write.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/dual-sync-auto-export-route.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-auto-export.test.ts",
+      "tagged": 0,
+      "testTitles": 15,
+      "untagged": 15
+    },
+    {
+      "file": "tests/server/dual-sync-business-context-import-ports.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-candidates-route.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-control-route.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-controls.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "tagged": 0,
+      "testTitles": 32,
+      "untagged": 32
+    },
+    {
+      "file": "tests/server/dual-sync-field-policy-versions.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-flags.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-food-menus-publish-port.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-google-audit.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-google-errors.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-google-request-log-retention.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-google-request-logs.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/dual-sync-google-safety.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-hashing.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-locks.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-metrics-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-notifications.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/server/dual-sync-operating-hours-import-port.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-operational-alerts.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-operational-metrics.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/dual-sync-operations-list.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-outbound-candidates.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/dual-sync-profile-import-port.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-publish-batches.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-publish-job-detail.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-publish-jobs-rollup.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "tagged": 0,
+      "testTitles": 25,
+      "untagged": 25
+    },
+    {
+      "file": "tests/server/dual-sync-publish-planner.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-publish-preflight.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-publish-preview-route.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-publish-route.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-queue-job-retry-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-queue-jobs-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-queue-jobs.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-queue-worker.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-recompute.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/dual-sync-refresh-food-menus.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-registry.test.ts",
+      "tagged": 0,
+      "testTitles": 14,
+      "untagged": 14
+    },
+    {
+      "file": "tests/server/dual-sync-replay-runner.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-scheduled-refresh.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-service-periods-import-port.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-snapshots-food-menus.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/dual-sync-state-compute.test.ts",
+      "tagged": 0,
+      "testTitles": 14,
+      "untagged": 14
+    },
+    {
+      "file": "tests/server/dual-sync-state-read.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/dual-sync-state-refresh-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/email-delivery-log-attempts.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/email-delivery-retry-route.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/email-processing-security.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/email-queue-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/emails/bookings-reply-to.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/emails/invitations.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/emails/sender-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/feature-flags.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info.test.ts",
+      "tagged": 0,
+      "testTitles": 15,
+      "untagged": 15
+    },
+    {
+      "file": "tests/server/google-business-profile-callback-route.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-client.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/google-business-profile-core-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-context.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 15,
+      "untagged": 15
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-storage.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-sync.test.ts",
+      "tagged": 0,
+      "testTitles": 18,
+      "untagged": 18
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus.test.ts",
+      "tagged": 0,
+      "testTitles": 23,
+      "untagged": 23
+    },
+    {
+      "file": "tests/server/google-business-profile-readonly-v1.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-service.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-sync-selection.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-rollback.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 17,
+      "untagged": 17
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow.test.ts",
+      "tagged": 0,
+      "testTitles": 20,
+      "untagged": 20
+    },
+    {
+      "file": "tests/server/guest-bookings-list-route.test.ts",
+      "tagged": 3,
+      "testTitles": 3,
+      "untagged": 0
+    },
+    {
+      "file": "tests/server/guest-profile-route.test.ts",
+      "tagged": 5,
+      "testTitles": 5,
+      "untagged": 0
+    },
+    {
+      "file": "tests/server/inline-auto-assign.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/jobs/auto-assign-retry-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/jobs/auto-complete-bookings.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/jobs/booking-side-effects.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/lead-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/menu-hierarchy-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/menu-hierarchy-types.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/onboarding-restaurant-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/ops-booking-checkout-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/ops-booking-lifecycle-route-context.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/ops-booking-lifecycle-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/ops-booking-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-booking-table-assignment-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-bookings-create-capacity.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/ops-bookings-create-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-bookings-list-route.test.ts",
+      "tagged": 2,
+      "testTitles": 4,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-bookings-page-query-params.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/ops-customers-export-route.test.ts",
+      "tagged": 4,
+      "testTitles": 4,
+      "untagged": 0
+    },
+    {
+      "file": "tests/server/ops-dashboard-changes-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-dashboard-summary-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/ops-restaurants-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/ops-table-delete-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/ops-tables-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-tables-timeline-route.test.ts",
+      "tagged": 4,
+      "testTitles": 4,
+      "untagged": 0
+    },
+    {
+      "file": "tests/server/ops/customers.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/password-confirmation.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/profile-route-idempotency.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/proxy-google-business-callback.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/public-booking-delete-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/public-booking-manage-token.test.ts",
+      "tagged": 4,
+      "testTitles": 4,
+      "untagged": 0
+    },
+    {
+      "file": "tests/server/public-booking-session-recovery-source.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/public-booking-update-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/public-bookings-route.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/qa-restaurant-fixtures.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/recipient-suppression.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/resend-webhook-route.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/resolve-service-role-supabase-url.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/restaurant-business-context-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/restaurant-business-context.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/restaurant-details-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/restaurant-email-template-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/restaurant-email-templates.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/restaurant-google-business-profile-core-sync-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/restaurant-google-business-profile-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/restaurant-google-business-v1-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 11,
+      "untagged": 11
+    },
+    {
+      "file": "tests/server/restaurant-schedule-replacements.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/restaurant-schedule-routes.test.ts",
+      "tagged": 5,
+      "testTitles": 5,
+      "untagged": 0
+    },
+    {
+      "file": "tests/server/restaurant-security-schema.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/restaurant-settings-layout-security.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/restaurant-visibility.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/restaurants/atomic-replacements.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/restaurants/create.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/restaurants/details.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/restaurants/schedule.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/security-events.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/security-request.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/security/session-recovery-access-token.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/security/turnstile.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/sms-delivery-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/sms/backfill.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/sms/bookings-observability.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/sms/bookings.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/sms/delivery-log.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/team-access-cache.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/team-invitations-security.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/server/tenant-authorization-sprint2.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/turn-bands.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/twilio-sms-status-webhook-route.test.ts",
+      "tagged": 0,
+      "testTitles": 11,
+      "untagged": 11
+    },
+    {
+      "file": "tests/services/menu-hierarchy-service.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/services/ops-tables-service.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/services/ops-team-service.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/utils/dashboardSummary.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/utils/datetime.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/utils/mapOpsDashboardBookingItemToBookingDTO.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/utils/realtimeInvalidation.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/utils/tableAssignmentPolicy.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    }
+  ],
+  "schemaVersion": 1,
+  "scanRoots": ["tests"],
+  "totals": {
+    "files": 415,
+    "tagged": 78,
+    "testTitles": 1762,
+    "unknownTags": 0,
+    "untagged": 1684
+  },
+  "unknownTags": []
+}

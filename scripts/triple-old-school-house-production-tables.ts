@@ -1,11 +1,11 @@
-import { randomUUID } from "crypto";
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from 'crypto';
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
 type RestaurantRow = {
   id: string;
@@ -31,7 +31,7 @@ type TableRow = {
   active: boolean | null;
 };
 
-type ClonedTableInsert = Omit<TableRow, "id"> & {
+type ClonedTableInsert = Omit<TableRow, 'id'> & {
   id: string;
   restaurant_id: string;
 };
@@ -43,26 +43,28 @@ type PlannedBatch = {
 };
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const defaultEnvPath = path.join(projectRoot, ".env.vercel-production.live");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const defaultEnvPath = path.join(projectRoot, '.env.vercel-production.live');
 
 if (fs.existsSync(defaultEnvPath)) {
   loadEnv({ path: defaultEnvPath, override: false });
 }
 
-const apply = process.env.APPLY === "true";
-const confirmProduction = process.env.CONFIRM_PRODUCTION === "true";
-const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || "vrdiqfudmwydclqpydee";
-const targetSlug = process.env.TARGET_SLUG?.trim() || "the-old-school-house";
-const expectedBaseCount = Number.parseInt(process.env.EXPECTED_BASE_COUNT?.trim() || "18", 10);
-const multiplier = Number.parseInt(process.env.MULTIPLIER?.trim() || "3", 10);
+const apply = process.env.APPLY === 'true';
+const confirmProduction = process.env.CONFIRM_PRODUCTION === 'true';
+const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || 'vrdiqfudmwydclqpydee';
+const targetSlug = process.env.TARGET_SLUG?.trim() || 'the-old-school-house';
+const expectedBaseCount = Number.parseInt(process.env.EXPECTED_BASE_COUNT?.trim() || '18', 10);
+const multiplier = Number.parseInt(process.env.MULTIPLIER?.trim() || '3', 10);
 
-const supabaseUrl = process.env.PRODUCTION_SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+const supabaseUrl =
+  process.env.PRODUCTION_SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
 const serviceRoleKey =
-  process.env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  process.env.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
 if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing production Supabase URL or service role key.");
+  console.error('Missing production Supabase URL or service role key.');
   process.exit(1);
 }
 
@@ -72,17 +74,17 @@ if (!supabaseUrl.includes(expectedProjectRef)) {
 }
 
 if (apply && !confirmProduction) {
-  console.error("CONFIRM_PRODUCTION=true is required to modify production data.");
+  console.error('CONFIRM_PRODUCTION=true is required to modify production data.');
   process.exit(1);
 }
 
 if (!Number.isInteger(expectedBaseCount) || expectedBaseCount <= 0) {
-  console.error("EXPECTED_BASE_COUNT must be a positive integer.");
+  console.error('EXPECTED_BASE_COUNT must be a positive integer.');
   process.exit(1);
 }
 
 if (!Number.isInteger(multiplier) || multiplier < 2) {
-  console.error("MULTIPLIER must be an integer greater than or equal to 2.");
+  console.error('MULTIPLIER must be an integer greater than or equal to 2.');
   process.exit(1);
 }
 
@@ -106,10 +108,10 @@ function numericTableNumberInfo(tableNumbers: string[]): { nextValue: number; wi
 }
 
 function padTableNumber(value: number, width: number): string {
-  return value.toString().padStart(width, "0");
+  return value.toString().padStart(width, '0');
 }
 
-function summarizeByCapacity(tables: Array<Pick<TableRow, "capacity">>): Record<string, number> {
+function summarizeByCapacity(tables: Array<Pick<TableRow, 'capacity'>>): Record<string, number> {
   return tables.reduce<Record<string, number>>((acc, table) => {
     const key = String(table.capacity);
     acc[key] = (acc[key] ?? 0) + 1;
@@ -117,16 +119,18 @@ function summarizeByCapacity(tables: Array<Pick<TableRow, "capacity">>): Record<
   }, {});
 }
 
-function isAdjacencyEligible(table: Pick<TableRow, "zone_id" | "active" | "capacity" | "status" | "mobility">): boolean {
+function isAdjacencyEligible(
+  table: Pick<TableRow, 'zone_id' | 'active' | 'capacity' | 'status' | 'mobility'>,
+): boolean {
   if (!table.zone_id) return false;
   if (table.active === false) return false;
   if ((table.capacity ?? 0) <= 0) return false;
 
-  const status = String(table.status ?? "available").toLowerCase();
-  if (status === "out_of_service" || status === "maintenance") return false;
+  const status = String(table.status ?? 'available').toLowerCase();
+  if (status === 'out_of_service' || status === 'maintenance') return false;
 
-  const mobility = String(table.mobility ?? "movable").toLowerCase();
-  return mobility === "movable" || mobility === "adjustable";
+  const mobility = String(table.mobility ?? 'movable').toLowerCase();
+  return mobility === 'movable' || mobility === 'adjustable';
 }
 
 function projectAdjacencyRows(tables: TableRow[] | ClonedTableInsert[]) {
@@ -150,9 +154,9 @@ function projectAdjacencyRows(tables: TableRow[] | ClonedTableInsert[]) {
 
 async function loadRestaurant(): Promise<RestaurantRow> {
   const { data, error } = await supabase
-    .from("restaurants")
-    .select("id,name,slug,capacity")
-    .eq("slug", targetSlug)
+    .from('restaurants')
+    .select('id,name,slug,capacity')
+    .eq('slug', targetSlug)
     .maybeSingle();
 
   if (error) {
@@ -168,10 +172,12 @@ async function loadRestaurant(): Promise<RestaurantRow> {
 
 async function loadTables(restaurantId: string): Promise<TableRow[]> {
   const { data, error } = await supabase
-    .from("table_inventory")
-    .select("id,zone_id,table_number,capacity,min_party_size,max_party_size,section,status,position,notes,category,seating_type,mobility,active")
-    .eq("restaurant_id", restaurantId)
-    .order("table_number", { ascending: true });
+    .from('table_inventory')
+    .select(
+      'id,zone_id,table_number,capacity,min_party_size,max_party_size,section,status,position,notes,category,seating_type,mobility,active',
+    )
+    .eq('restaurant_id', restaurantId)
+    .order('table_number', { ascending: true });
 
   if (error) {
     throw new Error(`Failed to load tables: ${error.message}`);
@@ -210,12 +216,12 @@ function buildClonePlan(restaurantId: string, baseTables: TableRow[]) {
         min_party_size: table.min_party_size,
         max_party_size: table.max_party_size,
         section: table.section,
-        status: table.status ?? "available",
+        status: table.status ?? 'available',
         position: table.position ?? null,
         notes: table.notes,
-        category: table.category ?? "dining",
-        seating_type: table.seating_type ?? "standard",
-        mobility: table.mobility ?? "fixed",
+        category: table.category ?? 'dining',
+        seating_type: table.seating_type ?? 'standard',
+        mobility: table.mobility,
         active: table.active ?? true,
       });
 
@@ -234,16 +240,26 @@ function buildClonePlan(restaurantId: string, baseTables: TableRow[]) {
 }
 
 async function verifyState(restaurantId: string) {
-  const [{ count: total, error: totalError }, { count: active, error: activeError }, { data: tables, error: tableError }] =
-    await Promise.all([
-      supabase.from("table_inventory").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
-      supabase.from("table_inventory").select("id", { count: "exact", head: true }).eq("restaurant_id", restaurantId).eq("active", true),
-      supabase
-        .from("table_inventory")
-        .select("id,capacity")
-        .eq("restaurant_id", restaurantId)
-        .order("table_number", { ascending: true }),
-    ]);
+  const [
+    { count: total, error: totalError },
+    { count: active, error: activeError },
+    { data: tables, error: tableError },
+  ] = await Promise.all([
+    supabase
+      .from('table_inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId),
+    supabase
+      .from('table_inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', restaurantId)
+      .eq('active', true),
+    supabase
+      .from('table_inventory')
+      .select('id,capacity')
+      .eq('restaurant_id', restaurantId)
+      .order('table_number', { ascending: true }),
+  ]);
 
   if (totalError) throw new Error(`Failed to verify total tables: ${totalError.message}`);
   if (activeError) throw new Error(`Failed to verify active tables: ${activeError.message}`);
@@ -252,10 +268,10 @@ async function verifyState(restaurantId: string) {
   const tableIds = (tables ?? []).map((row) => row.id as string);
   const { count: adjacencyCount, error: adjacencyError } = tableIds.length
     ? await supabase
-        .from("table_adjacencies")
-        .select("table_a", { count: "exact", head: true })
-        .in("table_a", tableIds)
-        .in("table_b", tableIds)
+        .from('table_adjacencies')
+        .select('table_a', { count: 'exact', head: true })
+        .in('table_a', tableIds)
+        .in('table_b', tableIds)
     : { count: 0, error: null };
 
   if (adjacencyError) {
@@ -266,16 +282,22 @@ async function verifyState(restaurantId: string) {
     totalTables: total ?? 0,
     activeTables: active ?? 0,
     adjacencyRows: adjacencyCount ?? 0,
-    byCapacity: summarizeByCapacity((tables ?? []) as Array<Pick<TableRow, "capacity">>),
+    byCapacity: summarizeByCapacity((tables ?? []) as Array<Pick<TableRow, 'capacity'>>),
   };
 }
 
 async function deleteInsertedTables(insertedTableIds: string[]): Promise<void> {
   if (insertedTableIds.length === 0) return;
 
-  const { error: tableDeleteError } = await supabase.from("table_inventory").delete().in("id", insertedTableIds);
+  const { error: tableDeleteError } = await supabase
+    .from('table_inventory')
+    .delete()
+    .in('id', insertedTableIds);
   if (tableDeleteError) {
-    console.error("[triple-old-school-house-production-tables] cleanup table delete failed", tableDeleteError.message);
+    console.error(
+      '[triple-old-school-house-production-tables] cleanup table delete failed',
+      tableDeleteError.message,
+    );
   }
 }
 
@@ -287,7 +309,7 @@ async function main(): Promise<void> {
     console.log(
       JSON.stringify(
         {
-          status: "already-at-target",
+          status: 'already-at-target',
           restaurant,
           targetCount,
           multiplier,
@@ -312,7 +334,7 @@ async function main(): Promise<void> {
   const finalAdjacencyProjection = projectAdjacencyRows(projectedFinalTables);
 
   const dryRunOutput = {
-    status: apply ? "apply-requested" : "dry-run",
+    status: apply ? 'apply-requested' : 'dry-run',
     restaurant,
     expectedBaseCount,
     multiplier,
@@ -338,23 +360,31 @@ async function main(): Promise<void> {
 
   const insertedTableIds = clonePlan.clonedTables.map((table) => table.id);
 
+  let verified: Awaited<ReturnType<typeof verifyState>>;
   try {
-    const { error: tableInsertError } = await supabase.from("table_inventory").insert(clonePlan.clonedTables);
+    const { error: tableInsertError } = await supabase
+      .from('table_inventory')
+      .insert(clonePlan.clonedTables);
     if (tableInsertError) {
       throw new Error(`Failed to insert cloned tables: ${tableInsertError.message}`);
+    }
+
+    verified = await verifyState(restaurant.id);
+    if (verified.adjacencyRows !== finalAdjacencyProjection.totalRows) {
+      throw new Error(
+        `Failed to verify adjacency rows: expected ${finalAdjacencyProjection.totalRows}, received ${verified.adjacencyRows}.`,
+      );
     }
   } catch (error) {
     await deleteInsertedTables(insertedTableIds);
     throw error;
   }
 
-  const verified = await verifyState(restaurant.id);
-
   console.log(
     JSON.stringify(
       {
         ...dryRunOutput,
-        status: "applied",
+        status: 'applied',
         insertedTableIds,
         verified,
       },

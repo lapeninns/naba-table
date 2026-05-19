@@ -4,6 +4,31 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const availabilityState = vi.hoisted(() => ({
+  detailsQuery: {
+    data: {
+      id: 'rest-1',
+      name: 'Old Crown Girton',
+      slug: 'old-crown-girton',
+      timezone: 'Europe/London',
+      contactEmail: 'ops@example.com',
+      contactPhone: '+441223277217',
+      address: '1 High Street',
+      businessDescription: null,
+      managerDailySummaryEnabled: false,
+      managerNotificationPhone: null,
+      googleMapUrl: null,
+      googleReviewUrl: null,
+      bookingPolicy: null,
+      reservationIntervalMinutes: 15,
+      reservationDefaultDurationMinutes: 90,
+      reservationLastSeatingBufferMinutes: 15,
+      reservationLifecycleGraceMinutes: 15,
+      updatedAt: null,
+    },
+    error: null as Error | null,
+    isLoading: false,
+    refetch: vi.fn(),
+  },
   occasionService: {
     createOccasion: vi.fn(),
   },
@@ -39,6 +64,11 @@ const availabilityState = vi.hoisted(() => ({
     isPending: false,
     mutateAsync: vi.fn(),
   },
+  updateDetails: {
+    isPending: false,
+    mutateAsync: vi.fn(),
+  },
+  gbpFields: [] as unknown[],
 }));
 
 vi.mock('@/contexts/ops-services', () => ({
@@ -72,6 +102,23 @@ vi.mock('@/hooks/ops/useOpsTurnBands', () => ({
   useOpsUpdateTurnBands: () => availabilityState.updateTurnBands,
 }));
 
+vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
+  useOpsRestaurantDetails: () => availabilityState.detailsQuery,
+  useOpsUpdateRestaurantDetails: () => availabilityState.updateDetails,
+}));
+
+vi.mock('@/hooks/ops/useOpsDualSync', () => ({
+  useOpsDualSync: () => ({
+    stateQuery: {
+      data: { fields: availabilityState.gbpFields },
+      error: null,
+      isError: false,
+      isLoading: false,
+    },
+  }),
+}));
+
+import { AvailabilityOccasionsCommandCenter } from '@/components/features/restaurant-settings/AvailabilityOccasionsCommandCenter';
 import {
   buildAvailabilityRules,
   createRuleDraft,
@@ -85,6 +132,7 @@ import {
   buildOperatingHoursPayload,
   buildMissingRequiredOccasions,
   buildWeeklyHoursMap,
+  defaultOverrideRow,
   extractRequiredOccasionKeys,
   formatKitchenRange,
   mapOverridesFromResponse,
@@ -191,7 +239,10 @@ function setReadyAvailabilityState({
   availabilityState.turnBandsQuery.isLoading = false;
 }
 
-function renderManager(restaurantId: string | null = 'rest-1') {
+function renderManager(
+  restaurantId: string | null = 'rest-1',
+  activeWorkspace: 'schedule' | 'booking-types' = 'schedule',
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
@@ -201,13 +252,55 @@ function renderManager(restaurantId: string | null = 'rest-1') {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <AvailabilityScheduleManager restaurantId={restaurantId} />
+      <AvailabilityScheduleManager restaurantId={restaurantId} activeWorkspace={activeWorkspace} />
+    </QueryClientProvider>,
+  );
+}
+
+function renderCommandCenter(
+  restaurantId: string | null = 'rest-1',
+  initialWorkspace: 'rules' | 'schedule' | 'booking-types' = 'rules',
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, refetchOnWindowFocus: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AvailabilityOccasionsCommandCenter
+        restaurantId={restaurantId}
+        initialWorkspace={initialWorkspace}
+      />
     </QueryClientProvider>,
   );
 }
 
 describe('AvailabilityScheduleManager', () => {
   beforeEach(() => {
+    window.history.replaceState(null, '', '/app/settings/restaurant/availability');
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    availabilityState.detailsQuery.error = null;
+    availabilityState.detailsQuery.isLoading = false;
+    availabilityState.detailsQuery.refetch.mockReset();
+    availabilityState.updateDetails.isPending = false;
+    availabilityState.updateDetails.mutateAsync.mockReset();
+    availabilityState.gbpFields = [];
     availabilityState.occasionService.createOccasion.mockReset();
     availabilityState.occasionService.createOccasion.mockImplementation(async (input) =>
       buildOccasion({
@@ -227,6 +320,41 @@ describe('AvailabilityScheduleManager', () => {
     availabilityState.updateTurnBands.isPending = false;
     availabilityState.updateTurnBands.mutateAsync.mockReset();
     setReadyAvailabilityState();
+  });
+
+  it('renders booking rule groups for guest grid and service cutoffs', async () => {
+    renderCommandCenter();
+
+    expect((await screen.findAllByText('Booking rules')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Guest booking grid')).toBeInTheDocument();
+    expect(screen.getByText('Service cutoffs')).toBeInTheDocument();
+    expect(screen.getByText('Guest-facing policy')).toBeInTheDocument();
+    expect(screen.getByText('Saves booking slot spacing and policy only.')).toBeInTheDocument();
+  });
+
+  it('scrolls to availability-schedule when initialWorkspace is schedule', async () => {
+    const scrollIntoView = vi.fn();
+    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      writable: true,
+      value: requestAnimationFrame,
+    });
+    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame);
+    globalThis.requestAnimationFrame = requestAnimationFrame;
+    Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    window.history.replaceState({}, '', '/app/settings/restaurant/availability');
+
+    renderCommandCenter('rest-1', 'schedule');
+
+    expect(document.getElementById('availability-schedule')).toBeInTheDocument();
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
   it('renders the no-restaurant state without loading editors', () => {
@@ -260,13 +388,15 @@ describe('AvailabilityScheduleManager', () => {
   it('renders the ready schedule editor with save controls disabled until edits exist', async () => {
     renderManager();
 
-    expect(await screen.findByText('How this command center works')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Operating hours and service windows together'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Weekly schedule' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Date overrides' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save configuration' })).toBeDisabled();
     expect(
       screen.getByRole('button', { name: 'Save configuration' }).closest('.sticky'),
-    ).toHaveClass('bottom-0');
+    ).toHaveClass('bottom-0', 'backdrop-blur-md', 'supports-[backdrop-filter]:bg-background/90');
     expect(screen.getByText(/Turn times per party size/i).parentElement).toHaveClass(
       'rounded-md',
       'bg-muted/20',
@@ -274,6 +404,47 @@ describe('AvailabilityScheduleManager', () => {
     expect(
       screen.queryByText('Lunch and dinner booking types are required'),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders the booking-types workspace without the schedule tabs', async () => {
+    renderManager('rest-1', 'booking-types');
+
+    expect(await screen.findByText('Booking types and turn times')).toBeInTheDocument();
+    expect(screen.getByText(/Booking types control guest choices/i)).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Weekly schedule' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Date overrides' })).not.toBeInTheDocument();
+  });
+
+  it('shows Google review badges for drifted weekly hours', async () => {
+    availabilityState.gbpFields = [
+      {
+        fieldKey: 'operatingHours.weekly.1',
+        sectionKey: 'operatingHours',
+        kind: 'operatingHours.weekly',
+        label: 'Monday hours',
+        helpText: null,
+        conflictPolicy: 'manual',
+        deletePolicy: 'manual',
+        policy: {},
+        importable: true,
+        exportable: true,
+        sortOrder: 1,
+        coreValue: {},
+        gbpValue: {},
+        coreCanonicalHash: 'core',
+        gbpCanonicalHash: 'gbp',
+        capability: { canImport: true, canExport: true, canIgnore: true, blockedReasons: [] },
+        state: 'gbp_dirty',
+        lastInSyncAt: null,
+        lastInSyncHash: null,
+        lastCoreChangeAt: null,
+        lastGbpChangeAt: null,
+        openCandidate: null,
+      },
+    ];
+    renderManager('rest-1', 'schedule');
+
+    expect(await screen.findAllByLabelText(/Google review/i)).not.toHaveLength(0);
   });
 
   it('creates missing lunch and dinner occasions and reports success', async () => {
@@ -412,6 +583,25 @@ describe('availability schedule manager model', () => {
       id: 'override-1',
       reservationSlotTimes: ['12:00', '12:30'],
     });
+  });
+
+  it('creates stable UUIDs for new operating-hours override drafts', () => {
+    const first = defaultOverrideRow();
+    const second = defaultOverrideRow();
+
+    expect(first.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(second.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(first.id).not.toBe(second.id);
+
+    const payload = buildOperatingHoursPayload(
+      mapWeeklyFromResponse(buildOperatingHours().weekly),
+      [first],
+    );
+    expect(payload.overrides[0]?.id).toBe(first.id);
   });
 
   it('validates service window helpers and kitchen range labels', () => {

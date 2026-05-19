@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server';
 import { buildCsrfCookieOptions, CSRF_COOKIE_NAME } from '@/lib/security/csrf';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { requireOpsAuth } from '@/server/auth/ops-guard';
+import {
+  QA_OPS_AUTH_COOKIE_NAME,
+  QA_OPS_USER_ID,
+  isQaOpsAuthFixtureAllowed,
+} from '@/server/auth/qa-ops-session';
 import { getMiddlewareSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -100,16 +105,27 @@ function buildRedirect(
 ) {
   const base = `${req.nextUrl.protocol}//${targetHost}`;
   const suffix = searchParams ? `?${searchParams}` : '';
-  const url = new URL(`${pathname}${suffix}`, base);
-  const response = NextResponse.redirect(url, status);
-  // Ensure cross-host redirects are absolute for clarity and correctness.
-  response.headers.set('location', url.toString());
-  return response;
+  const safePathname = normalizeProxyRedirectPath(pathname);
+  const destination = new URL(`${safePathname}${suffix}`, base).toString();
+  // Use an explicit Location header so Next does not rewrite cross-host redirects
+  // into same-host relative paths (which loops on app.localhost guest routes).
+  return new NextResponse(null, {
+    status,
+    headers: {
+      Location: destination,
+    },
+  });
 }
 
 function stripLeadingAppPrefix(pathname: string) {
   const next = pathname.replace(/^\/app(\/|$)/, '/');
-  return next === '' ? '/' : next;
+  return normalizeProxyRedirectPath(next);
+}
+
+function normalizeProxyRedirectPath(pathname: string) {
+  if (!pathname || /\\|%5c/i.test(pathname)) return '/';
+  const normalized = pathname.startsWith('/') ? pathname.replace(/^\/+/, '/') : `/${pathname}`;
+  return normalized || '/';
 }
 
 function isPublicRestaurantSchedulePath(pathname: string) {
@@ -169,6 +185,16 @@ async function runOpsAuthWithTrustedHeader(
   buildResponse: (init: { request: { headers: Headers } }) => NextResponse,
 ): Promise<NextResponse> {
   const headers = buildTrustedRequestHeaders(req);
+  if (
+    isQaOpsAuthFixtureAllowed({
+      cookieValue: req.cookies.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+      host: req.headers.get('host') ?? req.nextUrl.host,
+    })
+  ) {
+    headers.set(TRUSTED_OPS_USER_HEADER, QA_OPS_USER_ID);
+    return buildResponse({ request: { headers } });
+  }
+
   const workingResponse = buildResponse({ request: { headers } });
   const guardResult = await requireOpsAuth(req, workingResponse);
   if (guardResult instanceof NextResponse) {
@@ -192,8 +218,6 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     return NextResponse.next();
   }
 
-  console.log(`[Proxy] Host: ${host}, Path: ${url.pathname}, isApp: ${isApp}`);
-
   const rootHost = buildHostWithPort(rootDomain, port);
   const appHost = buildHostWithPort(`app.${rootDomain}`, port);
 
@@ -202,8 +226,16 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     // RESTAURANT-FACING SUBDOMAIN (app.localhost / app.domain.com)
     // ─────────────────────────────────────────────────────────────────────
 
-    // 1. Redirect guest routes to root domain - guests shouldn't be on app subdomain
+    // 1. Guest routes live outside /app/* — rewrite in dev/proxy (redirect loops when
+    // Next relativizes cross-host Location headers onto app.localhost).
     if (url.pathname.startsWith('/guest')) {
+      if (rootDomain === 'localhost') {
+        const rewriteUrl = new URL(
+          `${url.pathname}${searchParams ? `?${searchParams}` : ''}`,
+          req.url,
+        );
+        return NextResponse.rewrite(rewriteUrl);
+      }
       return buildRedirect(req, rootHost, url.pathname, searchParams);
     }
 
@@ -211,6 +243,13 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     if (url.pathname.startsWith('/app')) {
       const stripped = stripLeadingAppPrefix(url.pathname);
       if (stripped === '/guest' || stripped.startsWith('/guest/')) {
+        if (rootDomain === 'localhost') {
+          const rewriteUrl = new URL(
+            `${stripped}${searchParams ? `?${searchParams}` : ''}`,
+            req.url,
+          );
+          return NextResponse.rewrite(rewriteUrl);
+        }
         return buildRedirect(req, rootHost, stripped, searchParams);
       }
       return buildRedirect(req, host, stripped, searchParams);
@@ -266,6 +305,15 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     // 6. All other page routes are restaurant pages - rewrite to /app/* and require auth
     const internalPath = `/app${url.pathname}${searchParams ? `?${searchParams}` : ''}`;
     const rewriteResponse = NextResponse.rewrite(new URL(internalPath, req.url));
+
+    if (
+      isQaOpsAuthFixtureAllowed({
+        cookieValue: req.cookies.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+        host,
+      })
+    ) {
+      return rewriteResponse;
+    }
 
     // Check authentication for protected restaurant pages
     const supabase = getMiddlewareSupabaseClient(req, rewriteResponse);

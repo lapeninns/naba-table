@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 
+import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { createRestaurant, listRestaurantsForOps } from '@/server/restaurants';
 import { upsertRestaurantBusinessDescription } from '@/server/restaurants/details';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import {
@@ -112,23 +114,21 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error('[ops/restaurants][POST] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+  const authorization = await withPlatformAdminAuthorization(req, { csrf: true });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const rateLimitResponse = await requireApiRateLimit({
+    request: req,
+    scope: 'ops.restaurants.create',
+    limit: 10,
+    windowMs: 60_000,
+    userId: authorization.user.id,
+    message: 'Too many restaurant creation attempts',
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   let body: unknown;
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
         reservationLastSeatingBufferMinutes: input.reservationLastSeatingBufferMinutes,
         reservationLifecycleGraceMinutes: input.reservationLifecycleGraceMinutes,
       },
-      user.id,
+      authorization.user.id,
       serviceSupabase,
     );
     const businessDescription =

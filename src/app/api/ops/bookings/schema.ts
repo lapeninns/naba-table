@@ -1,6 +1,8 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-import { isEmail, isUKPhone } from "@reserve/shared/validation";
+import { isEmail, isUKPhone } from '@reserve/shared/validation';
+
+const POSTGREST_FILTER_CONTROL_CHARS = /[",()]/;
 
 const optionalEmailSchema = z
   .union([
@@ -8,7 +10,10 @@ const optionalEmailSchema = z
       .string()
       .trim()
       .refine((value) => !value || isEmail(value), {
-        message: "Please enter a valid email address.",
+        message: 'Please enter a valid email address.',
+      })
+      .refine((value) => !value || !POSTGREST_FILTER_CONTROL_CHARS.test(value), {
+        message: 'Please enter a valid email address.',
       })
       .transform((value) => (value ? value : null)),
     z.null().transform((): null => null),
@@ -22,7 +27,7 @@ const optionalPhoneSchema = z
       .string()
       .trim()
       .refine((value) => !value || isUKPhone(value), {
-        message: "Please enter a valid phone number.",
+        message: 'Please enter a valid phone number.',
       })
       .transform((value) => (value ? value : null)),
     z.null().transform((): null => null),
@@ -36,18 +41,18 @@ const overrideSchema = z
     reason: z
       .string()
       .trim()
-      .max(500, { message: "Override reason must be 500 characters or fewer." })
+      .max(500, { message: 'Override reason must be 500 characters or fewer.' })
       .optional()
       .nullable(),
   })
   .superRefine((value, ctx) => {
     if (value.apply) {
-      const reason = value.reason?.trim() ?? "";
+      const reason = value.reason?.trim() ?? '';
       if (reason.length < 3) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["reason"],
-          message: "Override reason must be at least 3 characters when applying override.",
+          path: ['reason'],
+          message: 'Override reason must be at least 3 characters when applying override.',
         });
       }
     }
@@ -59,7 +64,7 @@ export const opsWalkInBookingSchema = z
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     time: z.string().regex(/^\d{2}:\d{2}$/),
     party: z.number().int().min(1),
-    bookingType: z.enum(["lunch", "dinner"]),
+    bookingType: z.enum(['lunch', 'dinner']),
     seating: z.string().min(1),
     notes: z.string().max(500).optional().nullable(),
     name: z.string().min(2).max(120),
@@ -70,20 +75,22 @@ export const opsWalkInBookingSchema = z
   })
   .superRefine((data, ctx) => {
     // At least one contact method (email or phone) is required
-    const hasEmail = data.email !== null && data.email !== undefined && data.email.trim().length > 0;
-    const hasPhone = data.phone !== null && data.phone !== undefined && data.phone.trim().length > 0;
+    const hasEmail =
+      data.email !== null && data.email !== undefined && data.email.trim().length > 0;
+    const hasPhone =
+      data.phone !== null && data.phone !== undefined && data.phone.trim().length > 0;
 
     if (!hasEmail && !hasPhone) {
       // Add error to both fields so the UI can highlight them
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["email"],
-        message: "Please provide at least one contact method (email or phone).",
+        path: ['email'],
+        message: 'Please provide at least one contact method (email or phone).',
       });
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["phone"],
-        message: "Please provide at least one contact method (email or phone).",
+        path: ['phone'],
+        message: 'Please provide at least one contact method (email or phone).',
       });
     }
   });

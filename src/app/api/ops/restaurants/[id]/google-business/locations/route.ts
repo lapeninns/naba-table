@@ -19,15 +19,14 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 
   const forceRefresh = safeBool(req.nextUrl.searchParams, 'refresh', false);
-  if (forceRefresh) {
-    const rateLimit = await requireProviderRefreshBudget({
-      provider: 'google_business_profile',
-      restaurantId: resolved.restaurantId,
-      action: 'location-discovery',
-    });
-    if (rateLimit) {
-      return rateLimit;
-    }
+  const rateLimit = await requireProviderRefreshBudget({
+    provider: 'google_business_profile',
+    restaurantId: resolved.restaurantId,
+    action: forceRefresh ? 'location-discovery-refresh' : 'location-discovery-read',
+    limit: forceRefresh ? undefined : 30,
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {

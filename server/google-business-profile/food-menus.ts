@@ -1724,17 +1724,67 @@ function isOptionItemIdentity(identity: GoogleFoodMenusProjectedIdentity): boole
   return identity.projectionKind === 'option_item' || identity.stableKey.includes('.optionItem.');
 }
 
+type PreviousIdentityLookup = {
+  readonly match: { item: ImportLocalItem; isProjectedOptionItem: boolean } | null;
+  readonly warning: string | null;
+};
+
+function previousIdentityMatchesGoogleRow(input: {
+  readonly identity: GoogleFoodMenusProjectedIdentity;
+  readonly googleSectionLabel: string | null;
+  readonly googleItemName: string | null;
+}): boolean {
+  const identitySection = normalizeComparableText(input.identity.sectionLabel);
+  const googleSection = normalizeComparableText(input.googleSectionLabel);
+  const identityName = normalizeComparableText(input.identity.itemName);
+  const googleName = normalizeComparableText(input.googleItemName);
+  if (!identitySection || !googleSection || identitySection !== googleSection) {
+    return false;
+  }
+  if (!identityName || !googleName || identityName !== googleName) {
+    return false;
+  }
+  if (isOptionItemIdentity(input.identity)) {
+    return true;
+  }
+  return true;
+}
+
 function findLocalItemByPreviousIdentity(
   googlePath: string,
   localItemsById: Map<string, ImportLocalItem>,
   previousIdentities: ReadonlyArray<GoogleFoodMenusProjectedIdentity>,
-): { item: ImportLocalItem; isProjectedOptionItem: boolean } | null {
+  googleSectionLabel: string | null,
+  googleItemName: string | null,
+): PreviousIdentityLookup {
   const identity = previousIdentities.find((entry) => entry.googlePath === googlePath);
   if (!identity) {
-    return null;
+    return { match: null, warning: null };
   }
   const item = localItemsById.get(identity.localItemId);
-  return item ? { item, isProjectedOptionItem: isOptionItemIdentity(identity) } : null;
+  if (!item) {
+    return {
+      match: null,
+      warning: 'Previous FoodMenus identity points to a local item that no longer exists.',
+    };
+  }
+  if (
+    !previousIdentityMatchesGoogleRow({
+      identity,
+      googleSectionLabel,
+      googleItemName,
+    })
+  ) {
+    return {
+      match: null,
+      warning:
+        'Previous FoodMenus identity no longer matches this Google row; match by section, name, and price before applying changes.',
+    };
+  }
+  return {
+    match: { item, isProjectedOptionItem: isOptionItemIdentity(identity) },
+    warning: null,
+  };
 }
 
 function findLocalItemByDisplayMatch(
@@ -2096,13 +2146,15 @@ export function buildGoogleFoodMenusImportReview(
         const googleItemName = cleanText(getPrimaryLabel(googleItem.labels)?.displayName);
         const googlePrice = googleMoneyToNumber(googleItem.attributes.price);
         const warnings: string[] = [];
-        const previousIdentityMatch = findLocalItemByPreviousIdentity(
+        const previousIdentityLookup = findLocalItemByPreviousIdentity(
           googlePath,
           localItemsById,
           input.previousIdentities ?? [],
+          googleSectionLabel,
+          googleItemName,
         );
-        let localItem = previousIdentityMatch?.item ?? null;
-        const isProjectedOptionItem = previousIdentityMatch?.isProjectedOptionItem ?? false;
+        let localItem = previousIdentityLookup.match?.item ?? null;
+        const isProjectedOptionItem = previousIdentityLookup.match?.isProjectedOptionItem ?? false;
         let confidence: GoogleFoodMenusImportMatchConfidence = localItem
           ? 'previous_identity'
           : 'none';
@@ -2132,6 +2184,9 @@ export function buildGoogleFoodMenusImportReview(
         }
 
         if (!localItem || confidence === 'none') {
+          if (previousIdentityLookup.warning) {
+            warnings.push(previousIdentityLookup.warning);
+          }
           const suggestedPatch = buildCreateSuggestedPatch(
             googleSectionLabel,
             googleItem,

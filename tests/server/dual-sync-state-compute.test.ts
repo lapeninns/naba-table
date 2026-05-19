@@ -175,6 +175,33 @@ describe('dual-sync computeFieldState', () => {
     ).toBe('core_dirty');
   });
 
+  it('surfaces conflict instead of stale pending or failed overlays when both sides moved', () => {
+    for (const previousState of ['pending_export', 'export_failed'] as const) {
+      expect(
+        computeFieldState({
+          conflictPolicy: 'manual',
+          coreHash: 'core-new',
+          gbpHash: 'gbp-new',
+          lastInSyncHash: 'old',
+          previousState,
+          previousCoreHash: 'core-chosen',
+        }),
+      ).toBe('conflict');
+    }
+    for (const previousState of ['pending_import', 'import_failed'] as const) {
+      expect(
+        computeFieldState({
+          conflictPolicy: 'manual',
+          coreHash: 'core-new',
+          gbpHash: 'gbp-new',
+          lastInSyncHash: 'old',
+          previousState,
+          previousGbpHash: 'gbp-chosen',
+        }),
+      ).toBe('conflict');
+    }
+  });
+
   it('clears overlays once both sides converge', () => {
     expect(
       computeFieldState({

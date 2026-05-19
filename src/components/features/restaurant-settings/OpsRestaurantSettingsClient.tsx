@@ -1,14 +1,17 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { opsHref } from '@/lib/url/opsHref';
 
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
+import type { AvailabilitySettingsWorkspace } from './routes';
 import type { RestaurantSettingsView } from './types';
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 
@@ -62,17 +65,17 @@ const AvailabilitySkeleton = () => (
   </div>
 );
 
-const RestaurantSetupOverview = dynamic(
-  () => import('./RestaurantSetupOverview').then((m) => m.RestaurantSetupOverview),
-  {
-    loading: () => <SettingsSectionSkeleton title="Loading setup overview" />,
-  },
-);
-
 const RestaurantProfileSection = dynamic(
   () => import('./RestaurantProfileSection').then((m) => m.RestaurantProfileSection),
   {
     loading: () => <SettingsSectionSkeleton title="Loading profile" />,
+  },
+);
+
+const RestaurantBusinessContextSection = dynamic(
+  () => import('./RestaurantBusinessContextSection').then((m) => m.RestaurantBusinessContextSection),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading discovery details" />,
   },
 );
 
@@ -143,14 +146,20 @@ const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
   view: RestaurantSettingsView;
+  availabilityWorkspace?: AvailabilitySettingsWorkspace;
 };
 
 export function OpsRestaurantSettingsClient({
   defaultRestaurantId,
   view,
+  availabilityWorkspace,
 }: OpsRestaurantSettingsClientProps) {
-  const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
+  const {
+    memberships,
+    activeRestaurantId,
+    restaurantId: selectedRestaurantId,
+    setActiveRestaurantId,
+  } = useRestaurantSettingsContext();
 
   useEffect(() => {
     if (activeRestaurantId) {
@@ -176,13 +185,6 @@ export function OpsRestaurantSettingsClient({
     );
   }
 
-  const selectedMembership =
-    activeMembership ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId) ??
-    memberships[0] ??
-    null;
-
-  const selectedRestaurantId = selectedMembership?.restaurantId ?? null;
   const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
   const hasSyncWorkspace = Boolean(dualSyncSections && selectedRestaurantId);
 
@@ -190,8 +192,13 @@ export function OpsRestaurantSettingsClient({
     RestaurantSettingsView,
     (context: { restaurantId: string | null }) => ReactNode
   > = {
-    overview: ({ restaurantId }) => <RestaurantSetupOverview restaurantId={restaurantId} />,
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
+    discovery: ({ restaurantId }) => (
+      <RestaurantBusinessContextSection
+        restaurantId={restaurantId}
+        embedded={false}
+      />
+    ),
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection
         restaurantId={restaurantId}
@@ -199,7 +206,10 @@ export function OpsRestaurantSettingsClient({
       />
     ),
     availability: ({ restaurantId }) => (
-      <AvailabilityOccasionsCommandCenter restaurantId={restaurantId} />
+      <AvailabilityOccasionsCommandCenter
+        restaurantId={restaurantId}
+        initialWorkspace={availabilityWorkspace}
+      />
     ),
     menu: () => <OpsMenuManagementClient />,
     tables: () => <TableInventoryClient />,
@@ -211,6 +221,25 @@ export function OpsRestaurantSettingsClient({
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
       {dualSyncSections && selectedRestaurantId ? (
         <div id="gbp-sync-review" className="scroll-mt-24">
+          {view === 'google-business-profile' ? (
+            <div className="mb-3 rounded-md border border-border/70 bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Compare Google vs saved Nabatable fields. Edits to values still happen on{' '}
+              <Link
+                href={opsHref('/settings/restaurant/profile#profile-contact')}
+                className="font-medium text-foreground underline"
+              >
+                Profile
+              </Link>{' '}
+              or{' '}
+              <Link
+                href={opsHref('/settings/restaurant/availability#availability-schedule')}
+                className="font-medium text-foreground underline"
+              >
+                Availability
+              </Link>
+              .
+            </div>
+          ) : null}
           <DualSyncShell
             restaurantId={selectedRestaurantId}
             sections={dualSyncSections}

@@ -8,6 +8,16 @@ Run locally with:
 pnpm run security:regression
 ```
 
+Sprint QA entrypoint:
+
+```bash
+pnpm run qa:security-regression
+```
+
+The QA entrypoint runs the regression pack and then `pnpm run security:guard:service-role` so
+new service-role route handlers remain blocked unless they have a detected route-level guard or a
+reviewed baseline exception.
+
 CI runs the pack from `.github/workflows/security-guards.yml` on pull requests touching route handlers, auth/security helpers, server helpers, migrations, schemas, security scripts, or the security docs.
 
 ## Pack Coverage

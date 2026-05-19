@@ -20,7 +20,6 @@ import { OpsDevProviders } from '../../_shared/OpsDevProviders';
 import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
 
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
-  { value: 'overview', label: 'Overview' },
   { value: 'profile', label: 'Profile' },
   { value: 'google-business-profile', label: 'Google Business Profile' },
   { value: 'availability', label: 'Availability & booking types' },

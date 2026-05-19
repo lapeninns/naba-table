@@ -1,13 +1,25 @@
-import { createHash } from "node:crypto";
+import { createHash } from 'node:crypto';
 
-import type { VenuePolicy } from "../policy";
+import type { VenuePolicy } from '../policy';
 
 function stableJson(value: unknown): string {
-  try {
-    return JSON.stringify(value, Object.keys(value as object).sort());
-  } catch {
-    return JSON.stringify(value);
+  return JSON.stringify(toStableJsonValue(value));
+}
+
+function toStableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(toStableJsonValue);
   }
+
+  if (value && typeof value === 'object') {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort()) {
+      sorted[key] = toStableJsonValue((value as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+
+  return value;
 }
 
 /**
@@ -31,33 +43,35 @@ type PlanSignatureInput = {
  */
 export function createPlanSignature(input: PlanSignatureInput): string {
   const normalizedTableIds = normalizeTableIds(input.tableIds);
-  const hash = createHash("sha256");
+  const hash = createHash('sha256');
 
   hash.update(input.bookingId);
-  hash.update("|");
-  hash.update(normalizedTableIds.join(","));
-  hash.update("|");
+  hash.update('|');
+  hash.update(normalizedTableIds.join(','));
+  hash.update('|');
   hash.update(input.startAt);
-  hash.update("|");
+  hash.update('|');
   hash.update(input.endAt);
 
   if (input.salt) {
-    hash.update("|");
+    hash.update('|');
     hash.update(input.salt);
   }
 
-  return hash.digest("hex").slice(0, 16);
+  return hash.digest('hex').slice(0, 16);
 }
 
 export function hashPolicyVersion(policy: VenuePolicy): string {
-  const hash = createHash("sha256");
-  hash.update(stableJson({
-    timezone: policy.timezone,
-    serviceOrder: policy.serviceOrder,
-    services: policy.services,
-    turnBandsByOption: policy.turnBandsByOption ?? null,
-  }));
-  return hash.digest("hex").slice(0, 16);
+  const hash = createHash('sha256');
+  hash.update(
+    stableJson({
+      timezone: policy.timezone,
+      serviceOrder: policy.serviceOrder,
+      services: policy.services,
+      turnBandsByOption: policy.turnBandsByOption ?? null,
+    }),
+  );
+  return hash.digest('hex').slice(0, 16);
 }
 
 export function createDeterministicIdempotencyKey(input: {
@@ -69,23 +83,23 @@ export function createDeterministicIdempotencyKey(input: {
   policyVersion: string;
 }): string {
   const normalizedTableIds = normalizeTableIds(input.tableIds);
-  const hash = createHash("sha256");
+  const hash = createHash('sha256');
   hash.update(input.tenantId);
-  hash.update("|");
+  hash.update('|');
   hash.update(input.bookingId);
-  hash.update("|");
-  hash.update(normalizedTableIds.join(","));
-  hash.update("|");
+  hash.update('|');
+  hash.update(normalizedTableIds.join(','));
+  hash.update('|');
   hash.update(input.startAt);
-  hash.update("|");
+  hash.update('|');
   hash.update(input.endAt);
-  hash.update("|");
+  hash.update('|');
   hash.update(input.policyVersion);
-  return hash.digest("hex").slice(0, 24);
+  return hash.digest('hex').slice(0, 24);
 }
 
 export function computePayloadChecksum(payload: unknown): string {
-  const hash = createHash("sha256");
+  const hash = createHash('sha256');
   hash.update(stableJson(payload));
-  return hash.digest("hex");
+  return hash.digest('hex');
 }

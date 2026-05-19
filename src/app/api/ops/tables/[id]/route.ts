@@ -7,11 +7,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
-import {
-  fetchTableById,
-  updateTable as updateTableRecord,
-  deleteTable as deleteTableRecord,
-} from '@/server/ops/tables';
+import { fetchTableById, updateTable as updateTableRecord } from '@/server/ops/tables';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -362,39 +358,34 @@ async function deleteTable(_req: NextRequest, context: RouteContext) {
       );
     }
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+    const currentDate = new Date().toISOString().slice(0, 10);
+    const serviceClient = getServiceSupabaseClient();
 
-    const { data: futureAssignments, error: futureError } = await supabase
-      .from('booking_table_assignments')
-      .select('id, bookings!inner(booking_date)')
-      .eq('table_id', tableId)
-      .gte('bookings.booking_date', tomorrowDate ?? '')
-      .limit(1);
+    const { data: deleted, error: deleteError } = await serviceClient.rpc(
+      'delete_table_inventory_guarded',
+      {
+        p_table_id: tableId,
+        p_current_date: currentDate,
+      },
+    );
 
-    if (futureError) {
-      console.error('[ops/tables/[id]][DELETE] Future assignment lookup failed', {
-        error: futureError,
-      });
-      return NextResponse.json({ error: 'Failed to verify future assignments' }, { status: 500 });
-    }
-
-    if (futureAssignments && futureAssignments.length > 0) {
-      return NextResponse.json(
-        {
-          error: 'Cannot delete table with future booking assignments',
-          message: 'Please reassign or cancel future bookings first',
-        },
-        { status: 409 },
-      );
-    }
-
-    try {
-      await deleteTableRecord(supabase, tableId);
-    } catch (deleteError) {
+    if (deleteError) {
+      const message = deleteError.message ?? '';
+      if (/active or future booking assignments/i.test(message)) {
+        return NextResponse.json(
+          {
+            error: 'Cannot delete table with active or future booking assignments',
+            message: 'Please reassign, complete, or cancel affected bookings first',
+          },
+          { status: 409 },
+        );
+      }
       console.error('[ops/tables/[id]][DELETE] Delete error', { error: deleteError });
       return NextResponse.json({ error: 'Failed to delete table' }, { status: 500 });
+    }
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, deletedTableNumber: table.table_number });

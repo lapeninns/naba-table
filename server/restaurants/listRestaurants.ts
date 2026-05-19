@@ -1,3 +1,4 @@
+import { listQaRestaurantFixtures } from '@/server/restaurants/qa-fixtures';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { RestaurantFilters, RestaurantSummary } from '@/lib/restaurants/types';
@@ -14,7 +15,14 @@ export class ListRestaurantsError extends Error {
   }
 }
 
-export async function listRestaurants(filters: RestaurantFilters = {}): Promise<RestaurantSummary[]> {
+export async function listRestaurants(
+  filters: RestaurantFilters = {},
+): Promise<RestaurantSummary[]> {
+  const qaFixtures = listQaRestaurantFixtures(filters);
+  if (qaFixtures) {
+    return qaFixtures;
+  }
+
   const supabase = getServiceSupabaseClient();
 
   try {
@@ -72,12 +80,12 @@ export async function listRestaurants(filters: RestaurantFilters = {}): Promise<
         details: error.details,
         hint: error.hint,
       });
-      
+
       throw new ListRestaurantsError(
-        `[restaurants] failed to load restaurant list: ${error.message}`, 
+        `[restaurants] failed to load restaurant list: ${error.message}`,
         {
           cause: error,
-        }
+        },
       );
     }
 

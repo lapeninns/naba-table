@@ -3,17 +3,18 @@ import {
   CUSTOMER_PHONE_LENGTH_MIN,
   formatUKPhoneToE164,
   normalizeComparablePhone,
-} from "@reserve/shared/validation";
+} from '@reserve/shared/validation';
 
-import type { Database, Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Tables, TablesInsert, TablesUpdate } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const CUSTOMER_COLUMNS =
-  "id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized,auth_user_id,user_profile_id,notes";
+  'id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized,auth_user_id,user_profile_id,notes';
 
-export type CustomerRow = Tables<"customers">;
+export type CustomerRow = Tables<'customers'>;
 
 type DbClient = SupabaseClient<Database>;
+type CustomerIdentityMatchMode = 'strict' | 'partial';
 
 export function normalizeEmail(email: string | null | undefined): string {
   if (!email) return '';
@@ -46,16 +47,36 @@ async function findCustomerByNormalizedIdentity(
   client: DbClient,
   restaurantId: string,
   params: { email: string; phone: string },
+  options: { matchMode?: CustomerIdentityMatchMode } = {},
 ): Promise<CustomerRow | null> {
-  if (params.email) {
+  const matchMode = options.matchMode ?? 'strict';
+
+  if (matchMode === 'strict' && params.email && params.phone) {
     const { data, error } = await client
-      .from("customers")
+      .from('customers')
       .select(CUSTOMER_COLUMNS)
-      .eq("restaurant_id", restaurantId)
-      .eq("email_normalized", params.email)
+      .eq('restaurant_id', restaurantId)
+      .eq('email_normalized', params.email)
+      .eq('phone_normalized', params.phone)
       .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
+    if (error && error.code !== 'PGRST116') {
+      console.error(`[upsertCustomer] Strict contact lookup error`, error);
+      throw error;
+    }
+
+    return (data as CustomerRow | null) ?? null;
+  }
+
+  if (params.email) {
+    const { data, error } = await client
+      .from('customers')
+      .select(CUSTOMER_COLUMNS)
+      .eq('restaurant_id', restaurantId)
+      .eq('email_normalized', params.email)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
       console.error(`[upsertCustomer] Email lookup error`, error);
       throw error;
     }
@@ -67,13 +88,13 @@ async function findCustomerByNormalizedIdentity(
 
   if (params.phone) {
     const { data, error } = await client
-      .from("customers")
+      .from('customers')
       .select(CUSTOMER_COLUMNS)
-      .eq("restaurant_id", restaurantId)
-      .eq("phone_normalized", params.phone)
+      .eq('restaurant_id', restaurantId)
+      .eq('phone_normalized', params.phone)
       .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
+    if (error && error.code !== 'PGRST116') {
       console.error(`[upsertCustomer] Phone lookup error`, error);
       throw error;
     }
@@ -99,22 +120,19 @@ export async function findCustomerByContact(
     return null;
   }
 
-  let query = client
-    .from("customers")
-    .select(CUSTOMER_COLUMNS)
-    .eq("restaurant_id", restaurantId);
+  let query = client.from('customers').select(CUSTOMER_COLUMNS).eq('restaurant_id', restaurantId);
 
   if (normalizedEmail) {
-    query = query.eq("email_normalized", normalizedEmail);
+    query = query.eq('email_normalized', normalizedEmail);
   }
 
   if (normalizedPhone) {
-    query = query.eq("phone_normalized", normalizedPhone);
+    query = query.eq('phone_normalized', normalizedPhone);
   }
 
   const { data, error } = await query.maybeSingle();
 
-  if (error && error.code !== "PGRST116") {
+  if (error && error.code !== 'PGRST116') {
     throw error;
   }
 
@@ -131,12 +149,16 @@ export async function upsertCustomer(
     marketingOptIn?: boolean;
     authUserId?: string | null;
     userProfileId?: string | null;
+    identityMatchMode?: CustomerIdentityMatchMode;
+    allowExistingUpdates?: boolean;
   },
 ): Promise<CustomerRow> {
   const normalizedEmail = normalizeEmail(params.email);
   const normalizedPhone = normalizePhone(params.phone);
   const phoneForStorage = sanitizePhoneValue(params.phone);
   const marketingOptIn = params.marketingOptIn ?? false;
+  const identityMatchMode = params.identityMatchMode ?? 'strict';
+  const allowExistingUpdates = params.allowExistingUpdates ?? false;
 
   // Validate at least one contact method exists
   if (!normalizedEmail && !normalizedPhone) {
@@ -149,39 +171,48 @@ export async function upsertCustomer(
     phone: normalizedPhone,
   });
 
-  let customerData = await findCustomerByNormalizedIdentity(client, params.restaurantId, {
-    email: normalizedEmail,
-    phone: normalizedPhone,
-  });
+  let customerData = await findCustomerByNormalizedIdentity(
+    client,
+    params.restaurantId,
+    {
+      email: normalizedEmail,
+      phone: normalizedPhone,
+    },
+    {
+      matchMode: identityMatchMode,
+    },
+  );
 
   if (customerData) {
     console.log(`[upsertCustomer] Found existing customer: ${customerData.id}`);
-    // 2. Update existing customer
-    const updates: TablesUpdate<"customers"> = {};
+    // 2. Update existing customer only when the caller is trusted to backfill profile fields.
+    const updates: TablesUpdate<'customers'> = {};
 
-    if (!customerData.full_name && params.name) {
-      updates.full_name = params.name;
-    }
+    if (allowExistingUpdates) {
+      if (!customerData.full_name && params.name) {
+        updates.full_name = params.name;
+      }
 
-    if (marketingOptIn && !customerData.marketing_opt_in) {
-      updates.marketing_opt_in = true;
-    }
+      if (marketingOptIn && !customerData.marketing_opt_in) {
+        updates.marketing_opt_in = true;
+      }
 
-    if (!customerData.phone_normalized && normalizedPhone) {
-      updates.phone = phoneForStorage;
+      if (!customerData.phone_normalized && normalizedPhone) {
+        updates.phone = phoneForStorage;
+      }
     }
 
     if (Object.keys(updates).length > 0) {
       console.log(`[upsertCustomer] Updating customer: ${customerData.id}`, updates);
       const { data: updated, error: updateError } = await client
-        .from("customers")
+        .from('customers')
         .update(updates)
-        .eq("id", customerData.id)
+        .eq('id', customerData.id)
         .select(CUSTOMER_COLUMNS)
         .single();
 
       if (updateError) {
-        if (updateError.code === "23505" && updates.phone) {
+        if (updateError.code === '23505' && updates.phone) {
           console.warn(`[upsertCustomer] Skipping conflicting phone update`, updateError);
           return customerData;
         }
@@ -193,7 +224,7 @@ export async function upsertCustomer(
   } else {
     console.log(`[upsertCustomer] No existing customer found, inserting new.`);
     // 3. Insert new customer
-    const insertPayload: TablesInsert<"customers"> = {
+    const insertPayload: TablesInsert<'customers'> = {
       restaurant_id: params.restaurantId,
       email: normalizedEmail,
       phone: phoneForStorage,
@@ -205,7 +236,7 @@ export async function upsertCustomer(
     if (params.userProfileId) insertPayload.user_profile_id = params.userProfileId;
 
     const { data: inserted, error: insertError } = await client
-      .from("customers")
+      .from('customers')
       .insert(insertPayload)
       .select(CUSTOMER_COLUMNS)
       .single();
@@ -213,12 +244,19 @@ export async function upsertCustomer(
     if (insertError) {
       console.warn(`[upsertCustomer] Insert error (code ${insertError.code})`, insertError);
       // Final fallback for race conditions
-      if (insertError.code === "23505") {
+      if (insertError.code === '23505') {
         console.log(`[upsertCustomer] Race condition detected, retrying find.`);
-        const secondFind = await findCustomerByNormalizedIdentity(client, params.restaurantId, {
-          email: normalizedEmail,
-          phone: normalizedPhone,
-        });
+        const secondFind = await findCustomerByNormalizedIdentity(
+          client,
+          params.restaurantId,
+          {
+            email: normalizedEmail,
+            phone: normalizedPhone,
+          },
+          {
+            matchMode: identityMatchMode,
+          },
+        );
 
         if (secondFind) {
           return secondFind;
@@ -231,7 +269,7 @@ export async function upsertCustomer(
   }
 
   if (!customerData) {
-    throw new Error("Failed to resolve customer record");
+    throw new Error('Failed to resolve customer record');
   }
 
   return customerData;
@@ -244,51 +282,26 @@ export async function recordBookingForCustomerProfile(
     createdAt: string;
     partySize: number;
     marketingOptIn: boolean;
-    status: Tables<"bookings">["status"];
+    status: Tables<'bookings'>['status'];
   },
 ): Promise<void> {
-  const nowIso = new Date().toISOString();
-  const { data: existing, error: lookupError } = await client
-    .from("customer_profiles")
-    .select("*")
-    .eq("customer_id", params.customerId)
-    .maybeSingle();
+  const { error } = await (
+    client as unknown as {
+      rpc: (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: unknown }>;
+    }
+  ).rpc('record_booking_for_customer_profile_atomic', {
+    p_customer_id: params.customerId,
+    p_created_at: params.createdAt,
+    p_party_size: params.partySize,
+    p_marketing_opt_in: params.marketingOptIn,
+    p_is_cancelled: params.status === 'cancelled',
+  });
 
-  if (lookupError) {
-    throw lookupError;
-  }
-
-  const existingProfile = existing ?? null;
-  const firstBookingAt = existingProfile?.first_booking_at ?? params.createdAt;
-  const lastBookingAt = existingProfile?.last_booking_at ?? params.createdAt;
-  const nextLastBooking = params.createdAt > lastBookingAt ? params.createdAt : lastBookingAt;
-  const nextTotalBookings = (existingProfile?.total_bookings ?? 0) + 1;
-  const nextTotalCovers = (existingProfile?.total_covers ?? 0) + params.partySize;
-  const nextMarketingOptIn = (existingProfile?.marketing_opt_in ?? false) || params.marketingOptIn;
-  const lastMarketingOptInAt = params.marketingOptIn
-    ? params.createdAt
-    : existingProfile?.last_marketing_opt_in_at ?? null;
-  const nextTotalCancellations =
-    (existingProfile?.total_cancellations ?? 0) + (params.status === "cancelled" ? 1 : 0);
-
-  const payload = {
-    customer_id: params.customerId,
-    first_booking_at: firstBookingAt,
-    last_booking_at: nextLastBooking,
-    total_bookings: nextTotalBookings,
-    total_covers: nextTotalCovers,
-    total_cancellations: nextTotalCancellations,
-    marketing_opt_in: nextMarketingOptIn,
-    last_marketing_opt_in_at: lastMarketingOptInAt,
-    updated_at: nowIso,
-  };
-
-  const { error: upsertError } = await client
-    .from("customer_profiles")
-    .upsert(payload, { onConflict: "customer_id" });
-
-  if (upsertError) {
-    throw upsertError;
+  if (error) {
+    throw error;
   }
 }
 
@@ -296,30 +309,19 @@ export async function recordCancellationForCustomerProfile(
   client: DbClient,
   params: { customerId: string; cancelledAt: string },
 ): Promise<void> {
-  const { data: existing, error } = await client
-    .from("customer_profiles")
-    .select("total_cancellations,last_booking_at,updated_at")
-    .eq("customer_id", params.customerId)
-    .maybeSingle();
+  const { error } = await (
+    client as unknown as {
+      rpc: (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: unknown }>;
+    }
+  ).rpc('record_cancellation_for_customer_profile_atomic', {
+    p_customer_id: params.customerId,
+    p_cancelled_at: params.cancelledAt,
+  });
 
   if (error) {
     throw error;
-  }
-
-  const totalCancellations = (existing?.total_cancellations ?? 0) + 1;
-  const { error: updateError } = await client
-    .from("customer_profiles")
-    .upsert(
-      {
-        customer_id: params.customerId,
-        total_cancellations: totalCancellations,
-        last_booking_at: existing?.last_booking_at ?? params.cancelledAt,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "customer_id" },
-    );
-
-  if (updateError) {
-    throw updateError;
   }
 }

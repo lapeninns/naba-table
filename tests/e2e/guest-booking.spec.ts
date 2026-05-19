@@ -1,16 +1,85 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { buildFutureBookingDate } from './helpers/future-booking';
-
-const restaurantSlug = 'the-fox';
+const appBaseUrl = `http://localhost:${process.env.QA_APP_PORT ?? '5180'}`;
+const restaurantSlug = process.env.QA_PUBLIC_BOOKING_RESTAURANT_SLUG ?? 'qa-public-booking';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const bookingReference = 'NB1234';
-const futureBooking = buildFutureBookingDate();
-const bookingDate = futureBooking.isoDate;
-const bookingDateLabel = futureBooking.displayLabel;
+const bookingTime = '12:30';
+const bookingTimeLabel = '12:30 PM';
 
-test('guest can complete a booking flow', async ({ page }) => {
+const formatDateKey = (date: Date) =>
+  [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const bookingDate = process.env.QA_PUBLIC_BOOKING_DATE ?? formatDateKey(addDays(new Date(), 1));
+
+test.use({ baseURL: appBaseUrl });
+
+const clickClientControl = async (locator: Locator) => {
+  await locator.waitFor({ state: 'visible' });
+  await locator.evaluate((element) => {
+    if (!(element instanceof HTMLElement)) {
+      throw new Error('Expected an HTMLElement control');
+    }
+    element.click();
+  });
+};
+
+const waitForDevServerIdle = async (page: Page) => {
+  await expect(page.getByText('Compiling')).toHaveCount(0, { timeout: 30_000 });
+};
+
+const seedBookingDraft = async (page: Page) => {
+  await page.addInitScript(
+    ({ date, slug, time }) => {
+      const now = Date.now();
+      const details = {
+        bookingId: null,
+        restaurantId: '',
+        restaurantSlug: slug,
+        restaurantName: '',
+        restaurantAddress: '',
+        restaurantTimezone: '',
+        reservationDurationMinutes: 90,
+        date,
+        time,
+        party: 1,
+        bookingType: 'lunch',
+        notes: '',
+        name: '',
+        email: '',
+        phone: '',
+        rememberDetails: false,
+        agree: true,
+        marketingOptIn: false,
+      };
+      window.localStorage.setItem(
+        `reserve.wizard.draft.${slug}`,
+        JSON.stringify({
+          version: 1,
+          savedAt: now,
+          expiresAt: now + 6 * 60 * 60 * 1000,
+          details,
+        }),
+      );
+    },
+    { date: bookingDate, slug: restaurantSlug, time: bookingTime },
+  );
+};
+
+test('@p0 @browser @local-only @external-mock guest can complete a booking flow', async ({
+  page,
+}) => {
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
 
@@ -45,18 +114,18 @@ test('guest can complete a booking flow', async ({ page }) => {
           lastSeatingBufferMinutes: 0,
           window: { opensAt: '12:00', closesAt: '22:00' },
           isClosed: false,
-          availableBookingOptions: ['dinner'],
+          availableBookingOptions: ['lunch'],
           slots: [
             {
-              value: '19:00',
-              display: '7:00 PM',
+              value: bookingTime,
+              display: bookingTimeLabel,
               periodId: null,
-              periodName: 'Dinner',
-              bookingOption: 'dinner',
-              defaultBookingOption: 'dinner',
+              periodName: 'Lunch',
+              bookingOption: 'lunch',
+              defaultBookingOption: 'lunch',
               availability: {
                 services: {},
-                labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
+                labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
               },
               disabled: false,
             },
@@ -98,52 +167,91 @@ test('guest can complete a booking flow', async ({ page }) => {
       return;
     }
 
+    const submittedPayload = request.postDataJSON() as {
+      bookingType?: unknown;
+      date?: unknown;
+      email?: unknown;
+      marketingOptIn?: unknown;
+      name?: unknown;
+      notes?: unknown;
+      party?: unknown;
+      phone?: unknown;
+      restaurantId?: unknown;
+      restaurantSlug?: unknown;
+      time?: unknown;
+    };
+    const submittedDate =
+      typeof submittedPayload.date === 'string' ? submittedPayload.date : bookingDate;
+    const submittedTime =
+      typeof submittedPayload.time === 'string' ? submittedPayload.time : bookingTime;
+    const submittedParty = typeof submittedPayload.party === 'number' ? submittedPayload.party : 1;
+    const submittedRestaurantId =
+      typeof submittedPayload.restaurantId === 'string'
+        ? submittedPayload.restaurantId
+        : restaurantId;
+    const submittedRestaurantSlug =
+      typeof submittedPayload.restaurantSlug === 'string'
+        ? submittedPayload.restaurantSlug
+        : restaurantSlug;
+    const submittedName =
+      typeof submittedPayload.name === 'string' ? submittedPayload.name : 'Guest Booker';
+    const submittedEmail =
+      typeof submittedPayload.email === 'string' ? submittedPayload.email : 'guest@example.com';
+    const submittedPhone =
+      typeof submittedPayload.phone === 'string' ? submittedPayload.phone : '+441234567890';
+    const submittedNotes =
+      typeof submittedPayload.notes === 'string' ? submittedPayload.notes : null;
+    const submittedMarketingOptIn =
+      typeof submittedPayload.marketingOptIn === 'boolean'
+        ? submittedPayload.marketingOptIn
+        : false;
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         booking: {
           id: bookingId,
-          restaurant_id: restaurantId,
-          booking_date: bookingDate,
-          start_time: '19:00',
-          end_time: '20:30',
-          booking_type: 'dinner',
+          restaurant_id: submittedRestaurantId,
+          booking_date: submittedDate,
+          start_time: submittedTime,
+          end_time: '14:00',
+          booking_type: 'lunch',
           seating_preference: 'indoor',
           status: 'confirmed',
-          party_size: 2,
-          customer_name: 'Guest Booker',
-          customer_email: 'guest@example.com',
-          customer_phone: '+441234567890',
-          marketing_opt_in: false,
-          notes: 'Window please',
+          party_size: submittedParty,
+          customer_name: submittedName,
+          customer_email: submittedEmail,
+          customer_phone: submittedPhone,
+          marketing_opt_in: submittedMarketingOptIn,
+          notes: submittedNotes,
           reference: bookingReference,
           restaurants: {
             name: 'The Fox',
-            slug: restaurantSlug,
+            slug: submittedRestaurantSlug,
             timezone: 'Europe/London',
           },
         },
         bookings: [
           {
             id: bookingId,
-            restaurant_id: restaurantId,
-            booking_date: bookingDate,
-            start_time: '19:00',
-            end_time: '20:30',
-            booking_type: 'dinner',
+            restaurant_id: submittedRestaurantId,
+            booking_date: submittedDate,
+            start_time: submittedTime,
+            end_time: '14:00',
+            booking_type: 'lunch',
             seating_preference: 'indoor',
             status: 'confirmed',
-            party_size: 2,
-            customer_name: 'Guest Booker',
-            customer_email: 'guest@example.com',
-            customer_phone: '+441234567890',
-            marketing_opt_in: false,
-            notes: 'Window please',
+            party_size: submittedParty,
+            customer_name: submittedName,
+            customer_email: submittedEmail,
+            customer_phone: submittedPhone,
+            marketing_opt_in: submittedMarketingOptIn,
+            notes: submittedNotes,
             reference: bookingReference,
             restaurants: {
               name: 'The Fox',
-              slug: restaurantSlug,
+              slug: submittedRestaurantSlug,
               timezone: 'Europe/London',
             },
           },
@@ -152,33 +260,30 @@ test('guest can complete a booking flow', async ({ page }) => {
     });
   });
 
-  await page.goto(`/r/${restaurantSlug}`);
+  await seedBookingDraft(page);
+  await page.goto(`/restaurants/${restaurantSlug}/book`);
+  await waitForDevServerIdle(page);
 
-  await page.getByRole('button', { name: 'Date' }).click();
-  await page.getByRole('button', { name: bookingDateLabel }).click();
-
-  await page.getByRole('combobox', { name: 'Time' }).click();
-  await page.getByRole('option', { name: '7:00 PM' }).click();
+  await clickClientControl(page.getByRole('button', { name: bookingTimeLabel }));
 
   await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await clickClientControl(page.getByTestId('wizard-action-plan-continue'));
 
   await page.getByLabel('Full name').fill('Guest Booker');
   await page.getByLabel('Email address').fill('guest@example.com');
   await page.getByLabel('UK phone number').fill('+441234567890');
-  await page.getByRole('button', { name: /Preferences/i }).click();
-  await page
-    .getByRole('checkbox', { name: /I agree to the terms and privacy notice/i })
-    .check();
 
-  await page.getByRole('button', { name: 'Review booking' }).click();
-  await page.getByRole('button', { name: 'Confirm booking' }).click();
+  await clickClientControl(page.getByTestId('wizard-action-details-review'));
+  await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
+  await clickClientControl(page.getByTestId('wizard-action-review-confirm'));
 
   await expect(page.getByRole('heading', { name: 'Booking confirmed' })).toBeVisible();
   await expect(page.getByText(bookingReference)).toBeVisible();
 });
 
-test('guest sees a friendly duplicate-booking error instead of a raw code', async ({ page }) => {
+test('@p0 @browser @local-only @external-mock guest sees a friendly duplicate-booking error instead of a raw code', async ({
+  page,
+}) => {
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
 
@@ -213,18 +318,18 @@ test('guest sees a friendly duplicate-booking error instead of a raw code', asyn
           lastSeatingBufferMinutes: 0,
           window: { opensAt: '12:00', closesAt: '22:00' },
           isClosed: false,
-          availableBookingOptions: ['dinner'],
+          availableBookingOptions: ['lunch'],
           slots: [
             {
-              value: '19:00',
-              display: '7:00 PM',
+              value: bookingTime,
+              display: bookingTimeLabel,
               periodId: null,
-              periodName: 'Dinner',
-              bookingOption: 'dinner',
-              defaultBookingOption: 'dinner',
+              periodName: 'Lunch',
+              bookingOption: 'lunch',
+              defaultBookingOption: 'lunch',
               availability: {
                 services: {},
-                labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
+                labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
               },
               disabled: false,
             },
@@ -275,25 +380,20 @@ test('guest sees a friendly duplicate-booking error instead of a raw code', asyn
     });
   });
 
-  await page.goto(`/r/${restaurantSlug}`);
+  await seedBookingDraft(page);
+  await page.goto(`/restaurants/${restaurantSlug}/book`);
+  await waitForDevServerIdle(page);
 
-  await page.getByRole('button', { name: 'Date' }).click();
-  await page.getByRole('button', { name: bookingDateLabel }).click();
-
-  await page.getByRole('combobox', { name: 'Time' }).click();
-  await page.getByRole('option', { name: '7:00 PM' }).click();
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await clickClientControl(page.getByRole('button', { name: bookingTimeLabel }));
+  await clickClientControl(page.getByTestId('wizard-action-plan-continue'));
 
   await page.getByLabel('Full name').fill('Guest Booker');
   await page.getByLabel('Email address').fill('guest@example.com');
   await page.getByLabel('UK phone number').fill('+441234567890');
-  await page.getByRole('button', { name: /Preferences/i }).click();
-  await page
-    .getByRole('checkbox', { name: /I agree to the terms and privacy notice/i })
-    .check();
 
-  await page.getByRole('button', { name: 'Review booking' }).click();
-  await page.getByRole('button', { name: 'Confirm booking' }).click();
+  await clickClientControl(page.getByTestId('wizard-action-details-review'));
+  await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
+  await clickClientControl(page.getByTestId('wizard-action-review-confirm'));
 
   await expect(
     page.getByText(

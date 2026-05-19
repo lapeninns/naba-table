@@ -5881,6 +5881,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      delete_table_inventory_guarded: {
+        Args: { p_current_date: string; p_table_id: string };
+        Returns: boolean;
+      };
       import_restaurant_menu_bundle: {
         Args: {
           p_items: Json;
@@ -6056,6 +6060,31 @@ export type Database = {
         }[];
       };
       refresh_table_status: { Args: { p_table_id: string }; Returns: undefined };
+      replace_gbp_canonical_business_info: {
+        Args: {
+          p_addresses?: Json;
+          p_attributes?: Json | null;
+          p_attributes_payload_hash?: string | null;
+          p_attributes_snapshot?: Json | null;
+          p_attributes_source_revision?: string | null;
+          p_business_details?: Json | null;
+          p_categories?: Json;
+          p_external_profile_id: string;
+          p_field_sync_entity_tables?: string[];
+          p_field_sync_statuses?: Json;
+          p_hours?: Json;
+          p_links?: Json;
+          p_location_payload_hash: string;
+          p_location_snapshot: Json;
+          p_location_source_revision: string | null;
+          p_phone_numbers?: Json;
+          p_profile_change_log_rows?: Json;
+          p_restaurant_id: string;
+          p_service_areas?: Json;
+          p_service_items?: Json | null;
+        };
+        Returns: undefined;
+      };
       release_hold_and_emit: {
         Args: { p_actor_id?: string; p_hold_id: string };
         Returns: boolean;

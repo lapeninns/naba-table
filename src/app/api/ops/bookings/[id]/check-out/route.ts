@@ -6,6 +6,7 @@ import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
 import { prepareCheckOutTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
 import {
   loadLifecycleRouteContext,
@@ -28,6 +29,10 @@ type RouteParams = {
 };
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
+  return withCsrfProtectedMutation(req, () => postCheckOut(req, { params }));
+}
+
+async function postCheckOut(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
@@ -85,38 +90,45 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return persistResult.response;
   }
 
-  // Release any table assignments once the booking has been checked out/completed
-  try {
-    await clearBookingTableAssignments(serviceSupabase, booking.id);
-  } catch (clearError) {
-    console.warn('[ops][booking-check-out] failed to clear table assignments', {
-      bookingId: booking.id,
-      error: clearError instanceof Error ? clearError.message : clearError,
+  if (persistResult.result.changed) {
+    try {
+      await clearBookingTableAssignments(serviceSupabase, booking.id);
+    } catch (clearError) {
+      console.error('[ops][booking-check-out] failed to clear table assignments', {
+        bookingId: booking.id,
+        error: clearError instanceof Error ? clearError.message : clearError,
+      });
+      return NextResponse.json(
+        { error: 'Booking was updated but table assignments could not be released' },
+        { status: 500 },
+      );
+    }
+
+    invalidateOpsDashboardCaches(booking.restaurant_id, {
+      summaryDates: [booking.booking_date],
     });
   }
-
-  invalidateOpsDashboardCaches(booking.restaurant_id, {
-    summaryDates: [booking.booking_date],
-  });
 
   // Schedule review request email after successful check-out
   // Note: This ONLY schedules the review email - no "update" notification is sent
   // because check-out is an internal operational action, not a booking modification
-  try {
-    const { data: fullBooking } = await serviceSupabase
-      .from('bookings')
-      .select('*')
-      .eq('id', booking.id)
-      .maybeSingle();
+  if (persistResult.result.changed) {
+    try {
+      const { data: fullBooking } = await serviceSupabase
+        .from('bookings')
+        .select('*')
+        .eq('id', booking.id)
+        .maybeSingle();
 
-    if (fullBooking && booking.restaurant_id) {
-      await enqueueCheckOutSideEffects(fullBooking, booking.restaurant_id);
+      if (fullBooking && booking.restaurant_id) {
+        await enqueueCheckOutSideEffects(fullBooking, booking.restaurant_id);
+      }
+    } catch (sideEffectsError) {
+      console.warn('[ops][booking-check-out] failed to schedule review email', {
+        bookingId: booking.id,
+        error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
+      });
     }
-  } catch (sideEffectsError) {
-    console.warn('[ops][booking-check-out] failed to schedule review email', {
-      bookingId: booking.id,
-      error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
-    });
   }
 
   return NextResponse.json({

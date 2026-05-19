@@ -1,11 +1,15 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { getTodayBookingChanges } from "@/server/ops/bookings";
-import { getServiceSupabaseClient } from "@/server/supabase";
-import { buildDashboardAccessErrorResponse, requireDashboardAccess } from "@/src/app/api/ops/dashboard/_shared";
+import { getTodayBookingChanges } from '@/server/ops/bookings';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  buildDashboardAccessErrorResponse,
+  requireDashboardAccess,
+} from '@/src/app/api/ops/dashboard/_shared';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
 const changesQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -17,6 +21,7 @@ const changesQuerySchema = z.object({
 });
 
 type ChangesQuery = z.infer<typeof changesQuerySchema>;
+const CHANGES_MAX_LIMIT = 100;
 
 function parseQuery(request: NextRequest): ChangesQuery | null {
   const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
@@ -30,17 +35,35 @@ function parseQuery(request: NextRequest): ChangesQuery | null {
 export async function GET(request: NextRequest) {
   const query = parseQuery(request);
   if (!query) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
   }
 
   try {
     await requireDashboardAccess(query.restaurantId);
   } catch (error) {
-    return buildDashboardAccessErrorResponse("changes", error);
+    return buildDashboardAccessErrorResponse('changes', error);
+  }
+
+  const limit = query.limit ? parseInt(query.limit, 10) : 50;
+  if (!Number.isFinite(limit) || limit < 1 || limit > CHANGES_MAX_LIMIT) {
+    return NextResponse.json(
+      { error: `Change feed limit must be between 1 and ${CHANGES_MAX_LIMIT}` },
+      { status: 400 },
+    );
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request,
+    scope: 'ops-dashboard:changes',
+    tenantId: query.restaurantId,
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {
-    const limit = query.limit ? parseInt(query.limit, 10) : 50;
     const changesData = await getTodayBookingChanges(query.restaurantId, {
       date: query.date,
       limit,
@@ -49,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(changesData);
   } catch (changesError) {
-    console.error("[ops/dashboard][changes] failed to load booking changes", changesError);
-    return NextResponse.json({ error: "Unable to load booking changes" }, { status: 500 });
+    console.error('[ops/dashboard][changes] failed to load booking changes', changesError);
+    return NextResponse.json({ error: 'Unable to load booking changes' }, { status: 500 });
   }
 }

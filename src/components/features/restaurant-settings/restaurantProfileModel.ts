@@ -34,7 +34,7 @@ export const EMPTY_PROFILE_VALUES: RestaurantDetailsFormValues = {
   reservationLifecycleGraceMinutes: 15,
 };
 
-export type ProfileDirtyKey = 'brand' | 'contact' | 'notifications' | 'discovery' | 'advanced';
+export type ProfileDirtyKey = 'brand' | 'contact' | 'notifications' | 'advanced';
 
 export type ProfileDirtySection = {
   key: ProfileDirtyKey;
@@ -76,12 +76,6 @@ export const PROFILE_DIRTY_SECTIONS: readonly ProfileDirtySection[] = [
     href: '#profile-notifications',
     formId: PROFILE_SECTION_FORMS.notifications,
     actionLabel: 'Save manager alerts',
-  },
-  {
-    key: 'discovery',
-    label: 'Optional discovery details',
-    href: '#profile-discovery',
-    actionLabel: 'Review discovery',
   },
   {
     key: 'advanced',

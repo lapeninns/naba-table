@@ -75,6 +75,8 @@ export default defineConfig({
       '@/app': path.resolve(rootDir, 'src/app'),
       '@/guest': path.resolve(rootDir, 'src/guest'),
       '@/components/ui': path.resolve(rootDir, 'components/ui'),
+      '@/components/auth': path.resolve(rootDir, 'components/auth'),
+      '@/components/invite': path.resolve(rootDir, 'components/invite'),
       '@/components/features': path.resolve(rootDir, 'src/components/features'),
       '@/components/dashboard': path.resolve(rootDir, 'components/dashboard'),
       '@/components/ops/restaurants/RestaurantDetailsForm': path.resolve(

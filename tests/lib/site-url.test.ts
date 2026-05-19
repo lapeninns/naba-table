@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { getTrustedSiteOrigin } from '@/lib/site-url';
+import { buildPublicBookingUrl, getTrustedSiteOrigin } from '@/lib/site-url';
 
 const originalEnv = { ...process.env };
 
@@ -61,5 +61,15 @@ describe('site URL resolution', () => {
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'staging.nabatable.com';
 
     expect(getTrustedSiteOrigin()).toBe('https://staging.nabatable.com');
+  });
+
+  it('builds public booking URLs from the trusted root origin', () => {
+    clearUrlEnv();
+    process.env.NEXT_PUBLIC_SITE_URL = 'http://app.localhost:3000';
+
+    expect(buildPublicBookingUrl('old-crown-girton')).toBe(
+      'http://localhost:3000/restaurants/old-crown-girton/book',
+    );
+    expect(buildPublicBookingUrl('   ')).toBeNull();
   });
 });

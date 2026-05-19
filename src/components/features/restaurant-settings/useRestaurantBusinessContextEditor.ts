@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import {
   useOpsRestaurantBusinessContext,
   useOpsUpdateRestaurantBusinessContext,
@@ -56,9 +57,17 @@ export function useRestaurantBusinessContextEditor({
   const [savingFamily, setSavingFamily] = useState<FamilyKey | null>(null);
   const [savedFamily, setSavedFamily] = useState<FamilyKey | null>(null);
 
+  const isDirty = Object.values(dirty).some(Boolean);
+
+  useRegisterOpsUnsavedChanges(
+    'restaurant-discovery',
+    isDirty,
+    'You have unsaved discovery detail changes. Leave without saving them?',
+  );
+
   useEffect(() => {
-    onDirtyChange?.(Object.values(dirty).some(Boolean));
-  }, [dirty, onDirtyChange]);
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   useEffect(() => {
     const data = contextQuery.data;

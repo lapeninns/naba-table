@@ -34,7 +34,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
-import { OpsUnsavedChangesProvider, useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
+import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import useOnlineStatus from '@/hooks/useOnlineStatus';
 import { signOutFromSupabase } from '@/lib/supabase/signOut';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,8 @@ import { cn } from '@/lib/utils';
 import { OPS_SUPPORT_ITEM, filterOpsNavigationSections, isNavItemActive } from './navigation';
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
+import { SidebarCollapsedRailToggle } from './patterns/SidebarCollapsedRailToggle';
+import { SidebarCollapseTrigger } from './patterns/SidebarCollapseTrigger';
 import { useOpsRoutePrefetch } from './useOpsRoutePrefetch';
 
 import type { OpsNavigationSection } from './navigation';
@@ -60,8 +62,7 @@ export function OpsSidebarLayout({
   envBanner,
 }: OpsSidebarLayoutProps) {
   return (
-    <OpsUnsavedChangesProvider>
-      <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="bg-background">
         <OpsSidebarPanel />
         <SidebarRail />
         <SidebarInset className="bg-background">
@@ -72,10 +73,10 @@ export function OpsSidebarLayout({
           >
             <a href="#ops-content">Skip to content</a>
           </Button>
-          <div className="flex h-12 items-center gap-3 border-b border-border/60 px-[var(--pg-gutter)]">
+          <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border/60 px-[var(--pg-gutter)] md:hidden">
             <SidebarTrigger className="-ml-1" aria-label="Toggle navigation menu" />
             {headerSlot ? (
-              <div className="flex-1 truncate text-sm font-medium text-muted-foreground">
+              <div className="min-w-0 flex-1 truncate text-sm font-medium text-muted-foreground">
                 {headerSlot}
               </div>
             ) : null}
@@ -104,7 +105,6 @@ export function OpsSidebarLayout({
           </div>
         </SidebarInset>
       </SidebarProvider>
-    </OpsUnsavedChangesProvider>
   );
 }
 
@@ -122,7 +122,15 @@ function OpsSidebarPanel() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <OpsRestaurantSwitch />
+        <div className="flex items-center justify-between gap-2 group-data-[collapsible=icon]:hidden">
+          <OpsRestaurantSwitch className="min-w-0 flex-1" />
+          <SidebarCollapseTrigger />
+        </div>
+        <div className="hidden justify-center px-2 py-1 group-data-[collapsible=icon]:flex">
+          <SidebarCollapsedRailToggle openLabel="Open sidebar">
+            <OpsRestaurantSwitch className="[&_[data-sidebar=menu-button]]:size-8 [&_[data-sidebar=menu-button]]:p-0" />
+          </SidebarCollapsedRailToggle>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         {!pathname ? (
@@ -200,9 +208,9 @@ function OpsSidebarNav({
 
   return (
     <>
-      {sections.map((section) => (
-        <SidebarGroup key={section.label}>
-          <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+      {sections.map((section, sectionIndex) => (
+        <SidebarGroup key={section.label ?? `section-${sectionIndex}`}>
+          {section.label ? <SidebarGroupLabel>{section.label}</SidebarGroupLabel> : null}
           <SidebarGroupContent>
             <SidebarMenu>
               {section.items.map((item) => {

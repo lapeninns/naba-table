@@ -2,7 +2,7 @@
 
 import { DateTime } from 'luxon';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   OPS_CARD_CLASS,
@@ -119,6 +119,7 @@ export function OpsEmailQueuePanel({
 }: OpsEmailQueuePanelProps) {
   const [status, setStatus] = useState<OpsEmailQueueJobStatus | 'all'>('all');
   const [page, setPage] = useState(1);
+  const lastHandledRefreshKeyRef = useRef(0);
   const shouldForceFixtureLoadingMarker = fixture === 'loading' && enabled;
 
   useEffect(() => {
@@ -137,6 +138,7 @@ export function OpsEmailQueuePanel({
 
   const jobs = query.jobs ?? [];
   const summary = query.summary;
+  const { refetch } = query;
   const total = query.response && query.response.ok ? query.response.pageInfo.total : 0;
   const showLoadingState = useMinimumDelay(query.isLoading || query.isFetching, {
     delayMs: 0,
@@ -161,8 +163,10 @@ export function OpsEmailQueuePanel({
 
   useEffect(() => {
     if (!enabled || refreshKey === 0) return;
-    void query.refetch();
-  }, [enabled, query, refreshKey]);
+    if (lastHandledRefreshKeyRef.current === refreshKey) return;
+    lastHandledRefreshKeyRef.current = refreshKey;
+    void refetch();
+  }, [enabled, refetch, refreshKey]);
 
   return (
     <section aria-label="Queue monitor" className="space-y-6">

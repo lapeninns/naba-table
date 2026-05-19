@@ -16,10 +16,7 @@ vi.mock('@/server/restaurants/businessContext', () => ({
   updateRestaurantBusinessContext: updateRestaurantBusinessContextMock,
 }));
 
-import {
-  GET,
-  PUT,
-} from '@/src/app/api/ops/restaurants/[id]/business-context/route';
+import { GET, PUT } from '@/src/app/api/ops/restaurants/[id]/business-context/route';
 
 describe('restaurant business-context routes', () => {
   beforeEach(() => {
@@ -146,6 +143,7 @@ describe('restaurant business-context routes', () => {
         ],
         attributes: [
           expect.objectContaining({
+            valueType: 'multienum',
             enumValues: ['RESERVATION_RECOMMENDED'],
             rawValue: { repeatedEnumValue: { setValues: ['RESERVATION_RECOMMENDED'] } },
             rawEnumValues: { setValues: ['RESERVATION_RECOMMENDED'] },
@@ -160,6 +158,47 @@ describe('restaurant business-context routes', () => {
         changedVia: 'ops_business_context_api',
       }),
     );
+  });
+
+  it('rejects malformed persisted ids and DB enum values before service calls', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
+
+    const invalidIdResponse = await PUT(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/business-context', {
+        method: 'PUT',
+        body: JSON.stringify({
+          serviceAreas: [
+            {
+              id: 'local-service-area',
+              displayName: 'Cambridge',
+              areaType: 'region',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(invalidIdResponse.status).toBe(400);
+
+    const invalidEnumResponse = await PUT(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/business-context', {
+        method: 'PUT',
+        body: JSON.stringify({
+          attributes: [
+            {
+              attributeKey: 'has_wifi',
+              valueType: 'unknown',
+            },
+          ],
+        }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(invalidEnumResponse.status).toBe(400);
+    expect(updateRestaurantBusinessContextMock).not.toHaveBeenCalled();
   });
 
   it('returns shared auth responses without calling the business-context service', async () => {

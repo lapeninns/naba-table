@@ -91,14 +91,17 @@ async function postNoShow(req: NextRequest, { params }: RouteParams) {
     return persistResult.response;
   }
 
-  // Release any table assignments now that the booking is marked as no-show
   try {
     await clearBookingTableAssignments(serviceSupabase, booking.id);
   } catch (clearError) {
-    console.warn('[ops][booking-no-show] failed to clear table assignments', {
+    console.error('[ops][booking-no-show] failed to clear table assignments', {
       bookingId: booking.id,
       error: clearError instanceof Error ? clearError.message : clearError,
     });
+    return NextResponse.json(
+      { error: 'Booking was updated but table assignments could not be released' },
+      { status: 500 },
+    );
   }
 
   invalidateOpsDashboardCaches(booking.restaurant_id, {

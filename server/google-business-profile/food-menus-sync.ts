@@ -21,6 +21,7 @@ import {
 } from './food-menus-canonical-adapter';
 import {
   listProjectedFoodMenusIdentities,
+  claimFoodMenusImportReviewDecision,
   markFoodMenusImportReviewDecision,
   markFoodMenusPublishAttemptRunning,
   openFoodMenusPublishAttempt,
@@ -340,7 +341,17 @@ export async function decideFoodMenusImportReview({
     throw error;
   }
 
+  const claimDecision = () =>
+    claimFoodMenusImportReviewDecision({
+      client,
+      restaurantId,
+      reviewId,
+      decisionAction: action,
+      decidedByUserId,
+    });
+
   if (action === 'ignore_google_change') {
+    await claimDecision();
     const decided = await markFoodMenusImportReviewDecision({
       client,
       restaurantId,
@@ -360,6 +371,7 @@ export async function decideFoodMenusImportReview({
       throw error;
     }
     const currentSettings = await readFoodMenuSettings({ client, restaurantId });
+    await claimDecision();
     await upsertFoodMenuSettings({
       client,
       restaurantId,
@@ -393,6 +405,7 @@ export async function decideFoodMenusImportReview({
       error.name = 'GBP_FOOD_MENUS_REVIEW_NOT_APPLICABLE';
       throw error;
     }
+    await claimDecision();
     const item = await decideMissingLocalItemReview({
       client,
       restaurantId,
@@ -421,6 +434,7 @@ export async function decideFoodMenusImportReview({
       throw error;
     }
 
+    await claimDecision();
     const item = await createCanonicalFoodMenusItemFromPatch({
       client,
       restaurantId,
@@ -447,6 +461,7 @@ export async function decideFoodMenusImportReview({
     throw error;
   }
 
+  await claimDecision();
   const item = await applyCanonicalFoodMenusSuggestedPatch({
     client,
     restaurantId,
@@ -611,13 +626,18 @@ export async function publishFoodMenusProjectionToGoogle({
       errorCode: error instanceof Error ? error.name : 'GBP_FOOD_MENUS_PUBLISH_FAILED',
       errorMessage: error instanceof Error ? error.message : 'Unable to publish Google FoodMenus.',
     });
-    return {
+    const publishError =
+      error instanceof Error ? error : new Error('Unable to publish Google FoodMenus.');
+    if (publishError.name === 'Error') {
+      publishError.name = 'GBP_FOOD_MENUS_PUBLISH_FAILED';
+    }
+    throw Object.assign(publishError, {
       projection,
       baselineGoogleSnapshot,
       baselineGoogleHash,
       attempt: failed,
       googleResponse: null,
-    };
+    });
   }
 }
 

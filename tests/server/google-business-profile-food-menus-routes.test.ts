@@ -11,6 +11,7 @@ const decideFoodMenusImportReviewMock = vi.hoisted(() => vi.fn());
 const publishFoodMenusProjectionToGoogleMock = vi.hoisted(() => vi.fn());
 const refreshFoodMenusImportReviewFromGoogleMock = vi.hoisted(() => vi.fn());
 const getGoogleBusinessProfileFoodMenusContextMock = vi.hoisted(() => vi.fn());
+const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
@@ -35,6 +36,18 @@ vi.mock('@/server/google-business-profile/food-menus-sync', () => ({
 
 vi.mock('@/server/google-business-profile/service', () => ({
   getGoogleBusinessProfileFoodMenusContext: getGoogleBusinessProfileFoodMenusContextMock,
+}));
+
+vi.mock('@/server/security/provider-rate-limit', () => ({
+  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
+}));
+
+vi.mock('@/server/security/provider-rate-limit', () => ({
+  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
+}));
+
+vi.mock('@/server/security/provider-rate-limit', () => ({
+  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
 }));
 
 import { POST as decisionPOST } from '@/src/app/api/ops/restaurants/[id]/google-business-profile/food-menus/import-review/[reviewId]/decision/route';
@@ -80,6 +93,9 @@ describe('GBP FoodMenus routes', () => {
     publishFoodMenusProjectionToGoogleMock.mockReset();
     refreshFoodMenusImportReviewFromGoogleMock.mockReset();
     getGoogleBusinessProfileFoodMenusContextMock.mockReset();
+    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
+    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
+    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
@@ -553,6 +569,31 @@ describe('GBP FoodMenus routes', () => {
       expectedProjectionHash: 'a'.repeat(64),
       canHaveFoodMenus: true,
       attempt: { status: 'preflight_failed' },
+    });
+  });
+
+  it('returns an error response when Google FoodMenus publish fails after preflight', async () => {
+    publishFoodMenusProjectionToGoogleMock.mockRejectedValue(
+      Object.assign(new Error('Google rejected menu'), {
+        name: 'GBP_FOOD_MENUS_PUBLISH_FAILED',
+        attempt: { id: 'attempt-1', status: 'failed' },
+      }),
+    );
+
+    const response = await publishPOST(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/publish',
+        {
+          method: 'POST',
+          body: JSON.stringify({ expectedGoogleHash: 'b'.repeat(64) }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Google rejected menu',
     });
   });
 });

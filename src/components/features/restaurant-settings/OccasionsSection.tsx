@@ -31,6 +31,7 @@ import { useOccasionService } from '@/contexts/ops-services';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
 import { queryKeys } from '@/lib/query/keys';
 
+import { ConfirmDialog } from './ConfirmDialog';
 import { SettingsCard } from './shared';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
@@ -61,6 +62,7 @@ export function OccasionsSection() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<OpsOccasion | null>(null);
 
   const occasions = useMemo(() => occasionQuery.data ?? [], [occasionQuery.data]);
 
@@ -116,6 +118,7 @@ export function OccasionsSection() {
     mutationFn: async (key: string) => occasionService.deleteOccasion(key),
     onSuccess: async () => {
       await invalidate();
+      setPendingDelete(null);
     },
     onError: (error: unknown) => {
       console.error('[occasions] delete failed', error);
@@ -211,11 +214,7 @@ export function OccasionsSection() {
     if (occasion.isBuiltin) {
       return;
     }
-    const confirm = window.confirm(
-      `Delete booking type "${occasion.label}"? This cannot be undone.`,
-    );
-    if (!confirm) return;
-    deleteMutation.mutate(occasion.key);
+    setPendingDelete(occasion);
   };
 
   return (
@@ -236,7 +235,7 @@ export function OccasionsSection() {
                 <TableHead className="w-[180px]">Label</TableHead>
                 <TableHead>Short</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Duration</TableHead>
+                <TableHead>Table time</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -338,7 +337,7 @@ export function OccasionsSection() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="occasion-duration">Default duration (minutes)</Label>
+                <Label htmlFor="occasion-duration">Default table time (minutes)</Label>
                 <Input
                   id="occasion-duration"
                   type="number"
@@ -400,6 +399,29 @@ export function OccasionsSection() {
           </FormRoot>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+          }
+        }}
+        title="Delete booking type?"
+        description={
+          pendingDelete
+            ? `"${pendingDelete.label}" will be removed from staff and guest booking type options. This cannot be undone.`
+            : undefined
+        }
+        confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete booking type'}
+        cancelLabel="Keep booking type"
+        tone="destructive"
+        onConfirm={() => {
+          if (!pendingDelete || deleteMutation.isPending) {
+            return;
+          }
+          deleteMutation.mutate(pendingDelete.key);
+        }}
+      />
     </SettingsCard>
   );
 }

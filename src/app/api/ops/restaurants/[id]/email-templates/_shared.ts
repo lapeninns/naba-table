@@ -14,12 +14,13 @@ import {
 } from '@/lib/restaurants/email-templates';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getRestaurantEmailTemplateVenue } from '@/server/restaurants/emailTemplates';
+import { validateCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
 
-
 import type { RestaurantEmailTemplateDTO, RestaurantEmailTemplateGroupDTO } from '../../schema';
 import type { VenueDetails } from '@/lib/venue';
+import type { NextRequest } from 'next/server';
 
 export type RouteParams = {
   params: Promise<{
@@ -50,10 +51,13 @@ export async function resolveTemplateKeyParam(
   return null;
 }
 
-export async function ensureTemplateReadAccess(restaurantId: string): Promise<{
-  venue: VenueDetails;
-  canEdit: boolean;
-} | NextResponse> {
+export async function ensureTemplateReadAccess(restaurantId: string): Promise<
+  | {
+      venue: VenueDetails;
+      canEdit: boolean;
+    }
+  | NextResponse
+> {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -62,7 +66,10 @@ export async function ensureTemplateReadAccess(restaurantId: string): Promise<{
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -86,7 +93,17 @@ export async function ensureTemplateReadAccess(restaurantId: string): Promise<{
   }
 }
 
-export async function ensureTemplateWriteAccess(restaurantId: string): Promise<VenueDetails | NextResponse> {
+export async function ensureTemplateWriteAccess(
+  restaurantId: string,
+  req?: NextRequest,
+): Promise<VenueDetails | NextResponse> {
+  if (req) {
+    const csrfFailure = validateCsrfProtectedMutation(req);
+    if (csrfFailure) {
+      return csrfFailure;
+    }
+  }
+
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -95,7 +112,10 @@ export async function ensureTemplateWriteAccess(restaurantId: string): Promise<V
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -111,7 +131,10 @@ export async function ensureTemplateWriteAccess(restaurantId: string): Promise<V
     return getRestaurantEmailTemplateVenue(restaurantId);
   } catch (error) {
     console.error('[ops][restaurants][email-templates] admin guard failed', error);
-    return NextResponse.json({ error: 'Forbidden: Owner or manager role required' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Forbidden: Owner or manager role required' },
+      { status: 403 },
+    );
   }
 }
 

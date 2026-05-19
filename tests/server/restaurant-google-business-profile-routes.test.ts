@@ -30,7 +30,7 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
 }));
 
 vi.mock('@/server/google-business-profile/service', () => ({
-  createGoogleBusinessProfileAuthorizationUrl: createAuthorizationUrlMock,
+  createGoogleBusinessProfileAuthorization: createAuthorizationUrlMock,
   getGoogleBusinessProfileConnectionState: getConnectionStateMock,
   linkGoogleBusinessProfileLocation: linkLocationMock,
   syncGoogleBusinessProfileBusinessInformation: syncBusinessInfoMock,
@@ -46,7 +46,10 @@ vi.mock('@/server/security/provider-rate-limit', () => ({
   requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
 }));
 
-import { GET as connectGET } from '@/src/app/api/ops/restaurants/[id]/google-business-profile/connect/route';
+import {
+  GET as connectGET,
+  POST as connectPOST,
+} from '@/src/app/api/ops/restaurants/[id]/google-business-profile/connect/route';
 import {
   DELETE as connectionDELETE,
   GET as connectionGET,
@@ -67,23 +70,30 @@ describe('restaurant google business profile routes', () => {
     requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
   });
 
-  it('redirects to Google OAuth from the connect route', async () => {
+  it('starts Google OAuth from the connect route over POST', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    createAuthorizationUrlMock.mockResolvedValue(
-      'https://accounts.google.com/o/oauth2/v2/auth?state=test',
-    );
+    createAuthorizationUrlMock.mockResolvedValue({
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+      stateToken: 'test',
+    });
 
-    const response = await connectGET(
-      new NextRequest(
-        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/connect',
-      ),
-      { params: Promise.resolve({ id: 'rest-1' }) },
+    const request = new NextRequest(
+      'https://example.com/api/ops/restaurants/rest-1/google-business-profile/connect',
+      { method: 'POST' },
     );
+    const response = await connectPOST(request, { params: Promise.resolve({ id: 'rest-1' }) });
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe(
-      'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+    });
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=test');
+    expect(response.headers.get('set-cookie')).toContain('HttpOnly');
+    expect(ensureRestaurantAdminAccessMock).toHaveBeenCalledWith(
+      'rest-1',
+      'google-business-profile',
+      request,
     );
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
@@ -92,17 +102,31 @@ describe('restaurant google business profile routes', () => {
     });
   });
 
+  it('rejects GET on the connect route without starting OAuth', async () => {
+    const response = await connectGET();
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get('allow')).toBe('POST');
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining('Use POST'),
+    });
+    expect(createAuthorizationUrlMock).not.toHaveBeenCalled();
+    expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
+  });
+
   it('uses the forwarded host and protocol for GBP connect return paths', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    createAuthorizationUrlMock.mockResolvedValue(
-      'https://accounts.google.com/o/oauth2/v2/auth?state=test',
-    );
+    createAuthorizationUrlMock.mockResolvedValue({
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
+      stateToken: 'test',
+    });
 
-    await connectGET(
+    await connectPOST(
       new NextRequest(
         'http://internal-host/api/ops/restaurants/rest-1/google-business-profile/connect',
         {
+          method: 'POST',
           headers: {
             'x-forwarded-host': 'preview.nabatable.example',
             'x-forwarded-proto': 'https',

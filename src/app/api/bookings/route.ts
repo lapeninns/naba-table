@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { MAX_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
 import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 import { env } from '@/lib/env';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
@@ -34,7 +35,11 @@ import {
   OperatingHoursError,
   assertBookingWithinOperatingWindow,
 } from '@/server/bookings/timeValidation';
-import { checkSlotAvailability, createBookingWithCapacityCheck, findAlternativeSlots } from '@/server/capacity';
+import {
+  checkSlotAvailability,
+  createBookingWithCapacityCheck,
+  findAlternativeSlots,
+} from '@/server/capacity';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import {
   enqueueBookingCreatedSideEffects,
@@ -58,9 +63,7 @@ import {
   getTenantServiceSupabaseClient,
   MissingRestaurantContextError,
 } from '@/server/supabase';
-import {
-  toBookingUtcIso,
-} from '@reserve/shared/formatting/bookingDateTime';
+import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
 import {
   CUSTOMER_PHONE_LENGTH_MAX,
   CUSTOMER_PHONE_LENGTH_MIN,
@@ -110,7 +113,7 @@ const bookingSchema = z.object({
   restaurantSlug: z.string().regex(slugPattern).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
-  party: z.number().int().min(1),
+  party: z.number().int().min(1).max(MAX_ONLINE_PARTY_SIZE),
   bookingType: bookingTypeEnum,
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
@@ -146,7 +149,7 @@ function buildDeterministicIdempotencyKey(params: {
   endTime: string;
 }): string {
   const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}`;
-  return createHash("sha256").update(payload).digest("hex").slice(0, 32);
+  return createHash('sha256').update(payload).digest('hex').slice(0, 32);
 }
 
 function deriveFallbackIso(
@@ -285,8 +288,6 @@ async function resolveRestaurantId(options: {
   }
 }
 
-
-
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
     return error.stack || error.message;
@@ -311,8 +312,8 @@ function toApiError(error: unknown) {
       body: {
         error: error.message,
         code: 'OPERATING_HOURS_CLOSED',
-        details: error.reason
-      }
+        details: error.reason,
+      },
     };
   }
 
@@ -322,34 +323,39 @@ function toApiError(error: unknown) {
       body: {
         error: error.message,
         code: error.code,
-        details: error.details
-      }
+        details: error.details,
+      },
     };
   }
 
   // Handle Supabase/Postgrest errors
-  const dbError = (error && typeof error === 'object') ? (error as Record<string, unknown>) : {};
+  const dbError = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
   if (dbError.code === '23505') {
     return {
       status: 409,
       body: {
         error: 'This booking conflicts with an existing record (duplicate phone or email).',
         code: 'DUPLICATE_RESOURCE',
-      }
+      },
     };
   }
 
-  const message = (error instanceof Error)
-    ? error.message
-    : (typeof error === 'string' ? error : 'An unexpected error occurred');
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'An unexpected error occurred';
 
   return {
     status: 500,
     body: {
       error: message,
       code: String(dbError.code || 'INTERNAL_SERVER_ERROR'),
-      ...(process.env.NODE_ENV === 'development' ? { stack: (error instanceof Error) ? error.stack : undefined } : {})
-    }
+      ...(process.env.NODE_ENV === 'development'
+        ? { stack: error instanceof Error ? error.stack : undefined }
+        : {}),
+    },
   };
 }
 
@@ -357,7 +363,9 @@ function handleZodError(error: z.ZodError) {
   const flattened = error.flatten();
   // Get the first field error as a more descriptive top-level message
   const firstField = Object.keys(flattened.fieldErrors)[0];
-  const firstErrorMessage = firstField ? `${firstField}: ${(flattened.fieldErrors as Record<string, string[] | undefined>)[firstField]?.[0]}` : 'Invalid payload';
+  const firstErrorMessage = firstField
+    ? `${firstField}: ${(flattened.fieldErrors as Record<string, string[] | undefined>)[firstField]?.[0]}`
+    : 'Invalid payload';
 
   return NextResponse.json(
     {
@@ -382,30 +390,31 @@ type BookingDTO = {
   reservationIntervalMinutes?: number | null;
 };
 
-function toGuestBookingDTO(booking: BookingRecord, options: { restaurantName?: string | null } = {}) {
+type GuestBookingSource = Partial<BookingRecord> & { id: string };
+
+function toGuestBookingDTO(
+  booking: GuestBookingSource,
+  options: { restaurantName?: string | null } = {},
+) {
   return {
     id: booking.id,
-    restaurant_id: booking.restaurant_id,
-    booking_date: booking.booking_date,
-    start_time: booking.start_time,
-    end_time: booking.end_time,
-    start_at: booking.start_at,
-    end_at: booking.end_at,
-    reference: booking.reference,
-    party_size: booking.party_size,
-    booking_type: booking.booking_type,
-    seating_preference: booking.seating_preference,
-    status: booking.status,
-    customer_name: booking.customer_name,
-    customer_email: booking.customer_email,
-    customer_phone: booking.customer_phone,
-    notes: booking.notes,
-    marketing_opt_in: booking.marketing_opt_in,
-    client_request_id: booking.client_request_id,
-    idempotency_key: booking.idempotency_key,
-    pending_ref: booking.pending_ref,
-    created_at: booking.created_at,
-    updated_at: booking.updated_at,
+    restaurant_id: booking.restaurant_id ?? '',
+    booking_date: booking.booking_date ?? '',
+    start_time: booking.start_time ?? '',
+    end_time: booking.end_time ?? null,
+    start_at: booking.start_at ?? null,
+    end_at: booking.end_at ?? null,
+    reference: booking.reference ?? null,
+    party_size: booking.party_size ?? 0,
+    booking_type: booking.booking_type ?? 'dinner',
+    seating_preference: booking.seating_preference ?? null,
+    status: booking.status ?? 'pending',
+    customer_name: booking.customer_name ?? '',
+    customer_email: booking.customer_email ?? '',
+    customer_phone: booking.customer_phone ?? '',
+    notes: null,
+    created_at: booking.created_at ?? null,
+    updated_at: booking.updated_at ?? null,
     restaurants: {
       name: options.restaurantName ?? null,
       slug: null,
@@ -451,6 +460,7 @@ async function recoverBookingRecord(
       .from('bookings')
       .select('*')
       .eq('restaurant_id', args.restaurantId)
+      .eq('customer_id', args.customerId)
       .eq('idempotency_key', args.idempotencyKey)
       .maybeSingle();
 
@@ -785,6 +795,11 @@ export async function GET(req: NextRequest) {
           });
 
           if (!guestError && Array.isArray(guestRows)) {
+            const bookings = guestRows
+              .filter((booking): booking is GuestBookingSource =>
+                Boolean(booking && typeof booking === 'object' && 'id' in booking),
+              )
+              .map((booking) => toGuestBookingDTO(booking));
             access.lookupStrategy = 'policy';
             void recordObservabilityEvent({
               source: requestSource,
@@ -792,8 +807,8 @@ export async function GET(req: NextRequest) {
               context: {
                 restaurant_id: targetRestaurantId,
                 ip_scope: anonymizeIp(clientIp),
-                matched: guestRows.length > 0,
-                count: guestRows.length,
+                matched: bookings.length > 0,
+                count: bookings.length,
                 policy_enabled: true,
                 lookup_strategy: 'policy',
                 rate_source: rateResult.source,
@@ -802,7 +817,7 @@ export async function GET(req: NextRequest) {
               },
             });
 
-            return NextResponse.json({ bookings: guestRows, access });
+            return NextResponse.json({ bookings, access });
           }
 
           if (guestError) {
@@ -853,7 +868,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ bookings, access });
+    return NextResponse.json({
+      bookings: bookings.map((booking) => toGuestBookingDTO(booking)),
+      access,
+    });
   } catch (error: unknown) {
     console.error('[bookings][GET]', stringifyError(error));
     return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
@@ -904,10 +922,10 @@ export async function POST(req: NextRequest) {
   const bookingSource = isOpsWalkIn ? 'ops.walkin' : 'api';
   const bookingDetails = isOpsWalkIn
     ? ({
-      channel: bookingSource,
-      created_by: 'ops.walkin',
-      staff_request_id: clientRequestId,
-    } satisfies Json)
+        channel: bookingSource,
+        created_by: 'ops.walkin',
+        staff_request_id: clientRequestId,
+      } satisfies Json)
     : null;
 
   // Rate limiting for booking creation
@@ -1062,6 +1080,8 @@ export async function POST(req: NextRequest) {
       phone: data.phone,
       name: data.name,
       marketingOptIn: data.marketingOptIn ?? false,
+      identityMatchMode: 'strict',
+      allowExistingUpdates: false,
     });
 
     const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
@@ -1222,90 +1242,89 @@ export async function POST(req: NextRequest) {
         throw error;
       }
     } else if (!booking) {
-       const bookingResult = await createBookingWithCapacityCheck({
-         restaurantId,
-         customerId: customer.id,
-         bookingDate: data.date,
-         startTime,
-         endTime,
-         partySize: data.party,
-         bookingType: normalizedBookingType,
-         customerName: data.name,
-         customerEmail: normalizeEmail(data.email),
-         customerPhone: data.phone.trim(),
-         seatingPreference: DEFAULT_SEATING_PREFERENCE,
-         notes: data.notes ?? null,
-         marketingOptIn: data.marketingOptIn ?? false,
-         idempotencyKey,
-         source: bookingSource,
-         authUserId: null,
-         clientRequestId,
-         details: bookingDetails,
-       });
- 
-       if (!bookingResult.success) {
-         const code = bookingResult.error;
+      const bookingResult = await createBookingWithCapacityCheck({
+        restaurantId,
+        customerId: customer.id,
+        bookingDate: data.date,
+        startTime,
+        endTime,
+        partySize: data.party,
+        bookingType: normalizedBookingType,
+        customerName: data.name,
+        customerEmail: normalizeEmail(data.email),
+        customerPhone: data.phone.trim(),
+        seatingPreference: DEFAULT_SEATING_PREFERENCE,
+        notes: data.notes ?? null,
+        marketingOptIn: data.marketingOptIn ?? false,
+        idempotencyKey,
+        source: bookingSource,
+        authUserId: null,
+        clientRequestId,
+        details: bookingDetails,
+      });
 
-         if (code === 'CAPACITY_UNAVAILABLE') {
-           return NextResponse.json(
-             {
-               error: bookingResult.message ?? 'Capacity enforcement unavailable',
-               code,
-               details: bookingResult.details ?? null,
-             },
-             { status: 503 },
-           );
-         }
+      if (!bookingResult.success) {
+        const code = bookingResult.error;
 
-         if (code === 'CAPACITY_EXCEEDED') {
-           return await buildCapacityFailureResponse({
-             client: supabase,
-             restaurantId,
-             date: data.date,
-             startTime,
-             partySize: data.party,
-             durationMinutes,
-             bookingOption: normalizedBookingType,
-             requestSource,
-             clientIp,
-             code,
-             message: bookingResult.message ?? 'No capacity available',
-             details: (bookingResult.details as Record<string, unknown> | undefined) ?? null,
-           });
-         }
+        if (code === 'CAPACITY_UNAVAILABLE') {
+          return NextResponse.json(
+            {
+              error: bookingResult.message ?? 'Capacity enforcement unavailable',
+              code,
+              details: bookingResult.details ?? null,
+            },
+            { status: 503 },
+          );
+        }
 
-         if (code === 'BOOKING_CONFLICT') {
-           return await buildCapacityFailureResponse({
-             client: supabase,
-             restaurantId,
-             date: data.date,
-             startTime,
-             partySize: data.party,
-             durationMinutes,
-             bookingOption: normalizedBookingType,
-             requestSource,
-             clientIp,
-             code,
-             message: bookingResult.message ?? 'This time slot was just booked. Please try again.',
-             details: (bookingResult.details as Record<string, unknown> | undefined) ?? null,
-             retryable: true,
-             retryAfterSeconds: 1,
-           });
-         }
- 
-         return NextResponse.json(
-           {
-             error: bookingResult.message ?? 'Unable to create booking',
-             code: code ?? 'INTERNAL_ERROR',
-             details: bookingResult.details ?? null,
-           },
-           { status: 500 },
-         );
-       }
- 
-       reusedExisting = bookingResult.duplicate === true;
-       booking = bookingResult.booking as BookingRecord | undefined;
+        if (code === 'CAPACITY_EXCEEDED') {
+          return await buildCapacityFailureResponse({
+            client: supabase,
+            restaurantId,
+            date: data.date,
+            startTime,
+            partySize: data.party,
+            durationMinutes,
+            bookingOption: normalizedBookingType,
+            requestSource,
+            clientIp,
+            code,
+            message: bookingResult.message ?? 'No capacity available',
+            details: (bookingResult.details as Record<string, unknown> | undefined) ?? null,
+          });
+        }
 
+        if (code === 'BOOKING_CONFLICT') {
+          return await buildCapacityFailureResponse({
+            client: supabase,
+            restaurantId,
+            date: data.date,
+            startTime,
+            partySize: data.party,
+            durationMinutes,
+            bookingOption: normalizedBookingType,
+            requestSource,
+            clientIp,
+            code,
+            message: bookingResult.message ?? 'This time slot was just booked. Please try again.',
+            details: (bookingResult.details as Record<string, unknown> | undefined) ?? null,
+            retryable: true,
+            retryAfterSeconds: 1,
+          });
+        }
+
+        return NextResponse.json(
+          {
+            error: bookingResult.message ?? 'Unable to create booking',
+            code: code ?? 'INTERNAL_ERROR',
+            details: bookingResult.details ?? null,
+          },
+          { status: 500 },
+        );
+      }
+
+      reusedExisting = bookingResult.duplicate === true;
+      booking = bookingResult.booking as BookingRecord | undefined;
 
       if (!booking) {
         // Attempt to recover the booking record if the RPC didn't return it
@@ -1471,7 +1490,8 @@ export async function POST(req: NextRequest) {
     // Preserve the longer-lived token created during persistence (30 days) to avoid shortening to 1 hour.
     let confirmationToken: string | null = finalBooking.confirmation_token ?? null;
     const confirmationTokenExpiresAt: string | null =
-      ("confirmation_token_expires_at" in finalBooking && typeof (finalBooking as Record<string, unknown>).confirmation_token_expires_at === "string")
+      'confirmation_token_expires_at' in finalBooking &&
+      typeof (finalBooking as Record<string, unknown>).confirmation_token_expires_at === 'string'
         ? ((finalBooking as Record<string, unknown>).confirmation_token_expires_at as string)
         : null;
 
@@ -1539,7 +1559,10 @@ export async function POST(req: NextRequest) {
           maxAge: recoveryTtlSeconds,
         });
       } catch (recoveryTokenError) {
-        console.error('[bookings][POST][session-recovery-token]', stringifyError(recoveryTokenError));
+        console.error(
+          '[bookings][POST][session-recovery-token]',
+          stringifyError(recoveryTokenError),
+        );
       }
     }
     return res;
@@ -1548,15 +1571,16 @@ export async function POST(req: NextRequest) {
 
     // Detailed logging for server-side debugging
     console.error(`[bookings][POST] Error finishing booking:`, {
-      message: (error instanceof Error) ? error.message : String(error),
+      message: error instanceof Error ? error.message : String(error),
       code: apiError.body.code,
-      stack: (error instanceof Error) ? error.stack : undefined,
+      stack: error instanceof Error ? error.stack : undefined,
       debugInfo: {
         restaurantId: body?.restaurantId,
         date: body?.date,
         party: body?.party,
-        email: (typeof body?.email === 'string') ? `${body.email.split('@')[0].slice(0, 3)}...` : null
-      }
+        email:
+          typeof body?.email === 'string' ? `${body.email.split('@')[0].slice(0, 3)}...` : null,
+      },
     });
 
     const emailDomain = data.email.includes('@') ? data.email.split('@')[1] : null;
@@ -1668,21 +1692,21 @@ async function handleMyBookings(req: NextRequest) {
     status: BookingDTO['status'];
     notes: string | null;
     restaurants:
-    | {
-      id?: string | null;
-      name: string;
-      slug?: string | null;
-      timezone?: string | null;
-      reservation_interval_minutes?: number | null;
-    }
-    | {
-      id?: string | null;
-      name: string;
-      slug?: string | null;
-      timezone?: string | null;
-      reservation_interval_minutes?: number | null;
-    }[]
-    | null;
+      | {
+          id?: string | null;
+          name: string;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }
+      | {
+          id?: string | null;
+          name: string;
+          slug?: string | null;
+          timezone?: string | null;
+          reservation_interval_minutes?: number | null;
+        }[]
+      | null;
   };
 
   const isActive = params.status === 'active';
@@ -1734,8 +1758,9 @@ async function handleMyBookings(req: NextRequest) {
         : null;
     const timezone = restaurant?.timezone ?? null;
     const startIso =
-      (typeof booking.start_at === 'string' && booking.start_at.length > 0 ? booking.start_at : null) ??
-      deriveFallbackIso(booking.booking_date, booking.start_time, timezone);
+      (typeof booking.start_at === 'string' && booking.start_at.length > 0
+        ? booking.start_at
+        : null) ?? deriveFallbackIso(booking.booking_date, booking.start_time, timezone);
     const endIso =
       (typeof booking.end_at === 'string' && booking.end_at.length > 0 ? booking.end_at : null) ??
       deriveFallbackIso(booking.booking_date, booking.end_time, timezone);

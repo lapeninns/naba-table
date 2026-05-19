@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { buildFutureBookingDate } from './helpers/future-booking';
 
@@ -13,6 +13,7 @@ const bookingEndTime = '20:30';
 const bookingStartIso = futureBooking.startIsoUtc;
 const bookingEndIso = futureBooking.endIsoUtc;
 const restaurantTimezone = 'Europe/London';
+let createBookingMode: 'capacity' | 'success' = 'success';
 
 const bookingPayload = {
   id: bookingId,
@@ -41,6 +42,8 @@ const bookingPayload = {
 
 test.describe('reserve routes', () => {
   test.beforeEach(async ({ page }) => {
+    createBookingMode = 'success';
+
     await page.route('**/api/restaurants**', async (route) => {
       const url = new URL(route.request().url());
 
@@ -78,8 +81,34 @@ test.describe('reserve routes', () => {
             availableBookingOptions: ['dinner'],
             slots: [
               {
+                value: '18:30',
+                display: '6:30 PM',
+                periodId: null,
+                periodName: 'Dinner',
+                bookingOption: 'dinner',
+                defaultBookingOption: 'dinner',
+                availability: {
+                  services: {},
+                  labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
+                },
+                disabled: false,
+              },
+              {
                 value: bookingStartTime,
                 display: '7:00 PM',
+                periodId: null,
+                periodName: 'Dinner',
+                bookingOption: 'dinner',
+                defaultBookingOption: 'dinner',
+                availability: {
+                  services: {},
+                  labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
+                },
+                disabled: false,
+              },
+              {
+                value: '20:00',
+                display: '8:00 PM',
                 periodId: null,
                 periodName: 'Dinner',
                 bookingOption: 'dinner',
@@ -171,6 +200,23 @@ test.describe('reserve routes', () => {
         return;
       }
 
+      if (createBookingMode === 'capacity') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'CAPACITY_EXCEEDED',
+            message: 'No tables are available at that time. Please choose another slot.',
+            alternatives: [
+              { time: '18:30', available: true, utilizationPercent: 72 },
+              { time: '20:00', available: true, utilizationPercent: 61 },
+            ],
+            retryable: false,
+          }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -182,6 +228,25 @@ test.describe('reserve routes', () => {
     });
   });
 
+  async function chooseDefaultRestaurantSlot(page: Page) {
+    await page.goto(`/r/${restaurantSlug}`);
+
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByLabel('1 guest')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Increase guests' }).click();
+    await expect(page.getByLabel('2 guests')).toBeVisible();
+
+    const timeInput = page.getByRole('textbox', { name: 'Time' });
+    const sevenPmSlot = page.getByRole('button', { name: '7:00 PM' });
+
+    await expect(sevenPmSlot).toBeVisible();
+    await sevenPmSlot.click();
+
+    await expect(timeInput).toHaveValue(bookingStartTime);
+    await page.getByRole('button', { name: 'Continue' }).click();
+  }
+
   test('reserve root shows plan step', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
@@ -190,6 +255,66 @@ test.describe('reserve routes', () => {
   test('reserve new alias shows plan step', async ({ page }) => {
     await page.goto('/new');
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+  });
+
+  test('restaurant-scoped reserve flow updates party size and selected slot', async ({ page }) => {
+    await page.goto(`/r/${restaurantSlug}`);
+
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByLabel('1 guest')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Increase guests' }).click();
+
+    await expect(page.getByLabel('2 guests')).toBeVisible();
+
+    const timeInput = page.getByRole('textbox', { name: 'Time' });
+    const sevenPmSlot = page.getByRole('button', { name: '7:00 PM' });
+
+    await expect(sevenPmSlot).toBeVisible();
+    await sevenPmSlot.click();
+
+    await expect(timeInput).toHaveValue(bookingStartTime);
+    await expect(sevenPmSlot).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('@p2 @browser @contract @local-only validates details and shows capacity alternatives before creating a reservation', async ({
+    page,
+  }) => {
+    createBookingMode = 'capacity';
+
+    await chooseDefaultRestaurantSlot(page);
+
+    await expect(page.getByRole('heading', { name: 'Tell us how to reach you' })).toBeVisible();
+
+    await page.getByLabel('Full name').fill('A');
+    await expect(page.getByText('Please enter at least two characters.')).toBeVisible();
+    await page.getByLabel('Full name').fill('Reserve Guest');
+
+    await page.getByLabel('Email address').fill('not-an-email');
+    await expect(page.getByText('Please enter a valid email address.')).toBeVisible();
+    await page.getByLabel('Email address').fill('reserve.guest@example.com');
+
+    await page.getByLabel('UK phone number').fill('12345');
+    await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
+    await page.getByLabel('UK phone number').fill('07123 456789');
+
+    await page.getByRole('button', { name: 'Review booking' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
+    await expect(page.getByText('Reserve Guest')).toBeVisible();
+    await expect(page.getByText('reserve.guest@example.com')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Confirm booking' }).click();
+
+    await expect(page.getByRole('alert')).toContainText(
+      'No tables are available at that time. Please choose another slot.',
+    );
+    await expect(page.getByText('Nearby availability')).toBeVisible();
+
+    await page.getByRole('button', { name: '18:30' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Time' })).toHaveValue('18:30');
   });
 
   test('reserve reservation details stub renders id', async ({ page }) => {

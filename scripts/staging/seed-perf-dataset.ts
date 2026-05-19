@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 import { getPgSslConfig } from '../db/pg-ssl';
+import { assertStagingScriptSafety } from '../db/safety';
 
 type Args = {
   apply: boolean;
@@ -92,7 +93,7 @@ function buildPgConnectionString(): string {
   return u.toString();
 }
 
-function assertStaging(apply: boolean, expectedProjectRef: string): void {
+function assertLinkedStagingProject(apply: boolean, expectedProjectRef: string): void {
   if (!apply) return;
   const projectRefPath = path.join(projectRoot, 'supabase/.temp/project-ref');
   if (!fs.existsSync(projectRefPath)) {
@@ -106,6 +107,22 @@ function assertStaging(apply: boolean, expectedProjectRef: string): void {
       `Refusing to apply seed data: linked project ref (${actual}) != expected (${expectedProjectRef}).`,
     );
   }
+}
+
+function assertStagingApplySafety(
+  apply: boolean,
+  expectedProjectRef: string,
+  connectionString: string,
+): void {
+  if (!apply) return;
+  assertLinkedStagingProject(apply, expectedProjectRef);
+  assertStagingScriptSafety({
+    connectionString,
+    expectedProjectRef,
+    targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
+    confirmation: process.env.CONFIRM_STAGING_PERF_SEED,
+    confirmationName: 'CONFIRM_STAGING_PERF_SEED',
+  });
 }
 
 function formatSeedSlug(i: number): string {
@@ -808,14 +825,6 @@ async function seedBookingsAndAssignments(
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  assertStaging(args.apply, args.expectedProjectRef);
-
-  const connectionString = buildPgConnectionString();
-  const client = new Client({
-    connectionString,
-    ssl: getPgSslConfig(),
-    statement_timeout: 15 * 60 * 1000,
-  });
 
   const taskDir = path.join(projectRoot, 'tasks/staging-perf-dataset-20260207-1647');
   const artifactsDir = path.join(taskDir, 'artifacts');
@@ -846,6 +855,17 @@ async function main(): Promise<void> {
     console.log('Dry-run only. Re-run with `--apply` to write seed data.');
     return;
   }
+
+  const connectionString = buildPgConnectionString();
+  assertStagingApplySafety(args.apply, args.expectedProjectRef, connectionString);
+
+  fs.mkdirSync(artifactsDir, { recursive: true });
+
+  const client = new Client({
+    connectionString,
+    ssl: getPgSslConfig(),
+    statement_timeout: 15 * 60 * 1000,
+  });
 
   await client.connect();
   try {

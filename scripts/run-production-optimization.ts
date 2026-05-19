@@ -12,6 +12,11 @@
 
 import { Client } from 'pg';
 import { getPgSslConfig } from './db/pg-ssl';
+import {
+  DEFAULT_PRODUCTION_PROJECT_REF,
+  assertProductionScriptSafety,
+  normalizeSupabaseProjectRef,
+} from './db/safety';
 
 const connectionString = process.env.DB_URL;
 
@@ -22,6 +27,7 @@ if (!connectionString) {
   );
   process.exit(1);
 }
+const checkedConnectionString = connectionString;
 
 interface PhaseResult {
   phase: string;
@@ -30,6 +36,11 @@ interface PhaseResult {
   errors: string[];
   duration: number;
 }
+
+type CommandGroup = {
+  name: string;
+  commands: string[];
+};
 
 // ============================================================
 // PHASE 1: MAINTENANCE (ANALYZE ONLY - SAFE FOR PROD)
@@ -96,25 +107,64 @@ const phase3Commands = [
 // ============================================================
 // PHASE 4: SAFE FOREIGN KEYS (ADD NOT VALID -> VALIDATE)
 // ============================================================
-const phase4FkCommands = [
+const phase4FkCommandGroups: CommandGroup[] = [
   // 1. booking_state_history
-  `ALTER TABLE public.booking_state_history DROP CONSTRAINT IF EXISTS booking_state_history_booking_id_fkey`,
-  `ALTER TABLE public.booking_state_history ADD CONSTRAINT booking_state_history_booking_id_fkey
-     FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE CASCADE NOT VALID`,
-  `ALTER TABLE public.booking_state_history VALIDATE CONSTRAINT booking_state_history_booking_id_fkey`,
+  {
+    name: 'booking_state_history_booking_id_fkey',
+    commands: [
+      `ALTER TABLE public.booking_state_history DROP CONSTRAINT IF EXISTS booking_state_history_booking_id_fkey`,
+      `ALTER TABLE public.booking_state_history ADD CONSTRAINT booking_state_history_booking_id_fkey
+         FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE CASCADE NOT VALID`,
+      `ALTER TABLE public.booking_state_history VALIDATE CONSTRAINT booking_state_history_booking_id_fkey`,
+    ],
+  },
 
   // 2. customer_profiles
-  `ALTER TABLE public.customer_profiles DROP CONSTRAINT IF EXISTS customer_profiles_customer_id_fkey`,
-  `ALTER TABLE public.customer_profiles ADD CONSTRAINT customer_profiles_customer_id_fkey
-     FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE CASCADE NOT VALID`,
-  `ALTER TABLE public.customer_profiles VALIDATE CONSTRAINT customer_profiles_customer_id_fkey`,
+  {
+    name: 'customer_profiles_customer_id_fkey',
+    commands: [
+      `ALTER TABLE public.customer_profiles DROP CONSTRAINT IF EXISTS customer_profiles_customer_id_fkey`,
+      `ALTER TABLE public.customer_profiles ADD CONSTRAINT customer_profiles_customer_id_fkey
+         FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE CASCADE NOT VALID`,
+      `ALTER TABLE public.customer_profiles VALIDATE CONSTRAINT customer_profiles_customer_id_fkey`,
+    ],
+  },
 
   // 3. allocations
-  `ALTER TABLE public.allocations DROP CONSTRAINT IF EXISTS allocations_booking_id_fkey`,
-  `ALTER TABLE public.allocations ADD CONSTRAINT allocations_booking_id_fkey
-     FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE SET NULL NOT VALID`,
-  `ALTER TABLE public.allocations VALIDATE CONSTRAINT allocations_booking_id_fkey`,
+  {
+    name: 'allocations_booking_id_fkey',
+    commands: [
+      `ALTER TABLE public.allocations DROP CONSTRAINT IF EXISTS allocations_booking_id_fkey`,
+      `ALTER TABLE public.allocations ADD CONSTRAINT allocations_booking_id_fkey
+         FOREIGN KEY (booking_id) REFERENCES public.bookings(id) ON DELETE SET NULL NOT VALID`,
+      `ALTER TABLE public.allocations VALIDATE CONSTRAINT allocations_booking_id_fkey`,
+    ],
+  },
 ];
+
+function requireProductionTarget(): string {
+  const expectedProjectRef = normalizeSupabaseProjectRef(
+    process.env.EXPECTED_PROJECT_REF ??
+      process.env.PRODUCTION_SUPABASE_PROJECT_REF ??
+      DEFAULT_PRODUCTION_PROJECT_REF,
+    'EXPECTED_PROJECT_REF',
+  );
+
+  assertProductionScriptSafety({
+    connectionString: checkedConnectionString,
+    expectedProjectRef,
+    targetEnv: process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim(),
+    requireTargetEnv: true,
+    apply: true,
+    destructive: true,
+    confirmation: process.env.CONFIRM_PRODUCTION_OPTIMIZATION,
+    confirmationName: 'CONFIRM_PRODUCTION_OPTIMIZATION',
+    breakGlass: process.env.CONFIRM_PRODUCTION_DDL,
+    breakGlassName: 'CONFIRM_PRODUCTION_DDL',
+  });
+
+  return expectedProjectRef;
+}
 
 async function runPhase(
   client: Client,
@@ -151,14 +201,57 @@ async function runPhase(
   };
 }
 
+async function runTransactionalPhase(
+  client: Client,
+  phaseName: string,
+  groups: CommandGroup[],
+): Promise<PhaseResult> {
+  const startTime = Date.now();
+  const errors: string[] = [];
+
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`PHASE: ${phaseName}`);
+  console.log(`${'='.repeat(60)}`);
+
+  for (const group of groups) {
+    try {
+      await client.query('BEGIN');
+      for (const cmd of group.commands) {
+        await client.query(cmd);
+      }
+      await client.query('COMMIT');
+      console.log(`  ✅ ${group.name}`);
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.log(`  ❌ ${group.name}`);
+      console.log(`     Error: ${errorMessage}`);
+      errors.push(`${group.name}: ${errorMessage}`);
+      break;
+    }
+  }
+
+  const duration = Date.now() - startTime;
+  return {
+    phase: phaseName,
+    success: errors.length === 0,
+    commands: groups.length,
+    errors,
+    duration,
+  };
+}
+
 async function main() {
+  const productionProjectRef = requireProductionTarget();
+
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║    🚀 NABATABLE PRODUCTION DATABASE OPTIMIZATION         ║');
   console.log('║             (ZERO-DOWNTIME SAFE MODE)                    ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log(`Guarded production project ref: ${productionProjectRef}`);
 
   const client = new Client({
-    connectionString,
+    connectionString: checkedConnectionString,
     ssl: getPgSslConfig(),
   });
 
@@ -180,7 +273,9 @@ async function main() {
     results.push(await runPhase(client, '3. AUTOVACUUM CONFIG', phase3Commands));
 
     // 4. Foreign Keys
-    results.push(await runPhase(client, '4. SAFE FOREIGN KEYS', phase4FkCommands));
+    results.push(
+      await runTransactionalPhase(client, '4. SAFE FOREIGN KEYS', phase4FkCommandGroups),
+    );
 
     // Final Summary
     console.log(`\n${'='.repeat(60)}`);
@@ -193,6 +288,15 @@ async function main() {
         `  ${status} ${res.phase}: ${res.commands - res.errors.length}/${res.commands} OK (${res.duration}ms)`,
       );
     }
+
+    const failedPhases = results.filter((res) => !res.success);
+    if (failedPhases.length > 0) {
+      throw new Error(
+        `Production optimization failed in phase(s): ${failedPhases
+          .map((res) => res.phase)
+          .join(', ')}`,
+      );
+    }
   } catch (err) {
     console.error('\n❌ FATAL PRODUCTION ERROR:', err);
     process.exit(1);
@@ -202,4 +306,10 @@ async function main() {
   }
 }
 
-main();
+void main().catch((error) => {
+  console.error(
+    '[run-production-optimization] Failed:',
+    error instanceof Error ? error.message : String(error),
+  );
+  process.exit(1);
+});

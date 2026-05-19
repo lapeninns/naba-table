@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const navigationMocks = vi.hoisted(() => ({
   routerReplaceMock: vi.fn(),
   searchParams: '',
+  gbpFields: [] as unknown[],
 }));
 
 vi.mock('next/navigation', () => ({
@@ -15,6 +16,17 @@ vi.mock('next/navigation', () => ({
     replace: navigationMocks.routerReplaceMock,
     push: vi.fn(),
     prefetch: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/ops/useOpsDualSync', () => ({
+  useOpsDualSync: () => ({
+    stateQuery: {
+      data: { fields: navigationMocks.gbpFields },
+      error: null,
+      isError: false,
+      isLoading: false,
+    },
   }),
 }));
 
@@ -75,15 +87,50 @@ function buildCanonicalMenus(): CanonicalRestaurantMenu[] {
               attributes: {
                 price: { currencyCode: 'GBP', amount: 9.5 },
                 spiciness: null,
-                allergen: [],
+                allergen: ['MILK'],
                 dietaryRestriction: [],
                 ingredients: [],
                 preparationMethods: [],
-                mediaKeys: [],
+                mediaKeys: ['google-media-1'],
                 nutritionFacts: {},
               },
               media: { googleMediaKeys: [], localMedia: {} },
-              options: [],
+              extensions: {
+                drinkProfile: {},
+                recommendationMetadata: {},
+                availabilityPolicy: {
+                  soldOut: false,
+                  servicePeriods: ['dinner'],
+                },
+                customizationControls: {
+                  allowCustomizations: true,
+                  requiredOptionGroupIds: ['sides'],
+                },
+                sourceMetadata: {},
+              },
+              options: [
+                {
+                  id: 'option-extra-bread',
+                  restaurantId: 'rest-1',
+                  menuItemId: 'item-burrata',
+                  externalOptionId: 'extra-bread',
+                  labels: [label('Extra bread')],
+                  attributes: {
+                    price: { currencyCode: 'GBP', amount: 2 },
+                    spiciness: null,
+                    allergen: ['GLUTEN'],
+                    dietaryRestriction: [],
+                    ingredients: [],
+                    preparationMethods: [],
+                    mediaKeys: [],
+                    nutritionFacts: {},
+                  },
+                  media: { googleMediaKeys: [], localMedia: {} },
+                  displayOrder: 1,
+                  active: true,
+                  legacySource: {},
+                },
+              ],
               displayOrder: 1,
               active: true,
               legacySource: {},
@@ -114,12 +161,14 @@ function buildCanonicalMenus(): CanonicalRestaurantMenu[] {
 function renderClient(options?: {
   memberships?: OpsMembership[];
   listMenus?: ReturnType<typeof vi.fn>;
+  updateItem?: ReturnType<typeof vi.fn>;
   searchParams?: string;
 }) {
   navigationMocks.searchParams = options?.searchParams ?? '';
   const activeMemberships = options?.memberships ?? memberships;
   const listMenus =
     options?.listMenus ?? vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() });
+  const updateItem = options?.updateItem ?? vi.fn().mockResolvedValue({});
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -134,6 +183,7 @@ function renderClient(options?: {
           menuHierarchyService: () =>
             ({
               listMenus,
+              updateItem,
             }) as never,
         }}
       >
@@ -152,6 +202,7 @@ function renderClient(options?: {
 afterEach(() => {
   navigationMocks.routerReplaceMock.mockReset();
   navigationMocks.searchParams = '';
+  navigationMocks.gbpFields = [];
 });
 
 describe('OpsMenuManagementClient', () => {
@@ -166,7 +217,9 @@ describe('OpsMenuManagementClient', () => {
     const listMenus = vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() });
     renderClient({ listMenus });
 
-    expect(screen.getByRole('navigation', { name: 'Menu catalogues' })).toBeInTheDocument();
+    expect(screen.getAllByRole('navigation', { name: 'Menu catalogues' }).length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByRole('link', { name: /Food Menu/i })).toHaveAttribute(
       'aria-current',
       'page',
@@ -183,7 +236,7 @@ describe('OpsMenuManagementClient', () => {
   it('shows the canonical empty state when no hierarchy menus exist', async () => {
     renderClient({ listMenus: vi.fn().mockResolvedValue({ menus: [] }) });
 
-    expect(await screen.findByText('No canonical menus')).toBeInTheDocument();
+    expect(await screen.findByText('No menus yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create menu/i })).toBeInTheDocument();
   });
 
@@ -202,17 +255,94 @@ describe('OpsMenuManagementClient', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Burrata' }));
 
-    expect(screen.getByText('Google core')).toBeInTheDocument();
+    expect(screen.getByText('Essentials')).toBeInTheDocument();
     expect(screen.getByText('Primary label language')).toBeInTheDocument();
     expect(screen.getByText('Additional Google labels')).toBeInTheDocument();
-    expect(screen.getByText('Google portion size')).toBeInTheDocument();
+    expect(screen.getByText('Guest menu portion size')).toBeInTheDocument();
     expect(screen.getAllByPlaceholderText('Upper GRAM').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getAllByRole('button', { name: 'Add option' })[0]!);
+    await user.click(screen.getAllByRole('button', { name: 'Edit option Extra bread' })[0]!);
 
     expect(screen.getByText('Option Google attributes')).toBeInTheDocument();
     expect(screen.getByText('Option portion and nutrition')).toBeInTheDocument();
     expect(screen.getByText('Option media keys')).toBeInTheDocument();
+  });
+
+  it('quick edit updates price without clearing option or Google fields', async () => {
+    const user = userEvent.setup();
+    const updateItem = vi.fn().mockResolvedValue({});
+    renderClient({
+      listMenus: vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() }),
+      updateItem,
+    });
+
+    await screen.findByText('Dinner Menu');
+    await user.click(screen.getAllByRole('button', { name: /Open item actions for Burrata/i })[0]!);
+    await user.click(await screen.findByRole('menuitem', { name: /Quick edit/i }));
+
+    expect(await screen.findByRole('dialog', { name: 'Quick edit item' })).toBeInTheDocument();
+    const priceInput = screen.getByDisplayValue('9.5');
+    await user.clear(priceInput);
+    await user.type(priceInput, '10.25');
+    await user.click(screen.getByRole('button', { name: 'Save quick edit' }));
+
+    await waitFor(() => expect(updateItem).toHaveBeenCalledTimes(1));
+    expect(updateItem).toHaveBeenCalledWith(
+      'rest-1',
+      'menu-food',
+      'section-starters',
+      'item-burrata',
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          price: { currencyCode: 'GBP', amount: 10.25 },
+          allergen: ['MILK'],
+          mediaKeys: ['google-media-1'],
+        }),
+        extensions: expect.objectContaining({
+          availabilityPolicy: expect.objectContaining({
+            servicePeriods: ['dinner'],
+            soldOut: false,
+          }),
+          customizationControls: expect.objectContaining({
+            requiredOptionGroupIds: ['sides'],
+          }),
+        }),
+      }),
+    );
+    expect(updateItem.mock.calls[0]?.[4]).not.toHaveProperty('options');
+  });
+
+  it('shows FoodMenus drift beside matching menu items', async () => {
+    navigationMocks.gbpFields = [
+      {
+        fieldKey:
+          'foodMenus.items.starters.foodMenu_menu_menu-food_section_section-starters_item_starter-burrata',
+        sectionKey: 'foodMenus',
+        kind: 'foodMenu.item',
+        label: 'Burrata',
+        helpText: null,
+        conflictPolicy: 'manual',
+        deletePolicy: 'manual',
+        policy: {},
+        importable: true,
+        exportable: true,
+        sortOrder: 1,
+        coreValue: {},
+        gbpValue: {},
+        coreCanonicalHash: 'core',
+        gbpCanonicalHash: 'gbp',
+        capability: { canImport: true, canExport: true, canIgnore: true, blockedReasons: [] },
+        state: 'drifted',
+        lastInSyncAt: null,
+        lastInSyncHash: null,
+        lastCoreChangeAt: null,
+        lastGbpChangeAt: null,
+        openCandidate: null,
+      },
+    ];
+    renderClient({ listMenus: vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() }) });
+
+    expect(await screen.findAllByLabelText(/Google.*review/i)).not.toHaveLength(0);
   });
 });

@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const generateLink = vi.hoisted(() => vi.fn());
 const sendEmail = vi.hoisted(() => vi.fn());
+const originalRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
 vi.mock('server-only', () => ({}));
 
@@ -48,6 +49,15 @@ describe('sendAuthMagicLink', () => {
   beforeEach(() => {
     generateLink.mockReset();
     sendEmail.mockReset();
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'nabatable.com';
+  });
+
+  afterEach(() => {
+    if (typeof originalRootDomain === 'string') {
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN = originalRootDomain;
+    } else {
+      delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    }
   });
 
   it('generates a magic link and sends it via resend', async () => {
@@ -114,6 +124,40 @@ describe('sendAuthMagicLink', () => {
       reason: 'generate_link_failed',
     });
 
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('rejects untrusted callback origins before generating token-bearing links', async () => {
+    await expect(
+      sendAuthMagicLink({
+        email: 'guest@example.com',
+        emailRedirectTo: 'https://evil-nabatable.com/api/auth/callback',
+        intent: 'signin',
+      }),
+    ).rejects.toMatchObject({
+      name: 'MagicLinkDeliveryError',
+      status: 400,
+      reason: 'invalid_redirect',
+    });
+
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-HTTPS production callback origins', async () => {
+    await expect(
+      sendAuthMagicLink({
+        email: 'guest@example.com',
+        emailRedirectTo: 'http://www.nabatable.com/api/auth/callback',
+        intent: 'signin',
+      }),
+    ).rejects.toMatchObject({
+      name: 'MagicLinkDeliveryError',
+      status: 400,
+      reason: 'invalid_redirect',
+    });
+
+    expect(generateLink).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 

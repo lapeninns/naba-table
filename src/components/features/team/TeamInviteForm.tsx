@@ -5,8 +5,10 @@ import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -51,6 +53,7 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
 
   const form = useForm<TeamInviteFormValues>({
     resolver: zodResolver(teamInviteFormSchema),
+    mode: 'onChange',
     defaultValues: {
       email: '',
       role: 'host',
@@ -89,6 +92,12 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
           onSubmit={form.handleSubmit(onSubmit)}
           className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] md:items-end"
         >
+          <div className="md:col-span-3">
+            <p className="text-sm font-semibold text-foreground">Who to invite</p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Send access to one teammate at a time.
+            </p>
+          </div>
           <FormField
             control={form.control}
             name="email"
@@ -108,6 +117,17 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
               </FormItem>
             )}
           />
+
+          <div className="md:col-span-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">Access scope</p>
+              <Badge variant="outline">Restaurant only</Badge>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Role controls this restaurant&apos;s bookings, guest communication, and settings
+              access.
+            </p>
+          </div>
 
           <FormField
             control={form.control}
@@ -131,12 +151,20 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Hosts can manage bookings and guest communication. Use manager access only for
+                  trusted staff who should manage settings.
+                </p>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <Button type="submit" className="w-full md:w-auto" disabled={createInvite.isPending}>
+          <Button
+            type="submit"
+            className="w-full md:w-auto"
+            disabled={createInvite.isPending || !form.formState.isValid}
+          >
             {createInvite.isPending ? (
               <>
                 <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
@@ -146,6 +174,9 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
               'Send invite'
             )}
           </Button>
+          <p className="text-xs leading-5 text-muted-foreground md:col-span-3">
+            {formatSaveScopeMessage('team')}
+          </p>
         </FormRoot>
       </Form>
 

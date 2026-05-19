@@ -81,3 +81,12 @@ export function getTrustedAppOrigin(): string {
   const candidate = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? null;
   return normalizeOrigin(candidate) ?? getCanonicalSiteUrl();
 }
+
+export function buildPublicBookingUrl(slug: string): string | null {
+  const normalizedSlug = slug.trim();
+  if (!normalizedSlug) {
+    return null;
+  }
+
+  return `${getTrustedSiteOrigin()}/restaurants/${encodeURIComponent(normalizedSlug)}/book`;
+}

@@ -14,29 +14,35 @@ type ServiceItemRow = Database['public']['Tables']['restaurant_service_items']['
 type LinkRow = Database['public']['Tables']['restaurant_links']['Row'];
 type ProfileChangeLogInsert =
   Database['public']['Tables']['restaurant_profile_change_log']['Insert'];
+type BusinessDetailsInsert = Database['public']['Tables']['restaurant_business_details']['Insert'];
+type LinkInsert = Database['public']['Tables']['restaurant_links']['Insert'];
+type CategoryInsert = Database['public']['Tables']['restaurant_categories']['Insert'];
+type ServiceAreaInsert = Database['public']['Tables']['restaurant_service_areas']['Insert'];
+type AttributeInsert = Database['public']['Tables']['restaurant_attributes']['Insert'];
+type ServiceItemInsert = Database['public']['Tables']['restaurant_service_items']['Insert'];
 
 const CORE_SOURCE = 'nabatable';
 const PROVIDER_SOURCE = 'gbp';
 const CORE_MANAGED_BY = 'nabatable';
-const MANAGED_LINK_TYPES = [
-  'website',
-  'menu_or_services',
-  'reservation',
-  'order',
-  'chat',
-  'facebook',
-  'instagram',
-  'x',
-  'youtube',
-  'tiktok',
-  'linkedin',
-  'other',
-] as const;
 const DEFAULT_OWNER_PROVENANCE = {
   changeOrigin: 'owner',
   changedVia: 'ops_business_context',
   changeReason: 'Owner/admin business-context update.',
 } as const;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SERVICE_AREA_TYPES = new Set(['place', 'region', 'postal_code', 'other']);
+const ATTRIBUTE_VALUE_TYPE_ALIASES = new Map([
+  ['boolean', 'boolean'],
+  ['bool', 'boolean'],
+  ['text', 'text'],
+  ['string', 'text'],
+  ['uri', 'uri'],
+  ['url', 'uri'],
+  ['enum', 'enum'],
+  ['multienum', 'multienum'],
+  ['multi_enum', 'multienum'],
+  ['repeated_enum', 'multienum'],
+]);
 
 type BusinessContextMoreHoursType = {
   hoursTypeId: string | null;
@@ -459,69 +465,105 @@ function splitRows<T extends { source: string }>(rows: T[]): { core: T[]; provid
   );
 }
 
-type ProviderDeleteQuery = PromiseLike<{ error: unknown }> & {
-  eq: (column: string, value: string) => ProviderDeleteQuery;
+type BusinessContextReplacement = {
+  businessDetails?: BusinessDetailsInsert;
+  links?: LinkInsert[];
+  categories?: CategoryInsert[];
+  serviceAreas?: ServiceAreaInsert[];
+  attributes?: AttributeInsert[];
+  serviceItems?: ServiceItemInsert[];
 };
 
-type MutableTableName =
-  | 'restaurant_categories'
-  | 'restaurant_service_areas'
-  | 'restaurant_attributes'
-  | 'restaurant_service_items';
+type BusinessContextReplacementRpcClient = DbClient & {
+  rpc(
+    fn: 'replace_restaurant_business_context_core',
+    args: {
+      p_restaurant_id: string;
+      p_business_details: BusinessDetailsInsert | null;
+      p_links: LinkInsert[] | null;
+      p_categories: CategoryInsert[] | null;
+      p_service_areas: ServiceAreaInsert[] | null;
+      p_attributes: AttributeInsert[] | null;
+      p_service_items: ServiceItemInsert[] | null;
+    },
+  ): Promise<{ error: { message?: string } | null }>;
+};
 
-async function replaceCoreRows<TTable extends MutableTableName>(
-  table: TTable,
-  restaurantId: string,
-  rows: Database['public']['Tables'][TTable]['Insert'][],
-  client: DbClient,
-) {
-  const query = client.from(table).delete() as ProviderDeleteQuery;
-  const deleteResult = await query
-    .eq('restaurant_id', restaurantId)
-    .eq('source', CORE_SOURCE)
-    .eq('managed_by', CORE_MANAGED_BY);
-
-  if (deleteResult.error) {
-    throw deleteResult.error;
+function normalizeOptionalUuid(value: string | null | undefined, label: string): string {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    return randomUUID();
   }
-
-  if (rows.length === 0) {
-    return;
+  if (!UUID_PATTERN.test(normalized)) {
+    throw new Error(`${label} must be a valid UUID`);
   }
+  return normalized;
+}
 
-  const insertBuilder = client.from(table) as {
-    insert: (value: unknown[]) => PromiseLike<{ error: unknown }>;
-  };
-  const insertResult = await insertBuilder.insert(rows as unknown[]);
-  if (insertResult.error) {
-    throw insertResult.error;
+function assertUniqueRowIds(rows: Array<{ id?: string }>, label: string) {
+  const seen = new Set<string>();
+  rows.forEach((row) => {
+    if (!row.id) {
+      return;
+    }
+    if (seen.has(row.id)) {
+      throw new Error(`Duplicate ${label} id ${row.id}`);
+    }
+    seen.add(row.id);
+  });
+}
+
+function normalizeServiceAreaType(value: string | null | undefined): string {
+  const normalized = normalizeText(value)?.toLowerCase() ?? 'region';
+  if (!SERVICE_AREA_TYPES.has(normalized)) {
+    throw new Error(
+      `Service area type must be one of ${Array.from(SERVICE_AREA_TYPES).join(', ')}`,
+    );
+  }
+  return normalized;
+}
+
+function normalizeAttributeValueType(
+  value: string | null | undefined,
+  attributeKey: string,
+): string {
+  const normalized = normalizeText(value)?.toLowerCase();
+  const mapped = normalized ? ATTRIBUTE_VALUE_TYPE_ALIASES.get(normalized) : null;
+  if (!mapped) {
+    throw new Error(
+      `Attribute "${attributeKey}" value type must be one of boolean, text, uri, enum, or multienum`,
+    );
+  }
+  return mapped;
+}
+
+function assertSinglePrimaryCategory(rows: CategoryInsert[]) {
+  const primaryCount = rows.filter((row) => row.is_primary).length;
+  if (primaryCount > 1) {
+    throw new Error('Only one business category can be marked as primary');
   }
 }
 
-async function replaceCoreLinks(
+async function replaceCoreBusinessContext(
   restaurantId: string,
-  rows: Database['public']['Tables']['restaurant_links']['Insert'][],
+  replacement: BusinessContextReplacement,
   client: DbClient,
 ) {
-  const deleteResult = await client
-    .from('restaurant_links')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('source', CORE_SOURCE)
-    .eq('managed_by', CORE_MANAGED_BY)
-    .in('link_type', [...MANAGED_LINK_TYPES]);
+  const { error } = await (client as BusinessContextReplacementRpcClient).rpc(
+    'replace_restaurant_business_context_core',
+    {
+      p_restaurant_id: restaurantId,
+      p_business_details: replacement.businessDetails ?? null,
+      p_links: replacement.links ?? null,
+      p_categories: replacement.categories ?? null,
+      p_service_areas: replacement.serviceAreas ?? null,
+      p_attributes: replacement.attributes ?? null,
+      p_service_items: replacement.serviceItems ?? null,
+    },
+  );
 
-  if (deleteResult.error) {
-    throw deleteResult.error;
-  }
-
-  if (rows.length === 0) {
-    return;
-  }
-
-  const insertResult = await client.from('restaurant_links').insert(rows);
-  if (insertResult.error) {
-    throw insertResult.error;
+  if (error) {
+    throw error;
   }
 }
 
@@ -624,6 +666,7 @@ export async function updateRestaurantBusinessContext(
   const now = new Date().toISOString();
   const canonicalProvenance = resolveChangeProvenance(provenance);
   const changeLogRows: ProfileChangeLogInsert[] = [];
+  const replacement: BusinessContextReplacement = {};
 
   if (input.businessDetails) {
     const row = {
@@ -636,14 +679,9 @@ export async function updateRestaurantBusinessContext(
       source_record_id: null,
       last_synced_at: null,
       last_manual_override_at: now,
-    } satisfies Database['public']['Tables']['restaurant_business_details']['Insert'];
+    } satisfies BusinessDetailsInsert;
 
-    const { error } = await client.from('restaurant_business_details').upsert(row, {
-      onConflict: 'restaurant_id,source,managed_by',
-    });
-    if (error) {
-      throw error;
-    }
+    replacement.businessDetails = row;
 
     changeLogRows.push({
       restaurant_id: restaurantId,
@@ -665,7 +703,7 @@ export async function updateRestaurantBusinessContext(
   }
 
   if (input.links) {
-    const rows = input.links.map((row, index) => {
+    const rows = input.links.map<LinkInsert>((row, index) => {
       const linkType = normalizeText(row.linkType);
       if (!linkType) {
         throw new Error('Link type is required');
@@ -677,7 +715,7 @@ export async function updateRestaurantBusinessContext(
       }
 
       return {
-        id: normalizeText(row.id) ?? randomUUID(),
+        id: normalizeOptionalUuid(row.id, 'Link id'),
         restaurant_id: restaurantId,
         link_type: linkType,
         link_status: normalizeText(row.linkStatus ?? null) ?? 'current',
@@ -692,8 +730,9 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
+    assertUniqueRowIds(rows, 'link');
 
-    await replaceCoreLinks(restaurantId, rows, client);
+    replacement.links = rows;
     changeLogRows.push({
       restaurant_id: restaurantId,
       entity_table: 'restaurant_links',
@@ -714,14 +753,14 @@ export async function updateRestaurantBusinessContext(
   }
 
   if (input.categories) {
-    const rows = input.categories.map((row, index) => {
+    const rows = input.categories.map<CategoryInsert>((row, index) => {
       const displayName = normalizeText(row.displayName);
       if (!displayName) {
         throw new Error('Category display name is required');
       }
 
       return {
-        id: normalizeText(row.id) ?? randomUUID(),
+        id: normalizeOptionalUuid(row.id, 'Category id'),
         restaurant_id: restaurantId,
         display_name: displayName,
         category_code: normalizeText(row.categoryCode ?? null),
@@ -735,8 +774,10 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
+    assertUniqueRowIds(rows, 'category');
+    assertSinglePrimaryCategory(rows);
 
-    await replaceCoreRows('restaurant_categories', restaurantId, rows, client);
+    replacement.categories = rows;
     changeLogRows.push({
       restaurant_id: restaurantId,
       entity_table: 'restaurant_categories',
@@ -757,17 +798,17 @@ export async function updateRestaurantBusinessContext(
   }
 
   if (input.serviceAreas) {
-    const rows = input.serviceAreas.map((row, index) => {
+    const rows = input.serviceAreas.map<ServiceAreaInsert>((row, index) => {
       const displayName = normalizeText(row.displayName);
       if (!displayName) {
         throw new Error('Service area display name is required');
       }
 
       return {
-        id: normalizeText(row.id) ?? randomUUID(),
+        id: normalizeOptionalUuid(row.id, 'Service area id'),
         restaurant_id: restaurantId,
         display_name: displayName,
-        area_type: normalizeText(row.areaType) ?? 'region',
+        area_type: normalizeServiceAreaType(row.areaType),
         region_code: normalizeText(row.regionCode ?? null),
         google_place_id: normalizeText(row.googlePlaceId ?? null),
         google_place_resource_name: normalizeText(row.googlePlaceResourceName ?? null),
@@ -781,8 +822,9 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
+    assertUniqueRowIds(rows, 'service area');
 
-    await replaceCoreRows('restaurant_service_areas', restaurantId, rows, client);
+    replacement.serviceAreas = rows;
     changeLogRows.push({
       restaurant_id: restaurantId,
       entity_table: 'restaurant_service_areas',
@@ -803,19 +845,16 @@ export async function updateRestaurantBusinessContext(
   }
 
   if (input.attributes) {
-    const rows = input.attributes.map((row, index) => {
+    const rows = input.attributes.map<AttributeInsert>((row, index) => {
       const attributeKey = normalizeText(row.attributeKey);
       if (!attributeKey) {
         throw new Error('Attribute key is required');
       }
 
-      const valueType = normalizeText(row.valueType);
-      if (!valueType) {
-        throw new Error(`Attribute "${attributeKey}" requires a value type`);
-      }
+      const valueType = normalizeAttributeValueType(row.valueType, attributeKey);
 
       return {
-        id: normalizeText(row.id) ?? randomUUID(),
+        id: normalizeOptionalUuid(row.id, 'Attribute id'),
         restaurant_id: restaurantId,
         attribute_group: normalizeText(row.attributeGroup ?? null),
         attribute_key: attributeKey,
@@ -847,8 +886,9 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
+    assertUniqueRowIds(rows, 'attribute');
 
-    await replaceCoreRows('restaurant_attributes', restaurantId, rows, client);
+    replacement.attributes = rows;
     changeLogRows.push({
       restaurant_id: restaurantId,
       entity_table: 'restaurant_attributes',
@@ -869,14 +909,14 @@ export async function updateRestaurantBusinessContext(
   }
 
   if (input.serviceItems) {
-    const rows = input.serviceItems.map((row, index) => {
+    const rows = input.serviceItems.map<ServiceItemInsert>((row, index) => {
       const itemKey = normalizeText(row.itemKey);
       if (!itemKey) {
         throw new Error('Service item key is required');
       }
 
       return {
-        id: normalizeText(row.id) ?? randomUUID(),
+        id: normalizeOptionalUuid(row.id, 'Service item id'),
         restaurant_id: restaurantId,
         item_key: itemKey,
         item_type: normalizeText(row.itemType ?? null),
@@ -892,8 +932,9 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
+    assertUniqueRowIds(rows, 'service item');
 
-    await replaceCoreRows('restaurant_service_items', restaurantId, rows, client);
+    replacement.serviceItems = rows;
     changeLogRows.push({
       restaurant_id: restaurantId,
       entity_table: 'restaurant_service_items',
@@ -911,6 +952,10 @@ export async function updateRestaurantBusinessContext(
       metadata: { writer: 'updateRestaurantBusinessContext', rowCount: rows.length },
       ...canonicalProvenance,
     });
+  }
+
+  if (Object.keys(replacement).length > 0) {
+    await replaceCoreBusinessContext(restaurantId, replacement, client);
   }
 
   await insertBusinessContextChangeLogRows(changeLogRows, client);

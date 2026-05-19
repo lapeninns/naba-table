@@ -39,6 +39,7 @@ export type TeamInviteFormValues = z.infer<typeof teamInviteFormSchema>;
 export type TeamInviteRow = {
   invite: TeamInvite;
   expiresLabel: string;
+  createdLabel: string;
   isExpiredPending: boolean;
 };
 
@@ -71,6 +72,7 @@ export function buildTeamInviteRows(invites: TeamInvite[], now = Date.now()): Te
   return invites.map((invite) => ({
     invite,
     expiresLabel: formatTeamInviteTimestamp(invite.expiresAt),
+    createdLabel: formatTeamInviteTimestamp(invite.createdAt),
     isExpiredPending: isPendingInviteExpired(invite, now),
   }));
 }

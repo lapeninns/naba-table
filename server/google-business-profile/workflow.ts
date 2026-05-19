@@ -2457,6 +2457,77 @@ async function upsertPublishJobFromPreflight(params: {
   return data;
 }
 
+async function claimPublishJobForPublishing(params: {
+  jobId: string;
+  actorUserId: string;
+  context: PublishPreflightContext;
+  client: DbClient;
+}): Promise<PublishJobRow> {
+  const { data, error } = await params.client
+    .from('restaurant_external_profile_publish_jobs')
+    .update({
+      status: 'publishing',
+      published_by_user_id: params.actorUserId,
+      selected_approvals: selectedApprovalsWithDecisions(
+        params.context.selectedApprovals,
+        params.context.decisions,
+      ),
+      nabatable_sections: params.context.sections,
+      preflight_nabatable_updates: toJson(params.context.nabatableUpdates),
+      preflight_pull_only_items: toJson(params.context.pullOnlyItems),
+      google_update_masks: params.context.googleUpdateMasks,
+      preflight_warnings: toJson(params.context.warnings),
+      preflight_errors: toJson(params.context.errors),
+    })
+    .eq('id', params.jobId)
+    .eq('status', 'preflight_ready')
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw createWorkflowNamedError(
+      'GBP_PUBLISH_JOB_INVALID_STATE',
+      'Update is already being applied or is no longer ready to publish.',
+    );
+  }
+
+  return data;
+}
+
+async function claimPublishJobForGoogleRetry(params: {
+  jobId: string;
+  actorUserId: string;
+  client: DbClient;
+}): Promise<PublishJobRow> {
+  const retriedAt = nowIso();
+  const { data, error } = await params.client
+    .from('restaurant_external_profile_publish_jobs')
+    .update({
+      status: 'publishing',
+      google_retry_by_user_id: params.actorUserId,
+      retried_at: retriedAt,
+    })
+    .eq('id', params.jobId)
+    .in('status', GOOGLE_RETRYABLE_JOB_STATUSES)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw createWorkflowNamedError(
+      'GBP_PUBLISH_JOB_INVALID_STATE',
+      'Google retry is already being applied or is no longer retryable.',
+    );
+  }
+
+  return data;
+}
+
 function buildPreflightResponse(
   context: PublishPreflightContext,
   job: PublishJobRow,
@@ -2652,22 +2723,17 @@ async function publishDraftToNabatable(params: {
       params.currentCore.businessContext,
     );
     if (Object.keys(businessPayload).length > 0) {
-      await updateRestaurantBusinessContext(
-        params.restaurantId,
-        businessPayload,
-        params.client,
-        {
-          changeOrigin: 'google',
-          changedByUserId: params.actorUserId,
-          changedVia: 'gbp_workflow_publish',
-          changeReason: 'Applied approved Google Business Profile draft to Nabatable.',
-          externalProfileId: params.externalProfile?.id ?? null,
-          externalProvider: PROVIDER,
-          draftId: params.draft.id,
-          publishJobId: params.publishJobId,
-          publishEventId: nabatableEvent.id,
-        },
-      );
+      await updateRestaurantBusinessContext(params.restaurantId, businessPayload, params.client, {
+        changeOrigin: 'google',
+        changedByUserId: params.actorUserId,
+        changedVia: 'gbp_workflow_publish',
+        changeReason: 'Applied approved Google Business Profile draft to Nabatable.',
+        externalProfileId: params.externalProfile?.id ?? null,
+        externalProvider: PROVIDER,
+        draftId: params.draft.id,
+        publishJobId: params.publishJobId,
+        publishEventId: nabatableEvent.id,
+      });
     }
 
     await updatePublishEvent(nabatableEvent.id, 'success', [], params.client);
@@ -3028,6 +3094,13 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
   if (!context.draftRow.approved_by_user_id) {
     draftPublishingPatch.approved_by_user_id = params.actorUserId;
   }
+  job = await claimPublishJobForPublishing({
+    jobId: job.id,
+    actorUserId: params.actorUserId,
+    context,
+    client,
+  });
+
   const { error: draftUpdateError } = await client
     .from('restaurant_external_profile_drafts')
     .update(draftPublishingPatch)
@@ -3036,27 +3109,6 @@ export async function publishGoogleBusinessProfileWorkflowDraft(params: {
     .eq('provider', PROVIDER);
   if (draftUpdateError) {
     throw draftUpdateError;
-  }
-
-  const { error: jobPublishingError } = await client
-    .from('restaurant_external_profile_publish_jobs')
-    .update({
-      status: 'publishing',
-      published_by_user_id: params.actorUserId,
-      selected_approvals: selectedApprovalsWithDecisions(
-        context.selectedApprovals,
-        context.decisions,
-      ),
-      nabatable_sections: context.sections,
-      preflight_nabatable_updates: toJson(context.nabatableUpdates),
-      preflight_pull_only_items: toJson(context.pullOnlyItems),
-      google_update_masks: context.googleUpdateMasks,
-      preflight_warnings: toJson(context.warnings),
-      preflight_errors: toJson(context.errors),
-    })
-    .eq('id', job.id);
-  if (jobPublishingError) {
-    throw jobPublishingError;
   }
 
   let nabatableEventId: string | null = null;
@@ -3241,7 +3293,7 @@ export async function retryGoogleBusinessProfileWorkflowGooglePush(params: {
   client?: DbClient;
 }): Promise<RetryGoogleBusinessProfilePushResult> {
   const client = getClient(params.client);
-  const job = await readPublishJobById({
+  let job = await readPublishJobById({
     restaurantId: params.restaurantId,
     draftId: params.draftId,
     publishJobId: params.publishJobId,
@@ -3289,6 +3341,12 @@ export async function retryGoogleBusinessProfileWorkflowGooglePush(params: {
 
   const externalProfile = await findExternalProfile(params.restaurantId, client);
   assertGooglePushEnabled(externalProfile);
+  job = await claimPublishJobForGoogleRetry({
+    jobId: job.id,
+    actorUserId: params.actorUserId,
+    client,
+  });
+
   try {
     const googleEventId = await pushDraftToGoogle({
       restaurantId: params.restaurantId,
@@ -3383,6 +3441,8 @@ export const googleBusinessProfileWorkflowTestUtils = {
   providerValueChangedForStaleCheck,
   publishModeForDirectionIntent,
   pushToGoogleForDirectionIntent,
+  claimPublishJobForGoogleRetry,
+  claimPublishJobForPublishing,
   reconcileDraftWithCurrentSections,
   suppressActionsForReadOnlyReview,
   restoreCoreSnapshotAfterFailedPublish,

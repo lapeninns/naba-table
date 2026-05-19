@@ -42,6 +42,7 @@ import {
   updateOperationStatus,
   updatePublishBatchStatus,
 } from './operations';
+import { validatePublishDecisionPins } from './pinning';
 import { buildPublishPlan } from './planner';
 import { NOOP_PORTS, type DualSyncOrchestratorPorts } from './ports';
 import { defaultDualSyncExportPreflight, type DualSyncExportPreflightPort } from './preflight';
@@ -615,6 +616,15 @@ async function runPublishUnlocked(
       continue;
     }
 
+    const pinValidationFailure = validatePublishDecisionPins(decision);
+    if (pinValidationFailure) {
+      failures.push({
+        fieldKey: decision.fieldKey,
+        failure: pinValidationFailure,
+      });
+      continue;
+    }
+
     const preflightFailure = preflightFailures.get(decision.fieldKey);
     if (preflightFailure) {
       failures.push({
@@ -629,11 +639,7 @@ async function runPublishUnlocked(
     const beforeCoreHash = hashCanonicalJson(config.canonicalizeCoreValue(coreValue));
     const beforeGbpHash = hashCanonicalJson(config.canonicalizeGbpValue(gbpValue));
 
-    if (
-      decision.pinnedCoreHash !== null &&
-      decision.pinnedCoreHash !== undefined &&
-      beforeCoreHash !== decision.pinnedCoreHash
-    ) {
+    if (beforeCoreHash !== decision.pinnedCoreHash) {
       failures.push({
         fieldKey: decision.fieldKey,
         failure: {
@@ -644,11 +650,7 @@ async function runPublishUnlocked(
       });
       continue;
     }
-    if (
-      decision.pinnedGbpHash !== null &&
-      decision.pinnedGbpHash !== undefined &&
-      beforeGbpHash !== decision.pinnedGbpHash
-    ) {
+    if (beforeGbpHash !== decision.pinnedGbpHash) {
       failures.push({
         fieldKey: decision.fieldKey,
         failure: {

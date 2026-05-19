@@ -7,8 +7,16 @@ import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
 import { Pagination } from '@/components/dashboard/Pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useRestaurants } from '@/hooks/ops/useRestaurants';
 
 import { CreateRestaurantDialog } from './CreateRestaurantDialog';
@@ -67,7 +75,9 @@ export function RestaurantsClient() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">Manage Restaurants</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+            Manage Restaurants
+          </h2>
           <p className="text-sm text-muted-foreground">
             Create, update, and manage your restaurants in the system.
           </p>
@@ -80,13 +90,16 @@ export function RestaurantsClient() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <form onSubmit={handleSearchSubmit} className="flex-1 space-y-2">
+        <FormRoot onSubmit={handleSearchSubmit} className="flex-1 space-y-2">
           <Label htmlFor="restaurants-search" className="text-sm font-medium text-foreground">
             Search
           </Label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Search
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
               <Input
                 id="restaurants-search"
                 type="search"
@@ -100,24 +113,27 @@ export function RestaurantsClient() {
               Search
             </Button>
           </div>
-        </form>
+        </FormRoot>
 
         <div className="w-full space-y-2 sm:w-48">
           <Label htmlFor="restaurants-sort" className="text-sm font-medium text-foreground">
             Sort by
           </Label>
-          <select
-            id="restaurants-sort"
+          <Select
             value={sort}
-            onChange={(e) => {
-              setSort(e.target.value as 'name' | 'created_at');
+            onValueChange={(value) => {
+              setSort(value as 'name' | 'created_at');
               setPage(1);
             }}
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
-            <option value="name">Name (A-Z)</option>
-            <option value="created_at">Recently Created</option>
-          </select>
+            <SelectTrigger id="restaurants-sort">
+              <SelectValue placeholder="Sort restaurants" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+              <SelectItem value="created_at">Recently Created</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

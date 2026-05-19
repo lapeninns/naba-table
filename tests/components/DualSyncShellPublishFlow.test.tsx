@@ -245,7 +245,7 @@ describe('DualSyncShell publish flow', () => {
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
 
     await user.click(screen.getByRole('button', { name: 'Export (1)' }));
-    await user.click(screen.getByRole('button', { name: 'Publish (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Review and publish (1)' }));
 
     expect(await screen.findByText('Review publish plan')).toBeInTheDocument();
     expect(previewPublish).toHaveBeenCalledWith(
@@ -334,8 +334,8 @@ describe('DualSyncShell publish flow', () => {
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
 
     expect(screen.getByText('Dual-sync is paused.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /pull from google/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /^publish$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /import latest google details/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^review and publish$/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /resume sync/i })).toBeEnabled();
   });
 

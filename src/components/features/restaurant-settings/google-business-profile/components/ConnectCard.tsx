@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 type ConnectCardProps = {
-  connectHref: string;
+  onConnect: () => void;
   isConfigured: boolean;
+  isConnecting: boolean;
   isPendingAuth: boolean;
   lastError: string | null;
 };
@@ -20,8 +21,9 @@ const BENEFITS = [
 ];
 
 export function ConnectCard({
-  connectHref,
+  onConnect,
   isConfigured,
+  isConnecting,
   isPendingAuth,
   lastError,
 }: ConnectCardProps) {
@@ -75,8 +77,13 @@ export function ConnectCard({
         ) : null}
 
         <div>
-          <Button asChild size="lg" disabled={!isConfigured}>
-            <a href={connectHref}>Connect Google</a>
+          <Button
+            type="button"
+            size="lg"
+            onClick={onConnect}
+            disabled={!isConfigured || isConnecting}
+          >
+            {isConnecting ? 'Connecting...' : 'Connect Google'}
           </Button>
         </div>
       </CardContent>

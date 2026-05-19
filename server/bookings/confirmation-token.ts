@@ -4,12 +4,24 @@ import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Tables } from '@/types/supabase';
 
+const CONFIRMATION_TOKEN_REGEX = /^[A-Za-z0-9_-]+$/;
+export const CONFIRMATION_TOKEN_BASE64URL_LENGTH = 43;
+export const LEGACY_CONFIRMATION_TOKEN_LENGTH = 64;
+
 /**
  * Generates a cryptographically secure confirmation token.
- * @returns Base64url-encoded token (64 characters, 32 bytes of entropy)
+ * @returns Base64url-encoded token (43 characters, 32 bytes of entropy)
  */
 export function generateConfirmationToken(): string {
   return randomBytes(32).toString('base64url');
+}
+
+export function isConfirmationTokenFormat(token: string): boolean {
+  return (
+    CONFIRMATION_TOKEN_REGEX.test(token) &&
+    (token.length === CONFIRMATION_TOKEN_BASE64URL_LENGTH ||
+      token.length === LEGACY_CONFIRMATION_TOKEN_LENGTH)
+  );
 }
 
 /**
@@ -39,7 +51,7 @@ export class TokenValidationError extends Error {
 /**
  * Validates a confirmation token and returns the associated booking.
  * Throws TokenValidationError if token is invalid, expired, or already used.
- * 
+ *
  * @param token Confirmation token to validate
  * @returns Booking record if valid
  * @throws TokenValidationError
@@ -84,7 +96,7 @@ export async function validateConfirmationToken(
 /**
  * Marks a confirmation token as used by setting the used_at timestamp.
  * This prevents token replay attacks.
- * 
+ *
  * @param token Confirmation token to mark as used
  */
 export async function markTokenUsed(token: string): Promise<void> {
@@ -103,7 +115,7 @@ export async function markTokenUsed(token: string): Promise<void> {
 
 /**
  * Updates a booking record with a confirmation token and expiry.
- * 
+ *
  * @param bookingId UUID of the booking
  * @param token Generated confirmation token
  * @param expiryTimestamp ISO-8601 expiry timestamp
@@ -151,7 +163,7 @@ export type PublicBookingConfirmation = {
 /**
  * Transforms a booking record into public confirmation data.
  * Removes sensitive fields like customer email/phone.
- * 
+ *
  * @param booking Full booking record from database
  * @param restaurantName Restaurant name (from join or lookup)
  * @returns Sanitized booking data safe for public display

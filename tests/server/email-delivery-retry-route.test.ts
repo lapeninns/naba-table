@@ -7,9 +7,11 @@ const requireRestaurantMemberMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const retryEmailDeliveryLogEntryMock = vi.hoisted(() => vi.fn());
 const resendBookingEmailFromDeliveryLogMock = vi.hoisted(() => vi.fn());
+const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
-  const actual = await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
+  const actual =
+    await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: requireSessionMock,
@@ -36,18 +38,35 @@ vi.mock('@/server/emails/bookings', () => ({
   resendBookingEmailFromDeliveryLog: resendBookingEmailFromDeliveryLogMock,
 }));
 
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
+}));
+
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
+}));
+
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
+}));
+
 import { GuardError } from '@/server/auth/guards';
 import {
   EmailDeliveryLogUnavailableError,
   EmailDeliveryRetryError,
 } from '@/server/emails/email-delivery-log';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { POST } from '@/src/app/api/ops/email-delivery/retry/route';
+
+const CSRF_TOKEN = 'email-retry-csrf-token';
 
 function buildRequest(body: unknown) {
   return new NextRequest('https://www.nabatable.com/api/ops/email-delivery/retry', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      [CSRF_HEADER_NAME]: CSRF_TOKEN,
+      cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
     },
     body: JSON.stringify(body),
   });
@@ -63,6 +82,9 @@ describe('POST /api/ops/email-delivery/retry', () => {
     getServiceSupabaseClientMock.mockReset();
     retryEmailDeliveryLogEntryMock.mockReset();
     resendBookingEmailFromDeliveryLogMock.mockReset();
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
 
     requireSessionMock.mockResolvedValue({
       supabase: { mock: true },
@@ -251,9 +273,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
       metadata: { subject: 'Fixture failed retry candidate' },
     });
 
-    const response = await POST(
-      buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }),
-    );
+    const response = await POST(buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -306,9 +326,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
       metadata: { subject: 'Fixture failed retry candidate' },
     });
 
-    const response = await POST(
-      buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }),
-    );
+    const response = await POST(buildRequest({ deliveryLogId: FIXTURE_DELIVERY_LOG_ID }));
     const payload = await response.json();
 
     expect(response.status).toBe(200);

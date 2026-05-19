@@ -1,56 +1,81 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from 'crypto';
 
-import { env } from "@/lib/env";
-import { clearBookingTableAssignments, updateBookingRecord, type BookingRecord, type UpdateBookingPayload } from "@/server/bookings";
-import { buildInlineLastResult } from "@/server/capacity/auto-assign-last-result";
-import { atomicConfirmAndTransition, quoteTablesForBooking } from "@/server/capacity/tables";
-import { sendBookingModificationPendingEmail } from "@/server/emails/bookings";
-import { sendBookingModificationConfirmedEmail } from "@/server/emails/bookings";
-import { recordObservabilityEvent } from "@/server/observability";
+import { env } from '@/lib/env';
+import { CancellableAutoAssign } from '@/server/booking/auto-assign/cancellable-auto-assign';
+import {
+  updateBookingAndClearAssignmentsAtomically,
+  updateBookingRecord,
+  type BookingRecord,
+  type UpdateBookingPayload,
+} from '@/server/bookings';
+import { buildInlineLastResult } from '@/server/capacity/auto-assign-last-result';
+import { atomicConfirmAndTransition, quoteTablesForBooking } from '@/server/capacity/tables';
+import { sendBookingModificationPendingEmail } from '@/server/emails/bookings';
+import { sendBookingModificationConfirmedEmail } from '@/server/emails/bookings';
+import { recordObservabilityEvent } from '@/server/observability';
 
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, "public">;
+type DbClient = SupabaseClient<Database, 'public'>;
 
-export type ModificationFlowSource = "guest" | "ops";
+export type ModificationFlowSource = 'guest' | 'ops';
 
 type BeginFlowParams = {
   client: DbClient;
   bookingId: string;
   payload: UpdateBookingPayload;
-  existingBooking: Tables<"bookings">;
+  existingBooking: Tables<'bookings'>;
   source: ModificationFlowSource;
 };
 
-const SUPPRESS_EMAILS = process.env.LOAD_TEST_DISABLE_EMAILS === "true" || process.env.SUPPRESS_EMAILS === "true";
+const SUPPRESS_EMAILS =
+  process.env.LOAD_TEST_DISABLE_EMAILS === 'true' || process.env.SUPPRESS_EMAILS === 'true';
 
 type InlineAttemptResult =
-  | { ok: true; booking: Tables<"bookings">; durationMs: number; alternates: number }
+  | { ok: true; booking: Tables<'bookings'>; durationMs: number; alternates: number }
   | { ok: false; reason: string; durationMs: number; alternates: number };
 
+function throwIfInlineAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    const abortError = new Error('Inline modification auto-assign timed out');
+    abortError.name = 'AbortError';
+    throw abortError;
+  }
+}
+
 async function attemptInlineModificationAssign(params: {
-  booking: Tables<"bookings">;
+  booking: Tables<'bookings'>;
   client: DbClient;
   timeoutMs: number;
 }): Promise<InlineAttemptResult> {
   const { booking, client } = params;
   const timeoutMs = Math.max(500, params.timeoutMs);
   const start = Date.now();
+  const autoAssign = new CancellableAutoAssign(timeoutMs);
+  let timedOut = false;
 
-  const run = async (): Promise<InlineAttemptResult> => {
+  const run = async (signal: AbortSignal): Promise<InlineAttemptResult> => {
     const quote = await quoteTablesForBooking({
       bookingId: booking.id,
       // createdBy is optional downstream; pass undefined to store NULL
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      createdBy: (undefined as any) as string,
+      createdBy: undefined as any as string,
       holdTtlSeconds: 180,
       requireAdjacency: undefined,
       maxTables: undefined,
+      client,
+      signal,
     });
+    throwIfInlineAborted(signal);
     const durationMs = Date.now() - start;
     if (!quote.hold) {
-      return { ok: false as const, reason: quote.reason ?? "NO_HOLD", durationMs, alternates: quote.alternates?.length ?? 0 };
+      return {
+        ok: false as const,
+        reason: quote.reason ?? 'NO_HOLD',
+        durationMs,
+        alternates: quote.alternates?.length ?? 0,
+      };
     }
 
     // Tie idempotency to the specific hold/table-set to avoid ledger mismatches when the selection changes.
@@ -60,46 +85,72 @@ async function attemptInlineModificationAssign(params: {
       holdId: quote.hold.id,
       idempotencyKey,
       assignedBy: null,
-      historyReason: "modification_inline_auto_assign",
-      historyMetadata: { source: "modification-inline", holdId: quote.hold.id },
+      historyReason: 'modification_inline_auto_assign',
+      historyMetadata: { source: 'modification-inline', holdId: quote.hold.id },
+      client,
+      signal,
     });
+    throwIfInlineAborted(signal);
 
-    const { data: reloaded } = await client.from("bookings").select("*").eq("id", booking.id).maybeSingle();
-    const nextBooking = (reloaded ?? booking) as Tables<"bookings">;
-    return { ok: true as const, booking: nextBooking, durationMs, alternates: quote.alternates?.length ?? 0 };
+    const { data: reloaded } = await client
+      .from('bookings')
+      .select('*')
+      .eq('id', booking.id)
+      .maybeSingle();
+    throwIfInlineAborted(signal);
+    const nextBooking = (reloaded ?? booking) as Tables<'bookings'>;
+    return {
+      ok: true as const,
+      booking: nextBooking,
+      durationMs,
+      alternates: quote.alternates?.length ?? 0,
+    };
   };
 
   try {
-    const result = await run();
-    if (!result.ok && result.reason === "NO_HOLD" && result.durationMs >= timeoutMs) {
-      return { ...result, reason: "INLINE_TIMEOUT" };
+    const result = await autoAssign.runWithTimeout(run, () => {
+      timedOut = true;
+    });
+    if (timedOut) {
+      return { ok: false, reason: 'INLINE_TIMEOUT', durationMs: Date.now() - start, alternates: 0 };
+    }
+    if (!result.ok && result.reason === 'NO_HOLD' && result.durationMs >= timeoutMs) {
+      return { ...result, reason: 'INLINE_TIMEOUT' };
     }
     return result;
   } catch (error) {
-    console.error("[booking.modification] inline auto-assign failed", error);
-    return { ok: false, reason: "INLINE_ERROR", durationMs: Date.now() - start, alternates: 0 };
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { ok: false, reason: 'INLINE_TIMEOUT', durationMs: Date.now() - start, alternates: 0 };
+    }
+    console.error('[booking.modification] inline auto-assign failed', error);
+    return { ok: false, reason: 'INLINE_ERROR', durationMs: Date.now() - start, alternates: 0 };
   }
 }
 
-export async function beginBookingModificationFlow(params: BeginFlowParams): Promise<BookingRecord> {
+export async function beginBookingModificationFlow(
+  params: BeginFlowParams,
+): Promise<BookingRecord> {
   const { client, bookingId, payload, source, existingBooking } = params;
 
   const pendingPayload: UpdateBookingPayload = {
     ...payload,
-    status: "pending",
+    status: 'pending',
   };
 
-  const updated = await updateBookingRecord(client, bookingId, pendingPayload, {
-    restaurantId: existingBooking.restaurant_id,
-  });
-
-  await clearBookingTableAssignments(client, bookingId);
+  const updated = await updateBookingAndClearAssignmentsAtomically(
+    client,
+    bookingId,
+    pendingPayload,
+    {
+      restaurantId: existingBooking.restaurant_id,
+    },
+  );
 
   try {
     await recordObservabilityEvent({
-      source: "booking.modification",
-      eventType: "booking.modification.pending",
-      severity: "info",
+      source: 'booking.modification',
+      eventType: 'booking.modification.pending',
+      severity: 'info',
       restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id ?? undefined,
       bookingId: updated.id,
       context: {
@@ -108,12 +159,12 @@ export async function beginBookingModificationFlow(params: BeginFlowParams): Pro
       },
     });
   } catch (telemetryError) {
-    console.warn("[booking.modification] telemetry failed", telemetryError);
+    console.warn('[booking.modification] telemetry failed', telemetryError);
   }
 
   const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
   const inlinePlannerStrategy = { requireAdjacency: null, maxTables: null };
-  const inlinePlannerTrigger = "inline_modification";
+  const inlinePlannerTrigger = 'inline_modification';
   const inlineAttemptId = randomUUID();
 
   const persistInlineResult = async (result: {
@@ -132,12 +183,12 @@ export async function beginBookingModificationFlow(params: BeginFlowParams): Pro
       alternates: result.alternates,
       attemptId: inlineAttemptId,
       emailSent: result.emailSent,
-      emailVariant: "modified",
+      emailVariant: 'modified',
     });
     try {
       await updateBookingRecord(client, updated.id, { auto_assign_last_result: inlineLastResult });
     } catch (persistError) {
-      console.warn("[booking.modification] failed to persist inline result", persistError);
+      console.warn('[booking.modification] failed to persist inline result', persistError);
     }
   };
 
@@ -159,9 +210,9 @@ export async function beginBookingModificationFlow(params: BeginFlowParams): Pro
 
     try {
       await recordObservabilityEvent({
-        source: "booking.modification",
-        eventType: "booking.modification.inline_confirmed",
-        severity: "info",
+        source: 'booking.modification',
+        eventType: 'booking.modification.inline_confirmed',
+        severity: 'info',
         restaurantId: confirmed.restaurant_id ?? existingBooking.restaurant_id ?? undefined,
         bookingId: confirmed.id,
         context: {
@@ -171,14 +222,14 @@ export async function beginBookingModificationFlow(params: BeginFlowParams): Pro
         },
       });
     } catch (telemetryError) {
-      console.warn("[booking.modification] telemetry inline_confirmed failed", telemetryError);
+      console.warn('[booking.modification] telemetry inline_confirmed failed', telemetryError);
     }
 
     if (!SUPPRESS_EMAILS && confirmed.customer_email?.trim()) {
       try {
         await sendBookingModificationConfirmedEmail(confirmed as BookingRecord);
       } catch (emailError) {
-        console.error("[booking.modification] inline confirmation email failed", emailError);
+        console.error('[booking.modification] inline confirmation email failed', emailError);
       }
     }
 
@@ -197,19 +248,19 @@ export async function beginBookingModificationFlow(params: BeginFlowParams): Pro
     try {
       await sendBookingModificationPendingEmail(updated);
     } catch (emailError) {
-      console.error("[booking.modification] pending email failed", emailError);
+      console.error('[booking.modification] pending email failed', emailError);
     }
   }
 
   try {
-    const { autoAssignAndConfirmIfPossible } = await import("@/server/jobs/auto-assign");
+    const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
     void autoAssignAndConfirmIfPossible(updated.id, {
       bypassFeatureFlag: true,
-      reason: "modification",
-      emailVariant: "modified",
+      reason: 'modification',
+      emailVariant: 'modified',
     });
   } catch (schedulerError) {
-    console.error("[booking.modification] scheduling auto-assign failed", schedulerError);
+    console.error('[booking.modification] scheduling auto-assign failed', schedulerError);
   }
 
   return updated;

@@ -1,7 +1,6 @@
 'use client';
 
 import { ExternalLink, MapPin, RefreshCcw, Unplug } from 'lucide-react';
-import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,8 @@ type GbpOverviewCardProps = {
   lastPullAt: string | null;
   hasLinkedLocation: boolean;
   showConnect: boolean;
-  connectHref: string;
+  onConnect: (() => void) | null;
+  isConnecting: boolean;
   showPicker: boolean;
   onChooseLocation: () => void;
   canRefresh: boolean;
@@ -49,7 +49,8 @@ export function GbpOverviewCard({
   lastPullAt,
   hasLinkedLocation,
   showConnect,
-  connectHref,
+  onConnect,
+  isConnecting,
   showPicker,
   onChooseLocation,
   canRefresh,
@@ -80,7 +81,7 @@ export function GbpOverviewCard({
               </Badge>
             </div>
             <div className="space-y-1">
-              <CardTitle className="text-xl leading-tight">GBP overview</CardTitle>
+              <CardTitle className="text-xl leading-tight">Google account</CardTitle>
               <CardDescription className="max-w-2xl text-sm leading-6">
                 {stageLabel}. Google is optional; use it when you want faster imports or a listing
                 comparison.
@@ -91,8 +92,13 @@ export function GbpOverviewCard({
           {hasActions ? (
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {showConnect ? (
-                <Button type="button" size="sm" asChild>
-                  <Link href={connectHref}>Connect Google</Link>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onConnect ?? undefined}
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? 'Connecting...' : 'Connect Google'}
                 </Button>
               ) : null}
               {showPicker ? (
@@ -142,9 +148,12 @@ export function GbpOverviewCard({
       </CardHeader>
       <CardContent className="border-t border-border/60 bg-muted/20 px-4 py-4 sm:px-5">
         <dl className="grid gap-3 md:grid-cols-3">
-          <OverviewDatum label="Business location" value={locationTitle} />
           <OverviewDatum label="Google account" value={accountLabel} />
+          <OverviewDatum label="Connection status" value={stageLabel} />
           <OverviewDatum label="Last checked" value={formatLastSync(lastPullAt)} />
+        </dl>
+        <dl className="mt-3 grid gap-3">
+          <OverviewDatum label="Business location" value={locationTitle} />
         </dl>
       </CardContent>
     </Card>

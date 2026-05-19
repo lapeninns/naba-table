@@ -18,24 +18,6 @@ export const dynamic = 'force-dynamic';
 const INVALID_CLIENT_ID_ERROR_TYPE = 'invalid_client_id';
 const INVALID_CLIENT_ID_USER_MESSAGE =
   'Sign-in is temporarily unavailable due to an authentication provider setup issue. Please contact support or try again later.';
-const REDACTED_AUTH_PARAM = '[redacted]';
-const SENSITIVE_CALLBACK_PARAMS = new Set([
-  'code',
-  'token_hash',
-  'access_token',
-  'refresh_token',
-  'redirectedFrom',
-]);
-
-function redactCallbackUrl(value: string): string {
-  const url = new URL(value);
-  for (const key of SENSITIVE_CALLBACK_PARAMS) {
-    if (url.searchParams.has(key)) {
-      url.searchParams.set(key, REDACTED_AUTH_PARAM);
-    }
-  }
-  return url.toString();
-}
 
 function describeRedirectTarget(value: string | null): string {
   if (!value) return 'none';
@@ -154,11 +136,6 @@ async function linkAuthUserToCustomers(authUserId: string, email: string): Promi
       return;
     }
 
-    console.log('[auth/callback] Linked auth user to customers', {
-      authUserId,
-      email: normalizedEmail,
-      customerCount: customerIds.length,
-    });
   } catch (error) {
     console.error('[auth/callback] Error linking auth user to customers:', error);
   }
@@ -174,21 +151,6 @@ export async function GET(req: NextRequest) {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
   const hasAuthParams = !!code || !!tokenHash;
 
-  console.log('[auth/callback] Request received:', {
-    hostname,
-    rootDomain,
-    hasCode: !!code,
-    redirectedFrom: describeRedirectTarget(redirectedFrom),
-    callbackUrl: redactCallbackUrl(req.url),
-    headers: {
-      hasHost: !!req.headers.get('host'),
-      hasReferer: !!req.headers.get('referer'),
-      hasOrigin: !!req.headers.get('origin'),
-      hasForwardedHost: !!req.headers.get('x-forwarded-host'),
-      userAgent: req.headers.get('user-agent'),
-    },
-  });
-
   const resolveDestination = () => {
     const sanitized = sanitizeRedirect(redirectedFrom, rootDomain, hostname);
     if (!sanitized) {
@@ -198,16 +160,8 @@ export async function GET(req: NextRequest) {
         });
       }
       // Use host-aware default redirect: app subdomain -> /dashboard, root domain -> /guest/dashboard
-      const fallback = defaultRedirectForHost(hostname, rootDomain);
-      console.log(
-        '[auth/callback] Using fallback destination:',
-        fallback,
-        'for hostname:',
-        hostname,
-      );
-      return fallback;
+      return defaultRedirectForHost(hostname, rootDomain);
     }
-    console.log('[auth/callback] Using sanitized destination:', sanitized);
     return sanitized;
   };
 
@@ -244,27 +198,11 @@ export async function GET(req: NextRequest) {
   const cookieStore = await cookies();
 
   if (code || tokenHash) {
-    // Debug: Log all cookies to identify if PKCE code verifier is present
-    const allCookies = cookieStore.getAll();
-    const supabaseCookies = allCookies.filter(
-      (c) => c.name.includes('sb-') || c.name.includes('supabase'),
-    );
-    console.log('[auth/callback] Cookies received:', {
-      total: allCookies.length,
-      supabaseRelated: supabaseCookies.map((c) => ({
-        name: c.name,
-        hasValue: !!c.value,
-        length: c.value?.length,
-      })),
-      hasCodeVerifier: allCookies.some((c) => c.name.includes('code-verifier')),
-    });
-
     // Create Supabase client that writes cookies to the cookie store
     const supabase = await getRouteHandlerSupabaseClient(cookieStore);
 
     if (code) {
-      console.log('[auth/callback] Attempting to exchange code for session...');
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) {
         console.error('[auth/callback] Session exchange failed:', {
@@ -296,31 +234,16 @@ export async function GET(req: NextRequest) {
           );
         }
 
-        console.log('[auth/callback] Redirecting to login due to error:', {
-          errorType,
-          userMessage,
-        });
         return buildLoginRedirect(errorType, userMessage);
-      } else {
-        console.log('[auth/callback] Session exchanged successfully:', {
-          userId: data.user?.id,
-          email: data.user?.email,
-          redirectedFrom: describeRedirectTarget(redirectedFrom),
-        });
+      }
 
-        if (data.user?.id && data.user?.email) {
-          await linkAuthUserToCustomers(data.user.id, data.user.email);
-        }
-
-        const { data: userData } = await supabase.auth.getUser();
-        console.log('[auth/callback] Session verification (getUser):', {
-          hasUser: !!userData.user,
-          sessionUserId: userData.user?.id,
-        });
+      const userData = await supabase.auth.getUser();
+      const verifiedUser = userData.data.user;
+      if (verifiedUser?.email) {
+        await linkAuthUserToCustomers(verifiedUser.id, verifiedUser.email);
       }
     } else if (tokenHash) {
-      console.log('[auth/callback] Verifying token_hash for magic link...');
-      const { data, error } = await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: 'magiclink',
       });
@@ -351,21 +274,13 @@ export async function GET(req: NextRequest) {
         return buildLoginRedirect(errorType, userMessage);
       }
 
-      console.log('[auth/callback] token_hash verified', {
-        userId: data.session?.user?.id,
-        email: data.session?.user?.email,
-      });
-
-      if (data.session?.user?.id && data.session?.user?.email) {
-        await linkAuthUserToCustomers(data.session.user.id, data.session.user.email);
+      const userData = await supabase.auth.getUser();
+      const verifiedUser = userData.data.user;
+      if (verifiedUser?.email) {
+        await linkAuthUserToCustomers(verifiedUser.id, verifiedUser.email);
       }
     }
   }
-  console.log('[auth/callback] Final redirect:', {
-    destination,
-    redirectHost: redirectUrl.hostname,
-    origin: resolveTrustedCallbackOrigin(hostname, rootDomain, requestUrl.origin),
-  });
 
   return NextResponse.redirect(redirectUrl.toString());
 }

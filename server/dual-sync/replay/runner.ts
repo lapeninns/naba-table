@@ -98,6 +98,30 @@ function valueForField(
   return sectionValue;
 }
 
+export function computeReplayDecisionPins({
+  coreSnapshot,
+  gbpSnapshot,
+  fieldKey,
+}: {
+  readonly coreSnapshot: DualSyncCanonicalSnapshot;
+  readonly gbpSnapshot: DualSyncCanonicalSnapshot;
+  readonly fieldKey: string;
+}): Pick<DualSyncRunPublishInput['decisions'][number], 'pinnedCoreHash' | 'pinnedGbpHash'> {
+  const registry = buildRegistry({ coreSnapshot, gbpSnapshot, includeCoreOnly: false });
+  const config = registry.find((entry) => entry.fieldKey === fieldKey) ?? null;
+  if (!config) {
+    return { pinnedCoreHash: null, pinnedGbpHash: null };
+  }
+  return {
+    pinnedCoreHash: hashCanonicalJson(
+      config.canonicalizeCoreValue(valueForField(coreSnapshot, config, 'core')),
+    ),
+    pinnedGbpHash: hashCanonicalJson(
+      config.canonicalizeGbpValue(valueForField(gbpSnapshot, config, 'gbp')),
+    ),
+  };
+}
+
 function computeReplayFieldStates(
   scenario: DualSyncReplayScenario,
 ): ReadonlyArray<DualSyncReplayFieldState> {

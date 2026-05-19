@@ -67,7 +67,7 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
     case 'SET_STEP':
       return { ...state, step: action.step };
     case 'SET_ACCOUNT':
-      return { ...state, account: action.account };
+      return { ...state, account: redactAccountDetails(action.account) };
     case 'SET_RESTAURANT':
       return { ...state, restaurantId: action.restaurantId };
     case 'SET_PROFILE':
@@ -91,6 +91,17 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
   }
 }
 
+function redactAccountDetails(account: AccountDetails | undefined): AccountDetails | undefined {
+  if (!account) {
+    return undefined;
+  }
+
+  return {
+    email: account.email,
+    mode: account.mode,
+  };
+}
+
 function isOnboardingStep(value: unknown): value is OnboardingStep {
   return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
 }
@@ -103,6 +114,7 @@ function sanitizePersistedState(value: unknown): Partial<OnboardingState> {
   const source = value as Partial<OnboardingState>;
   return {
     ...source,
+    account: redactAccountDetails(source.account),
     step: isOnboardingStep(source.step) ? source.step : DEFAULT_STATE.step,
     loading: false,
     error: null,
@@ -156,6 +168,7 @@ export function OnboardingProvider({
 
     const persistedState: OnboardingState = {
       ...state,
+      account: redactAccountDetails(state.account),
       loading: false,
       error: null,
     };

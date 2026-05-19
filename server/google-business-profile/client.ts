@@ -88,6 +88,10 @@ export type GoogleBusinessProfileAvailableLocation = {
   canHaveFoodMenus: boolean | null;
 };
 
+export type GoogleBusinessProfileLocationOptionalFetchStatuses = {
+  serviceItems?: 'fetched' | 'unavailable';
+};
+
 type GoogleTimeOfDay = {
   hours?: number;
   minutes?: number;
@@ -214,6 +218,7 @@ export type GoogleBusinessProfileLocationProfile = {
     }>;
   }>;
   serviceItems?: Array<Record<string, unknown>>;
+  __nabatableOptionalFetchStatus?: GoogleBusinessProfileLocationOptionalFetchStatuses;
 };
 
 export type GoogleBusinessProfileAttributesResponse = {
@@ -603,31 +608,47 @@ export async function getGoogleBusinessProfileLocationProfile(
     baseUrl.toString(),
     accessToken,
   );
+  const optionalFetchStatus: GoogleBusinessProfileLocationOptionalFetchStatuses = {};
 
   const optionalSegments = await Promise.all(
     OPTIONAL_LOCATION_PROFILE_MASK_GROUPS.map(async (mask) => {
       const url = new URL(`${GOOGLE_BUSINESS_INFORMATION_BASE_URL}/${locationName}`);
       url.searchParams.set('readMask', mask.join(','));
       try {
-        return await googleFetchJson<GoogleBusinessProfileLocationProfile>(
+        const segment = await googleFetchJson<GoogleBusinessProfileLocationProfile>(
           url.toString(),
           accessToken,
         );
+        for (const field of mask) {
+          optionalFetchStatus[field] = 'fetched';
+        }
+        return segment;
       } catch {
+        for (const field of mask) {
+          optionalFetchStatus[field] = 'unavailable';
+        }
         return null;
       }
     }),
   );
 
-  return optionalSegments.reduce<GoogleBusinessProfileLocationProfile>((accumulator, segment) => {
-    if (!segment) {
-      return accumulator;
-    }
-    return {
-      ...accumulator,
-      ...segment,
-    };
-  }, location);
+  const mergedLocation = optionalSegments.reduce<GoogleBusinessProfileLocationProfile>(
+    (accumulator, segment) => {
+      if (!segment) {
+        return accumulator;
+      }
+      return {
+        ...accumulator,
+        ...segment,
+      };
+    },
+    location,
+  );
+
+  return {
+    ...mergedLocation,
+    __nabatableOptionalFetchStatus: optionalFetchStatus,
+  };
 }
 
 export async function getGoogleBusinessProfileLocationAttributes(

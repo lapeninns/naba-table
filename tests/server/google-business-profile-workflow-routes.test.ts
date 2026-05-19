@@ -10,6 +10,7 @@ const preflightDraftPublishMock = vi.hoisted(() => vi.fn());
 const publishDraftMock = vi.hoisted(() => vi.fn());
 const retryGooglePushMock = vi.hoisted(() => vi.fn());
 const verifyUserPasswordConfirmationMock = vi.hoisted(() => vi.fn());
+const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
 const PasswordConfirmationErrorMock = vi.hoisted(
   () =>
     class PasswordConfirmationError extends Error {
@@ -41,6 +42,10 @@ vi.mock('@/server/google-business-profile/workflow', () => ({
 vi.mock('@/server/auth/password-confirmation', () => ({
   PasswordConfirmationError: PasswordConfirmationErrorMock,
   verifyUserPasswordConfirmation: verifyUserPasswordConfirmationMock,
+}));
+
+vi.mock('@/server/security/provider-rate-limit', () => ({
+  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
 }));
 
 import { POST as preflightDraftPublishPOST } from '@/src/app/api/ops/restaurants/[id]/google-business-profile/drafts/[draftId]/publish/preflight/route';
@@ -78,6 +83,7 @@ describe('google business profile workflow routes', () => {
     publishDraftMock.mockReset();
     retryGooglePushMock.mockReset();
     verifyUserPasswordConfirmationMock.mockReset();
+    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
   });
 
   it('returns the shared auth response from workflow GET', async () => {

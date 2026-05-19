@@ -5,6 +5,14 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 import type { RestaurantDTO } from '@/app/api/ops/restaurants/schema';
 
@@ -34,8 +42,8 @@ function EmptyState() {
       <div className="max-w-md">
         <h3 className="text-lg font-semibold text-foreground">No restaurants found</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating your first restaurant. You'll be able to manage bookings, operating hours, and team
-          members.
+          Get started by creating your first restaurant. You&apos;ll be able to manage bookings,
+          operating hours, and team members.
         </p>
       </div>
     </div>
@@ -103,7 +111,12 @@ function RestaurantCard({
   );
 }
 
-export function RestaurantsTable({ restaurants, isLoading, onEdit, onDelete }: RestaurantsTableProps) {
+export function RestaurantsTable({
+  restaurants,
+  isLoading,
+  onEdit,
+  onDelete,
+}: RestaurantsTableProps) {
   const showSkeleton = isLoading;
   const showEmpty = !isLoading && restaurants.length === 0;
 
@@ -114,7 +127,10 @@ export function RestaurantsTable({ restaurants, isLoading, onEdit, onDelete }: R
         {showSkeleton ? (
           <div className="space-y-3">
             {skeletonRows.map((row) => (
-              <div key={`skeleton-mobile-${row}`} className="rounded-lg border border-border bg-card p-4">
+              <div
+                key={`skeleton-mobile-${row}`}
+                className="rounded-lg border border-border bg-card p-4"
+              >
                 <Skeleton className="mb-2 h-5 w-32" />
                 <Skeleton className="mb-3 h-4 w-48" />
                 <div className="space-y-2">
@@ -144,99 +160,110 @@ export function RestaurantsTable({ restaurants, isLoading, onEdit, onDelete }: R
       <div className="hidden lg:block">
         {showSkeleton ? (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="min-w-full divide-y divide-border" role="grid" aria-busy="true">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left">
+            <Table className="min-w-full divide-y divide-border" role="grid" aria-busy="true">
+              <TableHeader className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                <TableRow>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Name
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Slug
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Timezone
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Capacity
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Role
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-right">
                     Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70 text-sm">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border/70 text-sm">
                 {skeletonRows.map((row) => (
-                  <tr key={`skeleton-desktop-${row}`}>
-                    <td className="px-4 py-3">
+                  <TableRow key={`skeleton-desktop-${row}`}>
+                    <TableCell className="px-4 py-3">
                       <Skeleton className="h-4 w-32" />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <Skeleton className="h-4 w-24" />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <Skeleton className="h-4 w-28" />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <Skeleton className="h-4 w-12" />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <Skeleton className="h-4 w-16" />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <Skeleton className="ml-auto h-8 w-32" />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : showEmpty ? (
           <EmptyState />
         ) : (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="min-w-full divide-y divide-border" role="grid">
-              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left">
+            <Table className="min-w-full divide-y divide-border" role="grid">
+              <TableHeader className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                <TableRow>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Name
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Slug
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Timezone
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Capacity
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-left">
                     Role
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
+                  </TableHead>
+                  <TableHead scope="col" className="px-4 py-3 text-right">
                     Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70 text-sm">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border/70 text-sm">
                 {restaurants.map((restaurant) => {
                   const canEdit = ['owner', 'admin'].includes(restaurant.role);
                   const canDelete = restaurant.role === 'owner';
 
                   return (
-                    <tr key={restaurant.id}>
-                      <th scope="row" className="truncate px-4 py-3 font-medium text-foreground">
+                    <TableRow key={restaurant.id}>
+                      <TableHead
+                        scope="row"
+                        className="truncate px-4 py-3 font-medium text-foreground"
+                      >
                         {restaurant.name}
-                      </th>
-                      <td className="truncate px-4 py-3 text-muted-foreground">{restaurant.slug}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{restaurant.timezone}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{restaurant.capacity ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={getRoleBadgeVariant(restaurant.role)}>{restaurant.role}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                      </TableHead>
+                      <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                        {restaurant.slug}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {restaurant.timezone}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        {restaurant.capacity ?? '—'}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant={getRoleBadgeVariant(restaurant.role)}>
+                          {restaurant.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">
                           {canEdit && (
                             <Button
@@ -262,12 +289,12 @@ export function RestaurantsTable({ restaurants, isLoading, onEdit, onDelete }: R
                             </Button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

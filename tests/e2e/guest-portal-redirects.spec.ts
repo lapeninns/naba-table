@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const appBaseUrl = 'http://localhost:5180';
+const appPort = process.env.QA_APP_PORT ?? '5180';
+const appBaseUrl = `http://localhost:${appPort}`;
 const bookingId = '22222222-2222-4222-8222-222222222222';
 
 const redirectCases = [
@@ -27,9 +28,8 @@ test.describe('guest portal redirects', () => {
     test(`${name} redirects to sign-in`, async ({ page }) => {
       await page.goto(path, { waitUntil: 'domcontentloaded' });
 
-      await page.waitForURL(/\/auth\/signin/, {
+      await expect(page).toHaveURL(/\/auth\/signin/, {
         timeout: 20_000,
-        waitUntil: 'domcontentloaded',
       });
       const url = new URL(page.url());
       expect(url.searchParams.get('redirectedFrom')).toBe(redirectedFrom);

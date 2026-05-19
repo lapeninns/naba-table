@@ -1,5 +1,8 @@
-
-import type { BookingHistoryChange, BookingHistoryEvent, BookingHistoryOptions } from '@/types/bookingHistory';
+import type {
+  BookingHistoryChange,
+  BookingHistoryEvent,
+  BookingHistoryOptions,
+} from '@/types/bookingHistory';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -23,7 +26,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 const TRACKED_FIELDS = Object.keys(FIELD_LABELS);
 
-type DbClient = SupabaseClient<Database, 'public', any>;
+type DbClient = SupabaseClient<Database>;
 
 type BookingVersionRow = Database['public']['Tables']['booking_versions']['Row'];
 
@@ -46,7 +49,10 @@ function normalizeValue(value: unknown): unknown {
   return value;
 }
 
-function computeDiff(oldData: Record<string, unknown> | null, newData: Record<string, unknown> | null): BookingHistoryChange[] {
+function computeDiff(
+  oldData: Record<string, unknown> | null,
+  newData: Record<string, unknown> | null,
+): BookingHistoryChange[] {
   const changes: BookingHistoryChange[] = [];
 
   for (const field of TRACKED_FIELDS) {
@@ -89,22 +95,22 @@ function extractChangesFromAudit(audit: AuditLogRow | null): BookingHistoryChang
 }
 
 function resolveActor(version: BookingVersionRow, audit: AuditLogRow | null): string {
-  if (audit?.actor && audit.actor.trim().length > 0) {
-    return audit.actor.trim();
+  const actor = audit?.actor?.trim() || version.changed_by?.trim() || '';
+
+  if (!actor || actor.toLowerCase() === 'system') {
+    return 'System';
   }
 
-  if (typeof version.changed_by === 'string' && version.changed_by.trim().length > 0) {
-    return version.changed_by.trim();
-  }
-
-  return 'system';
+  return 'Restaurant team';
 }
 
 function buildHistoryEvent(
   version: BookingVersionRow,
   audit: AuditLogRow | null,
 ): BookingHistoryEvent {
-  const summary = CHANGE_TYPE_SUMMARY[version.change_type as BookingHistoryEvent['changeType']] ?? 'Reservation updated';
+  const summary =
+    CHANGE_TYPE_SUMMARY[version.change_type as BookingHistoryEvent['changeType']] ??
+    'Reservation updated';
   const auditChanges = extractChangesFromAudit(audit);
   const fallbackChanges = computeDiff(
     (version.old_data as Record<string, unknown> | null) ?? null,
@@ -129,9 +135,11 @@ export async function getBookingHistory(
   const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
   const offset = Math.max(0, options.offset ?? 0);
 
-  const { data: versions, error: versionsError} = await client
+  const { data: versions, error: versionsError } = await client
     .from('booking_versions')
-    .select('version_id, booking_id, restaurant_id, change_type, changed_by, changed_at, old_data, new_data, created_at')
+    .select(
+      'version_id, booking_id, restaurant_id, change_type, changed_by, changed_at, old_data, new_data, created_at',
+    )
     .eq('booking_id', bookingId)
     .order('changed_at', { ascending: true })
     .range(offset, offset + limit - 1);

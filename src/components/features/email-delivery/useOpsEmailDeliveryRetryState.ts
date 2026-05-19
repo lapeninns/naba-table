@@ -7,6 +7,34 @@ import { HttpError } from '@/lib/http/errors';
 
 import type { OpsEmailDeliveryTableRowViewModel } from '@/components/features/email-delivery/opsEmailDeliveryTypes';
 import type { BookingService } from '@/services/ops/bookings';
+import type { OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
+
+function parseEventTime(value: string | null | undefined): number {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function resolveRetryDeliveryLogId(attempt: OpsEmailDeliveryAttemptDTO): string | null {
+  const directId = typeof attempt.id === 'string' ? attempt.id.trim() : '';
+  if (directId) return directId;
+
+  const currentEvent = attempt.events
+    .slice()
+    .sort(
+      (left, right) =>
+        parseEventTime(right.occurredAt) - parseEventTime(left.occurredAt) ||
+        right.id.localeCompare(left.id),
+    )
+    .find(
+      (event) =>
+        event.status === attempt.currentStatus &&
+        (!attempt.currentOccurredAt || event.occurredAt === attempt.currentOccurredAt),
+    );
+
+  const eventId = currentEvent?.id.trim() ?? '';
+  return eventId || null;
+}
 
 export function useOpsEmailDeliveryRetryState(params: {
   bookingService: BookingService;
@@ -38,11 +66,20 @@ export function useOpsEmailDeliveryRetryState(params: {
   const handleConfirmRetry = useCallback(async () => {
     if (!pendingRetryRow) return;
 
+    const deliveryLogId = resolveRetryDeliveryLogId(pendingRetryRow.attempt);
+    if (!deliveryLogId) {
+      setPendingRetryAttemptKey(null);
+      toast.error('Retry unavailable', {
+        description: 'This email attempt is missing its delivery log id. Refresh and try again.',
+      });
+      return;
+    }
+
     setRetryingAttemptKey(pendingRetryRow.attemptKey);
 
     try {
       await params.bookingService.retryEmailDelivery({
-        deliveryLogId: pendingRetryRow.attempt.id ?? pendingRetryRow.attempt.messageId,
+        deliveryLogId,
         ...(params.simulateRetryMutationError ? { simulateError: true } : {}),
       });
 

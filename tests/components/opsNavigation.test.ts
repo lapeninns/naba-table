@@ -12,22 +12,23 @@ const disabledFlags = {
 };
 
 describe('OPS_NAV_SECTIONS restaurant settings', () => {
-  it('includes Google Business Profile in the main sidebar section', () => {
-    const restaurantSettings = OPS_NAV_SECTIONS.find((section) => section.label === 'Restaurant Settings');
-
-    expect(restaurantSettings).toBeDefined();
-    expect(restaurantSettings?.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          title: 'Google Business Profile',
-          href: '/app/settings/restaurant/google-business-profile',
-        }),
-      ]),
+  it('exposes a single Settings entry for all restaurant settings routes', () => {
+    const settingsSection = OPS_NAV_SECTIONS.find((section) =>
+      section.items.some((item) => item.title === 'Settings'),
     );
 
-    const gbpItem = restaurantSettings?.items.find((item) => item.title === 'Google Business Profile');
-    expect(gbpItem?.match?.('/app/settings/restaurant/google-business-profile')).toBe(true);
-    expect(gbpItem?.match?.('/app/settings/restaurant/google-business-profile/details')).toBe(true);
+    expect(settingsSection).toBeDefined();
+    expect(settingsSection?.items).toHaveLength(1);
+    expect(settingsSection?.items[0]).toMatchObject({
+      title: 'Settings',
+      href: '/app/settings/restaurant/profile',
+    });
+
+    const settingsItem = settingsSection?.items[0];
+    expect(settingsItem?.match?.('/app/settings/restaurant')).toBe(true);
+    expect(settingsItem?.match?.('/app/settings/restaurant/profile')).toBe(true);
+    expect(settingsItem?.match?.('/app/settings/restaurant/google-business-profile')).toBe(true);
+    expect(settingsItem?.match?.('/app/settings/restaurant/team')).toBe(true);
   });
 
   it('marks SMS Delivery as active-admin navigation', () => {

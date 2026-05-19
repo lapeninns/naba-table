@@ -37,10 +37,7 @@ vi.mock('@features/reservations/wizard/api/useReservation', () => ({
 }));
 
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
-import {
-  downloadCalendarEvent,
-  shareReservationDetails,
-} from '@/lib/reservations/share';
+import { downloadCalendarEvent, shareReservationDetails } from '@/lib/reservations/share';
 
 const downloadCalendarEventMock = vi.mocked(downloadCalendarEvent);
 const shareReservationDetailsMock = vi.mocked(shareReservationDetails);
@@ -52,8 +49,8 @@ const reservation = {
   restaurantSlug: 'the-fox',
   restaurantTimezone: 'Europe/London',
   partySize: 2,
-  startAt: '2026-05-01T18:30:00.000Z',
-  endAt: '2026-05-01T20:00:00.000Z',
+  startAt: '2026-07-01T18:30:00.000Z',
+  endAt: '2026-07-01T20:00:00.000Z',
   status: 'confirmed',
   notes: 'Window please',
   customerName: 'Guest Booker',

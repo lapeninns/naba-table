@@ -67,61 +67,87 @@ function sanitizeString(value: string | null | undefined): string | null {
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-type NormalizedDetailsInput = {
-  name: string;
-  slug: string;
-  timezone: string;
-  capacity: number | null;
-  contactEmail: string | null;
-  contactPhone: string | null;
-  address: string | null;
-  businessDescription: string | null;
-  managerDailySummaryEnabled: boolean;
-  managerNotificationPhone: string | null;
-  googleMapUrl: string | null;
-  googleReviewUrl: string | null;
-  bookingPolicy: string | null;
-  logoUrl: string | null;
-};
-
-function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsInput {
-  const timezone = assertValidTimezone(input.timezone);
-
-  const name = input.name.trim();
+function validateName(value: string | undefined): string {
+  const name = value?.trim() ?? '';
   if (!name) {
     throw new Error('Name is required');
   }
+  return name;
+}
 
-  const slug = input.slug.trim();
+function validateSlug(value: string | undefined): string {
+  const slug = value?.trim() ?? '';
   if (!slug) {
     throw new Error('Slug is required');
   }
   if (!SLUG_PATTERN.test(slug)) {
     throw new Error('Slug must contain only lowercase letters, numbers, and hyphens');
   }
+  return slug;
+}
 
+function validateCapacity(value: number | null | undefined): number | null {
   const capacity =
-    input.capacity === null ? null : Number.isFinite(input.capacity) ? input.capacity : null;
+    value === null || value === undefined ? null : Number.isFinite(value) ? value : null;
   if (capacity !== null && capacity < 0) {
     throw new Error('Capacity must be a positive number');
   }
+  return capacity;
+}
 
-  return {
-    name,
-    slug,
-    timezone,
-    capacity,
-    contactEmail: sanitizeString(input.contactEmail),
-    contactPhone: sanitizeString(input.contactPhone),
-    address: sanitizeString(input.address),
-    businessDescription: sanitizeString(input.businessDescription),
-    managerDailySummaryEnabled: input.managerDailySummaryEnabled ?? false,
-    managerNotificationPhone: sanitizeString(input.managerNotificationPhone),
-    googleMapUrl: safeGoogleMapsUrl(input.googleMapUrl),
-    googleReviewUrl: safeGoogleReviewUrl(input.googleReviewUrl),
-    bookingPolicy: sanitizeString(input.bookingPolicy),
-    logoUrl: sanitizeString(input.logoUrl),
-  };
+function hasInput<K extends keyof UpdateRestaurantDetailsInput>(
+  input: UpdateRestaurantDetailsInput,
+  key: K,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined;
+}
+
+function buildRestaurantDetailsUpdatePayload(
+  input: UpdateRestaurantDetailsInput,
+): UpdateRestaurantInput {
+  const payload: UpdateRestaurantInput = {};
+
+  if (hasInput(input, 'name')) {
+    payload.name = validateName(input.name);
+  }
+  if (hasInput(input, 'slug')) {
+    payload.slug = validateSlug(input.slug);
+  }
+  if (hasInput(input, 'timezone')) {
+    payload.timezone = assertValidTimezone(input.timezone);
+  }
+  if (hasInput(input, 'capacity')) {
+    payload.capacity = validateCapacity(input.capacity);
+  }
+  if (hasInput(input, 'contactEmail')) {
+    payload.contactEmail = sanitizeString(input.contactEmail);
+  }
+  if (hasInput(input, 'contactPhone')) {
+    payload.contactPhone = sanitizeString(input.contactPhone);
+  }
+  if (hasInput(input, 'address')) {
+    payload.address = sanitizeString(input.address);
+  }
+  if (hasInput(input, 'managerDailySummaryEnabled')) {
+    payload.managerDailySummaryEnabled = input.managerDailySummaryEnabled ?? false;
+  }
+  if (hasInput(input, 'managerNotificationPhone')) {
+    payload.managerNotificationPhone = sanitizeString(input.managerNotificationPhone);
+  }
+  if (hasInput(input, 'googleMapUrl')) {
+    payload.googleMapUrl = safeGoogleMapsUrl(input.googleMapUrl);
+  }
+  if (hasInput(input, 'googleReviewUrl')) {
+    payload.googleReviewUrl = safeGoogleReviewUrl(input.googleReviewUrl);
+  }
+  if (hasInput(input, 'bookingPolicy')) {
+    payload.bookingPolicy = sanitizeString(input.bookingPolicy);
+  }
+  if (hasInput(input, 'logoUrl')) {
+    payload.logoUrl = sanitizeString(input.logoUrl);
+  }
+
+  return payload;
 }
 
 export async function getRestaurantBusinessDescription(
@@ -226,57 +252,28 @@ export async function updateRestaurantDetails(
   input: UpdateRestaurantDetailsInput,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<RestaurantDetails> {
-  const current = await getRestaurantDetails(restaurantId, client);
-  const hasInput = <K extends keyof UpdateRestaurantDetailsInput>(key: K) =>
-    Object.prototype.hasOwnProperty.call(input, key);
-  const merged: NormalizedDetailsInput = {
-    name: hasInput('name') && input.name !== undefined ? input.name : current.name,
-    slug: hasInput('slug') && input.slug !== undefined ? input.slug : current.slug,
-    timezone:
-      hasInput('timezone') && input.timezone !== undefined ? input.timezone : current.timezone,
-    capacity: hasInput('capacity') ? (input.capacity ?? null) : current.capacity,
-    contactEmail: hasInput('contactEmail') ? (input.contactEmail ?? null) : current.contactEmail,
-    contactPhone: hasInput('contactPhone') ? (input.contactPhone ?? null) : current.contactPhone,
-    address: hasInput('address') ? (input.address ?? null) : current.address,
-    businessDescription: hasInput('businessDescription')
-      ? (input.businessDescription ?? null)
-      : current.businessDescription,
-    managerDailySummaryEnabled: hasInput('managerDailySummaryEnabled')
-      ? (input.managerDailySummaryEnabled ?? false)
-      : current.managerDailySummaryEnabled,
-    managerNotificationPhone: hasInput('managerNotificationPhone')
-      ? (input.managerNotificationPhone ?? null)
-      : current.managerNotificationPhone,
-    googleMapUrl: hasInput('googleMapUrl') ? (input.googleMapUrl ?? null) : current.googleMapUrl,
-    googleReviewUrl: hasInput('googleReviewUrl')
-      ? (input.googleReviewUrl ?? null)
-      : current.googleReviewUrl,
-    bookingPolicy: hasInput('bookingPolicy')
-      ? (input.bookingPolicy ?? null)
-      : current.bookingPolicy,
-    logoUrl: hasInput('logoUrl') ? (input.logoUrl ?? null) : current.logoUrl,
-  };
+  const payload = buildRestaurantDetailsUpdatePayload(input);
+  const hasBusinessDescriptionInput = hasInput(input, 'businessDescription');
 
-  const validated = validateDetailsInput(merged);
-  const payload: UpdateRestaurantInput = {
-    name: validated.name,
-    slug: validated.slug,
-    timezone: validated.timezone,
-    capacity: validated.capacity,
-    contactEmail: validated.contactEmail,
-    contactPhone: validated.contactPhone,
-    address: validated.address,
-    managerDailySummaryEnabled: validated.managerDailySummaryEnabled,
-    managerNotificationPhone: validated.managerNotificationPhone,
-    bookingPolicy: validated.bookingPolicy,
-    logoUrl: validated.logoUrl,
-    googleMapUrl: validated.googleMapUrl,
-    googleReviewUrl: validated.googleReviewUrl,
-  };
+  if (Object.keys(payload).length === 0) {
+    if (hasBusinessDescriptionInput) {
+      await upsertRestaurantBusinessDescription(
+        restaurantId,
+        sanitizeString(input.businessDescription),
+        client,
+      );
+    }
+    return getRestaurantDetails(restaurantId, client);
+  }
+
   const updated = await updateRestaurant(restaurantId, payload, client);
-  const businessDescription = hasInput('businessDescription')
-    ? await upsertRestaurantBusinessDescription(restaurantId, validated.businessDescription, client)
-    : current.businessDescription;
+  const businessDescription = hasBusinessDescriptionInput
+    ? await upsertRestaurantBusinessDescription(
+        restaurantId,
+        sanitizeString(input.businessDescription),
+        client,
+      )
+    : await getRestaurantBusinessDescription(restaurantId, client);
 
   return {
     restaurantId: updated.id,

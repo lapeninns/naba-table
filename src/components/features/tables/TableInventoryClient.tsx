@@ -19,8 +19,10 @@ import {
   Table2,
   Trash2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
 import {
   SETTINGS_COMPACT_FILTER_BAR_CLASS,
   SETTINGS_COMPACT_ROUTE_STACK_CLASS,
@@ -68,6 +70,7 @@ import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { queryKeys } from '@/lib/query/keys';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import {
@@ -118,6 +121,7 @@ function TableForm({
   );
   const [status, setStatus] = useState<TableInventory['status']>(table?.status ?? 'available');
   const [active, setActive] = useState<boolean>(table?.active ?? true);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const isZoneSelectDisabled = zones.length === 0;
 
@@ -129,6 +133,7 @@ function TableForm({
     setMobility(table?.mobility ?? 'movable');
     setStatus(table?.status ?? 'available');
     setActive(table?.active ?? true);
+    setFormError(null);
   }, [table, zones]);
 
   const selectedZone = zones.find((zone) => zone.id === zoneId);
@@ -145,11 +150,18 @@ function TableForm({
     const tableNumber = String(formData.get('tableNumber') ?? '').trim();
     const capacity = toInteger(formData.get('capacity'), 0) ?? 0;
 
-    if (!tableNumber || capacity < 1) {
+    if (!tableNumber) {
+      setFormError('Enter a table number before saving.');
+      return;
+    }
+
+    if (capacity < 1) {
+      setFormError('Capacity must be at least 1 cover.');
       return;
     }
 
     if (!zoneId) {
+      setFormError('Choose a zone before saving this table.');
       return;
     }
 
@@ -157,6 +169,7 @@ function TableForm({
     const maxPartySize = toInteger(formData.get('maxPartySize'), null);
 
     if (maxPartySize !== null && maxPartySize < minPartySize) {
+      setFormError('Max party size must be greater than or equal to the min party size.');
       return;
     }
 
@@ -197,6 +210,12 @@ function TableForm({
       </DialogHeader>
 
       <div className="grid gap-4 max-h-[70vh] overflow-y-auto pr-4">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Capacity</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Start with the table number, covers, and accepted party-size range.
+          </p>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="tableNumber">Table number *</Label>
           <Input
@@ -242,6 +261,12 @@ function TableForm({
           </div>
         </div>
 
+        <div>
+          <p className="text-sm font-semibold text-foreground">Placement</p>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Put the table in a zone and decide whether it is active for service.
+          </p>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="zoneId">Zone</Label>
           <Select
@@ -299,7 +324,10 @@ function TableForm({
               className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
             >
               <span className="flex min-w-0 flex-col gap-1">
-                <span className="text-sm font-medium text-foreground">More table details</span>
+                <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+                  Classification &amp; service notes
+                  {isFirstTable ? <Badge variant="outline">Optional</Badge> : null}
+                </span>
                 <span className="text-xs font-normal text-muted-foreground">
                   Add section, classification, seating type, mobility, status, and notes when
                   needed.
@@ -419,6 +447,13 @@ function TableForm({
         </Collapsible>
       </div>
 
+      {formError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Table was not saved</AlertTitle>
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
@@ -446,6 +481,9 @@ export default function TableInventoryClient() {
   const [activeWorkspace, setActiveWorkspace] = useState<TableWorkspace>('summary');
   const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
+  const [tableDeleteTarget, setTableDeleteTarget] = useState<TableInventory | null>(null);
+  const [zoneDeleteTarget, setZoneDeleteTarget] = useState<TableZone | null>(null);
+  const [zoneDeleteBlockedMessage, setZoneDeleteBlockedMessage] = useState<string | null>(null);
 
   const canDeleteTables = Boolean(activeMembership && isRestaurantAdminRole(activeMembership.role));
 
@@ -457,6 +495,9 @@ export default function TableInventoryClient() {
     setIsDialogOpen(false);
     setEditingZone(null);
     setIsZoneDialogOpen(false);
+    setTableDeleteTarget(null);
+    setZoneDeleteTarget(null);
+    setZoneDeleteBlockedMessage(null);
   }, [activeRestaurantId]);
 
   const tablesQueryKey = activeRestaurantId
@@ -690,6 +731,7 @@ export default function TableInventoryClient() {
     mutationFn: ({ tableId }: { tableId: string }) => tableService.remove(tableId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+      setTableDeleteTarget(null);
     },
   });
 
@@ -755,6 +797,8 @@ export default function TableInventoryClient() {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+      setZoneDeleteTarget(null);
+      setZoneDeleteBlockedMessage(null);
       if (filterZone === variables.zoneId) {
         setFilterZone(ALL_ZONES_VALUE);
       }
@@ -765,16 +809,16 @@ export default function TableInventoryClient() {
   const handleZoneDelete = (zone: TableZone) => {
     const tablesInZone = tables.filter((table) => table.zoneId === zone.id);
     if (tablesInZone.length > 0) {
+      setZoneDeleteBlockedMessage(
+        `${zone.name} still has ${tablesInZone.length} table${
+          tablesInZone.length === 1 ? '' : 's'
+        }. Move or delete those tables before deleting the zone.`,
+      );
       return;
     }
 
-    if (
-      confirm(
-        `Are you sure you want to delete the zone "${zone.name}"? This action cannot be undone.`,
-      )
-    ) {
-      zoneDeleteMutation.mutate({ zoneId: zone.id });
-    }
+    setZoneDeleteBlockedMessage(null);
+    setZoneDeleteTarget(zone);
   };
 
   const handleTableSubmit = (payload: TableFormState) => {
@@ -945,6 +989,27 @@ export default function TableInventoryClient() {
               <Skeleton className="h-24 w-full rounded-lg" />
             </>
           )}
+          <div className="rounded-lg border border-border/70 bg-muted/20 p-4 sm:col-span-2 xl:col-span-4">
+            <p className="text-sm font-semibold text-foreground">
+              Capacity depends on setup nearby
+            </p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Covers per service depend on turn times and booking types. Keep public address details
+              aligned when planning the dining room.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={opsHref('/settings/restaurant/availability#booking-occasions')}>
+                  Open availability
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href={opsHref('/settings/restaurant/profile#profile-contact')}>
+                  Open profile
+                </Link>
+              </Button>
+            </div>
+          </div>
         </section>
 
         {/* ... (Zones section JSX updated to use the safe delete handler) ... */}
@@ -990,6 +1055,12 @@ export default function TableInventoryClient() {
               </SettingsSecondaryActions>
             }
           >
+            {zoneDeleteBlockedMessage ? (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle>Zone cannot be deleted yet</AlertTitle>
+                <AlertDescription>{zoneDeleteBlockedMessage}</AlertDescription>
+              </Alert>
+            ) : null}
             {isLoadingZones ? (
               <div className="flex flex-wrap gap-2">
                 <Skeleton className="h-9 w-32" />
@@ -1122,9 +1193,16 @@ export default function TableInventoryClient() {
                   'md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
                 )}
               >
+                <div className="md:col-span-2">
+                  <p className="text-sm font-semibold text-foreground">Inventory filters</p>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Add tables with number and capacity first; zones and classification can come
+                    later.
+                  </p>
+                </div>
                 <div className="flex items-center gap-3">
-                  <Label htmlFor="table-zone-filter" className="text-sm">
-                    Filter by Zone
+                  <Label htmlFor="table-zone-filter" className="text-sm font-medium">
+                    Zone
                   </Label>
                   <Select value={filterZone} onValueChange={setFilterZone}>
                     <SelectTrigger id="table-zone-filter" className="w-full md:w-[220px]">
@@ -1143,8 +1221,8 @@ export default function TableInventoryClient() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Label htmlFor="table-status-filter" className="text-sm">
-                    Show
+                  <Label htmlFor="table-status-filter" className="text-sm font-medium">
+                    Status
                   </Label>
                   <Select
                     value={tableStatusFilter}
@@ -1162,7 +1240,105 @@ export default function TableInventoryClient() {
                 </div>
               </div>
 
-              <div className="rounded-lg border">
+              <div className="grid gap-3 md:hidden">
+                {isLoading || isFetching ? (
+                  <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      <span>Loading tables…</span>
+                    </div>
+                  </div>
+                ) : filteredTables.length === 0 ? (
+                  <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                    {tables.length === 0
+                      ? 'Add your first tables. Start with table number and capacity; advanced details can come later.'
+                      : 'No tables match this filter. Try showing all zones or tables.'}
+                  </div>
+                ) : (
+                  filteredTables.map((table) => (
+                    <article
+                      key={table.id}
+                      className={cn(
+                        'rounded-lg border bg-card p-4 shadow-sm',
+                        table.zoneActive === false && 'bg-muted/60',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-semibold text-foreground">
+                            Table {table.tableNumber}
+                          </h3>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {table.zoneName ?? 'No zone'} · {table.capacity} covers
+                          </p>
+                        </div>
+                        <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
+                          {table.status.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Party size</dt>
+                          <dd className="font-medium text-foreground">
+                            {table.minPartySize}
+                            {table.maxPartySize ? `–${table.maxPartySize}` : '+'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Seating</dt>
+                          <dd className="font-medium capitalize text-foreground">
+                            {table.seatingType.replace('_', ' ')}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Category</dt>
+                          <dd className="font-medium capitalize text-foreground">
+                            {table.category}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs text-muted-foreground">Availability</dt>
+                          <dd className="font-medium text-foreground">
+                            {table.active && table.zoneActive !== false
+                              ? 'Active'
+                              : table.active
+                                ? 'Blocked by zone'
+                                : 'Inactive'}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => {
+                            setEditingTable(table);
+                            setIsDialogOpen(true);
+                          }}
+                        >
+                          <Edit data-icon="inline-start" aria-hidden />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-destructive"
+                          disabled={!canDeleteTables || deleteMutation.isPending}
+                          onClick={() => setTableDeleteTarget(table)}
+                        >
+                          <Trash2 data-icon="inline-start" aria-hidden />
+                          Delete
+                        </Button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+
+              <div className="hidden rounded-lg border md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1191,7 +1367,7 @@ export default function TableInventoryClient() {
                       <TableRow>
                         <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                           {tables.length === 0
-                            ? 'Add your first tables. Start with table number and capacity; advanced details can come later.'
+                            ? 'No table records yet. Add tables with number and capacity first; advanced details can come later.'
                             : 'No tables match this filter. Try showing all zones or tables.'}
                         </TableCell>
                       </TableRow>
@@ -1253,15 +1429,7 @@ export default function TableInventoryClient() {
                                 variant="ghost"
                                 size="sm"
                                 disabled={!canDeleteTables || deleteMutation.isPending}
-                                onClick={() => {
-                                  if (
-                                    confirm(
-                                      `Delete table ${table.tableNumber}? This action cannot be undone.`,
-                                    )
-                                  ) {
-                                    deleteMutation.mutate({ tableId: table.id });
-                                  }
-                                }}
+                                onClick={() => setTableDeleteTarget(table)}
                               >
                                 <Trash2
                                   data-icon="inline-start"
@@ -1357,6 +1525,54 @@ export default function TableInventoryClient() {
             </FormRoot>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={tableDeleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTableDeleteTarget(null);
+            }
+          }}
+          title="Delete table?"
+          description={
+            tableDeleteTarget
+              ? `Table ${tableDeleteTarget.tableNumber} will be removed from inventory and can no longer be assigned to bookings. This cannot be undone.`
+              : undefined
+          }
+          confirmLabel={deleteMutation.isPending ? 'Deleting…' : 'Delete table'}
+          cancelLabel="Keep table"
+          tone="destructive"
+          onConfirm={() => {
+            if (!tableDeleteTarget || deleteMutation.isPending) {
+              return;
+            }
+            deleteMutation.mutate({ tableId: tableDeleteTarget.id });
+          }}
+        />
+
+        <ConfirmDialog
+          open={zoneDeleteTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setZoneDeleteTarget(null);
+            }
+          }}
+          title="Delete zone?"
+          description={
+            zoneDeleteTarget
+              ? `${zoneDeleteTarget.name} will be removed from the floor-plan groups. This cannot be undone.`
+              : undefined
+          }
+          confirmLabel={zoneDeleteMutation.isPending ? 'Deleting…' : 'Delete zone'}
+          cancelLabel="Keep zone"
+          tone="destructive"
+          onConfirm={() => {
+            if (!zoneDeleteTarget || zoneDeleteMutation.isPending) {
+              return;
+            }
+            zoneDeleteMutation.mutate({ zoneId: zoneDeleteTarget.id });
+          }}
+        />
       </div>
     </RestaurantSettingsCommandCenter>
   );

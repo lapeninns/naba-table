@@ -1,0 +1,9 @@
+{
+  "availabilityEndpointMs": 250,
+  "bookingCapacityPathMs": 750,
+  "capacityPlannerFixtureMs": 500,
+  "customersExportSeededMs": 1000,
+  "deliveryDashboardGroupingMs": 500,
+  "opsDashboardSummaryMs": 250,
+  "workerEndpointMs": 250
+}

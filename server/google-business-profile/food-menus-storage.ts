@@ -77,7 +77,7 @@ interface FoodMenusImportReviewRow {
   match_confidence: 'previous_identity' | 'section_name_price' | 'section_name' | 'none';
   suggested_patch: Json | null;
   warnings: Json;
-  decision_status: 'pending' | 'approved' | 'ignored' | 'applied' | 'superseded';
+  decision_status: 'pending' | 'processing' | 'approved' | 'ignored' | 'applied' | 'superseded';
   decision_action:
     | 'apply_to_nabatable'
     | 'ignore_google_change'
@@ -184,6 +184,17 @@ type FoodMenusSyncDatabase = {
 };
 
 type FoodMenusSyncDbClient = SupabaseClient<FoodMenusSyncDatabase>;
+type ReplaceFoodMenusImportReviewsRpcClient = FoodMenusSyncDbClient & {
+  rpc: (
+    fn: 'replace_pending_food_menus_import_reviews',
+    args: {
+      p_google_snapshot_id: string | null;
+      p_projection_snapshot_id: string | null;
+      p_restaurant_id: string;
+      p_reviews: Json;
+    },
+  ) => Promise<{ data: FoodMenusImportReviewRow[] | null; error: { message: string } | null }>;
+};
 
 export interface FoodMenusSnapshot {
   readonly id: string;
@@ -676,28 +687,7 @@ export async function replacePendingFoodMenusImportReviews({
   readonly review: GoogleFoodMenusImportReview;
 }): Promise<ReadonlyArray<FoodMenusImportReviewRecord>> {
   const db = getFoodMenusSyncDbClient(client);
-  const supersededAt = new Date().toISOString();
-  const supersede = await db
-    .from('restaurant_gbp_food_menu_import_reviews')
-    .update({
-      decision_status: 'superseded',
-      updated_at: supersededAt,
-    } as never)
-    .eq('restaurant_id', restaurantId)
-    .eq('decision_status', 'pending');
-
-  if (supersede.error) {
-    throw supersede.error;
-  }
-
-  if (review.items.length === 0) {
-    return [];
-  }
-
   const payload = review.items.map((item) => ({
-    restaurant_id: restaurantId,
-    google_snapshot_id: googleSnapshotId,
-    projection_snapshot_id: projectionSnapshotId,
     menu_item_id:
       item.match.status === 'matched' || item.match.status === 'missing_from_google'
         ? item.match.localItemId
@@ -714,13 +704,17 @@ export async function replacePendingFoodMenusImportReviews({
     match_confidence: item.match.confidence,
     suggested_patch: item.suggestedPatch as Json,
     warnings: item.warnings as Json,
-    decision_status: 'pending',
   }));
 
-  const { data, error } = await db
-    .from('restaurant_gbp_food_menu_import_reviews')
-    .insert(payload as never)
-    .select('*');
+  const { data, error } = await (db as ReplaceFoodMenusImportReviewsRpcClient).rpc(
+    'replace_pending_food_menus_import_reviews',
+    {
+      p_google_snapshot_id: googleSnapshotId,
+      p_projection_snapshot_id: projectionSnapshotId,
+      p_restaurant_id: restaurantId,
+      p_reviews: payload as Json,
+    },
+  );
 
   if (error) {
     throw error;
@@ -772,6 +766,45 @@ export async function readFoodMenusImportReviewForRestaurant({
   return data ? rowToImportReview(data) : null;
 }
 
+export async function claimFoodMenusImportReviewDecision({
+  client,
+  restaurantId,
+  reviewId,
+  decisionAction,
+  decidedByUserId = null,
+}: {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly reviewId: string;
+  readonly decisionAction: NonNullable<FoodMenusImportReviewRow['decision_action']>;
+  readonly decidedByUserId?: string | null;
+}): Promise<FoodMenusImportReviewRecord> {
+  const db = getFoodMenusSyncDbClient(client);
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from('restaurant_gbp_food_menu_import_reviews')
+    .update({
+      decision_status: 'processing',
+      decision_action: decisionAction,
+      decided_by_user_id: decidedByUserId,
+      decided_at: now,
+      updated_at: now,
+    } as never)
+    .eq('restaurant_id', restaurantId)
+    .eq('id', reviewId)
+    .eq('decision_status', 'pending')
+    .select('*')
+    .maybeSingle<FoodMenusImportReviewRow>();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error(`restaurant_gbp_food_menu_import_reviews claim failed for ${reviewId}`);
+  }
+  return rowToImportReview(data);
+}
+
 export async function markFoodMenusImportReviewDecision({
   client,
   restaurantId,
@@ -802,8 +835,9 @@ export async function markFoodMenusImportReviewDecision({
     } as never)
     .eq('restaurant_id', restaurantId)
     .eq('id', reviewId)
+    .eq('decision_status', 'processing')
     .select('*')
-    .single<FoodMenusImportReviewRow>();
+    .maybeSingle<FoodMenusImportReviewRow>();
 
   if (error) {
     throw error;

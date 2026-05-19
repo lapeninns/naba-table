@@ -1,18 +1,14 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
-import { useMemo, type ReactNode } from 'react';
+import { motion } from 'motion/react';
+import { useEffect, useState, type ReactNode } from 'react';
 
-import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
-import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
-import { Badge } from '@/components/ui/badge';
-import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
-import { RestaurantSettingsSubnav } from './RestaurantSettingsSubnav';
-import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
-import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
+import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
+import { GbpDriftProvider, GbpDriftStatusPill } from './GbpDriftProvider';
+import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 export type RestaurantSettingsPageShellProps = {
   /**
@@ -24,18 +20,92 @@ export type RestaurantSettingsPageShellProps = {
   description?: string;
   eyebrow?: string;
   children: ReactNode;
+  envBanner?: string | null;
 };
 
 const DEFAULT_TITLE = 'Restaurant';
 const DEFAULT_DESCRIPTION =
   'Configure the restaurant profile, availability, reservation durations, menu, tables, and team access.';
 
-function isRestaurantSettingsRouteActive(pathname: string, href: string) {
-  const normalizedHref = normalizeOpsPathname(href);
-  if (normalizedHref === '/settings/restaurant') {
-    return pathname === normalizedHref;
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!mediaQuery) {
+      return;
+    }
+    setPrefersReducedMotion(mediaQuery.matches);
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    mediaQuery.addEventListener?.('change', handleChange);
+    return () => mediaQuery.removeEventListener?.('change', handleChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
+function RestaurantSettingsPageHeading({
+  title,
+  description,
+  eyebrow,
+}: Pick<RestaurantSettingsPageShellProps, 'title' | 'description' | 'eyebrow'>) {
+  const { headingContext, restaurantName } = useRestaurantSettingsContext();
+
+  const useExplicitOverrides = title != null || description != null;
+  const resolvedTitle = title ?? headingContext?.pageTitle ?? DEFAULT_TITLE;
+  const resolvedDescription = description ?? headingContext?.pageDescription ?? DEFAULT_DESCRIPTION;
+  const suppressVisiblePageTitle =
+    !useExplicitOverrides && (headingContext?.suppressVisiblePageTitle ?? false);
+  const hidePageIntro = !useExplicitOverrides && (headingContext?.hidePageIntro ?? false);
+  const showRestaurantMetaOnPage =
+    useExplicitOverrides || (headingContext?.showRestaurantMetaOnPage ?? true);
+
+  if (hidePageIntro) {
+    return null;
   }
-  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
+
+  if (suppressVisiblePageTitle) {
+    return (
+      <header className="mb-6 flex flex-col gap-3">
+        <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+          {resolvedDescription}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <GbpDriftStatusPill />
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <OpsPageHeader
+      eyebrow={eyebrow}
+      title={resolvedTitle}
+      subtitle={resolvedDescription}
+      meta={
+        showRestaurantMetaOnPage && restaurantName ? (
+          <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>Editing</span>
+            <span className="font-medium text-foreground">{restaurantName}</span>
+            <GbpDriftStatusPill />
+          </span>
+        ) : (
+          <GbpDriftStatusPill />
+        )
+      }
+      headingLevel="h1"
+      titleClassName="text-2xl"
+      className="mb-6"
+    />
+  );
 }
 
 export function RestaurantSettingsPageShell({
@@ -43,55 +113,26 @@ export function RestaurantSettingsPageShell({
   description,
   eyebrow = 'Settings',
   children,
+  envBanner,
 }: RestaurantSettingsPageShellProps) {
-  const pathname = usePathname();
-  const { memberships, activeRestaurantId } = useOpsSession();
-  const activeMembership = useOpsActiveMembership();
-
-  const activeNavItem = useMemo(() => {
-    if (!pathname) return null;
-    const normalized = normalizeOpsPathname(pathname);
-    return (
-      RESTAURANT_SETTINGS_NAV_ITEMS.find((item) =>
-        isRestaurantSettingsRouteActive(normalized, item.href),
-      ) ?? null
-    );
-  }, [pathname]);
-
-  const resolvedTitle = title ?? activeNavItem?.title ?? DEFAULT_TITLE;
-  const resolvedDescription = description ?? activeNavItem?.description ?? DEFAULT_DESCRIPTION;
-
-  const restaurantName =
-    activeMembership?.restaurantName ??
-    memberships.find((membership) => membership.restaurantId === activeRestaurantId)
-      ?.restaurantName ??
-    memberships[0]?.restaurantName ??
-    null;
+  const reduceMotion = usePrefersReducedMotion();
+  const { headingContext } = useRestaurantSettingsContext();
+  const hidePageIntro =
+    title == null && description == null ? (headingContext?.hidePageIntro ?? false) : false;
 
   return (
-    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
-      <OpsPageHeader
-        eyebrow={eyebrow}
-        title={resolvedTitle}
-        subtitle={resolvedDescription}
-        meta={
-          restaurantName ? (
-            <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>Editing</span>
-              <Badge variant="outline" className="font-medium text-foreground">
-                {restaurantName}
-              </Badge>
-              <span className="hidden sm:inline">Change restaurant from the sidebar.</span>
-            </span>
-          ) : null
-        }
-        headingLevel="h1"
-        titleClassName="text-2xl"
-      />
-
-      <RestaurantSettingsSubnav />
-
-      <div className={SETTINGS_COMPACT_PAGE_CONTENT_CLASS}>{children}</div>
-    </OpsPageShell>
+    <GbpDriftProvider>
+      <RestaurantSettingsFocusedShell envBanner={envBanner}>
+        <RestaurantSettingsPageHeading title={title} description={description} eyebrow={eyebrow} />
+        <GbpDriftStatusStrip compact={hidePageIntro} />
+        <motion.div
+          initial={reduceMotion ? false : { y: 8, opacity: 0 }}
+          animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+        >
+          {children}
+        </motion.div>
+      </RestaurantSettingsFocusedShell>
+    </GbpDriftProvider>
   );
 }

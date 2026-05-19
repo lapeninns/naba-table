@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { hasRedirectedFrom } from '@/lib/auth/signin-redirect-guard';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { ensureCsrfCookie } from '@/server/security/csrf';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
@@ -43,17 +45,10 @@ const ALLOWED_REDIRECT_PREFIXES = [
 
 function resolveRedirectTarget(raw: string | string[] | undefined): string {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
-  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//'))
-    return '/app';
-
-  const parsed = new URL(candidate, 'https://sajiloreservex.local');
-  const pathname = parsed.pathname;
-
-  const isAllowed = ALLOWED_REDIRECT_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
-
-  return isAllowed ? candidate : '/app';
+  return sanitizeLocalRedirectPath(candidate, {
+    fallback: '/app',
+    allowedPrefixes: ALLOWED_REDIRECT_PREFIXES,
+  });
 }
 
 const INVALID_CLIENT_ID_SAFE_MESSAGE =
@@ -120,6 +115,7 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
   await ensureCsrfCookie();
 
   const resolvedParams = await searchParams;
+  const cameFromAuthGuard = hasRedirectedFrom(resolvedParams?.redirectedFrom);
   const redirectTarget = resolveRedirectTarget(resolvedParams?.redirectedFrom);
 
   // Build guest sign-in URL for cross-subdomain navigation
@@ -140,7 +136,7 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
   // Only redirect authenticated users if there's no error
   // Using getUser() which validates the JWT with the server, not just reads cached session
   // This prevents redirect loops after logout since getSession() returns stale cached data
-  if (!hasError) {
+  if (!hasError && !cameFromAuthGuard) {
     const supabase = await getServerComponentSupabaseClient();
     const {
       data: { user },

@@ -12,6 +12,7 @@ import { getDualSyncRestaurantControl } from '../controls';
 import { getDualSyncDecisionDisabledReason, getDualSyncRuntimeFlags } from '../flag';
 import { hashCanonicalJson } from '../hashing';
 import { buildRegistry, findFieldConfig, resolveFieldCapability } from '../registry';
+import { validatePublishDecisionPins } from './pinning';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
 
@@ -225,11 +226,22 @@ export async function buildPublishPlan(
       continue;
     }
 
+    const pinValidationFailure = validatePublishDecisionPins(decision);
+    if (pinValidationFailure) {
+      rejected.push({
+        fieldKey: decision.fieldKey,
+        sectionKey: decision.sectionKey,
+        action: decision.action,
+        failure: pinValidationFailure,
+      });
+      continue;
+    }
+
     const coreValue = valueForField(coreSnapshot, config, 'core');
     const gbpValue = valueForField(gbpSnapshot, config, 'gbp');
     const beforeCoreHash = hashCanonicalJson(config.canonicalizeCoreValue(coreValue));
     const beforeGbpHash = hashCanonicalJson(config.canonicalizeGbpValue(gbpValue));
-    if (decision.pinnedCoreHash && beforeCoreHash !== decision.pinnedCoreHash) {
+    if (beforeCoreHash !== decision.pinnedCoreHash) {
       rejected.push({
         fieldKey: decision.fieldKey,
         sectionKey: decision.sectionKey,
@@ -238,7 +250,7 @@ export async function buildPublishPlan(
       });
       continue;
     }
-    if (decision.pinnedGbpHash && beforeGbpHash !== decision.pinnedGbpHash) {
+    if (beforeGbpHash !== decision.pinnedGbpHash) {
       rejected.push({
         fieldKey: decision.fieldKey,
         sectionKey: decision.sectionKey,

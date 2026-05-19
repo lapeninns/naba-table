@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const appBaseUrl = 'http://localhost:5180';
+const appPort = process.env.QA_APP_PORT ?? '5180';
+const appBaseUrl = `http://localhost:${appPort}`;
 const bookingId = '33333333-3333-4333-8333-333333333333';
 const bookingReference = 'NB5678';
 const restaurantId = '11111111-1111-4111-8111-111111111111';

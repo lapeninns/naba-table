@@ -1,4 +1,4 @@
-import { Building2, Compass, MapPin, MegaphoneIcon, ScanLine } from 'lucide-react';
+import { Building2, MapPin, MegaphoneIcon, ScanLine } from 'lucide-react';
 
 import type { ProfileDirtyKey } from '../restaurantProfileModel';
 import type { LucideIcon } from 'lucide-react';
@@ -17,9 +17,11 @@ export type ProfileSectionDefinition = {
   paneDescription: string;
   /** Sentence answering "what does this control for guests vs staff?". */
   audience: string;
+  /** Readiness step displayed in the Profile rail. */
+  setupStep?: number;
   icon: LucideIcon;
-  /** Hash anchor preserved for backwards compatibility with deep links. */
-  anchorId: string;
+  /** Legacy hash segment for inbound deep links only (not rendered as a DOM id). */
+  legacyHash: string;
 };
 
 export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = [
@@ -30,8 +32,9 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Brand and identity',
     paneDescription: 'Logo, name, and short public description guests recognise first.',
     audience: 'Guest-facing.',
+    setupStep: 1,
     icon: Building2,
-    anchorId: 'profile-identity',
+    legacyHash: 'profile-identity',
   },
   {
     id: 'advanced',
@@ -40,8 +43,9 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Public booking page URL',
     paneDescription: 'The link guests open to book this restaurant.',
     audience: 'Guest-facing. Required to take bookings.',
+    setupStep: 2,
     icon: ScanLine,
-    anchorId: 'profile-booking-url',
+    legacyHash: 'profile-booking-url',
   },
   {
     id: 'contact',
@@ -50,8 +54,9 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Contact and location',
     paneDescription: 'Phone, email, address, directions, and review links.',
     audience: 'Guest-facing.',
+    setupStep: 3,
     icon: MapPin,
-    anchorId: 'profile-contact',
+    legacyHash: 'profile-contact',
   },
   {
     id: 'notifications',
@@ -60,18 +65,11 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     paneTitle: 'Manager alerts',
     paneDescription: 'Internal booking-summary alerts for managers.',
     audience: 'Staff-only. Guests never see these settings.',
+    setupStep: 4,
     icon: MegaphoneIcon,
-    anchorId: 'profile-notifications',
+    legacyHash: 'profile-notifications',
   },
 ] as const;
-
-/** Discovery is a separate save subsystem and lives in the side-nav as its own group. */
-export const PROFILE_DISCOVERY_DEFINITION = {
-  navLabel: 'Discovery details',
-  description: 'Optional. Saved per panel inside its own drawer.',
-  icon: Compass,
-  anchorId: 'profile-discovery',
-} as const;
 
 export function findProfileSection(id: ProfileSectionId): ProfileSectionDefinition {
   const match = PROFILE_SECTION_DEFINITIONS.find((section) => section.id === id);
@@ -79,4 +77,8 @@ export function findProfileSection(id: ProfileSectionId): ProfileSectionDefiniti
     throw new Error(`Unknown profile section id: ${id}`);
   }
   return match;
+}
+
+export function findProfileSectionByLegacyHash(hash: string): ProfileSectionDefinition | undefined {
+  return PROFILE_SECTION_DEFINITIONS.find((section) => section.legacyHash === hash);
 }

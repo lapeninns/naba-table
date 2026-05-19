@@ -1,87 +1,77 @@
 # nabatableLP
 
-Next.js 16 (App Router) + React 19 + TypeScript + Supabase (Postgres/Auth/Storage,
-remote-only) restaurant reservations & capacity platform ("Nab a Table" by
-Lapen Inns). pnpm workspaces; sibling packages: `reserve/` (Vite/Storybook),
-`server/` (server-only helpers under `@/server/*`), `cloudflare/` (Workers).
+> Project-specific context for deepsec. Keep findings focused on Nabatable's
+> auth, tenant, route, and provider-callback shapes.
 
 ## What this codebase does
 
-Two shipped surfaces split by host in `src/proxy.ts`:
-
-- **Ops** on `app.<root>` → `src/app/app/**` and `src/app/api/ops/**`. Restaurant
-  staff (owner/manager/host/server) manage bookings, customers, tables, etc.
-- **Guest/public** on root host → `src/app/(public)/**`, `src/app/guest/**`,
-  guest booking flow under `src/app/api/bookings/**`, marketing/lead capture.
-
-Multi-tenant by `restaurant_id`. Side-effects (emails/SMS/short-links) flow
-through Resend, Twilio, and Cloudflare Workers (`cloudflare/email-queue-gateway`,
-`sms-summary-gateway`, `booking-short-links`).
+Nabatable is a restaurant reservations and capacity-management app for Lapen Inns,
+built on Next.js App Router, React, TypeScript, Supabase Auth/Postgres/Storage, and
+pnpm. It has two shipped surfaces: ops/admin on the app host under
+`src/app/app/**`, and guest/public booking flows on the root host under
+`src/app/(public)/**` and `src/app/guest/**`. API handlers live mainly in
+`src/app/api/**`; server-side domain logic and Supabase helpers live in `server/**`.
+The app is remote-Supabase only, so service-role use is common but must be paired
+with explicit authorization and tenant predicates.
 
 ## Auth shape
 
-- `requireOpsAuth` (`server/auth/ops-guard.ts`) — middleware-tier guard used
-  by `src/proxy.ts` for `/app/**` and `/api/ops/**`. Asserts a Supabase user
-  AND at least one row in `restaurant_memberships`. Does NOT check the role
-  or that the user has access to the _specific_ restaurant in the URL.
-- `requireMembershipForRestaurant` / `requireAdminMembership` /
-  `fetchUserMemberships` (`server/team/access.ts`) — per-restaurant +
-  role-aware checks; route handlers must call these even after `requireOpsAuth`.
-- Roles in `lib/owner/auth/roles.ts`: `owner`, `manager`, `host`, `server`.
-  Admin = `owner|manager` (`isRestaurantAdminRole`, `RESTAURANT_ADMIN_ROLES`).
-- Supabase client factories in `server/supabase.ts`:
-  `getRouteHandlerSupabaseClient` (cookie-bound, RLS), `getMiddlewareSupabaseClient`,
-  `getServiceSupabaseClient` (service role — bypasses RLS).
-- CSRF: `server/security/csrf.ts` (double-submit cookie + `timingSafeEqual`,
-  `CSRF_COOKIE_NAME` / `CSRF_HEADER_NAME`). Turnstile: `server/security/turnstile.ts`.
-  Rate limit: `consumeRateLimit` in `server/security/rate-limit.ts`.
+- `src/proxy.ts` enforces the host split and guards app-host pages,
+  `/api/ops/**`, and app-host ops API rewrites with `requireOpsAuth`.
+- The proxy strips client-supplied `x-ops-user-id` and re-adds it only after
+  Supabase session validation; safe-method route fast paths read it via
+  `getOpsUserIdFromHeader`.
+- Route handlers should use `withOpsMutation`, `withRestaurantAuthorization`,
+  `withBookingAuthorization`, `withPlatformAdminAuthorization`, or `requireSession`
+  rather than open-coding session checks.
+- Tenant checks are membership based: `requireMembershipForRestaurant`,
+  `requireAdminMembership`, and `fetchUserMemberships` validate roles in
+  `restaurant_memberships`.
+- Unsafe cookie-authenticated mutations need `validateCsrfProtectedMutation` or
+  `withCsrfProtectedMutation`; cron jobs use `requireCronAuthAndRun`; provider
+  callbacks use Twilio, Resend/Svix, or Google OAuth state verification.
 
 ## Threat model
 
-Highest impact: cross-tenant data access (one restaurant reading/mutating
-another's bookings/customers/team) via missing per-restaurant membership
-checks or service-role misuse. Next: unauthenticated booking-flow abuse
-(spam, PII scraping via guest endpoints, stored XSS in customer fields
-rendered to staff). Then: webhook/cron forgery (Resend, Twilio, internal
-cron secret) leading to forged delivery state or job execution. Lowest but
-present: production-DB writes from non-prod via misconfigured `APP_ENV` /
-service-role keys.
+Highest impact is cross-tenant restaurant access: reading or mutating bookings,
+customers, capacity, Google Business Profile state, or settings for a restaurant
+the signed-in user does not belong to. Public guest endpoints intentionally accept
+unauthenticated booking creation, contact lookup, and one-time confirmation tokens,
+so brute force, PII leakage, replay, and over-broad DTOs matter more than generic
+"public route" alarms. Provider callbacks and cron routes are externally reachable;
+their safety depends on shared verifier primitives and fail-closed missing-secret
+behavior.
 
 ## Project-specific patterns to flag
 
-- **Ops route handler that skips `requireMembershipForRestaurant` /
-  `requireAdminMembership`** despite touching a `restaurant_id` from
-  request input. `requireOpsAuth` only proves _some_ membership exists.
-- **`getServiceSupabaseClient()` used inside a request handler with a
-  user-supplied `restaurant_id` / `booking_id`** without first verifying
-  membership — bypasses RLS and silently enables cross-tenant access.
-- **Cron route accepting requests when `CRON_SECRET` is unset** (see
-  `src/app/api/cron/auto-complete-bookings/route.ts` — it `console.warn`s
-  and proceeds). New cron routes must hard-fail when the secret is missing.
-- **Webhook handler that doesn't verify signature when its secret env is
-  missing/empty** (`RESEND_WEBHOOK_SECRET`, Twilio signature). Treat
-  missing-secret as 401, never as "skip verification".
-- **Direct `process.env.*` reads instead of `@/lib/env`** — bypasses the
-  `validate-env` / `ALLOW_PROD_RESOURCES_IN_NONPROD` guards and the
-  staging/production resource separation.
-- **Mutating non-API form actions or session-cookie POST handlers without
-  CSRF verification** via the helpers in `server/security/csrf.ts` /
-  `lib/security/csrf.ts`.
+- Service-role helpers (`getServiceSupabaseClient`, `getTenantServiceSupabaseClient`)
+  used without a preceding membership/platform guard and explicit `restaurant_id`
+  or booking-derived tenant predicate.
+- `/api/ops/**` handlers that bypass proxy assumptions, trust a raw
+  `x-ops-user-id`, or add to `PUBLIC_OPS_API_PATHS` without an OAuth/webhook-style
+  verifier.
+- Session-cookie POST/PUT/PATCH/DELETE handlers missing `withCsrfProtectedMutation`
+  or `withOpsMutation({ csrf: true })`, especially under profile, team, settings,
+  and restaurant mutation routes.
+- Public booking APIs (`/api/bookings`, `/api/bookings/confirm`,
+  `/api/restaurants/[slug]/schedule`) returning full DB rows, unmasked contact data,
+  or token/contact lookups without rate limits.
+- Cron/webhook handlers that perform work without `requireCronAuthAndRun`,
+  `validateTwilioWebhookSignature`, Resend `webhooks.verify`, Google OAuth state
+  cookies/records, body-size limits, or content-type checks.
 
 ## Known false-positives
 
-- `src/app/(public)/**`, `src/app/guest/**`, `src/app/api/auth/**`,
-  `src/app/api/lead/route.ts`, `src/app/api/v1/events/route.ts`,
-  `src/app/api/health/**`, `src/app/api/client-error/route.ts` — intentionally
-  unauthenticated (guest booking, lead capture, analytics ingest, health).
-- `src/app/api/webhook/resend/**`, `src/app/api/webhook/twilio/**`,
-  `src/app/api/cron/**` — auth is bearer-secret / signature, not session;
-  no `requireOpsAuth` expected.
-- `cloudflare/**` Workers — separate runtime; secrets bound via `wrangler.jsonc`
-  and validated by `tests/cloudflare/**`. Don't expect Next.js auth helpers.
-- `scripts/**` (esp. `scripts/db/safe-run.ts`, `scripts/booking-*`,
-  `scripts/ops-auto-assign-*`) — operator-run, gated by env guards
-  (`ALLOW_PROD_DB_WIPE`, TTY confirmation); service-role usage is intended.
-- `reserve/**` — standalone Vite/Storybook package, no Next.js context.
-- `/dev/**` and `__dev/**` harnesses — UI fixtures with in-memory mocks per
-  root `AGENTS.md`; not user-reachable in production.
+- `getServiceSupabaseClient` is expected in server-only routes because Supabase RLS
+  is bypassed deliberately; the bug is missing guard/predicate, not the helper call.
+- `getTenantServiceSupabaseClient` adds tenant context headers for logging/RPCs but
+  is not an isolation boundary; still require membership and restaurant filters.
+- `/api/ops/google-business-profile/callback` and
+  `/api/ops/restaurants/[id]/google-business/callback` are intentionally public at
+  the proxy so Google can redirect back; state cookie, DB state record, and session
+  validation are the relevant guards.
+- `/dev/**`, app-host `/app/dev/**`, and `__dev/**` harnesses are QA-only fixture
+  surfaces. They do not represent shipped guest or ops behavior.
+- The `restaurant-branding` public storage bucket is intentional for restaurant
+  logos; scrutinize upload gates, MIME/size checks, SVG handling, and tenant
+  membership rather than treating public read access alone as the issue.

@@ -23,6 +23,13 @@ import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
+type SupabaseErrorLike = { code?: string; message?: string };
+
+function isUniqueConstraintError(error: SupabaseErrorLike): boolean {
+  return (
+    error.code === '23505' || /duplicate key value|unique constraint/i.test(error.message ?? '')
+  );
+}
 
 function rowToCandidate(row: DualSyncOutboundCandidateRow): DualSyncOutboundCandidate {
   return {
@@ -72,64 +79,74 @@ export async function upsertOutboundCandidate({
   createdByUserId,
 }: UpsertOutboundCandidateInput): Promise<DualSyncOutboundCandidate> {
   const dual = getDualSyncDbClient(client);
+  const candidatePatch = {
+    proposed_value: proposedValue as Json,
+    proposed_value_hash: proposedValueHash,
+    baseline_gbp_hash: baselineGbpHash,
+    source,
+    created_by_user_id: createdByUserId ?? null,
+  } as const;
 
-  const { data: existing, error: existingError } = await dual
-    .from('dual_sync_outbound_candidates')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .eq('provider', DUAL_SYNC_PROVIDER)
-    .eq('field_key', fieldKey)
-    .eq('status', 'open')
-    .maybeSingle<DualSyncOutboundCandidateRow>();
-  if (existingError) {
-    throw existingError;
-  }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data: existing, error: existingError } = await dual
+      .from('dual_sync_outbound_candidates')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('provider', DUAL_SYNC_PROVIDER)
+      .eq('field_key', fieldKey)
+      .eq('status', 'open')
+      .maybeSingle<DualSyncOutboundCandidateRow>();
+    if (existingError) {
+      throw existingError;
+    }
 
-  if (existing) {
+    if (existing) {
+      const { data, error } = await dual
+        .from('dual_sync_outbound_candidates')
+        .update({
+          ...candidatePatch,
+          created_by_user_id: createdByUserId ?? existing.created_by_user_id,
+        } as never)
+        .eq('id', existing.id)
+        .eq('status', 'open')
+        .select('*')
+        .maybeSingle<DualSyncOutboundCandidateRow>();
+      if (error) {
+        throw error;
+      }
+      if (data) {
+        return rowToCandidate(data);
+      }
+      continue;
+    }
+
     const { data, error } = await dual
       .from('dual_sync_outbound_candidates')
-      .update({
-        proposed_value: proposedValue as Json,
-        proposed_value_hash: proposedValueHash,
-        baseline_gbp_hash: baselineGbpHash,
-        source,
-        created_by_user_id: createdByUserId ?? existing.created_by_user_id,
+      .insert({
+        restaurant_id: restaurantId,
+        provider: DUAL_SYNC_PROVIDER,
+        section_key: sectionKey,
+        field_key: fieldKey,
+        ...candidatePatch,
+        status: 'open' satisfies DualSyncOutboundStatus,
       } as never)
-      .eq('id', existing.id)
       .select('*')
       .single<DualSyncOutboundCandidateRow>();
     if (error) {
+      if (isUniqueConstraintError(error)) {
+        continue;
+      }
       throw error;
     }
     if (!data) {
-      throw new Error(`dual_sync_outbound_candidates update failed for ${existing.id}`);
+      throw new Error('dual_sync_outbound_candidates insert returned no row');
     }
     return rowToCandidate(data);
   }
 
-  const { data, error } = await dual
-    .from('dual_sync_outbound_candidates')
-    .insert({
-      restaurant_id: restaurantId,
-      provider: DUAL_SYNC_PROVIDER,
-      section_key: sectionKey,
-      field_key: fieldKey,
-      proposed_value: proposedValue as Json,
-      proposed_value_hash: proposedValueHash,
-      baseline_gbp_hash: baselineGbpHash,
-      status: 'open' satisfies DualSyncOutboundStatus,
-      source,
-      created_by_user_id: createdByUserId ?? null,
-    } as never)
-    .select('*')
-    .single<DualSyncOutboundCandidateRow>();
-  if (error) {
-    throw error;
-  }
-  if (!data) {
-    throw new Error('dual_sync_outbound_candidates insert returned no row');
-  }
-  return rowToCandidate(data);
+  throw new Error(
+    `dual_sync_outbound_candidates upsert raced repeatedly for ${restaurantId}:${fieldKey}`,
+  );
 }
 
 export interface ResolveOutboundCandidateInput {

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DualSyncPendingCandidatesPanel } from '@/components/features/restaurant-settings/dual-sync/DualSyncPendingCandidatesPanel';
+import { DualSyncPendingCandidatesPanel } from '@/components/features/restaurant-settings/dual-sync/panels/jobs/DualSyncPendingCandidatesPanel';
 
 import type { DualSyncOutboundCandidate } from '@/server/dual-sync';
 import type { ListDualSyncCandidatesResponse } from '@/services/ops/dual-sync';

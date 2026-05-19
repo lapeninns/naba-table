@@ -1,4 +1,7 @@
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
+
 import type { NextRequest } from 'next/server';
+
 
 const OPS_REDIRECT_PREFIXES = [
   '/app',
@@ -20,7 +23,7 @@ function isAllowedPath(path: string, prefixes: readonly string[]) {
 }
 
 function allowedHosts(rootDomain: string): Set<string> {
-  const base = rootDomain.toLowerCase();
+  const base = normalizeRootDomain(rootDomain);
   const hosts = new Set<string>([base, `www.${base}`, `app.${base}`]);
 
   if (base === 'localhost') {
@@ -63,7 +66,12 @@ function allowedRedirectPrefixes(
 }
 
 function normalizeRootDomain(rootDomain: string): string {
-  return rootDomain.toLowerCase().replace(/^www\./, '');
+  return rootDomain
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/$/, '');
 }
 
 function buildAppHost(rootDomain: string): string {
@@ -75,6 +83,10 @@ function buildWwwHost(rootDomain: string): string {
   return rootDomain.toLowerCase().startsWith('www.')
     ? rootDomain.toLowerCase()
     : `www.${normalized}`;
+}
+
+function isAllowedAuthHost(hostname: string, rootDomain: string): boolean {
+  return allowedHosts(rootDomain).has(hostname.toLowerCase().replace(/:\d+$/, ''));
 }
 
 function toAbsoluteRedirect(target: string, rootDomain: string): string {
@@ -106,10 +118,14 @@ function extractHostname(value: string | null): string | null {
 
 export function parseHostname(req: NextRequest): string {
   const candidates = [
-    req.headers.get('x-forwarded-host'),
-    req.headers.get('x-original-host'),
-    req.headers.get('origin'),
-    req.headers.get('referer'),
+    req.nextUrl?.hostname,
+    (() => {
+      try {
+        return new URL(req.url).hostname;
+      } catch {
+        return null;
+      }
+    })(),
     req.headers.get('host'),
   ];
 
@@ -120,6 +136,76 @@ export function parseHostname(req: NextRequest): string {
 
   const urlHost = req.nextUrl?.hostname?.toLowerCase?.() ?? '';
   return urlHost.replace(/:\d+$/, '');
+}
+
+export function resolveTrustedAuthHostname(
+  hostname: string | null | undefined,
+  rootDomain: string,
+): string {
+  const normalizedHost = hostname ? extractHostname(hostname) : null;
+
+  if (normalizedHost && isAllowedAuthHost(normalizedHost, rootDomain)) {
+    return normalizedHost;
+  }
+
+  const normalizedRoot = normalizeRootDomain(rootDomain);
+  if (normalizedRoot === 'localhost') {
+    return 'localhost';
+  }
+
+  return buildWwwHost(normalizedRoot);
+}
+
+export function buildAuthCallbackUrl(params: {
+  hostname: string;
+  rootDomain: string;
+  redirectedFrom: string | undefined;
+  rememberMe: boolean;
+  pathname?: string;
+}): string {
+  const trustedHostname = resolveTrustedAuthHostname(params.hostname, params.rootDomain);
+  const local = isLocalLikeHost(trustedHostname);
+  const protocol = local ? 'http' : 'https';
+  const callbackHost =
+    local && !trustedHostname.includes(':') ? `${trustedHostname}:3000` : trustedHostname;
+  const url = new URL(params.pathname ?? '/api/auth/callback', `${protocol}://${callbackHost}`);
+
+  if (params.redirectedFrom) {
+    url.searchParams.set('redirectedFrom', params.redirectedFrom);
+  }
+  url.searchParams.set('rememberMe', params.rememberMe ? '1' : '0');
+  return url.toString();
+}
+
+export function normalizeTrustedMagicLinkRedirect(
+  emailRedirectTo: string,
+  rootDomain: string,
+): string | null {
+  try {
+    const url = new URL(emailRedirectTo);
+    const hostname = url.hostname.toLowerCase();
+    const local = normalizeRootDomain(rootDomain) === 'localhost' && isLocalLikeHost(hostname);
+
+    if (!isAllowedAuthHost(hostname, rootDomain)) {
+      return null;
+    }
+
+    if (url.pathname !== '/api/auth/callback') {
+      return null;
+    }
+
+    if (local) {
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return null;
+      }
+    } else if (url.protocol !== 'https:') {
+      return null;
+    }
+
+    return url.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function defaultRedirectForHost(hostname: string, rootDomain: string): string {
@@ -146,6 +232,7 @@ export function sanitizeRedirect(
   hostname?: string,
 ): string | undefined {
   if (!target) return undefined;
+  if (/\\|%5c/i.test(target)) return undefined;
 
   if (/^https?:\/\//i.test(target)) {
     try {
@@ -159,9 +246,13 @@ export function sanitizeRedirect(
     }
   }
 
-  if (!target.startsWith('/')) return undefined;
   const prefixes = allowedRedirectPrefixes(hostname, rootDomain);
-  return isAllowedPath(target, prefixes) ? target : undefined;
+  const sanitized = sanitizeLocalRedirectPath(target, {
+    fallback: '',
+    allowedPrefixes: prefixes,
+  });
+  if (!sanitized) return undefined;
+  return sanitized;
 }
 
 export function toAbsoluteRedirectTarget(target: string, rootDomain: string): string {

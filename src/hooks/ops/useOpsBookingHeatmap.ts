@@ -75,11 +75,7 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
       handleChange,
     );
 
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`[realtime] Heatmap subscribed for restaurant ${restaurantId}`);
-      }
-    });
+    channel.subscribe();
 
     return () => {
       channel.unsubscribe();

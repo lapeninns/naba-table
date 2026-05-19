@@ -1,45 +1,37 @@
 /**
  * Past Time Booking Validation
- * 
+ *
  * Prevents creation or modification of bookings with start times in the past.
  * Includes configurable grace period and admin override capability.
- * 
+ *
  * @see tasks/prevent-past-bookings-20251015-1323/plan.md
  */
 
-import { isRestaurantAdminRole } from "@/lib/owner/auth/roles";
+import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 
-import type { RestaurantRole } from "@/lib/owner/auth/roles";
+import type { RestaurantRole } from '@/lib/owner/auth/roles';
 
 function normalizeIsoLocal24HourRollover(isoLocal: string): string {
-  const match = isoLocal.match(
-    /^(\d{4}-\d{2}-\d{2})T24:(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/,
-  );
+  const match = isoLocal.match(/^(\d{4}-\d{2}-\d{2})T24:(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
   if (!match) {
     return isoLocal;
   }
 
   const [, datePart, minute, secondRaw, fractionalRaw] = match;
-  const baseDate = new Date(`${datePart}T00:00:00Z`);
-  if (Number.isNaN(baseDate.getTime())) {
-    return isoLocal;
-  }
+  const second = (secondRaw ?? '00').padStart(2, '0');
+  const fractional = fractionalRaw ? `.${fractionalRaw.padEnd(3, '0')}` : '';
 
-  baseDate.setUTCDate(baseDate.getUTCDate() + 1);
-  const nextDate = baseDate.toISOString().slice(0, 10);
-
-  const second = (secondRaw ?? "00").padStart(2, "0");
-  const fractional = fractionalRaw ? `.${fractionalRaw.padEnd(3, "0")}` : "";
-
-  return `${nextDate}T00:${minute}:${second}${fractional}`;
+  // Intl can emit 24:xx for the first hour after midnight. The displayed date is
+  // already the local calendar date, so keep that date and normalize only hour.
+  return `${datePart}T00:${minute}:${second}${fractional}`;
 }
 
 /**
  * Error thrown when a booking time is in the past
  */
 export class PastBookingError extends Error {
-  readonly code = "BOOKING_IN_PAST" as const;
-  
+  readonly code = 'BOOKING_IN_PAST' as const;
+
   constructor(
     message: string,
     public readonly details: {
@@ -48,10 +40,10 @@ export class PastBookingError extends Error {
       timezone: string;
       gracePeriodMinutes: number;
       timeDeltaMinutes: number;
-    }
+    },
   ) {
     super(message);
-    this.name = "PastBookingError";
+    this.name = 'PastBookingError';
     Object.setPrototypeOf(this, PastBookingError.prototype);
   }
 }
@@ -70,7 +62,7 @@ export type PastTimeValidationOptions = {
 
 /**
  * Gets current date/time in a specific timezone
- * 
+ *
  * @param timezone - IANA timezone string (e.g., "America/Los_Angeles")
  * @returns Date object representing "now" in that timezone
  */
@@ -83,7 +75,7 @@ function zonedDateTimeToUtc(timezone: string, isoLocal: string): Date {
 
   let sameInstantInZone: Date;
   try {
-    const localized = date.toLocaleString("en-US", { timeZone: timezone });
+    const localized = date.toLocaleString('en-US', { timeZone: timezone });
     sameInstantInZone = new Date(localized);
   } catch (error) {
     throw new Error(`Failed to resolve timezone "${timezone}"`, { cause: error });
@@ -98,43 +90,44 @@ function zonedDateTimeToUtc(timezone: string, isoLocal: string): Date {
 }
 
 export function getCurrentTimeInTimezone(timezone: string): Date {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
     hour12: false,
   });
 
   const parts = formatter.formatToParts(new Date());
-  const lookup = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
+  const lookup = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
 
-  const isoLocal = `${lookup("year")}-${lookup("month")}-${lookup("day")}T${lookup("hour")}:${lookup("minute")}:${lookup("second")}`;
+  const isoLocal = `${lookup('year')}-${lookup('month')}-${lookup('day')}T${lookup('hour')}:${lookup('minute')}:${lookup('second')}`;
   return zonedDateTimeToUtc(timezone, isoLocal);
 }
 
 /**
  * Converts booking date/time components to Date object
- * 
+ *
  * @param bookingDate - Date string in YYYY-MM-DD format
  * @param startTime - Time string in HH:MM format
  * @returns Date object representing the booking time
  */
 function parseBookingTime(timezone: string, bookingDate: string, startTime: string): Date {
-  const segments = startTime.split(":");
+  const segments = startTime.split(':');
 
   if (segments.length < 2) {
     throw new Error(`Invalid start time format: ${startTime}`);
   }
 
-  const [rawHour, rawMinute, rawSecond = "00"] = segments;
+  const [rawHour, rawMinute, rawSecond = '00'] = segments;
 
-  const hour = rawHour.padStart(2, "0");
-  const minute = rawMinute.padStart(2, "0");
-  const second = rawSecond.padStart(2, "0");
+  const hour = rawHour.padStart(2, '0');
+  const minute = rawMinute.padStart(2, '0');
+  const second = rawSecond.padStart(2, '0');
 
   const isoLocal = `${bookingDate}T${hour}:${minute}:${second}`;
   return zonedDateTimeToUtc(timezone, isoLocal);
@@ -142,44 +135,46 @@ function parseBookingTime(timezone: string, bookingDate: string, startTime: stri
 
 /**
  * Formats a Date object to ISO string for display
- * 
+ *
  * @param date - Date to format
  * @param timezone - IANA timezone for display
  * @returns ISO-like string with timezone info
  */
 function formatDateTimeForDisplay(date: Date, timezone: string): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
     hour12: false,
   });
 
   const parts = formatter.formatToParts(date);
-  const year = parts.find((p) => p.type === "year")?.value ?? "0000";
-  const month = parts.find((p) => p.type === "month")?.value ?? "01";
-  const day = parts.find((p) => p.type === "day")?.value ?? "01";
-  const hour = parts.find((p) => p.type === "hour")?.value ?? "00";
-  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
-  const second = parts.find((p) => p.type === "second")?.value ?? "00";
+  const year = parts.find((p) => p.type === 'year')?.value ?? '0000';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01';
+  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  const second = parts.find((p) => p.type === 'second')?.value ?? '00';
 
   // Get timezone offset for display
-  const offsetFormatter = new Intl.DateTimeFormat("en-US", {
+  const offsetFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
-    timeZoneName: "short",
+    timeZoneName: 'short',
   });
-  const timezoneName = offsetFormatter.formatToParts(date).find((p) => p.type === "timeZoneName")?.value ?? timezone;
+  const timezoneName =
+    offsetFormatter.formatToParts(date).find((p) => p.type === 'timeZoneName')?.value ?? timezone;
 
   return `${year}-${month}-${day}T${hour}:${minute}:${second} ${timezoneName}`;
 }
 
 /**
  * Checks if a user role has permission to override past booking restrictions
- * 
+ *
  * @param role - User's restaurant role
  * @returns true if role can override (owner or manager)
  */
@@ -189,16 +184,16 @@ export function canOverridePastBooking(role: RestaurantRole | null | undefined):
 
 /**
  * Validates that a booking time is not in the past
- * 
+ *
  * Throws PastBookingError if booking time is before (server time - grace period)
  * when evaluated in the restaurant's local timezone.
- * 
+ *
  * Grace period (default 5 minutes) accounts for:
  * - Network latency (1-2 seconds typical)
  * - Client clock skew (can be ±1-2 minutes)
  * - Request processing time (<1 second)
  * - Safety margin
- * 
+ *
  * @param restaurantTimezone - IANA timezone string (e.g., "America/New_York")
  * @param bookingDate - Booking date in YYYY-MM-DD format
  * @param startTime - Booking start time in HH:MM format
@@ -210,14 +205,14 @@ export function assertBookingNotInPast(
   restaurantTimezone: string,
   bookingDate: string,
   startTime: string,
-  options: PastTimeValidationOptions = {}
+  options: PastTimeValidationOptions = {},
 ): void {
   const graceMinutes = options.graceMinutes ?? 5;
   const allowOverride = options.allowOverride ?? false;
 
   // Validate inputs
   if (!restaurantTimezone) {
-    throw new Error("Restaurant timezone is required for validation");
+    throw new Error('Restaurant timezone is required for validation');
   }
 
   if (!bookingDate || !/^\d{4}-\d{2}-\d{2}$/.test(bookingDate)) {
@@ -259,7 +254,7 @@ export function assertBookingNotInPast(
           timezone: restaurantTimezone,
           gracePeriodMinutes: graceMinutes,
           timeDeltaMinutes: Math.round(timeDeltaMinutes),
-        }
+        },
       );
     }
   } catch (error) {
@@ -270,7 +265,7 @@ export function assertBookingNotInPast(
 
     // Wrap other errors (e.g., invalid timezone)
     throw new Error(
-      `Failed to validate booking time: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to validate booking time: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }

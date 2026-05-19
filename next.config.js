@@ -105,7 +105,7 @@ const nextConfig = {
       // Legacy query param redirect for thank-you
       {
         source: '/thank-you',
-        has: [{ type: 'query', key: 'bookingId', value: '(?<bookingId>.*)' }],
+        has: [{ type: 'query', key: 'bookingId', value: '(?<bookingId>[^/]+)' }],
         destination: '/bookings/:bookingId/thank-you',
         permanent: true,
       },
@@ -118,9 +118,6 @@ const nextConfig = {
 
       { source: '/account/profile', destination: '/guest/profile', permanent: true },
       { source: '/profile/manage', destination: '/guest/profile', permanent: true },
-
-      // Invite (Preserve invite token flow, move to account/invite for now if that's where the page lives)
-      { source: '/invite/:token', destination: '/account/invite/:token', permanent: true },
 
       // --- Ops ---
       // --- Legal ---

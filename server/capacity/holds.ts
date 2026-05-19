@@ -1,12 +1,12 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { isHoldStrictConflictsEnabled, getHoldMinTtlSeconds } from "@/server/feature-flags";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { getHoldMinTtlSeconds } from '@/server/feature-flags';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { Database, Json, Tables } from "@/types/supabase";
-import type { SupabaseClient, PostgrestError } from "@supabase/supabase-js";
+import type { Database, Json, Tables } from '@/types/supabase';
+import type { SupabaseClient, PostgrestError } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, "public">;
+type DbClient = SupabaseClient<Database, 'public'>;
 
 export type TableHold = {
   id: string;
@@ -96,16 +96,19 @@ export type ExtendTableHoldInput = {
 };
 
 export class HoldConflictError extends Error {
-  constructor(message: string, public readonly holdId?: string) {
+  constructor(
+    message: string,
+    public readonly holdId?: string,
+  ) {
     super(message);
-    this.name = "HoldConflictError";
+    this.name = 'HoldConflictError';
   }
 }
 
 export class HoldNotFoundError extends Error {
-  constructor(message = "Table hold not found") {
+  constructor(message = 'Table hold not found') {
     super(message);
-    this.name = "HoldNotFoundError";
+    this.name = 'HoldNotFoundError';
   }
 }
 
@@ -114,9 +117,14 @@ export class AssignTablesRpcError extends Error {
   public readonly details?: string | null;
   public readonly hint?: string | null;
 
-  constructor(error: { message: string; code?: string | null; details?: string | null; hint?: string | null }) {
+  constructor(error: {
+    message: string;
+    code?: string | null;
+    details?: string | null;
+    hint?: string | null;
+  }) {
     super(error.message);
-    this.name = "AssignTablesRpcError";
+    this.name = 'AssignTablesRpcError';
     this.code = error.code ?? null;
     this.details = error.details ?? null;
     this.hint = error.hint ?? null;
@@ -128,58 +136,67 @@ function ensureClient(client?: DbClient): DbClient {
 }
 
 async function configureHoldStrictConflictSession(client: DbClient): Promise<void> {
-  const enabled = isHoldStrictConflictsEnabled();
-  if (typeof client.rpc !== "function") {
-    return;
+  const enabled = true;
+  if (typeof client.rpc !== 'function') {
+    throw new HoldConflictError('Strict hold conflict enforcement requires an RPC-capable client');
   }
   try {
-    const { error } = await client.rpc("set_hold_conflict_enforcement", { enabled });
+    const { error } = await client.rpc('set_hold_conflict_enforcement', { enabled });
     if (error) {
-      console.warn("[capacity.hold] failed to configure strict conflict enforcement", {
+      console.warn('[capacity.hold] failed to configure strict conflict enforcement', {
         enabled,
         error: error.message ?? error,
       });
     }
     // Best-effort verification
     try {
-      const { data, error: verifyError } = await client.rpc("is_holds_strict_conflicts_enabled");
+      const { data, error: verifyError } = await client.rpc('is_holds_strict_conflicts_enabled');
       if (verifyError) {
-        console.warn("[capacity.hold] strict conflict verification failed", {
+        console.warn('[capacity.hold] strict conflict verification failed', {
           error: verifyError.message ?? verifyError,
         });
       } else if (enabled && !data) {
-        console.error("[capacity.hold] strict conflict enforcement not honored by server (GUC off)");
+        console.error(
+          '[capacity.hold] strict conflict enforcement not honored by server (GUC off)',
+        );
+        throw new HoldConflictError('Strict hold conflict enforcement not honored by server');
       }
     } catch (e) {
-      console.warn("[capacity.hold] strict conflict verification errored", {
+      console.warn('[capacity.hold] strict conflict verification errored', {
         error: e instanceof Error ? e.message : String(e),
       });
+      if (enabled) {
+        throw e;
+      }
     }
   } catch (error) {
-    console.warn("[capacity.hold] failed to configure strict conflict enforcement", {
+    console.warn('[capacity.hold] failed to configure strict conflict enforcement', {
       enabled,
       error: error instanceof Error ? error.message : String(error),
     });
+    if (enabled) {
+      throw error;
+    }
   }
 }
 
 export async function isStrictConflictSessionEnabled(client?: DbClient): Promise<boolean> {
   const supabase = ensureClient(client);
   try {
-    const { data, error } = await supabase.rpc("is_holds_strict_conflicts_enabled");
+    const { data, error } = await supabase.rpc('is_holds_strict_conflicts_enabled');
     if (error) {
       throw new Error(error.message ?? String(error));
     }
     return Boolean(data);
   } catch (error) {
-    console.warn("[capacity.hold] failed to verify strict conflict session flag", {
+    console.warn('[capacity.hold] failed to verify strict conflict session flag', {
       error: error instanceof Error ? error.message : String(error),
     });
     return false;
   }
 }
 
-function normalizeHold(row: Tables<"table_holds">, tableIds: string[]): TableHold {
+function normalizeHold(row: Tables<'table_holds'>, tableIds: string[]): TableHold {
   return {
     id: row.id,
     bookingId: row.booking_id,
@@ -194,7 +211,7 @@ function normalizeHold(row: Tables<"table_holds">, tableIds: string[]): TableHol
   };
 }
 
-type HoldRowWithMembers = Tables<"table_holds"> & {
+type HoldRowWithMembers = Tables<'table_holds'> & {
   table_hold_members?: unknown;
 };
 
@@ -205,12 +222,12 @@ function extractTableIdsFromMembers(members: unknown): string[] {
 
   return members
     .map((member) => {
-      if (!member || typeof member !== "object") {
+      if (!member || typeof member !== 'object') {
         return null;
       }
 
       const tableId = (member as { table_id?: unknown }).table_id;
-      return typeof tableId === "string" ? tableId : null;
+      return typeof tableId === 'string' ? tableId : null;
     })
     .filter((tableId): tableId is string => tableId !== null);
 }
@@ -241,16 +258,20 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   } = input;
 
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
-    throw new HoldConflictError("Cannot create a hold without tables");
+    throw new HoldConflictError('Cannot create a hold without tables');
   }
 
   const supabase = ensureClient(client);
-  const createdByUuid = typeof createdBy === 'string' && /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/.test(createdBy)
-    ? createdBy
-    : null;
+  const createdByUuid =
+    typeof createdBy === 'string' &&
+    /^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/.test(
+      createdBy,
+    )
+      ? createdBy
+      : null;
   await configureHoldStrictConflictSession(supabase);
 
-  const parseUtc = (value: string) => DateTime.fromISO(value, { zone: "utc" }).toUTC();
+  const parseUtc = (value: string) => DateTime.fromISO(value, { zone: 'utc' }).toUTC();
 
   let normalizedExpiry = parseUtc(expiresAt);
   const nowUtc = DateTime.now().toUTC();
@@ -261,21 +282,12 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   }
 
   try {
-    const ttlSec = Math.max(0, Math.floor(normalizedExpiry.diff(nowUtc, "seconds").seconds));
+    const ttlSec = Math.max(0, Math.floor(normalizedExpiry.diff(nowUtc, 'seconds').seconds));
     if (ttlSec < minTtl) {
       normalizedExpiry = nowUtc.plus({ seconds: minTtl });
     }
   } catch {
     normalizedExpiry = nowUtc.plus({ seconds: minTtl });
-  }
-
-  try {
-    const endUtc = parseUtc(endAt);
-    if (endUtc.isValid && normalizedExpiry < endUtc) {
-      normalizedExpiry = endUtc.plus({ seconds: minTtl });
-    }
-  } catch {
-    // ignore; fallback expiry already enforced
   }
 
   const normalizedExpiryIso = normalizedExpiry.toISO();
@@ -306,17 +318,21 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   // Single statement, atomic. If an exclusion constraint is violated due to a
   // concurrent hold, Postgres returns an error and nothing is persisted (no orphan hold row).
   const { data: inserted, error: nestedError } = await supabase
-    .from("table_holds")
+    .from('table_holds')
     .insert(insertPayload)
     .select(
-      "id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata, table_hold_members(table_id)",
+      'id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata, table_hold_members(table_id)',
     )
     .single();
 
   if (nestedError || !inserted) {
     const code = (nestedError as { code?: string } | null)?.code ?? null;
-    const message = (nestedError as { message?: string } | null)?.message ?? String(nestedError ?? "");
-    if (process.env.CAPACITY_LOG_HOLD_ERRORS === '1' || process.env.CAPACITY_LOG_HOLD_ERRORS === 'true') {
+    const message =
+      (nestedError as { message?: string } | null)?.message ?? String(nestedError ?? '');
+    if (
+      process.env.CAPACITY_LOG_HOLD_ERRORS === '1' ||
+      process.env.CAPACITY_LOG_HOLD_ERRORS === 'true'
+    ) {
       console.error('[capacity.hold] hold insert failed', {
         bookingId,
         restaurantId,
@@ -330,13 +346,19 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     }
 
     // Translate DB-level overlap to a domain HoldConflictError.
-    if (code === "23P01" || /table_hold_windows_no_overlap|exclusion/i.test(message)) {
+    if (code === '23P01' || /table_hold_windows_no_overlap|exclusion/i.test(message)) {
       // Best-effort pull current conflicts for telemetry
       try {
-        const conflicts = await findHoldConflicts({ restaurantId, tableIds, startAt, endAt, client: supabase });
+        const conflicts = await findHoldConflicts({
+          restaurantId,
+          tableIds,
+          startAt,
+          endAt,
+          client: supabase,
+        });
         const blocking = conflicts.filter((c) => c.bookingId !== bookingId);
         if (blocking.length > 0) {
-          const { emitHoldStrictConflict } = await import("./telemetry");
+          const { emitHoldStrictConflict } = await import('./telemetry');
           await emitHoldStrictConflict({
             restaurantId,
             bookingId,
@@ -352,19 +374,22 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
               expiresAt: conflict.expiresAt,
             })),
           });
-          throw new HoldConflictError("Existing holds conflict with requested tables", blocking[0]?.holdId);
+          throw new HoldConflictError(
+            'Existing holds conflict with requested tables',
+            blocking[0]?.holdId,
+          );
         }
       } catch {
         // Even if conflict enumeration fails, translate as a conflict.
       }
-      throw new HoldConflictError("Existing holds conflict with requested tables");
+      throw new HoldConflictError('Existing holds conflict with requested tables');
     }
 
     // If PostgREST schema cache prevents nested writes, fallback to two-step insert
     if (code === 'PGRST204' || /schema cache|table_hold_members/.test(message)) {
       // Step 1: insert hold row
       const { data: holdRow, error: holdErr } = await supabase
-        .from("table_holds")
+        .from('table_holds')
         .insert({
           booking_id: bookingId,
           restaurant_id: restaurantId,
@@ -375,26 +400,54 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
           created_by: createdByUuid,
           metadata,
         })
-        .select("id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata")
+        .select(
+          'id, booking_id, restaurant_id, zone_id, start_at, end_at, expires_at, created_by, metadata',
+        )
         .single();
 
       if (holdErr || !holdRow) {
-        if (process.env.CAPACITY_LOG_HOLD_ERRORS === '1' || process.env.CAPACITY_LOG_HOLD_ERRORS === 'true') {
-          console.error('[capacity.hold] fallback hold insert failed', { code: (holdErr as PostgrestError)?.code ?? null, message: (holdErr as PostgrestError)?.message ?? String(holdErr) });
+        if (
+          process.env.CAPACITY_LOG_HOLD_ERRORS === '1' ||
+          process.env.CAPACITY_LOG_HOLD_ERRORS === 'true'
+        ) {
+          console.error('[capacity.hold] fallback hold insert failed', {
+            code: (holdErr as PostgrestError)?.code ?? null,
+            message: (holdErr as PostgrestError)?.message ?? String(holdErr),
+          });
         }
-        throw new HoldConflictError((holdErr as { message?: string } | null)?.message || message || "Failed to create table hold");
+        throw new HoldConflictError(
+          (holdErr as { message?: string } | null)?.message ||
+            message ||
+            'Failed to create table hold',
+        );
       }
 
       // Step 2: insert members
-      const rows = Array.from(new Set(tableIds)).map((tableId) => ({ hold_id: (holdRow as { id: string }).id, table_id: tableId }));
-      const { error: membersErr } = await supabase.from("table_hold_members").insert(rows);
+      const rows = Array.from(new Set(tableIds)).map((tableId) => ({
+        hold_id: (holdRow as { id: string }).id,
+        table_id: tableId,
+      }));
+      const { error: membersErr } = await supabase.from('table_hold_members').insert(rows);
       if (membersErr) {
-        if (process.env.CAPACITY_LOG_HOLD_ERRORS === '1' || process.env.CAPACITY_LOG_HOLD_ERRORS === 'true') {
-          console.error('[capacity.hold] fallback hold members insert failed', { code: (membersErr as PostgrestError)?.code ?? null, message: (membersErr as PostgrestError)?.message ?? String(membersErr) });
+        if (
+          process.env.CAPACITY_LOG_HOLD_ERRORS === '1' ||
+          process.env.CAPACITY_LOG_HOLD_ERRORS === 'true'
+        ) {
+          console.error('[capacity.hold] fallback hold members insert failed', {
+            code: (membersErr as PostgrestError)?.code ?? null,
+            message: (membersErr as PostgrestError)?.message ?? String(membersErr),
+          });
         }
         // Best-effort cleanup
-        await supabase.from("table_holds").delete().eq("id", (holdRow as { id: string }).id);
-        throw new HoldConflictError((membersErr as { message?: string } | null)?.message || message || "Failed to create table hold members");
+        await supabase
+          .from('table_holds')
+          .delete()
+          .eq('id', (holdRow as { id: string }).id);
+        throw new HoldConflictError(
+          (membersErr as { message?: string } | null)?.message ||
+            message ||
+            'Failed to create table hold members',
+        );
       }
 
       const hold: TableHold = {
@@ -410,7 +463,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
         metadata: (holdRow as { metadata: Json | null }).metadata ?? null,
       };
 
-      const { emitHoldCreated } = await import("./telemetry");
+      const { emitHoldCreated } = await import('./telemetry');
       await emitHoldCreated({
         holdId: hold.id,
         bookingId: hold.bookingId,
@@ -428,10 +481,12 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     }
 
     // Bubble other errors explicitly in a consistent error type for callers.
-    throw new HoldConflictError(message || "Failed to create table hold");
+    throw new HoldConflictError(message || 'Failed to create table hold');
   }
 
-  const memberTableIds = extractTableIdsFromMembers((inserted as HoldRowWithMembers).table_hold_members ?? null);
+  const memberTableIds = extractTableIdsFromMembers(
+    (inserted as HoldRowWithMembers).table_hold_members ?? null,
+  );
   const hold: TableHold = {
     id: (inserted as { id: string }).id,
     bookingId: (inserted as { booking_id: string | null }).booking_id ?? null,
@@ -445,7 +500,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     metadata: (inserted as { metadata: Json | null }).metadata ?? null,
   };
 
-  const { emitHoldCreated } = await import("./telemetry");
+  const { emitHoldCreated } = await import('./telemetry');
   await emitHoldCreated({
     holdId: hold.id,
     bookingId: hold.bookingId,
@@ -466,7 +521,7 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
   const { holdId, client } = input;
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
-  const rpcCall = supabase.rpc("release_hold_and_emit", {
+  const rpcCall = supabase.rpc('release_hold_and_emit', {
     p_hold_id: holdId,
     // actor id is optional for system-triggered releases; Supabase RPC expects string | undefined
     p_actor_id: undefined,
@@ -474,13 +529,13 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
   const { error: rpcError } = await rpcCall;
 
   if (rpcError) {
-    console.warn("[capacity.hold] release_hold_and_emit failed; falling back to manual delete", {
+    console.warn('[capacity.hold] release_hold_and_emit failed; falling back to manual delete', {
       holdId,
       code: rpcError.code ?? null,
       message: rpcError.message ?? null,
     });
-    await supabase.from("table_hold_members").delete().eq("hold_id", holdId);
-    await supabase.from("table_holds").delete().eq("id", holdId);
+    await supabase.from('table_hold_members').delete().eq('hold_id', holdId);
+    await supabase.from('table_holds').delete().eq('id', holdId);
   }
 }
 
@@ -490,9 +545,9 @@ export async function extendTableHold(input: ExtendTableHoldInput): Promise<Tabl
   await configureHoldStrictConflictSession(supabase);
 
   const { data: holdRow, error: fetchError } = await supabase
-    .from("table_holds")
-    .select("*, table_hold_members(table_id)")
-    .eq("id", holdId)
+    .from('table_holds')
+    .select('*, table_hold_members(table_id)')
+    .eq('id', holdId)
     .maybeSingle();
 
   if (fetchError || !holdRow) {
@@ -503,8 +558,8 @@ export async function extendTableHold(input: ExtendTableHoldInput): Promise<Tabl
   // Authorization: only creator or elevated role may extend the hold
   if (!actorId) {
     throw new AssignTablesRpcError({
-      message: "Only the creator or elevated roles may extend holds",
-      code: "AUTH_FORBIDDEN",
+      message: 'Only the creator or elevated roles may extend holds',
+      code: 'AUTH_FORBIDDEN',
       details: null,
       hint: null,
     });
@@ -512,17 +567,17 @@ export async function extendTableHold(input: ExtendTableHoldInput): Promise<Tabl
   if (currentHold.created_by && currentHold.created_by !== actorId) {
     try {
       const { data: membership } = await supabase
-        .from("restaurant_memberships")
-        .select("role")
-        .eq("restaurant_id", currentHold.restaurant_id)
-        .eq("user_id", actorId)
+        .from('restaurant_memberships')
+        .select('role')
+        .eq('restaurant_id', currentHold.restaurant_id)
+        .eq('user_id', actorId)
         .maybeSingle();
       const role = (membership as { role?: string } | null)?.role ?? null;
-      const elevated = role && ["admin", "manager", "owner"].includes(role);
+      const elevated = role && ['admin', 'manager', 'owner'].includes(role);
       if (!elevated) {
         throw new AssignTablesRpcError({
-          message: "Only the creator or elevated roles may extend holds",
-          code: "AUTH_FORBIDDEN",
+          message: 'Only the creator or elevated roles may extend holds',
+          code: 'AUTH_FORBIDDEN',
           details: null,
           hint: null,
         });
@@ -533,62 +588,62 @@ export async function extendTableHold(input: ExtendTableHoldInput): Promise<Tabl
       }
       // If membership lookup fails, deny by default
       throw new AssignTablesRpcError({
-        message: "Only the creator or elevated roles may extend holds",
-        code: "AUTH_FORBIDDEN",
+        message: 'Only the creator or elevated roles may extend holds',
+        code: 'AUTH_FORBIDDEN',
         details: null,
         hint: null,
       });
     }
   }
   const memberTableIds = extractTableIdsFromMembers(currentHold.table_hold_members ?? null);
-  const currentExpires = DateTime.fromISO(currentHold.expires_at ?? "").toUTC();
+  const currentExpires = DateTime.fromISO(currentHold.expires_at ?? '').toUTC();
   if (!currentExpires.isValid) {
-    throw new HoldConflictError("Hold expiration timestamp invalid", holdId);
+    throw new HoldConflictError('Hold expiration timestamp invalid', holdId);
   }
 
   let targetExpiry: DateTime | null = null;
-  if (typeof newExpiresAt === "string") {
+  if (typeof newExpiresAt === 'string') {
     const candidate = DateTime.fromISO(newExpiresAt).toUTC();
     if (candidate.isValid) {
       targetExpiry = candidate;
     }
   }
 
-  if (!targetExpiry && typeof extendSeconds === "number" && Number.isFinite(extendSeconds)) {
+  if (!targetExpiry && typeof extendSeconds === 'number' && Number.isFinite(extendSeconds)) {
     targetExpiry = currentExpires.plus({ seconds: extendSeconds });
   }
 
   if (!targetExpiry || !targetExpiry.isValid) {
-    throw new HoldConflictError("Cannot extend hold without a valid expiry" , holdId);
+    throw new HoldConflictError('Cannot extend hold without a valid expiry', holdId);
   }
 
   if (targetExpiry <= currentExpires) {
-    return normalizeHold(currentHold as Tables<"table_holds">, memberTableIds);
+    return normalizeHold(currentHold as Tables<'table_holds'>, memberTableIds);
   }
 
   const targetIso = targetExpiry.toUTC().toISO();
   const currentExpiresIso = currentExpires.toISO();
   if (!targetIso || !currentExpiresIso) {
-    throw new HoldConflictError("Failed to normalize hold expiry", holdId);
+    throw new HoldConflictError('Failed to normalize hold expiry', holdId);
   }
   const { data: updatedRow, error: updateError } = await supabase
-    .from("table_holds")
+    .from('table_holds')
     .update({
       expires_at: targetIso,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", holdId)
-    .select("*, table_hold_members(table_id)")
+    .eq('id', holdId)
+    .select('*, table_hold_members(table_id)')
     .maybeSingle();
 
   if (updateError || !updatedRow) {
-    throw new HoldConflictError(updateError?.message ?? "Failed to extend hold", holdId);
+    throw new HoldConflictError(updateError?.message ?? 'Failed to extend hold', holdId);
   }
 
   const updatedHold = updatedRow as HoldRowWithMembers;
   const updatedTableIds = extractTableIdsFromMembers(updatedHold.table_hold_members ?? null);
 
-  const { emitHoldExtended } = await import("./telemetry");
+  const { emitHoldExtended } = await import('./telemetry');
   await emitHoldExtended({
     holdId,
     bookingId: updatedHold.booking_id,
@@ -603,7 +658,7 @@ export async function extendTableHold(input: ExtendTableHoldInput): Promise<Tabl
     metadata: updatedHold.metadata ?? null,
   });
 
-  return normalizeHold(updatedHold as Tables<"table_holds">, updatedTableIds);
+  return normalizeHold(updatedHold as Tables<'table_holds'>, updatedTableIds);
 }
 
 export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Promise<TableHold[]> {
@@ -611,10 +666,10 @@ export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Pr
   const supabase = ensureClient(client);
 
   const { data, error } = await supabase
-    .from("table_holds")
-    .select("*, table_hold_members(table_id)")
-    .eq("booking_id", bookingId)
-    .gt("expires_at", new Date().toISOString());
+    .from('table_holds')
+    .select('*, table_hold_members(table_id)')
+    .eq('booking_id', bookingId)
+    .gt('expires_at', new Date().toISOString());
 
   if (error || !data) {
     return [];
@@ -627,7 +682,9 @@ export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Pr
   });
 }
 
-export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<HoldConflictInfo[]> {
+export async function findHoldConflicts(
+  input: FindHoldConflictsInput,
+): Promise<HoldConflictInfo[]> {
   const { restaurantId, tableIds, startAt, endAt, excludeHoldId = null, client } = input;
 
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
@@ -636,32 +693,28 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
 
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
-  if (!isHoldStrictConflictsEnabled()) {
-    return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
-  }
   const nowIso = new Date().toISOString();
   const rangeLiteral = `[${startAt},${endAt})`;
 
   try {
     const { data, error } = await supabase
-      .from("table_hold_windows")
-      .select("hold_id, booking_id, restaurant_id, table_id, start_at, end_at, expires_at")
-      .eq("restaurant_id", restaurantId)
-      .gt("expires_at", nowIso)
-      .in("table_id", tableIds)
-      .filter("hold_window", "ov", rangeLiteral);
+      .from('table_hold_windows')
+      .select('hold_id, booking_id, restaurant_id, table_id, start_at, end_at, expires_at')
+      .eq('restaurant_id', restaurantId)
+      .gt('expires_at', nowIso)
+      .in('table_id', tableIds)
+      .filter('hold_window', 'ov', rangeLiteral);
 
     if (error) {
       const code = (error as { code?: string }).code;
-      // Missing table/view in schema cache - fall back to legacy approach
-      if (code === "42P01" || code === "PGRST205") {
-        return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
-      }
-      console.error("[capacity.hold] hold_window query failed; strict conflict detection unavailable", {
-        restaurantId,
-        code: code ?? null,
-        message: (error as { message?: string }).message ?? String(error),
-      });
+      console.error(
+        '[capacity.hold] hold_window query failed; strict conflict detection unavailable',
+        {
+          restaurantId,
+          code: code ?? null,
+          message: (error as { message?: string }).message ?? String(error),
+        },
+      );
       throw error;
     }
 
@@ -699,12 +752,7 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
     return Array.from(grouped.values());
   } catch (error) {
     const code = (error as { code?: string }).code;
-    // Missing table/view in schema cache - fall back to legacy approach
-    if (code === "42P01" || code === "PGRST205") {
-      return await findHoldConflictsLegacy({ restaurantId, tableIds, startAt, endAt, excludeHoldId, client: supabase });
-    }
-    // Escalate instead of silently degrading to legacy checks.
-    console.error("[capacity.hold] conflict evaluation failed (no fallback)", {
+    console.error('[capacity.hold] conflict evaluation failed (no fallback)', {
       restaurantId,
       code: code ?? null,
       message: (error as { message?: string }).message ?? String(error),
@@ -713,89 +761,25 @@ export async function findHoldConflicts(input: FindHoldConflictsInput): Promise<
   }
 }
 
-async function findHoldConflictsLegacy(params: {
-  restaurantId: string;
-  tableIds: string[];
-  startAt: string;
-  endAt: string;
-  excludeHoldId?: string | null;
-  client: DbClient;
-}): Promise<HoldConflictInfo[]> {
-  const { restaurantId, tableIds, startAt, endAt, excludeHoldId = null, client } = params;
-
-  const nowIso = new Date().toISOString();
-  const uniqueIds = Array.from(new Set(tableIds));
-  // Push filtering into the database: inner-join table_hold_members and filter by member ids
-  const query = client
-    .from("table_holds")
-    .select(
-      "id, booking_id, start_at, end_at, expires_at, table_hold_members!inner(table_id)",
-    )
-    .eq("restaurant_id", restaurantId)
-    .gt("expires_at", nowIso)
-    // Basic overlap check (start < endAt AND end > startAt)
-    .lt("start_at", endAt)
-    .gt("end_at", startAt)
-    .in("table_hold_members.table_id", uniqueIds);
-
-  const { data, error } = await query;
-
-  if (error) {
-    const code = (error as { code?: string }).code;
-    // If table_hold_members doesn't exist or FK relationship is missing, return empty (no conflicts detectable)
-    if (code === "PGRST200" || code === "PGRST205" || code === "42P01") {
-      return [];
-    }
-  }
-
-  if (error || !data) {
-    return [];
-  }
-
-  const conflicts: HoldConflictInfo[] = [];
-
-  for (const row of data) {
-    if (excludeHoldId && row.id === excludeHoldId) {
-      continue;
-    }
-
-    const members = (row.table_hold_members ?? []) as Array<{ table_id: string }>;
-    const memberTableIds = members.map((member) => member.table_id);
-
-    if (!intervalsOverlap(row.start_at, row.end_at, startAt, endAt)) {
-      continue;
-    }
-
-    conflicts.push({
-      holdId: row.id,
-      bookingId: row.booking_id,
-      tableIds: memberTableIds,
-      startAt: row.start_at,
-      endAt: row.end_at,
-      expiresAt: row.expires_at,
-    });
-  }
-
-  return conflicts;
-}
-
 // Legacy confirmTableHold removed. See confirmHoldAssignment in tables.ts (allocator v2).
 
-export async function sweepExpiredHolds(input?: SweepExpiredHoldsInput): Promise<SweepExpiredHoldsResult> {
+export async function sweepExpiredHolds(
+  input?: SweepExpiredHoldsInput,
+): Promise<SweepExpiredHoldsResult> {
   const { now, limit = 100, client } = input ?? {};
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
   const cutoff = now ?? new Date().toISOString();
 
   const { data, error } = await supabase
-    .from("table_holds")
-    .select("id")
-    .lte("expires_at", cutoff)
-    .order("expires_at", { ascending: true })
+    .from('table_holds')
+    .select('id')
+    .lte('expires_at', cutoff)
+    .order('expires_at', { ascending: true })
     .limit(limit);
 
   if (error) {
-    console.warn("[capacity.hold] sweepExpiredHolds failed", {
+    console.warn('[capacity.hold] sweepExpiredHolds failed', {
       error,
       cutoff,
       limit,
@@ -814,8 +798,8 @@ export async function sweepExpiredHolds(input?: SweepExpiredHoldsInput): Promise
   }
 
   const holdIds = data.map((row) => row.id);
-  await supabase.from("table_hold_members").delete().in("hold_id", holdIds);
-  await supabase.from("table_holds").delete().in("id", holdIds);
+  await supabase.from('table_hold_members').delete().in('hold_id', holdIds);
+  await supabase.from('table_holds').delete().in('id', holdIds);
 
   return {
     total: holdIds.length,

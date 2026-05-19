@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +49,17 @@ vi.mock('@/lib/analytics/emit', () => ({
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => ({
     data: gbpConnectionData,
+  }),
+}));
+
+vi.mock('@/hooks/ops/useOpsDualSync', () => ({
+  useOpsDualSync: () => ({
+    stateQuery: {
+      data: { fields: [] },
+      error: null,
+      isError: false,
+      isLoading: false,
+    },
   }),
 }));
 
@@ -149,7 +160,7 @@ describe('RestaurantProfileSection', () => {
       screen.getByRole('textbox', { name: /business description/i }),
       'Family friendly pub',
     );
-    await user.click(screen.getByRole('button', { name: /^Contact/i }));
+    await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
     await user.clear(screen.getByRole('textbox', { name: /contact phone/i }));
     await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
 
@@ -159,7 +170,7 @@ describe('RestaurantProfileSection', () => {
       'bottom-0',
     );
     expect(
-      screen.getByText(/save profile changes without leaving this command center/i),
+      screen.getByText(/save profile changes without leaving this settings workspace/i),
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save all' }));
 
@@ -211,30 +222,86 @@ describe('RestaurantProfileSection', () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
-    expect(screen.getByText('Profile command center')).toBeInTheDocument();
-    expect(screen.getByText('Profile sections')).toBeInTheDocument();
-    expect(screen.getByText('Booking URL')).toBeInTheDocument();
-    expect(screen.getByText('Next action')).toBeInTheDocument();
-    expect(screen.getByText('Readiness')).toBeInTheDocument();
-    expect(screen.getByText('Not linked')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Profile sections' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /old crown girton/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /profile readiness/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/\/old-crown-girton/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Not linked')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review booking URL' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/google-business-profile#gbp-connection',
+    );
+    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
 
-    const contactRail = screen.getByRole('button', { name: /^Contact/i });
-    const bookingRail = screen.getByRole('button', { name: /^Booking link/i });
-    const managerAlertsRail = screen.getByRole('button', { name: /^Manager alerts/i });
+    const brandRail = screen.getByRole('button', { name: /^1 · Brand/i });
+    const contactRail = screen.getByRole('button', { name: /^3 · Contact/i });
+    const bookingRail = screen.getByRole('button', { name: /^2 · Booking link/i });
+    const managerAlertsRail = screen.getByRole('button', { name: /^4 · Manager alerts/i });
+    expect(brandRail).toBeInTheDocument();
     expect(contactRail).toBeInTheDocument();
     expect(bookingRail).toBeInTheDocument();
     expect(managerAlertsRail).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Discovery details/i })).not.toBeInTheDocument();
 
     await user.click(bookingRail);
     expect(screen.getByRole('textbox', { name: /booking page url/i })).toBeInTheDocument();
     expect(bookingRail).toHaveAttribute('aria-current', 'page');
 
-    expect(screen.queryByLabelText(/opening date/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^Discovery details/i }));
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /discovery details/i })).toBeInTheDocument();
-    await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps profile subform save actions in the sticky bar and cancels the active draft', async () => {
+    const user = userEvent.setup();
+
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await screen.findAllByText('Brand and identity');
+    const description = screen.getByRole('textbox', { name: /business description/i });
+    await user.type(description, 'Family friendly pub');
+
+    expect(screen.getByText('1 unsaved profile section')).toBeInTheDocument();
+    const stickyBar = screen.getByText('1 unsaved profile section').closest('[role="alert"]');
+    expect(stickyBar).not.toBeNull();
+    expect(
+      within(stickyBar as HTMLElement).getByRole('button', { name: 'Save brand' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /save brand & identity/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(stickyBar as HTMLElement).getByRole('button', { name: 'Cancel changes' }),
+    );
+
+    await waitFor(() => expect(description).toHaveValue(''));
+    expect(screen.queryByText('1 unsaved profile section')).not.toBeInTheDocument();
+  });
+
+  it('renders contact blocks in Location, Public contact, After visit order', async () => {
+    const user = userEvent.setup();
+
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await screen.findAllByText('Brand and identity');
+    await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
+
+    const contactForm = document.getElementById('restaurant-profile-contact-form');
+    expect(contactForm).not.toBeNull();
+    const location = within(contactForm as HTMLElement).getByText('Location');
+    const publicContact = within(contactForm as HTMLElement).getByText('Public contact');
+    const afterVisit = within(contactForm as HTMLElement).getByText('After visit');
+
+    expect(location.compareDocumentPosition(publicContact)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(publicContact.compareDocumentPosition(afterVisit)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(document.getElementById('restaurant-timezone')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-address')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-google-map')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-phone')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-email')).toBeInTheDocument();
+    expect(document.getElementById('restaurant-google-review')).toBeInTheDocument();
   });
 
   it('focuses the exact required field from the command-center primary action', async () => {
@@ -253,30 +320,51 @@ describe('RestaurantProfileSection', () => {
     await waitFor(() => expect(slugInput).toHaveFocus());
   });
 
-  it('exposes the promised hash anchors for each profile card', async () => {
+  it('does not render legacy hash ids on profile cards', async () => {
     const { container } = render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
-    expect(container.querySelector('#profile-identity')).not.toBeNull();
-    expect(container.querySelector('#profile-contact')).not.toBeNull();
-    expect(container.querySelector('#profile-booking-url')).not.toBeNull();
-    expect(container.querySelector('#profile-notifications')).not.toBeNull();
-    expect(container.querySelector('#profile-discovery')).not.toBeNull();
+    expect(container.querySelector('#profile-identity')).toBeNull();
+    expect(container.querySelector('#profile-contact')).toBeNull();
+    expect(container.querySelector('#profile-booking-url')).toBeNull();
+    expect(container.querySelector('#profile-notifications')).toBeNull();
+    expect(container.querySelector('#profile-discovery')).toBeNull();
   });
 
-  it('renders the optional Google comparison action and the related-settings footer', async () => {
+  it('opens the matching section from a legacy hash and clears the url hash', async () => {
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+
+    window.location.hash = '#profile-contact';
+    render(<RestaurantProfileSection restaurantId="rest-1" />);
+
+    await waitFor(() => expect(screen.getByText('Contact and location')).toBeVisible());
+
+    await waitFor(() =>
+      expect(replaceState).toHaveBeenCalledWith(
+        null,
+        '',
+        expect.not.stringContaining('#profile-contact'),
+      ),
+    );
+
+    replaceState.mockRestore();
+    window.location.hash = '';
+  });
+
+  it('renders the optional Google connection action without command-center footer links', async () => {
     render(<RestaurantProfileSection restaurantId="rest-1" />);
 
     await screen.findAllByText('Brand and identity');
 
-    const availabilityLink = screen.getByRole('link', { name: /availability & booking types/i });
-    expect(availabilityLink).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
       'href',
-      '/app/settings/restaurant/availability#booking-rules',
+      '/app/settings/restaurant/google-business-profile#gbp-connection',
     );
-
-    const teamLink = screen.getByRole('link', { name: /^team$/i });
-    expect(teamLink).toHaveAttribute('href', '/app/settings/restaurant/team');
+    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /availability & booking types/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^team$/i })).not.toBeInTheDocument();
   });
 });
 

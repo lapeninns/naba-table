@@ -98,6 +98,41 @@ describe('allocator merge policy (Option A)', () => {
     expect(result.plans).toHaveLength(0);
   });
 
+  it('continues past an overflowing partner so a smaller adjacent table can complete a merge', () => {
+    const zoneId = 'zone-1';
+    const tables = [
+      {
+        id: 'large-base',
+        tableNumber: '01',
+        capacity: 8,
+        maxPartySize: 4,
+        mobility: 'movable',
+        zoneId,
+      },
+      { id: 'overflowing-partner', tableNumber: '02', capacity: 4, mobility: 'movable', zoneId },
+      { id: 'fitting-partner', tableNumber: '03', capacity: 1, mobility: 'movable', zoneId },
+    ];
+
+    const adjacency = graphFromEdges([
+      ['large-base', 'overflowing-partner'],
+      ['overflowing-partner', 'large-base'],
+      ['large-base', 'fitting-partner'],
+      ['fitting-partner', 'large-base'],
+    ]);
+
+    const result = buildScoredTablePlans({
+      tables,
+      partySize: 5,
+      adjacency,
+      config: getSelectorScoringConfig(),
+      enableCombinations: true,
+      requireAdjacency: true,
+      kMax: 2,
+    });
+
+    expect(result.plans.some((plan) => plan.tableKey === '01+03')).toBe(true);
+  });
+
   it('treats legacy mobility values as movable (null/adjustable)', () => {
     expect(deriveTableRules({ capacity: 4, mobility: null }).canBeMerged).toBe(true);
     expect(deriveTableRules({ capacity: 4, mobility: 'adjustable' }).canBeMerged).toBe(true);
