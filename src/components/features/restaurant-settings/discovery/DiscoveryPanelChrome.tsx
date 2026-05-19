@@ -1,9 +1,11 @@
 'use client';
 
 import { RotateCcw } from 'lucide-react';
+import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { opsHref } from '@/lib/url/opsHref';
 
 import {
   SYNC_POSTURE,
@@ -11,6 +13,7 @@ import {
   type FamilyKey,
   type SeedSource,
 } from '../businessContextModel';
+import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
 
 import type { RestaurantBusinessContextEditor } from '../useRestaurantBusinessContextEditor';
 import type { ReactNode } from 'react';
@@ -24,23 +27,61 @@ const DISCOVERY_SAVE_BOUNDARIES: Record<FamilyKey, string> = {
   serviceItems: 'This saves services only.',
 };
 
+export function formatDiscoveryStatus({
+  coreCount,
+  providerCount,
+  seedSource,
+  gbpLinked,
+}: {
+  coreCount: number;
+  providerCount: number;
+  seedSource: SeedSource[FamilyKey];
+  gbpLinked: boolean;
+}): string {
+  if (!gbpLinked) {
+    return `Saved ${coreCount} · Connect Google Business Profile to import suggestions`;
+  }
+  if (providerCount === 0) {
+    return `Saved ${coreCount} · No Google suggestions for this section`;
+  }
+  return `Saved ${coreCount} · Suggested ${providerCount} · ${formatSeedSource(
+    seedSource,
+    providerCount,
+  )}`;
+}
+
 export function DiscoveryStatusLine({
   family,
   coreCount,
   providerCount,
   seedSource,
+  gbpLinked,
 }: {
   family: FamilyKey;
   coreCount: number;
   providerCount: number;
   seedSource: SeedSource[FamilyKey];
+  gbpLinked: boolean;
 }) {
+  const status = formatDiscoveryStatus({ coreCount, providerCount, seedSource, gbpLinked });
+
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm font-medium text-foreground">{SYNC_POSTURE[family]}</p>
       <p className="text-xs text-muted-foreground">
-        Saved {coreCount} · Suggested {providerCount} ·{' '}
-        {formatSeedSource(seedSource, providerCount)}
+        {gbpLinked ? (
+          status
+        ) : (
+          <>
+            Saved {coreCount} ·{' '}
+            <Link
+              href={opsHref('/settings/restaurant/google-business-profile#gbp-connection')}
+              className="underline"
+            >
+              Connect Google Business Profile to import suggestions
+            </Link>
+          </>
+        )}
       </p>
     </div>
   );
@@ -74,12 +115,16 @@ export function FamilyStatus({
   family: FamilyKey;
   editor: RestaurantBusinessContextEditor;
 }) {
+  const drift = useOptionalGbpDrift();
+  const gbpLinked = drift ? drift.isLinked : editor.providerCounts[family] > 0;
+
   return (
     <DiscoveryStatusLine
       family={family}
       coreCount={editor.coreCounts[family]}
       providerCount={editor.providerCounts[family]}
       seedSource={editor.seedSource[family]}
+      gbpLinked={gbpLinked}
     />
   );
 }

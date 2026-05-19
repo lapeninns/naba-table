@@ -98,7 +98,16 @@ import {
   useOpsUpdateRestaurantMenuItem,
   useOpsUpdateRestaurantMenuSection,
 } from '@/hooks/ops/useOpsMenuHierarchy';
-import { GOOGLE_FOOD_MENU_CUISINES } from '@/lib/google-food-menu-cuisines';
+import {
+  GOOGLE_FOOD_MENU_ALLERGENS,
+  GOOGLE_FOOD_MENU_CUISINE_OPTIONS,
+  GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS,
+  GOOGLE_FOOD_MENU_PREPARATION_METHODS,
+  GOOGLE_FOOD_MENU_SPICINESS,
+  GOOGLE_NUTRITION_UNITS,
+  formatGoogleFoodMenuEnumLabel as formatEnumLabel,
+  type GoogleNutritionUnit,
+} from '@/lib/google-food-menu-labels';
 import { cn } from '@/lib/utils';
 
 import type {
@@ -250,31 +259,16 @@ type OptionFormState = {
 const LANGUAGE_CODE = 'en-GB';
 const NONE_VALUE = '__none__';
 
-const CUISINE_OPTIONS = GOOGLE_FOOD_MENU_CUISINES.filter(
-  (cuisine) => cuisine !== 'CUISINE_UNSPECIFIED',
-);
-
-const ALLERGEN_OPTIONS = [
-  'DAIRY',
-  'EGG',
-  'FISH',
-  'PEANUT',
-  'SHELLFISH',
-  'SOY',
-  'TREE_NUT',
-  'WHEAT',
-];
-const DIETARY_OPTIONS = ['HALAL', 'KOSHER', 'ORGANIC', 'VEGAN', 'VEGETARIAN'];
-const SPICINESS_OPTIONS = ['MILD', 'MEDIUM', 'HOT'];
-const PREPARATION_OPTIONS = [
-  'BAKED',
-  'FRIED',
-  'GRILLED',
-  'PAN_FRIED',
-  'ROASTED',
-  'SAUTEED',
-  'STEAMED',
-];
+const CUISINE_OPTIONS = GOOGLE_FOOD_MENU_CUISINE_OPTIONS;
+const ALLERGEN_OPTIONS = GOOGLE_FOOD_MENU_ALLERGENS;
+const DIETARY_OPTIONS = GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS;
+const SPICINESS_OPTIONS = GOOGLE_FOOD_MENU_SPICINESS;
+const PREPARATION_OPTIONS = GOOGLE_FOOD_MENU_PREPARATION_METHODS;
+const NUTRITION_UNITS = {
+  calorie: GOOGLE_NUTRITION_UNITS[0],
+  gram: GOOGLE_NUTRITION_UNITS[1],
+  milligram: GOOGLE_NUTRITION_UNITS[2],
+} as const satisfies Record<string, GoogleNutritionUnit>;
 
 function primaryLabel(
   entity:
@@ -295,14 +289,6 @@ function primaryDescription(
     | Pick<CanonicalRestaurantMenuOption, 'labels'>,
 ) {
   return entity.labels[0]?.description ?? '';
-}
-
-function formatEnumLabel(value: string) {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }
 
 function splitTokens(value: string) {
@@ -720,11 +706,7 @@ function optionalText(value: string) {
   return trimmed || null;
 }
 
-function nutritionAmount(
-  value: string,
-  upperValue: string,
-  unit: 'CALORIE' | 'GRAM' | 'MILLIGRAM',
-) {
+function nutritionAmount(value: string, upperValue: string, unit: GoogleNutritionUnit) {
   const amount = value.trim() ? Number(value) : null;
   if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0) return undefined;
   const upperAmount = upperValue.trim() ? Number(upperValue) : null;
@@ -755,29 +737,35 @@ function buildGoogleNutritionFacts(
   >,
 ): CanonicalMenuItemAttributes['nutritionFacts'] {
   return {
-    ...(nutritionAmount(state.calories, state.caloriesUpper, 'CALORIE')
-      ? { calories: nutritionAmount(state.calories, state.caloriesUpper, 'CALORIE') }
+    ...(nutritionAmount(state.calories, state.caloriesUpper, NUTRITION_UNITS.calorie)
+      ? { calories: nutritionAmount(state.calories, state.caloriesUpper, NUTRITION_UNITS.calorie) }
       : {}),
-    ...(nutritionAmount(state.totalFat, state.totalFatUpper, 'GRAM')
-      ? { totalFat: nutritionAmount(state.totalFat, state.totalFatUpper, 'GRAM') }
+    ...(nutritionAmount(state.totalFat, state.totalFatUpper, NUTRITION_UNITS.gram)
+      ? { totalFat: nutritionAmount(state.totalFat, state.totalFatUpper, NUTRITION_UNITS.gram) }
       : {}),
-    ...(nutritionAmount(state.cholesterol, state.cholesterolUpper, 'MILLIGRAM')
-      ? { cholesterol: nutritionAmount(state.cholesterol, state.cholesterolUpper, 'MILLIGRAM') }
+    ...(nutritionAmount(state.cholesterol, state.cholesterolUpper, NUTRITION_UNITS.milligram)
+      ? {
+          cholesterol: nutritionAmount(
+            state.cholesterol,
+            state.cholesterolUpper,
+            NUTRITION_UNITS.milligram,
+          ),
+        }
       : {}),
-    ...(nutritionAmount(state.sodium, state.sodiumUpper, 'MILLIGRAM')
-      ? { sodium: nutritionAmount(state.sodium, state.sodiumUpper, 'MILLIGRAM') }
+    ...(nutritionAmount(state.sodium, state.sodiumUpper, NUTRITION_UNITS.milligram)
+      ? { sodium: nutritionAmount(state.sodium, state.sodiumUpper, NUTRITION_UNITS.milligram) }
       : {}),
-    ...(nutritionAmount(state.totalCarbohydrate, state.totalCarbohydrateUpper, 'GRAM')
+    ...(nutritionAmount(state.totalCarbohydrate, state.totalCarbohydrateUpper, NUTRITION_UNITS.gram)
       ? {
           totalCarbohydrate: nutritionAmount(
             state.totalCarbohydrate,
             state.totalCarbohydrateUpper,
-            'GRAM',
+            NUTRITION_UNITS.gram,
           ),
         }
       : {}),
-    ...(nutritionAmount(state.protein, state.proteinUpper, 'GRAM')
-      ? { protein: nutritionAmount(state.protein, state.proteinUpper, 'GRAM') }
+    ...(nutritionAmount(state.protein, state.proteinUpper, NUTRITION_UNITS.gram)
+      ? { protein: nutritionAmount(state.protein, state.proteinUpper, NUTRITION_UNITS.gram) }
       : {}),
   };
 }
@@ -2805,7 +2793,7 @@ function ItemDialog({
                   <NutritionRangeInputs
                     lowerValue={state.calories}
                     upperValue={state.caloriesUpper}
-                    unit="CALORIE"
+                    unit={NUTRITION_UNITS.calorie}
                     onLowerChange={(value) =>
                       setState((current) => ({ ...current, calories: value }))
                     }
@@ -2818,7 +2806,7 @@ function ItemDialog({
                   <NutritionRangeInputs
                     lowerValue={state.totalFat}
                     upperValue={state.totalFatUpper}
-                    unit="GRAM"
+                    unit={NUTRITION_UNITS.gram}
                     onLowerChange={(value) =>
                       setState((current) => ({ ...current, totalFat: value }))
                     }
@@ -2831,7 +2819,7 @@ function ItemDialog({
                   <NutritionRangeInputs
                     lowerValue={state.cholesterol}
                     upperValue={state.cholesterolUpper}
-                    unit="MILLIGRAM"
+                    unit={NUTRITION_UNITS.milligram}
                     onLowerChange={(value) =>
                       setState((current) => ({ ...current, cholesterol: value }))
                     }
@@ -2844,7 +2832,7 @@ function ItemDialog({
                   <NutritionRangeInputs
                     lowerValue={state.sodium}
                     upperValue={state.sodiumUpper}
-                    unit="MILLIGRAM"
+                    unit={NUTRITION_UNITS.milligram}
                     onLowerChange={(value) =>
                       setState((current) => ({ ...current, sodium: value }))
                     }
@@ -2857,7 +2845,7 @@ function ItemDialog({
                   <NutritionRangeInputs
                     lowerValue={state.totalCarbohydrate}
                     upperValue={state.totalCarbohydrateUpper}
-                    unit="GRAM"
+                    unit={NUTRITION_UNITS.gram}
                     onLowerChange={(value) =>
                       setState((current) => ({ ...current, totalCarbohydrate: value }))
                     }
@@ -2870,7 +2858,7 @@ function ItemDialog({
                   <NutritionRangeInputs
                     lowerValue={state.protein}
                     upperValue={state.proteinUpper}
-                    unit="GRAM"
+                    unit={NUTRITION_UNITS.gram}
                     onLowerChange={(value) =>
                       setState((current) => ({ ...current, protein: value }))
                     }
@@ -3553,7 +3541,7 @@ function OptionDialog({
                 <NutritionRangeInputs
                   lowerValue={state.calories}
                   upperValue={state.caloriesUpper}
-                  unit="CALORIE"
+                  unit={NUTRITION_UNITS.calorie}
                   onLowerChange={(value) =>
                     setState((current) => ({ ...current, calories: value }))
                   }
@@ -3566,7 +3554,7 @@ function OptionDialog({
                 <NutritionRangeInputs
                   lowerValue={state.totalFat}
                   upperValue={state.totalFatUpper}
-                  unit="GRAM"
+                  unit={NUTRITION_UNITS.gram}
                   onLowerChange={(value) =>
                     setState((current) => ({ ...current, totalFat: value }))
                   }
@@ -3579,7 +3567,7 @@ function OptionDialog({
                 <NutritionRangeInputs
                   lowerValue={state.cholesterol}
                   upperValue={state.cholesterolUpper}
-                  unit="MILLIGRAM"
+                  unit={NUTRITION_UNITS.milligram}
                   onLowerChange={(value) =>
                     setState((current) => ({ ...current, cholesterol: value }))
                   }
@@ -3592,7 +3580,7 @@ function OptionDialog({
                 <NutritionRangeInputs
                   lowerValue={state.sodium}
                   upperValue={state.sodiumUpper}
-                  unit="MILLIGRAM"
+                  unit={NUTRITION_UNITS.milligram}
                   onLowerChange={(value) => setState((current) => ({ ...current, sodium: value }))}
                   onUpperChange={(value) =>
                     setState((current) => ({ ...current, sodiumUpper: value }))
@@ -3603,7 +3591,7 @@ function OptionDialog({
                 <NutritionRangeInputs
                   lowerValue={state.totalCarbohydrate}
                   upperValue={state.totalCarbohydrateUpper}
-                  unit="GRAM"
+                  unit={NUTRITION_UNITS.gram}
                   onLowerChange={(value) =>
                     setState((current) => ({ ...current, totalCarbohydrate: value }))
                   }
@@ -3616,7 +3604,7 @@ function OptionDialog({
                 <NutritionRangeInputs
                   lowerValue={state.protein}
                   upperValue={state.proteinUpper}
-                  unit="GRAM"
+                  unit={NUTRITION_UNITS.gram}
                   onLowerChange={(value) => setState((current) => ({ ...current, protein: value }))}
                   onUpperChange={(value) =>
                     setState((current) => ({ ...current, proteinUpper: value }))
@@ -3849,7 +3837,7 @@ function MultiCheckboxGroup({
   className,
 }: {
   label: string;
-  options: string[];
+  options: readonly string[];
   values: string[];
   onChange: (value: string, checked: boolean) => void;
   className?: string;

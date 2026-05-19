@@ -1,3 +1,15 @@
+import {
+  AMENITY_ATTRIBUTE_GROUPS as GBP_AMENITY_ATTRIBUTE_GROUPS,
+  AMENITY_ATTRIBUTE_KEYS as GBP_AMENITY_ATTRIBUTE_KEYS,
+  type AmenityAttributeDefinition,
+  type AmenityAttributeGroup,
+} from '@/lib/google-business-profile/amenity-catalog';
+import {
+  RESTAURANT_EDITABLE_LINK_TYPES,
+  RESTAURANT_LINK_TYPE_OPTIONS,
+  type RestaurantEditableLinkType,
+} from '@/lib/ops/restaurant-link-types';
+
 import type {
   RestaurantBusinessContextAttribute,
   RestaurantBusinessContextBusinessDetails,
@@ -10,6 +22,8 @@ import type {
   RestaurantBusinessContextSnapshot,
   UpdateRestaurantBusinessContextInput,
 } from '@/services/ops/restaurants';
+
+export type { AmenityAttributeDefinition, AmenityAttributeGroup };
 
 export type FamilyKey =
   | 'businessDetails'
@@ -143,131 +157,12 @@ export const SYNC_POSTURE: Record<FamilyKey, string> = {
   serviceItems: 'Use services to describe optional offers beyond the standard reservation flow.',
 };
 
-export const LINK_TYPE_OPTIONS = [
-  { value: 'website', label: 'Website' },
-  { value: 'menu_or_services', label: 'Menu / services' },
-  { value: 'reservation', label: 'Reservation' },
-  { value: 'order', label: 'Order' },
-  { value: 'chat', label: 'Chat' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'x', label: 'Twitter / X' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'other', label: 'Other' },
-] as const;
-
-export const EDITABLE_LINK_TYPES = new Set(LINK_TYPE_OPTIONS.map((option) => option.value));
-
-export type AmenityAttributeDefinition = {
-  key: string;
-  label: string;
-};
-
-export type AmenityAttributeGroup = {
-  title: string;
-  description: string;
-  keys: AmenityAttributeDefinition[];
-};
-
-export const AMENITY_ATTRIBUTE_GROUPS: AmenityAttributeGroup[] = [
-  {
-    title: 'Accessibility',
-    description: 'Access details guests often check before visiting.',
-    keys: [
-      { key: 'has_wheelchair_accessible_entrance', label: 'Wheelchair-accessible entrance' },
-      { key: 'has_wheelchair_accessible_restroom', label: 'Wheelchair-accessible toilet' },
-      { key: 'has_wheelchair_accessible_parking', label: 'Wheelchair-accessible car park' },
-    ],
-  },
-  {
-    title: 'Amenities & crowd',
-    description: 'Facilities and welcome signals for guests.',
-    keys: [
-      { key: 'has_restroom', label: 'Has toilet' },
-      { key: 'has_wifi', label: 'Free Wi-Fi' },
-      { key: 'good_for_kids', label: 'Good for kids' },
-      { key: 'lgbtq_friendly', label: 'LGBTQ+ friendly' },
-    ],
-  },
-  {
-    title: 'Dining options',
-    description: 'How guests can eat or spend time at the venue.',
-    keys: [
-      { key: 'seating', label: 'Has seating' },
-      { key: 'outdoor_seating', label: 'Has outdoor seating' },
-      { key: 'table_service', label: 'Has table service' },
-      { key: 'dine_in', label: 'Serves dine-in' },
-    ],
-  },
-  {
-    title: 'Highlights',
-    description: 'Reasons guests may choose this venue.',
-    keys: [
-      { key: 'live_performances', label: 'Live performances' },
-      { key: 'watching_sport', label: 'Good for watching sport' },
-      { key: 'live_music', label: 'Live music' },
-      { key: 'karaoke', label: 'Karaoke' },
-      { key: 'bar_games', label: 'Has bar games' },
-      { key: 'rooftop_seating', label: 'Rooftop seating' },
-    ],
-  },
-  {
-    title: 'Offerings',
-    description: 'Food and drink options guests can expect.',
-    keys: [
-      { key: 'serves_spirits', label: 'Serves spirits' },
-      { key: 'serves_beer', label: 'Serves beer' },
-      { key: 'serves_food', label: 'Serves food' },
-      { key: 'serves_alcohol', label: 'Serves alcohol' },
-      { key: 'serves_food_at_bar', label: 'Serves food at bar' },
-      { key: 'serves_wine', label: 'Serves wine' },
-      { key: 'serves_cocktails', label: 'Serves cocktails' },
-      { key: 'happy_hour_drinks', label: 'Happy-hour drinks' },
-      { key: 'happy_hour_food', label: 'Happy-hour food' },
-    ],
-  },
-  {
-    title: 'Parking',
-    description: 'Parking options around the venue.',
-    keys: [
-      { key: 'free_parking_lot', label: 'Free parking lot' },
-      { key: 'free_street_parking', label: 'Free street parking' },
-      { key: 'paid_parking_lot', label: 'Paid parking lot' },
-    ],
-  },
-  {
-    title: 'Payments',
-    description: 'Payment methods accepted on site.',
-    keys: [
-      { key: 'accepts_debit_cards', label: 'Accepts debit cards' },
-      { key: 'nfc_mobile_payments', label: 'NFC mobile payments' },
-      { key: 'accepts_credit_cards', label: 'Accepts credit cards' },
-      { key: 'cash_only', label: 'Cash-only' },
-      { key: 'accepts_visa', label: 'Visa' },
-      { key: 'accepts_amex', label: 'American Express' },
-      { key: 'accepts_mastercard', label: 'Mastercard' },
-    ],
-  },
-  {
-    title: 'Service options & planning',
-    description: 'Booking and fulfilment details for guests.',
-    keys: [
-      { key: 'dogs_allowed', label: 'Dogs allowed' },
-      { key: 'reservations_required', label: 'Reservations required' },
-      { key: 'reservations', label: 'Accepts reservations' },
-      { key: 'delivery', label: 'Delivery' },
-      { key: 'takeout', label: 'Offers takeaway' },
-      { key: 'drive_through', label: 'Drive-through' },
-      { key: 'no_contact_delivery', label: 'No-contact delivery' },
-    ],
-  },
-];
-
-export const AMENITY_ATTRIBUTE_KEYS = new Set(
-  AMENITY_ATTRIBUTE_GROUPS.flatMap((group) => group.keys.map((item) => item.key)),
+export const LINK_TYPE_OPTIONS = RESTAURANT_LINK_TYPE_OPTIONS;
+export const EDITABLE_LINK_TYPES = new Set<RestaurantEditableLinkType>(
+  RESTAURANT_EDITABLE_LINK_TYPES,
 );
+export const AMENITY_ATTRIBUTE_GROUPS = GBP_AMENITY_ATTRIBUTE_GROUPS;
+export const AMENITY_ATTRIBUTE_KEYS = GBP_AMENITY_ATTRIBUTE_KEYS;
 
 export const EMPTY_BUSINESS_DETAILS: BusinessDetailsEditor = {
   openingDate: '',

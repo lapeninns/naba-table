@@ -231,6 +231,31 @@ test.describe('ops capacity and table shipped routes', () => {
     });
   });
 
+  test('tables settings route exposes shared category enum options @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await page
+      .locator('main')
+      .getByRole('button', { name: /^Inventory/ })
+      .click();
+    await page.getByRole('button', { name: 'Add table' }).click();
+    await expect(page.getByRole('dialog', { name: 'Add new table' })).toBeVisible();
+
+    await page.getByRole('button', { name: /^Classification & service notes/ }).click();
+    await page.getByRole('combobox', { name: 'Category' }).click();
+    await expect(page.getByRole('option', { name: 'Dining' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Patio' })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Private' })).toBeVisible();
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-tables-category-options.png'),
+      fullPage: true,
+    });
+  });
+
   test('tables settings route uses compact mobile settings nav and table cards @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {

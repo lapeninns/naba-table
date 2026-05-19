@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AMENITY_ATTRIBUTE_GROUPS,
+  LINK_TYPE_OPTIONS,
   buildBusinessContextFamilyPayload,
   deriveBusinessContextEditorState,
   deriveBusinessContextFamilyState,
   deriveFamilyCounts,
   filterEditableLinks,
 } from '@/components/features/restaurant-settings/businessContextModel';
+import {
+  RESTAURANT_EDITABLE_LINK_TYPES,
+  RESTAURANT_LINK_TYPE_OPTIONS,
+} from '@/lib/ops/restaurant-link-types';
 
 import type { RestaurantBusinessContextSnapshot } from '@/services/ops/restaurants';
 
@@ -82,6 +88,14 @@ function buildSnapshot(): RestaurantBusinessContextSnapshot {
 }
 
 describe('businessContextModel editor helpers', () => {
+  it('reuses the shared owner-editable link and amenity reference data', () => {
+    expect(LINK_TYPE_OPTIONS).toEqual(RESTAURANT_LINK_TYPE_OPTIONS);
+    expect(LINK_TYPE_OPTIONS.map((option) => option.value)).toEqual([
+      ...RESTAURANT_EDITABLE_LINK_TYPES,
+    ]);
+    expect(AMENITY_ATTRIBUTE_GROUPS.some((group) => group.title === 'Accessibility')).toBe(true);
+  });
+
   it('seeds editable state from saved core first and provider snapshot second', () => {
     const state = deriveBusinessContextEditorState(buildSnapshot());
 

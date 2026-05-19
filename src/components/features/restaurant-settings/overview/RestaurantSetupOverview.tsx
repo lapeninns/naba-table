@@ -5,9 +5,7 @@ import { CheckCircle2, MapPinned } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 
-import {
-  RestaurantSettingsCommandCenter,
-} from '@/components/features/restaurant-settings/shared';
+import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,15 +15,25 @@ import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
+import {
+  formatMissingProfileSetupFields,
+  isProfileSetupComplete,
+} from '@/lib/ops/restaurant-setup-rules';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 
-import { buildSetupCards, statusLabel, type SetupCard } from './buildSetupCards';
+import {
+  buildSetupCards,
+  statusLabel,
+  summarizeOptionalSetup,
+  summarizeRequiredSetup,
+  type SetupCard,
+} from './buildSetupCards';
 import { useRestaurantSettingsContext } from '../shell/useRestaurantSettingsContext';
 
 function SetupChecklistCard({ card, index }: { card: SetupCard; index: number }) {
   const Icon = card.Icon;
-  
+
   // Determine status styles
   const statusStyles = {
     complete: {
@@ -63,13 +71,24 @@ function SetupChecklistCard({ card, index }: { card: SetupCard; index: number })
       <div className="space-y-4">
         {/* Header: Icon & Status Badge */}
         <div className="flex items-center justify-between">
-          <div className={cn(
-            'inline-flex size-10 items-center justify-center rounded-xl border transition-colors duration-300',
-            statusStyles.icon
-          )}>
-            <Icon className="size-5 transition-transform duration-300 group-hover:scale-110" aria-hidden />
+          <div
+            className={cn(
+              'inline-flex size-10 items-center justify-center rounded-xl border transition-colors duration-300',
+              statusStyles.icon,
+            )}
+          >
+            <Icon
+              className="size-5 transition-transform duration-300 group-hover:scale-110"
+              aria-hidden
+            />
           </div>
-          <Badge variant="outline" className={cn('px-2.5 py-0.5 text-xs font-semibold rounded-full border', statusStyles.badge)}>
+          <Badge
+            variant="outline"
+            className={cn(
+              'px-2.5 py-0.5 text-xs font-semibold rounded-full border',
+              statusStyles.badge,
+            )}
+          >
             {statusLabel(card.status)}
           </Badge>
         </div>
@@ -90,7 +109,11 @@ function SetupChecklistCard({ card, index }: { card: SetupCard; index: number })
         <p className="text-xs leading-relaxed text-muted-foreground/80 flex-1 font-medium">
           {card.detail}
         </p>
-        <Button asChild size="sm" className="shrink-0 font-medium group-hover:translate-x-0.5 transition-transform duration-200">
+        <Button
+          asChild
+          size="sm"
+          className="shrink-0 font-medium group-hover:translate-x-0.5 transition-transform duration-200"
+        >
           <Link href={card.href}>{card.cta}</Link>
         </Button>
       </div>
@@ -124,12 +147,8 @@ export function RestaurantSetupOverview() {
     staleTime: 30_000,
   });
 
-  const profileComplete = Boolean(
-    detailsQuery.data?.name &&
-    detailsQuery.data?.slug &&
-    detailsQuery.data?.timezone &&
-    detailsQuery.data?.contactPhone,
-  );
+  const profileComplete = isProfileSetupComplete(detailsQuery.data);
+  const profileDetail = formatMissingProfileSetupFields(detailsQuery.data);
   const hasWeeklyHours = Boolean(hoursQuery.data?.weekly?.some((row) => !row.isClosed));
   const hasServicePeriods = Boolean(servicePeriodsQuery.data?.length);
   const availabilityComplete = hasWeeklyHours && hasServicePeriods;
@@ -144,19 +163,17 @@ export function RestaurantSetupOverview() {
     hoursQuery.isLoading ||
     servicePeriodsQuery.isLoading ||
     tablesQuery.isLoading;
-  const completedRequired = [profileComplete, availabilityComplete, tablesComplete].filter(
-    Boolean,
-  ).length;
-  const percentComplete = Math.round((completedRequired / 3) * 100);
-
   const cards = buildSetupCards({
     profileComplete,
+    profileDetail,
     availabilityComplete,
     tablesComplete,
     availableTables: tableSummary?.availableTables ?? 0,
     menuCount,
     pendingInvites,
   });
+  const requiredSetup = summarizeRequiredSetup(cards);
+  const optionalSetup = summarizeOptionalSetup(cards);
 
   return (
     <RestaurantSettingsCommandCenter
@@ -166,15 +183,17 @@ export function RestaurantSetupOverview() {
       metrics={[
         {
           label: 'Required setup',
-          value: isLoadingRequired ? 'Loading' : `${completedRequired}/3 complete`,
+          value: isLoadingRequired
+            ? 'Loading'
+            : `${requiredSetup.complete}/${requiredSetup.total} complete`,
           description: 'profile, availability, seating',
-          variant: completedRequired === 3 ? 'default' : 'secondary',
+          variant: requiredSetup.complete === requiredSetup.total ? 'default' : 'secondary',
           Icon: CheckCircle2,
         },
         {
           label: 'Optional setup',
-          value: 'Google / Menu / Team',
-          description: 'use when needed',
+          value: optionalSetup.value,
+          description: optionalSetup.description,
           variant: 'outline',
           Icon: MapPinned,
         },
@@ -199,7 +218,10 @@ export function RestaurantSetupOverview() {
           className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 sm:p-6"
         >
           {/* Decorative blur backdrop glow */}
-          <div className="absolute -right-20 -top-20 size-60 rounded-full bg-primary/10 blur-3xl" aria-hidden />
+          <div
+            className="absolute -right-20 -top-20 size-60 rounded-full bg-primary/10 blur-3xl"
+            aria-hidden
+          />
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
@@ -207,17 +229,13 @@ export function RestaurantSetupOverview() {
                 Onboarding Progress
               </span>
               <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                {completedRequired === 3 
-                  ? "Your restaurant is ready to take bookings!" 
-                  : "Let's set up your booking platform"}
+                {requiredSetup.title}
               </h2>
-              <p className="text-xs text-muted-foreground max-w-xl">
-                Complete the three required steps (Public Profile, Availability, and Tables) to generate your booking widget and start welcoming guests.
-              </p>
+              <p className="text-xs text-muted-foreground max-w-xl">{requiredSetup.description}</p>
             </div>
             <div className="shrink-0 flex items-baseline gap-1 text-right">
               <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-                {percentComplete}%
+                {requiredSetup.percent}%
               </span>
               <span className="text-xs font-medium text-muted-foreground">complete</span>
             </div>
@@ -227,15 +245,17 @@ export function RestaurantSetupOverview() {
           <div className="mt-5 relative h-2.5 w-full rounded-full bg-muted overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${percentComplete}%` }}
+              animate={{ width: `${requiredSetup.percent}%` }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
               className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-500 via-primary to-indigo-500"
             />
           </div>
 
           <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-            <span>{completedRequired} of 3 required steps complete</span>
-            <span>{completedRequired === 3 ? "All systems operational" : "Pending activation"}</span>
+            <span>
+              {requiredSetup.complete} of {requiredSetup.total} required steps complete
+            </span>
+            <span>{requiredSetup.footer}</span>
           </div>
         </motion.div>
       )}

@@ -6,6 +6,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  TABLE_CATEGORY_VALUES,
+  TABLE_MOBILITY_VALUES,
+  TABLE_SEATING_TYPE_VALUES,
+  TABLE_STATUS_VALUES,
+} from '@/lib/ops/table-inventory-reference';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { fetchTableById, updateTable as updateTableRecord } from '@/server/ops/tables';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -14,10 +20,10 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/serve
 import type { TablesUpdate } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
 
-const tableStatusEnum = z.enum(['available', 'reserved', 'occupied', 'out_of_service']);
-const tableCategoryEnum = z.enum(['bar', 'dining', 'lounge', 'patio', 'private']);
-const tableSeatingEnum = z.enum(['standard', 'sofa', 'booth', 'high_top']);
-const tableMobilityEnum = z.enum(['movable', 'fixed']);
+const tableStatusEnum = z.enum(TABLE_STATUS_VALUES);
+const tableCategoryEnum = z.enum(TABLE_CATEGORY_VALUES);
+const tableSeatingEnum = z.enum(TABLE_SEATING_TYPE_VALUES);
+const tableMobilityEnum = z.enum(TABLE_MOBILITY_VALUES);
 
 const isoDateTimeString = z
   .string()

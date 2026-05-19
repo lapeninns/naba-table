@@ -2,6 +2,11 @@ import {
   COMMON_TIMEZONES,
   type RestaurantDetailsFormValues,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
+import {
+  PROFILE_SETUP_REQUIRED_FIELDS,
+  isProfileSetupComplete,
+  type ProfileSetupFieldKey,
+} from '@/lib/ops/restaurant-setup-rules';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
 import type { RestaurantProfile } from '@/services/ops/restaurants';
@@ -105,6 +110,21 @@ type ReadinessItem = {
   isComplete: (values: RestaurantDetailsFormValues, logoUrl: string | null) => boolean;
 };
 
+const PROFILE_SETUP_READINESS_KEYS = {
+  name: 'name',
+  slug: 'bookingUrl',
+  timezone: 'timezone',
+  contactPhone: 'contactPhone',
+} as const satisfies Record<ProfileSetupFieldKey, ReadinessItemKey>;
+
+const REQUIRED_READINESS_KEYS = new Set<ReadinessItemKey>(
+  PROFILE_SETUP_REQUIRED_FIELDS.map((field) => PROFILE_SETUP_READINESS_KEYS[field.key]),
+);
+
+function isRequiredReadinessKey(key: ReadinessItemKey): boolean {
+  return REQUIRED_READINESS_KEYS.has(key);
+}
+
 /**
  * The required-vs-optional split lets the UI promote the few items that block
  * "make booking link live" (RP-UX-03) without hiding the longer enrichment list.
@@ -114,28 +134,28 @@ const READINESS_ITEMS: readonly ReadinessItem[] = [
     key: 'name',
     label: 'Restaurant name',
     href: '#profile-identity',
-    required: true,
+    required: isRequiredReadinessKey('name'),
     isComplete: (values) => hasProfileValue(values.name),
   },
   {
     key: 'bookingUrl',
     label: 'Public booking page URL',
     href: '#profile-booking-url',
-    required: true,
+    required: isRequiredReadinessKey('bookingUrl'),
     isComplete: (values) => hasProfileValue(values.slug),
   },
   {
     key: 'contactPhone',
     label: 'Contact phone',
     href: '#profile-contact',
-    required: true,
+    required: isRequiredReadinessKey('contactPhone'),
     isComplete: (values) => hasProfileValue(values.contactPhone),
   },
   {
     key: 'timezone',
     label: 'Timezone',
     href: '#profile-contact',
-    required: true,
+    required: isRequiredReadinessKey('timezone'),
     isComplete: (values) => hasProfileValue(values.timezone),
   },
   {
@@ -217,6 +237,10 @@ export function displayProfileValue(value: string | null | undefined, fallback: 
   return hasProfileValue(value) ? value.trim() : fallback;
 }
 
+export function isProfileReadinessBlockingComplete(values: RestaurantDetailsFormValues): boolean {
+  return isProfileSetupComplete(values);
+}
+
 /**
  * Computes the readiness summary that powers both analytics and the rendered
  * readiness checklist at the top of the Profile page (RP-UX-04). Required items
@@ -242,6 +266,7 @@ export function deriveReadiness(values: RestaurantDetailsFormValues, logoUrl: st
     completed,
     missing,
     missingRequired,
+    blockingComplete: isProfileReadinessBlockingComplete(values),
     score,
   };
 }
