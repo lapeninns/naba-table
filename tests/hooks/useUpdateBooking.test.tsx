@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
+import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { BookingDTO, BookingsPage } from '@/hooks/useBookings';
 
@@ -65,5 +66,61 @@ describe('useUpdateBooking', () => {
     });
 
     expect(queryClient.getQueryData(queryKeys.bookings.detail(booking.id))).toEqual(updated);
+  });
+
+  it('writes the normalized reservation detail cache from a returned booking payload', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const bookingId = '11111111-1111-4111-8111-111111111111';
+
+    vi.mocked(fetchJson).mockResolvedValue({
+      id: bookingId,
+      restaurantName: 'The Fox',
+      partySize: 4,
+      startIso: '2026-07-02T18:30:00.000Z',
+      endIso: '2026-07-02T20:00:00.000Z',
+      status: 'confirmed',
+      booking: {
+        id: bookingId,
+        restaurant_id: '22222222-2222-4222-8222-222222222222',
+        booking_date: '2026-07-02',
+        start_time: '19:30',
+        end_time: '21:00',
+        start_at: '2026-07-02T18:30:00.000Z',
+        end_at: '2026-07-02T20:00:00.000Z',
+        booking_type: 'dinner',
+        status: 'confirmed',
+        party_size: 4,
+        customer_name: 'Alex Guest',
+        customer_email: 'alex@example.com',
+        customer_phone: '+447700900123',
+        marketing_opt_in: false,
+        notes: 'Updated request',
+        restaurants: {
+          name: 'The Fox',
+          slug: 'the-fox',
+          timezone: 'Europe/London',
+        },
+      },
+    } as never);
+
+    const { result } = renderHook(() => useUpdateBooking(), { wrapper });
+
+    await result.current.mutateAsync({
+      id: bookingId,
+      startIso: '2026-07-02T18:30:00.000Z',
+      endIso: '2026-07-02T20:00:00.000Z',
+      partySize: 4,
+      notes: 'Updated request',
+    });
+
+    expect(queryClient.getQueryData(reservationKeys.detail(bookingId))).toMatchObject({
+      id: bookingId,
+      bookingDate: '2026-07-02',
+      startTime: '19:30',
+      startAt: '2026-07-02T18:30:00.000Z',
+      endAt: '2026-07-02T20:00:00.000Z',
+      partySize: 4,
+    });
   });
 });

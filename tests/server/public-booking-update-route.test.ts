@@ -196,6 +196,21 @@ function makeUpdateRequest(overrides: Record<string, unknown> = {}) {
   });
 }
 
+function makeDashboardUpdateRequest(overrides: Record<string, unknown> = {}) {
+  return new NextRequest('https://www.nabatable.com/api/bookings/booking-1', {
+    method: 'PUT',
+    headers: {
+      'x-session-recovery-token': 'valid-token',
+    },
+    body: JSON.stringify({
+      startIso: '2026-07-02T18:30:00.000Z',
+      partySize: 4,
+      notes: 'Updated window seat',
+      ...overrides,
+    }),
+  });
+}
+
 describe('public PUT /api/bookings/[id]', () => {
   beforeEach(() => {
     tenantAuthGetUserMock.mockReset();
@@ -226,6 +241,8 @@ describe('public PUT /api/bookings/[id]', () => {
         booking_date: payload.booking_date,
         start_time: payload.start_time,
         end_time: payload.end_time,
+        start_at: payload.start_at,
+        end_at: payload.end_at,
         party_size: payload.party_size,
         booking_type: payload.booking_type,
         customer_name: payload.customer_name,
@@ -283,6 +300,8 @@ describe('public PUT /api/bookings/[id]', () => {
         booking_date: '2026-07-01',
         start_time: '19:00',
         end_time: '20:30',
+        start_at: '2026-07-01T18:00:00.000Z',
+        end_at: '2026-07-01T19:30:00.000Z',
         customer_email: 'alex@example.com',
       }),
       { restaurantId },
@@ -290,6 +309,70 @@ describe('public PUT /api/bookings/[id]', () => {
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
     expect(logAuditEventMock).toHaveBeenCalledOnce();
     expect(enqueueBookingUpdatedSideEffectsMock).toHaveBeenCalledOnce();
+  });
+
+  it('passes canonical instants through session-recovery dashboard realignment updates', async () => {
+    getRestaurantScheduleMock.mockResolvedValue({
+      date: '2026-07-02',
+      timezone: 'Europe/London',
+      isClosed: false,
+      window: {
+        opensAt: '17:00',
+        closesAt: '22:00',
+      },
+      slots: [
+        {
+          value: '19:30',
+          display: '7:30 PM',
+          disabled: false,
+        },
+      ],
+    });
+    const lookup = makeBookingLookup(
+      makeBooking({
+        booking_date: '2026-07-01',
+        start_time: '19:00',
+        end_time: '20:30',
+        start_at: '2026-07-01T18:00:00.000Z',
+        end_at: '2026-07-01T19:30:00.000Z',
+      }),
+    );
+    serviceFromMock.mockReturnValueOnce(lookup);
+    beginBookingModificationFlowMock.mockImplementation(async ({ payload }) =>
+      makeBooking({
+        ...payload,
+        start_at: '2026-07-01T18:00:00.000Z',
+        end_at: '2026-07-01T19:30:00.000Z',
+      }),
+    );
+
+    const response = await PUT(makeDashboardUpdateRequest(), {
+      params: Promise.resolve({ id: 'booking-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(beginBookingModificationFlowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          booking_date: '2026-07-02',
+          start_time: '19:30',
+          end_time: '21:00',
+          start_at: '2026-07-02T18:30:00.000Z',
+          end_at: '2026-07-02T20:00:00.000Z',
+          party_size: 4,
+        }),
+      }),
+    );
+    expect(body).toMatchObject({
+      id: 'booking-1',
+      startIso: '2026-07-02T18:30:00.000Z',
+      endIso: '2026-07-02T20:00:00.000Z',
+      booking: {
+        start_at: '2026-07-02T18:30:00.000Z',
+        end_at: '2026-07-02T20:00:00.000Z',
+      },
+    });
   });
 
   it('blocks session-recovery updates when the payload moves the booking across restaurants', async () => {

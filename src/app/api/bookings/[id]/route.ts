@@ -26,6 +26,10 @@ import {
   updateBookingRecord,
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
+import {
+  buildBookingInstantFields,
+  buildBookingInstantFieldsFromLocalTimes,
+} from '@/server/bookings/instant-fields';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
@@ -612,6 +616,10 @@ async function handleDashboardUpdate(params: {
 
     const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat('HH:mm');
     const resolvedScheduleTz = schedule.timezone ?? scheduleTimezone;
+    const instantFields = buildBookingInstantFields({
+      startDateTime: normalizedStartDateTime,
+      endDateTime: endDateTime.set({ second: 0, millisecond: 0 }),
+    });
     const requiresTableRealignment =
       bookingDate !== (existingBooking.booking_date ?? '') ||
       startTime !== (existingBooking.start_time ?? '') ||
@@ -692,6 +700,7 @@ async function handleDashboardUpdate(params: {
           booking_date: bookingDate,
           start_time: startTime,
           end_time: endTime,
+          ...instantFields,
           party_size: data.partySize,
           notes: normalizedNotes,
         },
@@ -704,6 +713,7 @@ async function handleDashboardUpdate(params: {
           booking_date: bookingDate,
           start_time: startTime,
           end_time: endTime,
+          ...instantFields,
           party_size: data.partySize,
           notes: normalizedNotes,
           booking_type: normalizedBookingType,
@@ -715,6 +725,15 @@ async function handleDashboardUpdate(params: {
         },
         { restaurantId },
       );
+    }
+
+    if (
+      useUnifiedValidation &&
+      (updated.start_at !== instantFields.start_at || updated.end_at !== instantFields.end_at)
+    ) {
+      updated = await updateBookingRecord(serviceSupabase, bookingId, instantFields, {
+        restaurantId,
+      });
     }
 
     const targetRestaurantId = await requireRestaurantContext(
@@ -760,11 +779,21 @@ async function handleDashboardUpdate(params: {
       id: updated.id,
       restaurantName: 'Unknown',
       partySize: updated.party_size,
-      startIso: updated.start_at,
-      endIso: updated.end_at,
+      startIso: instantFields.start_at,
+      endIso: instantFields.end_at,
       status: updated.status as 'pending' | 'pending_allocation' | 'confirmed' | 'cancelled',
       notes: updated.notes,
       reservationIntervalMinutes: responseIntervalMinutes,
+      booking: toGuestBookingDTO(
+        {
+          ...updated,
+          start_at: instantFields.start_at,
+          end_at: instantFields.end_at,
+        },
+        {
+          timezone: resolvedScheduleTz,
+        },
+      ),
     };
 
     const responseInit = useUnifiedValidation
@@ -1423,6 +1452,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       client: serviceSupabase,
     });
     const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
+    const instantFields = buildBookingInstantFieldsFromLocalTimes({
+      bookingDate: data.date,
+      startTime,
+      endTime,
+      timezone: schedule.timezone ?? 'Europe/London',
+    });
 
     try {
       assertBookingNotInPast(schedule.timezone ?? 'Europe/London', data.date, startTime, {
@@ -1465,6 +1500,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             booking_date: data.date,
             start_time: startTime,
             end_time: endTime,
+            ...instantFields,
             party_size: data.party,
             booking_type: normalizedBookingType,
             seating_preference: existingBooking.seating_preference,
@@ -1483,6 +1519,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             booking_date: data.date,
             start_time: startTime,
             end_time: endTime,
+            ...instantFields,
             party_size: data.party,
             booking_type: normalizedBookingType,
             seating_preference: existingBooking.seating_preference,

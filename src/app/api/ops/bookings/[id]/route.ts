@@ -20,6 +20,10 @@ import {
   updateBookingRecord,
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
+import {
+  buildBookingInstantFieldsFromLocalTimes,
+  type BookingInstantFields,
+} from '@/server/bookings/instant-fields';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import {
   PastBookingError,
@@ -98,6 +102,7 @@ type UnifiedOpsUpdateParams = {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  instantFields: BookingInstantFields;
   durationMinutes: number;
   payload: DashboardUpdatePayload;
   existingBooking: Tables<'bookings'> & {
@@ -501,6 +506,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     endTime !== (existingBooking.end_time ?? '') ||
     parsed.data.partySize !== (existingBooking.party_size ?? 0);
   const normalizedNotes = parsed.data.notes ?? null;
+  const instantFields = buildBookingInstantFieldsFromLocalTimes({
+    bookingDate,
+    startTime,
+    endTime,
+    timezone: scheduleTimezone,
+  });
 
   const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
 
@@ -512,6 +523,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         bookingDate,
         startTime,
         endTime,
+        instantFields,
         durationMinutes,
         payload: parsed.data,
         existingBooking,
@@ -623,6 +635,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
               booking_date: bookingDate,
               start_time: startTime,
               end_time: endTime,
+              ...instantFields,
               party_size: parsed.data.partySize,
               notes: normalizedNotes,
             },
@@ -634,6 +647,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             booking_date: bookingDate,
             start_time: startTime,
             end_time: endTime,
+            ...instantFields,
             party_size: parsed.data.partySize,
             notes: normalizedNotes,
           }),
@@ -749,6 +763,7 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     bookingId,
     bookingDate,
     durationMinutes,
+    instantFields,
     payload,
     existingBooking,
     user,
@@ -816,7 +831,12 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       bookingInput,
       context,
     );
-    const updated = commit.booking as Tables<'bookings'>;
+    let updated = commit.booking as Tables<'bookings'>;
+    if (updated.start_at !== instantFields.start_at || updated.end_at !== instantFields.end_at) {
+      updated = await updateBookingRecord(tenantClient, bookingId, instantFields, {
+        restaurantId: existingBooking.restaurant_id,
+      });
+    }
     const validationResponse = commit.response;
 
     const auditMetadata: Json = {

@@ -76,6 +76,8 @@ export type UpdateBookingPayload = {
   booking_date?: string;
   start_time?: string;
   end_time?: string;
+  start_at?: string | null;
+  end_at?: string | null;
   party_size?: number;
   booking_type?: BookingType;
   seating_preference?: SeatingPreference;

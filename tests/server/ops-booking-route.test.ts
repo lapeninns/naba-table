@@ -201,8 +201,8 @@ describe('ops booking PATCH route timezone handling', () => {
         end_time: payload.end_time,
         party_size: payload.party_size,
         notes: payload.notes,
-        start_at: '2026-07-01T18:30:00.000Z',
-        end_at: '2026-07-01T20:30:00.000Z',
+        start_at: payload.start_at,
+        end_at: payload.end_at,
       }),
     );
 
@@ -226,6 +226,8 @@ describe('ops booking PATCH route timezone handling', () => {
           booking_date: '2026-07-01',
           start_time: '19:30',
           end_time: '21:30',
+          start_at: '2026-07-01T18:30:00.000Z',
+          end_at: '2026-07-01T20:30:00.000Z',
           party_size: 4,
         }),
       }),
@@ -243,6 +245,8 @@ describe('ops booking PATCH route timezone handling', () => {
         booking_date: payload.booking_date,
         start_time: payload.start_time,
         end_time: payload.end_time,
+        start_at: payload.start_at,
+        end_at: payload.end_at,
         notes: payload.notes,
       }),
     );
@@ -267,6 +271,8 @@ describe('ops booking PATCH route timezone handling', () => {
         booking_date: '2026-07-01',
         start_time: '19:30',
         end_time: '21:00',
+        start_at: '2026-07-01T18:30:00.000Z',
+        end_at: '2026-07-01T20:00:00.000Z',
         notes: 'Guest asked for anniversary candle',
       }),
     );
