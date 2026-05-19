@@ -357,10 +357,10 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/availability/);
     await expect(page.getByRole('heading', { name: 'Availability & Booking types' })).toBeVisible();
     await expect(page.locator('main').getByText('Availability sections')).toBeVisible();
-    await page.locator('main').getByText('Schedule', { exact: true }).click();
+    await page.getByRole('button', { name: 'Schedule', exact: true }).click();
     await expect(page.locator('main').getByText('Weekly schedule').first()).toBeVisible();
     await expect(
-      page.locator('main').getByText('Operating hours and service windows together'),
+      page.locator('main').getByText('Weekly operating hours', { exact: true }),
     ).toBeVisible();
 
     await page.screenshot({

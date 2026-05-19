@@ -84,6 +84,12 @@ function isDeliveryLogUnavailable(error: unknown): boolean {
   );
 }
 
+function isAmbiguousColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const anyErr = error as { code?: unknown };
+  return anyErr.code === '42702';
+}
+
 export async function recordEmailDeliveryLog(
   params: InsertParams,
 ): Promise<EmailDeliveryLogEntry | null> {
@@ -660,7 +666,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   });
 
   if (error) {
-    if (isDeliveryLogUnavailable(error)) {
+    if (isDeliveryLogUnavailable(error) || isAmbiguousColumnError(error)) {
       await recordObservabilityEvent({
         source: 'email.delivery_log',
         eventType: 'attempts_feed_rpc_fallback',
@@ -670,6 +676,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
           range: params.range,
           page,
           pageSize,
+          errorCode: typeof error.code === 'string' ? error.code : null,
           error: typeof error.message === 'string' ? error.message : 'rpc unavailable',
         },
         restaurantId: params.restaurantId,

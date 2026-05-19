@@ -1,0 +1,52 @@
+[WebServer] npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+[WebServer] npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+Running 1 test using 1 worker
+
+  ✘  1 tests/e2e/ops-restaurant-settings-command-center.spec.ts:349:7 › ops restaurant settings command-center primary routes › availability route renders schedule workspace proof @p1 @browser @smoke @local-only (4.9s)
+
+
+  1) tests/e2e/ops-restaurant-settings-command-center.spec.ts:349:7 › ops restaurant settings command-center primary routes › availability route renders schedule workspace proof @p1 @browser @smoke @local-only 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('main').getByText('Weekly operating hours')
+    Expected: visible
+    Error: strict mode violation: locator('main').getByText('Weekly operating hours') resolved to 2 elements:
+        1) <div class="font-semibold tracking-tight text-xl">Weekly operating hours</div> aka getByText('Weekly operating hours', { exact: true })
+        2) <div class="text-sm text-muted-foreground max-w-3xl">Closures and special hours override the weekly op…</div> aka getByText('Closures and special hours')
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 10000ms[22m
+    [2m  - waiting for locator('main').getByText('Weekly operating hours')[22m
+
+
+      362 |     await expect(
+      363 |       page.locator('main').getByText('Weekly operating hours'),
+    > 364 |     ).toBeVisible();
+          |       ^
+      365 |
+      366 |     await page.screenshot({
+      367 |       path: testInfo.outputPath('ops-settings-availability-schedule-desktop.png'),
+        at /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/e2e/ops-restaurant-settings-command-center.spec.ts:364:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/qa/qa-20260519T114846884Z-15938135b1cf/browser/ops-restaurant-settings-co-eb5f3-p1-browser-smoke-local-only/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/qa/qa-20260519T114846884Z-15938135b1cf/browser/ops-restaurant-settings-co-eb5f3-p1-browser-smoke-local-only/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/qa/qa-20260519T114846884Z-15938135b1cf/browser/ops-restaurant-settings-co-eb5f3-p1-browser-smoke-local-only/error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/qa/qa-20260519T114846884Z-15938135b1cf/browser/ops-restaurant-settings-co-eb5f3-p1-browser-smoke-local-only/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/qa/qa-20260519T114846884Z-15938135b1cf/browser/ops-restaurant-settings-co-eb5f3-p1-browser-smoke-local-only/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/e2e/ops-restaurant-settings-command-center.spec.ts:349:7 › ops restaurant settings command-center primary routes › availability route renders schedule workspace proof @p1 @browser @smoke @local-only 

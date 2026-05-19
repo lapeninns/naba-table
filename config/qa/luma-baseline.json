@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-05-18T15:46:14.045Z",
+  "generatedAt": "2026-05-19T11:50:23.092Z",
   "description": "Pinned Radix Luma semantic-token migration debt. Update only after reviewing intentional debt movement.",
   "scanRoots": [
     "src/app/app",
@@ -21,19 +21,19 @@
     "styles/design-system/public-guest.utilities.css"
   ],
   "counts": {
-    "total": 438,
+    "total": 465,
     "bySeverity": {
-      "exception": 275,
+      "exception": 302,
       "review": 163
     },
     "byKind": {
       "css-gradient-recipe": 7,
       "css-raw-color-literal": 95,
-      "custom-gradient-utility": 12,
+      "custom-gradient-utility": 14,
       "guest-theme-compatibility-reference": 29,
-      "hardcoded-palette-utility": 252,
+      "hardcoded-palette-utility": 272,
       "legacy-theme-token": 32,
-      "raw-color-literal": 11
+      "raw-color-literal": 16
     },
     "byFileKind": {
       "exception::custom-gradient-utility::components/guest-account/PageShell.tsx": 1,
@@ -41,6 +41,7 @@
       "exception::custom-gradient-utility::src/app/app/(app)/new-bookings/_components/WalkInWizardClient.tsx": 1,
       "exception::custom-gradient-utility::src/components/features/dashboard/booking-details/BookingAssignmentTabContent.tsx": 5,
       "exception::custom-gradient-utility::src/components/features/dashboard/booking-details/components/BookingDialogBody.tsx": 1,
+      "exception::custom-gradient-utility::src/components/features/restaurant-settings/overview/RestaurantSetupOverview.tsx": 2,
       "exception::custom-gradient-utility::src/components/features/restaurant-settings/profile/profileReadinessTheme.ts": 3,
       "exception::hardcoded-palette-utility::components/auth/SignInForm.tsx": 4,
       "exception::hardcoded-palette-utility::components/dashboard/StatusChip.tsx": 32,
@@ -61,10 +62,12 @@
       "exception::hardcoded-palette-utility::src/components/features/email-delivery/components/OpsEmailDeliveryFiltersCard.tsx": 3,
       "exception::hardcoded-palette-utility::src/components/features/email-delivery/components/OpsEmailDeliveryResultsCard.tsx": 1,
       "exception::hardcoded-palette-utility::src/components/features/ops-shell/OpsOfflineIndicator.tsx": 2,
+      "exception::hardcoded-palette-utility::src/components/features/restaurant-settings/overview/RestaurantSetupOverview.tsx": 20,
       "exception::hardcoded-palette-utility::src/components/features/tables/timeline/TableTimelineClient.tsx": 48,
       "exception::hardcoded-palette-utility::src/components/guest/ui/GuestPrimitives.tsx": 11,
       "exception::hardcoded-palette-utility::src/components/ui/copy-button.tsx": 1,
       "exception::raw-color-literal::src/components/features/dashboard/booking-details/BookingDialog.tsx": 3,
+      "exception::raw-color-literal::src/components/features/restaurant-settings/overview/RestaurantSetupOverview.tsx": 5,
       "exception::raw-color-literal::src/components/guest/ui/GuestPrimitives.tsx": 8,
       "review::css-gradient-recipe::src/app/globals.css": 1,
       "review::css-gradient-recipe::styles/base.css": 3,

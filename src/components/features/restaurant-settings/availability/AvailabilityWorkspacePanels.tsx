@@ -64,7 +64,7 @@ export function AvailabilityWorkspacePanels({
         }
         transition={{ duration: 0.18, ease: 'easeOut' }}
       >
-        <div className="flex flex-col gap-6">
+        <div id="availability-schedule" className="scroll-mt-28 flex flex-col gap-6">
           <WeeklyScheduleCard restaurantId={restaurantId} />
           <ServiceWindowsCard restaurantId={restaurantId} />
           <DateOverridesCard restaurantId={restaurantId} />

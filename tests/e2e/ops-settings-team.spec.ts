@@ -338,7 +338,7 @@ test.describe('ops restaurant settings and team shipped routes', () => {
         ).toBeVisible();
       } else if (initialWorkspace === 'schedule') {
         await expect(
-          page.locator('main').getByText('Operating hours and service windows together'),
+          page.locator('main').getByText('Weekly operating hours', { exact: true }),
         ).toBeVisible();
       } else {
         await expect(page.locator('main').getByText('Booking types and turn times')).toBeVisible();
@@ -349,7 +349,7 @@ test.describe('ops restaurant settings and team shipped routes', () => {
         .getByRole('button', { name: /^Schedule/ })
         .click();
       await expect(
-        page.locator('main').getByText('Operating hours and service windows together'),
+        page.locator('main').getByText('Weekly operating hours', { exact: true }),
       ).toBeVisible();
 
       await page
@@ -357,8 +357,8 @@ test.describe('ops restaurant settings and team shipped routes', () => {
         .getByRole('button', { name: /^Booking types/ })
         .click();
       await expect(page.locator('main').getByText('Booking types and turn times')).toBeVisible();
-      await expect(page.locator('main').getByText('Lunch').first()).toBeVisible();
-      await expect(page.locator('main').getByText('Dinner').first()).toBeVisible();
+      await expect(page.locator('#booking-occasions').getByRole('row', { name: /Lunch/ })).toBeVisible();
+      await expect(page.locator('#booking-occasions').getByRole('row', { name: /Dinner/ })).toBeVisible();
     }
 
     await page.screenshot({
