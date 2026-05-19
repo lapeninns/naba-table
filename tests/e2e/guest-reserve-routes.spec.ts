@@ -237,13 +237,12 @@ test.describe('reserve routes', () => {
     await page.getByRole('button', { name: 'Increase guests' }).click();
     await expect(page.getByLabel('2 guests')).toBeVisible();
 
-    const timeInput = page.getByRole('textbox', { name: 'Time' });
-    const sevenPmSlot = page.getByRole('button', { name: '7:00 PM' });
+    const timeCombobox = page.getByRole('combobox', { name: 'Time' });
 
-    await expect(sevenPmSlot).toBeVisible();
-    await sevenPmSlot.click();
+    await timeCombobox.click();
+    await page.getByRole('option', { name: '7:00 PM' }).click();
 
-    await expect(timeInput).toHaveValue(bookingStartTime);
+    await expect(timeCombobox).toContainText('7:00 PM');
     await page.getByRole('button', { name: 'Continue' }).click();
   }
 
@@ -267,14 +266,12 @@ test.describe('reserve routes', () => {
 
     await expect(page.getByLabel('2 guests')).toBeVisible();
 
-    const timeInput = page.getByRole('textbox', { name: 'Time' });
-    const sevenPmSlot = page.getByRole('button', { name: '7:00 PM' });
+    const timeCombobox = page.getByRole('combobox', { name: 'Time' });
 
-    await expect(sevenPmSlot).toBeVisible();
-    await sevenPmSlot.click();
+    await timeCombobox.click();
+    await page.getByRole('option', { name: '7:00 PM' }).click();
 
-    await expect(timeInput).toHaveValue(bookingStartTime);
-    await expect(sevenPmSlot).toHaveAttribute('aria-pressed', 'true');
+    await expect(timeCombobox).toContainText('7:00 PM');
   });
 
   test('@p2 @browser @contract @local-only validates details and shows capacity alternatives before creating a reservation', async ({
@@ -311,10 +308,11 @@ test.describe('reserve routes', () => {
     );
     await expect(page.getByText('Nearby availability')).toBeVisible();
 
-    await page.getByRole('button', { name: '18:30' }).click();
+    await page.getByRole('combobox', { name: 'Time' }).click();
+    await page.getByRole('option', { name: '6:30 PM' }).click();
 
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Time' })).toHaveValue('18:30');
+    await expect(page.getByRole('combobox', { name: 'Time' })).toContainText('6:30 PM');
   });
 
   test('reserve reservation details stub renders id', async ({ page }) => {

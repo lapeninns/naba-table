@@ -14,8 +14,13 @@ import {
   calendarMaskQueryKey,
   type CalendarMask,
 } from '@reserve/features/reservations/wizard/services/schedule';
+import {
+  toTimeSlotDescriptor,
+  type ReservationSchedule,
+} from '@reserve/features/reservations/wizard/services/timeSlots';
 import { isBookingOption } from '@reserve/shared/booking';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
+import { filterSelectableTimeSlots, isPastOrClosing } from '@reserve/shared/schedule/availability';
 import { toMinutes } from '@reserve/shared/time';
 import { isWeekend, toDateMidnight } from '@reserve/shared/time/date';
 
@@ -36,7 +41,8 @@ const MONTH_KEY_FORMATTER = (value: Date) =>
 const toMonthStart = (value: Date) => new Date(value.getFullYear(), value.getMonth(), 1);
 
 const deriveUnavailableReason = (
-  nextSchedule: { isClosed: boolean; slots: { disabled: boolean }[] } | null,
+  nextSchedule: ReservationSchedule | null,
+  options?: { now?: Date },
 ): PlanStepUnavailableReason | null => {
   if (!nextSchedule) {
     return 'unknown';
@@ -44,8 +50,13 @@ const deriveUnavailableReason = (
   if (nextSchedule.isClosed) {
     return 'closed';
   }
-  const hasEnabledSlot = nextSchedule.slots.some((slot) => !slot.disabled);
-  return hasEnabledSlot ? null : 'no-slots';
+  const descriptors = nextSchedule.slots.map((slot) => toTimeSlotDescriptor(slot));
+  const selectableSlots = filterSelectableTimeSlots(descriptors, {
+    date: nextSchedule.date,
+    schedule: nextSchedule,
+    now: options?.now,
+  });
+  return selectableSlots.length > 0 ? null : 'no-slots';
 };
 
 export const buildMonthPrefetchTargets = (
@@ -416,7 +427,14 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
     selectedTime: time,
   });
 
-  const enabledSlots = useMemo(() => slots.filter((slot) => !slot.disabled), [slots]);
+  const selectableSlots = useMemo(() => {
+    if (!date || !schedule) {
+      return slots.filter((slot) => !slot.disabled);
+    }
+    return filterSelectableTimeSlots(slots, { date, schedule });
+  }, [date, schedule, slots]);
+
+  const enabledSlots = selectableSlots;
   const hasAvailableSlots = enabledSlots.length > 0;
   const intervalMinutes =
     typeof schedule?.intervalMinutes === 'number' && schedule.intervalMinutes > 0
@@ -429,7 +447,7 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
     }, null) ?? null;
 
   return {
-    slots,
+    slots: selectableSlots,
     inferBookingOption,
     schedule,
     isScheduleLoading,
@@ -642,6 +660,17 @@ export function usePlanStepForm({
   const submitForm = useCallback(
     (values: PlanFormValues) => {
       const normalizedTime = normalizeToInterval(values.time);
+      if (
+        values.date &&
+        schedule &&
+        isPastOrClosing({ date: values.date, time: normalizedTime, schedule })
+      ) {
+        form.setError('time', {
+          type: 'manual',
+          message: 'Please pick a time in the future.',
+        });
+        return;
+      }
       const bookingTypeValue = isBookingOption(values.bookingType)
         ? values.bookingType
         : (inferBookingOption(normalizedTime) ?? state.details.bookingType);
@@ -663,6 +692,7 @@ export function usePlanStepForm({
       form,
       inferBookingOption,
       normalizeToInterval,
+      schedule,
       state.details.bookingType,
       updateField,
     ],
@@ -707,6 +737,19 @@ export function usePlanStepForm({
         return;
       }
 
+      const selectedDate = form.getValues('date') || state.details.date;
+      if (
+        selectedDate &&
+        schedule &&
+        isPastOrClosing({ date: selectedDate, time: value, schedule })
+      ) {
+        form.setError('time', {
+          type: 'manual',
+          message: 'Please pick a time in the future.',
+        });
+        return;
+      }
+
       const normalized = normalizeToInterval(value);
       form.setValue('time', normalized, { shouldDirty: true, shouldValidate: true });
       updateField('time', normalized);
@@ -720,7 +763,16 @@ export function usePlanStepForm({
         booking_type: inferredService,
       });
     },
-    [form, hasAvailableSlots, inferBookingOption, normalizeToInterval, onTrack, updateField],
+    [
+      form,
+      hasAvailableSlots,
+      inferBookingOption,
+      normalizeToInterval,
+      onTrack,
+      schedule,
+      state.details.date,
+      updateField,
+    ],
   );
 
   const changeParty = useCallback(

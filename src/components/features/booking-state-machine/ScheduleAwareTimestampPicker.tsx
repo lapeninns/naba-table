@@ -467,7 +467,7 @@ function ScheduleTimeControl({
               <SelectTrigger
                 id={timeInputId}
                 className={cn(
-                  'h-12 w-full bg-background px-4 text-base font-semibold text-foreground',
+                  'h-12 w-full rounded-[var(--pg-radius-md)] border-border bg-background px-4 text-base font-semibold text-foreground shadow-[var(--pg-shadow-soft)] hover:bg-muted/40 focus:ring-ring/25',
                   !inputValue && 'text-muted-foreground',
                   error && 'border-destructive focus-visible:ring-destructive',
                 )}
@@ -480,17 +480,23 @@ function ScheduleTimeControl({
                 <SelectValue placeholder="--:--" />
               </SelectTrigger>
               <SelectContent
-                className="max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]"
+                className="pg-panel max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] rounded-[var(--pg-radius-lg)] border-border p-1 shadow-[var(--pg-shadow-floating)]"
                 position="popper"
                 sideOffset={8}
               >
                 {[...groupedSuggestions.entries()].map(([label, slots], index) => (
                   <Fragment key={label}>
-                    {index > 0 ? <SelectSeparator /> : null}
+                    {index > 0 ? <SelectSeparator className="my-1 bg-border/70" /> : null}
                     <SelectGroup>
-                      <SelectLabel>{label}</SelectLabel>
+                      <SelectLabel className="px-3 py-2 font-[var(--pg-font-mono)] text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        {label}
+                      </SelectLabel>
                       {slots.map((slot) => (
-                        <SelectItem key={slot.value} value={slot.value}>
+                        <SelectItem
+                          key={slot.value}
+                          value={slot.value}
+                          className="my-0.5 rounded-[var(--pg-radius-sm)] py-2.5 pl-8 pr-3 font-[var(--pg-font-mono)] text-sm font-semibold focus:bg-muted focus:text-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
+                        >
                           {slot.display}
                         </SelectItem>
                       ))}
@@ -1240,9 +1246,9 @@ export function ScheduleAwareTimestampPicker({
         ) : null}
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
 
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm">
-          <div className="grid gap-px bg-border/40 md:grid-cols-3">
-            <div className="bg-card p-4">
+        <div className="rounded-2xl border border-border/70 bg-background/70 shadow-sm">
+          <div className="grid gap-4 p-4 sm:grid-cols-2">
+            <div className="bg-card">
               <ScheduleDateControl
                 value={activeDate}
                 minDate={fallbackMinDate}
@@ -1255,9 +1261,9 @@ export function ScheduleAwareTimestampPicker({
               />
             </div>
 
-            {children ? <div className="bg-card p-4">{children}</div> : null}
+            {children ? <div className="bg-card">{children}</div> : null}
 
-            <div className="bg-card p-4">
+            <div className="bg-card sm:col-span-2">
               <ScheduleTimeControl
                 value={draftTime}
                 onChange={handleTimeChange}

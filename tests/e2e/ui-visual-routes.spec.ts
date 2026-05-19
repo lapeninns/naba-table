@@ -113,7 +113,7 @@ const routes: VisualRoute[] = [
     setup: installPublicBookingVisualMocks,
     verify: async (page) => {
       await expect(page.getByText('QA Public Booking Restaurant').first()).toBeVisible();
-      await expect(page.getByRole('button', { name: publicBookingTimeLabel })).toBeVisible();
+      await expect(page.getByRole('combobox', { name: 'Time' })).toBeVisible();
     },
   },
   { name: 'guest-sign-in', url: `${rootBaseUrl}/auth/signin?redirectedFrom=/guest/dashboard` },

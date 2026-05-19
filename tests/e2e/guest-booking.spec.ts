@@ -264,7 +264,8 @@ test('@p0 @browser @local-only @external-mock guest can complete a booking flow'
   await page.goto(`/restaurants/${restaurantSlug}/book`);
   await waitForDevServerIdle(page);
 
-  await clickClientControl(page.getByRole('button', { name: bookingTimeLabel }));
+  await clickClientControl(page.getByRole('combobox', { name: 'Time' }));
+  await clickClientControl(page.getByRole('option', { name: bookingTimeLabel }));
 
   await expect(page.getByRole('button', { name: 'Continue' })).toBeEnabled();
   await clickClientControl(page.getByTestId('wizard-action-plan-continue'));
@@ -384,7 +385,8 @@ test('@p0 @browser @local-only @external-mock guest sees a friendly duplicate-bo
   await page.goto(`/restaurants/${restaurantSlug}/book`);
   await waitForDevServerIdle(page);
 
-  await clickClientControl(page.getByRole('button', { name: bookingTimeLabel }));
+  await clickClientControl(page.getByRole('combobox', { name: 'Time' }));
+  await clickClientControl(page.getByRole('option', { name: bookingTimeLabel }));
   await clickClientControl(page.getByTestId('wizard-action-plan-continue'));
 
   await page.getByLabel('Full name').fill('Guest Booker');
