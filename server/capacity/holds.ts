@@ -105,6 +105,16 @@ export class HoldConflictError extends Error {
   }
 }
 
+export class HoldPersistenceError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string | null,
+  ) {
+    super(message);
+    this.name = 'HoldPersistenceError';
+  }
+}
+
 export class HoldNotFoundError extends Error {
   constructor(message = 'Table hold not found') {
     super(message);
@@ -406,20 +416,21 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
         .single();
 
       if (holdErr || !holdRow) {
+        const fallbackCode = (holdErr as PostgrestError)?.code ?? null;
+        const fallbackMessage =
+          (holdErr as { message?: string } | null)?.message ||
+          message ||
+          'Failed to create table hold';
         if (
           process.env.CAPACITY_LOG_HOLD_ERRORS === '1' ||
           process.env.CAPACITY_LOG_HOLD_ERRORS === 'true'
         ) {
           console.error('[capacity.hold] fallback hold insert failed', {
-            code: (holdErr as PostgrestError)?.code ?? null,
-            message: (holdErr as PostgrestError)?.message ?? String(holdErr),
+            code: fallbackCode,
+            message: fallbackMessage,
           });
         }
-        throw new HoldConflictError(
-          (holdErr as { message?: string } | null)?.message ||
-            message ||
-            'Failed to create table hold',
-        );
+        throw new HoldPersistenceError(fallbackMessage, fallbackCode);
       }
 
       // Step 2: insert members
@@ -443,11 +454,12 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
           .from('table_holds')
           .delete()
           .eq('id', (holdRow as { id: string }).id);
-        throw new HoldConflictError(
+        const membersCode = (membersErr as PostgrestError)?.code ?? null;
+        const membersMessage =
           (membersErr as { message?: string } | null)?.message ||
-            message ||
-            'Failed to create table hold members',
-        );
+          message ||
+          'Failed to create table hold members';
+        throw new HoldPersistenceError(membersMessage, membersCode);
       }
 
       const hold: TableHold = {
@@ -481,7 +493,7 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
     }
 
     // Bubble other errors explicitly in a consistent error type for callers.
-    throw new HoldConflictError(message || 'Failed to create table hold');
+    throw new HoldPersistenceError(message || 'Failed to create table hold', code);
   }
 
   const memberTableIds = extractTableIdsFromMembers(

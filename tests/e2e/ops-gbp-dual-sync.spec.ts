@@ -311,7 +311,9 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await expect(
       page.locator('#gbp-sync-review').getByText('Google Business Profile sync'),
     ).toBeVisible();
-    await page.getByRole('button', { name: /Profile \(1\)/ }).click();
+    await expect(
+      page.locator('#gbp-sync-review').getByRole('button', { name: /^Profile\b/ }),
+    ).toBeVisible();
     await expect(page.locator('#gbp-sync-review').getByText('Phone number')).toBeVisible();
 
     await page.locator('#gbp-sync-review').getByRole('radio', { name: 'Send to Google' }).click();

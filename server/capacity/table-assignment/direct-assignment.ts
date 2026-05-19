@@ -39,6 +39,7 @@ import {
   loadContextBookings,
   loadRestaurantTimezone,
   type DbClient,
+  type BookingRow,
 } from './supabase';
 import { toIsoUtc, summarizeSelection } from './utils';
 
@@ -127,6 +128,62 @@ type ValidationResult = {
   conflicts: ManualAssignmentConflict[];
 };
 
+const PENDING_ASSIGNMENT_STATUSES = new Set(['pending', 'pending_allocation']);
+
+async function confirmPendingBookingAfterAssignment(params: {
+  booking: BookingRow;
+  tableIds: string[];
+  idempotencyKey: string;
+  assignedBy: string | null;
+  supabase: DbClient;
+}): Promise<BookingRow> {
+  const { booking, tableIds, idempotencyKey, assignedBy, supabase } = params;
+
+  if (!PENDING_ASSIGNMENT_STATUSES.has(String(booking.status))) {
+    return booking;
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase.rpc('apply_booking_state_transition', {
+    p_booking_id: booking.id,
+    p_status: 'confirmed',
+    p_checked_in_at: booking.checked_in_at ?? null,
+    p_checked_out_at: booking.checked_out_at ?? null,
+    p_updated_at: nowIso,
+    p_history_from: booking.status,
+    p_history_to: 'confirmed',
+    p_history_changed_by: assignedBy,
+    p_history_changed_at: nowIso,
+    p_history_reason: 'direct_table_assignment',
+    p_history_metadata: {
+      source: 'direct_assignment',
+      tableIds,
+      idempotencyKey,
+    },
+  });
+
+  if (error) {
+    throw new DirectAssignmentError(
+      `Tables were assigned but booking status could not be confirmed: ${error.message}`,
+      error.code ?? 'BOOKING_STATUS_TRANSITION_FAILED',
+      500,
+      { bookingId: booking.id, tableIds, hint: error.hint ?? null },
+    );
+  }
+
+  const transitioned = Array.isArray(data) ? data[0] : data;
+
+  return {
+    ...booking,
+    status: (transitioned?.status as BookingRow['status'] | undefined) ?? 'confirmed',
+    checked_in_at:
+      (transitioned?.checked_in_at as string | null | undefined) ?? booking.checked_in_at ?? null,
+    checked_out_at:
+      (transitioned?.checked_out_at as string | null | undefined) ?? booking.checked_out_at ?? null,
+    updated_at: (transitioned?.updated_at as string | undefined) ?? nowIso,
+  };
+}
+
 // ============================================================================
 // Main Assignment Function
 // ============================================================================
@@ -179,6 +236,13 @@ export async function assignTablesDirectly(
   if (existingData && existingData.length > 0) {
     // Already processed - return existing result (idempotency)
     const booking = await loadBooking(bookingId, supabase);
+    const transitionedBooking = await confirmPendingBookingAfterAssignment({
+      booking,
+      tableIds,
+      idempotencyKey,
+      assignedBy,
+      supabase,
+    });
     const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
     const summary = summarizeSelection(tables, booking.party_size);
 
@@ -192,9 +256,9 @@ export async function assignTablesDirectly(
         assigned_by: a.assigned_by ?? null,
       })),
       booking: {
-        id: booking.id,
-        status: booking.status,
-        party_size: booking.party_size,
+        id: transitionedBooking.id,
+        status: transitionedBooking.status,
+        party_size: transitionedBooking.party_size,
       },
       summary: {
         tableCount: summary.tableCount,
@@ -307,6 +371,14 @@ export async function assignTablesDirectly(
     throw error;
   }
 
+  const transitionedBooking = await confirmPendingBookingAfterAssignment({
+    booking,
+    tableIds,
+    idempotencyKey,
+    assignedBy,
+    supabase,
+  });
+
   const { data: assignedRows, error: assignmentLoadError } = await supabase
     .from('booking_table_assignments')
     .select('id, booking_id, table_id, assigned_at, assigned_by')
@@ -347,9 +419,9 @@ export async function assignTablesDirectly(
       assigned_by: a.assigned_by ?? null,
     })),
     booking: {
-      id: booking.id,
-      status: booking.status === 'pending' ? 'confirmed' : booking.status,
-      party_size: booking.party_size,
+      id: transitionedBooking.id,
+      status: transitionedBooking.status,
+      party_size: transitionedBooking.party_size,
     },
     summary: {
       tableCount: summary.tableCount,

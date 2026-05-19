@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DualSyncShell } from '@/components/features/restaurant-settings/dual-sync/DualSyncShell';
 
@@ -14,6 +14,8 @@ import type {
 
 const mocks = vi.hoisted(() => ({
   useOpsDualSync: vi.fn(),
+  useOpsGoogleBusinessProfileConnection: vi.fn(),
+  useOpsStartGoogleBusinessProfileAuthorization: vi.fn(),
   toast: {
     error: vi.fn(),
     info: vi.fn(),
@@ -24,6 +26,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/hooks/ops/useOpsDualSync', () => ({
   useOpsDualSync: mocks.useOpsDualSync,
+}));
+
+vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
+  useOpsGoogleBusinessProfileConnection: mocks.useOpsGoogleBusinessProfileConnection,
+  useOpsStartGoogleBusinessProfileAuthorization:
+    mocks.useOpsStartGoogleBusinessProfileAuthorization,
 }));
 
 vi.mock('sonner', () => ({
@@ -205,6 +213,36 @@ function makeMutation<TInput, TOutput>(mutateAsync: (input: TInput) => Promise<T
     mutateAsync,
   };
 }
+
+beforeEach(() => {
+  mocks.useOpsDualSync.mockReset();
+  mocks.useOpsGoogleBusinessProfileConnection.mockReturnValue(
+    makeQuery({
+      isConfigured: true,
+      provider: 'google_business_profile',
+      status: 'linked',
+      pushEnabled: true,
+      connectedGoogleEmail: 'ops@example.test',
+      connectedGoogleName: 'Ops Test',
+      externalAccountId: 'account-1',
+      externalAccountName: 'Ops Test',
+      externalLocationId: 'locations/1',
+      externalLocationName: 'locations/1',
+      externalLocationTitle: 'QA GBP Restaurant',
+      externalPlaceId: 'places/1',
+      providerTimezone: 'Europe/London',
+      lastPullAt: null,
+      lastPushAt: null,
+      lastError: null,
+      availableLocations: [],
+      businessInfo: {},
+    }),
+  );
+  mocks.useOpsStartGoogleBusinessProfileAuthorization.mockReturnValue({
+    isPending: false,
+    mutate: vi.fn(),
+  });
+});
 
 describe('DualSyncShell publish flow', () => {
   it('previews selected decisions, publishes accepted plan fields, and opens the result dialog', async () => {

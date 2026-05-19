@@ -18,7 +18,7 @@ vi.mock('@/server/capacity/telemetry', async (importOriginal) => {
   };
 });
 
-import { createTableHold, findHoldConflicts } from '@/server/capacity/holds';
+import { createTableHold, findHoldConflicts, HoldPersistenceError } from '@/server/capacity/holds';
 import { synchronizeAssignments } from '@/server/capacity/table-assignment/assignment-sync';
 import {
   clampQuoteHoldTtlSeconds,
@@ -248,6 +248,42 @@ describe('table-assignment guardrails', () => {
 
     expect(hold.expiresAt).toBe('2026-05-16T10:03:00.000Z');
     expect(insertQuery.payload?.expires_at).toBe('2026-05-16T10:03:00.000Z');
+  });
+
+  it('does not report structural hold insert failures as table conflicts', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-16T10:00:00.000Z'));
+    const client = {
+      from: vi.fn(() => ({
+        insert: () => ({
+          select: () => ({
+            single: () =>
+              Promise.resolve({
+                data: null,
+                error: {
+                  code: '23514',
+                  message:
+                    'new row for relation "table_holds" violates check constraint "th_times_consistent"',
+                },
+              }),
+          }),
+        }),
+      })),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+    };
+
+    await expect(
+      createTableHold({
+        bookingId: 'booking-1',
+        restaurantId: 'restaurant-1',
+        zoneId: 'zone-1',
+        tableIds: ['table-1'],
+        startAt: '2026-06-01T12:00:00.000Z',
+        endAt: '2026-06-01T13:00:00.000Z',
+        expiresAt: '2026-05-16T10:03:00.000Z',
+        client: client as unknown as Parameters<typeof createTableHold>[0]['client'],
+      }),
+    ).rejects.toBeInstanceOf(HoldPersistenceError);
   });
 
   it('fails closed when strict hold conflict session verification fails', async () => {

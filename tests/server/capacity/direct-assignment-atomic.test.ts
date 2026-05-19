@@ -119,6 +119,17 @@ function makeAssignmentClient() {
 
       return chain;
     }),
+    rpc: vi.fn().mockResolvedValue({
+      data: [
+        {
+          status: 'confirmed',
+          checked_in_at: null,
+          checked_out_at: null,
+          updated_at: '2026-07-01T10:00:01.000Z',
+        },
+      ],
+      error: null,
+    }),
   };
 }
 
@@ -136,6 +147,8 @@ describe('assignTablesDirectly', () => {
       status: 'pending',
       assigned_zone_id: null,
       booking_type: 'dinner',
+      checked_in_at: null,
+      checked_out_at: null,
       restaurants: { timezone: 'Europe/London' },
     });
     loadTablesByIdsMock.mockResolvedValue([
@@ -179,6 +192,23 @@ describe('assignTablesDirectly', () => {
         requireAdjacency: true,
       }),
     );
+    expect(client.rpc).toHaveBeenCalledWith('apply_booking_state_transition', {
+      p_booking_id: BOOKING_ID,
+      p_status: 'confirmed',
+      p_checked_in_at: null,
+      p_checked_out_at: null,
+      p_updated_at: expect.any(String),
+      p_history_from: 'pending',
+      p_history_to: 'confirmed',
+      p_history_changed_by: 'user-1',
+      p_history_changed_at: expect.any(String),
+      p_history_reason: 'direct_table_assignment',
+      p_history_metadata: {
+        source: 'direct_assignment',
+        tableIds: [TABLE_ID],
+        idempotencyKey: 'idem-1',
+      },
+    });
     expect(client.from).toHaveBeenCalledWith('booking_table_assignments');
     expect(result.assignments).toEqual([
       {
