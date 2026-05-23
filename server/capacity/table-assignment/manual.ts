@@ -1,57 +1,48 @@
 import { DateTime } from 'luxon';
 
+import { createTableHold } from '@/server/capacity/holds';
 import {
-  evaluateAdjacency as evaluateAdjacencyGraph,
-  isAdjacencySatisfied,
-  summarizeAdjacencyStatus,
-} from '@/server/capacity/adjacency';
-import {
-  listActiveHoldsForBooking,
-  createTableHold,
-  findHoldConflicts,
-  type HoldConflictInfo,
-  type TableHold,
-  type CreateTableHoldInput,
-} from '@/server/capacity/holds';
-import {
-  getSelectorScoringConfig,
-  getVenuePolicy,
-  ServiceOverrunError,
-  type VenuePolicy,
-} from '@/server/capacity/policy';
-import { deriveTableRules } from '@/server/capacity/table-rules';
-import { computePayloadChecksum, hashPolicyVersion } from '@/server/capacity/v2';
-import {
-  getAllocatorAdjacencyMode,
-  getManualAssignmentMaxSlack,
   isHoldsEnabled,
   isHoldStrictConflictsEnabled,
   isAllocatorAdjacencyRequired,
   isAdjacencyQueryUndirected,
 } from '@/server/feature-flags';
-import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 
-import { buildBusyMaps, extractConflictsForTables, resolveRequireAdjacency } from './availability';
-import { computeBookingWindowWithFallback } from './booking-window';
+import { resolveRequireAdjacency } from './availability';
 import { DEFAULT_HOLD_TTL_SECONDS } from './constants';
+import { buildManualAssignmentContextVersions } from './context-version';
+import { loadManualBookingContext } from './manual-booking-context';
+import { buildManualChecks, resolveManualSlackBudget } from './manual-checks';
 import {
-  acquireSoftHolds,
-  releaseSoftHolds,
-  checkSoftHoldOwnership,
-  SoftHoldConflictError,
-  SoftHoldExpiredError,
+  buildManualAssignmentConflicts,
+  buildManualWindowQuery,
+  findManualHoldConflicts,
+  loadManualValidationConflictContext,
+} from './manual-conflict-context';
+import { hydrateManualAssignmentContextHolds } from './manual-context-holds';
+import { buildManualTableHoldPayload } from './manual-hold-payload';
+import {
+  assertBookingZoneAllowsManualSelection,
+  assertManualSelectionTablesAvailable,
+  assertManualTableIds,
+  assertManualTablesLoaded,
+  resolveManualSelectionZoneId,
+} from './manual-selection-preconditions';
+import {
+  acquireManualSoftHolds,
+  releaseManualSoftHolds,
+  releaseManualSoftHoldsQuietly,
+  verifyManualSoftHoldOwnership,
   type SoftHoldAcquisitionResult,
-} from './soft-holds';
+} from './manual-soft-holds';
 import {
   ensureClient,
-  loadBooking,
   loadTablesByIds,
   loadTablesForRestaurant,
   loadAdjacency,
   loadContextBookings,
   fetchHoldsForWindow,
   loadTableAssignmentsForTables,
-  loadRestaurantTimezone,
   releaseHoldWithRetry,
   extractErrorCode,
   type DbClient,
@@ -62,239 +53,10 @@ import {
   type ManualValidationResult,
   type ManualHoldOptions,
   type ManualHoldResult,
-  type ManualSelectionSummary,
-  type ManualSelectionCheck,
-  type ManualAssignmentConflict,
   type ManualAssignmentContext,
   type ManualAssignmentContextHold,
-  type Table,
-  type BookingWindow,
 } from './types';
 import { toIsoUtc, summarizeSelection } from './utils';
-
-const DEFAULT_MANUAL_SLACK_BUDGET = 4;
-
-function findUnavailableTables(tables: Table[]): Table[] {
-  return tables.filter((table) => {
-    const outOfService =
-      typeof table.status === 'string' && table.status.toLowerCase() === 'out_of_service';
-    return table.active === false || table.zoneActive === false || outOfService;
-  });
-}
-
-function normalizeTableForVersion(table: Table) {
-  return {
-    id: table.id,
-    zoneId: table.zoneId,
-    capacity: table.capacity,
-    mobility: table.mobility,
-    active: table.active,
-    category: table.category,
-    seatingType: table.seatingType,
-  };
-}
-
-function buildTableVersion(tables: Table[]) {
-  const payload = tables.map(normalizeTableForVersion).sort((a, b) => a.id.localeCompare(b.id));
-  return computePayloadChecksum(payload);
-}
-
-function buildAdjacencyVersion(adjacency: Map<string, Set<string>>) {
-  const edges = Array.from(adjacency.entries())
-    .map(([id, neighbors]) => ({
-      id,
-      neighbors: Array.from(neighbors).sort(),
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  return computePayloadChecksum(edges);
-}
-
-function buildFlagsVersion(flags: Record<string, unknown>) {
-  return computePayloadChecksum(flags);
-}
-
-function buildWindowVersion(window: BookingWindow) {
-  return computePayloadChecksum({
-    startAt: toIsoUtc(window.block.start),
-    endAt: toIsoUtc(window.block.end),
-  });
-}
-
-function buildHoldsVersion(holds: ManualAssignmentContextHold[]) {
-  const payload = holds
-    .map((h) => ({
-      id: h.id,
-      tableIds: [...h.tableIds].sort(),
-      startAt: h.startAt,
-      endAt: h.endAt,
-      expiresAt: h.expiresAt,
-      bookingId: h.bookingId,
-    }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  return computePayloadChecksum(payload);
-}
-
-function buildAssignmentsVersion(assignments: string[]) {
-  return computePayloadChecksum(assignments.slice().sort());
-}
-
-function resolveManualSlackBudget(): number {
-  const override = getManualAssignmentMaxSlack();
-  if (typeof override === 'number') {
-    return override;
-  }
-  const selectorConfig = getSelectorScoringConfig();
-  return Math.max(0, selectorConfig.maxOverage ?? DEFAULT_MANUAL_SLACK_BUDGET);
-}
-
-function buildManualChecks(params: {
-  summary: ManualSelectionSummary;
-  tables: Table[];
-  requireAdjacency: boolean;
-  adjacency: Map<string, Set<string>>;
-  conflicts: ManualAssignmentConflict[];
-  holdConflicts: HoldConflictInfo[];
-  slackBudget: number;
-}): ManualSelectionCheck[] {
-  const checks: ManualSelectionCheck[] = [];
-  const { summary, tables, adjacency, conflicts, holdConflicts, slackBudget } = params;
-
-  const unavailableTables = findUnavailableTables(tables);
-  checks.push({
-    id: 'active',
-    status: unavailableTables.length === 0 ? 'ok' : 'error',
-    message:
-      unavailableTables.length === 0
-        ? 'Tables are available'
-        : `Disabled or out-of-service tables: ${unavailableTables
-            .map((table) => table.tableNumber || table.id)
-            .join(', ')}`,
-    details: {
-      tableIds: unavailableTables.map((t) => t.id),
-      statuses: unavailableTables.map((t) => t.status ?? null),
-      zoneActive: unavailableTables.map((t) => t.zoneActive ?? null),
-    },
-  });
-
-  checks.push({
-    id: 'capacity',
-    status: summary.totalCapacity >= summary.partySize ? 'ok' : 'error',
-    message:
-      summary.totalCapacity >= summary.partySize
-        ? 'Capacity satisfied'
-        : 'Selected tables do not meet requested party size',
-    details: {
-      totalCapacity: summary.totalCapacity,
-      partySize: summary.partySize,
-      slack: summary.slack,
-    },
-  });
-
-  const slackOk = summary.slack <= slackBudget;
-  checks.push({
-    id: 'slack',
-    status: slackOk ? 'ok' : 'error',
-    message: slackOk
-      ? `Slack within budget (${summary.slack} <= ${slackBudget})`
-      : `Selection exceeds slack budget (allowed ${slackBudget}, actual ${summary.slack})`,
-    details: {
-      slack: summary.slack,
-      allowedSlack: slackBudget,
-    },
-  });
-
-  if (tables.length > 1 && summary.zoneId === null) {
-    checks.push({
-      id: 'zone',
-      status: 'error',
-      message: 'Tables must belong to the same zone for manual assignment',
-    });
-  } else {
-    checks.push({
-      id: 'zone',
-      status: 'ok',
-      message: `Zone ${summary.zoneId} validated`,
-    });
-  }
-
-  if (tables.length > 1) {
-    const allMovable = tables.every(
-      (table) =>
-        deriveTableRules({ capacity: table.capacity, mobility: table.mobility }).canBeMerged,
-    );
-    checks.push({
-      id: 'movable',
-      status: allMovable ? 'ok' : 'error',
-      message: allMovable ? 'All tables are movable' : 'Merged assignments require movable tables',
-    });
-  } else {
-    checks.push({
-      id: 'movable',
-      status: 'ok',
-      message: 'Single table selection',
-    });
-  }
-
-  if (tables.length > 1) {
-    const adjacencyMode = getAllocatorAdjacencyMode();
-    const evaluation = evaluateAdjacencyGraph(
-      tables.map((table) => table.id),
-      adjacency,
-    );
-    const adjacencyOk = isAdjacencySatisfied(evaluation, adjacencyMode);
-    const failureMessage =
-      adjacencyMode === 'pairwise'
-        ? 'Tables must be adjacent to every other selected table'
-        : adjacencyMode === 'neighbors'
-          ? 'Tables must share a common neighbor/hub to be merged'
-          : 'Tables must remain connected when adjacency enforcement is enabled';
-    checks.push({
-      id: 'adjacency',
-      status: adjacencyOk ? 'ok' : 'error',
-      message: adjacencyOk
-        ? `Tables satisfy ${summarizeAdjacencyStatus(evaluation, tables.length)} adjacency`
-        : failureMessage,
-      details: {
-        mode: adjacencyMode,
-        status: summarizeAdjacencyStatus(evaluation, tables.length),
-      },
-    });
-  } else {
-    checks.push({
-      id: 'adjacency',
-      status: 'ok',
-      message: 'Single table selection',
-      details: {
-        mode: 'off',
-      },
-    });
-  }
-
-  checks.push({
-    id: 'conflict',
-    status: conflicts.length === 0 && holdConflicts.length === 0 ? 'ok' : 'error',
-    message:
-      conflicts.length === 0 && holdConflicts.length === 0
-        ? 'No conflicting assignments'
-        : 'Existing assignments or holds conflict with selection',
-    details: {
-      conflicts,
-      holdConflicts,
-    },
-  });
-
-  checks.push({
-    id: 'holds',
-    status: holdConflicts.length === 0 ? 'ok' : 'error',
-    message:
-      holdConflicts.length === 0 ? 'No holds blocking selection' : 'Tables currently on hold',
-    details: {
-      holds: holdConflicts,
-    },
-  });
-
-  return checks;
-}
 
 export async function evaluateManualSelection(
   options: ManualSelectionOptions,
@@ -308,44 +70,13 @@ export async function evaluateManualSelection(
     skipSoftHolds = false,
   } = options;
 
-  if (!Array.isArray(tableIds) || tableIds.length === 0) {
-    throw new ManualSelectionInputError('At least one table must be selected', 'TABLES_REQUIRED');
-  }
+  assertManualTableIds(tableIds);
 
   const supabase = ensureClient(client);
-  const booking = await loadBooking(bookingId, supabase);
-  const restaurantTimezone =
-    (booking.restaurants && !Array.isArray(booking.restaurants)
-      ? booking.restaurants.timezone
-      : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-    getVenuePolicy().timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
-  const policy = getVenuePolicy({
-    timezone: restaurantTimezone ?? undefined,
-    turnBandsByOption,
+  const { booking, policy, policyVersion, window } = await loadManualBookingContext({
+    bookingId,
+    client: supabase,
   });
-  const policyVersion = hashPolicyVersion(policy);
-
-  let window: BookingWindow;
-  try {
-    ({ window } = computeBookingWindowWithFallback({
-      startISO: booking.start_at,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      partySize: booking.party_size,
-      bookingOption: booking.booking_type ?? null,
-      policy,
-    }));
-  } catch (error) {
-    if (error instanceof ServiceOverrunError) {
-      // Surface a structured 422 that the API layer can return to the client
-      // rather than bubbling a 500. Keeps math unchanged while avoiding crashes
-      // in manual context fetches for after-hours/overrun bookings.
-      throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
-    }
-    throw error;
-  }
 
   // =========================================================================
   // SOFT-HOLD ACQUISITION (always enabled)
@@ -362,99 +93,42 @@ export async function evaluateManualSelection(
   let softHoldResult: SoftHoldAcquisitionResult | null = null;
 
   if (!skipSoftHolds) {
-    try {
-      softHoldResult = await acquireSoftHolds({
-        tableIds,
-        window: {
-          startAt: toIsoUtc(window.block.start),
-          endAt: toIsoUtc(window.block.end),
-        },
-        restaurantId: booking.restaurant_id,
-        bookingId,
-        client: supabase,
-      });
-    } catch (error) {
-      if (error instanceof SoftHoldConflictError) {
-        // Transform soft-hold conflict into a user-friendly error
-        const blockedTableIds = error.blockedTables.map((t) => t.tableId);
-        throw new ManualSelectionInputError(
-          `Table(s) ${blockedTableIds.join(', ')} are currently being selected by another operator. Please try again in a few seconds.`,
-          'SOFT_HOLD_CONFLICT',
-          409,
-        );
-      }
-      // Soft-hold acquisition is required to prevent race conditions
-      // If the RPC fails, we must fail the operation to ensure data integrity
-      throw new ManualSelectionInputError(
-        'Unable to acquire table lock. Please try again.',
-        'SOFT_HOLD_UNAVAILABLE',
-        503,
-      );
-    }
+    softHoldResult = await acquireManualSoftHolds({
+      tableIds,
+      window,
+      restaurantId: booking.restaurant_id,
+      bookingId,
+      client: supabase,
+    });
   }
 
   try {
     const selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
-    if (selectionTables.length !== tableIds.length) {
-      throw new ManualSelectionInputError(
-        'One or more selected tables were not found',
-        'TABLE_LOOKUP_FAILED',
-      );
-    }
-
-    const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
-
-    const contextBookings = await loadContextBookings(
-      booking.restaurant_id,
-      booking.booking_date ?? null,
-      supabase,
-      {
-        startIso: toIsoUtc(window.block.start),
-        endIso: toIsoUtc(window.block.end),
-      },
-    );
-    let holds: TableHold[] = [];
-    if (isHoldsEnabled()) {
-      try {
-        holds = await listActiveHoldsForBooking({ bookingId, client: supabase });
-      } catch {
-        holds = [];
-      }
-    }
-
-    const busy = buildBusyMaps({
-      targetBookingId: bookingId,
-      bookings: contextBookings,
-      holds,
-      excludeHoldId,
-      policy,
-      targetWindow: window,
+    assertManualTablesLoaded({
+      loadedCount: selectionTables.length,
+      message: 'One or more selected tables were not found',
+      requestedCount: tableIds.length,
     });
 
-    const conflicts = extractConflictsForTables(busy, tableIds, window);
-    let holdConflicts: HoldConflictInfo[] = [];
-    try {
-      holdConflicts = await findHoldConflicts({
-        restaurantId: booking.restaurant_id,
-        tableIds,
-        startAt: toIsoUtc(window.block.start),
-        endAt: toIsoUtc(window.block.end),
-        excludeHoldId,
-        client: supabase,
-      });
-    } catch {
-      holdConflicts = [];
-    }
+    const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
+    const { conflicts, holdConflicts } = await loadManualValidationConflictContext({
+      bookingDate: booking.booking_date ?? null,
+      bookingId,
+      client: supabase,
+      excludeHoldId,
+      holdsEnabled: isHoldsEnabled(),
+      policy,
+      restaurantId: booking.restaurant_id,
+      tableIds,
+      window,
+    });
 
     const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
     const summary = summarizeSelection(selectionTables, booking.party_size);
-    if (booking.assigned_zone_id && summary.zoneId && booking.assigned_zone_id !== summary.zoneId) {
-      throw new ManualSelectionInputError(
-        `Booking is locked to zone ${booking.assigned_zone_id}; selected zone ${summary.zoneId} is not allowed`,
-        'ZONE_LOCKED',
-        409,
-      );
-    }
+    assertBookingZoneAllowsManualSelection({
+      assignedZoneId: booking.assigned_zone_id,
+      summary,
+    });
 
     const slackBudget = resolveManualSlackBudget();
     const checks = buildManualChecks({
@@ -471,9 +145,10 @@ export async function evaluateManualSelection(
 
     // If validation fails, release soft-holds
     if (!ok && softHoldResult) {
-      await releaseSoftHolds({ sessionToken: softHoldResult.sessionToken, client: supabase }).catch(
-        () => {},
-      );
+      await releaseManualSoftHoldsQuietly({
+        sessionToken: softHoldResult.sessionToken,
+        client: supabase,
+      });
       softHoldResult = null;
     }
 
@@ -494,9 +169,10 @@ export async function evaluateManualSelection(
   } catch (error) {
     // If anything throws after acquisition, release soft-holds to avoid leaking locks
     if (softHoldResult) {
-      await releaseSoftHolds({ sessionToken: softHoldResult.sessionToken, client: supabase }).catch(
-        () => {},
-      );
+      await releaseManualSoftHoldsQuietly({
+        sessionToken: softHoldResult.sessionToken,
+        client: supabase,
+      });
     }
     throw error;
   }
@@ -531,67 +207,21 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   // If a session token is provided, verify ownership
   if (sessionToken) {
     try {
-      const booking = await loadBooking(bookingId, supabase);
-      const restaurantTimezone =
-        (booking.restaurants && !Array.isArray(booking.restaurants)
-          ? booking.restaurants.timezone
-          : null) ??
-        (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-        getVenuePolicy().timezone;
-      const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
-      const policy = getVenuePolicy({
-        timezone: restaurantTimezone ?? undefined,
-        turnBandsByOption,
+      const { window } = await loadManualBookingContext({
+        bookingId,
+        client: supabase,
       });
 
-      let window: BookingWindow;
-      try {
-        ({ window } = computeBookingWindowWithFallback({
-          startISO: booking.start_at,
-          bookingDate: booking.booking_date,
-          startTime: booking.start_time,
-          partySize: booking.party_size,
-          bookingOption: booking.booking_type ?? null,
-          policy,
-        }));
-      } catch (error) {
-        if (error instanceof ServiceOverrunError) {
-          throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
-        }
-        throw error;
-      }
-
-      try {
-        await checkSoftHoldOwnership({
-          sessionToken,
-          tableIds,
-          window: {
-            startAt: toIsoUtc(window.block.start),
-            endAt: toIsoUtc(window.block.end),
-          },
-          client: supabase,
-        });
-      } catch (error) {
-        if (error instanceof SoftHoldExpiredError) {
-          // Soft-hold expired, return a user-friendly error
-          throw new ManualSelectionInputError(
-            'Your table selection has expired. Please re-select the tables.',
-            'SOFT_HOLD_EXPIRED',
-            409,
-          );
-        }
-        // Soft-hold ownership verification is required to prevent race conditions
-        // If the check fails, we must fail the operation to ensure data integrity
-        throw new ManualSelectionInputError(
-          'Unable to verify table lock. Please re-select the tables.',
-          'SOFT_HOLD_VERIFICATION_FAILED',
-          503,
-        );
-      }
+      await verifyManualSoftHoldOwnership({
+        sessionToken,
+        tableIds,
+        window,
+        client: supabase,
+      });
     } catch (error) {
       // Release soft-holds on any failure during ownership verification
       // This prevents tables from being locked until TTL expires
-      await releaseSoftHolds({ sessionToken, client: supabase }).catch(() => {});
+      await releaseManualSoftHoldsQuietly({ sessionToken, client: supabase });
       throw error;
     }
   }
@@ -609,7 +239,7 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   if (!validation.ok || !validation.summary) {
     // Release soft-holds on validation failure
     if (sessionToken) {
-      await releaseSoftHolds({ sessionToken, client: supabase }).catch(() => {});
+      await releaseManualSoftHoldsQuietly({ sessionToken, client: supabase });
     }
     return {
       hold: null,
@@ -623,69 +253,42 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
   // Helper to release soft-holds on error - prevents leaking locks on failures
   const releaseSoftHoldsOnError = async () => {
     if (effectiveSessionToken) {
-      await releaseSoftHolds({ sessionToken: effectiveSessionToken, client: supabase }).catch(
-        () => {},
-      );
+      await releaseManualSoftHoldsQuietly({
+        sessionToken: effectiveSessionToken,
+        client: supabase,
+      });
     }
   };
 
-  let booking: Awaited<ReturnType<typeof loadBooking>>;
-  let restaurantTimezone: string | null;
-  let policy: VenuePolicy;
+  let booking: Awaited<ReturnType<typeof loadManualBookingContext>>['booking'];
   let policyVersion: string;
-  let window: BookingWindow;
+  let window: Awaited<ReturnType<typeof loadManualBookingContext>>['window'];
   let selectionTables: Awaited<ReturnType<typeof loadTablesByIds>>;
   let zoneIdValue: string;
 
   try {
-    booking = await loadBooking(bookingId, supabase);
-    restaurantTimezone =
-      (booking.restaurants && !Array.isArray(booking.restaurants)
-        ? booking.restaurants.timezone
-        : null) ??
-      (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-      getVenuePolicy().timezone;
-    const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
-    policy = getVenuePolicy({
-      timezone: restaurantTimezone ?? undefined,
-      turnBandsByOption,
+    const manualContext = await loadManualBookingContext({
+      bookingId,
+      client: supabase,
     });
+    booking = manualContext.booking;
+    window = manualContext.window;
     policyVersion =
       typeof (validation as { policyVersion?: string }).policyVersion === 'string'
         ? (validation as { policyVersion?: string }).policyVersion!
-        : hashPolicyVersion(policy);
-
-    try {
-      ({ window } = computeBookingWindowWithFallback({
-        startISO: booking.start_at,
-        bookingDate: booking.booking_date,
-        startTime: booking.start_time,
-        partySize: booking.party_size,
-        bookingOption: booking.booking_type ?? null,
-        policy,
-      }));
-    } catch (error) {
-      if (error instanceof ServiceOverrunError) {
-        throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
-      }
-      throw error;
-    }
+        : manualContext.policyVersion;
 
     selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
-    if (selectionTables.length !== tableIds.length) {
-      throw new ManualSelectionInputError(
-        'Selected tables could not be loaded',
-        'TABLE_LOOKUP_FAILED',
-      );
-    }
+    assertManualTablesLoaded({
+      loadedCount: selectionTables.length,
+      message: 'Selected tables could not be loaded',
+      requestedCount: tableIds.length,
+    });
 
-    zoneIdValue = validation.summary.zoneId ?? selectionTables[0]?.zoneId ?? '';
-    if (!zoneIdValue) {
-      throw new ManualSelectionInputError(
-        'Unable to determine zone for selected tables',
-        'ZONE_REQUIRED',
-      );
-    }
+    zoneIdValue = resolveManualSelectionZoneId({
+      summary: validation.summary,
+      tables: selectionTables,
+    });
   } catch (error) {
     // Release soft-holds on any failure before hold creation
     // This prevents tables from being locked until TTL expires
@@ -701,50 +304,11 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })) ??
     toIsoUtc(window.block.start.plus({ minutes: 2 }));
 
-  // Compute adjacency/zone snapshot for freeze semantics
-  // =============================================
-  // IMPORTANT: Adjacency snapshots are ONLY created when adjacency is required.
-  // This prevents unnecessary validation errors during hold confirmation when
-  // tables don't need to be adjacent (e.g., manual assignment with requireAdjacency=false).
-  //
-  // When requireAdjacency = true:
-  //   - Capture adjacency edges and compute hash
-  //   - Store in hold metadata for validation during confirmation
-  //
-  // When requireAdjacency = false:
-  //   - Skip snapshot creation (snapshot = null)
-  //   - Hold confirmation will skip adjacency validation
-  // =============================================
-  let adjacencySnapshot: string | null = null;
-  let normalizedEdges: string[] = [];
-  let adjacencyUndirected = false;
-  const zoneIds = Array.from(new Set(selectionTables.map((t) => t.zoneId))).filter(
-    Boolean,
-  ) as string[];
-
-  if (requireAdjacency) {
-    const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
-    adjacencyUndirected = isAdjacencyQueryUndirected();
-    const edgeSet = new Set<string>();
-    for (const a of tableIds) {
-      const neighbors = adjacency.get(a);
-      if (!neighbors) continue;
-      for (const b of neighbors) {
-        if (!tableIds.includes(b)) continue;
-        const key = adjacencyUndirected
-          ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join('->')
-          : `${a}->${b}`;
-        edgeSet.add(key);
-      }
-    }
-    normalizedEdges = Array.from(edgeSet).sort();
-    adjacencySnapshot = computePayloadChecksum({
-      undirected: adjacencyUndirected,
-      edges: normalizedEdges,
-    });
-  }
-
-  const holdPayload: CreateTableHoldInput = {
+  const holdPayload = buildManualTableHoldPayload({
+    adjacency: requireAdjacency
+      ? await loadAdjacency(booking.restaurant_id, tableIds, supabase)
+      : new Map(),
+    adjacencyUndirected: requireAdjacency === true ? isAdjacencyQueryUndirected() : false,
     bookingId,
     restaurantId: booking.restaurant_id,
     zoneId: zoneIdValue,
@@ -753,41 +317,29 @@ export async function createManualHold(options: ManualHoldOptions): Promise<Manu
     endAt: endAtIso,
     expiresAt,
     createdBy,
-    metadata: {
-      selection: {
-        tableIds,
-        summary: validation.summary,
-        snapshot: requireAdjacency
-          ? {
-              zoneIds,
-              adjacency: {
-                undirected: adjacencyUndirected,
-                edges: normalizedEdges,
-                hash: adjacencySnapshot,
-              },
-            }
-          : null,
-      },
-      policyVersion,
-      requireAdjacency, // Store the requirement for later validation
-    },
+    policyVersion,
+    requireAdjacency,
+    summary: validation.summary,
+    tables: selectionTables,
     client: supabase,
-  };
+  });
 
   const hold = await createTableHold(holdPayload);
 
   // Release soft-holds after successful hold creation
   // The real hold now protects the tables, so soft-holds are no longer needed
   if (effectiveSessionToken) {
-    await releaseSoftHolds({ sessionToken: effectiveSessionToken, client: supabase }).catch(
-      (error) => {
+    await releaseManualSoftHolds({
+      sessionToken: effectiveSessionToken,
+      client: supabase,
+      onError: (error) => {
         console.warn('[capacity][manual] Failed to release soft-holds after hold creation', {
           bookingId,
           holdId: hold.id,
           error: error instanceof Error ? error.message : String(error),
         });
       },
-    );
+    });
   }
 
   if (excludeHoldId) {
@@ -815,36 +367,10 @@ export async function getManualAssignmentContext(options: {
 }): Promise<ManualAssignmentContext> {
   const { bookingId, client } = options;
   const supabase = ensureClient(client);
-  const booking = await loadBooking(bookingId, supabase);
-
-  const restaurantTimezone =
-    (booking.restaurants && !Array.isArray(booking.restaurants)
-      ? booking.restaurants.timezone
-      : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-    getVenuePolicy().timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
-  const policy = getVenuePolicy({
-    timezone: restaurantTimezone ?? undefined,
-    turnBandsByOption,
+  const { booking, policy, policyVersion, window } = await loadManualBookingContext({
+    bookingId,
+    client: supabase,
   });
-
-  let window: BookingWindow;
-  try {
-    ({ window } = computeBookingWindowWithFallback({
-      startISO: booking.start_at,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      partySize: booking.party_size,
-      bookingOption: booking.booking_type ?? null,
-      policy,
-    }));
-  } catch (error) {
-    if (error instanceof ServiceOverrunError) {
-      throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
-    }
-    throw error;
-  }
 
   const tables = await loadTablesForRestaurant(booking.restaurant_id, supabase);
   const adjacency = await loadAdjacency(
@@ -856,17 +382,17 @@ export async function getManualAssignmentContext(options: {
     booking.restaurant_id,
     booking.booking_date ?? null,
     supabase,
-    {
-      startIso: toIsoUtc(window.block.start),
-      endIso: toIsoUtc(window.block.end),
-    },
+    buildManualWindowQuery(window),
   );
 
   let holds: ManualAssignmentContextHold[] = [];
   if (isHoldsEnabled()) {
     try {
       const rawHolds = await fetchHoldsForWindow(booking.restaurant_id, window, supabase);
-      holds = await hydrateHoldMetadata(rawHolds, supabase);
+      holds = await hydrateManualAssignmentContextHolds({
+        client: supabase,
+        holds: rawHolds,
+      });
     } catch (error: unknown) {
       const code = extractErrorCode(error);
       if (code === '42P01') {
@@ -883,25 +409,20 @@ export async function getManualAssignmentContext(options: {
     }
   }
 
-  const busy = buildBusyMaps({
-    targetBookingId: bookingId,
-    bookings: contextBookings,
-    holds,
-    policy,
-    targetWindow: window,
-  });
-
   const bookingAssignments = await loadTableAssignmentsForTables(
     bookingId,
     tables.map((table) => table.id),
     supabase,
   );
 
-  const conflicts = extractConflictsForTables(
-    busy,
-    tables.map((table) => table.id),
+  const conflicts = buildManualAssignmentConflicts({
+    bookings: contextBookings,
+    holds,
+    policy,
+    tableIds: tables.map((table) => table.id),
+    targetBookingId: bookingId,
     window,
-  );
+  });
 
   const activeHold = holds.find((hold) => hold.bookingId === bookingId) ?? null;
 
@@ -911,21 +432,14 @@ export async function getManualAssignmentContext(options: {
     adjacencyRequired: isAllocatorAdjacencyRequired(),
     adjacencyUndirected: isAdjacencyQueryUndirected(),
   };
-  const policyVersion = hashPolicyVersion(policy);
-  const tableVersion = buildTableVersion(tables);
-  const adjacencyVersion = buildAdjacencyVersion(adjacency);
-  const holdsVersion = buildHoldsVersion(holds);
-  const assignmentsVersion = buildAssignmentsVersion(bookingAssignments.map((row) => row.table_id));
-  const flagsVersion = buildFlagsVersion(flags);
-  const windowVersion = buildWindowVersion(window);
-  const contextVersion = computePayloadChecksum({
-    holds: holdsVersion,
-    assignments: assignmentsVersion,
-    flags: flagsVersion,
-    window: windowVersion,
-    policy: policyVersion,
-    adjacency: adjacencyVersion,
-    tables: tableVersion,
+  const versions = buildManualAssignmentContextVersions({
+    adjacency,
+    assignments: bookingAssignments.map((row) => row.table_id),
+    flags,
+    holds,
+    policyVersion,
+    tables,
+    window,
   });
   const serverNow = toIsoUtc(DateTime.now());
 
@@ -941,53 +455,11 @@ export async function getManualAssignmentContext(options: {
       endAt: toIsoUtc(window.block.end),
     },
     flags,
-    contextVersion,
+    contextVersion: versions.context,
     policyVersion,
-    versions: {
-      context: contextVersion,
-      policy: policyVersion,
-      window: windowVersion,
-      flags: flagsVersion,
-      tables: tableVersion,
-      adjacency: adjacencyVersion,
-      holds: holdsVersion,
-      assignments: assignmentsVersion,
-    },
+    versions,
     serverNow,
   };
-}
-
-async function hydrateHoldMetadata(
-  holds: TableHold[],
-  client: DbClient,
-): Promise<ManualAssignmentContextHold[]> {
-  if (holds.length === 0) {
-    return [];
-  }
-  const creatorIds = Array.from(
-    new Set(holds.map((hold) => hold.createdBy).filter((value): value is string => Boolean(value))),
-  );
-
-  let creators: Array<{ id: string; name: string | null; email: string | null }> = [];
-  if (creatorIds.length > 0) {
-    const { data, error } = await client
-      .from('profiles')
-      .select('id, name, email')
-      .in('id', creatorIds);
-
-    if (!error && data) {
-      creators = data as Array<{ id: string; name: string | null; email: string | null }>;
-    }
-  }
-
-  return holds.map((hold) => {
-    const creator = creators.find((profile) => profile.id === hold.createdBy);
-    return {
-      ...hold,
-      createdByName: creator?.name ?? null,
-      createdByEmail: creator?.email ?? null,
-    };
-  });
 }
 
 /**
@@ -1019,135 +491,70 @@ export async function instantTableAssignment(
   const supabase = ensureClient(client);
 
   // === STEP 1: Load booking first, then selection tables ===
-  const booking = await loadBooking(bookingId, supabase);
+  const { booking, policy, policyVersion, window } = await loadManualBookingContext({
+    bookingId,
+    client: supabase,
+  });
   const selectionTables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
 
-  if (selectionTables.length !== tableIds.length) {
-    throw new ManualSelectionInputError(
-      'One or more selected tables were not found',
-      'TABLE_LOOKUP_FAILED',
-    );
-  }
-
-  const unavailableTables = findUnavailableTables(selectionTables);
-  if (unavailableTables.length > 0) {
-    const names = unavailableTables.map((t) => t.tableNumber || t.id).join(', ');
-    throw new ManualSelectionInputError(
-      `Selected tables are inactive or in a disabled zone: ${names}`,
-      'RESOURCE_DISABLED',
-      409,
-    );
-  }
-
-  const restaurantTimezone =
-    (booking.restaurants && !Array.isArray(booking.restaurants)
-      ? booking.restaurants.timezone
-      : null) ??
-    (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
-    getVenuePolicy().timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
-  const policy = getVenuePolicy({
-    timezone: restaurantTimezone ?? undefined,
-    turnBandsByOption,
+  assertManualTablesLoaded({
+    loadedCount: selectionTables.length,
+    message: 'One or more selected tables were not found',
+    requestedCount: tableIds.length,
   });
-  const policyVersion = hashPolicyVersion(policy);
 
-  let window: BookingWindow;
-  try {
-    ({ window } = computeBookingWindowWithFallback({
-      startISO: booking.start_at,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      partySize: booking.party_size,
-      bookingOption: booking.booking_type ?? null,
-      policy,
-    }));
-  } catch (error) {
-    if (error instanceof ServiceOverrunError) {
-      throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
-    }
-    throw error;
-  }
+  assertManualSelectionTablesAvailable(selectionTables);
 
   // Acquire soft-holds before validation to prevent concurrent selection races.
   let softHoldResult: SoftHoldAcquisitionResult | null = null;
-  try {
-    softHoldResult = await acquireSoftHolds({
-      tableIds,
-      window: {
-        startAt: toIsoUtc(window.block.start),
-        endAt: toIsoUtc(window.block.end),
-      },
-      restaurantId: booking.restaurant_id,
-      bookingId,
-      client: supabase,
-    });
-  } catch (error) {
-    if (error instanceof SoftHoldConflictError) {
-      const blockedTableIds = error.blockedTables.map((t) => t.tableId);
-      throw new ManualSelectionInputError(
-        `Table(s) ${blockedTableIds.join(', ')} are currently being selected by another operator. Please try again in a few seconds.`,
-        'SOFT_HOLD_CONFLICT',
-        409,
-      );
-    }
-
-    throw new ManualSelectionInputError(
-      'Unable to acquire table lock. Please try again.',
-      'SOFT_HOLD_UNAVAILABLE',
-      503,
-    );
-  }
+  softHoldResult = await acquireManualSoftHolds({
+    tableIds,
+    window,
+    restaurantId: booking.restaurant_id,
+    bookingId,
+    client: supabase,
+  });
 
   try {
     // === STEP 2: Run validation checks in PARALLEL ===
     const requireAdjacency = resolveRequireAdjacency(booking.party_size, requireAdjacencyOverride);
     const summary = summarizeSelection(selectionTables, booking.party_size);
 
-    if (booking.assigned_zone_id && summary.zoneId && booking.assigned_zone_id !== summary.zoneId) {
-      throw new ManualSelectionInputError(
-        `Booking is locked to zone ${booking.assigned_zone_id}; selected zone ${summary.zoneId} is not allowed`,
-        'ZONE_LOCKED',
-        409,
-      );
-    }
+    assertBookingZoneAllowsManualSelection({
+      assignedZoneId: booking.assigned_zone_id,
+      summary,
+    });
 
     // Load adjacency, context, and holds in PARALLEL
     const [adjacency, contextBookings, activeHolds] = await Promise.all([
       requireAdjacency
         ? loadAdjacency(booking.restaurant_id, tableIds, supabase)
         : Promise.resolve(new Map<string, Set<string>>()),
-      loadContextBookings(booking.restaurant_id, booking.booking_date ?? null, supabase, {
-        startIso: toIsoUtc(window.block.start),
-        endIso: toIsoUtc(window.block.end),
-      }),
+      loadContextBookings(
+        booking.restaurant_id,
+        booking.booking_date ?? null,
+        supabase,
+        buildManualWindowQuery(window),
+      ),
       fetchHoldsForWindow(booking.restaurant_id, window, supabase),
     ]);
 
-    // Build busy maps and extract conflicts
-    const busyMaps = buildBusyMaps({
-      targetBookingId: bookingId,
+    const conflicts = buildManualAssignmentConflicts({
       bookings: contextBookings,
       holds: activeHolds,
       excludeHoldId,
       policy,
-      targetWindow: window,
+      tableIds,
+      targetBookingId: bookingId,
+      window,
     });
-    const conflicts = extractConflictsForTables(busyMaps, tableIds, window);
-
-    let holdConflicts: HoldConflictInfo[] = [];
-    try {
-      holdConflicts = await findHoldConflicts({
-        restaurantId: booking.restaurant_id,
-        tableIds,
-        startAt: toIsoUtc(window.block.start),
-        endAt: toIsoUtc(window.block.end),
-        excludeHoldId,
-        client: supabase,
-      });
-    } catch {
-      holdConflicts = [];
-    }
+    const holdConflicts = await findManualHoldConflicts({
+      client: supabase,
+      excludeHoldId,
+      restaurantId: booking.restaurant_id,
+      tableIds,
+      window,
+    });
 
     const slackBudget = resolveManualSlackBudget();
     const checks = buildManualChecks({
@@ -1177,44 +584,15 @@ export async function instantTableAssignment(
       toIsoUtc(DateTime.now().plus({ seconds: holdTtlSeconds })) ??
       toIsoUtc(window.block.start.plus({ minutes: 2 }));
 
-    const zoneIdValue = summary.zoneId ?? selectionTables[0]?.zoneId;
-    if (!zoneIdValue) {
-      throw new ManualSelectionInputError(
-        'Unable to determine zone for selected tables',
-        'ZONE_REQUIRED',
-      );
-    }
+    const zoneIdValue = resolveManualSelectionZoneId({
+      summary,
+      tables: selectionTables,
+    });
 
-    // Compute adjacency snapshot only if required
-    let adjacencySnapshot: string | null = null;
-    let normalizedEdges: string[] = [];
-    let adjacencyUndirected = false;
-    const zoneIds = Array.from(new Set(selectionTables.map((t) => t.zoneId))).filter(
-      Boolean,
-    ) as string[];
-
-    if (requireAdjacency) {
-      adjacencyUndirected = isAdjacencyQueryUndirected();
-      const edgeSet = new Set<string>();
-      for (const a of tableIds) {
-        const neighbors = adjacency.get(a);
-        if (!neighbors) continue;
-        for (const b of neighbors) {
-          if (!tableIds.includes(b)) continue;
-          const key = adjacencyUndirected
-            ? ([a, b].sort((x, y) => x.localeCompare(y)) as [string, string]).join('->')
-            : `${a}->${b}`;
-          edgeSet.add(key);
-        }
-      }
-      normalizedEdges = Array.from(edgeSet).sort();
-      adjacencySnapshot = computePayloadChecksum({
-        undirected: adjacencyUndirected,
-        edges: normalizedEdges,
-      });
-    }
-
-    const holdPayload: CreateTableHoldInput = {
+    const holdPayload = buildManualTableHoldPayload({
+      adjacency,
+      adjacencyUndirected: requireAdjacency === true ? isAdjacencyQueryUndirected() : false,
+      assignedBy,
       bookingId,
       restaurantId: booking.restaurant_id,
       zoneId: zoneIdValue,
@@ -1223,43 +601,30 @@ export async function instantTableAssignment(
       endAt: endAtIso,
       expiresAt,
       createdBy,
-      metadata: {
-        selection: {
-          tableIds,
-          summary: summary,
-          snapshot: requireAdjacency
-            ? {
-                zoneIds,
-                adjacency: {
-                  undirected: adjacencyUndirected,
-                  edges: normalizedEdges,
-                  hash: adjacencySnapshot,
-                },
-              }
-            : null,
-        },
-        policyVersion,
-        requireAdjacency,
-        instantAssignment: true, // Flag to indicate this was an instant assignment
-        assignedBy,
-      },
+      instantAssignment: true,
+      policyVersion,
+      requireAdjacency,
+      summary,
+      tables: selectionTables,
       client: supabase,
-    };
+    });
 
     const hold = await createTableHold(holdPayload);
 
     // Release soft-holds after successful hold creation.
     // The real hold now protects the tables.
     if (softHoldResult) {
-      await releaseSoftHolds({ sessionToken: softHoldResult.sessionToken, client: supabase }).catch(
-        (releaseError) => {
+      await releaseManualSoftHolds({
+        sessionToken: softHoldResult.sessionToken,
+        client: supabase,
+        onError: (releaseError) => {
           console.warn('[capacity][manual][instant] Failed to release soft-holds', {
             bookingId,
             holdId: hold.id,
             error: releaseError instanceof Error ? releaseError.message : String(releaseError),
           });
         },
-      );
+      });
     }
 
     // Release old hold if specified (don't wait for it)
@@ -1289,9 +654,10 @@ export async function instantTableAssignment(
   } catch (error) {
     // Release soft-holds on any failure to avoid leaking locks
     if (softHoldResult) {
-      await releaseSoftHolds({ sessionToken: softHoldResult.sessionToken, client: supabase }).catch(
-        () => {},
-      );
+      await releaseManualSoftHoldsQuietly({
+        sessionToken: softHoldResult.sessionToken,
+        client: supabase,
+      });
     }
     throw error;
   }

@@ -1,15 +1,18 @@
 import { expect, test } from '@playwright/test';
 
+import { buildFutureBookingDate } from './helpers/future-booking';
+
 const appBaseUrl = 'http://localhost:5180';
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const bookingReference = 'NB1234';
-const bookingDate = '2026-02-10';
+const futureBooking = buildFutureBookingDate();
+const bookingDate = futureBooking.isoDate;
 const bookingStartTime = '19:00';
 const bookingEndTime = '20:30';
-const bookingStartIso = '2026-02-10T19:00:00.000Z';
-const bookingEndIso = '2026-02-10T20:30:00.000Z';
+const bookingStartIso = futureBooking.startIsoUtc;
+const bookingEndIso = futureBooking.endIsoUtc;
 const restaurantTimezone = 'Europe/London';
 
 type BookingState = {
@@ -228,12 +231,14 @@ test.describe('guest booking management', () => {
     await page.getByRole('button', { name: 'Modify Details' }).click();
     await page.getByLabel('Notes (optional)').fill('Updated note for the team');
     await page.getByRole('button', { name: 'Save changes' }).click();
-    await expect(page.getByText('Booking updated')).toBeVisible();
+    await expect(
+      page.locator('#main-content').getByText('Updated note for the team'),
+    ).toBeVisible();
 
     await page.getByRole('button', { name: 'Cancel Booking' }).click();
     await expect(page.getByRole('heading', { name: 'Cancel this booking?' })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel booking' }).click();
-    await expect(page.getByText('Booking cancelled')).toBeVisible();
+    await expect(page.getByText('Cancelled')).toBeVisible();
   });
 
   test('legacy manage route redirects to booking detail', async ({ page }) => {

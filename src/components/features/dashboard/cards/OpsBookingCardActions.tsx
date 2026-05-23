@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-import type { OpsBookingCardActionsViewModel } from './opsBookingCardUtils';
+import type { OpsBookingCardActionsViewModel } from './opsBookingCardActionPolicy';
 
 export type OpsBookingCardActionsProps = {
   actions: OpsBookingCardActionsViewModel;

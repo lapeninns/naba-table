@@ -1,92 +1,29 @@
-import { bucketForFieldState } from './dual-sync/heatmap';
-import { fieldNeedsOperatorChoice } from './dual-sync/workspace-progress';
+import {
+  EMPTY_GBP_DRIFT_SECTION_STATUS,
+  EMPTY_GBP_DRIFT_SECTION_STATUSES,
+  EMPTY_GBP_DRIFT_SETTINGS_SECTION_REVIEW_COUNTS,
+  GBP_DRIFT_SECTION_KEYS,
+  type DeriveGbpDriftStatusInput,
+  type GbpDriftStatus,
+} from './gbpDriftStatusModel';
+import {
+  buildGbpDriftSectionStatuses,
+  buildGbpDriftSettingsSectionReviewCounts,
+  mergeGbpDriftSectionStatuses,
+} from './gbpDriftStatusSections';
 
-import type { DualSyncSectionKey } from '@/server/dual-sync';
-import type { DualSyncFieldSummary, GetDualSyncStateResponse } from '@/services/ops/dual-sync';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
-export type GbpDriftStatusKind =
-  | 'no_profile'
-  | 'not_connected'
-  | 'connected_with_review'
-  | 'connected_outdated'
-  | 'synced'
-  | 'unknown';
-
-export type GbpDriftBadgeTone = 'default' | 'secondary' | 'destructive' | 'outline' | 'metric';
-
-export type GbpDriftSectionStatus = {
-  readonly fieldCount: number;
-  readonly inSyncCount: number;
-  readonly needsReviewCount: number;
-  readonly pendingCount: number;
-  readonly failedCount: number;
-  readonly conflictCount: number;
-  readonly driftCount: number;
-};
-
-export type GbpDriftSettingsSection = 'profile' | 'availability' | 'menu' | 'googleBusinessProfile';
-
-export type GbpDriftStatus = GbpDriftSectionStatus & {
-  readonly kind: GbpDriftStatusKind;
-  readonly label: string;
-  readonly shortLabel: string;
-  readonly detail: string;
-  readonly badgeTone: GbpDriftBadgeTone;
-  readonly isLoading: boolean;
-  readonly isError: boolean;
-  readonly isLinked: boolean;
-  readonly lastCheckedAt: string | null;
-  readonly sectionStatuses: Readonly<Record<DualSyncSectionKey, GbpDriftSectionStatus>>;
-  readonly sectionReviewCounts: Readonly<Record<GbpDriftSettingsSection, number>>;
-};
-
-export type DeriveGbpDriftStatusInput = {
-  readonly restaurantId: string | null;
-  readonly connection: GoogleBusinessProfileConnection | null | undefined;
-  readonly connectionLoading?: boolean;
-  readonly connectionError?: Error | null;
-  readonly dualSyncState: GetDualSyncStateResponse | null | undefined;
-  readonly dualSyncLoading?: boolean;
-  readonly dualSyncError?: Error | null;
-  readonly now?: Date;
-};
-
-export const GBP_DRIFT_SECTION_KEYS: ReadonlyArray<DualSyncSectionKey> = [
-  'profile',
-  'operatingHours',
-  'servicePeriods',
-  'businessContext.categories',
-  'businessContext.serviceAreas',
-  'businessContext.attributes',
-  'businessContext.serviceItems',
-  'foodMenus',
-];
-
-const EMPTY_SECTION_STATUS: GbpDriftSectionStatus = {
-  fieldCount: 0,
-  inSyncCount: 0,
-  needsReviewCount: 0,
-  pendingCount: 0,
-  failedCount: 0,
-  conflictCount: 0,
-  driftCount: 0,
-};
-
-export const EMPTY_GBP_DRIFT_SECTION_STATUSES: Readonly<Record<
-  DualSyncSectionKey,
-  GbpDriftSectionStatus
->> = GBP_DRIFT_SECTION_KEYS.reduce(
-  (acc, sectionKey) => ({ ...acc, [sectionKey]: EMPTY_SECTION_STATUS }),
-  {} as Record<DualSyncSectionKey, GbpDriftSectionStatus>,
-);
-
-const EMPTY_SETTINGS_SECTION_REVIEW_COUNTS: Readonly<Record<GbpDriftSettingsSection, number>> = {
-  profile: 0,
-  availability: 0,
-  menu: 0,
-  googleBusinessProfile: 0,
-};
+export { EMPTY_GBP_DRIFT_SECTION_STATUSES, GBP_DRIFT_SECTION_KEYS } from './gbpDriftStatusModel';
+export { mergeGbpDriftSectionStatuses } from './gbpDriftStatusSections';
+export type {
+  DeriveGbpDriftStatusInput,
+  GbpDriftBadgeTone,
+  GbpDriftSectionStatus,
+  GbpDriftSettingsSection,
+  GbpDriftStatus,
+  GbpDriftStatusKind,
+} from './gbpDriftStatusModel';
 
 function isIncompleteConnection(status: GoogleBusinessProfileConnection['status'] | undefined) {
   return (
@@ -100,7 +37,7 @@ function isIncompleteConnection(status: GoogleBusinessProfileConnection['status'
 
 function emptyStatus(overrides: Partial<GbpDriftStatus>): GbpDriftStatus {
   return {
-    ...EMPTY_SECTION_STATUS,
+    ...EMPTY_GBP_DRIFT_SECTION_STATUS,
     kind: 'unknown',
     label: 'Google status unknown',
     shortLabel: 'Unknown',
@@ -111,74 +48,9 @@ function emptyStatus(overrides: Partial<GbpDriftStatus>): GbpDriftStatus {
     isLinked: false,
     lastCheckedAt: null,
     sectionStatuses: EMPTY_GBP_DRIFT_SECTION_STATUSES,
-    sectionReviewCounts: EMPTY_SETTINGS_SECTION_REVIEW_COUNTS,
+    sectionReviewCounts: EMPTY_GBP_DRIFT_SETTINGS_SECTION_REVIEW_COUNTS,
     ...overrides,
   };
-}
-
-function summarizeFields(fields: ReadonlyArray<DualSyncFieldSummary>): GbpDriftSectionStatus {
-  let inSyncCount = 0;
-  let needsReviewCount = 0;
-  let pendingCount = 0;
-  let failedCount = 0;
-  let conflictCount = 0;
-  let driftCount = 0;
-
-  for (const field of fields) {
-    const bucket = bucketForFieldState(field.state);
-    if (bucket === 'in_sync') inSyncCount += 1;
-    if (bucket === 'pending') pendingCount += 1;
-    if (bucket === 'failed') failedCount += 1;
-    if (bucket === 'conflict') conflictCount += 1;
-    if (bucket === 'drift') driftCount += 1;
-    if (fieldNeedsOperatorChoice(field)) needsReviewCount += 1;
-  }
-
-  return {
-    fieldCount: fields.length,
-    inSyncCount,
-    needsReviewCount,
-    pendingCount,
-    failedCount,
-    conflictCount,
-    driftCount,
-  };
-}
-
-function mergeSectionStatuses(
-  statuses: ReadonlyArray<GbpDriftSectionStatus>,
-): GbpDriftSectionStatus {
-  return statuses.reduce<GbpDriftSectionStatus>(
-    (acc, status) => ({
-      fieldCount: acc.fieldCount + status.fieldCount,
-      inSyncCount: acc.inSyncCount + status.inSyncCount,
-      needsReviewCount: acc.needsReviewCount + status.needsReviewCount,
-      pendingCount: acc.pendingCount + status.pendingCount,
-      failedCount: acc.failedCount + status.failedCount,
-      conflictCount: acc.conflictCount + status.conflictCount,
-      driftCount: acc.driftCount + status.driftCount,
-    }),
-    EMPTY_SECTION_STATUS,
-  );
-}
-
-function buildSectionStatuses(fields: ReadonlyArray<DualSyncFieldSummary>) {
-  const grouped = new Map<DualSyncSectionKey, DualSyncFieldSummary[]>();
-  for (const field of fields) {
-    if (!GBP_DRIFT_SECTION_KEYS.includes(field.sectionKey as DualSyncSectionKey)) {
-      continue;
-    }
-    const sectionKey = field.sectionKey as DualSyncSectionKey;
-    grouped.set(sectionKey, [...(grouped.get(sectionKey) ?? []), field]);
-  }
-
-  return GBP_DRIFT_SECTION_KEYS.reduce(
-    (acc, sectionKey) => ({
-      ...acc,
-      [sectionKey]: summarizeFields(grouped.get(sectionKey) ?? []),
-    }),
-    {} as Record<DualSyncSectionKey, GbpDriftSectionStatus>,
-  );
 }
 
 function isSnapshotStale(timestamp: string | null, now: Date) {
@@ -190,36 +62,6 @@ function isSnapshotStale(timestamp: string | null, now: Date) {
     return true;
   }
   return now.getTime() - parsed >= 24 * 60 * 60 * 1000;
-}
-
-export function mergeGbpDriftSectionStatuses(
-  sectionStatuses: Readonly<Record<DualSyncSectionKey, GbpDriftSectionStatus>>,
-  sectionKeys: ReadonlyArray<DualSyncSectionKey>,
-): GbpDriftSectionStatus {
-  return mergeSectionStatuses(sectionKeys.map((sectionKey) => sectionStatuses[sectionKey]));
-}
-
-function buildSettingsSectionReviewCounts(
-  sectionStatuses: Readonly<Record<DualSyncSectionKey, GbpDriftSectionStatus>>,
-): Readonly<Record<GbpDriftSettingsSection, number>> {
-  const profileDiscovery = mergeGbpDriftSectionStatuses(sectionStatuses, [
-    'profile',
-    'businessContext.categories',
-    'businessContext.serviceAreas',
-    'businessContext.attributes',
-    'businessContext.serviceItems',
-  ]);
-  const availability = mergeGbpDriftSectionStatuses(sectionStatuses, [
-    'operatingHours',
-    'servicePeriods',
-  ]);
-
-  return {
-    profile: profileDiscovery.needsReviewCount,
-    availability: availability.needsReviewCount,
-    menu: sectionStatuses.foodMenus.needsReviewCount,
-    googleBusinessProfile: mergeSectionStatuses(Object.values(sectionStatuses)).needsReviewCount,
-  };
 }
 
 export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDriftStatus {
@@ -262,9 +104,9 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
   }
 
   const fields = input.dualSyncState?.fields ?? [];
-  const sectionStatuses = buildSectionStatuses(fields);
-  const overall = mergeSectionStatuses(Object.values(sectionStatuses));
-  const sectionReviewCounts = buildSettingsSectionReviewCounts(sectionStatuses);
+  const sectionStatuses = buildGbpDriftSectionStatuses(fields);
+  const overall = mergeGbpDriftSectionStatuses(sectionStatuses, GBP_DRIFT_SECTION_KEYS);
+  const sectionReviewCounts = buildGbpDriftSettingsSectionReviewCounts(sectionStatuses);
   const lastCheckedAt =
     input.dualSyncState?.lastSnapshot?.finishedAt ??
     input.dualSyncState?.lastSnapshot?.startedAt ??
@@ -295,7 +137,8 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
       kind: 'connected_outdated',
       label: 'Google check needed',
       shortLabel: 'Check Google',
-      detail: input.dualSyncError?.message ?? input.connection?.lastError ?? 'Refresh Google status.',
+      detail:
+        input.dualSyncError?.message ?? input.connection?.lastError ?? 'Refresh Google status.',
       badgeTone: 'destructive',
       isLoading: false,
       isError: isDualSyncError,

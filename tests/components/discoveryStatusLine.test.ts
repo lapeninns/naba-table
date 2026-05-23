@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDiscoveryStatus } from '@/components/features/restaurant-settings/discovery/DiscoveryPanelChrome';
+import {
+  buildDiscoverySaveBoundaryState,
+  DISCOVERY_SAVE_BOUNDARIES,
+  formatDiscoveryStatus,
+  getDiscoverySyncPosture,
+} from '@/components/features/restaurant-settings/discovery/discoveryPanelChromeDomain';
 
 describe('formatDiscoveryStatus', () => {
   it('hides suggested zero when GBP is disconnected', () => {
@@ -34,5 +39,38 @@ describe('formatDiscoveryStatus', () => {
         gbpLinked: true,
       }),
     ).toBe('Saved 0 · Suggested 3 · Pre-filled from Google until you save');
+  });
+
+  it('keeps save boundary copy stable by family', () => {
+    expect(DISCOVERY_SAVE_BOUNDARIES).toMatchObject({
+      businessDetails: 'This saves profile basics only.',
+      links: 'This saves discovery links only.',
+      categories: 'This saves dining categories only.',
+      serviceAreas: 'This saves service areas only.',
+      attributes: 'This saves amenities only.',
+      serviceItems: 'This saves services only.',
+    });
+  });
+
+  it('builds save boundary badge state for chrome rendering', () => {
+    expect(
+      buildDiscoverySaveBoundaryState({
+        family: 'links',
+        dirty: true,
+        saved: false,
+        hasError: true,
+      }),
+    ).toEqual({
+      boundaryText: 'This saves discovery links only.',
+      dirty: true,
+      saved: false,
+      hasError: true,
+    });
+  });
+
+  it('looks up sync posture by family', () => {
+    expect(getDiscoverySyncPosture('serviceItems')).toBe(
+      'Use services to describe optional offers beyond the standard reservation flow.',
+    );
   });
 });

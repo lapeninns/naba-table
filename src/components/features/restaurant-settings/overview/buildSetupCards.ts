@@ -97,6 +97,8 @@ export function summarizeRequiredSetup(cards: SetupCard[]) {
   };
 }
 
+export type RequiredSetupSummary = ReturnType<typeof summarizeRequiredSetup>;
+
 export function buildSetupCards({
   profileComplete,
   profileDetail,

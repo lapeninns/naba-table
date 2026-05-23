@@ -7,48 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { opsHref } from '@/lib/url/opsHref';
 
+import { type FamilyKey, type SeedSource } from '../businessContextModel';
 import {
-  SYNC_POSTURE,
-  formatSeedSource,
-  type FamilyKey,
-  type SeedSource,
-} from '../businessContextModel';
+  buildDiscoverySaveBoundaryState,
+  formatDiscoveryStatus,
+  getDiscoverySyncPosture,
+} from './discoveryPanelChromeDomain';
 import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
 
 import type { RestaurantBusinessContextEditor } from '../useRestaurantBusinessContextEditor';
 import type { ReactNode } from 'react';
-
-const DISCOVERY_SAVE_BOUNDARIES: Record<FamilyKey, string> = {
-  businessDetails: 'This saves profile basics only.',
-  links: 'This saves discovery links only.',
-  categories: 'This saves dining categories only.',
-  serviceAreas: 'This saves service areas only.',
-  attributes: 'This saves amenities only.',
-  serviceItems: 'This saves services only.',
-};
-
-export function formatDiscoveryStatus({
-  coreCount,
-  providerCount,
-  seedSource,
-  gbpLinked,
-}: {
-  coreCount: number;
-  providerCount: number;
-  seedSource: SeedSource[FamilyKey];
-  gbpLinked: boolean;
-}): string {
-  if (!gbpLinked) {
-    return `Saved ${coreCount} · Connect Google Business Profile to import suggestions`;
-  }
-  if (providerCount === 0) {
-    return `Saved ${coreCount} · No Google suggestions for this section`;
-  }
-  return `Saved ${coreCount} · Suggested ${providerCount} · ${formatSeedSource(
-    seedSource,
-    providerCount,
-  )}`;
-}
 
 export function DiscoveryStatusLine({
   family,
@@ -67,7 +35,7 @@ export function DiscoveryStatusLine({
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm font-medium text-foreground">{SYNC_POSTURE[family]}</p>
+      <p className="text-sm font-medium text-foreground">{getDiscoverySyncPosture(family)}</p>
       <p className="text-xs text-muted-foreground">
         {gbpLinked ? (
           status
@@ -94,16 +62,23 @@ export function DiscoverySaveBoundary({
   family: FamilyKey;
   editor: RestaurantBusinessContextEditor;
 }) {
+  const state = buildDiscoverySaveBoundaryState({
+    family,
+    dirty: editor.dirty[family],
+    saved: editor.savedFamily === family,
+    hasError: Boolean(editor.errors[family]),
+  });
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {editor.dirty[family] ? <Badge variant="secondary">Dirty</Badge> : null}
-      {editor.savedFamily === family ? (
+      {state.dirty ? <Badge variant="secondary">Dirty</Badge> : null}
+      {state.saved ? (
         <Badge variant="outline" role="status">
           Saved
         </Badge>
       ) : null}
-      {editor.errors[family] ? <Badge variant="destructive">Error</Badge> : null}
-      <span className="text-xs text-muted-foreground">{DISCOVERY_SAVE_BOUNDARIES[family]}</span>
+      {state.hasError ? <Badge variant="destructive">Error</Badge> : null}
+      <span className="text-xs text-muted-foreground">{state.boundaryText}</span>
     </div>
   );
 }

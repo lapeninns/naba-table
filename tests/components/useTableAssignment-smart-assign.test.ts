@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const source = fs.readFileSync(
   path.join(
     process.cwd(),
-    'src/components/features/dashboard/booking-details/hooks/useTableAssignment.ts',
+    'src/components/features/dashboard/booking-details/hooks/useTableAssignmentMutations.ts',
   ),
   'utf8',
 );

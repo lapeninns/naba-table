@@ -1,46 +1,28 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import {
+  DEFAULT_OPS_BOOKINGS_FILTER,
+  filterVisibleOpsBookingsStatuses,
+  resolveOpsBookingsDate,
+  resolveOpsBookingsInitialStatuses,
+  resolveOpsBookingsStatusFilter,
+  resolveOpsBookingsTime,
+  resolveOpsBookingsView,
+  resolveOpsBookingsWindowMinutes,
+  resolveOpsBookingsWindowMode,
+  shouldShowOpsBookingsReset,
+} from '@/components/features/bookings/opsBookingsQueryDomain';
+import { useOpsBookingsQueryActions } from '@/components/features/bookings/useOpsBookingsQueryActions';
+import { useOpsBookingsQuerySync } from '@/components/features/bookings/useOpsBookingsQuerySync';
 import {
   useOpsBookingsTableState,
   type OpsStatusFilter,
 } from '@/hooks/ops/useOpsBookingsTableState';
-import { getTodayInTimezone } from '@/lib/utils/datetime';
-import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES, sanitizeTimeParam } from '@/utils/ops/bookings';
-import { sanitizeDateParam } from '@/utils/ops/dashboard';
 
 import type { OpsBookingsClientStateParams, OpsBookingsWindowMode } from './opsBookingsTypes';
-import type { StatusFilter } from '@/hooks/useBookingsTableState';
 import type { OpsBookingStatus } from '@/types/ops';
-
-const DEFAULT_FILTER: OpsStatusFilter = 'upcoming';
-const MIN_WINDOW_MINUTES = 15;
-const MAX_WINDOW_MINUTES = 240;
-
-function isValidStatusFilter(
-  value: string | null,
-  listableStatuses: OpsBookingStatus[],
-): value is OpsStatusFilter {
-  if (!value) return false;
-  return ['all', 'upcoming', 'past', 'cancelled', 'recent', ...listableStatuses].includes(value);
-}
-
-function parseStatusesParam(
-  value: string | null,
-  listableStatuses: OpsBookingStatus[],
-  fallback: OpsBookingStatus[],
-): OpsBookingStatus[] {
-  if (!value) return fallback;
-
-  return value
-    .split(',')
-    .map((status) => status.trim())
-    .filter((status): status is OpsBookingStatus =>
-      listableStatuses.includes(status as OpsBookingStatus),
-    );
-}
 
 export function useOpsBookingsQueryState(
   params: OpsBookingsClientStateParams & {
@@ -65,20 +47,16 @@ export function useOpsBookingsQueryState(
     listableStatuses,
     restaurantTimezone,
   } = params;
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [, startTransition] = useTransition();
-
-  const opsBasePath = pathname?.startsWith('/app') ? '/app' : '';
-  const searchParamsKey = searchParams?.toString() ?? '';
-  const urlParams = useMemo(() => new URLSearchParams(searchParamsKey), [searchParamsKey]);
+  const { opsBasePath, urlParams, updateSearchParams } = useOpsBookingsQuerySync({
+    activeRestaurantId,
+    isOnline,
+  });
 
   const focusBookingId = urlParams.get('focus') ?? null;
   const resolvedTableId = urlParams.get('tableId') ?? initialTableId ?? null;
   const resolvedTableLabel = urlParams.get('tableLabel') ?? initialTableLabel ?? null;
-  const urlDate = sanitizeDateParam(urlParams.get('date') ?? initialDate);
-  const resolvedTime = sanitizeTimeParam(urlParams.get('time') ?? initialTime) ?? null;
+  const urlDate = resolveOpsBookingsDate(urlParams, initialDate);
+  const resolvedTime = resolveOpsBookingsTime(urlParams, initialTime);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(() => urlDate);
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -94,38 +72,31 @@ export function useOpsBookingsQueryState(
   const hydratedFocusBookingId = hasHydrated ? focusBookingId : null;
 
   const resolvedWindowMode = useMemo<OpsBookingsWindowMode>(() => {
-    const raw = urlParams.get('windowMode');
-    if (raw === 'day' || raw === 'window') return raw;
-    if (initialWindowMode === 'day' || initialWindowMode === 'window') return initialWindowMode;
-    return resolvedTableId && resolvedTime ? 'window' : 'day';
+    return resolveOpsBookingsWindowMode({
+      initialWindowMode,
+      params: urlParams,
+      resolvedTableId,
+      resolvedTime,
+    });
   }, [initialWindowMode, resolvedTableId, resolvedTime, urlParams]);
 
   const resolvedWindowMinutes = useMemo(() => {
-    const fallback =
-      typeof initialWindowMinutes === 'number'
-        ? initialWindowMinutes
-        : DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
-    const raw = urlParams.get('windowMinutes');
-    if (!raw) return fallback;
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isNaN(parsed)) return fallback;
-    if (parsed < MIN_WINDOW_MINUTES || parsed > MAX_WINDOW_MINUTES) return fallback;
-    return parsed;
+    return resolveOpsBookingsWindowMinutes({ initialWindowMinutes, params: urlParams });
   }, [initialWindowMinutes, urlParams]);
 
-  const effectiveFilter =
-    (isValidStatusFilter(urlParams.get('filter'), listableStatuses)
-      ? (urlParams.get('filter') as OpsStatusFilter)
-      : null) ??
-    initialFilter ??
-    (initialDate ? 'all' : DEFAULT_FILTER);
+  const effectiveFilter = resolveOpsBookingsStatusFilter({
+    initialDate,
+    initialFilter,
+    listableStatuses,
+    params: urlParams,
+  });
   const sanitizedInitialStatuses = useMemo(
     () =>
-      parseStatusesParam(
-        urlParams.get('statuses'),
+      resolveOpsBookingsInitialStatuses({
+        initialStatuses,
         listableStatuses,
-        (initialStatuses ?? []).filter((status) => listableStatuses.includes(status)),
-      ),
+        params: urlParams,
+      }),
     [initialStatuses, listableStatuses, urlParams],
   );
 
@@ -149,206 +120,42 @@ export function useOpsBookingsQueryState(
 
   const defaultView = selectedDate ? 'all' : 'upcoming';
   const view = useMemo(() => {
-    switch (statusFilter) {
-      case 'recent':
-      case 'upcoming':
-      case 'all':
-      case 'past':
-      case 'cancelled':
-        return statusFilter;
-      default:
-        return defaultView;
-    }
+    return resolveOpsBookingsView({ defaultView, statusFilter });
   }, [defaultView, statusFilter]);
 
   const visibleSelectedStatuses = useMemo(
-    () => selectedStatuses.filter((status) => listableStatuses.includes(status)),
+    () => filterVisibleOpsBookingsStatuses(selectedStatuses, listableStatuses),
     [listableStatuses, selectedStatuses],
   );
 
-  const updateSearchParams = useCallback(
-    (updates: Record<string, string | null>) => {
-      if (!isOnline) {
-        return;
-      }
+  const defaultStatusFilter: OpsStatusFilter = selectedDate ? 'all' : DEFAULT_OPS_BOOKINGS_FILTER;
 
-      const nextParams = new URLSearchParams(searchParamsKey);
-      nextParams.delete('page');
-      nextParams.delete('pageSize');
-      nextParams.delete('status');
+  const shouldShowReset = shouldShowOpsBookingsReset({
+    focusBookingId: hydratedFocusBookingId,
+    resolvedTableId,
+    resolvedTime,
+    search,
+    selectedDate,
+    statusFilter,
+    defaultStatusFilter,
+    visibleSelectedStatuses,
+  });
 
-      for (const [key, value] of Object.entries(updates)) {
-        if (value === null || value === '') {
-          nextParams.delete(key);
-        } else {
-          nextParams.set(key, value);
-        }
-      }
-
-      const nextQuery = nextParams.toString();
-      if (nextQuery === searchParamsKey) {
-        return;
-      }
-
-      startTransition(() => {
-        router.replace(`${pathname}${nextQuery ? `?${nextQuery}` : ''}`, { scroll: false });
-      });
-    },
-    [isOnline, pathname, router, searchParamsKey],
-  );
-
-  useEffect(() => {
-    if (!activeRestaurantId || !isOnline) {
-      return;
-    }
-
-    const currentParam = urlParams.get('restaurantId');
-    if (currentParam === activeRestaurantId) {
-      return;
-    }
-
-    updateSearchParams({ restaurantId: activeRestaurantId });
-  }, [activeRestaurantId, isOnline, updateSearchParams, urlParams]);
-
-  useEffect(() => {
-    if (!isOnline) return;
-    if (urlParams.get('page') || urlParams.get('pageSize') || urlParams.get('status')) {
-      updateSearchParams({});
-    }
-  }, [isOnline, updateSearchParams, urlParams]);
-
-  const defaultStatusFilter: OpsStatusFilter = selectedDate ? 'all' : DEFAULT_FILTER;
-
-  const handleViewChange = useCallback(
-    (nextView: OpsStatusFilter) => {
-      handleStatusFilterChange(nextView);
-      updateSearchParams({
-        filter: nextView === defaultStatusFilter ? null : nextView,
-      });
-    },
-    [defaultStatusFilter, handleStatusFilterChange, updateSearchParams],
-  );
-
-  const handleWindowModeChange = useCallback(
-    (value: string) => {
-      if (!value || (value !== 'day' && value !== 'window')) return;
-      updateSearchParams({
-        windowMode: value,
-        windowMinutes: value === 'window' ? String(resolvedWindowMinutes) : null,
-      });
-    },
-    [resolvedWindowMinutes, updateSearchParams],
-  );
-
-  const handleClearTableFilter = useCallback(() => {
-    updateSearchParams({
-      tableId: null,
-      tableLabel: null,
-      time: null,
-      windowMode: null,
-      windowMinutes: null,
-    });
-  }, [updateSearchParams]);
-
-  const handleSelectServiceDate = useCallback(
-    (nextDate: string) => {
-      setSelectedDate(nextDate);
-      setStatusFilter('all');
-      updateSearchParams({
-        date: nextDate,
-        filter: null,
-      });
-    },
-    [setStatusFilter, updateSearchParams],
-  );
-
-  const handleTodayServiceDate = useCallback(() => {
-    const tz = restaurantTimezone ?? 'UTC';
-    handleSelectServiceDate(getTodayInTimezone(tz));
-  }, [handleSelectServiceDate, restaurantTimezone]);
-
-  const handleClearServiceDate = useCallback(() => {
-    setSelectedDate(null);
-    setStatusFilter(DEFAULT_FILTER);
-    updateSearchParams({
-      date: null,
-      filter: null,
-      time: null,
-      windowMode: null,
-      windowMinutes: null,
-    });
-  }, [setStatusFilter, updateSearchParams]);
-
-  const handleToggleStatus = useCallback(
-    (status: OpsBookingStatus) => {
-      toggleSelectedStatus(status);
-      const exists = visibleSelectedStatuses.includes(status);
-      const next = exists
-        ? visibleSelectedStatuses.filter((value) => value !== status)
-        : [...visibleSelectedStatuses, status];
-      const normalized = Array.from(new Set(next));
-      updateSearchParams({
-        statuses: normalized.length > 0 ? normalized.join(',') : null,
-      });
-    },
-    [toggleSelectedStatus, updateSearchParams, visibleSelectedStatuses],
-  );
-
-  const handleClearStatuses = useCallback(() => {
-    clearSelectedStatuses();
-    updateSearchParams({ statuses: null });
-  }, [clearSelectedStatuses, updateSearchParams]);
-
-  const shouldShowReset =
-    search.trim().length > 0 ||
-    visibleSelectedStatuses.length > 0 ||
-    Boolean(selectedDate) ||
-    Boolean(resolvedTableId) ||
-    Boolean(resolvedTime) ||
-    Boolean(hydratedFocusBookingId) ||
-    statusFilter !== defaultStatusFilter;
-
-  const handleReset = useCallback(() => {
-    setSearch('');
-    setStatusFilter(DEFAULT_FILTER);
-    clearSelectedStatuses();
-    setSelectedDate(null);
-
-    updateSearchParams({
-      filter: null,
-      statuses: null,
-      query: null,
-      date: null,
-      tableId: null,
-      tableLabel: null,
-      time: null,
-      windowMode: null,
-      windowMinutes: null,
-      focus: null,
-    });
-  }, [clearSelectedStatuses, setSearch, setStatusFilter, updateSearchParams]);
-
-  const handleStatusFilterSelect = useCallback(
-    (next: StatusFilter) => handleViewChange(next as OpsStatusFilter),
-    [handleViewChange],
-  );
-
-  const handleSearchInput = useCallback(
-    (value: string) => {
-      handleSearchChange(value);
-    },
-    [handleSearchChange],
-  );
-
-  useEffect(() => {
-    const trimmed = deferredSearch.trim();
-    updateSearchParams({ query: trimmed.length > 0 ? trimmed : null });
-  }, [deferredSearch, updateSearchParams]);
-
-  const clearFocusParam = useCallback(
-    () => updateSearchParams({ focus: null }),
-    [updateSearchParams],
-  );
+  const queryActions = useOpsBookingsQueryActions({
+    clearSelectedStatuses,
+    defaultStatusFilter,
+    deferredSearch,
+    handleSearchChange,
+    handleStatusFilterChange,
+    resolvedWindowMinutes,
+    restaurantTimezone,
+    setSearch,
+    setSelectedDate,
+    setStatusFilter,
+    toggleSelectedStatus,
+    updateSearchParams,
+    visibleSelectedStatuses,
+  });
 
   return {
     opsBasePath,
@@ -366,17 +173,6 @@ export function useOpsBookingsQueryState(
     visibleSelectedStatuses,
     view,
     shouldShowReset,
-    handleViewChange,
-    handleWindowModeChange,
-    handleClearTableFilter,
-    handleSelectServiceDate,
-    handleTodayServiceDate,
-    handleClearServiceDate,
-    handleSearchInput,
-    handleToggleStatus,
-    handleClearStatuses,
-    handleReset,
-    handleStatusFilterSelect,
-    clearFocusParam,
+    ...queryActions,
   } as const;
 }

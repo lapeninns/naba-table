@@ -1,0 +1,101 @@
+'use client';
+
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+
+import {
+  BUSINESS_DETAILS_OPENING_DATE_FIELD,
+  BUSINESS_DETAILS_SERVICE_AREA_FIELD,
+  BUSINESS_DETAILS_STATUS_FIELD,
+  BUSINESS_DETAILS_STATUS_OPTIONS,
+} from './businessDetailsPanelDomain';
+
+import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
+
+export function BusinessDetailsForm({ editor }: { editor: RestaurantBusinessContextEditor }) {
+  return (
+    <div className="space-y-4 rounded-xl border border-border/60 p-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor={BUSINESS_DETAILS_OPENING_DATE_FIELD.id}>
+            {BUSINESS_DETAILS_OPENING_DATE_FIELD.label}
+          </Label>
+          <Input
+            id={BUSINESS_DETAILS_OPENING_DATE_FIELD.id}
+            type={BUSINESS_DETAILS_OPENING_DATE_FIELD.type}
+            value={editor.businessDetails.openingDate}
+            onChange={(event) =>
+              editor.updateBusinessDetails(
+                BUSINESS_DETAILS_OPENING_DATE_FIELD.field,
+                event.target.value,
+              )
+            }
+          />
+          <p className="text-xs leading-5 text-muted-foreground">
+            {BUSINESS_DETAILS_OPENING_DATE_FIELD.helperText}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={BUSINESS_DETAILS_STATUS_FIELD.id}>
+            {BUSINESS_DETAILS_STATUS_FIELD.label}
+          </Label>
+          <Select
+            value={editor.businessDetails.businessStatus}
+            onValueChange={(value) =>
+              editor.updateBusinessDetails(
+                'businessStatus',
+                value as (typeof BUSINESS_DETAILS_STATUS_OPTIONS)[number]['value'],
+              )
+            }
+          >
+            <SelectTrigger
+              id={BUSINESS_DETAILS_STATUS_FIELD.id}
+              aria-label={BUSINESS_DETAILS_STATUS_FIELD.label}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {BUSINESS_DETAILS_STATUS_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {BUSINESS_DETAILS_STATUS_FIELD.helperText}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3 border-t border-border/60 pt-4">
+        <Switch
+          id={BUSINESS_DETAILS_SERVICE_AREA_FIELD.id}
+          checked={editor.businessDetails.isServiceAreaBusiness}
+          onCheckedChange={(checked) =>
+            editor.updateBusinessDetails(BUSINESS_DETAILS_SERVICE_AREA_FIELD.field, checked)
+          }
+        />
+        <div className="space-y-1">
+          <Label htmlFor={BUSINESS_DETAILS_SERVICE_AREA_FIELD.id}>
+            {BUSINESS_DETAILS_SERVICE_AREA_FIELD.label}
+          </Label>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {BUSINESS_DETAILS_SERVICE_AREA_FIELD.helperText}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

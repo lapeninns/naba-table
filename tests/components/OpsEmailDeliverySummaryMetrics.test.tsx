@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { OpsEmailDeliverySummaryMetrics } from '@/components/features/email-delivery/components/OpsEmailDeliverySummaryMetrics';
 
@@ -56,5 +56,49 @@ describe('OpsEmailDeliverySummaryMetrics', () => {
     render(<OpsEmailDeliverySummaryMetrics summary={null} isLoading={false} isUpdating={false} />);
     expect(screen.getByText('Metrics unavailable')).toBeInTheDocument();
     expect(screen.getByText(/attempt list is still available/i)).toBeInTheDocument();
+  });
+
+  it('wires filter callbacks for clickable primary metrics', async () => {
+    const user = userEvent.setup();
+    const onFilterStatus = vi.fn();
+
+    render(
+      <OpsEmailDeliverySummaryMetrics
+        summary={{
+          total: 10,
+          sent: 2,
+          delivered: 5,
+          deliveryDelayed: 1,
+          bounced: 1,
+          complained: 0,
+          failed: 1,
+          deliveredRate: 0.5,
+          failureRate: 0.2,
+          uniqueRecipients: 7,
+          uniqueBookings: 6,
+          p50DeliverySeconds: 42,
+          p95DeliverySeconds: 120,
+          topFailedTemplates: [],
+          topFailedEmailTypes: [],
+        }}
+        isLoading={false}
+        isUpdating={false}
+        onFilterStatus={onFilterStatus}
+      />,
+    );
+
+    await user.click(
+      screen.getByTestId('email-metric-total').closest('button') as HTMLButtonElement,
+    );
+    await user.click(
+      screen.getByTestId('email-metric-delivered').closest('button') as HTMLButtonElement,
+    );
+    await user.click(
+      screen.getByTestId('email-metric-delayed').closest('button') as HTMLButtonElement,
+    );
+
+    expect(onFilterStatus).toHaveBeenNthCalledWith(1, null);
+    expect(onFilterStatus).toHaveBeenNthCalledWith(2, 'delivered');
+    expect(onFilterStatus).toHaveBeenNthCalledWith(3, 'delivery_delayed');
   });
 });

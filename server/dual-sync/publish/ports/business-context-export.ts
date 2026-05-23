@@ -22,18 +22,27 @@
 import { patchRestaurantGoogleBusinessProfileLocationFields } from '@/server/google-business-profile/service';
 
 import {
+  BUSINESS_CONTEXT_EXPORT_PREFIX,
+  buildBusinessContextExportSuccess,
+  markBusinessContextBatchPatchFailure,
+  planBusinessContextAttributeBatch,
+  planBusinessContextListMergeBatch,
+  planBusinessContextSingleAttributeExport,
+  planBusinessContextSingleListExport,
+  resolveBusinessContextExportFieldConfig,
+} from './business-context-export-domain';
+import {
   buildGoogleAttribute,
   buildGoogleCategoriesPatch,
   buildGoogleServiceAreaPatch,
   buildGoogleServiceItemsPatch,
   normalizeAttributeName,
 } from './google-patch-builders';
-import { hashCanonicalJson } from '../../hashing';
-import { buildRegistry, findFieldConfig } from '../../registry';
+import { buildRegistry } from '../../registry';
 import { slugifyDisplay } from '../../registry/normalizers';
 
+import type { BusinessContextListMergeAdapter } from './business-context-export-domain';
 import type {
-  DualSyncAttributeValue,
   DualSyncCategoryValue,
   DualSyncServiceAreaValue,
   DualSyncServiceItemValue,
@@ -45,37 +54,6 @@ import type {
   DualSyncOperationResult,
 } from '../types';
 
-const PREFIX = {
-  category: 'businessContext.categories.',
-  serviceArea: 'businessContext.serviceAreas.',
-  attribute: 'businessContext.attributes.',
-  serviceItem: 'businessContext.serviceItems.',
-} as const;
-
-function parseSlug(fieldKey: string, prefix: string): string | null {
-  if (!fieldKey.startsWith(prefix)) return null;
-  const tail = fieldKey.slice(prefix.length);
-  return tail.length > 0 ? tail : null;
-}
-
-function failedPort(message: string, retryable = false): DualSyncOperationResult {
-  return {
-    status: 'failed',
-    failure: { code: 'PORT_FAILURE', message, retryable },
-  };
-}
-
-function failedRegistry(fieldKey: string): DualSyncOperationResult {
-  return {
-    status: 'failed',
-    failure: {
-      code: 'INVALID_DECISION',
-      message: `Field ${fieldKey} is not in the registry.`,
-      retryable: false,
-    },
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------
@@ -83,40 +61,37 @@ function failedRegistry(fieldKey: string): DualSyncOperationResult {
 export async function applyBusinessContextCategoryExportToGoogle(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const slug = parseSlug(ctx.decision.fieldKey, PREFIX.category);
-  if (!slug) return failedPort(`Categories export port does not handle ${ctx.decision.fieldKey}.`);
-
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
-
-  const coreEntry =
-    ctx.coreSnapshot.businessContext?.categories.find(
-      (c) => slugifyDisplay(c.displayName) === slug,
-    ) ?? null;
-
-  if (!coreEntry) {
-    return failedPort(`Core snapshot is missing category ${slug}; cannot export.`, false);
-  }
-
-  const googleList = ctx.gbpSnapshot.businessContext?.categories ?? [];
-  const others = googleList.filter((c) => slugifyDisplay(c.displayName) !== slug);
-  const merged: ReadonlyArray<DualSyncCategoryValue> = [...others, coreEntry];
+  const plan = planBusinessContextSingleListExport<DualSyncCategoryValue>(
+    {
+      fieldKey: ctx.decision.fieldKey,
+      registry,
+      coreSnapshot: ctx.coreSnapshot,
+      gbpSnapshot: ctx.gbpSnapshot,
+    },
+    {
+      fieldPrefix: BUSINESS_CONTEXT_EXPORT_PREFIX.category,
+      identify: (entry) => slugifyDisplay(entry.displayName),
+      readCoreList: (snapshot) => snapshot.businessContext?.categories ?? [],
+      readGoogleList: (snapshot) => snapshot.businessContext?.categories ?? [],
+      unsupportedMessage: (fieldKey) => `Categories export port does not handle ${fieldKey}.`,
+      missingMessage: (id) => `Core snapshot is missing category ${id}; cannot export.`,
+    },
+  );
+  if (plan.status === 'failed') return plan.result;
 
   await patchRestaurantGoogleBusinessProfileLocationFields({
     restaurantId: ctx.restaurantId,
-    locationPatch: { categories: buildGoogleCategoriesPatch(merged) },
+    locationPatch: { categories: buildGoogleCategoriesPatch(plan.merged) },
     updateMask: ['categories'],
     client: ctx.client,
   });
 
-  const canonical = config.canonicalizeCoreValue([coreEntry]);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextExportSuccess(plan.config, plan.coreEntry);
 }
 
 // ---------------------------------------------------------------------------
@@ -126,41 +101,37 @@ export async function applyBusinessContextCategoryExportToGoogle(
 export async function applyBusinessContextServiceAreaExportToGoogle(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const slug = parseSlug(ctx.decision.fieldKey, PREFIX.serviceArea);
-  if (!slug) {
-    return failedPort(`Service-areas export port does not handle ${ctx.decision.fieldKey}.`);
-  }
-
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
-
-  const coreEntry =
-    ctx.coreSnapshot.businessContext?.serviceAreas.find(
-      (a) => slugifyDisplay(a.displayName) === slug,
-    ) ?? null;
-  if (!coreEntry) {
-    return failedPort(`Core snapshot is missing service area ${slug}; cannot export.`, false);
-  }
-
-  const googleList = ctx.gbpSnapshot.businessContext?.serviceAreas ?? [];
-  const others = googleList.filter((a) => slugifyDisplay(a.displayName) !== slug);
-  const merged: ReadonlyArray<DualSyncServiceAreaValue> = [...others, coreEntry];
+  const plan = planBusinessContextSingleListExport<DualSyncServiceAreaValue>(
+    {
+      fieldKey: ctx.decision.fieldKey,
+      registry,
+      coreSnapshot: ctx.coreSnapshot,
+      gbpSnapshot: ctx.gbpSnapshot,
+    },
+    {
+      fieldPrefix: BUSINESS_CONTEXT_EXPORT_PREFIX.serviceArea,
+      identify: (entry) => slugifyDisplay(entry.displayName),
+      readCoreList: (snapshot) => snapshot.businessContext?.serviceAreas ?? [],
+      readGoogleList: (snapshot) => snapshot.businessContext?.serviceAreas ?? [],
+      unsupportedMessage: (fieldKey) => `Service-areas export port does not handle ${fieldKey}.`,
+      missingMessage: (id) => `Core snapshot is missing service area ${id}; cannot export.`,
+    },
+  );
+  if (plan.status === 'failed') return plan.result;
 
   await patchRestaurantGoogleBusinessProfileLocationFields({
     restaurantId: ctx.restaurantId,
-    locationPatch: { serviceArea: buildGoogleServiceAreaPatch(merged) },
+    locationPatch: { serviceArea: buildGoogleServiceAreaPatch(plan.merged) },
     updateMask: ['serviceArea'],
     client: ctx.client,
   });
 
-  const canonical = config.canonicalizeCoreValue([coreEntry]);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextExportSuccess(plan.config, plan.coreEntry);
 }
 
 // ---------------------------------------------------------------------------
@@ -170,38 +141,28 @@ export async function applyBusinessContextServiceAreaExportToGoogle(
 export async function applyBusinessContextAttributeExportToGoogle(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const attributeKey = parseSlug(ctx.decision.fieldKey, PREFIX.attribute);
-  if (!attributeKey) {
-    return failedPort(`Attributes export port does not handle ${ctx.decision.fieldKey}.`);
-  }
-
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
-
-  const coreEntry: DualSyncAttributeValue | null =
-    ctx.coreSnapshot.businessContext?.attributes.find((a) => a.attributeKey === attributeKey) ??
-    null;
-  if (!coreEntry) {
-    return failedPort(`Core snapshot is missing attribute ${attributeKey}; cannot export.`, false);
-  }
+  const plan = planBusinessContextSingleAttributeExport({
+    fieldKey: ctx.decision.fieldKey,
+    registry,
+    coreSnapshot: ctx.coreSnapshot,
+  });
+  if (plan.status === 'failed') return plan.result;
 
   await patchRestaurantGoogleBusinessProfileLocationFields({
     restaurantId: ctx.restaurantId,
     attributesPatch: {
-      attributes: [buildGoogleAttribute(coreEntry)],
-      attributeMask: [normalizeAttributeName(coreEntry)],
+      attributes: [buildGoogleAttribute(plan.coreEntry)],
+      attributeMask: [normalizeAttributeName(plan.coreEntry)],
     },
     client: ctx.client,
   });
 
-  const canonical = config.canonicalizeCoreValue([coreEntry]);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextExportSuccess(plan.config, plan.coreEntry);
 }
 
 // ---------------------------------------------------------------------------
@@ -211,39 +172,37 @@ export async function applyBusinessContextAttributeExportToGoogle(
 export async function applyBusinessContextServiceItemExportToGoogle(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const itemKey = parseSlug(ctx.decision.fieldKey, PREFIX.serviceItem);
-  if (!itemKey) {
-    return failedPort(`Service-items export port does not handle ${ctx.decision.fieldKey}.`);
-  }
-
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
-
-  const coreEntry: DualSyncServiceItemValue | null =
-    ctx.coreSnapshot.businessContext?.serviceItems.find((s) => s.itemKey === itemKey) ?? null;
-  if (!coreEntry) {
-    return failedPort(`Core snapshot is missing service item ${itemKey}; cannot export.`, false);
-  }
-
-  const googleList = ctx.gbpSnapshot.businessContext?.serviceItems ?? [];
-  const others = googleList.filter((s) => s.itemKey !== itemKey);
-  const merged: ReadonlyArray<DualSyncServiceItemValue> = [...others, coreEntry];
+  const plan = planBusinessContextSingleListExport<DualSyncServiceItemValue>(
+    {
+      fieldKey: ctx.decision.fieldKey,
+      registry,
+      coreSnapshot: ctx.coreSnapshot,
+      gbpSnapshot: ctx.gbpSnapshot,
+    },
+    {
+      fieldPrefix: BUSINESS_CONTEXT_EXPORT_PREFIX.serviceItem,
+      identify: (entry) => entry.itemKey,
+      readCoreList: (snapshot) => snapshot.businessContext?.serviceItems ?? [],
+      readGoogleList: (snapshot) => snapshot.businessContext?.serviceItems ?? [],
+      unsupportedMessage: (fieldKey) => `Service-items export port does not handle ${fieldKey}.`,
+      missingMessage: (id) => `Core snapshot is missing service item ${id}; cannot export.`,
+    },
+  );
+  if (plan.status === 'failed') return plan.result;
 
   await patchRestaurantGoogleBusinessProfileLocationFields({
     restaurantId: ctx.restaurantId,
-    locationPatch: { serviceItems: buildGoogleServiceItemsPatch(merged) },
+    locationPatch: { serviceItems: buildGoogleServiceItemsPatch(plan.merged) },
     updateMask: ['serviceItems'],
     client: ctx.client,
   });
 
-  const canonical = config.canonicalizeCoreValue([coreEntry]);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextExportSuccess(plan.config, plan.coreEntry);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,16 +220,7 @@ export async function applyBusinessContextServiceItemExportToGoogle(
  * NOT enter the merged list; the patch still runs for the remaining
  * decisions. If no decisions are exportable, no patch call is issued.
  */
-interface ListMergeAdapter<TCore> {
-  readonly fieldPrefix: string;
-  readonly identify: (entry: TCore) => string;
-  readonly readCoreList: (
-    snapshot: DualSyncBatchExportContext['coreSnapshot'],
-  ) => ReadonlyArray<TCore>;
-  readonly readGoogleList: (
-    snapshot: DualSyncBatchExportContext['gbpSnapshot'],
-  ) => ReadonlyArray<TCore>;
-  readonly missingMessage: (id: string) => string;
+interface ListMergePortAdapter<TCore> extends BusinessContextListMergeAdapter<TCore> {
   readonly applyPatch: (args: {
     ctx: DualSyncBatchExportContext;
     merged: ReadonlyArray<TCore>;
@@ -279,10 +229,11 @@ interface ListMergeAdapter<TCore> {
 
 async function applyListMergeBatch<TCore>(
   ctx: DualSyncBatchExportContext,
-  adapter: ListMergeAdapter<TCore>,
+  adapter: ListMergePortAdapter<TCore>,
 ): Promise<DualSyncBatchExportResult> {
-  const { decisions } = ctx;
-  if (decisions.length === 0) return { supported: true, perField: {} };
+  const plan = planBusinessContextListMergeBatch(ctx, adapter);
+  if (!plan.supported) return { supported: false };
+  if (plan.exportable.length === 0) return { supported: true, perField: plan.perField };
 
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
@@ -290,88 +241,31 @@ async function applyListMergeBatch<TCore>(
     includeCoreOnly: false,
   });
 
-  const perField: Record<string, DualSyncOperationResult> = {};
-  const ids: string[] = [];
-  const idByFieldKey = new Map<string, string>();
-  const coreEntries: TCore[] = [];
-
-  for (const decision of decisions) {
-    const id = parseSlug(decision.fieldKey, adapter.fieldPrefix);
-    if (!id) return { supported: false };
-    ids.push(id);
-    idByFieldKey.set(decision.fieldKey, id);
-    const coreEntry =
-      adapter.readCoreList(ctx.coreSnapshot).find((e) => adapter.identify(e) === id) ?? null;
-    if (!coreEntry) {
-      perField[decision.fieldKey] = {
-        status: 'failed',
-        failure: {
-          code: 'PORT_FAILURE',
-          message: adapter.missingMessage(id),
-          retryable: false,
-        },
-      };
-      continue;
-    }
-    coreEntries.push(coreEntry);
-  }
-
-  if (coreEntries.length === 0) {
-    return { supported: true, perField };
-  }
-
-  const idSet = new Set(ids);
-  const others = adapter
-    .readGoogleList(ctx.gbpSnapshot)
-    .filter((e) => !idSet.has(adapter.identify(e)));
-  const merged: ReadonlyArray<TCore> = [...others, ...coreEntries];
-
   try {
-    await adapter.applyPatch({ ctx, merged });
+    await adapter.applyPatch({ ctx, merged: plan.merged });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    for (const decision of decisions) {
-      // Only fail the decisions that were going to be applied; leave the
-      // pre-existing PORT_FAILURE entries untouched.
-      if (perField[decision.fieldKey]) continue;
-      perField[decision.fieldKey] = {
-        status: 'failed',
-        failure: {
-          code: 'PORT_FAILURE',
-          message: `Batch export failed: ${message}`,
-          retryable: true,
-        },
-      };
-    }
-    return { supported: true, perField };
+    return {
+      supported: true,
+      perField: markBusinessContextBatchPatchFailure(
+        ctx.decisions,
+        plan.perField,
+        `Batch export failed: ${message}`,
+      ),
+    };
   }
 
-  for (const decision of decisions) {
-    if (perField[decision.fieldKey]) continue;
-    const id = idByFieldKey.get(decision.fieldKey);
-    if (!id) continue;
-    const coreEntry =
-      adapter.readCoreList(ctx.coreSnapshot).find((e) => adapter.identify(e) === id) ?? null;
-    if (!coreEntry) continue;
-    const config = findFieldConfig(registry, decision.fieldKey);
-    if (!config) {
-      perField[decision.fieldKey] = {
-        status: 'failed',
-        failure: {
-          code: 'INVALID_DECISION',
-          message: `Field ${decision.fieldKey} is not in the registry.`,
-          retryable: false,
-        },
-      };
+  const perField = { ...plan.perField };
+  for (const exportable of plan.exportable) {
+    const configResult = resolveBusinessContextExportFieldConfig(registry, exportable.fieldKey);
+    if (configResult.status === 'failed') {
+      perField[exportable.fieldKey] = configResult.result;
       continue;
     }
-    const canonical = config.canonicalizeCoreValue([coreEntry]);
-    const hash = hashCanonicalJson(canonical);
-    perField[decision.fieldKey] = {
-      status: 'succeeded',
-      afterCoreHash: hash,
-      afterGbpHash: hash,
-    };
+    perField[exportable.fieldKey] = buildBusinessContextExportSuccess(
+      configResult.config,
+      exportable.coreEntry,
+    );
   }
 
   return { supported: true, perField };
@@ -381,7 +275,7 @@ export async function applyBusinessContextCategoryExportBatchToGoogle(
   ctx: DualSyncBatchExportContext,
 ): Promise<DualSyncBatchExportResult> {
   return applyListMergeBatch<DualSyncCategoryValue>(ctx, {
-    fieldPrefix: PREFIX.category,
+    fieldPrefix: BUSINESS_CONTEXT_EXPORT_PREFIX.category,
     identify: (e) => slugifyDisplay(e.displayName),
     readCoreList: (s) => s.businessContext?.categories ?? [],
     readGoogleList: (s) => s.businessContext?.categories ?? [],
@@ -401,7 +295,7 @@ export async function applyBusinessContextServiceAreaExportBatchToGoogle(
   ctx: DualSyncBatchExportContext,
 ): Promise<DualSyncBatchExportResult> {
   return applyListMergeBatch<DualSyncServiceAreaValue>(ctx, {
-    fieldPrefix: PREFIX.serviceArea,
+    fieldPrefix: BUSINESS_CONTEXT_EXPORT_PREFIX.serviceArea,
     identify: (e) => slugifyDisplay(e.displayName),
     readCoreList: (s) => s.businessContext?.serviceAreas ?? [],
     readGoogleList: (s) => s.businessContext?.serviceAreas ?? [],
@@ -421,7 +315,7 @@ export async function applyBusinessContextServiceItemExportBatchToGoogle(
   ctx: DualSyncBatchExportContext,
 ): Promise<DualSyncBatchExportResult> {
   return applyListMergeBatch<DualSyncServiceItemValue>(ctx, {
-    fieldPrefix: PREFIX.serviceItem,
+    fieldPrefix: BUSINESS_CONTEXT_EXPORT_PREFIX.serviceItem,
     identify: (e) => e.itemKey,
     readCoreList: (s) => s.businessContext?.serviceItems ?? [],
     readGoogleList: (s) => s.businessContext?.serviceItems ?? [],
@@ -447,8 +341,9 @@ export async function applyBusinessContextServiceItemExportBatchToGoogle(
 export async function applyBusinessContextAttributeExportBatchToGoogle(
   ctx: DualSyncBatchExportContext,
 ): Promise<DualSyncBatchExportResult> {
-  const { decisions } = ctx;
-  if (decisions.length === 0) return { supported: true, perField: {} };
+  const plan = planBusinessContextAttributeBatch(ctx.decisions, ctx.coreSnapshot);
+  if (!plan.supported) return { supported: false };
+  if (plan.exportable.length === 0) return { supported: true, perField: plan.perField };
 
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
@@ -456,39 +351,8 @@ export async function applyBusinessContextAttributeExportBatchToGoogle(
     includeCoreOnly: false,
   });
 
-  const perField: Record<string, DualSyncOperationResult> = {};
-
-  interface Resolved {
-    readonly fieldKey: string;
-    readonly attributeKey: string;
-    readonly coreEntry: DualSyncAttributeValue | null;
-  }
-
-  const resolved: Resolved[] = [];
-  for (const decision of decisions) {
-    const attributeKey = parseSlug(decision.fieldKey, PREFIX.attribute);
-    if (!attributeKey) return { supported: false };
-    const coreEntry =
-      ctx.coreSnapshot.businessContext?.attributes.find((a) => a.attributeKey === attributeKey) ??
-      null;
-    if (!coreEntry) {
-      perField[decision.fieldKey] = {
-        status: 'failed',
-        failure: {
-          code: 'PORT_FAILURE',
-          message: `Core snapshot is missing attribute ${attributeKey}; cannot export.`,
-          retryable: false,
-        },
-      };
-    }
-    resolved.push({ fieldKey: decision.fieldKey, attributeKey, coreEntry });
-  }
-
-  const exportable = resolved.filter((r) => r.coreEntry !== null);
-  if (exportable.length === 0) return { supported: true, perField };
-
-  const attributes = exportable.map((r) => buildGoogleAttribute(r.coreEntry!));
-  const attributeMask = exportable.map((r) => normalizeAttributeName(r.coreEntry!));
+  const attributes = plan.exportable.map((entry) => buildGoogleAttribute(entry.coreEntry));
+  const attributeMask = plan.exportable.map((entry) => normalizeAttributeName(entry.coreEntry));
 
   try {
     await patchRestaurantGoogleBusinessProfileLocationFields({
@@ -498,39 +362,27 @@ export async function applyBusinessContextAttributeExportBatchToGoogle(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    for (const r of exportable) {
-      perField[r.fieldKey] = {
-        status: 'failed',
-        failure: {
-          code: 'PORT_FAILURE',
-          message: `Attributes batch export failed: ${message}`,
-          retryable: true,
-        },
-      };
-    }
-    return { supported: true, perField };
+    return {
+      supported: true,
+      perField: markBusinessContextBatchPatchFailure(
+        plan.exportable,
+        plan.perField,
+        `Attributes batch export failed: ${message}`,
+      ),
+    };
   }
 
-  for (const r of exportable) {
-    const config = findFieldConfig(registry, r.fieldKey);
-    if (!config) {
-      perField[r.fieldKey] = {
-        status: 'failed',
-        failure: {
-          code: 'INVALID_DECISION',
-          message: `Field ${r.fieldKey} is not in the registry.`,
-          retryable: false,
-        },
-      };
+  const perField = { ...plan.perField };
+  for (const entry of plan.exportable) {
+    const configResult = resolveBusinessContextExportFieldConfig(registry, entry.fieldKey);
+    if (configResult.status === 'failed') {
+      perField[entry.fieldKey] = configResult.result;
       continue;
     }
-    const canonical = config.canonicalizeCoreValue([r.coreEntry!]);
-    const hash = hashCanonicalJson(canonical);
-    perField[r.fieldKey] = {
-      status: 'succeeded',
-      afterCoreHash: hash,
-      afterGbpHash: hash,
-    };
+    perField[entry.fieldKey] = buildBusinessContextExportSuccess(
+      configResult.config,
+      entry.coreEntry,
+    );
   }
 
   return { supported: true, perField };

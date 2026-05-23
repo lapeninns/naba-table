@@ -4,20 +4,17 @@ import { useMemo } from 'react';
 
 import { useOpsBookingsList } from '@/hooks/ops/useOpsBookingsList';
 import { useOpsBookingStatusSummary } from '@/hooks/ops/useOpsBookingStatusSummary';
-import {
-  DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES,
-  buildOpsDateRange,
-  buildOpsTimeWindowRange,
-} from '@/utils/ops/bookings';
-import { buildOpsBookingsFilters, type OpsBookingsView } from '@/utils/ops/buildOpsBookingsFilters';
 
+import {
+  buildOpsBookingsListFilters,
+  buildOpsBookingsStatusFilterOptions,
+  resolveOpsBookingsAppliedDateRange,
+} from './opsBookingsQueryDomain';
 import { deriveOpsBookingsData } from './opsBookingsSelectors';
 
 import type { OpsBookingsWindowMode } from './opsBookingsTypes';
 import type { OpsBookingStatus } from '@/types/ops';
-
-const MIN_WINDOW_MINUTES = 15;
-const MAX_WINDOW_MINUTES = 240;
+import type { OpsBookingsView } from '@/utils/ops/buildOpsBookingsFilters';
 
 export function useOpsBookingsDataState(params: {
   restaurantId: string | null;
@@ -48,36 +45,27 @@ export function useOpsBookingsDataState(params: {
     listableStatuses,
   } = params;
 
-  const safeWindowMinutes = Math.min(
-    MAX_WINDOW_MINUTES,
-    Math.max(MIN_WINDOW_MINUTES, resolvedWindowMinutes || DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES),
-  );
-
-  const appliedDateRange = useMemo(() => {
-    if (resolvedWindowMode === 'window' && resolvedTime) {
-      const windowRange = buildOpsTimeWindowRange(
+  const appliedDateRange = useMemo(
+    () =>
+      resolveOpsBookingsAppliedDateRange({
         selectedDate,
         resolvedTime,
-        safeWindowMinutes,
+        resolvedWindowMode,
+        resolvedWindowMinutes,
         restaurantTimezone,
-      );
-      if (windowRange) return windowRange;
-    }
-
-    return buildOpsDateRange(selectedDate, restaurantTimezone);
-  }, [resolvedTime, resolvedWindowMode, restaurantTimezone, safeWindowMinutes, selectedDate]);
+      }),
+    [resolvedTime, resolvedWindowMinutes, resolvedWindowMode, restaurantTimezone, selectedDate],
+  );
 
   const filters = useMemo(() => {
-    if (!restaurantId) return null;
-
-    return buildOpsBookingsFilters({
+    return buildOpsBookingsListFilters({
       restaurantId,
+      appliedDateRange,
       view,
-      scope: appliedDateRange ? { from: appliedDateRange.from, to: appliedDateRange.to } : null,
       now: new Date(),
-      query: deferredSearch,
-      selectedStatuses: visibleSelectedStatuses,
-      tableId: resolvedTableId,
+      deferredSearch,
+      visibleSelectedStatuses,
+      resolvedTableId,
     });
   }, [
     appliedDateRange,
@@ -105,13 +93,14 @@ export function useOpsBookingsDataState(params: {
     enabled: Boolean(restaurantId),
   });
 
-  const statusFilterOptions = useMemo(() => {
-    const totals = statusSummaryQuery.data?.totals;
-    return listableStatuses.map((status) => ({
-      status,
-      count: totals ? (totals[status] ?? 0) : 0,
-    }));
-  }, [listableStatuses, statusSummaryQuery.data?.totals]);
+  const statusFilterOptions = useMemo(
+    () =>
+      buildOpsBookingsStatusFilterOptions({
+        listableStatuses,
+        totals: statusSummaryQuery.data?.totals,
+      }),
+    [listableStatuses, statusSummaryQuery.data?.totals],
+  );
 
   return {
     appliedDateRange,

@@ -79,17 +79,11 @@ describe('OpsBookingCardActions', () => {
   });
 
   it('uses the correct primary button label and disabled state for confirmed and checked-in bookings', () => {
-    const { rerender } = render(
-      <OpsBookingCardActions actions={createActions()} />,
-    );
+    const { rerender } = render(<OpsBookingCardActions actions={createActions()} />);
 
     expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeEnabled();
 
-    rerender(
-      <OpsBookingCardActions
-        actions={createActions({ status: 'checked_in' })}
-      />,
-    );
+    rerender(<OpsBookingCardActions actions={createActions({ status: 'checked_in' })} />);
 
     expect(screen.getByRole('button', { name: 'Finish' })).toBeEnabled();
 
@@ -112,9 +106,7 @@ describe('OpsBookingCardActions', () => {
     ['cancelled', 'Cancelled'],
     ['no_show', 'No show'],
   ] as const)('shows a closed status label for %s bookings', (status, statusText) => {
-    render(
-      <OpsBookingCardActions actions={createActions({ status })} />,
-    );
+    render(<OpsBookingCardActions actions={createActions({ status })} />);
 
     expect(screen.getByRole('status')).toHaveTextContent(statusText);
   });
@@ -122,9 +114,7 @@ describe('OpsBookingCardActions', () => {
   it('keeps done-booking actions visible but disabled', async () => {
     const user = userEvent.setup();
 
-    render(
-      <OpsBookingCardActions actions={createActions({ status: 'completed' })} />,
-    );
+    render(<OpsBookingCardActions actions={createActions({ status: 'completed' })} />);
 
     expect(screen.queryByRole('button', { name: 'Seat Guest' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Finish' })).not.toBeInTheDocument();
@@ -187,9 +177,7 @@ describe('OpsBookingCardActions', () => {
     const user = userEvent.setup();
     const onMarkNoShow = vi.fn().mockResolvedValue(undefined);
 
-    render(
-      <OpsBookingCardActions actions={createActions()} onMarkNoShow={onMarkNoShow} />,
-    );
+    render(<OpsBookingCardActions actions={createActions()} onMarkNoShow={onMarkNoShow} />);
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));

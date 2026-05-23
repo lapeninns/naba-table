@@ -5,11 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
 import { AvailabilityOverridesEditor } from '../AvailabilityOverridesEditor';
-import { GbpDriftBadge, findServicePeriodDriftField } from '../gbpDriftBadges';
+import { GbpDriftBadge } from '../gbpDriftBadges';
 import { SETTINGS_COMPACT_STATUS_ROW_CLASS } from '../shared';
 import { AvailabilityScheduleDayCard } from './ScheduleDayCard';
+import { buildServiceWindowDriftFieldsForDay } from './serviceWindowsCardDomain';
 
-import type { DayErrors } from '../availabilityScheduleManagerUtils';
+import type { DayErrors } from '../availabilityScheduleValidation';
 import type { DayServiceConfig } from '../servicePeriodsMapper';
 import type { OverrideErrors, OverrideRow, WeeklyErrors, WeeklyRow } from '../types';
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
@@ -124,27 +125,13 @@ export function ScheduleWorkspace({
           </div>
           {weeklyRows.map((row, index) => {
             const day = dayConfigs[index];
-            const serviceFields: DualSyncFieldSummary[] = [];
-            if (day && occasionKeys.lunch && day.lunch.enabled) {
-              const field = findServicePeriodDriftField(servicePeriodDriftFields, {
-                dayOfWeek: day.dayOfWeek,
-                startTime: day.lunch.startTime,
-                endTime: day.lunch.endTime,
-                bookingOption: occasionKeys.lunch,
-                name: day.lunch.name,
-              });
-              if (field) serviceFields.push(field);
-            }
-            if (day && occasionKeys.dinner && day.dinner.enabled) {
-              const field = findServicePeriodDriftField(servicePeriodDriftFields, {
-                dayOfWeek: day.dayOfWeek,
-                startTime: day.dinner.startTime,
-                endTime: day.dinner.endTime,
-                bookingOption: occasionKeys.dinner,
-                name: day.dinner.name,
-              });
-              if (field) serviceFields.push(field);
-            }
+            const serviceFields = day
+              ? buildServiceWindowDriftFieldsForDay({
+                  day,
+                  occasionKeys,
+                  servicePeriodDriftFields,
+                })
+              : [];
 
             return (
               <AvailabilityScheduleDayCard

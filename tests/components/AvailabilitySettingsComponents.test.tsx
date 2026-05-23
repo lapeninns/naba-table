@@ -134,15 +134,19 @@ import {
   buildWeeklyHoursMap,
   defaultOverrideRow,
   extractRequiredOccasionKeys,
-  formatKitchenRange,
   mapOverridesFromResponse,
   mapWeeklyFromResponse,
   MEAL_LABELS,
+} from '@/components/features/restaurant-settings/availabilityScheduleManagerUtils';
+import {
+  formatKitchenRange,
   parseIntervalInput,
   parseSlotTimesInput,
+} from '@/components/features/restaurant-settings/availabilityScheduleTime';
+import {
   validateHours,
   validateServices,
-} from '@/components/features/restaurant-settings/availabilityScheduleManagerUtils';
+} from '@/components/features/restaurant-settings/availabilityScheduleValidation';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type {

@@ -19,232 +19,120 @@
 import {
   getRestaurantBusinessContext,
   updateRestaurantBusinessContext,
-  type UpdateRestaurantBusinessContextInput,
 } from '@/server/restaurants/businessContext';
 
-import { hashCanonicalJson } from '../../hashing';
-import { findFieldConfig, buildRegistry } from '../../registry';
-import { slugifyDisplay } from '../../registry/normalizers';
+import {
+  BUSINESS_CONTEXT_IMPORT_PREFIX,
+  buildAttributeImportUpdate,
+  buildBusinessContextImportPortFailure,
+  buildBusinessContextImportSuccess,
+  buildCategoryImportUpdate,
+  buildServiceAreaImportUpdate,
+  buildServiceItemImportUpdate,
+  findGoogleAttributeForImport,
+  findGoogleCategoryForImport,
+  findGoogleServiceAreaForImport,
+  findGoogleServiceItemForImport,
+  parseBusinessContextImportId,
+  resolveBusinessContextImportFieldConfig,
+} from './business-context-import-domain';
+import { buildRegistry } from '../../registry';
 
-import type {
-  DualSyncAttributeValue,
-  DualSyncCategoryValue,
-  DualSyncServiceAreaValue,
-  DualSyncServiceItemValue,
-} from '../../snapshots/types';
-import type {
-  DualSyncOperationContext,
-  DualSyncOperationResult,
-} from '../types';
-
-type CategoriesArray = NonNullable<UpdateRestaurantBusinessContextInput['categories']>;
-type ServiceAreasArray = NonNullable<UpdateRestaurantBusinessContextInput['serviceAreas']>;
-type AttributesArray = NonNullable<UpdateRestaurantBusinessContextInput['attributes']>;
-type ServiceItemsArray = NonNullable<UpdateRestaurantBusinessContextInput['serviceItems']>;
-
-const PREFIX = {
-  category: 'businessContext.categories.',
-  serviceArea: 'businessContext.serviceAreas.',
-  attribute: 'businessContext.attributes.',
-  serviceItem: 'businessContext.serviceItems.',
-} as const;
-
-function parseSlug(fieldKey: string, prefix: string): string | null {
-  if (!fieldKey.startsWith(prefix)) return null;
-  const tail = fieldKey.slice(prefix.length);
-  return tail.length > 0 ? tail : null;
-}
-
-function failedPort(message: string, retryable = false): DualSyncOperationResult {
-  return {
-    status: 'failed',
-    failure: { code: 'PORT_FAILURE', message, retryable },
-  };
-}
-
-function failedRegistry(fieldKey: string): DualSyncOperationResult {
-  return {
-    status: 'failed',
-    failure: {
-      code: 'INVALID_DECISION',
-      message: `Field ${fieldKey} is not in the registry.`,
-      retryable: false,
-    },
-  };
-}
+import type { DualSyncOperationContext, DualSyncOperationResult } from '../types';
 
 // ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------
 
-function findGoogleCategory(
-  ctx: DualSyncOperationContext,
-  slug: string,
-): DualSyncCategoryValue | null {
-  const list = ctx.gbpSnapshot.businessContext?.categories ?? [];
-  return (
-    list.find((entry) => slugifyDisplay(entry.displayName) === slug) ?? null
-  );
-}
-
 export async function applyBusinessContextCategoryImportToCore(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const slug = parseSlug(ctx.decision.fieldKey, PREFIX.category);
-  if (!slug) return failedPort(`Categories port does not handle ${ctx.decision.fieldKey}.`);
+  const slug = parseBusinessContextImportId(
+    ctx.decision.fieldKey,
+    BUSINESS_CONTEXT_IMPORT_PREFIX.category,
+  );
+  if (!slug) {
+    return buildBusinessContextImportPortFailure(
+      `Categories port does not handle ${ctx.decision.fieldKey}.`,
+    );
+  }
 
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
+  const configResult = resolveBusinessContextImportFieldConfig(registry, ctx.decision.fieldKey);
+  if (configResult.status === 'failed') return configResult.result;
 
-  const googleEntry = findGoogleCategory(ctx, slug);
+  const googleEntry = findGoogleCategoryForImport(ctx.gbpSnapshot, slug);
   const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const current = snapshot.core.categories;
+  const updated = buildCategoryImportUpdate(snapshot.core.categories, slug, googleEntry);
 
-  const others = current
-    .filter((row) => slugifyDisplay(row.displayName) !== slug)
-    .map<CategoriesArray[number]>((row) => ({
-      id: row.id,
-      displayName: row.displayName,
-      categoryCode: row.categoryCode,
-      moreHoursTypes: [...row.moreHoursTypes],
-      isPrimary: row.isPrimary,
-    }));
-  const existing = current.find((row) => slugifyDisplay(row.displayName) === slug);
+  await updateRestaurantBusinessContext(ctx.restaurantId, { categories: updated }, ctx.client, {
+    changeOrigin: 'import',
+    changedByUserId: ctx.actorUserId ?? null,
+    changedVia: 'dual-sync.publish',
+    publishJobId: ctx.publishJobId,
+  });
 
-  const updated: CategoriesArray = googleEntry
-    ? [
-        ...others,
-        {
-          id: existing?.id,
-          displayName: googleEntry.displayName,
-          categoryCode: googleEntry.categoryCode,
-          moreHoursTypes: googleEntry.moreHoursTypes
-            ? googleEntry.moreHoursTypes.map((entry) => ({
-                hoursTypeId: entry.hoursTypeId,
-                displayName: entry.displayName,
-                localizedDisplayName: entry.localizedDisplayName,
-              }))
-            : [],
-          isPrimary: googleEntry.isPrimary,
-        },
-      ]
-    : others;
-
-  await updateRestaurantBusinessContext(
-    ctx.restaurantId,
-    { categories: updated },
-    ctx.client,
-    {
-      changeOrigin: 'import',
-      changedByUserId: ctx.actorUserId ?? null,
-      changedVia: 'dual-sync.publish',
-      publishJobId: ctx.publishJobId,
-    },
-  );
-
-  const canonical = config.canonicalizeCoreValue(googleEntry ? [googleEntry] : []);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }
 
 // ---------------------------------------------------------------------------
 // Service areas
 // ---------------------------------------------------------------------------
 
-function findGoogleServiceArea(
-  ctx: DualSyncOperationContext,
-  slug: string,
-): DualSyncServiceAreaValue | null {
-  const list = ctx.gbpSnapshot.businessContext?.serviceAreas ?? [];
-  return list.find((entry) => slugifyDisplay(entry.displayName) === slug) ?? null;
-}
-
 export async function applyBusinessContextServiceAreaImportToCore(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const slug = parseSlug(ctx.decision.fieldKey, PREFIX.serviceArea);
-  if (!slug) return failedPort(`Service-areas port does not handle ${ctx.decision.fieldKey}.`);
+  const slug = parseBusinessContextImportId(
+    ctx.decision.fieldKey,
+    BUSINESS_CONTEXT_IMPORT_PREFIX.serviceArea,
+  );
+  if (!slug) {
+    return buildBusinessContextImportPortFailure(
+      `Service-areas port does not handle ${ctx.decision.fieldKey}.`,
+    );
+  }
 
   const registry = buildRegistry({
     coreSnapshot: ctx.coreSnapshot,
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
+  const configResult = resolveBusinessContextImportFieldConfig(registry, ctx.decision.fieldKey);
+  if (configResult.status === 'failed') return configResult.result;
 
-  const googleEntry = findGoogleServiceArea(ctx, slug);
+  const googleEntry = findGoogleServiceAreaForImport(ctx.gbpSnapshot, slug);
   const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const current = snapshot.core.serviceAreas;
+  const updated = buildServiceAreaImportUpdate(snapshot.core.serviceAreas, slug, googleEntry);
 
-  const others = current
-    .filter((row) => slugifyDisplay(row.displayName) !== slug)
-    .map<ServiceAreasArray[number]>((row) => ({
-      id: row.id,
-      displayName: row.displayName,
-      areaType: row.areaType,
-      regionCode: row.regionCode,
-      googlePlaceId: row.googlePlaceId,
-      googlePlaceResourceName: row.googlePlaceResourceName,
-      placeData: row.placeData,
-    }));
-  const existing = current.find((row) => slugifyDisplay(row.displayName) === slug);
+  await updateRestaurantBusinessContext(ctx.restaurantId, { serviceAreas: updated }, ctx.client, {
+    changeOrigin: 'import',
+    changedByUserId: ctx.actorUserId ?? null,
+    changedVia: 'dual-sync.publish',
+    publishJobId: ctx.publishJobId,
+  });
 
-  const updated: ServiceAreasArray = googleEntry
-    ? [
-        ...others,
-        {
-          id: existing?.id,
-          displayName: googleEntry.displayName,
-          areaType: googleEntry.areaType,
-          regionCode: googleEntry.regionCode,
-          googlePlaceId: existing?.googlePlaceId ?? null,
-          googlePlaceResourceName: existing?.googlePlaceResourceName ?? null,
-          placeData: googleEntry.placeData,
-        },
-      ]
-    : others;
-
-  await updateRestaurantBusinessContext(
-    ctx.restaurantId,
-    { serviceAreas: updated },
-    ctx.client,
-    {
-      changeOrigin: 'import',
-      changedByUserId: ctx.actorUserId ?? null,
-      changedVia: 'dual-sync.publish',
-      publishJobId: ctx.publishJobId,
-    },
-  );
-
-  const canonical = config.canonicalizeCoreValue(googleEntry ? [googleEntry] : []);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }
 
 // ---------------------------------------------------------------------------
 // Attributes
 // ---------------------------------------------------------------------------
 
-function findGoogleAttribute(
-  ctx: DualSyncOperationContext,
-  attributeKey: string,
-): DualSyncAttributeValue | null {
-  const list = ctx.gbpSnapshot.businessContext?.attributes ?? [];
-  return list.find((entry) => entry.attributeKey === attributeKey) ?? null;
-}
-
 export async function applyBusinessContextAttributeImportToCore(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const attributeKey = parseSlug(ctx.decision.fieldKey, PREFIX.attribute);
+  const attributeKey = parseBusinessContextImportId(
+    ctx.decision.fieldKey,
+    BUSINESS_CONTEXT_IMPORT_PREFIX.attribute,
+  );
   if (!attributeKey) {
-    return failedPort(`Attributes port does not handle ${ctx.decision.fieldKey}.`);
+    return buildBusinessContextImportPortFailure(
+      `Attributes port does not handle ${ctx.decision.fieldKey}.`,
+    );
   }
 
   const registry = buildRegistry({
@@ -252,102 +140,38 @@ export async function applyBusinessContextAttributeImportToCore(
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
+  const configResult = resolveBusinessContextImportFieldConfig(registry, ctx.decision.fieldKey);
+  if (configResult.status === 'failed') return configResult.result;
 
-  const googleEntry = findGoogleAttribute(ctx, attributeKey);
+  const googleEntry = findGoogleAttributeForImport(ctx.gbpSnapshot, attributeKey);
   const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const current = snapshot.core.attributes;
+  const updated = buildAttributeImportUpdate(snapshot.core.attributes, attributeKey, googleEntry);
 
-  const others = current
-    .filter((row) => row.attributeKey !== attributeKey)
-    .map<AttributesArray[number]>((row) => ({
-      id: row.id,
-      attributeGroup: row.attributeGroup,
-      attributeKey: row.attributeKey,
-      attributeName: row.attributeName,
-      attributeId: row.attributeId,
-      displayName: row.displayName,
-      displayText: row.displayText,
-      displayTextStandalone: row.displayTextStandalone,
-      displayTextNegative: row.displayTextNegative,
-      valueType: row.valueType,
-      boolValue: row.boolValue,
-      textValue: row.textValue,
-      uriValue: row.uriValue,
-      uriValues: [...row.uriValues],
-      enumValues: [...row.enumValues],
-      unsetEnumValues: [...row.unsetEnumValues],
-      rawValue: row.rawValue,
-      rawEnumValues: row.rawEnumValues,
-      displayValue: row.displayValue,
-      valueMetadata: [...row.valueMetadata],
-    }));
-  const existing = current.find((row) => row.attributeKey === attributeKey);
+  await updateRestaurantBusinessContext(ctx.restaurantId, { attributes: updated }, ctx.client, {
+    changeOrigin: 'import',
+    changedByUserId: ctx.actorUserId ?? null,
+    changedVia: 'dual-sync.publish',
+    publishJobId: ctx.publishJobId,
+  });
 
-  const updated: AttributesArray = googleEntry
-    ? [
-        ...others,
-        {
-          id: existing?.id,
-          attributeGroup: existing?.attributeGroup ?? null,
-          attributeKey: googleEntry.attributeKey,
-          attributeName: googleEntry.attributeName ?? existing?.attributeName ?? null,
-          attributeId: googleEntry.attributeId ?? existing?.attributeId ?? null,
-          displayName: existing?.displayName ?? null,
-          displayText: existing?.displayText ?? null,
-          displayTextStandalone: existing?.displayTextStandalone ?? null,
-          displayTextNegative: existing?.displayTextNegative ?? null,
-          valueType: googleEntry.valueType,
-          boolValue: googleEntry.boolValue,
-          textValue: googleEntry.textValue,
-          uriValue: googleEntry.uriValue,
-          uriValues: [...googleEntry.uriValues],
-          enumValues: [...googleEntry.enumValues],
-          unsetEnumValues: [...googleEntry.unsetEnumValues],
-          rawValue: existing?.rawValue ?? null,
-          rawEnumValues: existing?.rawEnumValues ?? null,
-          displayValue: existing?.displayValue ?? null,
-          valueMetadata: existing ? [...existing.valueMetadata] : [],
-        },
-      ]
-    : others;
-
-  await updateRestaurantBusinessContext(
-    ctx.restaurantId,
-    { attributes: updated },
-    ctx.client,
-    {
-      changeOrigin: 'import',
-      changedByUserId: ctx.actorUserId ?? null,
-      changedVia: 'dual-sync.publish',
-      publishJobId: ctx.publishJobId,
-    },
-  );
-
-  const canonical = config.canonicalizeCoreValue(googleEntry ? [googleEntry] : []);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }
 
 // ---------------------------------------------------------------------------
 // Service items
 // ---------------------------------------------------------------------------
 
-function findGoogleServiceItem(
-  ctx: DualSyncOperationContext,
-  itemKey: string,
-): DualSyncServiceItemValue | null {
-  const list = ctx.gbpSnapshot.businessContext?.serviceItems ?? [];
-  return list.find((entry) => entry.itemKey === itemKey) ?? null;
-}
-
 export async function applyBusinessContextServiceItemImportToCore(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
-  const itemKey = parseSlug(ctx.decision.fieldKey, PREFIX.serviceItem);
+  const itemKey = parseBusinessContextImportId(
+    ctx.decision.fieldKey,
+    BUSINESS_CONTEXT_IMPORT_PREFIX.serviceItem,
+  );
   if (!itemKey) {
-    return failedPort(`Service-items port does not handle ${ctx.decision.fieldKey}.`);
+    return buildBusinessContextImportPortFailure(
+      `Service-items port does not handle ${ctx.decision.fieldKey}.`,
+    );
   }
 
   const registry = buildRegistry({
@@ -355,52 +179,19 @@ export async function applyBusinessContextServiceItemImportToCore(
     gbpSnapshot: ctx.gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, ctx.decision.fieldKey);
-  if (!config) return failedRegistry(ctx.decision.fieldKey);
+  const configResult = resolveBusinessContextImportFieldConfig(registry, ctx.decision.fieldKey);
+  if (configResult.status === 'failed') return configResult.result;
 
-  const googleEntry = findGoogleServiceItem(ctx, itemKey);
+  const googleEntry = findGoogleServiceItemForImport(ctx.gbpSnapshot, itemKey);
   const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const current = snapshot.core.serviceItems;
+  const updated = buildServiceItemImportUpdate(snapshot.core.serviceItems, itemKey, googleEntry);
 
-  const others = current
-    .filter((row) => row.itemKey !== itemKey)
-    .map<ServiceItemsArray[number]>((row) => ({
-      id: row.id,
-      itemKey: row.itemKey,
-      itemType: row.itemType,
-      displayName: row.displayName,
-      description: row.description,
-      payload: row.payload,
-    }));
-  const existing = current.find((row) => row.itemKey === itemKey);
+  await updateRestaurantBusinessContext(ctx.restaurantId, { serviceItems: updated }, ctx.client, {
+    changeOrigin: 'import',
+    changedByUserId: ctx.actorUserId ?? null,
+    changedVia: 'dual-sync.publish',
+    publishJobId: ctx.publishJobId,
+  });
 
-  const updated: ServiceItemsArray = googleEntry
-    ? [
-        ...others,
-        {
-          id: existing?.id,
-          itemKey: googleEntry.itemKey,
-          itemType: googleEntry.itemType,
-          displayName: googleEntry.displayName,
-          description: googleEntry.description,
-          payload: googleEntry.payload,
-        },
-      ]
-    : others;
-
-  await updateRestaurantBusinessContext(
-    ctx.restaurantId,
-    { serviceItems: updated },
-    ctx.client,
-    {
-      changeOrigin: 'import',
-      changedByUserId: ctx.actorUserId ?? null,
-      changedVia: 'dual-sync.publish',
-      publishJobId: ctx.publishJobId,
-    },
-  );
-
-  const canonical = config.canonicalizeCoreValue(googleEntry ? [googleEntry] : []);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }

@@ -165,6 +165,28 @@ export function buildOpsCustomersFilterBadges({
   ].filter((badge): badge is OpsCustomersFilterBadge => Boolean(badge));
 }
 
+export function clearOpsCustomersFilterBadge(
+  state: OpsCustomersFilterState,
+  key: OpsCustomersFilterBadge['key'],
+): OpsCustomersFilterState {
+  switch (key) {
+    case 'search':
+      return state.searchTerm === '' ? state : { ...state, searchTerm: '' };
+    case 'marketing':
+      return state.marketingOptIn === DEFAULT_CUSTOMERS_FILTER_STATE.marketingOptIn
+        ? state
+        : { ...state, marketingOptIn: DEFAULT_CUSTOMERS_FILTER_STATE.marketingOptIn };
+    case 'lastVisit':
+      return state.lastVisit === DEFAULT_CUSTOMERS_FILTER_STATE.lastVisit
+        ? state
+        : { ...state, lastVisit: DEFAULT_CUSTOMERS_FILTER_STATE.lastVisit };
+    case 'minBookings':
+      return state.minBookings === DEFAULT_CUSTOMERS_FILTER_STATE.minBookings
+        ? state
+        : { ...state, minBookings: DEFAULT_CUSTOMERS_FILTER_STATE.minBookings };
+  }
+}
+
 function getDateFormatter(
   localeKey: string,
   options: Intl.DateTimeFormatOptions,

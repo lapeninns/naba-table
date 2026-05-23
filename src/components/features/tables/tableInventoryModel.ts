@@ -10,6 +10,7 @@ import type { Zone } from '@/services/ops/zones';
 
 export type ZoneStatusFilter = 'all' | 'active' | 'inactive';
 export type TableStatusFilter = 'all' | 'active' | 'inactive';
+export type TableWorkspace = 'summary' | 'zones' | 'inventory';
 export type TableZone = Pick<Zone, 'id' | 'name' | 'active' | 'sortOrder'>;
 export type TableFormState = Omit<CreateTablePayload, 'position'>;
 

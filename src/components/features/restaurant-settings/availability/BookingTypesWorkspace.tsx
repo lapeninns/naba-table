@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 
 import { AvailabilityOccasionsEditor } from '../AvailabilityOccasionsEditor';
 
-import type { TurnBandRowError } from '../TurnBandsEditor';
+import type { TurnBandRowError } from '../turnBandsDomain';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
 

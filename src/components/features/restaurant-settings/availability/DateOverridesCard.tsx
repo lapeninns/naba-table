@@ -6,7 +6,14 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
@@ -19,8 +26,8 @@ import {
   defaultOverrideRow,
   mapOverridesFromResponse,
   mapWeeklyFromResponse,
-  validateHours,
 } from '../availabilityScheduleManagerUtils';
+import { validateHours } from '../availabilityScheduleValidation';
 import {
   SETTINGS_COMPACT_CARD_CLASS,
   SETTINGS_COMPACT_CARD_CONTENT_CLASS,
@@ -164,7 +171,8 @@ export function DateOverridesCard({ restaurantId }: DateOverridesCardProps) {
           <div className="flex flex-col gap-1">
             <CardTitle className="text-xl">Date overrides</CardTitle>
             <CardDescription className="max-w-3xl">
-              Closures and special hours override the weekly operating hours template for specific dates (e.g. holidays, staff parties).
+              Closures and special hours override the weekly operating hours template for specific
+              dates (e.g. holidays, staff parties).
             </CardDescription>
           </div>
         </div>
@@ -203,7 +211,11 @@ export function DateOverridesCard({ restaurantId }: DateOverridesCardProps) {
             <RotateCcw data-icon="inline-start" aria-hidden />
             Reset
           </Button>
-          <Button type="button" onClick={handleSave} disabled={!isDirty || updateOperatingHours.isPending}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={!isDirty || updateOperatingHours.isPending}
+          >
             <Save data-icon="inline-start" aria-hidden />
             Save overrides
           </Button>
