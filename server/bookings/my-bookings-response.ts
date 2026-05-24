@@ -9,12 +9,14 @@ import { parseMyBookingsQuery } from '@/server/bookings/my-bookings-query';
 import { mapBookingZodValidationFailure } from '@/server/bookings/zod-validation-error';
 
 export type MyBookingsHttpResponseClient = MyBookingsPageQueryClient;
+export type MyBookingsHttpClientFactory = () => MyBookingsHttpResponseClient;
 export type MyBookingsHttpQueryParser = typeof parseMyBookingsQuery;
 export type MyBookingsHttpPageFetcher = typeof fetchMyBookingsPage;
 export type MyBookingsHttpResponseBuilder = typeof buildMyBookingsPageResponse;
 
 export async function buildMyBookingsHttpResponse({
   client,
+  clientFor,
   email,
   onPageFetchError,
   pageFetcher = fetchMyBookingsPage,
@@ -22,7 +24,8 @@ export async function buildMyBookingsHttpResponse({
   searchParams,
   queryParser = parseMyBookingsQuery,
 }: {
-  client: MyBookingsHttpResponseClient;
+  client?: MyBookingsHttpResponseClient;
+  clientFor?: MyBookingsHttpClientFactory;
   email: string;
   onPageFetchError?: (error: unknown) => void;
   pageFetcher?: MyBookingsHttpPageFetcher;
@@ -42,8 +45,13 @@ export async function buildMyBookingsHttpResponse({
   }
 
   const params = parsed.query;
+  const queryClient = client ?? clientFor?.();
+  if (!queryClient) {
+    throw new Error('My bookings response requires a query client.');
+  }
+
   const pageResult = await pageFetcher({
-    client,
+    client: queryClient,
     email: email.toLowerCase(),
     query: params,
   });

@@ -98,10 +98,11 @@ describe('buildMyBookingsHttpResponse', () => {
   });
 
   it('maps parser validation failures through the booking zod failure mapper', async () => {
+    const clientFor = vi.fn(() => client);
     const pageFetcher = vi.fn() as unknown as MyBookingsHttpPageFetcher;
 
     const response = await buildMyBookingsHttpResponse({
-      client,
+      clientFor,
       email: 'guest@example.com',
       pageFetcher,
       searchParams: new URLSearchParams({ me: '0', status: 'completed' }),
@@ -112,6 +113,7 @@ describe('buildMyBookingsHttpResponse', () => {
     expect(body).toMatchObject({
       code: 'VALIDATION_FAILED',
     });
+    expect(clientFor).not.toHaveBeenCalled();
     expect(pageFetcher).not.toHaveBeenCalled();
   });
 

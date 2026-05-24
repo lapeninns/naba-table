@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import {
   buildMyBookingsHttpResponse,
-  type MyBookingsHttpResponseClient,
+  type MyBookingsHttpClientFactory,
 } from '@/server/bookings/my-bookings-response';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
@@ -34,7 +34,7 @@ export async function buildAuthenticatedMyBookingsHttpResponse({
   }
 
   return await responseBuilder({
-    client: serviceClientFor() as unknown as MyBookingsHttpResponseClient,
+    clientFor: (() => serviceClientFor()) as unknown as MyBookingsHttpClientFactory,
     email: user.email,
     onPageFetchError,
     searchParams,

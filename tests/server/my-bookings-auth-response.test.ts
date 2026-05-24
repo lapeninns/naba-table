@@ -41,6 +41,7 @@ describe('authenticated my-bookings response', () => {
 
   it('delegates authenticated requests to the my-bookings response builder', async () => {
     const serviceClient = { from: vi.fn() };
+    const serviceClientFor = vi.fn(() => serviceClient);
     const responseBuilder = vi.fn(async () => NextResponse.json({ bookings: [] }));
     const searchParams = new URLSearchParams('page=2');
     const onPageFetchError = vi.fn();
@@ -50,16 +51,23 @@ describe('authenticated my-bookings response', () => {
       responseBuilder,
       routeClientFor: vi.fn(async () => makeRouteClient({ email: 'Guest@Example.com' })),
       searchParams,
-      serviceClientFor: vi.fn(() => serviceClient),
+      serviceClientFor,
     });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ bookings: [] });
     expect(responseBuilder).toHaveBeenCalledWith({
-      client: serviceClient,
+      clientFor: expect.any(Function),
       email: 'Guest@Example.com',
       onPageFetchError,
       searchParams,
     });
+    expect(serviceClientFor).not.toHaveBeenCalled();
+
+    const [{ clientFor }] = responseBuilder.mock.calls[0] as [
+      { clientFor: () => typeof serviceClient },
+    ];
+    expect(clientFor()).toBe(serviceClient);
+    expect(serviceClientFor).toHaveBeenCalledOnce();
   });
 });
