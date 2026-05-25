@@ -12,7 +12,7 @@ export function SetupProgressPanel({ requiredSetup }: SetupProgressPanelProps) {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-5 sm:p-6"
+      className="relative overflow-hidden rounded-xl border border-primary/20 bg-primary/5 p-5 sm:p-6"
     >
       <div
         className="absolute -right-20 -top-20 size-60 rounded-full bg-primary/10 blur-3xl"
@@ -42,7 +42,7 @@ export function SetupProgressPanel({ requiredSetup }: SetupProgressPanelProps) {
           initial={{ width: 0 }}
           animate={{ width: `${requiredSetup.percent}%` }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
-          className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-emerald-500 via-primary to-indigo-500"
+          className="absolute left-0 top-0 h-full rounded-full bg-primary"
         />
       </div>
 

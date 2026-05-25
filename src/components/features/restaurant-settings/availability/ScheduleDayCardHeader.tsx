@@ -36,8 +36,8 @@ export function ScheduleDayCardHeader({
             className={cn(
               'transition-all duration-200 uppercase tracking-wider text-[10px] font-semibold px-2 py-0.5',
               isClosed
-                ? 'bg-slate-500/10 border-slate-500/20 text-slate-500'
-                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 font-bold',
+                ? 'bg-muted border-border text-muted-foreground'
+                : 'bg-success/10 border-success/20 text-success font-bold',
             )}
           >
             {isClosed ? 'Closed' : 'Open'}

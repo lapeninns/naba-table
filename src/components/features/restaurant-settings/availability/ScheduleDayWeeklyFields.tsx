@@ -21,8 +21,8 @@ export function ScheduleDayWeeklyFields({
     <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
       <div className="rounded-xl border border-primary/5 bg-background/30 p-4 shadow-sm backdrop-blur-[2px]">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground pb-3 border-b border-primary/5">
-          <div className="p-1 rounded bg-indigo-500/10 border border-indigo-500/10">
-            <Clock3 className="size-3.5 text-indigo-500" />
+          <div className="p-1 rounded bg-primary/10 border border-primary/10">
+            <Clock3 className="size-3.5 text-primary" />
           </div>
           Operating hours
         </div>
@@ -42,7 +42,7 @@ export function ScheduleDayWeeklyFields({
               onChange={(event) => onWeeklyChange(row.dayOfWeek, { opensAt: event.target.value })}
               aria-invalid={Boolean(rowErrors?.opensAt)}
               className={cn(
-                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-indigo-500 focus:ring-indigo-500/10',
+                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-primary focus:ring-primary/10',
                 rowErrors?.opensAt && 'border-destructive',
               )}
             />
@@ -65,7 +65,7 @@ export function ScheduleDayWeeklyFields({
               onChange={(event) => onWeeklyChange(row.dayOfWeek, { closesAt: event.target.value })}
               aria-invalid={Boolean(rowErrors?.closesAt)}
               className={cn(
-                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-indigo-500 focus:ring-indigo-500/10',
+                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-primary focus:ring-primary/10',
                 rowErrors?.closesAt && 'border-destructive',
               )}
             />
@@ -78,8 +78,8 @@ export function ScheduleDayWeeklyFields({
 
       <div className="rounded-xl border border-primary/5 bg-background/30 p-4 shadow-sm backdrop-blur-[2px]">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground pb-3 border-b border-primary/5">
-          <div className="p-1 rounded bg-amber-500/10 border border-amber-500/10">
-            <CalendarDays className="size-3.5 text-amber-500" />
+          <div className="p-1 rounded bg-warning/10 border border-warning/10">
+            <CalendarDays className="size-3.5 text-warning" />
           </div>
           Booking rules
         </div>
@@ -105,7 +105,7 @@ export function ScheduleDayWeeklyFields({
               }
               aria-invalid={Boolean(rowErrors?.reservationIntervalMinutes)}
               className={cn(
-                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-amber-500 focus:ring-amber-500/10',
+                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-warning focus:ring-warning/10',
                 rowErrors?.reservationIntervalMinutes && 'border-destructive',
               )}
             />
@@ -134,7 +134,7 @@ export function ScheduleDayWeeklyFields({
               }
               aria-invalid={Boolean(rowErrors?.reservationSlotTimes)}
               className={cn(
-                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-amber-500 focus:ring-amber-500/10',
+                'mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-warning focus:ring-warning/10',
                 rowErrors?.reservationSlotTimes && 'border-destructive',
               )}
             />
@@ -160,7 +160,7 @@ export function ScheduleDayWeeklyFields({
             value={row.notes}
             placeholder="Add custom notes or closure context for this day"
             onChange={(event) => onWeeklyChange(row.dayOfWeek, { notes: event.target.value })}
-            className="mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-indigo-500 focus:ring-indigo-500/10"
+            className="mt-1.5 h-9 bg-background/50 border-primary/15 focus:border-primary focus:ring-primary/10"
           />
         </div>
       </div>

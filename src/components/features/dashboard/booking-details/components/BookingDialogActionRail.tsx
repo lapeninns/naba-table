@@ -66,7 +66,7 @@ export function BookingDialogActionRail({
   const referenceLabel = booking?.reference ?? booking?.id ?? null;
 
   return (
-    <div className="z-20 shrink-0 border-t border-border/40 bg-background/60 px-4 py-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] backdrop-blur-xl sm:px-6">
+    <div className="z-20 shrink-0 border-t border-border/40 bg-background/60 px-4 py-4 shadow-lg backdrop-blur-xl sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {!isMobile && booking?.customerPhone ? (

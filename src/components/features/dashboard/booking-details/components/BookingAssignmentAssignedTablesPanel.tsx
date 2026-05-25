@@ -40,8 +40,8 @@ export function BookingAssignmentAssignedTablesPanel({
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-emerald-200/50 bg-gradient-to-br from-emerald-100 to-emerald-50 shadow-sm dark:border-emerald-800/50 dark:from-emerald-900/40 dark:to-emerald-900/20">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-success/20 bg-success/10 shadow-sm">
+            <CheckCircle2 className="h-5 w-5 text-success" aria-hidden />
           </div>
           <div>
             <h4 className="text-base font-semibold text-foreground">Assigned Tables</h4>
@@ -70,10 +70,10 @@ export function BookingAssignmentAssignedTablesPanel({
         {assignedTables.map((table) => (
           <div
             key={table.id}
-            className="group relative rounded-xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-primary/3 to-transparent p-4 shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-200 animate-in fade-in-50 slide-in-from-bottom-2 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            className="group relative rounded-xl border-2 border-primary/20 bg-primary/5 p-4 shadow-sm transition-[transform,box-shadow,border-color,background-color] duration-200 animate-in fade-in-50 slide-in-from-bottom-2 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
           >
             <div className="absolute right-3 top-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-gradient-to-br from-primary/20 to-primary/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
                 <LayoutGrid className="h-5 w-5 text-primary" strokeWidth={2} />
               </div>
             </div>
@@ -123,9 +123,9 @@ export function BookingAssignmentAssignedTablesPanel({
       </div>
 
       {assignedTables.length > 1 ? (
-        <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-50/50 dark:border-blue-800/50 dark:from-blue-900/20 dark:to-blue-900/10">
-          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-          <AlertDescription className="text-sm leading-relaxed text-blue-900 dark:text-blue-100">
+        <Alert className="border-primary/20 bg-primary/10">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-sm leading-relaxed text-foreground">
             <strong>Merged tables:</strong> These tables are combined to meet capacity requirements.
             Use &quot;Remove All&quot; to unassign and select fresh tables.
           </AlertDescription>

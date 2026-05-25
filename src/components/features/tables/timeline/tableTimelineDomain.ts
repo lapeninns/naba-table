@@ -26,26 +26,26 @@ export const STATUS_OPTIONS: Array<{
   {
     value: 'reserved',
     label: 'Reserved',
-    dot: 'bg-emerald-500',
-    pill: 'bg-emerald-600 text-white shadow-sm',
+    dot: 'bg-success',
+    pill: 'bg-success text-success-foreground shadow-sm',
   },
   {
     value: 'hold',
     label: 'Hold',
-    dot: 'bg-amber-500',
-    pill: 'bg-amber-500 text-slate-950 shadow-sm',
+    dot: 'bg-warning',
+    pill: 'bg-warning text-warning-foreground shadow-sm',
   },
   {
     value: 'available',
     label: 'Available',
-    dot: 'bg-slate-300',
-    pill: 'bg-white border border-border text-foreground',
+    dot: 'bg-muted',
+    pill: 'bg-background border border-border text-foreground',
   },
   {
     value: 'out_of_service',
     label: 'Out of service',
-    dot: 'bg-slate-500',
-    pill: 'bg-slate-500 text-white shadow-sm',
+    dot: 'bg-muted-foreground',
+    pill: 'bg-muted text-muted-foreground shadow-sm',
   },
 ];
 
@@ -69,19 +69,19 @@ export const STATUS_META: Record<
 > = {
   reserved: {
     label: 'Reserved',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-    text: 'text-emerald-900',
-    chip: 'bg-emerald-500 text-white',
-    muted: 'text-emerald-700',
+    bg: 'bg-success/10',
+    border: 'border-success/20',
+    text: 'text-foreground',
+    chip: 'bg-success text-success-foreground',
+    muted: 'text-muted-foreground',
   },
   hold: {
     label: 'Hold',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
-    text: 'text-amber-900',
-    chip: 'bg-amber-500 text-slate-950',
-    muted: 'text-amber-700',
+    bg: 'bg-warning/10',
+    border: 'border-warning/20',
+    text: 'text-foreground',
+    chip: 'bg-warning text-warning-foreground',
+    muted: 'text-muted-foreground',
   },
   available: {
     label: 'Available',
@@ -93,11 +93,11 @@ export const STATUS_META: Record<
   },
   out_of_service: {
     label: 'Out of service',
-    bg: 'bg-slate-100',
-    border: 'border-slate-300',
-    text: 'text-slate-900',
-    chip: 'bg-slate-500 text-white',
-    muted: 'text-slate-700',
+    bg: 'bg-muted',
+    border: 'border-border',
+    text: 'text-foreground',
+    chip: 'bg-muted text-muted-foreground',
+    muted: 'text-muted-foreground',
   },
 };
 

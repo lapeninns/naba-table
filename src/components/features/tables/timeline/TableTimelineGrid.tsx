@@ -156,11 +156,11 @@ function TableTimelineRow({
         </div>
 
         <div
-          className="absolute inset-y-0 z-20 w-px bg-rose-500"
+          className="absolute inset-y-0 z-20 w-px bg-destructive"
           style={{ left: `${nowPx}px` }}
           aria-hidden
         >
-          <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-rose-500 shadow" />
+          <div className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-destructive shadow" />
         </div>
 
         {segments
@@ -195,10 +195,10 @@ function ReservationBlock({
 }) {
   const state = segment.state;
   const statusStyle: Record<TableTimelineSegmentState, string> = {
-    reserved: 'bg-blue-600 text-white border-blue-700',
-    hold: 'bg-amber-500 text-slate-950 border-amber-600',
+    reserved: 'bg-primary text-primary-foreground border-primary',
+    hold: 'bg-warning text-warning-foreground border-warning',
     available: 'bg-muted text-muted-foreground border-border',
-    out_of_service: 'bg-slate-500 text-white border-slate-600',
+    out_of_service: 'bg-muted text-muted-foreground border-border',
   };
 
   const start = toHHMM(segment.start);

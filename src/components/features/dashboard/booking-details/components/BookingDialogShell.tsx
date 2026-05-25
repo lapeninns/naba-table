@@ -30,7 +30,7 @@ export function BookingDialogShell({
           side="bottom"
           className={cn(
             'h-[94dvh] max-h-[calc(100dvh-var(--safe-area-inset-top))] p-0 gap-0 overflow-hidden border-x-0 border-b-0 [&>button]:hidden',
-            'rounded-t-[2.5rem] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.3)] bg-background/80 backdrop-blur-3xl',
+            'rounded-t-[2.5rem] bg-background/80 shadow-2xl backdrop-blur-3xl',
           )}
         >
           <SheetTitle className="sr-only">{titleText}</SheetTitle>
@@ -43,7 +43,7 @@ export function BookingDialogShell({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(90vh,900px)] w-[min(98vw,1280px)] max-w-none flex-col overflow-hidden rounded-[2rem] border border-border/20 p-0 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.4)] sm:w-[min(96vw,1280px)] md:h-[min(88vh,900px)] md:w-[min(94vw,1280px)] [&>button]:hidden bg-background">
+      <DialogContent className="flex h-[min(90vh,900px)] w-[min(98vw,1280px)] max-w-none flex-col overflow-hidden rounded-[2rem] border border-border/20 bg-background p-0 shadow-2xl sm:w-[min(96vw,1280px)] md:h-[min(88vh,900px)] md:w-[min(94vw,1280px)] [&>button]:hidden">
         <DialogTitle className="sr-only">{titleText}</DialogTitle>
         <DialogDescription className="sr-only">{descriptionText}</DialogDescription>
         {children}

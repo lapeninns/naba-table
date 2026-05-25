@@ -16,20 +16,20 @@ export function SetupChecklistCard({ card, index }: SetupChecklistCardProps) {
   const Icon = card.Icon;
   const statusStyles = {
     complete: {
-      border: 'border-emerald-500/30 hover:border-emerald-500/50',
-      glow: 'shadow-[0_0_15px_rgba(16,185,129,0.03)] hover:shadow-[0_0_25px_rgba(16,185,129,0.08)]',
-      icon: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-      badge: 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20',
+      border: 'border-success/30 hover:border-success/50',
+      glow: 'shadow-sm hover:shadow-md',
+      icon: 'text-success bg-success/10 border-success/20',
+      badge: 'bg-success/10 text-success hover:bg-success/20 border-success/20',
     },
     attention: {
-      border: 'border-amber-500/30 hover:border-amber-500/50',
-      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.03)] hover:shadow-[0_0_25px_rgba(245,158,11,0.08)]',
-      icon: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-      badge: 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20',
+      border: 'border-warning/30 hover:border-warning/50',
+      glow: 'shadow-sm hover:shadow-md',
+      icon: 'text-warning bg-warning/10 border-warning/20',
+      badge: 'bg-warning/10 text-warning hover:bg-warning/20 border-warning/20',
     },
     optional: {
       border: 'border-border/70 hover:border-primary/45',
-      glow: 'hover:shadow-[0_0_20px_rgba(99,102,241,0.06)]',
+      glow: 'hover:shadow-md',
       icon: 'text-primary bg-primary/10 border-primary/20',
       badge: 'bg-muted/30 text-muted-foreground border-border/40',
     },

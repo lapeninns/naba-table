@@ -29,8 +29,8 @@ export function ScheduleDayServiceWindowsSection({
   return (
     <div className="space-y-4 pt-4 border-t border-primary/5">
       <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-foreground">
-        <div className="p-1 rounded bg-emerald-500/10 border border-emerald-500/10">
-          <UtensilsCrossed className="size-3.5 text-emerald-500" />
+        <div className="p-1 rounded bg-success/10 border border-success/10">
+          <UtensilsCrossed className="size-3.5 text-success" />
         </div>
         Service windows (Lunch / Dinner Sessions)
       </div>
