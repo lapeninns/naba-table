@@ -14,6 +14,10 @@ vi.mock('@/hooks/ops/useOpsRestaurantBusinessContext', () => ({
   useOpsUpdateRestaurantBusinessContext: useOpsUpdateRestaurantBusinessContextMock,
 }));
 
+vi.mock('@/contexts/ops-unsaved-changes', () => ({
+  useRegisterOpsUnsavedChanges: vi.fn(),
+}));
+
 vi.mock('@/hooks/ops/useOpsDualSync', () => ({
   useOpsDualSync: () => ({
     stateQuery: {

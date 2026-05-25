@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 
 const appBaseUrl = 'http://localhost:5180';
-const restaurantSlug = 'the-fox';
 
 test.describe('guest marketing pages', () => {
   test.use({ baseURL: appBaseUrl });
@@ -10,9 +9,11 @@ test.describe('guest marketing pages', () => {
     await page.goto('/');
 
     await expect(
-      page.getByRole('heading', { name: /The 'Packed House' Pub System/i }),
+      page.getByRole('heading', {
+        name: 'Nabatable keeps your pub service full, confirmed, and under control.',
+      }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Claim one monthly setup spot' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Claim a setup slot' }).first()).toBeVisible();
   });
 
   test('privacy policy page loads', async ({ page }) => {

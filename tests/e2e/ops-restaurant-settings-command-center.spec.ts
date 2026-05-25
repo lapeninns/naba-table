@@ -293,6 +293,10 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
     await expect(page.locator('main').getByText('Required setup', { exact: true })).toBeVisible();
     await expect(page.locator('main').getByText('3/3 complete')).toBeVisible();
+    await expect(
+      page.locator('main').getByText('Team ready · Google Business Profile pending'),
+    ).toBeVisible();
+    await expect(page.locator('main').getByText('All required setup is complete')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open availability' })).toHaveAttribute(
       'href',
       '/app/settings/restaurant/availability#booking-rules',
@@ -324,6 +328,47 @@ test.describe('ops restaurant settings command-center primary routes', () => {
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-setup-overview-tablet.png'),
+      fullPage: true,
+    });
+  });
+
+  test('discovery route shows GBP-aware disconnected status @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/settings/restaurant/discovery', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/discovery/);
+    await expect(page.getByRole('heading', { name: 'Discovery details' })).toBeVisible();
+    await expect(page.locator('main').getByText('Public discovery')).toBeVisible();
+    await expect(
+      page.getByRole('link', {
+        name: 'Connect Google Business Profile to import suggestions',
+      }),
+    ).toHaveAttribute('href', '/app/settings/restaurant/google-business-profile#gbp-connection');
+    await expect(page.locator('main').getByText('Suggested 0')).toHaveCount(0);
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-settings-discovery-gbp-disconnected.png'),
+      fullPage: true,
+    });
+  });
+
+  test('profile route offers a clean-state GBP link action @p1 @browser @smoke @local-only', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/settings/restaurant/profile', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
+    await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Link Google Business Profile' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/google-business-profile#gbp-connection',
+    );
+
+    await page.screenshot({
+      path: testInfo.outputPath('ops-settings-profile-gbp-link-action.png'),
       fullPage: true,
     });
   });

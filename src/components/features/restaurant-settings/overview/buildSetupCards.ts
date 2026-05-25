@@ -25,12 +25,16 @@ export type SetupCard = {
 
 type BuildSetupCardsInput = {
   profileComplete: boolean;
+  profileDetail: string;
   availabilityComplete: boolean;
   tablesComplete: boolean;
   availableTables: number;
   menuCount: number;
   pendingInvites: number;
 };
+
+const REQUIRED_SETUP_CARD_KEYS = new Set(['profile', 'availability', 'tables']);
+const OPTIONAL_SETUP_CARD_KEYS = new Set(['google', 'menu', 'team']);
 
 export function statusLabel(status: SetupStatus) {
   if (status === 'complete') return 'Complete';
@@ -44,8 +48,60 @@ export function statusVariant(status: SetupStatus): 'default' | 'secondary' | 'o
   return 'outline';
 }
 
+export function summarizeOptionalSetup(cards: SetupCard[]) {
+  const optional = cards.filter((card) => OPTIONAL_SETUP_CARD_KEYS.has(card.key));
+  const started = optional.filter((card) => card.status === 'complete').length;
+  const next = optional.find((card) => card.status !== 'complete');
+  const ready = optional
+    .filter((card) => card.status === 'complete')
+    .map((card) => `${card.title} ready`);
+  const pending = optional
+    .filter((card) => card.status !== 'complete')
+    .map((card) => `${card.title} pending`);
+
+  return {
+    total: optional.length,
+    started,
+    value:
+      ready.length > 0
+        ? [...ready, ...pending].slice(0, 2).join(' · ')
+        : `${started}/${optional.length} started`,
+    description: next?.detail ?? 'Optional tools are ready when needed.',
+  };
+}
+
+export function summarizeRequiredSetup(cards: SetupCard[]) {
+  const required = cards.filter((card) => REQUIRED_SETUP_CARD_KEYS.has(card.key));
+  const complete = required.filter((card) => card.status === 'complete').length;
+  const next = required.find((card) => card.status !== 'complete') ?? null;
+  const total = required.length;
+  const percent = total > 0 ? Math.round((complete / total) * 100) : 0;
+
+  return {
+    complete,
+    total,
+    percent,
+    next,
+    title:
+      complete === total
+        ? 'Your restaurant is ready to take bookings.'
+        : `Next up: ${next?.title ?? 'required setup'}`,
+    description:
+      complete === total
+        ? 'Profile, availability, and seating capacity are all ready for guests.'
+        : (next?.detail ?? 'Complete the next required setup step before go-live.'),
+    footer:
+      complete === total
+        ? 'All required setup is complete'
+        : `${next?.title ?? 'Required setup'} needs attention`,
+  };
+}
+
+export type RequiredSetupSummary = ReturnType<typeof summarizeRequiredSetup>;
+
 export function buildSetupCards({
   profileComplete,
+  profileDetail,
   availabilityComplete,
   tablesComplete,
   availableTables,
@@ -60,9 +116,7 @@ export function buildSetupCards({
       href: opsHref('/settings/restaurant/profile'),
       cta: 'Open profile',
       status: profileComplete ? 'complete' : 'attention',
-      detail: profileComplete
-        ? 'Core public details are present.'
-        : 'Add name, booking URL, timezone, and public phone before go-live.',
+      detail: profileDetail,
       Icon: UserRound,
     },
     {

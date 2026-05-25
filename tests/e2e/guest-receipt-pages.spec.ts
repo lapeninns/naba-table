@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+import { createSessionRecoveryAccessToken } from '../../server/security/session-recovery-access-token';
+
 const appPort = process.env.QA_APP_PORT ?? '5180';
 const appBaseUrl = `http://localhost:${appPort}`;
+const recoverySecret = 'test-session-recovery-secret';
 const bookingId = '33333333-3333-4333-8333-333333333333';
 const bookingReference = 'NB5678';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
@@ -36,7 +39,23 @@ const bookingPayload = {
 test.describe('guest receipt pages', () => {
   test.use({ baseURL: appBaseUrl });
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    const recoveryToken = createSessionRecoveryAccessToken({
+      restaurantId,
+      email: bookingPayload.customer_email,
+      phone: bookingPayload.customer_phone,
+      secret: recoverySecret,
+      ttlSeconds: 900,
+    });
+
+    await context.addCookies([
+      {
+        name: 'sr_access',
+        value: recoveryToken,
+        url: appBaseUrl,
+      },
+    ]);
+
     await page.route('**/api/bookings/**', async (route) => {
       const url = new URL(route.request().url());
 
@@ -57,20 +76,18 @@ test.describe('guest receipt pages', () => {
     });
   });
 
-  test('legacy thank-you redirects to receipt and preserves query params', async ({ page }) => {
+  test('legacy thank-you redirects deprecated token links to recovery guidance', async ({
+    page,
+  }) => {
     await page.goto(`/bookings/${bookingId}/thank-you?token=abc123&source=email`);
 
-    await expect(page).toHaveURL(
-      `${appBaseUrl}/guest/bookings/${bookingId}/receipt?token=abc123&source=email`,
-    );
-    await expect(page.getByRole('heading', { name: 'The Fox' })).toBeVisible();
     await expect(
-      page.getByText('Save this receipt for easier check-in when you arrive.'),
+      page.getByRole('heading', { name: 'This older booking link is no longer supported' }),
     ).toBeVisible();
   });
 
   test('receipt page renders booking summary with token access', async ({ page }) => {
-    await page.goto(`/guest/bookings/${bookingId}/receipt?token=abc123`);
+    await page.goto(`/guest/bookings/${bookingId}/receipt`);
 
     await expect(page.getByRole('heading', { name: 'The Fox' })).toBeVisible();
     await expect(page.getByText(bookingReference)).toBeVisible();

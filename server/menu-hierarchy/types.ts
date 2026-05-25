@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
 import { GOOGLE_FOOD_MENU_CUISINES } from '@/lib/google-food-menu-cuisines';
+import {
+  GOOGLE_FOOD_MENU_ALLERGENS,
+  GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS,
+  GOOGLE_FOOD_MENU_PREPARATION_METHODS,
+  GOOGLE_FOOD_MENU_SPICINESS,
+} from '@/lib/google-food-menu-labels';
 
 import type { GoogleFoodMenuCuisine } from '@/lib/google-food-menu-cuisines';
 
@@ -8,50 +14,6 @@ export const DEFAULT_MENU_LANGUAGE_CODE = 'en-GB';
 
 export const MENU_KINDS = ['food', 'drinks', 'mixed'] as const;
 export const MENU_ITEM_KINDS = ['food', 'drink'] as const;
-export const GOOGLE_FOOD_MENU_SPICINESS = ['MILD', 'MEDIUM', 'HOT'] as const;
-export const GOOGLE_FOOD_MENU_ALLERGENS = [
-  'DAIRY',
-  'EGG',
-  'FISH',
-  'PEANUT',
-  'SHELLFISH',
-  'SOY',
-  'TREE_NUT',
-  'WHEAT',
-] as const;
-export const GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS = [
-  'HALAL',
-  'KOSHER',
-  'ORGANIC',
-  'VEGAN',
-  'VEGETARIAN',
-] as const;
-export const GOOGLE_FOOD_MENU_PREPARATION_METHODS = [
-  'BAKED',
-  'BARBECUED',
-  'BASTED',
-  'BLANCHED',
-  'BOILED',
-  'BRAISED',
-  'CODDLED',
-  'FERMENTED',
-  'FRIED',
-  'GRILLED',
-  'KNEADED',
-  'MARINATED',
-  'PAN_FRIED',
-  'PICKLED',
-  'PRESSURE_COOKED',
-  'ROASTED',
-  'SAUTEED',
-  'SEARED',
-  'SIMMERED',
-  'SMOKED',
-  'STEAMED',
-  'STEEPED',
-  'STIR_FRIED',
-  'OTHER_METHOD',
-] as const;
 const requiredText = z.string().trim().min(1);
 const optionalNullableText = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
   if (typeof value !== 'string') return null;
@@ -393,7 +355,13 @@ export function parseCanonicalMenuMedia(input: unknown) {
 
 export type MenuKind = (typeof MENU_KINDS)[number];
 export type MenuItemKind = (typeof MENU_ITEM_KINDS)[number];
-export { GOOGLE_FOOD_MENU_CUISINES };
+export {
+  GOOGLE_FOOD_MENU_ALLERGENS,
+  GOOGLE_FOOD_MENU_CUISINES,
+  GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS,
+  GOOGLE_FOOD_MENU_PREPARATION_METHODS,
+  GOOGLE_FOOD_MENU_SPICINESS,
+};
 export type { GoogleFoodMenuCuisine };
 export type CanonicalMenuLabel = z.infer<typeof CanonicalMenuLabelSchema>;
 export type CanonicalMenuMedia = z.infer<typeof CanonicalMenuMediaSchema>;

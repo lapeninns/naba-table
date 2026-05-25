@@ -5,11 +5,16 @@ import { describe, expect, it, vi } from 'vitest';
 
 import TableInventoryClient from '@/components/features/tables/TableInventoryClient';
 import {
+  CATEGORY_OPTIONS,
+  MOBILITY_OPTIONS,
+  SEATING_TYPE_OPTIONS,
+  STATUS_OPTIONS,
   filterTablesByStatus,
   filterZonesByStatus,
 } from '@/components/features/tables/tableInventoryModel';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
+import { Constants } from '@/types/supabase';
 
 import type {
   ListTablesResult,
@@ -213,6 +218,21 @@ describe('TableInventoryClient', () => {
 });
 
 describe('table inventory filters', () => {
+  it('uses generated Supabase table enums for editable table option values', () => {
+    expect(CATEGORY_OPTIONS.map((option) => option.value)).toEqual([
+      ...Constants.public.Enums.table_category,
+    ]);
+    expect(SEATING_TYPE_OPTIONS.map((option) => option.value)).toEqual([
+      ...Constants.public.Enums.table_seating_type,
+    ]);
+    expect(MOBILITY_OPTIONS.map((option) => option.value)).toEqual([
+      ...Constants.public.Enums.table_mobility,
+    ]);
+    expect(STATUS_OPTIONS.map((option) => option.value)).toEqual([
+      ...Constants.public.Enums.table_status,
+    ]);
+  });
+
   it('separates active and inactive tables using both table and zone status', () => {
     const active = makeTable({ id: 'active', active: true, zoneActive: true });
     const inactiveTable = makeTable({ id: 'inactive-table', active: false, zoneActive: true });

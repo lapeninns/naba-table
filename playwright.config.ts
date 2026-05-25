@@ -41,7 +41,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `QA_APP_PORT=${appPort} tsx scripts/qa/clear-next-dev-lock.ts && QA_ENABLE_AUTH_FIXTURES=1 QA_TARGET_ENV=local QA_USE_MOCKS=1 NEXT_PUBLIC_SUPABASE_URL=http://localhost NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key SUPABASE_SERVICE_ROLE_KEY=test-service-role NEXT_PUBLIC_SITE_URL=${appBaseUrl} NEXT_PUBLIC_APP_URL=${appBaseUrl} NEXT_DEV_PORT=${appPort} NEXT_DEV_HOST=127.0.0.1 PORT=${appPort} pnpm dev`,
+      command: `QA_APP_PORT=${appPort} tsx scripts/qa/clear-next-dev-lock.ts && QA_ENABLE_AUTH_FIXTURES=1 QA_TARGET_ENV=local QA_USE_MOCKS=1 NEXT_PUBLIC_SUPABASE_URL=http://localhost NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key SUPABASE_SERVICE_ROLE_KEY=test-service-role SESSION_RECOVERY_ACCESS_TOKEN_SECRET=test-session-recovery-secret NEXT_PUBLIC_SITE_URL=${appBaseUrl} NEXT_PUBLIC_APP_URL=${appBaseUrl} NEXT_DEV_PORT=${appPort} NEXT_DEV_HOST=127.0.0.1 PORT=${appPort} pnpm dev`,
       url: appBaseUrl,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

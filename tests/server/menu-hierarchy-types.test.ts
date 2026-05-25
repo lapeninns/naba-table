@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  GOOGLE_FOOD_MENU_ALLERGENS as SHARED_GOOGLE_FOOD_MENU_ALLERGENS,
+  GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS as SHARED_GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS,
+  GOOGLE_FOOD_MENU_PREPARATION_METHODS as SHARED_GOOGLE_FOOD_MENU_PREPARATION_METHODS,
+  GOOGLE_FOOD_MENU_SPICINESS as SHARED_GOOGLE_FOOD_MENU_SPICINESS,
+} from '@/lib/google-food-menu-labels';
+import {
   CanonicalRestaurantMenuSchema,
   CanonicalRestaurantMenuItemSchema,
   CanonicalRestaurantMenuOptionSchema,
+  GOOGLE_FOOD_MENU_ALLERGENS,
   GOOGLE_FOOD_MENU_CUISINES,
+  GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS,
+  GOOGLE_FOOD_MENU_PREPARATION_METHODS,
+  GOOGLE_FOOD_MENU_SPICINESS,
   RestaurantMenuItemPatchSchema,
   RestaurantMenuOptionPatchSchema,
   buildCanonicalMenuLabel,
@@ -12,6 +22,15 @@ import {
 } from '@/server/menu-hierarchy/types';
 
 describe('canonical menu hierarchy model', () => {
+  it('reuses the shared Google FoodMenus enum values in server schemas', () => {
+    expect(GOOGLE_FOOD_MENU_ALLERGENS).toBe(SHARED_GOOGLE_FOOD_MENU_ALLERGENS);
+    expect(GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS).toBe(
+      SHARED_GOOGLE_FOOD_MENU_DIETARY_RESTRICTIONS,
+    );
+    expect(GOOGLE_FOOD_MENU_PREPARATION_METHODS).toBe(SHARED_GOOGLE_FOOD_MENU_PREPARATION_METHODS);
+    expect(GOOGLE_FOOD_MENU_SPICINESS).toBe(SHARED_GOOGLE_FOOD_MENU_SPICINESS);
+  });
+
   it('normalizes Google-compatible labels with the Nabatable default language', () => {
     expect(
       buildCanonicalMenuLabel({

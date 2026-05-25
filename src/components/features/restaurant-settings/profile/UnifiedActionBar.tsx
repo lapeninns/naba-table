@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,6 +17,8 @@ type UnifiedActionBarProps = {
   onCancelActive?: () => void;
   gbpDriftCount?: number;
   onCompareWithGoogle?: () => void;
+  googleHref?: string;
+  googleLinked?: boolean;
   className?: string;
 };
 
@@ -42,6 +46,8 @@ export function UnifiedActionBar({
   onCancelActive,
   gbpDriftCount = 0,
   onCompareWithGoogle,
+  googleHref,
+  googleLinked = true,
   className,
 }: UnifiedActionBarProps) {
   const profileDirtyCount = dirtyFormSections.length;
@@ -63,6 +69,11 @@ export function UnifiedActionBar({
             Last profile save: <span className="text-foreground">{formatSavedAt(lastSavedAt)}</span>
             . Save controls appear here when a profile section has a draft.
           </p>
+          {!googleLinked && googleHref ? (
+            <Button asChild type="button" variant="outline" size="sm">
+              <Link href={googleHref}>Link Google Business Profile</Link>
+            </Button>
+          ) : null}
         </div>
       </div>
     );

@@ -4,6 +4,7 @@ import {
   buildOpsCustomersFilterBadges,
   buildOpsCustomersQueryString,
   buildOpsGuestRowViewModels,
+  clearOpsCustomersFilterBadge,
   parseOpsCustomersQueryState,
 } from '@/components/features/customers/opsCustomersSelectors';
 
@@ -94,6 +95,39 @@ describe('opsCustomersSelectors', () => {
       { key: 'lastVisit', label: 'Last 30 days' },
       { key: 'minBookings', label: 'Min bookings 5' },
     ]);
+  });
+
+  it('clears individual filter badge state without touching other filters', () => {
+    const state = parseOpsCustomersQueryState(
+      'search=alex&marketingOptIn=opted_out&lastVisit=90d&minBookings=4&sort=asc&sortBy=bookings',
+    );
+
+    expect(clearOpsCustomersFilterBadge(state, 'search')).toMatchObject({
+      searchTerm: '',
+      marketingOptIn: 'opted_out',
+      lastVisit: '90d',
+      minBookings: 4,
+      sort: 'asc',
+      sortBy: 'bookings',
+    });
+    expect(clearOpsCustomersFilterBadge(state, 'marketing')).toMatchObject({
+      searchTerm: 'alex',
+      marketingOptIn: 'all',
+      lastVisit: '90d',
+      minBookings: 4,
+    });
+    expect(clearOpsCustomersFilterBadge(state, 'lastVisit')).toMatchObject({
+      searchTerm: 'alex',
+      marketingOptIn: 'opted_out',
+      lastVisit: 'any',
+      minBookings: 4,
+    });
+    expect(clearOpsCustomersFilterBadge(state, 'minBookings')).toMatchObject({
+      searchTerm: 'alex',
+      marketingOptIn: 'opted_out',
+      lastVisit: '90d',
+      minBookings: 0,
+    });
   });
 
   it('builds guest row view models with precomputed display state', () => {

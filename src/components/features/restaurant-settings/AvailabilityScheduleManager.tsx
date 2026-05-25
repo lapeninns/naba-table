@@ -1,28 +1,6 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, RotateCcw, Save } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { useOccasionService } from '@/contexts/ops-services';
-import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
-import { useOpsOccasions } from '@/hooks/ops/useOccasions';
-import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
-import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
-import { useOpsTurnBands, useOpsUpdateTurnBands } from '@/hooks/ops/useOpsTurnBands';
-import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
-import { queryKeys } from '@/lib/query/keys';
+import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 import {
@@ -33,842 +11,105 @@ import {
   ScheduleWorkspace,
 } from './availability';
 import {
-  buildOperatingHoursPayload,
-  buildMissingRequiredOccasions,
-  buildWeeklyHoursMap,
-  canonicalizeRequiredTime,
-  defaultOverrideRow,
-  defaultWeeklyRows,
-  extractRequiredOccasionKeys,
-  mapOverridesFromResponse,
-  mapWeeklyFromResponse,
-  type DayErrors,
-  validateHours,
-  validateServices,
-} from './availabilityScheduleManagerUtils';
-import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
-import { findServicePeriodDriftField, useWorkspaceGbpDriftCheck } from './gbpDriftBadges';
+  AvailabilityScheduleFooter,
+  AvailabilityScheduleHeader,
+  AvailabilitySaveAlert,
+  RequiredBookingTypesAlert,
+} from './AvailabilityScheduleManagerChrome';
+import { SETTINGS_COMPACT_CARD_CLASS, SETTINGS_COMPACT_CARD_CONTENT_CLASS } from './shared';
 import {
-  buildServicePeriodPayload,
-  buildServicePeriodState,
-  type DayServiceConfig,
-} from './servicePeriodsMapper';
-import {
-  SETTINGS_COMPACT_CARD_CLASS,
-  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
-  SETTINGS_COMPACT_CARD_HEADER_CLASS,
-  SETTINGS_COMPACT_HELPER_TEXT_CLASS,
-  SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS,
-  formatSaveScopeMessage,
-} from './shared';
-import { validateTurnBandRows, type TurnBandRowError } from './TurnBandsEditor';
-import {
-  DAYS_OF_WEEK,
-  type OverrideErrors,
-  type OverrideRow,
-  type WeeklyErrors,
-  type WeeklyRow,
-} from './types';
-
-import type { OpsOccasion } from '@/services/ops/occasions';
-import type { ServicePeriodRow, TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
+  useAvailabilityScheduleManagerController,
+  type AvailabilityScheduleManagerWorkspace,
+} from './useAvailabilityScheduleManagerController';
 
 type AvailabilityScheduleManagerProps = {
   restaurantId: string | null;
-  activeWorkspace?: 'schedule' | 'booking-types';
+  activeWorkspace?: AvailabilityScheduleManagerWorkspace;
 };
-
-const AVAILABILITY_DRIFT_SECTIONS = ['operatingHours', 'servicePeriods'] as const;
-
-type SaveState = {
-  variant: 'destructive' | 'success' | 'warning';
-  title: string;
-  message: string;
-  details?: string[];
-} | null;
 
 export function AvailabilityScheduleManager({
   restaurantId,
   activeWorkspace = 'schedule',
 }: AvailabilityScheduleManagerProps) {
-  const operatingHoursQuery = useOpsOperatingHours(restaurantId);
-  const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
-  const occasionsQuery = useOpsOccasions();
-  const turnBandsQuery = useOpsTurnBands(restaurantId);
-  const updateOperatingHours = useOpsUpdateOperatingHours(restaurantId);
-  const updateServicePeriods = useOpsUpdateServicePeriods(restaurantId);
-  const updateTurnBands = useOpsUpdateTurnBands(restaurantId);
-  const occasionService = useOccasionService();
-  const queryClient = useQueryClient();
-  const registryDrift = useOptionalGbpDrift();
-  const registerDriftDraftOverride = registryDrift?.registerDraftOverride;
-  const gbpDrift = useWorkspaceGbpDriftCheck({
+  const controller = useAvailabilityScheduleManagerController({
+    activeWorkspace,
     restaurantId,
-    sectionKeys: AVAILABILITY_DRIFT_SECTIONS,
   });
 
-  const [weeklyRows, setWeeklyRows] = useState<WeeklyRow[]>(defaultWeeklyRows);
-  const [overrideRows, setOverrideRows] = useState<OverrideRow[]>([]);
-  const [dayConfigs, setDayConfigs] = useState<DayServiceConfig[]>([]);
-  const [customRows, setCustomRows] = useState<ServicePeriodRow[]>([]);
-  const [occasionDrafts, setOccasionDrafts] = useState<OpsOccasion[]>([]);
-  const [turnBandsDraft, setTurnBandsDraft] = useState<TurnBandsPayload>({});
-  const [turnBandErrors, setTurnBandErrors] = useState<Record<string, TurnBandRowError[]>>({});
-  const [weeklyErrors, setWeeklyErrors] = useState<WeeklyErrors>({});
-  const [overrideErrors, setOverrideErrors] = useState<OverrideErrors>([]);
-  const [serviceErrors, setServiceErrors] = useState<DayErrors>({});
-  const [hoursDirty, setHoursDirty] = useState(false);
-  const [servicesDirty, setServicesDirty] = useState(false);
-  const [occasionsDirty, setOccasionsDirty] = useState(false);
-  const [turnBandsDirty, setTurnBandsDirty] = useState(false);
-  const [isSavingConfiguration, setIsSavingConfiguration] = useState(false);
-  const [saveState, setSaveState] = useState<SaveState>(null);
-  const [hasInitialized, setHasInitialized] = useState(false);
-
-  const occasionOptions = useMemo(() => occasionsQuery.data ?? [], [occasionsQuery.data]);
-  const occasionKeys = useMemo(
-    () => extractRequiredOccasionKeys(occasionOptions),
-    [occasionOptions],
-  );
-
-  const initializeState = useCallback(
-    (resetSaveState = true) => {
-      if (
-        !operatingHoursQuery.data ||
-        !servicePeriodsQuery.data ||
-        !occasionsQuery.data ||
-        !turnBandsQuery.data
-      ) {
-        return;
-      }
-      const nextWeeklyRows = mapWeeklyFromResponse(operatingHoursQuery.data.weekly);
-      const { custom, days } = buildServicePeriodState({
-        periods: servicePeriodsQuery.data,
-        weeklyHours: buildWeeklyHoursMap(nextWeeklyRows),
-        dayLabels: nextWeeklyRows.map((row) => DAYS_OF_WEEK[row.dayOfWeek]),
-      });
-
-      setWeeklyRows(nextWeeklyRows);
-      setOverrideRows(mapOverridesFromResponse(operatingHoursQuery.data.overrides));
-      setDayConfigs(days);
-      setCustomRows(custom);
-      setOccasionDrafts(occasionsQuery.data);
-      setTurnBandsDraft(turnBandsQuery.data.bands ?? {});
-      setTurnBandErrors({});
-      setWeeklyErrors({});
-      setOverrideErrors([]);
-      setServiceErrors({});
-      setHoursDirty(false);
-      setServicesDirty(false);
-      setOccasionsDirty(false);
-      setTurnBandsDirty(false);
-      if (resetSaveState) {
-        setSaveState(null);
-      }
-      setHasInitialized(true);
-    },
-    [occasionsQuery.data, operatingHoursQuery.data, servicePeriodsQuery.data, turnBandsQuery.data],
-  );
-
-  const isSaving =
-    isSavingConfiguration ||
-    updateOperatingHours.isPending ||
-    updateServicePeriods.isPending ||
-    updateTurnBands.isPending;
-  const hasLocalChanges = hoursDirty || servicesDirty || occasionsDirty || turnBandsDirty;
-  const hasRequiredOccasions = Boolean(occasionKeys.lunch && occasionKeys.dinner);
-  const servicePeriodDriftFields = gbpDrift.getFieldsBySection('servicePeriods');
-  const availabilityDraftOverrides = useMemo(() => {
-    const entries: Array<readonly [string, unknown]> = weeklyRows.map((row) => [
-      `operatingHours.weekly.${row.dayOfWeek}`,
-      {
-        opensAt: row.opensAt,
-        closesAt: row.closesAt,
-        isClosed: row.isClosed,
-      },
-    ]);
-
-    for (const day of dayConfigs) {
-      if (occasionKeys.lunch && day.lunch.enabled) {
-        const field = findServicePeriodDriftField(servicePeriodDriftFields, {
-          dayOfWeek: day.dayOfWeek,
-          startTime: day.lunch.startTime,
-          endTime: day.lunch.endTime,
-          bookingOption: occasionKeys.lunch,
-          name: day.lunch.name,
-        });
-        if (field) {
-          entries.push([
-            field.fieldKey,
-            {
-              name: day.lunch.name,
-              dayOfWeek: day.dayOfWeek,
-              startTime: day.lunch.startTime,
-              endTime: day.lunch.endTime,
-              bookingOption: occasionKeys.lunch,
-            },
-          ]);
-        }
-      }
-
-      if (occasionKeys.dinner && day.dinner.enabled) {
-        const field = findServicePeriodDriftField(servicePeriodDriftFields, {
-          dayOfWeek: day.dayOfWeek,
-          startTime: day.dinner.startTime,
-          endTime: day.dinner.endTime,
-          bookingOption: occasionKeys.dinner,
-          name: day.dinner.name,
-        });
-        if (field) {
-          entries.push([
-            field.fieldKey,
-            {
-              name: day.dinner.name,
-              dayOfWeek: day.dayOfWeek,
-              startTime: day.dinner.startTime,
-              endTime: day.dinner.endTime,
-              bookingOption: occasionKeys.dinner,
-            },
-          ]);
-        }
-      }
-    }
-
-    return entries;
-  }, [dayConfigs, occasionKeys.dinner, occasionKeys.lunch, servicePeriodDriftFields, weeklyRows]);
-
-  useRegisterOpsUnsavedChanges(
-    'availability-command-center',
-    hasLocalChanges,
-    'You have unsaved availability changes in this settings workspace. Leave without saving them?',
-  );
-
-  useEffect(() => {
-    if (!registerDriftDraftOverride) return;
-    for (const [fieldKey, value] of availabilityDraftOverrides) {
-      registerDriftDraftOverride(fieldKey, value);
-    }
-  }, [availabilityDraftOverrides, registerDriftDraftOverride]);
-
-  useEffect(() => {
-    if (
-      !operatingHoursQuery.data ||
-      !servicePeriodsQuery.data ||
-      !occasionsQuery.data ||
-      !turnBandsQuery.data
-    ) {
-      return;
-    }
-    if (!hasInitialized) {
-      initializeState();
-      return;
-    }
-    if (!hasLocalChanges && !isSaving) {
-      initializeState(false);
-    }
-  }, [
-    hasInitialized,
-    hasLocalChanges,
-    initializeState,
-    isSaving,
-    operatingHoursQuery.data,
-    occasionsQuery.data,
-    servicePeriodsQuery.data,
-    turnBandsQuery.data,
-  ]);
-
-  const clearSaveState = () => setSaveState(null);
-
-  const createRequiredOccasions = async () => {
-    const missingOccasions = buildMissingRequiredOccasions(occasionKeys);
-
-    if (missingOccasions.length === 0) {
-      return;
-    }
-
-    try {
-      setIsSavingConfiguration(true);
-      for (const occasion of missingOccasions) {
-        await occasionService.createOccasion({
-          key: occasion.key,
-          label: occasion.label,
-          shortLabel: occasion.shortLabel,
-          description: occasion.description,
-          availability: [{ kind: 'anytime' }],
-          defaultDurationMinutes: occasion.defaultDurationMinutes,
-          displayOrder: occasion.displayOrder,
-          isActive: true,
-        });
-      }
-
-      await queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
-      setSaveState({
-        variant: 'success',
-        title: 'Required booking types created',
-        message: 'Lunch and dinner are now available for service-window scheduling.',
-        details: missingOccasions.map((occasion) => `${occasion.label}: created`),
-      });
-    } catch (error) {
-      setSaveState({
-        variant: 'destructive',
-        title: 'Unable to create required booking types',
-        message: error instanceof Error ? error.message : 'Please try again.',
-      });
-    } finally {
-      setIsSavingConfiguration(false);
-    }
-  };
-
-  const handleWeeklyChange = useCallback((dayIndex: number, patch: Partial<WeeklyRow>) => {
-    setWeeklyRows((current) =>
-      current.map((row, index) => (index === dayIndex ? { ...row, ...patch } : row)),
-    );
-    setDayConfigs((current) =>
-      current.map((day, index) => {
-        if (index !== dayIndex) {
-          return day;
-        }
-        const nextClosed = patch.isClosed ?? day.isClosed;
-        return {
-          ...day,
-          opensAt: patch.opensAt !== undefined ? patch.opensAt : day.opensAt,
-          closesAt: patch.closesAt !== undefined ? patch.closesAt : day.closesAt,
-          isClosed: nextClosed,
-          lunch: nextClosed ? { ...day.lunch, enabled: false } : day.lunch,
-          dinner: nextClosed ? { ...day.dinner, enabled: false } : day.dinner,
-        };
-      }),
-    );
-    setWeeklyErrors((prev) => {
-      const next = { ...prev };
-      delete next[dayIndex];
-      return next;
-    });
-    setServiceErrors((prev) => {
-      const next = { ...prev };
-      delete next[dayIndex];
-      return next;
-    });
-    setHoursDirty(true);
-    clearSaveState();
-  }, []);
-
-  const handleOverrideChange = useCallback((index: number, patch: Partial<OverrideRow>) => {
-    setOverrideRows((current) =>
-      current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)),
-    );
-    setOverrideErrors((prev) => {
-      const next = [...prev];
-      next[index] = {};
-      return next;
-    });
-    setHoursDirty(true);
-    clearSaveState();
-  }, []);
-
-  const addOverride = () => {
-    setOverrideRows((current) => [...current, defaultOverrideRow()]);
-    setOverrideErrors((current) => [...current, {}]);
-    setHoursDirty(true);
-    clearSaveState();
-  };
-
-  const removeOverride = (index: number) => {
-    setOverrideRows((current) => current.filter((_, rowIndex) => rowIndex !== index));
-    setOverrideErrors((current) => current.filter((_, rowIndex) => rowIndex !== index));
-    setHoursDirty(true);
-    clearSaveState();
-  };
-
-  const handleMealToggle = (dayIndex: number, mealKey: 'lunch' | 'dinner', value: boolean) => {
-    setDayConfigs((current) =>
-      current.map((day, index) =>
-        index === dayIndex
-          ? {
-              ...day,
-              [mealKey]: {
-                ...day[mealKey],
-                enabled: value,
-              },
-            }
-          : day,
-      ),
-    );
-    setServiceErrors((prev) => {
-      const next = { ...prev };
-      const dayError = { ...(next[dayIndex] ?? {}) };
-      delete dayError[mealKey];
-      if (Object.keys(dayError).length === 0) {
-        delete next[dayIndex];
-      } else {
-        next[dayIndex] = dayError;
-      }
-      return next;
-    });
-    setServicesDirty(true);
-    clearSaveState();
-  };
-
-  const handleMealTimeChange = (
-    dayIndex: number,
-    mealKey: 'lunch' | 'dinner',
-    field: 'startTime' | 'endTime',
-    value: string,
-  ) => {
-    setDayConfigs((current) =>
-      current.map((day, index) =>
-        index === dayIndex
-          ? {
-              ...day,
-              [mealKey]: {
-                ...day[mealKey],
-                [field]: value,
-              },
-            }
-          : day,
-      ),
-    );
-    setServiceErrors((prev) => {
-      const next = { ...prev };
-      const dayError = { ...(next[dayIndex] ?? {}) };
-      if (dayError[mealKey]) {
-        const nextMealError = { ...dayError[mealKey] };
-        delete nextMealError[field === 'startTime' ? 'start' : 'end'];
-        if (Object.keys(nextMealError).length === 0) {
-          delete dayError[mealKey];
-        } else {
-          dayError[mealKey] = nextMealError;
-        }
-      }
-      if (Object.keys(dayError).length === 0) {
-        delete next[dayIndex];
-      } else {
-        next[dayIndex] = dayError;
-      }
-      return next;
-    });
-    setServicesDirty(true);
-    clearSaveState();
-  };
-
-  const handleTurnBandsChange = useCallback((optionKey: string, nextBands: TurnBandInput[]) => {
-    setTurnBandsDraft((current) => {
-      const next = { ...current };
-      if (!nextBands || nextBands.length === 0) {
-        delete next[optionKey];
-      } else {
-        next[optionKey] = nextBands;
-      }
-      return next;
-    });
-    setTurnBandErrors((prev) => {
-      const next = { ...prev };
-      delete next[optionKey];
-      return next;
-    });
-    setTurnBandsDirty(true);
-    clearSaveState();
-  }, []);
-
-  const handleSave = async () => {
-    if (!hoursDirty && !servicesDirty && !occasionsDirty && !turnBandsDirty) {
-      return;
-    }
-
-    const hourValidation = validateHours(weeklyRows, overrideRows);
-    const serviceValidation = validateServices(dayConfigs);
-
-    const nextTurnBandErrors: Record<string, TurnBandRowError[]> = {};
-    let turnBandsValid = true;
-    Object.entries(turnBandsDraft).forEach(([optionKey, rows]) => {
-      if (!rows || rows.length === 0) return;
-      const validation = validateTurnBandRows(rows);
-      if (!validation.ok) {
-        nextTurnBandErrors[optionKey] = validation.errors;
-        turnBandsValid = false;
-      }
-    });
-
-    setWeeklyErrors(hourValidation.weeklyErrors);
-    setOverrideErrors(hourValidation.overrideErrors);
-    setServiceErrors(serviceValidation.serviceErrors);
-    setTurnBandErrors(nextTurnBandErrors);
-
-    if (!hourValidation.isValid || !serviceValidation.isValid || !turnBandsValid) {
-      setSaveState({
-        variant: 'destructive',
-        title: 'Review highlighted fields',
-        message:
-          'Fix validation issues in the schedule, overrides, or dining-duration bands before saving.',
-      });
-      return;
-    }
-
-    if (servicesDirty && !hasRequiredOccasions) {
-      setSaveState({
-        variant: 'destructive',
-        title: 'Missing booking types',
-        message: 'Create active Lunch and Dinner booking types before saving service windows.',
-      });
-      return;
-    }
-
-    const operatingHoursPayload = buildOperatingHoursPayload(weeklyRows, overrideRows);
-    const servicePayload = buildServicePeriodPayload(
-      dayConfigs.map((day) =>
-        day.isClosed
-          ? {
-              ...day,
-              lunch: { ...day.lunch, enabled: false },
-              dinner: { ...day.dinner, enabled: false },
-            }
-          : day,
-      ),
-      {
-        customRows,
-        canonicalizeTime: canonicalizeRequiredTime,
-        occasionKeys: {
-          lunch: occasionKeys.lunch!,
-          dinner: occasionKeys.dinner!,
-        },
-      },
-    );
-
-    let hoursSaved = false;
-    const savedSections: string[] = [];
-
-    try {
-      setIsSavingConfiguration(true);
-      if (hoursDirty) {
-        await updateOperatingHours.mutateAsync(operatingHoursPayload);
-        hoursSaved = true;
-        setHoursDirty(false);
-        savedSections.push('Weekly hours and overrides: saved');
-      }
-
-      if (servicesDirty) {
-        await updateServicePeriods.mutateAsync(servicePayload);
-        setServicesDirty(false);
-        savedSections.push('Service windows: saved');
-      }
-
-      if (occasionsDirty) {
-        const originalOccasions = occasionsQuery.data ?? [];
-        const originalByKey = new Map(
-          originalOccasions.map((occasion) => [occasion.key, occasion]),
-        );
-        const nextByKey = new Map(occasionDrafts.map((occasion) => [occasion.key, occasion]));
-
-        for (const occasion of occasionDrafts) {
-          const original = originalByKey.get(occasion.key);
-          if (!original) {
-            await occasionService.createOccasion({
-              key: occasion.key,
-              label: occasion.label,
-              shortLabel: occasion.shortLabel,
-              description: occasion.description ?? null,
-              availability: occasion.availability,
-              defaultDurationMinutes: occasion.defaultDurationMinutes,
-              displayOrder: occasion.displayOrder,
-              isActive: occasion.isActive,
-            });
-            continue;
-          }
-
-          const changed =
-            original.label !== occasion.label ||
-            original.shortLabel !== occasion.shortLabel ||
-            (original.description ?? null) !== (occasion.description ?? null) ||
-            JSON.stringify(original.availability ?? []) !==
-              JSON.stringify(occasion.availability ?? []) ||
-            original.defaultDurationMinutes !== occasion.defaultDurationMinutes ||
-            original.displayOrder !== occasion.displayOrder ||
-            original.isActive !== occasion.isActive;
-
-          if (changed) {
-            await occasionService.updateOccasion(occasion.key, {
-              label: occasion.label,
-              shortLabel: occasion.shortLabel,
-              description: occasion.description ?? null,
-              availability: occasion.availability,
-              defaultDurationMinutes: occasion.defaultDurationMinutes,
-              displayOrder: occasion.displayOrder,
-              isActive: occasion.isActive,
-            });
-          }
-        }
-
-        for (const original of originalOccasions) {
-          if (!nextByKey.has(original.key) && !original.isBuiltin) {
-            await occasionService.deleteOccasion(original.key);
-          }
-        }
-
-        await queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
-        setOccasionsDirty(false);
-        savedSections.push('Booking types: saved');
-      }
-
-      if (turnBandsDirty) {
-        const activeKeys = new Set<string>();
-        (servicePeriodsQuery.data ?? []).forEach((period) => activeKeys.add(period.bookingOption));
-        occasionDrafts.forEach((occasion) => activeKeys.add(occasion.key));
-        activeKeys.add('lunch');
-        activeKeys.add('dinner');
-
-        const bandsPayload: TurnBandsPayload = {};
-        Object.entries(turnBandsDraft).forEach(([key, rows]) => {
-          if (!rows || rows.length === 0) return;
-          if (!activeKeys.has(key)) return;
-          bandsPayload[key] = rows
-            .map((row) => ({
-              maxPartySize: Number(row.maxPartySize),
-              durationMinutes: Number(row.durationMinutes),
-            }))
-            .filter(
-              (row) => Number.isFinite(row.maxPartySize) && Number.isFinite(row.durationMinutes),
-            )
-            .sort((a, b) => a.maxPartySize - b.maxPartySize);
-        });
-
-        const snapshot = await updateTurnBands.mutateAsync(bandsPayload);
-        setTurnBandsDraft(snapshot.bands ?? {});
-        setTurnBandsDirty(false);
-        savedSections.push('Dining duration bands: saved');
-      }
-
-      setSaveState({
-        variant: 'success',
-        title: 'Saved just now.',
-        message:
-          'The weekly schedule, service windows, overrides, and booking types (with their turn times) are now saved.',
-        details: savedSections,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Please try again.';
-      setSaveState(
-        hoursSaved
-          ? {
-              variant: 'warning',
-              title: 'Partial save completed',
-              message:
-                'Some availability changes were saved, but another section still needs attention.',
-              details: [...savedSections, `Needs attention: ${message}`],
-            }
-          : {
-              variant: 'destructive',
-              title: 'Unable to save availability',
-              message,
-            },
-      );
-    } finally {
-      setIsSavingConfiguration(false);
-    }
-  };
-
-  const handleReset = () => {
-    initializeState();
-  };
-
-  useGlobalShortcuts([
-    {
-      key: 's',
-      metaOrCtrl: true,
-      preventDefault: true,
-      enabled:
-        !isSaving &&
-        (hoursDirty || servicesDirty || occasionsDirty || turnBandsDirty) &&
-        (!servicesDirty || hasRequiredOccasions),
-      when: () => true,
-      handler: () => {
-        void handleSave();
-      },
-    },
-  ]);
-
-  if (!restaurantId) {
+  if (controller.restaurantIdMissing) {
     return <NoRestaurantAvailabilityScheduleState />;
   }
 
-  const loadError =
-    operatingHoursQuery.error ??
-    servicePeriodsQuery.error ??
-    occasionsQuery.error ??
-    turnBandsQuery.error ??
-    null;
-
-  if (loadError) {
-    const message =
-      loadError instanceof Error ? loadError.message : 'Unable to load availability settings.';
-    return <AvailabilityScheduleErrorState message={message} />;
+  if (controller.loadErrorMessage) {
+    return <AvailabilityScheduleErrorState message={controller.loadErrorMessage} />;
   }
 
-  if (
-    operatingHoursQuery.isLoading ||
-    servicePeriodsQuery.isLoading ||
-    occasionsQuery.isLoading ||
-    turnBandsQuery.isLoading ||
-    !hasInitialized
-  ) {
+  if (controller.isLoading) {
     return <LoadingAvailabilityScheduleState />;
   }
 
-  const canSave =
-    !isSaving &&
-    (hoursDirty || servicesDirty || occasionsDirty || turnBandsDirty) &&
-    (!servicesDirty || hasRequiredOccasions);
-
-  const turnBandDefaults = turnBandsQuery.data?.defaults ?? {};
-  const isScheduleWorkspace = activeWorkspace === 'schedule';
-  const isBookingTypesWorkspace = activeWorkspace === 'booking-types';
-
   return (
     <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="availability-schedule">
-      <CardHeader
-        className={cn(
-          SETTINGS_COMPACT_CARD_HEADER_CLASS,
-          'gap-3 border-b border-border/60 bg-muted/20 sm:flex-row sm:items-end sm:justify-between',
-        )}
-      >
-        <div className="flex flex-col gap-2">
-          <Badge variant="outline" className="w-fit">
-            {isScheduleWorkspace ? 'Weekly schedule' : 'Booking types'}
-          </Badge>
-          <div className="flex flex-col gap-1">
-            <CardTitle className="text-xl">
-              {isScheduleWorkspace
-                ? 'Operating hours and service windows together'
-                : 'Booking types and turn times'}
-            </CardTitle>
-            <CardDescription className="max-w-3xl">
-              {isScheduleWorkspace
-                ? 'Edit the outer open-close window, the nested lunch and dinner windows, and special date overrides from one working surface.'
-                : 'Manage lunch, dinner, custom booking types, and party-size turn times without showing the full schedule editor.'}
-            </CardDescription>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {hoursDirty || servicesDirty || occasionsDirty || turnBandsDirty ? (
-            <Badge variant="metric" className="h-8 px-3">
-              Unsaved changes in this section
-            </Badge>
-          ) : null}
-        </div>
-      </CardHeader>
+      <AvailabilityScheduleHeader
+        hasLocalChanges={controller.draft.hasLocalChanges}
+        isScheduleWorkspace={controller.isScheduleWorkspace}
+      />
 
       <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4 pt-4')}>
         <div id="availability-hours" className="scroll-mt-28" />
         <div id="service-periods" className="scroll-mt-28" />
-        {saveState ? (
-          <Alert variant={saveState.variant}>
-            <AlertCircle className="size-4" />
-            <AlertTitle>{saveState.title}</AlertTitle>
-            <AlertDescription>
-              <div className="flex flex-col gap-2">
-                <p>{saveState.message}</p>
-                {saveState.details?.length ? (
-                  <ul className="flex list-disc flex-col gap-1 pl-5">
-                    {saveState.details.map((detail) => (
-                      <li key={detail}>{detail}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
+        <AvailabilitySaveAlert saveState={controller.saveState} />
 
-        {!hasRequiredOccasions ? (
-          <Alert variant="warning">
-            <AlertCircle className="size-4" />
-            <AlertTitle>Lunch and dinner booking types are required</AlertTitle>
-            <AlertDescription>
-              <div className="flex flex-col gap-3">
-                <p>
-                  Operating hours can still be edited here, but service-window saves need active
-                  `Lunch` and `Dinner` booking types.
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void createRequiredOccasions()}
-                  disabled={isSaving}
-                >
-                  Create missing lunch and dinner booking types
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {isScheduleWorkspace ? (
-          <ScheduleWorkspace
-            customRowsCount={customRows.length}
-            dayConfigs={dayConfigs}
-            getWeeklyDriftField={gbpDrift.getField}
-            hasRequiredOccasions={hasRequiredOccasions}
-            occasionKeys={occasionKeys}
-            onAddOverride={addOverride}
-            onMealTimeChange={handleMealTimeChange}
-            onMealToggle={handleMealToggle}
-            onOverrideChange={handleOverrideChange}
-            onRemoveOverride={removeOverride}
-            onWeeklyChange={handleWeeklyChange}
-            operatingHoursDriftFields={gbpDrift.getFieldsBySection('operatingHours')}
-            overrideErrors={overrideErrors}
-            overrideRows={overrideRows}
-            serviceErrors={serviceErrors}
-            servicePeriodDriftFields={servicePeriodDriftFields}
-            weeklyErrors={weeklyErrors}
-            weeklyRows={weeklyRows}
+        {!controller.hasRequiredOccasions ? (
+          <RequiredBookingTypesAlert
+            isSaving={controller.isSaving}
+            onCreateRequiredOccasions={() => void controller.createRequiredOccasions()}
           />
         ) : null}
 
-        {isBookingTypesWorkspace ? (
+        {controller.isScheduleWorkspace ? (
+          <ScheduleWorkspace
+            customRowsCount={controller.draft.customRows.length}
+            dayConfigs={controller.draft.dayConfigs}
+            getWeeklyDriftField={controller.getWeeklyDriftField}
+            hasRequiredOccasions={controller.hasRequiredOccasions}
+            occasionKeys={controller.occasionKeys}
+            onAddOverride={controller.draft.addOverride}
+            onMealTimeChange={controller.draft.handleMealTimeChange}
+            onMealToggle={controller.draft.handleMealToggle}
+            onOverrideChange={controller.draft.handleOverrideChange}
+            onRemoveOverride={controller.draft.removeOverride}
+            onWeeklyChange={controller.draft.handleWeeklyChange}
+            operatingHoursDriftFields={controller.operatingHoursDriftFields}
+            overrideErrors={controller.draft.overrideErrors}
+            overrideRows={controller.draft.overrideRows}
+            serviceErrors={controller.draft.serviceErrors}
+            servicePeriodDriftFields={controller.servicePeriodDriftFields}
+            weeklyErrors={controller.draft.weeklyErrors}
+            weeklyRows={controller.draft.weeklyRows}
+          />
+        ) : null}
+
+        {controller.isBookingTypesWorkspace ? (
           <BookingTypesWorkspace
-            occasionDrafts={occasionDrafts}
-            onOccasionsChange={(next) => {
-              setOccasionDrafts(next);
-              setOccasionsDirty(true);
-              clearSaveState();
-            }}
-            onTurnBandsChange={handleTurnBandsChange}
-            turnBandDefaults={turnBandDefaults}
-            turnBandErrors={turnBandErrors}
-            turnBandsDraft={turnBandsDraft}
+            occasionDrafts={controller.draft.occasionDrafts}
+            onOccasionsChange={controller.draft.handleOccasionsChange}
+            onTurnBandsChange={controller.draft.handleTurnBandsChange}
+            turnBandDefaults={controller.turnBandDefaults}
+            turnBandErrors={controller.draft.turnBandErrors}
+            turnBandsDraft={controller.draft.turnBandsDraft}
           />
         ) : null}
       </CardContent>
 
-      <CardFooter
-        className={cn(SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS, 'border-primary/20 shadow-lg')}
-      >
-        <div className={cn(SETTINGS_COMPACT_HELPER_TEXT_CLASS, 'flex flex-col gap-1')}>
-          <p>{formatSaveScopeMessage('availability-schedule')}</p>
-          {saveState?.details?.length ? (
-            <p>
-              {saveState.details.length} save result detail
-              {saveState.details.length === 1 ? '' : 's'} shown above.
-            </p>
-          ) : null}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleReset}
-            disabled={isSaving || !hasLocalChanges}
-          >
-            <RotateCcw data-icon="inline-start" aria-hidden />
-            Reset
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={!canSave}>
-            <Save data-icon="inline-start" aria-hidden />
-            Save configuration
-          </Button>
-        </div>
-      </CardFooter>
+      <AvailabilityScheduleFooter
+        canSave={controller.canSave}
+        hasLocalChanges={controller.draft.hasLocalChanges}
+        isSaving={controller.isSaving}
+        onReset={controller.handleReset}
+        onSave={controller.handleSave}
+        saveState={controller.saveState}
+      />
     </Card>
   );
 }

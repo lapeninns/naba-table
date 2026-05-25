@@ -94,12 +94,12 @@ vi.mock('@/server/dual-sync/controls', () => ({
 
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { runPublish } from '@/server/dual-sync/publish/orchestrator';
+import { valueForField } from '@/server/dual-sync/publish/orchestrator-domain';
 import { buildRegistry, findFieldConfig } from '@/server/dual-sync/registry';
 
 import type { DualSyncOrchestratorPorts } from '@/server/dual-sync/publish/ports';
 import type { DualSyncPublishDecision } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
-import type { DualSyncSectionKey } from '@/server/dual-sync/types';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -133,52 +133,6 @@ function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCa
     },
     ...over,
   };
-}
-
-function readSectionValue(
-  snapshot: DualSyncCanonicalSnapshot,
-  sectionKey: DualSyncSectionKey | 'core_only',
-): unknown {
-  switch (sectionKey) {
-    case 'profile':
-      return snapshot.profile;
-    case 'operatingHours':
-      return snapshot.operatingHours;
-    case 'servicePeriods':
-      return snapshot.servicePeriods;
-    case 'businessContext.categories':
-      return snapshot.businessContext.categories;
-    case 'businessContext.serviceAreas':
-      return snapshot.businessContext.serviceAreas;
-    case 'businessContext.attributes':
-      return snapshot.businessContext.attributes;
-    case 'businessContext.serviceItems':
-      return snapshot.businessContext.serviceItems;
-    case 'foodMenus':
-      return snapshot.foodMenus ?? { items: [] };
-    case 'core_only':
-      return null;
-    default:
-      return null;
-  }
-}
-
-function valueForField(
-  snapshot: DualSyncCanonicalSnapshot,
-  config: NonNullable<ReturnType<typeof findFieldConfig>>,
-  side: 'core' | 'gbp',
-): unknown {
-  const sectionValue = readSectionValue(snapshot, config.sectionKey);
-  if (sectionValue === null || sectionValue === undefined) return null;
-  if (config.kind === 'profile') {
-    const profileKey = config.fieldKey.split('.')[1];
-    if (!profileKey) return null;
-    return (sectionValue as Record<string, unknown>)[profileKey] ?? null;
-  }
-  if (config.kind === 'core_only') {
-    return side === 'core' ? sectionValue : null;
-  }
-  return sectionValue;
 }
 
 function defaultPinsFor(

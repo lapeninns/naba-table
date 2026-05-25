@@ -15,23 +15,25 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-type FitFilter = 'all' | 'perfect' | 'exact' | 'within' | 'oversized' | 'too_small';
-type SortOption = 'best' | 'capacity' | 'table';
+import type {
+  TableAssignmentFitFilter,
+  TableAssignmentSortOption,
+} from '../../tableAssignmentPanelDomain';
 
 export type TableAssignmentFiltersProps = {
   zoneOptions: string[];
   zoneFilter: string;
   onZoneFilterChange: (value: string) => void;
-  sortBy: SortOption;
-  onSortByChange: (value: SortOption) => void;
+  sortBy: TableAssignmentSortOption;
+  onSortByChange: (value: TableAssignmentSortOption) => void;
   availabilityOnly: boolean;
   onAvailabilityOnlyChange: (value: boolean) => void;
-  fitFilter: FitFilter;
-  onFitFilterChange: (value: FitFilter) => void;
+  fitFilter: TableAssignmentFitFilter;
+  onFitFilterChange: (value: TableAssignmentFitFilter) => void;
   onResetFilters: () => void;
 };
 
-const FIT_OPTIONS: Array<{ value: FitFilter; label: string }> = [
+const FIT_OPTIONS: Array<{ value: TableAssignmentFitFilter; label: string }> = [
   { value: 'all', label: 'All fits' },
   { value: 'perfect', label: 'Perfect' },
   { value: 'exact', label: 'Exact' },
@@ -88,7 +90,10 @@ export function TableAssignmentFilters({
               </SelectContent>
             </Select>
 
-            <Select value={sortBy} onValueChange={(value) => onSortByChange(value as SortOption)}>
+            <Select
+              value={sortBy}
+              onValueChange={(value) => onSortByChange(value as TableAssignmentSortOption)}
+            >
               <SelectTrigger
                 aria-label="Table sort order"
                 className="h-8 bg-muted/20 text-[11px] font-bold uppercase tracking-wider"
@@ -135,7 +140,7 @@ export function TableAssignmentFilters({
             value={fitFilter}
             onValueChange={(value) => {
               if (!value) return;
-              onFitFilterChange(value as FitFilter);
+              onFitFilterChange(value as TableAssignmentFitFilter);
             }}
             className="flex flex-wrap justify-start gap-1"
           >

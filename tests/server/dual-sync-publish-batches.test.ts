@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  createOperationGroupsForPlan,
   createPublishBatch,
   findPublishBatchByClientRequest,
-  updateOperationGroupStatus,
-  updateOperationStatus,
   updatePublishBatchStatus,
-} from '@/server/dual-sync/publish/operations';
+} from '@/server/dual-sync/publish/operations-batches';
+import {
+  createOperationGroupsForPlan,
+  updateOperationGroupStatus,
+} from '@/server/dual-sync/publish/operations-groups';
+import { updateOperationStatus } from '@/server/dual-sync/publish/operations-rows';
 
 import type { DualSyncPublishGroup } from '@/server/dual-sync/publish/types';
 import type { Database } from '@/types/supabase';

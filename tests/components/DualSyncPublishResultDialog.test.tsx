@@ -88,4 +88,11 @@ describe('DualSyncPublishResultDialog', () => {
     expect(screen.getByText('profile.phone')).toBeInTheDocument();
     expect(screen.getByText('phoneNumbers')).toBeInTheDocument();
   });
+
+  it('renders missing-result fallback content', () => {
+    render(<DualSyncPublishResultDialog open result={null} onOpenChange={vi.fn()} />);
+
+    expect(screen.getByText('Publish result')).toBeInTheDocument();
+    expect(screen.getByText('No publish result is loaded.')).toBeInTheDocument();
+  });
 });

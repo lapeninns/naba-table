@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import type { BookingRecord } from '@/server/bookings';
 import type { Tables } from '@/types/supabase';
 
 const CONFIRMATION_TOKEN_REGEX = /^[A-Za-z0-9_-]+$/;
@@ -33,6 +34,85 @@ export function computeTokenExpiry(hours = 1): string {
   const expiry = new Date();
   expiry.setHours(expiry.getHours() + hours);
   return expiry.toISOString();
+}
+
+export function getStoredBookingConfirmationTokenState(
+  booking: Pick<BookingRecord, 'confirmation_token'>,
+): {
+  confirmationToken: string | null;
+  confirmationTokenExpiresAt: string | null;
+} {
+  const expiresAt = (booking as { confirmation_token_expires_at?: unknown })
+    .confirmation_token_expires_at;
+
+  return {
+    confirmationToken: booking.confirmation_token ?? null,
+    confirmationTokenExpiresAt: typeof expiresAt === 'string' ? expiresAt : null,
+  };
+}
+
+export type BookingConfirmationTokenAttachment = {
+  bookingId: string;
+  confirmationToken: string;
+  confirmationTokenExpiresAt: string;
+};
+
+export function buildBookingConfirmationTokenAttachment({
+  bookingId,
+  confirmationToken,
+  confirmationTokenExpiresAt,
+  expiryHours = 24 * 30,
+}: {
+  bookingId: string;
+  confirmationToken: string | null;
+  confirmationTokenExpiresAt: string | null;
+  expiryHours?: number;
+}): BookingConfirmationTokenAttachment | null {
+  if (confirmationToken && confirmationTokenExpiresAt) {
+    return null;
+  }
+
+  return {
+    bookingId,
+    confirmationToken: confirmationToken ?? generateConfirmationToken(),
+    confirmationTokenExpiresAt: confirmationTokenExpiresAt ?? computeTokenExpiry(expiryHours),
+  };
+}
+
+export async function resolveBookingCreateConfirmationToken({
+  booking,
+  reusedExisting,
+  attachToken = attachTokenToBooking,
+}: {
+  booking: Pick<BookingRecord, 'id' | 'confirmation_token'> & {
+    confirmation_token_expires_at?: unknown;
+  };
+  reusedExisting: boolean;
+  attachToken?: typeof attachTokenToBooking;
+}): Promise<string | null> {
+  const storedState = getStoredBookingConfirmationTokenState(booking);
+
+  if (reusedExisting) {
+    return storedState.confirmationToken;
+  }
+
+  const tokenAttachment = buildBookingConfirmationTokenAttachment({
+    bookingId: booking.id,
+    confirmationToken: storedState.confirmationToken,
+    confirmationTokenExpiresAt: storedState.confirmationTokenExpiresAt,
+  });
+
+  if (!tokenAttachment) {
+    return storedState.confirmationToken;
+  }
+
+  await attachToken(
+    tokenAttachment.bookingId,
+    tokenAttachment.confirmationToken,
+    tokenAttachment.confirmationTokenExpiresAt,
+  );
+
+  return tokenAttachment.confirmationToken;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { listRecentOperationsForRestaurant } from '@/server/dual-sync/publish/operations';
+import { listRecentOperationsForRestaurant } from '@/server/dual-sync/publish/operations-rows';
 
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';

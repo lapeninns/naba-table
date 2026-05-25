@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { summarizeOperationsByJob } from '@/server/dual-sync/publish/operations';
+import { summarizeOperationsByJob } from '@/server/dual-sync/publish/operations-rollups';
 
 import type { DualSyncPublishOperation } from '@/server/dual-sync/types';
 

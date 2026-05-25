@@ -12,29 +12,19 @@
  * periods, and business context.
  */
 
-import {
-  getRestaurantDetails,
-  updateRestaurantDetails,
-  type UpdateRestaurantDetailsInput,
-} from '@/server/restaurants/details';
+import { getRestaurantDetails, updateRestaurantDetails } from '@/server/restaurants/details';
 
-import { hashCanonicalJson } from '../../hashing';
-import { findFieldConfig, buildRegistry } from '../../registry';
+import {
+  buildProfileImportDetailsPartial,
+  buildProfileImportPortFailure,
+  buildProfileImportSuccess,
+  isProfileImportFieldKey,
+  projectProfileImportValue,
+  resolveProfileImportFieldConfig,
+} from './profile-import-domain';
+import { buildRegistry } from '../../registry';
 
 import type { DualSyncOperationContext, DualSyncOperationResult } from '../types';
-
-const PROFILE_TO_DETAILS_FIELD: Record<string, keyof UpdateRestaurantDetailsInput> = {
-  'profile.name': 'name',
-  'profile.businessDescription': 'businessDescription',
-  'profile.contactPhone': 'contactPhone',
-  'profile.address': 'address',
-  'profile.googleMapUrl': 'googleMapUrl',
-  'profile.googleReviewUrl': 'googleReviewUrl',
-};
-
-function isProfileFieldKey(fieldKey: string): boolean {
-  return Object.prototype.hasOwnProperty.call(PROFILE_TO_DETAILS_FIELD, fieldKey);
-}
 
 async function clearNabatableProjectionForImportedProfileField({
   client,
@@ -96,15 +86,10 @@ export async function applyProfileImportToCore(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
   const { client, restaurantId, decision, gbpSnapshot, coreSnapshot } = ctx;
-  if (!isProfileFieldKey(decision.fieldKey)) {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'PORT_FAILURE',
-        message: `Profile import port does not handle field ${decision.fieldKey}.`,
-        retryable: false,
-      },
-    };
+  if (!isProfileImportFieldKey(decision.fieldKey)) {
+    return buildProfileImportPortFailure(
+      `Profile import port does not handle field ${decision.fieldKey}.`,
+    );
   }
 
   const registry = buildRegistry({
@@ -112,64 +97,22 @@ export async function applyProfileImportToCore(
     gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, decision.fieldKey);
-  if (!config) {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'INVALID_DECISION',
-        message: `Field ${decision.fieldKey} is not in the registry.`,
-        retryable: false,
-      },
-    };
-  }
-  if (!config.importable) {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'PORT_FAILURE',
-        message: `Field ${decision.fieldKey} is not importable.`,
-        retryable: false,
-      },
-    };
-  }
+  const configResult = resolveProfileImportFieldConfig(registry, decision.fieldKey);
+  if (configResult.status === 'failed') return configResult.result;
 
-  const profileSection = gbpSnapshot.profile;
-  if (!profileSection) {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'PORT_FAILURE',
-        message: 'Google snapshot is missing profile data.',
-        retryable: true,
-      },
-    };
-  }
-  const profileKey = decision.fieldKey.split('.')[1] as keyof typeof profileSection;
-  const rawGbpValue = profileSection[profileKey] ?? null;
-  // Profile fields imported here are scalars (string | null). The
-  // structured-address slot is intentionally not handled by this port.
-  if (rawGbpValue !== null && typeof rawGbpValue !== 'string') {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'PORT_FAILURE',
-        message: `Profile import port cannot project non-scalar value for ${decision.fieldKey}.`,
-        retryable: false,
-      },
-    };
-  }
-  const normalizedGbpValue = config.normalizeCoreValue(rawGbpValue);
+  const projection = projectProfileImportValue({
+    fieldKey: decision.fieldKey,
+    config: configResult.config,
+    gbpSnapshot,
+  });
+  if (projection.status === 'failed') return projection.result;
 
   const current = await getRestaurantDetails(restaurantId, client);
-  const detailsKey = PROFILE_TO_DETAILS_FIELD[decision.fieldKey];
-
-  const partial: UpdateRestaurantDetailsInput = {
+  const partial = buildProfileImportDetailsPartial({
     timezone: current.timezone,
-  };
-  // We pass through the imported value verbatim; the legacy writer
-  // performs its own normalisation, validation, and audit logging.
-  (partial as Record<string, unknown>)[detailsKey] = normalizedGbpValue;
+    detailsKey: projection.detailsKey,
+    normalizedGbpValue: projection.normalizedGbpValue,
+  });
 
   await updateRestaurantDetails(restaurantId, partial, client);
   try {
@@ -190,12 +133,9 @@ export async function applyProfileImportToCore(
     };
   }
 
-  const afterCoreHash = hashCanonicalJson(config.canonicalizeCoreValue(normalizedGbpValue));
-  const afterGbpHash = hashCanonicalJson(config.canonicalizeGbpValue(rawGbpValue));
-
-  return {
-    status: 'succeeded',
-    afterCoreHash,
-    afterGbpHash,
-  };
+  return buildProfileImportSuccess({
+    config: configResult.config,
+    normalizedGbpValue: projection.normalizedGbpValue,
+    rawGbpValue: projection.rawGbpValue,
+  });
 }

@@ -37,6 +37,58 @@ export { GuestProfilePanel, type GuestProfilePanelProps } from './GuestProfilePa
 /** Dialog body (mobile/desktop) extracted to keep BookingDialog under LOC cap */
 export { BookingDialogBody, type BookingDialogBodyProps } from './BookingDialogBody';
 
+/** Dialog body state views */
+export {
+  BookingDialogEmptyState,
+  BookingDialogErrorState,
+  BookingDialogLoadingState,
+} from './BookingDialogBodyStates';
+
+/** Dialog table-assignment sections */
+export {
+  BookingDialogDesktopTableAssignmentSection,
+  BookingDialogMobileTableAssignmentSection,
+} from './BookingDialogTableAssignmentSection';
+
+/** Responsive Shadcn/Radix shell and surface layout for booking details */
+export {
+  BookingDialogLayout,
+  BookingDialogShell,
+  type BookingDialogLayoutProps,
+  type BookingDialogShellProps,
+} from './BookingDialogShell';
+
+/** Confirmation dialog for marking a booking as no-show */
+export {
+  BookingNoShowConfirmDialog,
+  type BookingNoShowConfirmDialogProps,
+} from './BookingNoShowConfirmDialog';
+
+/** Bottom action rail for lifecycle, copy, and destructive booking operations */
+export {
+  BookingDialogActionRail,
+  type BookingDialogActionRailProps,
+  type BookingDialogPrimaryAction,
+} from './BookingDialogActionRail';
+
+/** Assigned-table summary panel for the booking assignment tab */
+export {
+  BookingAssignmentAssignedTablesPanel,
+  type BookingAssignmentAssignedTablesPanelProps,
+} from './BookingAssignmentAssignedTablesPanel';
+
+/** Floor-plan selection panel for the booking assignment tab */
+export {
+  BookingAssignmentFloorPlanPanel,
+  type BookingAssignmentFloorPlanPanelProps,
+} from './BookingAssignmentFloorPlanPanel';
+
+/** Confirmation dialog for removing a booking assignment table */
+export {
+  BookingAssignmentUnassignDialog,
+  type BookingAssignmentUnassignDialogProps,
+} from './BookingAssignmentUnassignDialog';
+
 // =============================================================================
 // COMPOSITE COMPONENTS
 // =============================================================================

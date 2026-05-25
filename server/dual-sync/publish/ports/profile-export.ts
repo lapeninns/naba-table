@@ -18,8 +18,18 @@ import {
 } from '@/server/google-business-profile/service';
 
 import { buildGoogleStorefrontAddressPatch } from './google-patch-builders';
-import { hashCanonicalJson } from '../../hashing';
-import { buildRegistry, findFieldConfig } from '../../registry';
+import {
+  applyProfileBatchFailure,
+  buildProfileExportPortFailure,
+  buildProfileExportSuccess,
+  buildProfileExportUnsupportedFailure,
+  buildProfileExportUnwiredFailure,
+  isProfileSimplePushField,
+  parseProfileExportField,
+  planProfileExportBatch,
+  resolveProfileExportFieldConfig,
+} from './profile-export-domain';
+import { buildRegistry } from '../../registry';
 
 import type {
   DualSyncBatchExportContext,
@@ -28,50 +38,19 @@ import type {
   DualSyncOperationResult,
 } from '../types';
 
-const FIELD_KEY_PREFIX = 'profile.';
-
-type SimplePushField = 'name' | 'contactPhone';
-
-function parseField(fieldKey: string): string | null {
-  if (!fieldKey.startsWith(FIELD_KEY_PREFIX)) return null;
-  const tail = fieldKey.slice(FIELD_KEY_PREFIX.length);
-  return tail.length > 0 ? tail : null;
-}
-
-function failedPort(message: string, retryable = false): DualSyncOperationResult {
-  return {
-    status: 'failed',
-    failure: { code: 'PORT_FAILURE', message, retryable },
-  };
-}
-
-function failedRegistry(fieldKey: string): DualSyncOperationResult {
-  return {
-    status: 'failed',
-    failure: {
-      code: 'INVALID_DECISION',
-      message: `Field ${fieldKey} is not in the registry.`,
-      retryable: false,
-    },
-  };
-}
-
 export async function applyProfileExportToGoogle(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
   const { client, restaurantId, decision, coreSnapshot, gbpSnapshot } = ctx;
-  const field = parseField(decision.fieldKey);
-  if (!field) return failedPort(`Profile export port does not handle ${decision.fieldKey}.`);
+  const field = parseProfileExportField(decision.fieldKey);
+  if (!field) {
+    return buildProfileExportPortFailure(
+      `Profile export port does not handle ${decision.fieldKey}.`,
+    );
+  }
 
   if (field === 'googleMapUrl' || field === 'googleReviewUrl' || field === 'storefrontAddress') {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'UNSUPPORTED_FIELD',
-        message: `${decision.fieldKey} is not exportable to Google.`,
-        retryable: false,
-      },
-    };
+    return buildProfileExportUnsupportedFailure(decision.fieldKey);
   }
 
   const registry = buildRegistry({
@@ -79,14 +58,14 @@ export async function applyProfileExportToGoogle(
     gbpSnapshot,
     includeCoreOnly: false,
   });
-  const config = findFieldConfig(registry, decision.fieldKey);
-  if (!config) return failedRegistry(decision.fieldKey);
+  const configResult = resolveProfileExportFieldConfig(registry, decision.fieldKey);
+  if (configResult.status === 'failed') return configResult.result;
 
-  if (field === 'name' || field === 'contactPhone') {
+  if (isProfileSimplePushField(field)) {
     await syncRestaurantProfileWithGoogleBusinessProfile({
       restaurantId,
       direction: 'push_to_gbp',
-      fields: [field as SimplePushField],
+      fields: [field],
       client,
     });
   } else if (field === 'address') {
@@ -111,19 +90,10 @@ export async function applyProfileExportToGoogle(
       client,
     });
   } else {
-    return {
-      status: 'failed',
-      failure: {
-        code: 'UNSUPPORTED_FIELD',
-        message: `Profile field ${decision.fieldKey} has no export wiring.`,
-        retryable: false,
-      },
-    };
+    return buildProfileExportUnwiredFailure(decision.fieldKey);
   }
 
-  const canonical = config.canonicalizeCoreValue(coreSnapshot.profile);
-  const hash = hashCanonicalJson(canonical);
-  return { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+  return buildProfileExportSuccess(configResult.config, coreSnapshot.profile);
 }
 
 /**
@@ -146,43 +116,25 @@ export async function applyProfileExportBatchToGoogle(
   const { client, restaurantId, decisions, coreSnapshot, gbpSnapshot } = ctx;
   if (decisions.length === 0) return { supported: true, perField: {} };
 
+  const plan = planProfileExportBatch(decisions);
+  if (!plan.supported) return { supported: false };
+
   const registry = buildRegistry({
     coreSnapshot,
     gbpSnapshot,
     includeCoreOnly: false,
   });
 
-  const fieldByKey = new Map<string, string | null>();
-  for (const decision of decisions) {
-    const f = parseField(decision.fieldKey);
-    if (f === null) return { supported: false };
-    fieldByKey.set(decision.fieldKey, f);
-  }
-
-  const simplePushFields: SimplePushField[] = [];
   const locationPatch: Record<string, unknown> = {};
   const updateMask: string[] = [];
-  const unsupportedKeys = new Set<string>();
-  const handledKeys = new Set<string>();
 
-  for (const [fieldKey, field] of fieldByKey.entries()) {
-    if (field === null) continue;
-    if (field === 'googleMapUrl' || field === 'googleReviewUrl' || field === 'storefrontAddress') {
-      unsupportedKeys.add(fieldKey);
-      continue;
-    }
-    if (field === 'name' || field === 'contactPhone') {
-      simplePushFields.push(field as SimplePushField);
-      handledKeys.add(fieldKey);
-      continue;
-    }
+  for (const { field } of plan.locationPatch) {
     if (field === 'address') {
       locationPatch.storefrontAddress = buildGoogleStorefrontAddressPatch({
         nabatableAddress: coreSnapshot.profile.address,
         googleAddress: gbpSnapshot.profile.storefrontAddress,
       });
       updateMask.push('storefrontAddress');
-      handledKeys.add(fieldKey);
       continue;
     }
     if (field === 'businessDescription') {
@@ -190,38 +142,30 @@ export async function applyProfileExportBatchToGoogle(
         description: coreSnapshot.profile.businessDescription ?? '',
       };
       updateMask.push('profile');
-      handledKeys.add(fieldKey);
       continue;
     }
-    // Unknown profile field — let the per-field path emit a precise error.
-    return { supported: false };
   }
 
   const perField: Record<string, DualSyncOperationResult> = {};
 
-  if (simplePushFields.length > 0) {
+  if (plan.simplePush.length > 0) {
     try {
       await syncRestaurantProfileWithGoogleBusinessProfile({
         restaurantId,
         direction: 'push_to_gbp',
-        fields: Array.from(new Set(simplePushFields)),
+        fields: Array.from(new Set(plan.simplePush.map((entry) => entry.field))),
         client,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      for (const [key, field] of fieldByKey.entries()) {
-        if (field === 'name' || field === 'contactPhone') {
-          perField[key] = {
-            status: 'failed',
-            failure: {
-              code: 'PORT_FAILURE',
-              message: `Profile batch push failed: ${message}`,
-              retryable: true,
-            },
-          };
-          handledKeys.delete(key);
-        }
-      }
+      Object.assign(
+        perField,
+        applyProfileBatchFailure(
+          perField,
+          plan.simplePush.map((entry) => entry.fieldKey),
+          `Profile batch push failed: ${message}`,
+        ),
+      );
     }
   }
 
@@ -235,49 +179,29 @@ export async function applyProfileExportBatchToGoogle(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      for (const [key, field] of fieldByKey.entries()) {
-        if (field === 'address' || field === 'businessDescription') {
-          perField[key] = {
-            status: 'failed',
-            failure: {
-              code: 'PORT_FAILURE',
-              message: `Profile batch location patch failed: ${message}`,
-              retryable: true,
-            },
-          };
-          handledKeys.delete(key);
-        }
-      }
+      Object.assign(
+        perField,
+        applyProfileBatchFailure(
+          perField,
+          plan.locationPatch.map((entry) => entry.fieldKey),
+          `Profile batch location patch failed: ${message}`,
+        ),
+      );
     }
   }
 
-  for (const key of unsupportedKeys) {
-    perField[key] = {
-      status: 'failed',
-      failure: {
-        code: 'UNSUPPORTED_FIELD',
-        message: `${key} is not exportable to Google.`,
-        retryable: false,
-      },
-    };
+  for (const key of plan.unsupportedKeys) {
+    perField[key] = buildProfileExportUnsupportedFailure(key);
   }
 
-  for (const key of handledKeys) {
-    const config = findFieldConfig(registry, key);
-    if (!config) {
-      perField[key] = {
-        status: 'failed',
-        failure: {
-          code: 'INVALID_DECISION',
-          message: `Field ${key} is not in the registry.`,
-          retryable: false,
-        },
-      };
+  for (const key of plan.handledKeys) {
+    if (perField[key]) continue;
+    const configResult = resolveProfileExportFieldConfig(registry, key);
+    if (configResult.status === 'failed') {
+      perField[key] = configResult.result;
       continue;
     }
-    const canonical = config.canonicalizeCoreValue(coreSnapshot.profile);
-    const hash = hashCanonicalJson(canonical);
-    perField[key] = { status: 'succeeded', afterCoreHash: hash, afterGbpHash: hash };
+    perField[key] = buildProfileExportSuccess(configResult.config, coreSnapshot.profile);
   }
 
   return { supported: true, perField };

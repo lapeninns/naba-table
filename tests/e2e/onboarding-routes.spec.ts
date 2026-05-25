@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const STORAGE_KEY = 'nabatable:onboarding:draft:v1';
+const appPort = process.env.QA_APP_PORT ?? '5180';
+const appBaseUrl = `http://localhost:${appPort}`;
 
 const seededState = {
   step: 6,
@@ -45,6 +47,8 @@ const seededState = {
 };
 
 test.describe('onboarding routes', () => {
+  test.use({ baseURL: appBaseUrl });
+
   test('public onboarding entry renders the account step at mobile width', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/onboarding');

@@ -222,6 +222,7 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
           requiredRemainingCount={readiness.missingRequired.length}
           googleHint={isGoogleLinked ? null : googleStatusDetail}
           googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
+          googleLinked={Boolean(isGoogleLinked)}
           nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
           nextActionDescription={
             nextReadinessItem

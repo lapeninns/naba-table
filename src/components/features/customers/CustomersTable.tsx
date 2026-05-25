@@ -9,6 +9,14 @@ import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmpty
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import {
+  CUSTOMERS_TABLE_SKELETON_ROW_COUNT,
+  deriveCustomersTableViewState,
+  estimateCustomersTableRowSize,
+  findCustomersTableFocusTarget,
+  shouldLoadMoreCustomers,
+  shouldUpdateCustomersTableRowHeight,
+} from './customersTableDomain';
 import { OpsGuestCard } from './OpsGuestCard';
 
 import type { OpsGuestRowViewModel } from './opsCustomersTypes';
@@ -23,7 +31,10 @@ type CustomersTableProps = {
   focusCustomerId?: string | null;
 };
 
-const skeletonRows = Array.from({ length: 5 }, (_, index) => index);
+const skeletonRows = Array.from(
+  { length: CUSTOMERS_TABLE_SKELETON_ROW_COUNT },
+  (_, index) => index,
+);
 
 function EmptyState({ hasActiveFilters }: { hasActiveFilters?: boolean }) {
   return (
@@ -48,23 +59,25 @@ export function CustomersTable({
   isFetchingNextPage = false,
   focusCustomerId,
 }: CustomersTableProps) {
-  const VIRTUALIZE_MIN_ITEMS = 24;
-  const showSkeleton = isLoading && rows.length === 0;
-  const showEmpty = !isLoading && rows.length === 0;
   const prefersReducedMotion = useReducedMotion();
   const hasAnimatedRef = useRef(false);
 
   const rowMeasureCacheRef = useRef(new Map<string, number>());
-  const totalItems = hasNextPage ? rows.length + 1 : rows.length;
-  const shouldVirtualize = rows.length >= VIRTUALIZE_MIN_ITEMS || hasNextPage;
+  const { showEmpty, showSkeleton, shouldVirtualize, totalItems } = deriveCustomersTableViewState({
+    hasNextPage,
+    isLoading,
+    rowCount: rows.length,
+  });
 
   const rowVirtualizer = useWindowVirtualizer({
     count: shouldVirtualize ? totalItems : 0,
     estimateSize: (index) => {
-      if (index >= rows.length) return 72;
       const id = rows[index]?.id;
-      if (!id) return 220;
-      return rowMeasureCacheRef.current.get(id) ?? 220;
+      return estimateCustomersTableRowSize({
+        cachedHeight: id ? rowMeasureCacheRef.current.get(id) : undefined,
+        index,
+        rowCount: rows.length,
+      });
     },
     overscan: 6,
   });
@@ -87,33 +100,28 @@ export function CustomersTable({
   }, [rows.length]);
 
   useEffect(() => {
-    if (!shouldVirtualize) return;
-    if (!onLoadMore || !hasNextPage || isFetchingNextPage) {
-      return;
-    }
-    if (rows.length === 0) return;
-
     const lastItem = virtualRows[virtualRows.length - 1];
-    if (!lastItem) return;
-    if (lastItem.index >= rows.length - 1) {
+    if (
+      onLoadMore &&
+      shouldLoadMoreCustomers({
+        hasNextPage,
+        isFetchingNextPage,
+        lastVirtualIndex: lastItem?.index,
+        rowCount: rows.length,
+        shouldVirtualize,
+      })
+    ) {
       onLoadMore();
     }
   }, [rows.length, hasNextPage, isFetchingNextPage, onLoadMore, shouldVirtualize, virtualRows]);
 
   useEffect(() => {
-    if (!focusCustomerId || rows.length === 0) return;
-    const focusLower = focusCustomerId.toLowerCase();
-    const targetIndex = rows.findIndex(
-      (row) => row.id === focusCustomerId || row.emailSearchValue === focusLower,
-    );
-    if (targetIndex < 0) return;
-
-    const targetId = rows[targetIndex]?.id;
-    if (!targetId) return;
-    pendingFocusIdRef.current = targetId;
+    const focusTarget = findCustomersTableFocusTarget({ focusCustomerId, rows });
+    if (!focusTarget) return;
+    pendingFocusIdRef.current = focusTarget.id;
 
     if (shouldVirtualize) {
-      rowVirtualizer.scrollToIndex(targetIndex, { align: 'center' });
+      rowVirtualizer.scrollToIndex(focusTarget.index, { align: 'center' });
     }
 
     const tryFocus = () => {
@@ -228,7 +236,12 @@ export function CustomersTable({
                     if (node) {
                       const height = node.getBoundingClientRect().height;
                       const cached = rowMeasureCacheRef.current.get(row.id);
-                      if (!cached || Math.abs(cached - height) > 1) {
+                      if (
+                        shouldUpdateCustomersTableRowHeight({
+                          cachedHeight: cached,
+                          measuredHeight: height,
+                        })
+                      ) {
                         rowMeasureCacheRef.current.set(row.id, height);
                       }
 

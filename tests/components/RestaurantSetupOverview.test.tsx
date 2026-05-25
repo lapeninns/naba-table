@@ -182,10 +182,7 @@ describe('RestaurantSetupOverview', () => {
 
     expect((await screen.findAllByText('Public profile')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText('Add name, booking URL, timezone, and public phone before go-live.')
-        .length,
-    ).toBeGreaterThan(0);
+    expect(await screen.findByText('Add restaurant name before go-live.')).toBeInTheDocument();
   });
 
   it('marks profile as needs attention when the public phone is missing', async () => {
@@ -198,9 +195,18 @@ describe('RestaurantSetupOverview', () => {
 
     expect((await screen.findAllByText('Public profile')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0);
+    expect(await screen.findByText('Add public phone before go-live.')).toBeInTheDocument();
+  });
+
+  it('derives optional setup metric from menu and team state', async () => {
+    overviewState.menuQuery.data = { menus: [{ id: 'menu-1' }] } as never;
+    overviewState.teamQuery.data = [{ id: 'invite-1' }] as never;
+
+    renderOverview();
+
+    expect(await screen.findByText('Menu ready · Team ready')).toBeInTheDocument();
     expect(
-      screen.getAllByText('Add name, booking URL, timezone, and public phone before go-live.')
-        .length,
+      screen.getAllByText('Useful after the profile and availability basics are ready.').length,
     ).toBeGreaterThan(0);
   });
 

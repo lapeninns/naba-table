@@ -5,6 +5,17 @@ import { memo, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+import {
+  deriveTableFloorPlanLayout,
+  deriveUnpositionedTableState,
+  formatFloorPlanCountdown,
+  formatFloorPlanTableAriaLabel,
+  formatFloorPlanTableTitle,
+  formatUnpositionedTableAriaLabel,
+  getFloorPlanTableVariant,
+  type FloorPlanTableVariant,
+} from './tableFloorPlanDomain';
+
 import type {
   ManualAssignmentConflict,
   ManualAssignmentContextHold,
@@ -25,200 +36,9 @@ type TableFloorPlanProps = {
   className?: string;
 };
 
-type DerivedTable = {
-  table: ManualAssignmentTable;
-  xPercent: number;
-  yPercent: number;
-  rotation: number;
-  holdOwned: ManualAssignmentContextHold | null;
-  holdOther: ManualAssignmentContextHold | null;
-  conflicts: ManualAssignmentConflict[];
-  isAssignedToBooking: boolean;
-  isSelected: boolean;
-  isInactive: boolean;
-};
-
 const TABLE_SIZE_PX = 64;
 
-function normalizePosition(value: unknown): { x: number; y: number; rotation: number } | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  const record = value as Record<string, unknown>;
-  const x = typeof record.x === 'number' ? record.x : null;
-  const y = typeof record.y === 'number' ? record.y : null;
-  if (x === null || y === null) {
-    return null;
-  }
-  const rotation = typeof record.rotation === 'number' ? record.rotation : 0;
-  return { x, y, rotation };
-}
-
-function formatTableTitle(entry: DerivedTable): string {
-  const { table, holdOwned, holdOther, conflicts } = entry;
-  const lines: string[] = [
-    table.name ? `Table ${table.tableNumber} - ${table.name}` : `Table ${table.tableNumber}`,
-    `${table.capacity} seats`,
-  ];
-  if (holdOwned) {
-    lines.push('Held by you');
-  }
-  if (holdOther) {
-    lines.push(`Held by ${holdOther.createdByName ?? 'another staff member'}`);
-  }
-  if (conflicts.length > 0) {
-    lines.push(
-      `Blocked (${conflicts.length} overlapping booking${conflicts.length === 1 ? '' : 's'})`,
-    );
-  }
-  if (!table.active || (table.status && table.status !== 'available')) {
-    lines.push(`Status: ${table.status ?? 'inactive'}`);
-  }
-  return lines.join('\n');
-}
-
-function formatTableAriaLabel(
-  entry: DerivedTable,
-  isSelected: boolean,
-  isBlocked: boolean,
-): string {
-  const parts: string[] = [];
-  // Start with the table number to keep accessible name compatible with tests and screen reader expectations
-  if (entry.table.name) {
-    parts.push(`Table ${entry.table.tableNumber}, ${entry.table.name}`);
-  } else {
-    parts.push(`Table ${entry.table.tableNumber}`);
-  }
-  parts.push(`${entry.table.capacity} seats`);
-  if (isSelected) parts.push('selected');
-  if (isBlocked) parts.push('unavailable');
-  if (entry.holdOwned) parts.push('held by you');
-  if (entry.holdOther) parts.push('held by another booking');
-  if (entry.conflicts.length > 0)
-    parts.push(`${entry.conflicts.length} conflict${entry.conflicts.length === 1 ? '' : 's'}`);
-  return parts.join(', ');
-}
-
-function formatCountdown(seconds: number | null): string | null {
-  if (seconds === null || !Number.isFinite(seconds)) {
-    return null;
-  }
-  const clamped = Math.max(0, seconds);
-  const mins = Math.floor(clamped / 60)
-    .toString()
-    .padStart(2, '0');
-  const secs = Math.floor(clamped % 60)
-    .toString()
-    .padStart(2, '0');
-  return `${mins}:${secs}`;
-}
-
-function computeLayout(
-  bookingId: string,
-  tables: ManualAssignmentTable[],
-  holds: ManualAssignmentContextHold[],
-  conflicts: ManualAssignmentConflict[],
-  bookingAssignments: Set<string>,
-  selectedTableIds: Set<string>,
-): { positioned: DerivedTable[]; unpositioned: ManualAssignmentTable[] } {
-  const conflictMap = new Map<string, ManualAssignmentConflict[]>();
-  for (const conflict of conflicts) {
-    const list = conflictMap.get(conflict.tableId) ?? [];
-    list.push(conflict);
-    conflictMap.set(conflict.tableId, list);
-  }
-
-  const holdMap = new Map<string, ManualAssignmentContextHold[]>();
-  for (const hold of holds) {
-    for (const tableId of hold.tableIds) {
-      const list = holdMap.get(tableId) ?? [];
-      list.push(hold);
-      holdMap.set(tableId, list);
-    }
-  }
-
-  const positionedEntities: Array<{
-    table: ManualAssignmentTable;
-    position: { x: number; y: number; rotation: number };
-  }> = [];
-  const fallback: ManualAssignmentTable[] = [];
-
-  for (const table of tables) {
-    const position = normalizePosition(table.position);
-    if (position) {
-      positionedEntities.push({ table, position });
-    } else {
-      fallback.push(table);
-    }
-  }
-
-  if (positionedEntities.length === 0) {
-    return { positioned: [], unpositioned: fallback.length > 0 ? fallback : tables };
-  }
-
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-
-  for (const entity of positionedEntities) {
-    minX = Math.min(minX, entity.position.x);
-    maxX = Math.max(maxX, entity.position.x);
-    minY = Math.min(minY, entity.position.y);
-    maxY = Math.max(maxY, entity.position.y);
-  }
-
-  const rangeX = Math.max(1, maxX - minX);
-  const rangeY = Math.max(1, maxY - minY);
-
-  const derived: DerivedTable[] = positionedEntities.map(({ table, position }) => {
-    const tableHolds = holdMap.get(table.id) ?? [];
-    const holdOwned = tableHolds.find((hold) => hold.bookingId === bookingId) ?? null;
-    const holdOther =
-      tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
-
-    return {
-      table,
-      xPercent: ((position.x - minX) / rangeX) * 100,
-      yPercent: ((position.y - minY) / rangeY) * 100,
-      rotation: position.rotation ?? 0,
-      holdOwned,
-      holdOther,
-      conflicts: conflictMap.get(table.id) ?? [],
-      isAssignedToBooking: bookingAssignments.has(table.id),
-      isSelected: selectedTableIds.has(table.id),
-      isInactive:
-        !table.active ||
-        table.zoneActive === false ||
-        (table.status ?? '').toString().toLowerCase() !== 'available',
-    };
-  });
-
-  return { positioned: derived, unpositioned: fallback };
-}
-
-function getVariant(
-  entry: DerivedTable,
-): 'selected' | 'owned' | 'blocked' | 'assigned' | 'inactive' | 'default' {
-  if (entry.isInactive) {
-    return 'inactive';
-  }
-  if (entry.isSelected) {
-    return 'selected';
-  }
-  if (entry.holdOwned) {
-    return 'owned';
-  }
-  if (entry.isAssignedToBooking) {
-    return 'assigned';
-  }
-  if (entry.holdOther || entry.conflicts.length > 0) {
-    return 'blocked';
-  }
-  return 'default';
-}
-
-function getVariantClasses(variant: ReturnType<typeof getVariant>): string {
+function getVariantClasses(variant: FloorPlanTableVariant): string {
   switch (variant) {
     case 'selected':
       return 'bg-primary text-primary-foreground border-primary shadow-sm';
@@ -247,75 +67,22 @@ export const TableFloorPlan = memo(function TableFloorPlan({
   onlyAvailable = false,
   className,
 }: TableFloorPlanProps) {
-  const bookingAssignmentSet = useMemo(() => new Set(bookingAssignments), [bookingAssignments]);
-  const selectionSet = useMemo(() => new Set(selectedTableIds), [selectedTableIds]);
+  const selectedTableIdSet = useMemo(() => new Set(selectedTableIds), [selectedTableIds]);
   const conflictTableIds = useMemo(() => new Set(conflicts.map((c) => c.tableId)), [conflicts]);
 
-  const { positioned, unpositioned } = useMemo(() => {
-    const computed = computeLayout(
-      bookingId,
-      tables,
-      holds,
-      conflicts,
-      bookingAssignmentSet,
-      selectionSet,
-    );
-    if (!onlyAvailable) return computed;
-
-    const filteredPositioned = computed.positioned.filter((entry) => {
-      // Keep always-visible: assigned to this booking or held by this booking
-      if (entry.isAssignedToBooking || entry.holdOwned) return true;
-      // Filter out inactive, held by others, or conflicting
-      return !entry.isInactive && !entry.holdOther && entry.conflicts.length === 0;
-    });
-
-    const filteredUnpositioned = computed.unpositioned.filter((table) => {
-      const isInactive =
-        !table.active ||
-        table.zoneActive === false ||
-        (table.status ?? '').toString().toLowerCase() !== 'available';
-      const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
-      const holdOwned = tableHolds.find((hold) => hold.bookingId === bookingId) ?? null;
-      const holdOther =
-        tableHolds.find((hold) => hold.bookingId && hold.bookingId !== bookingId) ?? null;
-      const assigned = bookingAssignmentSet.has(table.id);
-      if (assigned || holdOwned) return true;
-      if (isInactive || holdOther) return false;
-      return !conflictTableIds.has(table.id);
-    });
-
-    return { positioned: filteredPositioned, unpositioned: filteredUnpositioned };
-  }, [
-    bookingId,
-    tables,
-    holds,
-    conflicts,
-    bookingAssignmentSet,
-    selectionSet,
-    onlyAvailable,
-    conflictTableIds,
-  ]);
-
-  const groupedUnpositioned = useMemo(() => {
-    const groups = new Map<
-      string,
-      { zoneId: string | null; section: string | null; tables: ManualAssignmentTable[] }
-    >();
-    for (const table of unpositioned) {
-      const key = `${table.zoneId ?? 'unknown'}::${table.section ?? 'unassigned'}`;
-      const current = groups.get(key);
-      if (current) {
-        current.tables.push(table);
-      } else {
-        groups.set(key, {
-          zoneId: table.zoneId ?? null,
-          section: table.section ?? null,
-          tables: [table],
-        });
-      }
-    }
-    return Array.from(groups.values());
-  }, [unpositioned]);
+  const { groupedUnpositioned, positioned } = useMemo(
+    () =>
+      deriveTableFloorPlanLayout({
+        bookingAssignments,
+        bookingId,
+        conflicts,
+        holds,
+        onlyAvailable,
+        selectedTableIds,
+        tables,
+      }),
+    [bookingAssignments, bookingId, conflicts, holds, onlyAvailable, selectedTableIds, tables],
+  );
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
@@ -346,11 +113,11 @@ export const TableFloorPlan = memo(function TableFloorPlan({
         >
           <div className="relative h-full w-full" style={{ padding: `${TABLE_SIZE_PX / 2}px` }}>
             {positioned.map((entry) => {
-              const variant = getVariant(entry);
+              const variant = getFloorPlanTableVariant(entry);
               const countdown = entry.holdOwned
-                ? formatCountdown(entry.holdOwned.countdownSeconds)
+                ? formatFloorPlanCountdown(entry.holdOwned.countdownSeconds)
                 : entry.holdOther
-                  ? formatCountdown(entry.holdOther.countdownSeconds)
+                  ? formatFloorPlanCountdown(entry.holdOther.countdownSeconds)
                   : null;
               const isBlocked =
                 disabled ||
@@ -381,8 +148,12 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                     if (entry.holdOther || entry.conflicts.length > 0) return;
                     onToggle(entry.table.id);
                   }}
-                  title={formatTableTitle(entry)}
-                  aria-label={formatTableAriaLabel(entry, variant === 'selected', isBlocked)}
+                  title={formatFloorPlanTableTitle(entry)}
+                  aria-label={formatFloorPlanTableAriaLabel({
+                    entry,
+                    isBlocked,
+                    isSelected: variant === 'selected',
+                  })}
                   aria-pressed={variant === 'selected' ? true : undefined}
                   disabled={isBlocked}
                   aria-disabled={isBlocked || undefined}
@@ -425,18 +196,15 @@ export const TableFloorPlan = memo(function TableFloorPlan({
               </div>
               <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
                 {group.tables.map((table) => {
-                  const isSelected = selectionSet.has(table.id);
-                  const tableHolds = holds.filter((hold) => hold.tableIds.includes(table.id));
-                  const holdOther = tableHolds.find(
-                    (hold) => hold.bookingId && hold.bookingId !== bookingId,
-                  );
-                  const hasConflict = conflictTableIds.has(table.id);
-                  const isBlocked =
-                    disabled ||
-                    !table.active ||
-                    (table.status && table.status !== 'available') ||
-                    Boolean(holdOther) ||
-                    hasConflict;
+                  const { hasConflict, holdOther, isBlocked, isInactive, isSelected } =
+                    deriveUnpositionedTableState({
+                      bookingId,
+                      conflictTableIds,
+                      disabled,
+                      holds,
+                      selectedTableIdSet,
+                      table,
+                    });
 
                   return (
                     <Button
@@ -461,7 +229,14 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                           ? `Table ${table.tableNumber} - ${table.name} · ${table.capacity} seats`
                           : `Table ${table.tableNumber} · ${table.capacity} seats`
                       }
-                      aria-label={`Table ${table.tableNumber}${table.name ? `, ${table.name}` : ''}, ${table.capacity} seats${isSelected ? ', selected' : ''}${isBlocked ? ', unavailable' : ''}${holdOther ? ', held' : ''}${hasConflict ? ', conflict' : ''}${!table.active || (table.status && table.status !== 'available') ? ', inactive' : ''}`}
+                      aria-label={formatUnpositionedTableAriaLabel({
+                        hasConflict,
+                        holdOther,
+                        isBlocked,
+                        isInactive,
+                        isSelected,
+                        table,
+                      })}
                       aria-pressed={isSelected ? true : undefined}
                       disabled={isBlocked}
                       aria-disabled={isBlocked || undefined}
@@ -480,10 +255,7 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <span className="font-medium">{table.capacity} seats</span>
                       </div>
-                      {(holdOther ||
-                        hasConflict ||
-                        !table.active ||
-                        (table.status && table.status !== 'available')) && (
+                      {(holdOther || hasConflict || isInactive) && (
                         <div className="mt-1 flex items-center gap-1">
                           {holdOther ? (
                             <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
@@ -493,7 +265,7 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                             <span className="rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-900">
                               Conflict
                             </span>
-                          ) : !table.active || (table.status && table.status !== 'available') ? (
+                          ) : isInactive ? (
                             <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
                               Inactive
                             </span>

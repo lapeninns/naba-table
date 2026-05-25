@@ -308,8 +308,7 @@ test.describe('reserve routes', () => {
     );
     await expect(page.getByText('Nearby availability')).toBeVisible();
 
-    await page.getByRole('combobox', { name: 'Time' }).click();
-    await page.getByRole('option', { name: '6:30 PM' }).click();
+    await page.getByRole('button', { name: '18:30' }).click();
 
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Time' })).toContainText('6:30 PM');

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { deriveGbpDriftStatus } from '@/components/features/restaurant-settings/gbpDriftStatus';
+import {
+  buildGbpDriftSectionStatuses,
+  buildGbpDriftSettingsSectionReviewCounts,
+  mergeGbpDriftSectionStatuses,
+} from '@/components/features/restaurant-settings/gbpDriftStatusSections';
 
 import type { DualSyncFieldSummary, GetDualSyncStateResponse } from '@/services/ops/dual-sync';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
@@ -150,6 +155,52 @@ describe('deriveGbpDriftStatus', () => {
     expect(status.kind).toBe('connected_with_review');
     expect(status.needsReviewCount).toBe(2);
     expect(status.sectionReviewCounts).toEqual({
+      profile: 1,
+      availability: 1,
+      menu: 0,
+      googleBusinessProfile: 2,
+    });
+  });
+
+  it('builds section statuses and settings review counts from dual-sync fields', () => {
+    const sectionStatuses = buildGbpDriftSectionStatuses([
+      field('profile.name', 'profile', 'drifted'),
+      field('hours.monday', 'operatingHours', 'conflict'),
+      field('servicePeriods.lunch', 'servicePeriods', 'pending_export'),
+      field('foodMenus.item.burrata', 'foodMenus', 'in_sync'),
+      field('ignored.external', 'external_links' as DualSyncFieldSummary['sectionKey'], 'drifted'),
+    ]);
+
+    expect(sectionStatuses.profile).toMatchObject({
+      fieldCount: 1,
+      driftCount: 1,
+      needsReviewCount: 1,
+    });
+    expect(sectionStatuses.operatingHours).toMatchObject({
+      fieldCount: 1,
+      conflictCount: 1,
+      needsReviewCount: 1,
+    });
+    expect(sectionStatuses.servicePeriods).toMatchObject({
+      fieldCount: 1,
+      pendingCount: 1,
+      needsReviewCount: 0,
+    });
+    expect(sectionStatuses.foodMenus).toMatchObject({
+      fieldCount: 1,
+      inSyncCount: 1,
+      needsReviewCount: 0,
+    });
+
+    expect(
+      mergeGbpDriftSectionStatuses(sectionStatuses, ['operatingHours', 'servicePeriods']),
+    ).toMatchObject({
+      fieldCount: 2,
+      pendingCount: 1,
+      conflictCount: 1,
+      needsReviewCount: 1,
+    });
+    expect(buildGbpDriftSettingsSectionReviewCounts(sectionStatuses)).toEqual({
       profile: 1,
       availability: 1,
       menu: 0,

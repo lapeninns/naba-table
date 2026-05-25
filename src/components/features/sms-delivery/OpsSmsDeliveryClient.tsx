@@ -1,66 +1,30 @@
 'use client';
 
-import { AlertCircle, MessageSquare, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-import {
-  OPS_CARD_CLASS,
-  OPS_CARD_CONTENT_CLASS,
-  OPS_CARD_HEADER_CLASS,
-  OPS_PAGE_RHYTHM_CLASS,
-} from '@/components/features/ops-shell/patterns/opsDensityClasses';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
-import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useOpsRestaurantSmsDeliveryFeed } from '@/hooks/ops/useOpsRestaurantSmsDeliveryFeed';
 import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
-import {
-  formatSmsDeliveryOccurredAt,
-  formatSmsTypeLabel,
-  getSmsDeliveryStatusBadgeTone,
-  SMS_DELIVERY_STATUS_LABELS,
-} from '@/src/lib/sms-delivery/presentation';
-import {
-  SMS_DELIVERY_STALE_THRESHOLD_HOURS,
-  type OpsSmsDeliveryRange,
-  type SmsDeliveryStatus,
-} from '@/types/smsDelivery';
 
-function formatSmsStuckForHint(stuckForMs: number | null | undefined): string | null {
-  if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0)
-    return null;
-  const mins = Math.floor(stuckForMs / 60000);
-  if (mins >= 120) {
-    const hours = Math.floor(mins / 60);
-    return `stuck ${hours}h`;
-  }
-  return `stuck ${Math.max(1, mins)}m`;
-}
+import {
+  OpsSmsDeliveryFilters,
+  OpsSmsDeliveryHeaderMeta,
+  OpsSmsDeliveryLog,
+  OpsSmsDeliveryStaleAlert,
+  OpsSmsDeliverySummaryCards,
+} from './components';
 
-const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
-const RANGE_OPTIONS: Array<{ value: OpsSmsDeliveryRange; label: string }> = [
-  { value: '24h', label: 'Last 24h' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-];
+import type { OpsSmsDeliveryRange, SmsDeliveryStatus } from '@/types/smsDelivery';
 
 type OpsSmsDeliveryClientProps = {
   initialRestaurantId?: string | null;
@@ -69,18 +33,6 @@ type OpsSmsDeliveryClientProps = {
   initialPageSize?: number;
   initialStatuses?: SmsDeliveryStatus[];
 };
-
-function StatusBadge({ status }: { status: SmsDeliveryStatus }) {
-  const tone = getSmsDeliveryStatusBadgeTone(status);
-  return (
-    <Badge
-      variant={tone.variant}
-      className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}
-    >
-      {SMS_DELIVERY_STATUS_LABELS[status]}
-    </Badge>
-  );
-}
 
 export function OpsSmsDeliveryClient({
   initialRestaurantId = null,
@@ -164,6 +116,7 @@ export function OpsSmsDeliveryClient({
   });
 
   const { feed, unavailable, apiError } = feedQuery;
+  const currentRestaurantName = restaurantDetails.data?.name ?? null;
 
   if (memberships.length === 0) {
     return (
@@ -191,35 +144,16 @@ export function OpsSmsDeliveryClient({
         title="SMS Delivery"
         subtitle="Track queued/sent/delivered/failed booking SMS in one place."
         meta={
-          <div className="flex flex-wrap items-center gap-2">
-            {availableRestaurants.length > 1 ? (
-              <Select
-                value={restaurantId ?? ''}
-                onValueChange={(value) => {
-                  setRestaurantId(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-full sm:w-[240px]" aria-label="Restaurant switcher">
-                  <SelectValue placeholder="Select restaurant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRestaurants.map((restaurant) => (
-                    <SelectItem key={restaurant.id} value={restaurant.id}>
-                      {restaurant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : restaurantDetails.data ? (
-              <Badge variant="outline" className="text-xs">
-                {restaurantDetails.data.name}
-              </Badge>
-            ) : null}
-            <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
-              {timezone}
-            </Badge>
-          </div>
+          <OpsSmsDeliveryHeaderMeta
+            availableRestaurants={availableRestaurants}
+            restaurantId={restaurantId}
+            currentRestaurantName={currentRestaurantName}
+            timezone={timezone}
+            onRestaurantChange={(value) => {
+              setRestaurantId(value);
+              setPage(1);
+            }}
+          />
         }
         secondaryActions={
           <Button
@@ -232,7 +166,8 @@ export function OpsSmsDeliveryClient({
             disabled={feedQuery.isFetching}
           >
             <RefreshCw
-              className={cn('mr-2 size-4', feedQuery.isFetching && 'animate-spin')}
+              data-icon="inline-start"
+              className={cn(feedQuery.isFetching && 'animate-spin')}
               aria-hidden
             />
             Refresh
@@ -240,278 +175,45 @@ export function OpsSmsDeliveryClient({
         }
       />
 
-      {feed && (feed.summary.stuckInFlight ?? 0) > 0 ? (
-        <Alert className="mt-4 border-border bg-muted/40 text-foreground">
-          <AlertTitle className="text-sm font-semibold">
-            {feed.summary.stuckInFlight} SMS still awaiting terminal status
-          </AlertTitle>
-          <AlertDescription className="text-xs">
-            These SMS attempts are still at <code>queued</code> or <code>sent</code> more than{' '}
-            {SMS_DELIVERY_STALE_THRESHOLD_HOURS}h after Twilio accepted them. Twilio recommends
-            polling the Message resource when a message has not reached <code>delivered</code> or{' '}
-            <code>undelivered</code> within that window because a status callback may have been
-            missed. Likely causes: a missed callback, carrier delay, or a message that never
-            progressed beyond queueing/sending. Any row below flagged &ldquo;Stuck&rdquo; warrants
-            Twilio log review or reconciliation.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <OpsSmsDeliveryStaleAlert stuckInFlight={feed?.summary.stuckInFlight ?? 0} />
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {feedQuery.isLoading || !feed ? (
-          <>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <p className="text-xs text-muted-foreground">Total attempts</p>
-                <p className="text-2xl font-semibold">{feed.summary.total}</p>
-              </CardContent>
-            </Card>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <p className="text-xs text-muted-foreground">Delivered rate</p>
-                <p className="text-2xl font-semibold">
-                  {Math.round(feed.summary.deliveredRate * 100)}%
-                </p>
-              </CardContent>
-            </Card>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <p className="text-xs text-muted-foreground">Failures</p>
-                <p className="text-2xl font-semibold">
-                  {feed.summary.failed + feed.summary.undelivered}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <p className="text-xs text-muted-foreground">Unique recipients</p>
-                <p className="text-2xl font-semibold">{feed.summary.uniqueRecipients}</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </section>
+      <OpsSmsDeliverySummaryCards isLoading={feedQuery.isLoading} summary={feed?.summary ?? null} />
 
-      <OpsPageToolbar
-        sticky={false}
-        filters={
-          <>
-            <Select
-              value={range}
-              onValueChange={(value) => {
-                setRange(value as OpsSmsDeliveryRange);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9 w-full sm:w-[170px]" aria-label="Select date range">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {RANGE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => {
-                setPageSize(Number(value));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-9 w-full sm:w-[140px]" aria-label="Rows per page">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZE_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={String(option)}>
-                    {option} rows
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
-        }
-        actions={
-          <>
-            <Button
-              type="button"
-              variant={selectedStatuses.length === 0 ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setSelectedStatuses([]);
-                setPage(1);
-              }}
-            >
-              All
-            </Button>
-            {(['queued', 'sent', 'delivered', 'undelivered', 'failed'] as const).map((status) => {
-              const active = selectedStatuses.includes(status);
-              return (
-                <Button
-                  key={status}
-                  type="button"
-                  variant={active ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setSelectedStatuses((current) => {
-                      const exists = current.includes(status);
-                      return exists
-                        ? current.filter((item) => item !== status)
-                        : [...current, status];
-                    });
-                    setPage(1);
-                  }}
-                >
-                  {SMS_DELIVERY_STATUS_LABELS[status]}
-                </Button>
-              );
-            })}
-          </>
-        }
+      <OpsSmsDeliveryFilters
+        range={range}
+        pageSize={pageSize}
+        selectedStatuses={selectedStatuses}
+        onRangeChange={(nextRange) => {
+          setRange(nextRange);
+          setPage(1);
+        }}
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize);
+          setPage(1);
+        }}
+        onClearStatuses={() => {
+          setSelectedStatuses([]);
+          setPage(1);
+        }}
+        onToggleStatus={(status) => {
+          setSelectedStatuses((current) => {
+            const exists = current.includes(status);
+            return exists ? current.filter((item) => item !== status) : [...current, status];
+          });
+          setPage(1);
+        }}
       />
 
-      <section>
-        {unavailable ? (
-          <Alert className="border-border bg-muted/40">
-            <AlertTitle>Delivery tracking unavailable</AlertTitle>
-            <AlertDescription>
-              This environment is not currently recording or exposing SMS delivery events.
-            </AlertDescription>
-          </Alert>
-        ) : apiError ? (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" aria-hidden />
-            <AlertTitle>Unable to load SMS delivery attempts</AlertTitle>
-            <AlertDescription>{apiError}</AlertDescription>
-          </Alert>
-        ) : feedQuery.error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" aria-hidden />
-            <AlertTitle>Unexpected error</AlertTitle>
-            <AlertDescription>{feedQuery.error.message}</AlertDescription>
-          </Alert>
-        ) : feed ? (
-          <Card className={OPS_CARD_CLASS}>
-            <CardHeader className={OPS_CARD_HEADER_CLASS}>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="size-4" aria-hidden />
-                SMS Delivery Log
-              </CardTitle>
-            </CardHeader>
-            <CardContent className={OPS_CARD_CONTENT_CLASS}>
-              {feed.attempts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No SMS attempts found for this range/filter.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {feed.attempts.map((attempt) => {
-                    const isStale = attempt.isStale === true;
-                    const stuckHint = isStale ? formatSmsStuckForHint(attempt.stuckForMs) : null;
-                    return (
-                      <div
-                        key={`${attempt.messageSid}__${attempt.recipientPhone}`}
-                        className={cn(
-                          'rounded-lg border p-3',
-                          isStale ? 'border-primary/30 bg-primary/10' : 'border-border',
-                        )}
-                        data-stale={isStale ? 'true' : undefined}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <StatusBadge status={attempt.currentStatus} />
-                              {isStale ? (
-                                <Badge
-                                  variant="outline"
-                                  className="border-primary/30 bg-primary/10 text-[10px] font-bold uppercase tracking-wide text-primary"
-                                  title="In flight for longer than the expected Twilio callback window"
-                                >
-                                  Stuck{stuckHint ? ` · ${stuckHint}` : ''}
-                                </Badge>
-                              ) : null}
-                              <span className="text-sm font-medium text-foreground">
-                                {formatSmsTypeLabel(attempt.smsType)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {attempt.recipientPhone} ·{' '}
-                              {attempt.booking?.reference
-                                ? `Ref ${attempt.booking.reference}`
-                                : 'No booking link'}
-                            </p>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatSmsDeliveryOccurredAt(attempt.currentOccurredAt, timezone) ??
-                              'Unknown time'}
-                          </p>
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {attempt.events.map((event) => (
-                            <Badge key={event.id} variant="outline" className="text-[10px]">
-                              {SMS_DELIVERY_STATUS_LABELS[event.status]}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">Page {feed.pageInfo.page}</p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  >
-                    Prev
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!feed.pageInfo.hasNext}
-                    onClick={() => setPage((current) => current + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-      </section>
+      <OpsSmsDeliveryLog
+        unavailable={unavailable}
+        apiError={apiError}
+        errorMessage={feedQuery.error?.message ?? null}
+        feed={feed ?? null}
+        timezone={timezone}
+        page={page}
+        onPreviousPage={() => setPage((current) => Math.max(1, current - 1))}
+        onNextPage={() => setPage((current) => current + 1)}
+      />
     </OpsPageShell>
   );
 }

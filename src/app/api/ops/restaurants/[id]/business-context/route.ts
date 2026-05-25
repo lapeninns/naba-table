@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { RESTAURANT_EDITABLE_LINK_TYPES } from '@/lib/ops/restaurant-link-types';
 import {
   getRestaurantBusinessContext,
   updateRestaurantBusinessContext,
@@ -43,20 +44,7 @@ const attributeValueTypeSchema = z.preprocess(
   },
   z.enum(['boolean', 'text', 'uri', 'enum', 'multienum']),
 );
-const linkTypeSchema = z.enum([
-  'website',
-  'menu_or_services',
-  'reservation',
-  'order',
-  'chat',
-  'facebook',
-  'instagram',
-  'x',
-  'youtube',
-  'tiktok',
-  'linkedin',
-  'other',
-]);
+const linkTypeSchema = z.enum(RESTAURANT_EDITABLE_LINK_TYPES);
 
 const updateBusinessContextSchema = z
   .object({

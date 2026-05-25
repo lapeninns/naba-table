@@ -4,7 +4,7 @@ import { useEffect, useMemo } from 'react';
 
 import { buildBusinessContextFamilyPayload, type FamilyKey } from '../../businessContextModel';
 import { useOptionalGbpDrift } from '../../gbp-drift/useGbpDrift';
-import { slugifyDualSyncDisplay } from '../../gbpDriftBadges';
+import { slugifyDualSyncDisplay } from '../../gbpDriftDomain';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';

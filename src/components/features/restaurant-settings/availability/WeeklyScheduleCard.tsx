@@ -6,7 +6,14 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
@@ -19,8 +26,8 @@ import {
   defaultWeeklyRows,
   mapOverridesFromResponse,
   mapWeeklyFromResponse,
-  validateHours,
 } from '../availabilityScheduleManagerUtils';
+import { validateHours } from '../availabilityScheduleValidation';
 import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
 import { useWorkspaceGbpDriftCheck } from '../gbpDriftBadges';
 import {
@@ -78,14 +85,17 @@ export function WeeklyScheduleCard({ restaurantId }: WeeklyScheduleCardProps) {
   }, [operatingHoursQuery.data, isDirty, updateOperatingHours.isPending]);
 
   const availabilityDraftOverrides = useMemo(() => {
-    return weeklyRows.map((row) => [
-      `operatingHours.weekly.${row.dayOfWeek}`,
-      {
-        opensAt: row.opensAt,
-        closesAt: row.closesAt,
-        isClosed: row.isClosed,
-      },
-    ] as const);
+    return weeklyRows.map(
+      (row) =>
+        [
+          `operatingHours.weekly.${row.dayOfWeek}`,
+          {
+            opensAt: row.opensAt,
+            closesAt: row.closesAt,
+            isClosed: row.isClosed,
+          },
+        ] as const,
+    );
   }, [weeklyRows]);
 
   useEffect(() => {
@@ -138,7 +148,9 @@ export function WeeklyScheduleCard({ restaurantId }: WeeklyScheduleCardProps) {
       setIsDirty(false);
       toast.success('Weekly operating hours saved successfully.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to save weekly operating hours.');
+      toast.error(
+        error instanceof Error ? error.message : 'Unable to save weekly operating hours.',
+      );
     }
   };
 
@@ -180,7 +192,8 @@ export function WeeklyScheduleCard({ restaurantId }: WeeklyScheduleCardProps) {
           <div className="flex flex-col gap-1">
             <CardTitle className="text-xl">Weekly operating hours</CardTitle>
             <CardDescription className="max-w-3xl">
-              Set the outer kitchen open and close boundary for each day. Kitchen operating hours sync across guest booking engines.
+              Set the outer kitchen open and close boundary for each day. Kitchen operating hours
+              sync across guest booking engines.
             </CardDescription>
           </div>
         </div>
@@ -228,7 +241,11 @@ export function WeeklyScheduleCard({ restaurantId }: WeeklyScheduleCardProps) {
             <RotateCcw data-icon="inline-start" aria-hidden />
             Reset
           </Button>
-          <Button type="button" onClick={handleSave} disabled={!isDirty || updateOperatingHours.isPending}>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={!isDirty || updateOperatingHours.isPending}
+          >
             <Save data-icon="inline-start" aria-hidden />
             Save hours
           </Button>

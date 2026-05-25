@@ -1,11 +1,13 @@
 'use client';
 
-import { Clock, MapPin } from 'lucide-react';
-
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import {
+  AllTablesConflictBadge,
+  AllTablesEmptyState,
+  AllTablesInventoryHeader,
+  AllTablesInventoryShell,
+} from './AllTablesInventoryChrome';
 import { TableCardGrid } from './TableCardGrid';
 import { VirtualizedAllTablesSection } from './VirtualizedAllTablesSection';
 
@@ -76,21 +78,11 @@ export function AllTablesSection({
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-border/70 bg-background p-3.5 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-        <div className="flex items-center gap-2">
-          <MapPin className="size-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm font-semibold text-foreground">Full Inventory</span>
-        </div>
-        <span className="text-xs text-muted-foreground">{totalCount} tables</span>
-      </div>
+    <AllTablesInventoryShell>
+      <AllTablesInventoryHeader className="flex-wrap gap-2" totalCount={totalCount} />
 
       {totalCount === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            No tables match the current filters. Try widening the fit or availability filters.
-          </CardContent>
-        </Card>
+        <AllTablesEmptyState />
       ) : (
         <ScrollArea className="h-[480px] pr-2 sm:h-[520px]">
           <div className="space-y-4">
@@ -107,15 +99,7 @@ export function AllTablesSection({
                         ({sectionTables.length})
                       </span>
                     </div>
-                    {conflictedInZone.length > 0 ? (
-                      <Badge
-                        variant="outline"
-                        className="gap-1 border-primary/30 bg-primary/10 text-primary"
-                      >
-                        <Clock className="size-3" aria-hidden />
-                        {conflictedInZone.length} conflict{conflictedInZone.length > 1 ? 's' : ''}
-                      </Badge>
-                    ) : null}
+                    <AllTablesConflictBadge count={conflictedInZone.length} />
                   </div>
 
                   <TableCardGrid
@@ -142,7 +126,7 @@ export function AllTablesSection({
           </div>
         </ScrollArea>
       )}
-    </section>
+    </AllTablesInventoryShell>
   );
 }
 

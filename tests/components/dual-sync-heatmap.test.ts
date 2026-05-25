@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildDualSyncHeatmapRenderModel } from '@/components/features/restaurant-settings/dual-sync/dualSyncHeatmapRenderDomain';
 import {
   bucketForFieldState,
   summarizeFieldsToHeatmap,
@@ -122,5 +123,109 @@ describe('summarizeFieldsToHeatmap', () => {
     ]);
     expect(out.inactive).toBe(2);
     expect(out.hasActionableState).toBe(false);
+  });
+});
+
+describe('buildDualSyncHeatmapRenderModel', () => {
+  it('builds an empty model for zero fields', () => {
+    const model = buildDualSyncHeatmapRenderModel({
+      total: 0,
+      in_sync: 0,
+      drift: 0,
+      conflict: 0,
+      pending: 0,
+      failed: 0,
+      inactive: 0,
+      hasActionableState: false,
+    });
+
+    expect(model).toMatchObject({
+      isEmpty: true,
+      emptyLabel: 'No fields',
+      segments: [],
+      legendItems: [],
+      inactiveOnlyLabel: null,
+    });
+    expect(model.ariaLabel).toBe(
+      'Field state breakdown: In sync 0, Drifted 0, Conflict 0, Pending 0, Failed 0, Inactive 0',
+    );
+  });
+
+  it('builds segment percentages, titles, and visible legend entries', () => {
+    const model = buildDualSyncHeatmapRenderModel({
+      total: 10,
+      in_sync: 4,
+      drift: 2,
+      conflict: 1,
+      pending: 1,
+      failed: 1,
+      inactive: 1,
+      hasActionableState: true,
+    });
+
+    expect(model.isEmpty).toBe(false);
+    expect(model.segments).toEqual([
+      expect.objectContaining({
+        bucket: 'in_sync',
+        label: 'In sync',
+        title: 'In sync: 4',
+        widthPercent: 40,
+      }),
+      expect.objectContaining({
+        bucket: 'drift',
+        label: 'Drifted',
+        title: 'Drifted: 2',
+        widthPercent: 20,
+      }),
+      expect.objectContaining({
+        bucket: 'conflict',
+        label: 'Conflict',
+        title: 'Conflict: 1',
+        widthPercent: 10,
+      }),
+      expect.objectContaining({
+        bucket: 'pending',
+        label: 'Pending',
+        title: 'Pending: 1',
+        widthPercent: 10,
+      }),
+      expect.objectContaining({
+        bucket: 'failed',
+        label: 'Failed',
+        title: 'Failed: 1',
+        widthPercent: 10,
+      }),
+      expect.objectContaining({
+        bucket: 'inactive',
+        label: 'Inactive',
+        title: 'Inactive: 1',
+        widthPercent: 10,
+      }),
+    ]);
+    expect(model.legendItems).toEqual([
+      expect.objectContaining({ bucket: 'in_sync', value: 4, shortLabel: 'sync' }),
+      expect.objectContaining({ bucket: 'drift', value: 2, shortLabel: 'drift' }),
+      expect.objectContaining({ bucket: 'conflict', value: 1, shortLabel: 'cnflct' }),
+      expect.objectContaining({ bucket: 'pending', value: 1, shortLabel: 'pndg' }),
+      expect.objectContaining({ bucket: 'failed', value: 1, shortLabel: 'fail' }),
+    ]);
+    expect(model.inactiveOnlyLabel).toBeNull();
+  });
+
+  it('builds an inactive-only label when all fields are inactive', () => {
+    const model = buildDualSyncHeatmapRenderModel({
+      total: 2,
+      in_sync: 0,
+      drift: 0,
+      conflict: 0,
+      pending: 0,
+      failed: 0,
+      inactive: 2,
+      hasActionableState: false,
+    });
+
+    expect(model.segments).toHaveLength(1);
+    expect(model.legendItems).toEqual([]);
+    expect(model.inactiveOnlyLabel).toBe('all inactive');
   });
 });

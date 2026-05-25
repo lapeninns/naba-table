@@ -35,6 +35,7 @@ const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const extractClientIpMock = vi.hoisted(() => vi.fn());
 const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
 const mapValidationFailureMock = vi.hoisted(() => vi.fn());
+const assertBookingNotInPastMock = vi.hoisted(() => vi.fn());
 
 const BookingValidationErrorMock = vi.hoisted(
   () =>
@@ -93,6 +94,15 @@ vi.mock('@/server/bookings/duration', () => ({
   resolveBookingDurationMinutes: resolveBookingDurationMinutesMock,
 }));
 
+vi.mock('@/server/bookings/pastTimeValidation', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+  const actual = await importOriginal<typeof import('@/server/bookings/pastTimeValidation')>();
+  return {
+    ...actual,
+    assertBookingNotInPast: assertBookingNotInPastMock,
+  };
+});
+
 vi.mock('@/server/capacity', () => ({
   checkSlotAvailability: checkSlotAvailabilityMock,
   findAlternativeSlots: findAlternativeSlotsMock,
@@ -143,7 +153,36 @@ vi.mock('@/server/booking/http', () => ({
 vi.mock('@/server/bookings/confirmation-token', () => ({
   generateConfirmationToken: vi.fn(() => 'confirm-token'),
   computeTokenExpiry: vi.fn(() => new Date('2026-04-14T12:00:00.000Z').toISOString()),
+  getStoredBookingConfirmationTokenState: vi.fn((booking) => ({
+    confirmationToken: booking.confirmation_token ?? null,
+    confirmationTokenExpiresAt:
+      typeof booking.confirmation_token_expires_at === 'string'
+        ? booking.confirmation_token_expires_at
+        : null,
+  })),
+  buildBookingConfirmationTokenAttachment: vi.fn(
+    ({
+      bookingId,
+      confirmationToken,
+      confirmationTokenExpiresAt,
+    }: {
+      bookingId: string;
+      confirmationToken: string | null;
+      confirmationTokenExpiresAt: string | null;
+    }) =>
+      confirmationToken && confirmationTokenExpiresAt
+        ? null
+        : {
+            bookingId,
+            confirmationToken: confirmationToken ?? 'confirm-token',
+            confirmationTokenExpiresAt:
+              confirmationTokenExpiresAt ?? new Date('2026-04-14T12:00:00.000Z').toISOString(),
+          },
+  ),
   attachTokenToBooking: vi.fn(async () => undefined),
+  resolveBookingCreateConfirmationToken: vi.fn(async ({ booking }) => {
+    return booking.confirmation_token ?? 'confirm-token';
+  }),
 }));
 
 vi.mock('@reserve/shared/validation', () => ({
@@ -167,7 +206,8 @@ vi.mock('@/server/bookings', async (importOriginal) => {
   };
 });
 
-import { POST } from '@/src/app/api/bookings/route';
+import { PastBookingError } from '@/server/bookings/pastTimeValidation';
+import { GET, POST } from '@/src/app/api/bookings/route';
 
 function buildSchedule() {
   return {
@@ -259,6 +299,176 @@ describe('public POST /api/bookings capacity handling', () => {
     extractClientIpMock.mockReturnValue('127.0.0.1');
     createBookingValidationServiceMock.mockReset();
     mapValidationFailureMock.mockReset();
+    assertBookingNotInPastMock.mockReset();
+  });
+
+  it('returns contact-query access diagnostics for public guest lookup', async () => {
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: true,
+      limit: 20,
+      remaining: 19,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
+    fetchBookingsForContactMock.mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest(
+        'https://www.nabatable.com/api/bookings?email=alex@example.com&phone=%2B447700900123&restaurantId=11111111-1111-4111-8111-111111111111',
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      bookings: [],
+      access: {
+        mode: 'contact_query',
+        token: {
+          provided: false,
+          valid: false,
+          reason: null,
+          restaurantId: null,
+        },
+        restaurantId: '11111111-1111-4111-8111-111111111111',
+        restaurantSource: 'query',
+        lookupStrategy: 'legacy',
+        policyEnabled: false,
+        rateSource: 'memory',
+      },
+    });
+    expect(fetchBookingsForContactMock).toHaveBeenCalledWith(
+      { kind: 'tenant-client' },
+      '11111111-1111-4111-8111-111111111111',
+      'alex@example.com',
+      '+447700900123',
+    );
+  });
+
+  it('returns booking-create rate limit response and records observability', async () => {
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 60,
+      remaining: 0,
+      resetAt: 1_779_541_200_000,
+      source: 'memory',
+    });
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(response.headers.get('Retry-After')).toEqual(expect.any(String));
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith({
+      source: 'api.bookings',
+      eventType: 'booking_creation.rate_limited',
+      severity: 'warning',
+      context: {
+        restaurant_id: '11111111-1111-4111-8111-111111111111',
+        ip_scope: '127.0.0.0/24',
+        reset_at: '2026-05-23T13:00:00.000Z',
+        limit: 60,
+        window_ms: 60_000,
+        rate_source: 'memory',
+      },
+    });
+    expect(upsertCustomerMock).not.toHaveBeenCalled();
+    expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+  });
+
+  it('returns past-time block response and records observability', async () => {
+    envMock.featureFlags.bookingPastTimeBlocking = true;
+    const details = {
+      bookingTime: '2026-05-23T12:00:00 GMT+1',
+      serverTime: '2026-05-23T13:00:00 GMT+1',
+      timezone: 'Europe/London',
+      gracePeriodMinutes: 5,
+      timeDeltaMinutes: -60,
+    };
+    assertBookingNotInPastMock.mockImplementationOnce(() => {
+      throw new PastBookingError('Booking time is in the past.', details);
+    });
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      error: 'Booking time is in the past.',
+      code: 'BOOKING_IN_PAST',
+      details,
+    });
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith({
+      source: 'api.bookings',
+      eventType: 'booking.past_time.blocked',
+      severity: 'warning',
+      context: {
+        restaurantId: '11111111-1111-4111-8111-111111111111',
+        endpoint: 'bookings.create',
+        actorRole: null,
+        ipScope: '127.0.0.0/24',
+        ...details,
+      },
+    });
+    expect(upsertCustomerMock).not.toHaveBeenCalled();
+    expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+  });
+
+  it('continues booking creation after capacity precheck failure and records observability', async () => {
+    const precheckError = new Error('Capacity precheck unavailable');
+    const createdBooking = {
+      id: 'booking-created',
+      restaurant_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: 'cust-1',
+      booking_date: '2026-07-01',
+      start_time: '19:00',
+      end_time: '20:30',
+      start_at: null,
+      end_at: null,
+      reference: 'NB654321',
+      party_size: 4,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      status: 'pending',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+      notes: null,
+      marketing_opt_in: true,
+      client_request_id: null,
+      idempotency_key: 'created-key',
+      pending_ref: null,
+      confirmation_token: null,
+      confirmation_token_expires_at: null,
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    };
+    checkSlotAvailabilityMock.mockRejectedValueOnce(precheckError);
+    createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+      success: true,
+      duplicate: false,
+      booking: createdBooking,
+    });
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.booking.id).toBe('booking-created');
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith({
+      source: 'api.bookings',
+      eventType: 'booking.capacity_precheck.failed',
+      severity: 'warning',
+      context: {
+        restaurantId: '11111111-1111-4111-8111-111111111111',
+        date: '2026-07-01',
+        time: '19:00',
+        partySize: 4,
+        error: expect.stringContaining('Capacity precheck unavailable'),
+      },
+    });
+    expect(createBookingWithCapacityCheckMock).toHaveBeenCalledOnce();
   });
 
   it('rejects online public bookings above the server-side party cap', async () => {

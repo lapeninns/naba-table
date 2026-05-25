@@ -1,39 +1,32 @@
+import {
+  TABLE_CATEGORY_OPTIONS,
+  TABLE_MOBILITY_OPTIONS,
+  TABLE_SEATING_TYPE_OPTIONS,
+  TABLE_STATUS_OPTIONS,
+} from '@/lib/ops/table-inventory-reference';
+
 import type { CreateTablePayload, TableInventory } from '@/services/ops/tables';
 import type { Zone } from '@/services/ops/zones';
 
 export type ZoneStatusFilter = 'all' | 'active' | 'inactive';
 export type TableStatusFilter = 'all' | 'active' | 'inactive';
+export type TableWorkspace = 'summary' | 'zones' | 'inventory';
 export type TableZone = Pick<Zone, 'id' | 'name' | 'active' | 'sortOrder'>;
 export type TableFormState = Omit<CreateTablePayload, 'position'>;
 
 export const ALL_ZONES_VALUE = 'all-zones';
 
-export const CATEGORY_OPTIONS: { value: TableInventory['category']; label: string }[] = [
-  { value: 'dining', label: 'Dining' },
-  { value: 'patio', label: 'Patio' },
-  { value: 'bar', label: 'Bar' },
-  { value: 'lounge', label: 'Lounge' },
-  { value: 'private', label: 'Private' },
-];
+export const CATEGORY_OPTIONS: { value: TableInventory['category']; label: string }[] =
+  TABLE_CATEGORY_OPTIONS;
 
-export const SEATING_TYPE_OPTIONS: { value: TableInventory['seatingType']; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'sofa', label: 'Sofa' },
-  { value: 'booth', label: 'Booth' },
-  { value: 'high_top', label: 'High-top' },
-];
+export const SEATING_TYPE_OPTIONS: { value: TableInventory['seatingType']; label: string }[] =
+  TABLE_SEATING_TYPE_OPTIONS;
 
-export const MOBILITY_OPTIONS: { value: TableInventory['mobility']; label: string }[] = [
-  { value: 'movable', label: 'Movable' },
-  { value: 'fixed', label: 'Fixed' },
-];
+export const MOBILITY_OPTIONS: { value: TableInventory['mobility']; label: string }[] =
+  TABLE_MOBILITY_OPTIONS;
 
-export const STATUS_OPTIONS: { value: TableInventory['status']; label: string }[] = [
-  { value: 'available', label: 'Available' },
-  { value: 'reserved', label: 'Reserved' },
-  { value: 'occupied', label: 'Occupied' },
-  { value: 'out_of_service', label: 'Out of service' },
-];
+export const STATUS_OPTIONS: { value: TableInventory['status']; label: string }[] =
+  TABLE_STATUS_OPTIONS;
 
 export function filterZonesByStatus(zones: TableZone[], filter: ZoneStatusFilter): TableZone[] {
   if (filter === 'active') return zones.filter((zone) => zone.active);

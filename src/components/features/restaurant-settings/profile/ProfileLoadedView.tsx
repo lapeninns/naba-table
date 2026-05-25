@@ -51,6 +51,7 @@ type ProfileLoadedViewProps = {
   requiredRemainingCount: number;
   googleHint: string | null;
   googleHref: string;
+  googleLinked: boolean;
   nextActionLabel: string | null;
   nextActionDescription: string;
   nextReadinessItemKey: ReadinessItemKey | null;
@@ -87,6 +88,7 @@ export function ProfileLoadedView({
   requiredRemainingCount,
   googleHint,
   googleHref,
+  googleLinked,
   nextActionLabel,
   nextActionDescription,
   nextReadinessItemKey,
@@ -149,6 +151,8 @@ export function ProfileLoadedView({
           onCancelActive={onCancelActive}
           gbpDriftCount={gbpDriftCount}
           onCompareWithGoogle={onCompareWithGoogle}
+          googleHref={googleHref}
+          googleLinked={googleLinked}
         />
       </div>
     </ProfileShell>

@@ -14,12 +14,12 @@ import {
   applyBusinessContextServiceAreaImportToCore,
   applyBusinessContextServiceItemImportToCore,
 } from '@/server/dual-sync/publish/ports/business-context-import';
+
 import type { DualSyncOperationContext } from '@/server/dual-sync/publish/types';
 import type {
   DualSyncCanonicalSnapshot,
   DualSyncBusinessContextSectionValues,
 } from '@/server/dual-sync/snapshots/types';
-
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -101,8 +101,26 @@ describe('applyBusinessContextCategoryImportToCore', () => {
     const ctx = makeCtx(
       'businessContext.categories.fine-dining',
       'businessContext.categories',
-      { categories: [{ displayName: 'Fine Dining', categoryCode: 'gcid:cat-1', isPrimary: false, moreHoursTypes: [] }] },
-      { categories: [{ displayName: 'Fine Dining', categoryCode: 'gcid:cat-1', isPrimary: true, moreHoursTypes: [] }] },
+      {
+        categories: [
+          {
+            displayName: 'Fine Dining',
+            categoryCode: 'gcid:cat-1',
+            isPrimary: false,
+            moreHoursTypes: [],
+          },
+        ],
+      },
+      {
+        categories: [
+          {
+            displayName: 'Fine Dining',
+            categoryCode: 'gcid:cat-1',
+            isPrimary: true,
+            moreHoursTypes: [],
+          },
+        ],
+      },
     );
     getRestaurantBusinessContextMock.mockResolvedValue({
       core: {
@@ -135,7 +153,8 @@ describe('applyBusinessContextCategoryImportToCore', () => {
     const result = await applyBusinessContextCategoryImportToCore(ctx);
 
     expect(updateRestaurantBusinessContextMock).toHaveBeenCalledTimes(1);
-    const [restaurantId, payload, , provenance] = updateRestaurantBusinessContextMock.mock.calls[0] ?? [];
+    const [restaurantId, payload, , provenance] =
+      updateRestaurantBusinessContextMock.mock.calls[0] ?? [];
     expect(restaurantId).toBe(RESTAURANT_ID);
     expect(payload?.categories).toEqual(
       expect.arrayContaining([
@@ -152,7 +171,11 @@ describe('applyBusinessContextCategoryImportToCore', () => {
     const ctx = makeCtx(
       'businessContext.categories.brewery',
       'businessContext.categories',
-      { categories: [{ displayName: 'Brewery', categoryCode: null, isPrimary: false, moreHoursTypes: [] }] },
+      {
+        categories: [
+          { displayName: 'Brewery', categoryCode: null, isPrimary: false, moreHoursTypes: [] },
+        ],
+      },
       { categories: [] },
     );
     getRestaurantBusinessContextMock.mockResolvedValue({
@@ -191,12 +214,7 @@ describe('applyBusinessContextCategoryImportToCore', () => {
   });
 
   it('rejects fields outside the categories prefix', async () => {
-    const ctx = makeCtx(
-      'profile.name',
-      'profile',
-      { categories: [] },
-      { categories: [] },
-    );
+    const ctx = makeCtx('profile.name', 'profile', { categories: [] }, { categories: [] });
     const result = await applyBusinessContextCategoryImportToCore(ctx);
     expect(updateRestaurantBusinessContextMock).not.toHaveBeenCalled();
     expect(result.status).toBe('failed');

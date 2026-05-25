@@ -9,6 +9,7 @@ import useOnlineStatus from '@/hooks/useOnlineStatus';
 import {
   buildOpsCustomersFilterBadges,
   buildOpsCustomersQueryString,
+  clearOpsCustomersFilterBadge,
   decodeSortOption,
   encodeSortOption,
   parseOpsCustomersQueryState,
@@ -183,6 +184,10 @@ export function useOpsCustomersQueryState() {
     setState(DEFAULT_CUSTOMERS_FILTER_STATE);
   }, []);
 
+  const handleClearFilterBadge = useCallback((key: OpsCustomersFilterBadge['key']) => {
+    setState((current) => clearOpsCustomersFilterBadge(current, key));
+  }, []);
+
   return {
     isOnline,
     searchTerm: state.searchTerm,
@@ -201,5 +206,6 @@ export function useOpsCustomersQueryState() {
     handleMinBookingsChange,
     handleSortChange,
     handleClearFilters,
+    handleClearFilterBadge,
   };
 }

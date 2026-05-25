@@ -19,11 +19,7 @@ vi.mock('motion/react', () => ({
 
 vi.mock('@/components/features/customers/OpsGuestCard', () => ({
   OpsGuestCard: ({ guest }: { guest: OpsGuestRowViewModel }) => (
-    <div
-      data-customer-id={guest.id}
-      data-customer-email={guest.emailSearchValue}
-      tabIndex={0}
-    >
+    <div data-customer-id={guest.id} data-customer-email={guest.emailSearchValue} tabIndex={0}>
       <span>{guest.name}</span>
       <span>{guest.lastVisitLabel}</span>
     </div>
