@@ -407,6 +407,27 @@ function toGuestBookingDTO(
   };
 }
 
+function toPublicRecoveryBookingDTO(
+  booking: Tables<'bookings'>,
+  restaurant?: {
+    name?: string | null;
+    slug?: string | null;
+    timezone?: string | null;
+  } | null,
+) {
+  return {
+    ...toGuestBookingDTO(booking, restaurant),
+    customer_name: 'Guest',
+    customer_email: '',
+    customer_phone: '',
+    marketing_opt_in: false,
+    client_request_id: null,
+    idempotency_key: null,
+    pending_ref: null,
+    details: null,
+  };
+}
+
 async function handleDashboardUpdate(params: {
   bookingId: string;
   data: DashboardUpdateInput;
@@ -1036,7 +1057,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ booking: toGuestBookingDTO(bookingRecord, restaurant) });
+    return NextResponse.json({ booking: toPublicRecoveryBookingDTO(bookingRecord, restaurant) });
   }
 
   // Require authentication to view booking details (default path)

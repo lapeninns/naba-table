@@ -1,17 +1,6 @@
-import {
-  generateUniqueBookingReference,
-  insertBookingRecord,
-  type BookingRecord,
-} from '@/server/bookings';
-import {
-  buildBookingCreateInsertFallbackObservabilityEvent,
-  buildBookingCreateRecoveredObservabilityEvent,
-} from '@/server/bookings/create-observability-events';
-import {
-  buildFallbackInsertBookingPayload,
-  type BookingCreatePayloadBase,
-} from '@/server/bookings/create-payloads';
-import { stringifyError } from '@/server/bookings/error-formatting';
+import { type BookingRecord } from '@/server/bookings';
+import { buildBookingCreateRecoveredObservabilityEvent } from '@/server/bookings/create-observability-events';
+import { type BookingCreatePayloadBase } from '@/server/bookings/create-payloads';
 import { recordObservabilityEvent } from '@/server/observability';
 
 type BookingRecoveryQuery = {
@@ -75,16 +64,7 @@ export async function recoverBookingRecord(
   return null;
 }
 
-type BookingCreateRecordClient = Parameters<typeof insertBookingRecord>[0] & BookingRecoveryClient;
-
-export type BookingReferenceGenerator = (
-  client: Parameters<typeof generateUniqueBookingReference>[0],
-) => Promise<string>;
-
-export type BookingFallbackInserter = (
-  client: Parameters<typeof insertBookingRecord>[0],
-  payload: ReturnType<typeof buildFallbackInsertBookingPayload>,
-) => Promise<BookingRecord>;
+type BookingCreateRecordClient = BookingRecoveryClient;
 
 export type BookingCreateObservabilityRecorder = (
   event: Parameters<typeof recordObservabilityEvent>[0],
@@ -99,22 +79,18 @@ export type MissingBookingCreateRecordArgs = {
 
 export async function resolveMissingBookingCreateRecord({
   client,
-  inserter = insertBookingRecord,
   observabilityRecorder = recordObservabilityEvent,
-  referenceGenerator = generateUniqueBookingReference,
   recoverer = recoverBookingRecord,
   resolveArgs,
 }: {
   client: BookingCreateRecordClient;
-  inserter?: BookingFallbackInserter;
   observabilityRecorder?: BookingCreateObservabilityRecorder;
-  referenceGenerator?: BookingReferenceGenerator;
   recoverer?: (
     client: BookingRecoveryClient,
     args: RecoverBookingRecordArgs,
   ) => Promise<BookingRecord | null>;
   resolveArgs: MissingBookingCreateRecordArgs;
-}): Promise<BookingRecord> {
+}): Promise<BookingRecord | null> {
   const recovered = await recoverer(client, resolveArgs.recovery);
 
   if (recovered) {
@@ -128,30 +104,15 @@ export async function resolveMissingBookingCreateRecord({
     return recovered;
   }
 
-  try {
-    const reference = await referenceGenerator(client);
-    const created = await inserter(
-      client,
-      buildFallbackInsertBookingPayload({
-        ...resolveArgs.fallback,
-        reference,
-      }),
-    );
+  void observabilityRecorder({
+    source: resolveArgs.source,
+    eventType: 'booking.create.recovery_failed',
+    severity: 'error',
+    context: {
+      restaurantId: resolveArgs.restaurantId,
+      idempotencyKey: resolveArgs.recovery.idempotencyKey ?? undefined,
+    },
+  });
 
-    void observabilityRecorder(
-      buildBookingCreateInsertFallbackObservabilityEvent({
-        source: resolveArgs.source,
-        restaurantId: resolveArgs.restaurantId,
-        idempotencyKey: resolveArgs.recovery.idempotencyKey,
-      }),
-    );
-
-    return created;
-  } catch (createFallbackError) {
-    throw new Error(
-      `Booking creation succeeded but booking record could not be retrieved or created: ${stringifyError(
-        createFallbackError,
-      )}`,
-    );
-  }
+  return null;
 }

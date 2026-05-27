@@ -4,8 +4,6 @@ import {
   recoverBookingRecord,
   resolveMissingBookingCreateRecord,
   type BookingCreateObservabilityRecorder,
-  type BookingFallbackInserter,
-  type BookingReferenceGenerator,
   type MissingBookingCreateRecordArgs,
   type BookingRecoveryClient,
   type RecoverBookingRecordArgs,
@@ -182,26 +180,18 @@ describe('booking record recovery', () => {
   it('resolves a missing create result with a recovered booking and records observability', async () => {
     const recovered = { id: 'booking-recovered' } as BookingRecord;
     const recoverer = vi.fn(async () => recovered);
-    const referenceGenerator = vi.fn<BookingReferenceGenerator>(async () => 'REF123');
-    const inserter = vi.fn<BookingFallbackInserter>(async () => {
-      throw new Error('should not insert');
-    });
     const observabilityRecorder = vi.fn<BookingCreateObservabilityRecorder>(async () => undefined);
     const client = {} as Parameters<typeof resolveMissingBookingCreateRecord>[0]['client'];
 
     await expect(
       resolveMissingBookingCreateRecord({
         client,
-        inserter,
         observabilityRecorder,
-        referenceGenerator,
         recoverer,
         resolveArgs: missingRecordArgs,
       }),
     ).resolves.toBe(recovered);
 
-    expect(referenceGenerator).not.toHaveBeenCalled();
-    expect(inserter).not.toHaveBeenCalled();
     expect(observabilityRecorder).toHaveBeenCalledWith({
       source: 'api.bookings',
       eventType: 'booking.create.recovered',
@@ -214,73 +204,28 @@ describe('booking record recovery', () => {
     });
   });
 
-  it('creates a fallback booking when recovery misses and records fallback observability', async () => {
-    const created = { id: 'booking-created' } as BookingRecord;
+  it('returns null when recovery misses and records guarded failure observability', async () => {
     const recoverer = vi.fn(async () => null);
-    const referenceGenerator = vi.fn<BookingReferenceGenerator>(async () => 'REF123');
-    const inserter = vi.fn<BookingFallbackInserter>(async () => created);
     const observabilityRecorder = vi.fn<BookingCreateObservabilityRecorder>(async () => undefined);
     const client = {} as Parameters<typeof resolveMissingBookingCreateRecord>[0]['client'];
 
     await expect(
       resolveMissingBookingCreateRecord({
         client,
-        inserter,
         observabilityRecorder,
-        referenceGenerator,
         recoverer,
         resolveArgs: missingRecordArgs,
       }),
-    ).resolves.toBe(created);
+    ).resolves.toBeNull();
 
-    expect(referenceGenerator).toHaveBeenCalledWith(client);
-    expect(inserter).toHaveBeenCalledWith(
-      client,
-      expect.objectContaining({
-        restaurant_id: 'restaurant-1',
-        customer_id: 'customer-1',
-        booking_date: '2026-05-22',
-        start_time: '18:30',
-        end_time: '20:00',
-        reference: 'REF123',
-        customer_email: 'ada@example.com',
-        customer_phone: '07123456789',
-        details: { fallback: 'missing_rpc_booking_record' },
-      }),
-    );
     expect(observabilityRecorder).toHaveBeenCalledWith({
       source: 'api.bookings',
-      eventType: 'booking.create.insert_fallback',
-      severity: 'warning',
+      eventType: 'booking.create.recovery_failed',
+      severity: 'error',
       context: {
         restaurantId: 'restaurant-1',
         idempotencyKey: 'idem-1',
       },
     });
-  });
-
-  it('wraps fallback creation failures with the route-equivalent message', async () => {
-    const recoverer = vi.fn(async () => null);
-    const referenceGenerator = vi.fn<BookingReferenceGenerator>(async () => 'REF123');
-    const inserter = vi.fn<BookingFallbackInserter>(async () => {
-      throw new Error('insert unavailable');
-    });
-    const observabilityRecorder = vi.fn<BookingCreateObservabilityRecorder>(async () => undefined);
-    const client = {} as Parameters<typeof resolveMissingBookingCreateRecord>[0]['client'];
-
-    await expect(
-      resolveMissingBookingCreateRecord({
-        client,
-        inserter,
-        observabilityRecorder,
-        referenceGenerator,
-        recoverer,
-        resolveArgs: missingRecordArgs,
-      }),
-    ).rejects.toThrow(
-      'Booking creation succeeded but booking record could not be retrieved or created: Error: insert unavailable',
-    );
-
-    expect(observabilityRecorder).not.toHaveBeenCalled();
   });
 });

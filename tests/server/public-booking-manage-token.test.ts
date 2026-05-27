@@ -231,6 +231,37 @@ describe('public booking manage-token access', () => {
     });
   });
 
+  it('returns only a guest-safe DTO for recovery-token reads @p0 @api @security @contract', async () => {
+    serviceFromMock.mockReturnValueOnce(makeLookup(makeBooking())).mockReturnValueOnce(
+      makeLookup({
+        name: 'The Bell',
+        slug: 'the-bell',
+        timezone: 'Europe/London',
+      }),
+    );
+
+    const response = await GET(makeRequest(), routeParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.booking).toEqual(
+      expect.objectContaining({
+        customer_name: 'Guest',
+        customer_email: '',
+        customer_phone: '',
+        marketing_opt_in: false,
+        client_request_id: null,
+        idempotency_key: null,
+        pending_ref: null,
+        details: null,
+      }),
+    );
+    expect(JSON.stringify(body)).not.toContain('alex@example.com');
+    expect(JSON.stringify(body)).not.toContain('+447700900123');
+    expect(JSON.stringify(body)).not.toContain('request-1');
+    expect(JSON.stringify(body)).not.toContain('idem-1');
+  });
+
   it('rejects invalid and expired recovery tokens before lookup @p0 @api @security @contract', async () => {
     validateSessionRecoveryAccessTokenMock.mockReturnValueOnce({
       ok: false,

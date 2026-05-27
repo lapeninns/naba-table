@@ -166,6 +166,34 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
     });
   });
 
+  it('returns a guarded capacity unavailable response when missing booking recovery fails', async () => {
+    const capacityCreator = vi.fn(async () => ({
+      success: true,
+      duplicate: false,
+      booking: undefined,
+    }));
+    const missingRecordResolver = vi.fn(async () => null);
+    const initialStatusEnforcer = vi.fn(async () => pendingBooking);
+
+    const result = await runBookingCreateLegacyCapacityCreate({
+      ...baseArgs,
+      capacityCreator: capacityCreator as BookingCreateCapacityCreator,
+      initialStatusEnforcer: initialStatusEnforcer as BookingCreateInitialStatusEnforcer,
+      missingRecordResolver: missingRecordResolver as BookingCreateMissingRecordResolver,
+    });
+
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+
+    expect(result.response.status).toBe(503);
+    await expect(result.response.json()).resolves.toEqual({
+      error: 'Booking could not be confirmed safely. Please try again.',
+      code: 'CAPACITY_UNAVAILABLE',
+      details: null,
+    });
+    expect(initialStatusEnforcer).not.toHaveBeenCalled();
+  });
+
   it('returns capacity unavailable responses for unavailable capacity enforcement', async () => {
     const capacityCreator = vi.fn(async () => ({
       success: false,

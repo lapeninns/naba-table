@@ -36,6 +36,7 @@ import {
   getStoredBookingConfirmationTokenState,
   isConfirmationTokenFormat,
   resolveBookingCreateConfirmationToken,
+  TokenValidationError,
 } from '@/server/bookings/confirmation-token';
 import { GET } from '@/src/app/api/bookings/confirm/route';
 
@@ -89,6 +90,56 @@ describe('GET /api/bookings/confirm', () => {
     expect(validateConfirmationTokenMock).toHaveBeenCalledWith(token);
     expect(markTokenUsedMock).toHaveBeenCalledWith(token);
     expect(body).toEqual({ booking: { id: 'booking-1', restaurantName: 'The Bell' } });
+  });
+
+  it('rejects replayed confirmation tokens before marking them used', async () => {
+    const token = generateConfirmationToken();
+    validateConfirmationTokenMock.mockRejectedValueOnce(
+      new TokenValidationError('Token has already been used', 'TOKEN_USED'),
+    );
+
+    const response = await GET(
+      new NextRequest(`https://www.nabatable.com/api/bookings/confirm?token=${token}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(body.code).toBe('TOKEN_USED');
+    expect(markTokenUsedMock).not.toHaveBeenCalled();
+  });
+
+  it('does not serialize PII from the validated booking record', async () => {
+    const token = generateConfirmationToken();
+    validateConfirmationTokenMock.mockResolvedValueOnce({
+      id: 'booking-1',
+      restaurant_id: 'restaurant-1',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+    });
+    toPublicConfirmationMock.mockReturnValueOnce({
+      id: 'booking-1',
+      reference: 'NB123456',
+      restaurantName: 'The Bell',
+    });
+
+    const response = await GET(
+      new NextRequest(`https://www.nabatable.com/api/bookings/confirm?token=${token}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(toPublicConfirmationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_email: 'alex@example.com',
+        customer_phone: '+447700900123',
+      }),
+      'The Bell',
+      'the-bell',
+    );
+    expect(JSON.stringify(body)).not.toContain('Alex Guest');
+    expect(JSON.stringify(body)).not.toContain('alex@example.com');
+    expect(JSON.stringify(body)).not.toContain('+447700900123');
   });
 });
 

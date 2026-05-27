@@ -551,6 +551,42 @@ describe('public POST /api/bookings capacity handling', () => {
     expect(body.alternatives).toEqual([{ time: '20:15', available: true, utilizationPercent: 65 }]);
   });
 
+  it('fails closed when the capacity create succeeds but no booking can be recovered', async () => {
+    checkSlotAvailabilityMock.mockResolvedValue({
+      available: true,
+      metadata: {
+        servicePeriod: 'Dinner',
+        maxCovers: 20,
+        bookedCovers: 12,
+        availableCovers: 8,
+        utilizationPercent: 60,
+        maxParties: 10,
+        bookedParties: 4,
+        availableParties: 6,
+      },
+    });
+    createBookingWithCapacityCheckMock.mockResolvedValue({
+      success: true,
+      duplicate: false,
+      booking: null,
+    });
+
+    const response = await POST(buildRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body.code).toBe('CAPACITY_UNAVAILABLE');
+    expect(insertBookingRecordMock).not.toHaveBeenCalled();
+    expect(generateUniqueBookingReferenceMock).not.toHaveBeenCalled();
+    expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'booking.create.recovery_failed',
+        severity: 'error',
+      }),
+    );
+  });
+
   it('adds alternatives to unified validation capacity failures', async () => {
     envMock.featureFlags.bookingValidationUnified = true;
     checkSlotAvailabilityMock.mockResolvedValue({

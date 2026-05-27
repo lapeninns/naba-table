@@ -146,6 +146,16 @@ export async function runBookingCreateLegacyCapacityCreate(
         source: args.requestSource,
       },
     });
+
+    if (!booking) {
+      const response = buildCapacityCreateUnavailableResponse({
+        message: 'Booking could not be confirmed safely. Please try again.',
+      });
+      return {
+        kind: 'response',
+        response: NextResponse.json(response.body, response.init),
+      };
+    }
   }
 
   const enforcedBooking = await (args.initialStatusEnforcer ?? enforceBookingCreateInitialStatus)({
