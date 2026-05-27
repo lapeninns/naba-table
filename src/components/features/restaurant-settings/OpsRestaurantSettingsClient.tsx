@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { opsHref } from '@/lib/url/opsHref';
 
@@ -16,52 +18,54 @@ import type { RestaurantSettingsView } from './types';
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 const SettingsSectionSkeleton = ({ title }: { title: string }) => (
-  <div
-    className="rounded-lg border border-border/60 bg-muted/30 p-4"
-    aria-busy="true"
-    role="status"
-  >
-    <p className="text-sm font-medium text-foreground">{title}</p>
-    <div className="mt-3 flex flex-col gap-3">
+  <Card className="border-border/60 bg-muted/30" aria-busy="true" role="status">
+    <CardHeader className="p-4 pb-0">
+      <CardTitle className="text-sm font-medium text-foreground">{title}</CardTitle>
+    </CardHeader>
+    <CardContent className="flex flex-col gap-3 p-4">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-3/4" />
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 );
 
 const AvailabilitySkeleton = () => (
-  <div className="space-y-6">
-    <div className="rounded-lg border border-border/70 bg-card p-6">
-      <div className="space-y-2">
+  <div className="flex flex-col gap-6">
+    <Card className="border-border/70 bg-card">
+      <CardHeader className="gap-2">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-4 w-full max-w-xl" />
-      </div>
-      <div className="mt-6 flex gap-2">
+      </CardHeader>
+      <CardContent className="flex gap-2">
         <Skeleton className="h-9 w-28" />
         <Skeleton className="h-9 w-28" />
         <Skeleton className="h-9 w-28" />
-      </div>
-    </div>
-    <div className="rounded-lg border border-border/60 p-6">
-      <Skeleton className="h-6 w-40" />
-      <div className="mt-4 space-y-3">
+      </CardContent>
+    </Card>
+    <Card className="border-border/60">
+      <CardHeader>
+        <Skeleton className="h-6 w-40" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
-      </div>
-    </div>
-    <div className="rounded-lg border border-border/60 p-6">
-      <Skeleton className="h-6 w-40" />
-      <div className="mt-4 space-y-4">
+      </CardContent>
+    </Card>
+    <Card className="border-border/60">
+      <CardHeader>
+        <Skeleton className="h-6 w-40" />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
         <div className="flex gap-4">
           <Skeleton className="h-10 w-32" />
           <Skeleton className="h-10 w-32" />
         </div>
         <Skeleton className="h-64 w-full" />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   </div>
 );
 
@@ -73,7 +77,8 @@ const RestaurantProfileSection = dynamic(
 );
 
 const RestaurantBusinessContextSection = dynamic(
-  () => import('./RestaurantBusinessContextSection').then((m) => m.RestaurantBusinessContextSection),
+  () =>
+    import('./RestaurantBusinessContextSection').then((m) => m.RestaurantBusinessContextSection),
   {
     loading: () => <SettingsSectionSkeleton title="Loading discovery details" />,
   },
@@ -194,10 +199,7 @@ export function OpsRestaurantSettingsClient({
   > = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     discovery: ({ restaurantId }) => (
-      <RestaurantBusinessContextSection
-        restaurantId={restaurantId}
-        embedded={false}
-      />
+      <RestaurantBusinessContextSection restaurantId={restaurantId} embedded={false} />
     ),
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection
@@ -222,23 +224,25 @@ export function OpsRestaurantSettingsClient({
       {dualSyncSections && selectedRestaurantId ? (
         <div id="gbp-sync-review" className="scroll-mt-24">
           {view === 'google-business-profile' ? (
-            <div className="mb-3 rounded-md border border-border/70 bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
-              Compare Google vs saved Nabatable fields. Edits to values still happen on{' '}
-              <Link
-                href={opsHref('/settings/restaurant/profile#profile-contact')}
-                className="font-medium text-foreground underline"
-              >
-                Profile
-              </Link>{' '}
-              or{' '}
-              <Link
-                href={opsHref('/settings/restaurant/availability#availability-schedule')}
-                className="font-medium text-foreground underline"
-              >
-                Availability
-              </Link>
-              .
-            </div>
+            <Alert className="mb-3 border-border/70 bg-muted/30">
+              <AlertDescription className="leading-6 text-muted-foreground">
+                Compare Google vs saved Nabatable fields. Edits to values still happen on{' '}
+                <Link
+                  href={opsHref('/settings/restaurant/profile#profile-contact')}
+                  className="font-medium text-foreground underline"
+                >
+                  Profile
+                </Link>{' '}
+                or{' '}
+                <Link
+                  href={opsHref('/settings/restaurant/availability#availability-schedule')}
+                  className="font-medium text-foreground underline"
+                >
+                  Availability
+                </Link>
+                .
+              </AlertDescription>
+            </Alert>
           ) : null}
           <DualSyncShell
             restaurantId={selectedRestaurantId}

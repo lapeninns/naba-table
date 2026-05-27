@@ -144,7 +144,12 @@ function makeBooking(overrides: Partial<BookingFixture> = {}): BookingFixture {
   };
 }
 
-function installSupabase(bookings: BookingFixture[]) {
+function installSupabase(
+  bookings: BookingFixture[],
+  options: {
+    memberships?: Array<{ restaurant_id: string; user_id: string; created_at: string }>;
+  } = {},
+) {
   const state = {
     restaurants: [
       {
@@ -155,7 +160,7 @@ function installSupabase(bookings: BookingFixture[]) {
       },
     ],
     bookings,
-    memberships: [
+    memberships: options.memberships ?? [
       {
         restaurant_id: RESTAURANT_ID,
         user_id: ACTOR_ID,
@@ -221,7 +226,42 @@ describe('autoCompletePastBookings', () => {
     expect(booking.checked_in_at).toBe('2026-05-09T18:00:00.000Z');
     expect(booking.checked_out_at).toBe('2026-05-09T19:15:00.000Z');
     expect(supabase.rpc).toHaveBeenCalledTimes(2);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'apply_booking_state_transition',
+      expect.objectContaining({
+        p_booking_id: 'previous-day',
+        p_history_changed_by: ACTOR_ID,
+        p_history_reason: 'auto-complete',
+      }),
+    );
     expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(supabase, 'previous-day');
+  });
+
+  it('completes due bookings with a system actor when no membership actor resolves', async () => {
+    const booking = makeBooking({
+      id: 'no-actor',
+      booking_date: '2026-05-09',
+      start_at: '2026-05-09T18:00:00.000Z',
+      end_at: '2026-05-09T19:15:00.000Z',
+    });
+    const { supabase } = installSupabase([booking], { memberships: [] });
+
+    const summary = await autoCompletePastBookings({ now: NOW });
+
+    expect(summary.restaurantsProcessed).toBe(1);
+    expect(summary.restaurantsSkippedWindow).toBe(0);
+    expect(summary.candidates).toBe(1);
+    expect(summary.completed).toBe(1);
+    expect(booking.status).toBe('completed');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'apply_booking_state_transition',
+      expect.objectContaining({
+        p_booking_id: 'no-actor',
+        p_history_changed_by: null,
+        p_history_reason: 'auto-complete',
+      }),
+    );
+    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(supabase, 'no-actor');
   });
 
   it('ignores future confirmed bookings', async () => {

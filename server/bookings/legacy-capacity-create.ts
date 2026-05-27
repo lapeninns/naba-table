@@ -118,7 +118,9 @@ export async function runBookingCreateLegacyCapacityCreate(
   let booking = bookingResult.booking as BookingRecord | undefined;
 
   if (!booking) {
-    booking = await (args.missingRecordResolver ?? resolveMissingBookingCreateRecord)({
+    const recoveredBooking = await (
+      args.missingRecordResolver ?? resolveMissingBookingCreateRecord
+    )({
       client: args.client,
       resolveArgs: {
         fallback: {
@@ -147,7 +149,7 @@ export async function runBookingCreateLegacyCapacityCreate(
       },
     });
 
-    if (!booking) {
+    if (!recoveredBooking) {
       const response = buildCapacityCreateUnavailableResponse({
         message: 'Booking could not be confirmed safely. Please try again.',
       });
@@ -156,6 +158,8 @@ export async function runBookingCreateLegacyCapacityCreate(
         response: NextResponse.json(response.body, response.init),
       };
     }
+
+    booking = recoveredBooking;
   }
 
   const enforcedBooking = await (args.initialStatusEnforcer ?? enforceBookingCreateInitialStatus)({

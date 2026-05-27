@@ -344,11 +344,9 @@ export async function autoCompletePastBookings(
 
     const actorId = await resolveActorId(supabase, restaurant.id);
     if (!actorId) {
-      console.warn('[cron][auto-complete] skipping restaurant with no actor', {
+      console.info('[cron][auto-complete] using system actor for restaurant with no actor', {
         restaurantId: restaurant.id,
       });
-      restaurantsSkippedWindow += 1;
-      continue;
     }
 
     restaurantsProcessed += 1;

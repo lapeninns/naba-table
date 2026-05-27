@@ -1,6 +1,5 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -18,6 +17,7 @@ import {
   BUSINESS_DETAILS_STATUS_FIELD,
   BUSINESS_DETAILS_STATUS_OPTIONS,
 } from './businessDetailsPanelDomain';
+import { RestaurantSettingsDatePickerField } from '../../RestaurantSettingsDatePickerField';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
@@ -25,25 +25,15 @@ export function BusinessDetailsForm({ editor }: { editor: RestaurantBusinessCont
   return (
     <div className="space-y-4 rounded-xl border border-border/60 p-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor={BUSINESS_DETAILS_OPENING_DATE_FIELD.id}>
-            {BUSINESS_DETAILS_OPENING_DATE_FIELD.label}
-          </Label>
-          <Input
-            id={BUSINESS_DETAILS_OPENING_DATE_FIELD.id}
-            type={BUSINESS_DETAILS_OPENING_DATE_FIELD.type}
-            value={editor.businessDetails.openingDate}
-            onChange={(event) =>
-              editor.updateBusinessDetails(
-                BUSINESS_DETAILS_OPENING_DATE_FIELD.field,
-                event.target.value,
-              )
-            }
-          />
-          <p className="text-xs leading-5 text-muted-foreground">
-            {BUSINESS_DETAILS_OPENING_DATE_FIELD.helperText}
-          </p>
-        </div>
+        <RestaurantSettingsDatePickerField
+          id={BUSINESS_DETAILS_OPENING_DATE_FIELD.id}
+          label={BUSINESS_DETAILS_OPENING_DATE_FIELD.label}
+          value={editor.businessDetails.openingDate}
+          onChange={(openingDate) =>
+            editor.updateBusinessDetails(BUSINESS_DETAILS_OPENING_DATE_FIELD.field, openingDate)
+          }
+          description={BUSINESS_DETAILS_OPENING_DATE_FIELD.helperText}
+        />
         <div className="space-y-2">
           <Label htmlFor={BUSINESS_DETAILS_STATUS_FIELD.id}>
             {BUSINESS_DETAILS_STATUS_FIELD.label}

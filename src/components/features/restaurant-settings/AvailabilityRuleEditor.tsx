@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 
 import { MONTH_OPTIONS, describeRuleDraft, type RuleDraft } from './availabilityOccasionsModel';
+import { RestaurantSettingsDatePickerField } from './RestaurantSettingsDatePickerField';
 
 export type AvailabilityRuleEditorProps = {
   canRemove: boolean;
@@ -125,36 +126,28 @@ export function AvailabilityRuleEditor({
 
       {rule.kind === 'date_range' ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <Label>Start date</Label>
-            <Input
-              type="date"
-              value={rule.rangeStart}
-              onChange={(event) => onUpdate(rule.id, { rangeStart: event.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>End date</Label>
-            <Input
-              type="date"
-              value={rule.rangeEnd}
-              onChange={(event) => onUpdate(rule.id, { rangeEnd: event.target.value })}
-            />
-          </div>
+          <RestaurantSettingsDatePickerField
+            label="Start date"
+            value={rule.rangeStart}
+            onChange={(rangeStart) => onUpdate(rule.id, { rangeStart })}
+          />
+          <RestaurantSettingsDatePickerField
+            label="End date"
+            value={rule.rangeEnd}
+            onChange={(rangeEnd) => onUpdate(rule.id, { rangeEnd })}
+          />
         </div>
       ) : null}
 
       {rule.kind === 'specific_dates' ? (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end gap-2">
-            <div className="flex min-w-[180px] flex-1 flex-col gap-1">
-              <Label>Add date</Label>
-              <Input
-                type="date"
-                value={rule.pendingDate}
-                onChange={(event) => onUpdate(rule.id, { pendingDate: event.target.value })}
-              />
-            </div>
+            <RestaurantSettingsDatePickerField
+              label="Add date"
+              value={rule.pendingDate}
+              onChange={(pendingDate) => onUpdate(rule.id, { pendingDate })}
+              className="min-w-[180px] flex-1"
+            />
             <Button type="button" variant="outline" onClick={() => onAddSpecificDate(rule.id)}>
               Add date
             </Button>

@@ -21,7 +21,7 @@ type HistoryInsert = TablesInsert<"booking_state_history">;
 
 type BaseContext = {
   booking: BookingRow;
-  actorId: string;
+  actorId: string | null;
   now?: Date;
   reason?: string | null;
 };
@@ -107,7 +107,7 @@ function ensureChronology(
 function buildHistoryInsert(input: {
   booking: BookingRow;
   toStatus: BookingStatus;
-  actorId: string;
+  actorId: string | null;
   nowIso: string;
   reason?: string | null;
   metadata: Json;

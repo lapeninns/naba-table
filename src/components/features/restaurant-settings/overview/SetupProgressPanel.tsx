@@ -1,5 +1,9 @@
 import { motion } from 'motion/react';
 
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+
 import type { RequiredSetupSummary } from './buildSetupCards';
 
 type SetupProgressPanelProps = {
@@ -12,46 +16,42 @@ export function SetupProgressPanel({ requiredSetup }: SetupProgressPanelProps) {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="relative overflow-hidden rounded-xl border border-primary/20 bg-primary/5 p-5 sm:p-6"
+      className="overflow-hidden"
     >
-      <div
-        className="absolute -right-20 -top-20 size-60 rounded-full bg-primary/10 blur-3xl"
-        aria-hidden
-      />
+      <Card className="border-primary/20 bg-primary/5 shadow-sm">
+        <CardHeader className="gap-4 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <Badge variant="metric" className="w-fit">
+                Onboarding progress
+              </Badge>
+              <CardTitle className="text-xl leading-tight sm:text-2xl">
+                {requiredSetup.title}
+              </CardTitle>
+              <CardDescription className="max-w-xl text-xs leading-5">
+                {requiredSetup.description}
+              </CardDescription>
+            </div>
+            <div className="flex shrink-0 items-baseline gap-1 text-right">
+              <span className="text-3xl font-bold text-foreground sm:text-4xl">
+                {requiredSetup.percent}%
+              </span>
+              <span className="text-xs font-medium text-muted-foreground">complete</span>
+            </div>
+          </div>
+        </CardHeader>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-            Onboarding Progress
-          </span>
-          <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            {requiredSetup.title}
-          </h2>
-          <p className="text-xs text-muted-foreground max-w-xl">{requiredSetup.description}</p>
-        </div>
-        <div className="shrink-0 flex items-baseline gap-1 text-right">
-          <span className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-            {requiredSetup.percent}%
-          </span>
-          <span className="text-xs font-medium text-muted-foreground">complete</span>
-        </div>
-      </div>
+        <CardContent className="p-5 pt-0 sm:p-6 sm:pt-0">
+          <Progress value={requiredSetup.percent} aria-label="Required setup completion" />
 
-      <div className="mt-5 relative h-2.5 w-full rounded-full bg-muted overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${requiredSetup.percent}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          className="absolute left-0 top-0 h-full rounded-full bg-primary"
-        />
-      </div>
-
-      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {requiredSetup.complete} of {requiredSetup.total} required steps complete
-        </span>
-        <span>{requiredSetup.footer}</span>
-      </div>
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>
+              {requiredSetup.complete} of {requiredSetup.total} required steps complete
+            </span>
+            <span>{requiredSetup.footer}</span>
+          </div>
+        </CardContent>
+      </Card>
     </motion.div>
   );
 }

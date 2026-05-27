@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
+import { RestaurantSettingsDatePickerField } from './RestaurantSettingsDatePickerField';
 import { type OverrideErrors, type OverrideRow } from './types';
 
 type AvailabilityOverridesEditorProps = {
@@ -86,26 +87,13 @@ export function AvailabilityOverridesEditor({
               </div>
 
               <div className="mt-4 grid gap-4 xl:grid-cols-[190px_minmax(0,200px)_minmax(0,1fr)]">
-                <div>
-                  <Label
-                    htmlFor={`override-${index}-date`}
-                    className="text-xs uppercase tracking-[0.18em] text-muted-foreground"
-                  >
-                    Date
-                  </Label>
-                  <Input
-                    id={`override-${index}-date`}
-                    name={`override-${index}-date`}
-                    type="date"
-                    value={row.effectiveDate}
-                    onChange={(event) => onChange(index, { effectiveDate: event.target.value })}
-                    aria-invalid={Boolean(errors.effectiveDate)}
-                    className={cn('mt-1', errors.effectiveDate && 'border-destructive')}
-                  />
-                  {errors.effectiveDate ? (
-                    <p className="mt-1 text-xs text-destructive">{errors.effectiveDate}</p>
-                  ) : null}
-                </div>
+                <RestaurantSettingsDatePickerField
+                  id={`override-${index}-date`}
+                  label="Date"
+                  value={row.effectiveDate}
+                  onChange={(effectiveDate) => onChange(index, { effectiveDate })}
+                  error={errors.effectiveDate}
+                />
 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                   <div>
