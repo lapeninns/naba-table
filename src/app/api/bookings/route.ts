@@ -21,8 +21,6 @@ import {
   updateBookingRecord,
   inferMealTypeFromTime,
   logAuditEvent,
-  insertBookingRecord,
-  generateUniqueBookingReference,
 } from '@/server/bookings';
 import {
   generateConfirmationToken,
@@ -1350,49 +1348,23 @@ export async function POST(req: NextRequest) {
             },
           });
         } else {
-          // As a last resort, create the record directly (capacity not enforced here)
-          try {
-            const reference = await generateUniqueBookingReference(supabase);
-            const created = await insertBookingRecord(supabase, {
-              restaurant_id: restaurantId,
-              customer_id: customer.id,
-              booking_date: data.date,
-              start_time: startTime,
-              end_time: endTime,
-              party_size: data.party,
-              booking_type: normalizedBookingType,
-              seating_preference: DEFAULT_SEATING_PREFERENCE,
-              status: 'pending',
-              reference,
-              customer_name: data.name,
-              customer_email: normalizeEmail(data.email),
-              customer_phone: data.phone.trim(),
-              notes: data.notes ?? null,
-              marketing_opt_in: data.marketingOptIn ?? false,
-              loyalty_points_awarded: 0,
-              source: 'api',
-              client_request_id: clientRequestId,
-              idempotency_key: idempotencyKey ?? null,
-              details: { fallback: 'missing_rpc_booking_record' } as Json,
-            });
+          void recordObservabilityEvent({
+            source: requestSource,
+            eventType: 'booking.create.recovery_failed',
+            severity: 'error',
+            context: {
+              restaurantId,
+              idempotencyKey: idempotencyKey ?? undefined,
+            },
+          });
 
-            booking = created as BookingRecord;
-            void recordObservabilityEvent({
-              source: requestSource,
-              eventType: 'booking.create.insert_fallback',
-              severity: 'warning',
-              context: {
-                restaurantId,
-                idempotencyKey: idempotencyKey ?? undefined,
-              },
-            });
-          } catch (createFallbackError) {
-            throw new Error(
-              `Booking creation succeeded but booking record could not be retrieved or created: ${stringifyError(
-                createFallbackError,
-              )}`,
-            );
-          }
+          return NextResponse.json(
+            {
+              error: 'Booking could not be confirmed safely. Please try again.',
+              code: 'CAPACITY_UNAVAILABLE',
+            },
+            { status: 503 },
+          );
         }
       }
 
