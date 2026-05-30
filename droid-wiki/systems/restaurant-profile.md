@@ -1,10 +1,10 @@
 # Restaurant profile
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Restaurant profile code owns profile, hours, schedule, service periods, turn bands, public visibility, logos, business context, and templates.
+Restaurant profile code owns public and ops-facing restaurant data: details, logo, discovery fields, hours, schedule, service periods, turn bands, business context, email templates, visibility, and slug lookup.
 
 ## Directory layout
 
@@ -12,36 +12,35 @@ Restaurant profile code owns profile, hours, schedule, service periods, turn ban
 server/restaurants/
 src/app/api/restaurants/
 src/app/api/ops/restaurants/
+src/components/features/restaurant-settings/
 ```
 
 ## Key abstractions
 
-| Symbol or file        | Description       |
-| --------------------- | ----------------- |
-| `getRestaurantBySlug` | Public lookup.    |
-| `schedule.ts`         | Schedule data.    |
-| `turnBands.ts`        | Turn-band policy. |
-| `emailTemplates.ts`   | Template logic.   |
+| Symbol or file        | Description              |
+| --------------------- | ------------------------ |
+| `getRestaurantBySlug` | Public lookup.           |
+| `details.ts`          | Profile/details domain.  |
+| `schedule.ts`         | Schedule data.           |
+| `businessContext.ts`  | Business context domain. |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+Public routes read slug-based restaurant data for discovery and booking. Ops routes update restaurant-owned settings through guarded `/api/ops/restaurants/**` handlers. Atomic replacements for schedule and business context are backed by recent Supabase migrations.
 
 ## Integration points
 
-This topic links to [Restaurant settings](../features/restaurant-settings.md), [Restaurant](../primitives/restaurant.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Restaurant settings](../features/restaurant-settings.md), [Restaurant](../primitives/restaurant.md), [Public API](../api/public-api.md), and [Ops API](../api/ops-api.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                   | Purpose   |
-| -------------------------------------- | --------- |
-| `server/restaurants/index.ts`          | Exports.  |
-| `server/restaurants/schedule.ts`       | Schedule. |
-| `server/restaurants/operatingHours.ts` | Hours.    |
-| `server/restaurants/details.ts`        | Details.  |
-
-Related: [Restaurant settings](../features/restaurant-settings.md), [Restaurant](../primitives/restaurant.md)
+| File                                                                             | Purpose                      |
+| -------------------------------------------------------------------------------- | ---------------------------- |
+| `server/restaurants/index.ts`                                                    | Exports.                     |
+| `server/restaurants/details.ts`                                                  | Details.                     |
+| `server/restaurants/schedule.ts`                                                 | Schedule.                    |
+| `supabase/migrations/20260516082800_atomic_restaurant_schedule_replacements.sql` | Atomic schedule replacement. |

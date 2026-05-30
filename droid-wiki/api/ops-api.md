@@ -1,54 +1,54 @@
 # Ops API
 
-Active contributors: amanshresthaa, lapeninns
+Active contributors: amanshresthaa
 
 ## Purpose
 
-Ops APIs support protected operator workflows for bookings, dashboard, restaurants, tables, zones, team, customers, delivery, and integrations.
+Ops APIs support protected operator workflows for bookings, dashboard, customers, restaurants, settings, tables, zones, team, occasions, operations hub, delivery, GBP, and dual-sync.
 
 ## Directory layout
 
 ```text
 src/app/api/ops/
 server/ops/
+server/restaurants/
 src/services/ops/
+server/auth/ops-guard.ts
 ```
 
 ## Key abstractions
 
-| Symbol or file              | Description      |
-| --------------------------- | ---------------- |
-| `server/auth/ops-guard.ts`  | Auth guard.      |
-| `server/team/access.ts`     | Access checks.   |
-| `src/services/ops/index.ts` | Client wrappers. |
+| Symbol or file              | Description                                        |
+| --------------------------- | -------------------------------------------------- |
+| `server/auth/ops-guard.ts`  | Auth guard.                                        |
+| `server/team/access.ts`     | Restaurant access checks.                          |
+| `src/services/ops/index.ts` | Client wrappers.                                   |
+| `src/proxy.ts`              | Direct ops API guard and trusted header injection. |
 
 ## How it works
 
 ```mermaid
 graph LR
-  UI[UI or caller] --> Route[Route/service boundary]
+  Caller[UI or caller] --> Route[Route or service boundary]
   Route --> Domain[Domain module]
-  Domain --> DB[(Supabase)]
+  Domain --> DB[(Remote Supabase)]
   Domain --> External[External services]
 ```
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Ops service layer](../systems/ops-service-layer.md), [Security](../security.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Ops service layer](../systems/ops-service-layer.md), [Security](../security.md), [Restaurant settings](../features/restaurant-settings.md), and [Ops dashboard and bookings](../features/ops-dashboard-bookings.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                         | Purpose     |
-| -------------------------------------------- | ----------- |
-| `src/app/api/ops/bookings/route.ts`          | Bookings.   |
-| `src/app/api/ops/dashboard/summary/route.ts` | Dashboard.  |
-| `src/app/api/ops/restaurants/[id]/route.ts`  | Restaurant. |
-| `server/auth/ops-guard.ts`                   | Guard.      |
-
-Related: [Ops service layer](../systems/ops-service-layer.md), [Security](../security.md)
+| File                                                        | Purpose          |
+| ----------------------------------------------------------- | ---------------- |
+| `src/app/api/ops/bookings/route.ts`                         | Bookings.        |
+| `src/app/api/ops/dashboard/summary/route.ts`                | Dashboard.       |
+| `src/app/api/ops/restaurants/[id]/dual-sync/state/route.ts` | Dual-sync state. |

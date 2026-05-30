@@ -1,9 +1,23 @@
 {
-  "generated_at": "2026-05-02T17:48:05Z",
-  "git_commit": "939c208ac93c3c41c66f669ba7e7705a600b828a",
-  "git_branch": "codex/Menu",
+  "generated_at": "2026-05-30T17:24:07Z",
+  "git_commit": "dd83ed933caee0978331239201255e273c285dc2",
+  "git_branch": "main",
   "project_name": "nabatable-platform",
-  "project_type": "Next.js/React/Supabase monorepo",
+  "project_type": "Next.js 16 / React 19 / TypeScript / Supabase platform",
+  "page_count": 66,
+  "snapshot": {
+    "trackedFiles": 4059,
+    "sourceLikeFiles": 2804,
+    "testFiles": 676,
+    "configToolingFiles": 260,
+    "apiRouteHandlers": 140,
+    "apiTsLikeFiles": 156,
+    "pageComponents": 82,
+    "supabaseSqlMigrations": 91,
+    "wikiMarkdownPages": 66,
+    "gitCommits": 1453
+  },
+  "refresh_mode": "manual-docs-refresh",
   "files": [
     "overview/index.md",
     "overview/architecture.md",

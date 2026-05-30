@@ -1,55 +1,54 @@
 # Ops dashboard and bookings
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Ops dashboard and bookings are the operator control surface for service-day reservations, statuses, table assignment, realtime updates, and customer context.
+Ops dashboard and bookings are the operator control surface for service-day reservations, status changes, table assignment, realtime-like refreshes, customer context, exports, delivery state, and operational summaries.
 
 ## Directory layout
 
 ```text
 src/app/app/(app)/dashboard/page.tsx
 src/app/app/(app)/bookings/page.tsx
+src/app/app/(app)/new-bookings/page.tsx
 src/hooks/ops/
 src/app/api/ops/bookings/
 ```
 
 ## Key abstractions
 
-| Symbol or file                            | Description        |
-| ----------------------------------------- | ------------------ |
-| `useOpsDashboardData`                     | Dashboard hook.    |
-| `useOpsBookingsList`                      | Booking list hook. |
-| `server/ops/booking-lifecycle/actions.ts` | Status actions.    |
+| Symbol or file                            | Description              |
+| ----------------------------------------- | ------------------------ |
+| `useOpsDashboardData`                     | Dashboard hook.          |
+| `useOpsBookingsList`                      | Booking list hook.       |
+| `server/ops/booking-lifecycle/actions.ts` | Status actions.          |
+| `src/services/ops/bookings.ts`            | Browser service wrapper. |
 
 ## How it works
 
 ```mermaid
 graph LR
-  UI[UI or caller] --> Route[Route/service boundary]
+  Caller[UI or caller] --> Route[Route or service boundary]
   Route --> Domain[Domain module]
-  Domain --> DB[(Supabase)]
+  Domain --> DB[(Remote Supabase)]
   Domain --> External[External services]
 ```
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Capacity and table assignment](../systems/capacity-table-assignment.md), [Ops service layer](../systems/ops-service-layer.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Capacity and table assignment](../systems/capacity-table-assignment.md), [Ops service layer](../systems/ops-service-layer.md), [Email and SMS delivery](email-sms-delivery.md), and [Ops API](../api/ops-api.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
 | File                                                   | Purpose           |
 | ------------------------------------------------------ | ----------------- |
 | `src/hooks/ops/useOpsDashboardData.ts`                 | Dashboard data.   |
-| `src/hooks/ops/useOpsBookingsList.ts`                  | List data.        |
 | `src/app/api/ops/bookings/[id]/assign-tables/route.ts` | Assignment route. |
-| `server/ops/booking-lifecycle/stateMachine.ts`         | State machine.    |
-
-Related: [Capacity and table assignment](../systems/capacity-table-assignment.md), [Ops service layer](../systems/ops-service-layer.md)
+| `src/app/api/ops/bookings/[id]/status/route.ts`        | Status route.     |

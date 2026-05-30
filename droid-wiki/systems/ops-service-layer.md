@@ -1,10 +1,10 @@
 # Ops service layer
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-The ops service layer centralizes browser calls from operator pages to `/api/ops/**` route handlers. Hooks and contexts use these wrappers for React Query flows.
+The ops service layer centralizes browser calls from operator pages to guarded `/api/ops/**` route handlers. React Query hooks and contexts use these wrappers for SWR-style UX, placeholder data, and typed mutations.
 
 ## Directory layout
 
@@ -12,6 +12,7 @@ The ops service layer centralizes browser calls from operator pages to `/api/ops
 src/services/ops/
 src/contexts/ops-services.tsx
 src/hooks/ops/
+src/app/api/ops/
 ```
 
 ## Key abstractions
@@ -21,18 +22,19 @@ src/hooks/ops/
 | `src/contexts/ops-services.tsx`   | Service provider.   |
 | `src/services/ops/bookings.ts`    | Booking wrapper.    |
 | `src/services/ops/restaurants.ts` | Restaurant wrapper. |
+| `src/services/ops/dual-sync.ts`   | Dual-sync wrapper.  |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+Ops UI components should call hooks/services instead of hand-rolling fetch logic. Route handlers delegate to `server/ops/**`, `server/restaurants/**`, `server/capacity/**`, or integration modules. React Query SWR UX follows `docs/sdlc/react-query-swr-ux.md`.
 
 ## Integration points
 
-This topic links to [Ops API](../api/ops-api.md), [Ops dashboard and bookings](../features/ops-dashboard-bookings.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Ops API](../api/ops-api.md), [Ops dashboard and bookings](../features/ops-dashboard-bookings.md), [Restaurant settings](../features/restaurant-settings.md), and [Google Business and dual sync](google-business-dual-sync.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
@@ -41,6 +43,4 @@ Start with the first source file in the table below, then follow imports to the 
 | `src/services/ops/bookings.ts`    | Booking service.    |
 | `src/services/ops/restaurants.ts` | Restaurant service. |
 | `src/services/ops/dual-sync.ts`   | Dual-sync service.  |
-| `lib/http/fetchJson.ts`           | Fetch helper.       |
-
-Related: [Ops API](../api/ops-api.md), [Ops dashboard and bookings](../features/ops-dashboard-bookings.md)
+| `docs/sdlc/react-query-swr-ux.md` | SWR UX contract.    |

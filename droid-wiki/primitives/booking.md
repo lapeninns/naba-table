@@ -4,42 +4,49 @@ Active contributors: amanshresthaa
 
 ## Purpose
 
-A booking is the reservation lifecycle record used by public booking, guest account pages, ops dashboards, capacity, history, email, and SMS.
+A booking is the reservation lifecycle record used by public booking, guest account pages, ops dashboards, capacity, history, email, SMS, short links, and analytics.
 
 ## Directory layout
 
 ```text
 server/bookings.ts
 server/bookings/
+server/booking/
 server/ops/booking-lifecycle/
 ```
 
 ## Key abstractions
 
-| Symbol or file            | Description              |
-| ------------------------- | ------------------------ |
-| `server/bookings.ts`      | Booking orchestration.   |
-| `server/booking/types.ts` | Types.                   |
-| `stateMachine.ts`         | Lifecycle state machine. |
+| Symbol or file            | Description                   |
+| ------------------------- | ----------------------------- |
+| `server/bookings.ts`      | Booking orchestration facade. |
+| `server/booking/types.ts` | Shared booking types.         |
+| `stateMachine.ts`         | Lifecycle state machine.      |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Booking domain](../systems/booking-domain.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This primitive links to [Booking domain](../systems/booking-domain.md), [Capacity and table assignment](../systems/capacity-table-assignment.md), and [Communications](../systems/communications.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                           | Purpose        |
-| ---------------------------------------------- | -------------- |
-| `server/bookings.ts`                           | Domain.        |
-| `server/booking/types.ts`                      | Types.         |
-| `server/ops/booking-lifecycle/stateMachine.ts` | State machine. |
-
-Related: [Booking domain](../systems/booking-domain.md)
+| File                                           | Purpose              |
+| ---------------------------------------------- | -------------------- |
+| `server/bookings.ts`                           | Domain facade.       |
+| `server/bookings/create-finalization.ts`       | Create finalization. |
+| `server/ops/booking-lifecycle/stateMachine.ts` | State machine.       |

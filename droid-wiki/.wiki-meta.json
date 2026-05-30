@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-05-02T17:48:05Z",
-  "commitHash": "939c208ac93c3c41c66f669ba7e7705a600b828a",
-  "branch": "codex/Menu",
+  "generatedAt": "2026-05-30T17:24:07Z",
+  "commitHash": "dd83ed933caee0978331239201255e273c285dc2",
+  "branch": "main",
   "pageCount": 66,
   "topLevelSections": [
     "overview",
@@ -89,5 +89,18 @@
     "reference/data-models.md",
     "reference/dependencies.md",
     "maintainers.md"
-  ]
+  ],
+  "snapshot": {
+    "trackedFiles": 4059,
+    "sourceLikeFiles": 2804,
+    "testFiles": 676,
+    "configToolingFiles": 260,
+    "apiRouteHandlers": 140,
+    "apiTsLikeFiles": 156,
+    "pageComponents": 82,
+    "supabaseSqlMigrations": 91,
+    "wikiMarkdownPages": 66,
+    "gitCommits": 1453
+  },
+  "refreshMode": "manual-docs-refresh"
 }

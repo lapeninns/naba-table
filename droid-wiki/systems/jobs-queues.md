@@ -1,47 +1,47 @@
 # Jobs and queues
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Jobs and queues process email intents, auto-complete bookings, run dual-sync auto-export, sweep holds, prune allocations, and manage outbox-style work.
+Jobs and queues process email intents, booking side effects, auto-complete bookings, dual-sync auto-export, queue workers, health checks, request-log retention, capacity holds, allocation pruning, table scarcity, and outbox-style work.
 
 ## Directory layout
 
 ```text
 server/jobs/
 server/queue/
+server/dual-sync/queue/
 src/app/api/cron/
 vercel.json
 ```
 
 ## Key abstractions
 
-| Symbol or file                          | Description          |
-| --------------------------------------- | -------------------- |
-| `vercel.json`                           | Cron schedule.       |
-| `server/queue/email-processing.ts`      | Email processing.    |
-| `server/jobs/auto-complete-bookings.ts` | Auto-completion job. |
+| Symbol or file                          | Description             |
+| --------------------------------------- | ----------------------- |
+| `vercel.json`                           | Cron schedule.          |
+| `server/queue/email-processing.ts`      | Email processing.       |
+| `server/jobs/auto-complete-bookings.ts` | Auto-completion job.    |
+| `server/dual-sync/queue/worker.ts`      | Dual-sync queue worker. |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+Vercel cron invokes process-emails, auto-complete-bookings, dual-sync auto-export, dual-sync queue, dual-sync health, and request-log retention routes. Cron routes are security-sensitive and covered by background-worker QA packs.
 
 ## Integration points
 
-This topic links to [Deployment](../deployment.md), [Communications](communications.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Deployment](../deployment.md), [Communications](communications.md), [Google Business and dual sync](google-business-dual-sync.md), and [Webhooks and cron](../api/webhooks-cron.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                       | Purpose           |
-| ------------------------------------------ | ----------------- |
-| `vercel.json`                              | Cron definitions. |
-| `src/app/api/cron/process-emails/route.ts` | Email cron.       |
-| `server/jobs/allocations-pruner.ts`        | Pruner.           |
-| `server/outbox.ts`                         | Outbox helper.    |
-
-Related: [Deployment](../deployment.md), [Communications](communications.md)
+| File                                        | Purpose               |
+| ------------------------------------------- | --------------------- |
+| `vercel.json`                               | Cron definitions.     |
+| `src/app/api/cron/process-emails/route.ts`  | Email cron.           |
+| `src/app/api/cron/dual-sync/queue/route.ts` | Dual-sync queue cron. |
+| `server/jobs/allocations-pruner.ts`         | Pruner.               |
