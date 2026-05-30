@@ -27,7 +27,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 }
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
-  const access = await requireMenusAdmin(params);
+  const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
   const body = await readJsonBody(request);

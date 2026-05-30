@@ -65,7 +65,10 @@ import {
 import { SettingsSectionNav } from '@/components/features/restaurant-settings/shared';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
-import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
+import {
+  OpsUnsavedChangesProvider,
+  useRegisterOpsUnsavedChanges,
+} from '@/contexts/ops-unsaved-changes';
 
 import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
 import type { OpsMembership, OpsUser } from '@/types/ops';
@@ -159,7 +162,21 @@ function renderSubnav(pathname: string, serviceCalls = makePrefetchServiceCalls(
   );
 }
 
-function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCalls()) {
+function DirtyRouteContent() {
+  useRegisterOpsUnsavedChanges(
+    'restaurant-settings-shell-test',
+    true,
+    'Leave dirty restaurant settings?',
+  );
+
+  return <div>Dirty route content</div>;
+}
+
+function renderPageShell(
+  pathname: string,
+  serviceCalls = makePrefetchServiceCalls(),
+  children: ReactElement | string = 'Route content',
+) {
   navigationState.pathname = pathname;
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -189,9 +206,7 @@ function renderPageShell(pathname: string, serviceCalls = makePrefetchServiceCal
       >
         <OpsSessionProvider user={user} memberships={[membership]} initialRestaurantId="rest-1">
           <OpsUnsavedChangesProvider>
-            <RestaurantSettingsPageShell>
-              <div>Route content</div>
-            </RestaurantSettingsPageShell>
+            <RestaurantSettingsPageShell>{children}</RestaurantSettingsPageShell>
           </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
@@ -235,8 +250,8 @@ describe('restaurant settings route contract', () => {
         (item) => item.href === '/app/settings/restaurant/availability',
       )?.aliases,
     ).toEqual([
-      '/app/settings/restaurant/service-periods#service-periods',
-      '/app/settings/restaurant/operating-hours#availability-hours',
+      '/app/settings/restaurant/service-periods#service-windows',
+      '/app/settings/restaurant/operating-hours#weekly-hours',
       '/app/settings/restaurant/turn-durations#booking-occasions',
       '/app/settings/restaurant/occasions#booking-occasions',
     ]);
@@ -341,6 +356,22 @@ describe('RestaurantSettingsSubnav', () => {
     expect(availabilityLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(
       true,
     );
+  });
+
+  it('guards breadcrumb parent and close navigation when settings are dirty', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPageShell(
+      '/app/settings/restaurant/service-periods',
+      makePrefetchServiceCalls(),
+      <DirtyRouteContent />,
+    );
+
+    await user.click(screen.getAllByRole('link', { name: 'Availability & Booking types' })[1]);
+    await user.click(screen.getByRole('link', { name: 'Close restaurant settings' }));
+
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
+    confirmSpy.mockRestore();
   });
 
   it('keeps the active mobile nav item visually anchored', () => {

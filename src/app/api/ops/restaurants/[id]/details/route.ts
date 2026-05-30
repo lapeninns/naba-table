@@ -13,6 +13,7 @@ import {
   updateRestaurantDetails,
   type UpdateRestaurantDetailsInput,
 } from '@/server/restaurants/details';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -177,6 +178,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => putRestaurantDetails(req, restaurantId));
+}
+
+async function putRestaurantDetails(req: NextRequest, restaurantId: string) {
   let payload: UpdateRestaurantDetailsInput;
   try {
     const json = await req.json();
@@ -201,9 +206,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         ? { businessDescription: parsed.businessDescription ?? null }
         : {}),
       ...(hasField('googleMapUrl') ? { googleMapUrl: parsed.googleMapUrl ?? null } : {}),
-      ...(hasField('googleReviewUrl')
-        ? { googleReviewUrl: parsed.googleReviewUrl ?? null }
-        : {}),
+      ...(hasField('googleReviewUrl') ? { googleReviewUrl: parsed.googleReviewUrl ?? null } : {}),
       ...(hasField('bookingPolicy') ? { bookingPolicy: parsed.bookingPolicy ?? null } : {}),
       ...(hasField('logoUrl') ? { logoUrl: parsed.logoUrl ?? null } : {}),
     };
@@ -236,6 +239,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => postRestaurantDetails(req, restaurantId));
+}
+
+async function postRestaurantDetails(req: NextRequest, restaurantId: string) {
   let payload: z.infer<typeof syncSchema>;
   try {
     payload = syncSchema.parse(await req.json());

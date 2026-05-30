@@ -17,9 +17,11 @@ const SETTINGS_EXIT_HREF = opsHref('/dashboard');
 
 type RestaurantSettingsChromeHeaderProps = {
   onExitClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+  onBreadcrumbParentClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 };
 
 export function RestaurantSettingsChromeHeader({
+  onBreadcrumbParentClick,
   onExitClick,
 }: RestaurantSettingsChromeHeaderProps) {
   const { hasUnsavedChanges } = useOpsUnsavedChanges();
@@ -53,6 +55,7 @@ export function RestaurantSettingsChromeHeader({
               <Link
                 href={breadcrumb.parentHref}
                 className="truncate font-medium text-muted-foreground transition-colors hover:text-foreground"
+                onClick={onBreadcrumbParentClick}
               >
                 {breadcrumb.parentTitle}
               </Link>

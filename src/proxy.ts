@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { buildCsrfCookieOptions, CSRF_COOKIE_NAME } from '@/lib/security/csrf';
+import { APP_REQUEST_PATH_HEADER, buildAppRequestPath } from '@/lib/url/app-request-path';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { requireOpsAuth } from '@/server/auth/ops-guard';
 import {
@@ -164,6 +165,12 @@ function buildTrustedRequestHeaders(req: NextRequest): Headers {
   return headers;
 }
 
+function buildRequestHeadersWithAppPath(req: NextRequest, requestPath: string): Headers {
+  const headers = buildTrustedRequestHeaders(req);
+  headers.set(APP_REQUEST_PATH_HEADER, requestPath);
+  return headers;
+}
+
 /**
  * Copy any cookies set on the working response (e.g., refreshed Supabase auth
  * tokens written during `auth.getUser()`) onto the final response.
@@ -303,8 +310,11 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     }
 
     // 6. All other page routes are restaurant pages - rewrite to /app/* and require auth
-    const internalPath = `/app${url.pathname}${searchParams ? `?${searchParams}` : ''}`;
-    const rewriteResponse = NextResponse.rewrite(new URL(internalPath, req.url));
+    const requestPath = buildAppRequestPath(url.pathname, searchParams);
+    const requestHeaders = buildRequestHeadersWithAppPath(req, requestPath);
+    const rewriteResponse = NextResponse.rewrite(new URL(requestPath, req.url), {
+      request: { headers: requestHeaders },
+    });
 
     if (
       isQaOpsAuthFixtureAllowed({
@@ -361,7 +371,11 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     }
 
     // Otherwise, let the request through (single-host mode)
-    return NextResponse.next();
+    const requestHeaders = buildRequestHeadersWithAppPath(
+      req,
+      buildAppRequestPath(url.pathname, searchParams),
+    );
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // 3. All other routes pass through (guest pages, public APIs, etc.)

@@ -7,6 +7,7 @@ import { BookingTypesCard } from './BookingTypesCard';
 import { DateOverridesCard } from './DateOverridesCard';
 import { ServiceWindowsCard } from './ServiceWindowsCard';
 import { WeeklyScheduleCard } from './WeeklyScheduleCard';
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 
 import type { AvailabilityWorkspace } from './types';
 
@@ -64,7 +65,10 @@ export function AvailabilityWorkspacePanels({
         }
         transition={{ duration: 0.18, ease: 'easeOut' }}
       >
-        <div id="availability-schedule" className="scroll-mt-28 flex flex-col gap-6">
+        <div
+          id={AVAILABILITY_ANCHORS.availabilitySchedule}
+          className="scroll-mt-28 flex flex-col gap-6"
+        >
           <WeeklyScheduleCard restaurantId={restaurantId} />
           <ServiceWindowsCard restaurantId={restaurantId} />
           <DateOverridesCard restaurantId={restaurantId} />

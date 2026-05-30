@@ -20,6 +20,7 @@ import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/us
 import { cn } from '@/lib/utils';
 
 import { AvailabilityScheduleErrorState } from './AvailabilityScheduleStates';
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import { AvailabilityOverridesEditor } from '../AvailabilityOverridesEditor';
 import {
   buildOperatingHoursPayload,
@@ -157,7 +158,10 @@ export function DateOverridesCard({ restaurantId }: DateOverridesCardProps) {
   }
 
   return (
-    <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="date-overrides">
+    <Card
+      className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')}
+      id={AVAILABILITY_ANCHORS.dateOverrides}
+    >
       <CardHeader
         className={cn(
           SETTINGS_COMPACT_CARD_HEADER_CLASS,

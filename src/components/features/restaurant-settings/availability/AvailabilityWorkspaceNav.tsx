@@ -1,5 +1,6 @@
 import { CalendarClock, ClipboardList, Clock3 } from 'lucide-react';
 
+import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
 import { SettingsSectionNav } from '../shared';
 
 import type { AvailabilityWorkspace } from './types';
@@ -23,7 +24,7 @@ export function AvailabilityWorkspaceNav({
         {
           label: 'Booking rules',
           description: 'Reservation rhythm, default duration, seating buffer, and booking policy.',
-          href: '#booking-rules',
+          href: availabilityHash(AVAILABILITY_ANCHORS.bookingRules),
           Icon: ClipboardList,
           isActive: activeWorkspace === 'rules',
           onSelect: () => onSelectWorkspace('rules'),
@@ -31,7 +32,7 @@ export function AvailabilityWorkspaceNav({
         {
           label: 'Schedule',
           description: 'Weekly hours, service windows, and date overrides.',
-          href: '#availability-schedule',
+          href: availabilityHash(AVAILABILITY_ANCHORS.availabilitySchedule),
           Icon: CalendarClock,
           isActive: activeWorkspace === 'schedule',
           badge: availabilityBadge,
@@ -40,7 +41,7 @@ export function AvailabilityWorkspaceNav({
         {
           label: 'Booking types',
           description: 'Lunch, dinner, and turn-time rules by party size.',
-          href: '#booking-occasions',
+          href: availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions),
           Icon: Clock3,
           isActive: activeWorkspace === 'booking-types',
           onSelect: () => onSelectWorkspace('booking-types'),

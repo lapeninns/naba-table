@@ -6,6 +6,7 @@ import {
   OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
+import { APP_REQUEST_PATH_HEADER, sanitizeAppRequestPath } from '@/lib/url/app-request-path';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
 import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
@@ -13,6 +14,8 @@ import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { fetchUserMembershipsCached, requireAdminMembership } from '@/server/team/access';
 
 import type { ReactNode } from 'react';
+
+const DEFAULT_SETTINGS_REDIRECT_FROM = '/app/settings/restaurant/profile';
 
 export default async function RestaurantSettingsLayout({ children }: { children: ReactNode }) {
   const cookieStore = await cookies();
@@ -41,7 +44,11 @@ export default async function RestaurantSettingsLayout({ children }: { children:
   }
 
   if (!user) {
-    redirect(withRedirectedFrom('/app/auth/signin', '/app/settings/restaurant/profile'));
+    const redirectedFrom = sanitizeAppRequestPath(
+      headerStore.get(APP_REQUEST_PATH_HEADER),
+      DEFAULT_SETTINGS_REDIRECT_FROM,
+    );
+    redirect(withRedirectedFrom('/app/auth/signin', redirectedFrom));
   }
 
   const memberships = await fetchUserMembershipsCached(user.id);

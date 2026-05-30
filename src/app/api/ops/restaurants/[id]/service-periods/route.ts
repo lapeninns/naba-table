@@ -14,6 +14,7 @@ import {
   type UpdateServicePeriod,
 } from '@/server/restaurants/servicePeriods';
 import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -131,6 +132,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => putServicePeriods(req, restaurantId));
+}
+
+async function putServicePeriods(req: NextRequest, restaurantId: string) {
   let payload: UpdateServicePeriod[];
   try {
     const json = await req.json();
@@ -188,6 +193,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => postServicePeriods(req, restaurantId));
+}
+
+async function postServicePeriods(req: NextRequest, restaurantId: string) {
   let payload: z.infer<typeof syncSchema>;
   try {
     payload = syncSchema.parse(await req.json());

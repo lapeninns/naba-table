@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { ensureRestaurantAdminAccess } from '../_shared';
 
+import type { NextRequest } from 'next/server';
+
 type RouteParams = Promise<Record<string, string | string[]>>;
 
-export async function requireMenusAdmin(params: RouteParams) {
+export async function requireMenusAdmin(params: RouteParams, req?: NextRequest) {
   const resolvedParams = await params;
   const value = resolvedParams.id;
   const restaurantId = typeof value === 'string' ? value : (value?.[0] ?? null);
@@ -12,7 +14,7 @@ export async function requireMenusAdmin(params: RouteParams) {
     return { response: NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 }) };
   }
 
-  const auth = await ensureRestaurantAdminAccess(restaurantId, 'menus');
+  const auth = await ensureRestaurantAdminAccess(restaurantId, 'menus', req);
   if (auth instanceof NextResponse) {
     return { restaurantId, response: auth };
   }

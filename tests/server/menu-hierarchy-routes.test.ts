@@ -21,6 +21,10 @@ vi.mock('@/server/team/access', () => ({
   requireAdminMembership: requireAdminMembershipMock,
 }));
 
+vi.mock('@/server/security/events', () => ({
+  recordSecurityEvent: vi.fn(),
+}));
+
 vi.mock('@/server/menu-hierarchy/repository', () => ({
   createRestaurantMenu: createRestaurantMenuMock,
   createRestaurantMenuItem: createRestaurantMenuItemMock,
@@ -35,6 +39,17 @@ import {
 } from '@/src/app/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/[itemId]/options/[optionId]/route';
 import { POST as postMenuItem } from '@/src/app/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/route';
 import { GET as getMenus, POST as postMenu } from '@/src/app/api/ops/restaurants/[id]/menus/route';
+
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../../lib/security/csrf';
+
+const CSRF_TOKEN = 'menu-hierarchy-csrf-token';
+
+function csrfHeaders() {
+  return {
+    [CSRF_HEADER_NAME]: CSRF_TOKEN,
+    cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
+  };
+}
 
 describe('ops hierarchy menus routes', () => {
   beforeEach(() => {
@@ -105,6 +120,7 @@ describe('ops hierarchy menus routes', () => {
           sourceUrl: 'https://example.com/menu',
           cuisines: ['INDIAN'],
         }),
+        headers: csrfHeaders(),
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
@@ -117,6 +133,25 @@ describe('ops hierarchy menus routes', () => {
         labels: [expect.objectContaining({ displayName: 'All day', languageCode: 'en-GB' })],
       }),
     );
+  });
+
+  it('rejects missing CSRF before parsing menu mutation bodies', async () => {
+    const request = new NextRequest('https://example.com/api/ops/restaurants/rest-1/menus', {
+      method: 'POST',
+      body: JSON.stringify({
+        labels: [{ displayName: 'All day', languageCode: 'en-GB' }],
+        menuKind: 'mixed',
+      }),
+    });
+    const jsonSpy = vi.spyOn(request, 'json');
+
+    const response = await postMenu(request, { params: Promise.resolve({ id: 'rest-1' }) });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.code).toBe('CSRF_INVALID');
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(createRestaurantMenuMock).not.toHaveBeenCalled();
   });
 
   it('rejects local image URLs in Google media keys for canonical items', async () => {
@@ -139,6 +174,7 @@ describe('ops hierarchy menus routes', () => {
               googleMediaKeys: ['https://cdn.example.com/chilli-paneer.jpg'],
             },
           }),
+          headers: csrfHeaders(),
         },
       ),
       {
@@ -173,7 +209,11 @@ describe('ops hierarchy menus routes', () => {
     const patchResponse = await patchOption(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/menus/menu-1/sections/section-1/items/item-1/options/option-1',
-        { method: 'PATCH', body: JSON.stringify({ active: false }) },
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ active: false }),
+          headers: csrfHeaders(),
+        },
       ),
       { params },
     );
@@ -191,7 +231,7 @@ describe('ops hierarchy menus routes', () => {
     const deleteResponse = await deleteOption(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/menus/menu-1/sections/section-1/items/item-1/options/option-1',
-        { method: 'DELETE' },
+        { method: 'DELETE', headers: csrfHeaders() },
       ),
       {
         params: Promise.resolve({

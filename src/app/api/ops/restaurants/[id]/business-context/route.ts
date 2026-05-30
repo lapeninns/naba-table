@@ -180,7 +180,11 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const auth = await ensureRestaurantAdminAccess(restaurantId, 'restaurant-business-context');
+  const auth = await ensureRestaurantAdminAccess(
+    restaurantId,
+    'restaurant-business-context',
+    request,
+  );
   if (auth instanceof NextResponse) {
     return auth;
   }

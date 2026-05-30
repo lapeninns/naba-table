@@ -51,6 +51,17 @@ import { POST as detailsPOST } from '@/src/app/api/ops/restaurants/[id]/details/
 import { POST as hoursPOST } from '@/src/app/api/ops/restaurants/[id]/hours/route';
 import { POST as servicePeriodsPOST } from '@/src/app/api/ops/restaurants/[id]/service-periods/route';
 
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../../lib/security/csrf';
+
+const CSRF_TOKEN = 'restaurant-gbp-core-sync-csrf-token';
+
+function csrfHeaders() {
+  return {
+    [CSRF_HEADER_NAME]: CSRF_TOKEN,
+    cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
+  };
+}
+
 describe('restaurant GBP core sync routes', () => {
   beforeEach(() => {
     getRouteHandlerSupabaseClientMock.mockReset();
@@ -84,6 +95,7 @@ describe('restaurant GBP core sync routes', () => {
           direction: 'pull_from_gbp',
           fields: ['name'],
         }),
+        headers: csrfHeaders(),
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
@@ -128,6 +140,7 @@ describe('restaurant GBP core sync routes', () => {
           fields: ['name', 'contactPhone'],
           password: 'correct-password',
         }),
+        headers: csrfHeaders(),
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
@@ -162,6 +175,7 @@ describe('restaurant GBP core sync routes', () => {
             overrideDates: ['2026-12-25'],
           },
         }),
+        headers: csrfHeaders(),
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
@@ -190,6 +204,7 @@ describe('restaurant GBP core sync routes', () => {
             dayOfWeeks: [0, 6],
           },
         }),
+        headers: csrfHeaders(),
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );

@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 import { AvailabilityScheduleErrorState } from './AvailabilityScheduleStates';
 import { AvailabilityScheduleDayCard } from './ScheduleDayCard';
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import {
   SETTINGS_COMPACT_CARD_CLASS,
   SETTINGS_COMPACT_CARD_CONTENT_CLASS,
@@ -59,7 +60,10 @@ export function ServiceWindowsCard({ restaurantId }: ServiceWindowsCardProps) {
   }
 
   return (
-    <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="service-windows">
+    <Card
+      className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')}
+      id={AVAILABILITY_ANCHORS.serviceWindows}
+    >
       <CardHeader
         className={cn(
           SETTINGS_COMPACT_CARD_HEADER_CLASS,

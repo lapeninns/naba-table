@@ -1,5 +1,9 @@
 import Link from 'next/link';
 
+import {
+  AVAILABILITY_ANCHORS,
+  availabilityHash,
+} from '@/components/features/restaurant-settings/availabilityAnchors';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { opsHref } from '@/lib/url/opsHref';
@@ -49,7 +53,13 @@ export function TableInventorySummarySection({
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href={opsHref('/settings/restaurant/availability#booking-occasions')}>
+            <Link
+              href={opsHref(
+                `/settings/restaurant/availability${availabilityHash(
+                  AVAILABILITY_ANCHORS.bookingOccasions,
+                )}`,
+              )}
+            >
               Open availability
             </Link>
           </Button>

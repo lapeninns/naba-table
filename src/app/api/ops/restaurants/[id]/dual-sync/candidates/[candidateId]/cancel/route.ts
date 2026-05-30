@@ -37,7 +37,11 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   if (!candidateId) {
     return dualSyncErrorResponse('Missing candidate id', 400);
   }
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-candidate-cancel');
+  const access = await ensureRestaurantAdminAccess(
+    restaurantId,
+    'dual-sync-candidate-cancel',
+    _req,
+  );
   if (access instanceof NextResponse) return access;
 
   try {

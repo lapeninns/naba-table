@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const getMiddlewareSupabaseClientMock = vi.hoisted(() => vi.fn());
 const requireOpsAuthMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/ops-guard', () => ({
@@ -8,7 +9,7 @@ vi.mock('@/server/auth/ops-guard', () => ({
 }));
 
 vi.mock('@/server/supabase', () => ({
-  getMiddlewareSupabaseClient: vi.fn(),
+  getMiddlewareSupabaseClient: getMiddlewareSupabaseClientMock,
 }));
 
 vi.mock('@/lib/security/csrf', () => ({
@@ -16,11 +17,14 @@ vi.mock('@/lib/security/csrf', () => ({
   CSRF_COOKIE_NAME: 'csrf',
 }));
 
+import { APP_REQUEST_PATH_HEADER } from '@/lib/url/app-request-path';
 import { handleRouting } from '@/src/proxy';
 
 describe('proxy GBP callback public API routing', () => {
   beforeEach(() => {
     vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'localhost');
+    vi.stubEnv('NEXT_PUBLIC_LOCAL_APP_HOSTS', '');
+    getMiddlewareSupabaseClientMock.mockReset();
     requireOpsAuthMock.mockReset();
   });
 
@@ -84,6 +88,39 @@ describe('proxy GBP callback public API routing', () => {
       'http://app.localhost/settings/restaurant/profile?tab=details',
     );
     expect(requireOpsAuthMock).not.toHaveBeenCalled();
+  });
+
+  it('forwards the canonical app request path on authenticated app-host rewrites', async () => {
+    getMiddlewareSupabaseClientMock.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
+      },
+    });
+
+    const response = await handleRouting(
+      new NextRequest('http://app.localhost/settings/restaurant/service-periods?tab=schedule'),
+    );
+
+    expect(response.headers.get('x-middleware-rewrite')).toBe(
+      'http://app.localhost/app/settings/restaurant/service-periods?tab=schedule',
+    );
+    expect(response.headers.get(`x-middleware-request-${APP_REQUEST_PATH_HEADER}`)).toBe(
+      '/app/settings/restaurant/service-periods?tab=schedule',
+    );
+  });
+
+  it('forwards the requested /app path in root-host single-host mode', async () => {
+    vi.stubEnv('NEXT_PUBLIC_LOCAL_APP_HOSTS', 'localhost');
+
+    const response = await handleRouting(
+      new NextRequest('http://localhost/app/settings/restaurant/email-templates?source=legacy'),
+    );
+
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+    expect(response.headers.get(`x-middleware-request-${APP_REQUEST_PATH_HEADER}`)).toBe(
+      '/app/settings/restaurant/email-templates?source=legacy',
+    );
+    expect(response.headers.get('location')).toBeNull();
   });
 
   it('rewrites guest routes on the app host in local dev instead of redirecting', async () => {

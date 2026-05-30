@@ -1,5 +1,7 @@
 import { normalizeOpsPathname, opsHref } from '@/lib/url/opsHref';
 
+import { AVAILABILITY_ANCHORS, availabilityHash } from './availabilityAnchors';
+
 import type { RestaurantSettingsView } from './types';
 
 export type RestaurantSettingsRoute = {
@@ -27,25 +29,33 @@ export type RestaurantSettingsAliasRoute = {
 
 export const RESTAURANT_SETTINGS_AVAILABILITY_ALIASES: RestaurantSettingsAliasRoute[] = [
   {
-    href: opsHref('/settings/restaurant/service-periods#service-periods'),
+    href: opsHref(
+      `/settings/restaurant/service-periods${availabilityHash(AVAILABILITY_ANCHORS.serviceWindows)}`,
+    ),
     title: 'Service periods',
     description: 'Define lunch, dinner, and other booking windows inside operating hours.',
     availabilityWorkspace: 'schedule',
   },
   {
-    href: opsHref('/settings/restaurant/operating-hours#availability-hours'),
+    href: opsHref(
+      `/settings/restaurant/operating-hours${availabilityHash(AVAILABILITY_ANCHORS.weeklyHours)}`,
+    ),
     title: 'Operating hours',
     description: 'Configure weekly open and close times plus date-specific overrides.',
     availabilityWorkspace: 'schedule',
   },
   {
-    href: opsHref('/settings/restaurant/turn-durations#booking-occasions'),
+    href: opsHref(
+      `/settings/restaurant/turn-durations${availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions)}`,
+    ),
     title: 'Reservation durations',
     description: 'Configure table-time bands by booking type and party size.',
     availabilityWorkspace: 'booking-types',
   },
   {
-    href: opsHref('/settings/restaurant/occasions#booking-occasions'),
+    href: opsHref(
+      `/settings/restaurant/occasions${availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions)}`,
+    ),
     title: 'Booking types',
     description: 'Control the lunch, dinner, and occasion types staff and guests can use.',
     availabilityWorkspace: 'booking-types',

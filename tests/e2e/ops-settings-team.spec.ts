@@ -125,6 +125,16 @@ async function waitForSettled(page: Page) {
   await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 }
 
+async function expectDirtyNavigationBlocked(page: Page, action: () => Promise<unknown>) {
+  const dialogPromise = page.waitForEvent('dialog');
+  const actionPromise = action();
+  const dialog = await dialogPromise;
+  expect(dialog.type()).toBe('confirm');
+  expect(dialog.message()).toContain('unsaved');
+  await dialog.dismiss();
+  await actionPromise;
+}
+
 async function installSettingsApiMocks(page: Page) {
   await page.route('**/api/ops/**', async (route) => {
     const url = new URL(route.request().url());
@@ -357,8 +367,12 @@ test.describe('ops restaurant settings and team shipped routes', () => {
         .getByRole('button', { name: /^Booking types/ })
         .click();
       await expect(page.locator('main').getByText('Booking types and turn times')).toBeVisible();
-      await expect(page.locator('#booking-occasions').getByRole('row', { name: /Lunch/ })).toBeVisible();
-      await expect(page.locator('#booking-occasions').getByRole('row', { name: /Dinner/ })).toBeVisible();
+      await expect(
+        page.locator('#booking-occasions').getByRole('row', { name: /Lunch/ }),
+      ).toBeVisible();
+      await expect(
+        page.locator('#booking-occasions').getByRole('row', { name: /Dinner/ }),
+      ).toBeVisible();
     }
 
     await page.screenshot({
@@ -382,5 +396,30 @@ test.describe('ops restaurant settings and team shipped routes', () => {
       path: testInfo.outputPath('ops-settings-email-templates-desktop.png'),
       fullPage: true,
     });
+  });
+
+  test('dirty availability settings block sidebar breadcrumb and exit navigation @p1 @browser @smoke @local-only', async ({
+    page,
+  }) => {
+    await page.goto('/settings/restaurant/service-periods', { waitUntil: 'domcontentloaded' });
+    await waitForSettled(page);
+
+    await page.getByLabel('Opens').first().fill('12:30');
+    await expect(page.getByText('Unsaved changes').first()).toBeVisible();
+
+    await expectDirtyNavigationBlocked(page, () =>
+      page.getByRole('link', { name: 'Restaurant profile' }).click(),
+    );
+    await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
+
+    await expectDirtyNavigationBlocked(page, () =>
+      page.getByRole('link', { exact: true, name: 'Availability & Booking types' }).click(),
+    );
+    await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
+
+    await expectDirtyNavigationBlocked(page, () =>
+      page.getByRole('link', { name: 'Close restaurant settings' }).click(),
+    );
+    await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
   });
 });

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { opsHref } from '@/lib/url/opsHref';
 
+import { AVAILABILITY_ANCHORS, availabilityHash } from './availabilityAnchors';
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
@@ -235,7 +236,11 @@ export function OpsRestaurantSettingsClient({
                 </Link>{' '}
                 or{' '}
                 <Link
-                  href={opsHref('/settings/restaurant/availability#availability-schedule')}
+                  href={opsHref(
+                    `/settings/restaurant/availability${availabilityHash(
+                      AVAILABILITY_ANCHORS.availabilitySchedule,
+                    )}`,
+                  )}
                   className="font-medium text-foreground underline"
                 >
                   Availability

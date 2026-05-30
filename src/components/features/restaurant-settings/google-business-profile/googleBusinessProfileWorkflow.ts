@@ -1,5 +1,7 @@
 import { opsHref } from '@/lib/url/opsHref';
 
+import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
+
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
 export const GBP_ANCHOR_IDS = ['gbp-connection', 'gbp-location', 'gbp-sync-review'] as const;
@@ -18,7 +20,7 @@ const GBP_ANCHOR_ID_SET = new Set<string>(GBP_ANCHOR_IDS);
 
 export const PROFILE_CONTACT_HREF = opsHref('/settings/restaurant/profile#profile-contact');
 export const AVAILABILITY_SCHEDULE_HREF = opsHref(
-  '/settings/restaurant/availability#availability-schedule',
+  `/settings/restaurant/availability${availabilityHash(AVAILABILITY_ANCHORS.availabilitySchedule)}`,
 );
 
 export function isGbpAnchorId(value: string): value is GbpAnchorId {
