@@ -2,7 +2,7 @@
 
 **File:** [`server/capacity/transaction.ts`](https://github.com/lapeninns/nabatable/blob/codex/restaurant-settings-hardening/blob/codex/server/capacity/transaction.ts#L220-L221) (lines 220, 221)
 **Project:** nabatableLP
-**Severity:** MEDIUM  •  **Confidence:** high  •  **Slug:** `other-info-disclosure`
+**Severity:** MEDIUM • **Confidence:** high • **Slug:** `other-info-disclosure`
 
 ## Owners
 
