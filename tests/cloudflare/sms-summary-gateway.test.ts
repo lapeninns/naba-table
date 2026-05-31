@@ -100,9 +100,11 @@ describe('twilio sms delivery', () => {
         messagingServiceSid: 'MG123',
         to: '+449876543210',
         body: 'hello',
-        fetchImpl: vi.fn().mockResolvedValue(
-          new Response(JSON.stringify({ message: 'slow down' }), { status: 429 }),
-        ),
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(
+            new Response(JSON.stringify({ message: 'slow down' }), { status: 429 }),
+          ),
       }),
     ).rejects.toBeInstanceOf(RetryableDispatchError);
 
@@ -114,9 +116,11 @@ describe('twilio sms delivery', () => {
         messagingServiceSid: 'MG123',
         to: '+449876543210',
         body: 'hello',
-        fetchImpl: vi.fn().mockResolvedValue(
-          new Response(JSON.stringify({ message: 'bad sender' }), { status: 400 }),
-        ),
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(
+            new Response(JSON.stringify({ message: 'bad sender' }), { status: 400 }),
+          ),
       }),
     ).rejects.toBeInstanceOf(TerminalDispatchError);
   });
@@ -236,7 +240,7 @@ describe('daily summary queue consumer', () => {
         loadPreview: vi.fn().mockResolvedValue(preview),
         sendSms: vi.fn().mockResolvedValue({ messageSid: 'SM123' }),
       }),
-    ).rejects.toThrow('storage unavailable');
+    ).rejects.toBeInstanceOf(TerminalDispatchError);
 
     expect(postSendIdempotency.release).not.toHaveBeenCalled();
   });

@@ -4,6 +4,16 @@ import { isEmail, isUKPhone } from '@reserve/shared/validation';
 
 const POSTGREST_FILTER_CONTROL_CHARS = /[",()]/;
 
+const explicitBooleanSchema = z.preprocess((value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return value;
+}, z.boolean());
+
 const optionalEmailSchema = z
   .union([
     z
@@ -70,7 +80,7 @@ export const opsWalkInBookingSchema = z
     name: z.string().min(2).max(120),
     email: optionalEmailSchema,
     phone: optionalPhoneSchema,
-    marketingOptIn: z.coerce.boolean().optional().default(false),
+    marketingOptIn: explicitBooleanSchema.optional().default(false),
     override: overrideSchema.optional(),
   })
   .superRefine((data, ctx) => {

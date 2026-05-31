@@ -6,6 +6,7 @@ import {
   markFoodMenusImportReviewDecision,
   openFoodMenusPublishAttempt,
   readFoodMenusImportReviewForRestaurant,
+  buildFoodMenusProjectionSnapshotHash,
   recordFoodMenusProjection,
   recordFoodMenusSnapshot,
   replacePendingFoodMenusImportReviews,
@@ -289,11 +290,52 @@ describe('GBP FoodMenus storage helpers', () => {
       expect.objectContaining({
         snapshot_kind: 'nabatable_projection',
         projection_metadata: { skippedItems: [], identityCount: 1 },
-        snapshot_hash: 'projection-hash',
+        snapshot_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
       }),
+    );
+    expect(snapshotChain.insert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ snapshot_hash: 'projection-hash' }),
     );
     expect(identityChain.upsert).toHaveBeenCalledTimes(1);
     expect(result.identities).toHaveLength(1);
+  });
+
+  it('includes projected identity mappings in the projection snapshot hash', () => {
+    const projection: GoogleFoodMenusProjection = {
+      foodMenus: { name: 'accounts/123/locations/456/foodMenus', menus: [] },
+      skippedItems: [],
+      identities: [
+        {
+          stableKey: 'foodMenu.item.starters/default.starter-paneer',
+          localItemId: 'item-1',
+          externalItemId: 'starter-paneer',
+          itemName: 'Chilli Paneer',
+          sectionKey: 'starters/default',
+          sectionLabel: 'Starters',
+          googlePath: 'menus[0].sections[0].items[0]',
+          googleOptionPaths: [],
+        },
+      ],
+    };
+
+    const originalHash = buildFoodMenusProjectionSnapshotHash({
+      projection,
+      foodMenusHash: 'same-google-hash',
+    });
+    const changedIdentityHash = buildFoodMenusProjectionSnapshotHash({
+      projection: {
+        ...projection,
+        identities: projection.identities.map((identity) => ({
+          ...identity,
+          localItemId: 'different-local-item',
+        })),
+      },
+      foodMenusHash: 'same-google-hash',
+    });
+
+    expect(originalHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(changedIdentityHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(changedIdentityHash).not.toBe(originalHash);
   });
 
   it('supersedes pending import reviews before inserting fresh suggestions', async () => {

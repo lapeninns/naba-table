@@ -1,12 +1,12 @@
 import { DateTime } from 'luxon';
 
-import { clearBookingTableAssignments } from '@/server/bookings';
 import { resolveBookingEndAtUtc } from '@/server/bookings/booking-access';
 import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
 import {
   prepareCheckInTransition,
   prepareCheckOutTransition,
 } from '@/server/ops/booking-lifecycle/actions';
+import { applyBookingStateTransition } from '@/server/ops/booking-lifecycle/persistence';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -143,63 +143,19 @@ async function applyTransition(
   supabase: SupabaseClient<Database>,
   booking: BookingRow,
   transition: TransitionResult,
+  releaseAssignments = false,
 ): Promise<{
   status: string;
   checkedInAt: string | null;
   checkedOutAt: string | null;
   updatedAt: string | null;
 } | null> {
-  if (transition.skipUpdate) {
-    return {
-      status: transition.response.status,
-      checkedInAt: transition.response.checkedInAt,
-      checkedOutAt: transition.response.checkedOutAt,
-      updatedAt: transition.response.updatedAt ?? null,
-    };
-  }
-
-  const history = transition.history;
-  if (!history) {
-    throw new Error('Missing history payload for transition');
-  }
-
-  const targetStatus = (transition.updates.status ??
-    booking.status) as Tables<'bookings'>['status'];
-  const finalCheckedInAt =
-    transition.updates.checked_in_at !== undefined
-      ? (transition.updates.checked_in_at ?? null)
-      : (booking.checked_in_at ?? null);
-  const finalCheckedOutAt =
-    transition.updates.checked_out_at !== undefined
-      ? (transition.updates.checked_out_at ?? null)
-      : (booking.checked_out_at ?? null);
-  const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
-
-  const { data, error } = await supabase.rpc('apply_booking_state_transition', {
-    p_booking_id: booking.id,
-    p_status: targetStatus,
-    p_checked_in_at: finalCheckedInAt,
-    p_checked_out_at: finalCheckedOutAt,
-    p_updated_at: finalUpdatedAt,
-    p_history_from: history.from_status ?? booking.status,
-    p_history_to: history.to_status,
-    p_history_changed_by: history.changed_by ?? null,
-    p_history_changed_at: history.changed_at ?? finalUpdatedAt,
-    p_history_reason: history.reason ?? 'status_change',
-    p_history_metadata: history.metadata ?? {},
+  return applyBookingStateTransition({
+    supabase,
+    booking,
+    transition,
+    releaseAssignments,
   });
-
-  if (error) {
-    throw error;
-  }
-
-  const row = data?.[0];
-  return {
-    status: row?.status ?? targetStatus,
-    checkedInAt: row?.checked_in_at ?? finalCheckedInAt,
-    checkedOutAt: row?.checked_out_at ?? finalCheckedOutAt,
-    updatedAt: row?.updated_at ?? finalUpdatedAt,
-  };
 }
 
 async function fetchRestaurants(supabase: SupabaseClient<Database>): Promise<RestaurantRow[]> {
@@ -439,12 +395,10 @@ export async function autoCompletePastBookings(
           reason: 'auto-complete',
         });
 
-        const checkOutResult = await applyTransition(supabase, currentBooking, checkOut);
+        const checkOutResult = await applyTransition(supabase, currentBooking, checkOut, true);
         if (!checkOutResult) {
           throw new Error('Check-out transition failed');
         }
-
-        await clearBookingTableAssignments(supabase, currentBooking.id);
 
         try {
           const { data: fullBooking } = await supabase

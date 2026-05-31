@@ -13,6 +13,7 @@ import type { NextResponse } from 'next/server';
 export { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 
 let serviceClient: SupabaseClient<Database> | null = null;
+const TENANT_CLIENT_CACHE_MAX_ENTRIES = 1_000;
 const tenantClientCache = new Map<string, SupabaseClient<Database>>();
 let strictHoldInitStarted = false;
 let strictHoldEnforcementActive: boolean | null = null;
@@ -39,6 +40,37 @@ function getServiceRoleSupabaseKey(): string {
   return getEnv().SUPABASE_SERVICE_ROLE_KEY;
 }
 
+function resolveSupabaseProjectHost(urlValue: string, envName: string): string {
+  let url: URL;
+  try {
+    url = new URL(urlValue);
+  } catch {
+    throw new Error(`${envName} must be a valid Supabase API URL.`);
+  }
+
+  if (url.protocol !== 'https:') {
+    throw new Error(`${envName} must use https.`);
+  }
+
+  const host = url.hostname.toLowerCase();
+  if (!/^[a-z0-9]{20}\.supabase\.co$/.test(host)) {
+    throw new Error(`${envName} must target an exact Supabase project API host.`);
+  }
+
+  return host;
+}
+
+function assertSameSupabaseProjectApiUrl(primaryUrl: string, dataUrl: string): void {
+  const primaryHost = resolveSupabaseProjectHost(primaryUrl, 'NEXT_PUBLIC_SUPABASE_URL');
+  const dataHost = resolveSupabaseProjectHost(dataUrl, 'SUPABASE_READ_REPLICA_URL');
+
+  if (dataHost !== primaryHost) {
+    throw new Error(
+      'SUPABASE_READ_REPLICA_URL must target the same Supabase project as NEXT_PUBLIC_SUPABASE_URL.',
+    );
+  }
+}
+
 /**
  * Supabase REST URL for the memoized service-role client.
  * On staging/preview, can target a read replica when configured (same API keys as the primary).
@@ -57,6 +89,7 @@ export function resolveServiceRoleSupabaseUrl(): string {
   if (treatAsProdTarget) {
     return parsed.NEXT_PUBLIC_SUPABASE_URL;
   }
+  assertSameSupabaseProjectApiUrl(parsed.NEXT_PUBLIC_SUPABASE_URL, replicaUrl!);
   return replicaUrl!;
 }
 
@@ -209,6 +242,8 @@ export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseCl
   const cacheKey = restaurantId.toLowerCase();
   const cached = tenantClientCache.get(cacheKey);
   if (cached) {
+    tenantClientCache.delete(cacheKey);
+    tenantClientCache.set(cacheKey, cached);
     return cached;
   }
 
@@ -227,6 +262,12 @@ export function getTenantServiceSupabaseClient(restaurantId: string): SupabaseCl
     },
   );
 
+  if (tenantClientCache.size >= TENANT_CLIENT_CACHE_MAX_ENTRIES) {
+    const oldestKey = tenantClientCache.keys().next().value as string | undefined;
+    if (oldestKey) {
+      tenantClientCache.delete(oldestKey);
+    }
+  }
   tenantClientCache.set(cacheKey, tenantClient);
   return tenantClient;
 }

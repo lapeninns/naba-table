@@ -45,7 +45,9 @@ function parseBooleanEnv(value: string | undefined): boolean | undefined {
 }
 
 const enableRateLimitInDev = parseBooleanEnv(process.env.ENABLE_RATE_LIMIT_IN_DEV);
+const allowMemoryRateLimitInProd = parseBooleanEnv(process.env.ALLOW_MEMORY_RATE_LIMIT_IN_PROD);
 const shouldBypassRateLimit = devMode && enableRateLimitInDev !== true;
+const shouldAllowMemoryFallback = !isProductionEnv || allowMemoryRateLimitInProd === true;
 
 function logMissingCloudflareWarning() {
   if (shouldBypassRateLimit) {
@@ -55,7 +57,7 @@ function logMissingCloudflareWarning() {
     return;
   }
 
-  if (isProductionEnv) {
+  if (isProductionEnv && !shouldAllowMemoryFallback) {
     warnedAboutMissingGateway = true;
     throw new RateLimitConfigurationError(
       'Cloudflare gateway credentials (CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL/CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN) are required in production.',
@@ -69,8 +71,10 @@ function logMissingCloudflareWarning() {
 }
 
 function assertMemoryFallbackAllowed(): void {
-  if (isProductionEnv && !shouldBypassRateLimit) {
-    throw new RateLimitConfigurationError("In-memory rate limiting is not permitted in production.");
+  if (isProductionEnv && !shouldBypassRateLimit && !shouldAllowMemoryFallback) {
+    throw new RateLimitConfigurationError(
+      'In-memory rate limiting is not permitted in production.',
+    );
   }
 }
 
@@ -92,7 +96,9 @@ function memoryStoreRateLimit(params: RateLimitParams): RateLimitResult {
   }
 
   if (!warnedAboutMemoryStore) {
-    console.warn('[rate-limit] Falling back to in-memory rate limiter. Configure the Cloudflare gateway for multi-instance safety.');
+    console.warn(
+      '[rate-limit] Falling back to in-memory rate limiter. Configure the Cloudflare gateway for multi-instance safety.',
+    );
     warnedAboutMemoryStore = true;
   }
 
@@ -142,10 +148,13 @@ export async function consumeRateLimit(params: RateLimitParams): Promise<RateLim
   }
 
   try {
-    const { response, body } = await requestCloudflareGateway<RateLimitResult>('/rate-limit/consume', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
+    const { response, body } = await requestCloudflareGateway<RateLimitResult>(
+      '/rate-limit/consume',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      },
+    );
 
     if (!response.ok || !body) {
       throw new Error(

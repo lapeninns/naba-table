@@ -57,6 +57,39 @@ describe('restaurant schedule replacement safety', () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
+  it('allows overnight operating-hours windows during replacement', async () => {
+    const client = failingRpcClient();
+
+    await expect(
+      updateOperatingHours(
+        '11111111-1111-4111-8111-111111111111',
+        {
+          weekly: [
+            {
+              dayOfWeek: 5,
+              opensAt: '18:00',
+              closesAt: '01:00',
+              isClosed: false,
+            },
+          ],
+          overrides: [],
+        },
+        client as never,
+      ),
+    ).rejects.toEqual({ message: 'replacement failed' });
+
+    expect(client.rpc).toHaveBeenCalledWith('replace_restaurant_operating_hours', {
+      p_restaurant_id: '11111111-1111-4111-8111-111111111111',
+      p_rows: expect.arrayContaining([
+        expect.objectContaining({
+          day_of_week: 5,
+          opens_at: '18:00',
+          closes_at: '01:00',
+        }),
+      ]),
+    });
+  });
+
   it('rejects duplicate operating-hours override ids before replacement', async () => {
     const client = failingRpcClient();
     const duplicateId = '22222222-2222-4222-8222-222222222222';

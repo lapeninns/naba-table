@@ -22,6 +22,8 @@ describe('review email backfill script safety', () => {
     expect(source).toContain('CONFIRM_REVIEW_EMAIL_PREF_UPDATE');
     expect(source).toContain('restaurantsNeedingPreferenceUpdate');
     expect(source).toContain('fetchRestaurants(supabase, TARGET_RESTAURANT_ID)');
+    expect(source).toContain('set ACTOR_ID explicitly to use a reviewed actor');
+    expect(source).not.toContain('supabase.auth.admin.listUsers({ perPage: 1 })');
     expect(mainBody.indexOf('assertReviewBackfillApplySafety()')).toBeLessThan(
       mainBody.indexOf('const supabase = getServiceSupabaseClient()'),
     );
@@ -43,6 +45,7 @@ describe('review email backfill script safety', () => {
     expect(source).toContain('review_request:${id}');
     expect(source).toContain('existingIntentBookingIds');
     expect(source).toContain('refusing to enqueue review requests');
+    expect(source).toContain('--drain calls the global email cron endpoint');
     expect(mainBody.indexOf('assertReviewQueueBackfillSafety(args)')).toBeLessThan(
       mainBody.indexOf('const supabase = getServiceSupabaseClient()'),
     );

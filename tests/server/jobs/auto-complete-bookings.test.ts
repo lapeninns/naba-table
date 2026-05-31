@@ -234,7 +234,13 @@ describe('autoCompletePastBookings', () => {
         p_history_reason: 'auto-complete',
       }),
     );
-    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(supabase, 'previous-day');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'apply_booking_state_transition_and_clear_assignments',
+      expect.objectContaining({
+        p_booking_id: 'previous-day',
+      }),
+    );
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
 
   it('completes due bookings with a system actor when no membership actor resolves', async () => {
@@ -261,7 +267,13 @@ describe('autoCompletePastBookings', () => {
         p_history_reason: 'auto-complete',
       }),
     );
-    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(supabase, 'no-actor');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'apply_booking_state_transition_and_clear_assignments',
+      expect.objectContaining({
+        p_booking_id: 'no-actor',
+      }),
+    );
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
 
   it('ignores future confirmed bookings', async () => {
@@ -333,7 +345,7 @@ describe('autoCompletePastBookings', () => {
     expect(booking.checked_out_at).toBe('2026-05-06T19:26:08.086Z');
     expect(supabase.rpc).toHaveBeenCalledTimes(1);
     expect(supabase.rpc).toHaveBeenCalledWith(
-      'apply_booking_state_transition',
+      'apply_booking_state_transition_and_clear_assignments',
       expect.objectContaining({
         p_booking_id: 'late-check-in',
         p_checked_out_at: '2026-05-06T19:26:08.086Z',
@@ -341,24 +353,42 @@ describe('autoCompletePastBookings', () => {
     );
   });
 
-  it('does not count auto-complete as successful when assignment cleanup fails', async () => {
+  it('does not count auto-complete as successful when atomic completion cleanup fails', async () => {
     const booking = makeBooking({
       id: 'cleanup-fails',
       booking_date: '2026-05-09',
       start_at: '2026-05-09T18:00:00.000Z',
       end_at: '2026-05-09T19:15:00.000Z',
     });
-    installSupabase([booking]);
-    clearBookingTableAssignmentsMock.mockRejectedValueOnce(new Error('cleanup failed'));
+    const { supabase } = installSupabase([booking]);
+    supabase.rpc.mockImplementation(async (name: string, params: Record<string, string | null>) => {
+      if (name === 'apply_booking_state_transition_and_clear_assignments') {
+        return { data: null, error: new Error('cleanup failed') };
+      }
+      const target = [booking].find((row) => row.id === params.p_booking_id);
+      if (target) {
+        target.status = params.p_status as BookingFixture['status'];
+        target.checked_in_at = params.p_checked_in_at;
+        target.checked_out_at = params.p_checked_out_at;
+      }
+      return {
+        data: [
+          {
+            status: target?.status ?? params.p_status,
+            checked_in_at: target?.checked_in_at ?? params.p_checked_in_at,
+            checked_out_at: target?.checked_out_at ?? params.p_checked_out_at,
+            updated_at: params.p_updated_at,
+          },
+        ],
+        error: null,
+      };
+    });
 
     const summary = await autoCompletePastBookings({ now: NOW });
 
     expect(summary.candidates).toBe(1);
     expect(summary.completed).toBe(0);
     expect(summary.errors).toBe(1);
-    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(
-      expect.anything(),
-      'cleanup-fails',
-    );
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
 });

@@ -24,7 +24,27 @@ const cache: OverridesCache = {
 };
 
 function getEnvironmentScope(): string {
-  return env.node.appEnv ?? env.node.env ?? 'development';
+  const rawAppEnv = process.env.APP_ENV?.trim().toLowerCase() ?? '';
+  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase() ?? '';
+  const appEnv = env.node.appEnv;
+
+  if (vercelEnv === 'production' && rawAppEnv !== 'production') {
+    throw new Error(
+      'APP_ENV=production is required when VERCEL_ENV=production for feature flag overrides.',
+    );
+  }
+  if ((vercelEnv === 'preview' || vercelEnv === 'development') && !rawAppEnv) {
+    throw new Error(
+      'APP_ENV is required when VERCEL_ENV is set for feature flag overrides.',
+    );
+  }
+  if (vercelEnv === 'preview' && rawAppEnv === 'production') {
+    throw new Error(
+      'APP_ENV=production cannot be used with VERCEL_ENV=preview for feature flag overrides.',
+    );
+  }
+
+  return appEnv ?? env.node.env ?? 'development';
 }
 
 async function fetchOverrides(

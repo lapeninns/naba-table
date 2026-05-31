@@ -215,6 +215,10 @@ export async function assignTablesDirectly(
     throw new DirectAssignmentError('At least one table must be selected', 'INVALID_INPUT', 400);
   }
 
+  if (new Set(tableIds).size !== tableIds.length) {
+    throw new DirectAssignmentError('Duplicate table IDs are not allowed', 'INVALID_INPUT', 400);
+  }
+
   if (!idempotencyKey || typeof idempotencyKey !== 'string') {
     throw new DirectAssignmentError('Idempotency key is required', 'INVALID_INPUT', 400);
   }
@@ -642,6 +646,10 @@ export async function unassignTablesDirect(params: {
     throw new DirectAssignmentError('Invalid input', 'INVALID_INPUT', 400);
   }
 
+  if (new Set(tableIds).size !== tableIds.length) {
+    throw new DirectAssignmentError('Duplicate table IDs are not allowed', 'INVALID_INPUT', 400);
+  }
+
   const supabase = ensureClient(client);
 
   const booking = await loadBooking(bookingId, supabase);
@@ -667,11 +675,20 @@ export async function unassignTablesDirect(params: {
     );
   }
 
-  const { error, count } = await supabase
-    .from('booking_table_assignments')
-    .delete({ count: 'exact' })
-    .eq('booking_id', bookingId)
-    .in('table_id', tableIds);
+  const rpc = supabase.rpc as unknown as (
+    fn: 'remove_booking_table_assignments_and_reopen_if_empty',
+    args: {
+      p_booking_id: string;
+      p_table_ids: string[];
+    },
+  ) => Promise<{ data: number | null; error: { message: string } | null }>;
+  const { data: removedCount, error } = await rpc(
+    'remove_booking_table_assignments_and_reopen_if_empty',
+    {
+      p_booking_id: bookingId,
+      p_table_ids: tableIds,
+    },
+  );
 
   if (error) {
     throw new DirectAssignmentError(
@@ -681,41 +698,9 @@ export async function unassignTablesDirect(params: {
     );
   }
 
-  // BUSINESS RULE: Check if all tables are now unassigned
-  // If so, revert booking status to 'pending'
-  const { data: remainingAssignments, error: checkError } = await supabase
-    .from('booking_table_assignments')
-    .select('id')
-    .eq('booking_id', bookingId)
-    .limit(1);
-
-  if (!checkError && remainingAssignments && remainingAssignments.length === 0) {
-    // No tables assigned - check if booking is 'confirmed' and revert to 'pending'
-    const { data: booking } = await supabase
-      .from('bookings')
-      .select('status')
-      .eq('id', bookingId)
-      .single();
-
-    if (booking?.status === 'confirmed') {
-      await supabase
-        .from('bookings')
-        .update({
-          status: 'pending',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', bookingId);
-
-      console.info('[direct-assignment] reverted to pending - all tables unassigned', {
-        bookingId,
-        removedTableIds: tableIds,
-      });
-    }
-  }
-
   return {
     success: true,
-    removedCount: count ?? 0,
+    removedCount: removedCount ?? 0,
   };
 }
 

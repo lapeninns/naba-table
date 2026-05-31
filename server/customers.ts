@@ -43,6 +43,36 @@ function sanitizePhoneValue(phone: string | null | undefined): string {
   return canonical;
 }
 
+function maskCustomerContactForLog(value: string): string | null {
+  if (!value) {
+    return null;
+  }
+  return value.includes('@') ? `${value.split('@')[0].slice(0, 2)}...` : '[redacted-phone]';
+}
+
+function customerUpdateSummaryForLog(updates: TablesUpdate<'customers'>): {
+  fields: string[];
+} {
+  return {
+    fields: Object.keys(updates).sort(),
+  };
+}
+
+function dbErrorSummaryForLog(error: unknown): { code?: string; name?: string } {
+  const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
+  const code = typeof record.code === 'string' ? record.code : undefined;
+  const name =
+    error instanceof Error
+      ? error.name
+      : typeof record.name === 'string'
+        ? record.name
+        : undefined;
+  return {
+    ...(code ? { code } : {}),
+    ...(name ? { name } : {}),
+  };
+}
+
 async function findCustomerByNormalizedIdentity(
   client: DbClient,
   restaurantId: string,
@@ -167,8 +197,8 @@ export async function upsertCustomer(
 
   console.log(`[upsertCustomer] Resolving customer`, {
     restaurantId: params.restaurantId,
-    email: normalizedEmail,
-    phone: normalizedPhone,
+    email: maskCustomerContactForLog(normalizedEmail),
+    phone: maskCustomerContactForLog(normalizedPhone),
   });
 
   let customerData = await findCustomerByNormalizedIdentity(
@@ -203,7 +233,10 @@ export async function upsertCustomer(
     }
 
     if (Object.keys(updates).length > 0) {
-      console.log(`[upsertCustomer] Updating customer: ${customerData.id}`, updates);
+      console.log(
+        `[upsertCustomer] Updating customer: ${customerData.id}`,
+        customerUpdateSummaryForLog(updates),
+      );
       const { data: updated, error: updateError } = await client
         .from('customers')
         .update(updates)
@@ -213,10 +246,13 @@ export async function upsertCustomer(
 
       if (updateError) {
         if (updateError.code === '23505' && updates.phone) {
-          console.warn(`[upsertCustomer] Skipping conflicting phone update`, updateError);
+          console.warn(
+            `[upsertCustomer] Skipping conflicting phone update`,
+            dbErrorSummaryForLog(updateError),
+          );
           return customerData;
         }
-        console.error(`[upsertCustomer] Update error`, updateError);
+        console.error(`[upsertCustomer] Update error`, dbErrorSummaryForLog(updateError));
         throw updateError;
       }
       customerData = updated as CustomerRow;
@@ -242,7 +278,10 @@ export async function upsertCustomer(
       .single();
 
     if (insertError) {
-      console.warn(`[upsertCustomer] Insert error (code ${insertError.code})`, insertError);
+      console.warn(
+        `[upsertCustomer] Insert error`,
+        dbErrorSummaryForLog(insertError),
+      );
       // Final fallback for race conditions
       if (insertError.code === '23505') {
         console.log(`[upsertCustomer] Race condition detected, retrying find.`);

@@ -62,21 +62,11 @@ export function mapBookingApiError(error: unknown): BookingApiError {
     };
   }
 
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : 'An unexpected error occurred';
-
   return {
     status: 500,
     body: {
-      error: message,
-      code: String(dbError.code || 'INTERNAL_SERVER_ERROR'),
-      ...(process.env.NODE_ENV === 'development'
-        ? { stack: error instanceof Error ? error.stack : undefined }
-        : {}),
+      error: 'Unable to create booking',
+      code: 'INTERNAL_SERVER_ERROR',
     },
   };
 }

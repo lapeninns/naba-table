@@ -104,4 +104,49 @@ describe('POST /api/ops/bookings/[id]/check-out', () => {
     expect(enqueueCheckOutSideEffectsMock).not.toHaveBeenCalled();
     expect(invalidateOpsDashboardCachesMock).not.toHaveBeenCalled();
   });
+
+  it('uses the atomic transition-and-release path for real check-outs', async () => {
+    const fromQuery = {
+      select: vi.fn(() => fromQuery),
+      eq: vi.fn(() => fromQuery),
+      maybeSingle: vi.fn(async () => ({ data: { id: BOOKING.id }, error: null })),
+    };
+    loadLifecycleRouteContextMock.mockResolvedValue({
+      context: {
+        booking: { ...BOOKING, status: 'checked_in', checked_out_at: null },
+        serviceSupabase: { from: vi.fn(() => fromQuery) },
+        userId: 'user-1',
+      },
+    });
+    prepareCheckOutTransitionMock.mockReturnValue({ skipUpdate: false, history: {} });
+    persistLifecycleTransitionMock.mockResolvedValue({
+      result: {
+        status: 'completed',
+        checkedInAt: BOOKING.checked_in_at,
+        checkedOutAt: '2026-05-16T11:30:00.000Z',
+        updatedAt: '2026-05-16T11:30:00.000Z',
+        changed: true,
+      },
+    });
+
+    const response = await POST(
+      new NextRequest('https://app.nabatable.com/api/ops/bookings/booking-1/check-out', {
+        method: 'POST',
+        headers: {
+          [CSRF_HEADER_NAME]: CSRF_TOKEN,
+          cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
+        },
+      }),
+      { params: Promise.resolve({ id: BOOKING.id }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(persistLifecycleTransitionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        releaseAssignments: true,
+      }),
+    );
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
+    expect(enqueueCheckOutSideEffectsMock).toHaveBeenCalled();
+  });
 });

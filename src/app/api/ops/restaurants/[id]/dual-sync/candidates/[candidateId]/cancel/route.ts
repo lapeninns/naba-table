@@ -59,8 +59,12 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     }
     return NextResponse.json({ restaurantId, candidate }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to cancel dual-sync candidate';
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_CANDIDATE_CANCEL_ERROR');
+    console.error('[dual-sync][candidate-cancel] failed', error);
+    return dualSyncErrorResponse(
+      'Failed to cancel dual-sync candidate',
+      500,
+      'DUAL_SYNC_CANDIDATE_CANCEL_ERROR',
+    );
   }
 }
 

@@ -288,6 +288,25 @@ describe('google business profile workflow mappers', () => {
     });
   });
 
+  it('blocks Google retry when the job carries reconciliation-only errors', () => {
+    const job = mapPublishJob(
+      buildPublishJobRow({
+        errors: [
+          {
+            message: 'Google push succeeded but local persistence failed.',
+            retryable: false,
+            reconciliationRequired: true,
+          },
+        ],
+      }),
+    );
+
+    expect(job).toMatchObject({
+      canRetryGooglePush: false,
+      retryBlockedReason: 'This Google update needs reconciliation before another push can run.',
+    });
+  });
+
   it('builds workflow responses from mapped drafts, events, and active jobs', () => {
     const latestDraft = mapDraft(buildDraftRow()) as GoogleBusinessProfileWorkflowDraft;
     const response = buildWorkflowResponse(latestDraft, [buildEventRow()], buildPublishJobRow());

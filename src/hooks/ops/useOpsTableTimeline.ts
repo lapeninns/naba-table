@@ -1,7 +1,7 @@
 'use client';
 
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useTableInventoryService } from '@/contexts/ops-services';
 import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
@@ -31,6 +31,7 @@ export function useOpsTableTimeline({
 }: UseOpsTableTimelineOptions) {
   const tableService = useTableInventoryService();
   const queryClient = useQueryClient();
+  const [realtimeHealthy, setRealtimeHealthy] = useState(false);
   const queryKey = useMemo(
     () =>
       restaurantId
@@ -44,6 +45,7 @@ export function useOpsTableTimeline({
     [date, includeSummary, restaurantId, service, zoneId],
   );
   const shouldEnable = Boolean(restaurantId) && enabled;
+  const realtimeConfigured = realtimeEnabled();
 
   const query = useQuery<TableTimelineResponse>({
     queryKey,
@@ -59,14 +61,17 @@ export function useOpsTableTimeline({
       });
     },
     enabled: shouldEnable,
-    refetchInterval: shouldEnable && !realtimeEnabled() ? POLL_INTERVAL_MS : false,
+    refetchInterval:
+      shouldEnable && (!realtimeConfigured || !realtimeHealthy) ? POLL_INTERVAL_MS : false,
     refetchOnWindowFocus: false,
     staleTime: 5_000,
     placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
-    if (!shouldEnable || !restaurantId || !isRealtimeFloorplanEnabled()) {
+    setRealtimeHealthy(false);
+
+    if (!shouldEnable || !restaurantId || !realtimeConfigured) {
       return;
     }
 
@@ -101,12 +106,21 @@ export function useOpsTableTimeline({
       handleChange,
     );
 
-    channel.subscribe();
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setRealtimeHealthy(true);
+        return;
+      }
+      if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+        setRealtimeHealthy(false);
+      }
+    });
 
     return () => {
+      setRealtimeHealthy(false);
       client.removeChannel(channel);
     };
-  }, [date, queryClient, queryKey, restaurantId, shouldEnable]);
+  }, [date, queryClient, queryKey, realtimeConfigured, restaurantId, shouldEnable]);
 
   return query;
 }

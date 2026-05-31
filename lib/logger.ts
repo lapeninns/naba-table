@@ -83,6 +83,10 @@ function shouldRedact(key: string, redactKeys: string[]): boolean {
 function redactLooseSecrets(value: string): string {
   return value
     .replace(
+      /(\/(?:invite|bookings\/recover|bookings)\/)([A-Za-z0-9._~+/=-]{10,})(?=\/|\?|#|\s|$)/gi,
+      '$1***redacted***',
+    )
+    .replace(
       /"(access_token|api[_-]?key|code|jwt|otp|password|refresh_token|secret|session|signature|token)"\s*:\s*"[^"]*"/gi,
       (_match, key: string) => `"${key}":"***redacted***"`,
     )

@@ -18,6 +18,7 @@ import { computeGuestLookupHash } from '@/server/security/guest-lookup';
 
 type LegacyGuestLookupClient = Parameters<typeof fetchBookingsForContact>[0];
 type GuestLookupBookingDTO = ReturnType<typeof toGuestBookingDTO>;
+type GuestLookupExposure = 'full' | 'contact_query';
 
 export type GuestLookupPolicyLog =
   | {
@@ -80,7 +81,7 @@ export async function fetchGuestLookupBookings({
         if (policyResult.status === 'matched') {
           nextAccess = markGuestLookupStrategy(nextAccess, { lookupStrategy: 'policy' });
           return buildGuestLookupBookingsResult({
-            bookings: policyResult.bookings,
+            bookings: serializeGuestLookupBookings(policyResult.bookings, nextAccess.mode),
             access: nextAccess,
             source,
             restaurantId,
@@ -104,13 +105,37 @@ export async function fetchGuestLookupBookings({
   });
 
   return buildGuestLookupBookingsResult({
-    bookings: legacyBookings.map((booking) => toGuestBookingDTO(booking as GuestBookingSource)),
+    bookings: legacyBookings.map((booking) =>
+      toGuestBookingDTO(booking as GuestBookingSource, {
+        exposure: guestLookupExposureForAccess(nextAccess.mode),
+      }),
+    ),
     access: nextAccess,
     source,
     restaurantId,
     ipScope,
     policyLog,
   });
+}
+
+function guestLookupExposureForAccess(mode: GuestLookupAccessDiagnostics['mode']): GuestLookupExposure {
+  return mode === 'contact_query' ? 'contact_query' : 'full';
+}
+
+function serializeGuestLookupBookings(
+  bookings: GuestLookupBookingDTO[],
+  mode: GuestLookupAccessDiagnostics['mode'],
+): GuestLookupBookingDTO[] {
+  const exposure = guestLookupExposureForAccess(mode);
+  if (exposure === 'full') {
+    return bookings;
+  }
+
+  return bookings.map((booking) =>
+    toGuestBookingDTO(booking as GuestBookingSource, {
+      exposure,
+    }),
+  );
 }
 
 function getPolicyFallbackLog(

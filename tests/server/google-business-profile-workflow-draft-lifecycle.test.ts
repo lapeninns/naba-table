@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const readDraftByIdMock = vi.hoisted(() => vi.fn());
@@ -188,5 +191,54 @@ describe('google business profile workflow draft lifecycle', () => {
     ).rejects.toMatchObject({
       name: 'GBP_DRAFT_INVALID_STATE',
     });
+  });
+
+  it('resets approved metadata when approved draft selections are changed without reapproval', async () => {
+    readDraftByIdMock.mockResolvedValue(
+      buildDraftRow({
+        approved_at: '2026-05-21T11:00:00.000Z',
+        approved_by_user_id: 'user-2',
+        status: 'approved',
+        selected_approvals: { 'profile.name': true },
+      }),
+    );
+    const { client, update } = createDraftUpdateClient({
+      data: buildDraftRow({
+        status: 'review_ready',
+        selected_approvals: { 'profile.name': false },
+      }),
+      error: null,
+    });
+
+    await updateGoogleBusinessProfileWorkflowDraftState({
+      restaurantId: 'rest-1',
+      draftId: 'draft-1',
+      actorUserId: 'user-3',
+      selectedApprovals: { 'profile.name': false },
+      client: client as never,
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'review_ready',
+        approved_by_user_id: null,
+        approved_at: null,
+        selected_approvals: expect.objectContaining({
+          'profile.name': false,
+        }),
+      }),
+    );
+  });
+
+  it('creates replacement drafts before archiving previous active drafts', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'server/google-business-profile/workflowDraftLifecycle.ts'),
+      'utf8',
+    );
+
+    expect(source.indexOf('.insert({\n      restaurant_id')).toBeLessThan(
+      source.indexOf(".update({ status: 'archived' })"),
+    );
+    expect(source).toContain(".neq('id', data.id)");
   });
 });

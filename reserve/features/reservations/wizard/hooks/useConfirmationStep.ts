@@ -1,5 +1,6 @@
 'use client';
 
+import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { downloadCalendarEvent, shareReservationDetails } from '@/lib/reservations/share';
@@ -23,7 +24,7 @@ import type {
 } from '../ui/steps/confirmation-step/types';
 import type { Dispatch, SetStateAction } from 'react';
 
-const buildReservationWindow = (state: State) => {
+export const buildReservationWindow = (state: State) => {
   const booking = state.lastConfirmed;
   const date = booking?.booking_date ?? state.details.date ?? '';
 
@@ -44,12 +45,22 @@ const buildReservationWindow = (state: State) => {
     return null;
   }
 
-  const iso = `${date}T${normalizedTime}:00`;
-  const start = new Date(iso);
+  const timezone =
+    state.details.restaurantTimezone?.trim() ||
+    reservationConfigResult.config.timezone ||
+    DEFAULT_VENUE.timezone ||
+    'UTC';
+  const startDateTime = DateTime.fromISO(`${date}T${normalizedTime}:00`, {
+    zone: timezone,
+  });
 
-  if (Number.isNaN(start.getTime())) {
+  if (!startDateTime.isValid) {
     if (process.env.NODE_ENV !== 'production') {
-      console.error('[confirmation-step] Unable to parse reservation start date.', { iso });
+      console.error('[confirmation-step] Unable to parse reservation start date.', {
+        date,
+        normalizedTime,
+        timezone,
+      });
     }
     return null;
   }
@@ -65,7 +76,9 @@ const buildReservationWindow = (state: State) => {
     return null;
   }
 
-  const end = new Date(start.getTime() + safeDuration * 60 * 1000);
+  const endDateTime = startDateTime.plus({ minutes: safeDuration });
+  const start = startDateTime.toUTC().toJSDate();
+  const end = endDateTime.toUTC().toJSDate();
 
   if (Number.isNaN(end.getTime())) {
     if (process.env.NODE_ENV !== 'production') {

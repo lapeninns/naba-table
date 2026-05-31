@@ -137,7 +137,7 @@ describe('restaurant google business V1 routes', () => {
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
-      returnPath: 'https://example.com/app/settings/restaurant/google-business-profile',
+      returnPath: 'https://nabatable.com/app/settings/restaurant/google-business-profile',
     });
   });
 

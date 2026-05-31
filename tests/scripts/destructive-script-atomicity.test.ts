@@ -44,6 +44,16 @@ describe('destructive maintenance script atomicity', () => {
     expect(mainBody).toContain('await resolveRestaurantId(client)');
     expect(mainBody).toContain('await clearExisting(client, restaurantId)');
     expect(mainBody).toContain('await insertTables(client, tables)');
+    expect(source).toContain('Refusing to replace Railway tables');
+    expect(source).toContain(
+      "coalesce(b.status::text, '') not in ('cancelled', 'no_show', 'completed')",
+    );
+    expect(source).not.toContain(
+      "b.status in ('pending', 'pending_allocation', 'confirmed', 'checked_in')",
+    );
+    expect(source).toContain('public.booking_table_assignments bta');
+    expect(source).toContain('and b.booking_date >= current_date');
+    expect(source).not.toContain('b.start_at >= now()');
     expect(mainBody).toContain("await client.query('commit')");
     expect(mainBody).toContain("await client.query('rollback')");
     expect(mainBody.indexOf("await client.query('begin')")).toBeLessThan(

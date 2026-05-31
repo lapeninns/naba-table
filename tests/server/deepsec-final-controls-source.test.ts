@@ -73,4 +73,18 @@ describe('DeepSec final remediation source guards', () => {
     expect(workflowSource).toMatch(/uses: actions\/setup-node@[0-9a-f]{40}/);
     expect(workflowSource).not.toMatch(/uses: actions\/(?:checkout|setup-node)@v\d+/);
   });
+
+  it('keeps invite bearer tokens out of automatic Plausible pageviews', () => {
+    const layoutSource = readSource('src/app/layout.tsx');
+
+    expect(layoutSource).toContain("const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**'");
+    expect(layoutSource).toContain('exclude={PLAUSIBLE_EXCLUDED_PATHS}');
+  });
+
+  it('forces fresh occasion validation for booking writes', () => {
+    const validationSource = readSource('server/occasions/validateBookingType.ts');
+
+    expect(validationSource).toContain("getOccasionCatalog({ forceRefresh: true })");
+    expect(validationSource).not.toContain('getCachedOccasionCatalog');
+  });
 });

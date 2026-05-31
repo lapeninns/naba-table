@@ -59,7 +59,14 @@ describe('fetchGuestLookupBookings', () => {
         legacyFetch,
       }),
     ).resolves.toMatchObject({
-      bookings: [expect.objectContaining({ id: 'policy-1' })],
+      bookings: [
+        expect.objectContaining({
+          id: '',
+          restaurant_id: '',
+          customer_email: 'g***@e***.com',
+          customer_phone: '***0123',
+        }),
+      ],
       access: {
         policyEnabled: true,
         lookupStrategy: 'policy',
@@ -111,7 +118,14 @@ describe('fetchGuestLookupBookings', () => {
         legacyFetch,
       }),
     ).resolves.toMatchObject({
-      bookings: [expect.objectContaining({ id: 'legacy-1' })],
+      bookings: [
+        expect.objectContaining({
+          id: '',
+          restaurant_id: '',
+          customer_email: 'g***@e***.com',
+          customer_phone: '***0123',
+        }),
+      ],
       access: {
         policyEnabled: true,
         lookupStrategy: 'legacy-fallback',
@@ -159,7 +173,7 @@ describe('fetchGuestLookupBookings', () => {
         legacyFetch,
       }),
     ).resolves.toMatchObject({
-      bookings: [expect.objectContaining({ id: 'legacy-after-throw' })],
+      bookings: [expect.objectContaining({ id: '' })],
       access: {
         lookupStrategy: 'legacy-fallback',
       },
@@ -195,7 +209,7 @@ describe('fetchGuestLookupBookings', () => {
         legacyFetch,
       }),
     ).resolves.toMatchObject({
-      bookings: [expect.objectContaining({ id: 'legacy-only' })],
+      bookings: [expect.objectContaining({ id: '' })],
       access: {
         policyEnabled: false,
         lookupStrategy: 'legacy',
@@ -210,5 +224,38 @@ describe('fetchGuestLookupBookings', () => {
 
     expect(contactHashFor).not.toHaveBeenCalled();
     expect(legacyFetch).toHaveBeenCalledOnce();
+  });
+
+  it('returns full booking DTOs when a recovery token authorized the lookup', async () => {
+    const legacyFetch = vi.fn<NonNullable<FetchGuestLookupBookingsParams['legacyFetch']>>(
+      async () => [bookingSource('token-booking')],
+    );
+
+    await expect(
+      fetchGuestLookupBookings({
+        policyClient,
+        legacyClient,
+        restaurantId: 'restaurant-1',
+        email: 'guest@example.com',
+        phone: '+447700900123',
+        access: markGuestLookupRateSource(
+          buildGuestLookupAccessDiagnostics({ accessToken: 'token-1' }),
+          { rateSource: 'memory' },
+        ),
+        policyEnabled: false,
+        source: 'api.bookings',
+        ipScope: '127.0.0.0/24',
+        legacyFetch,
+      }),
+    ).resolves.toMatchObject({
+      bookings: [
+        expect.objectContaining({
+          id: 'token-booking',
+          restaurant_id: 'restaurant-1',
+          customer_email: 'guest@example.com',
+          customer_phone: '+447700900123',
+        }),
+      ],
+    });
   });
 });

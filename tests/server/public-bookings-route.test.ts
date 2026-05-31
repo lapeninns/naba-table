@@ -310,7 +310,23 @@ describe('public POST /api/bookings capacity handling', () => {
       resetAt: Date.now() + 60_000,
       source: 'memory',
     });
-    fetchBookingsForContactMock.mockResolvedValueOnce([]);
+    fetchBookingsForContactMock.mockResolvedValueOnce([
+      {
+        id: 'booking-1',
+        restaurant_id: '11111111-1111-4111-8111-111111111111',
+        booking_date: '2026-07-01',
+        start_time: '19:00',
+        end_time: '20:30',
+        reference: 'NB123456',
+        party_size: 4,
+        booking_type: 'dinner',
+        seating_preference: 'any',
+        status: 'confirmed',
+        customer_name: 'Alex Guest',
+        customer_email: 'alex@example.com',
+        customer_phone: '+447700900123',
+      },
+    ]);
 
     const response = await GET(
       new NextRequest(
@@ -321,7 +337,17 @@ describe('public POST /api/bookings capacity handling', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
-      bookings: [],
+      bookings: [
+        expect.objectContaining({
+          id: '',
+          restaurant_id: '',
+          start_time: '',
+          reference: null,
+          customer_name: 'A***',
+          customer_email: 'a***@e***.com',
+          customer_phone: '***0123',
+        }),
+      ],
       access: {
         mode: 'contact_query',
         token: {

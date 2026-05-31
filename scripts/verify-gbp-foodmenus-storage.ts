@@ -33,6 +33,16 @@ const EXPECTED_TRIGGERS = [
   'restaurant_gbp_food_menu_publish_attempts_updated_at',
 ] as const;
 
+const EXPECTED_SERVICE_ROLE_POLICIES: Record<(typeof EXPECTED_TABLES)[number], string> = {
+  restaurant_gbp_food_menu_import_reviews:
+    'Service role can manage restaurant GBP food menu import reviews',
+  restaurant_gbp_food_menu_projected_identities:
+    'Service role can manage restaurant GBP food menu projected identities',
+  restaurant_gbp_food_menu_publish_attempts:
+    'Service role can manage restaurant GBP food menu publish attempts',
+  restaurant_gbp_food_menu_snapshots: 'Service role can manage restaurant GBP food menu snapshots',
+};
+
 type Args = {
   projectRef: string;
   expect: 'applied' | 'missing' | 'any';
@@ -59,6 +69,7 @@ type VerificationResult = {
     missingTriggers: string[];
     rls: Array<{ table_name: string; rls_enabled: boolean }>;
     serviceRolePolicyCount: number;
+    missingServiceRolePolicies: string[];
     policies: Array<Record<string, unknown>>;
   };
   conclusion:
@@ -213,20 +224,51 @@ function triggerNamesFromRows(value: unknown): string[] {
     .filter((entry): entry is string => typeof entry === 'string');
 }
 
-function countServiceRolePolicies(value: unknown): number {
-  if (!Array.isArray(value)) {
-    return 0;
+function policyHasServiceRole(entry: Record<string, unknown>): boolean {
+  const roles = entry.roles;
+  if (typeof roles === 'string') {
+    return roles.includes('service_role');
   }
-  return value.filter((entry) => {
-    const roles = asObject(entry).roles;
-    if (typeof roles === 'string') {
-      return roles.includes('service_role');
+  if (Array.isArray(roles)) {
+    return roles.includes('service_role');
+  }
+  return false;
+}
+
+function isAllCommand(entry: Record<string, unknown>): boolean {
+  const cmd = entry.cmd;
+  return cmd === 'ALL' || cmd === '*' || cmd === 'all';
+}
+
+function serviceRolePolicyKeys(value: unknown): Set<string> {
+  const keys = new Set<string>();
+  if (!Array.isArray(value)) {
+    return keys;
+  }
+
+  for (const rawEntry of value) {
+    const entry = asObject(rawEntry);
+    const table = entry.tablename;
+    const policy = entry.policyname;
+    if (
+      typeof table === 'string' &&
+      typeof policy === 'string' &&
+      policyHasServiceRole(entry) &&
+      isAllCommand(entry)
+    ) {
+      keys.add(`${table}:${policy}`);
     }
-    if (Array.isArray(roles)) {
-      return roles.includes('service_role');
-    }
-    return false;
-  }).length;
+  }
+
+  return keys;
+}
+
+function missingServiceRolePolicies(value: unknown): string[] {
+  const keys = serviceRolePolicyKeys(value);
+
+  return Object.entries(EXPECTED_SERVICE_ROLE_POLICIES)
+    .filter(([table, policy]) => !keys.has(`${table}:${policy}`))
+    .map(([table, policy]) => `${table}:${policy}`);
 }
 
 function conclusionFor(
@@ -239,7 +281,7 @@ function conclusionFor(
   const hasAllRls =
     result.schema.rls.length === EXPECTED_TABLES.length &&
     result.schema.rls.every((entry) => entry.rls_enabled);
-  const hasAllPolicies = result.schema.serviceRolePolicyCount === EXPECTED_TABLES.length;
+  const hasAllPolicies = result.schema.missingServiceRolePolicies.length === 0;
 
   if (
     ledgerRows > 0 &&
@@ -388,7 +430,8 @@ async function verify(projectRef: string): Promise<VerificationResult> {
       triggers,
       missingTriggers: EXPECTED_TRIGGERS.filter((trigger) => !triggerNames.includes(trigger)),
       rls,
-      serviceRolePolicyCount: countServiceRolePolicies(policies),
+      serviceRolePolicyCount: serviceRolePolicyKeys(policies).size,
+      missingServiceRolePolicies: missingServiceRolePolicies(policies),
       policies,
     },
   };

@@ -10,6 +10,7 @@ import {
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
 import { prepareFoodMenusProjection } from '@/server/google-business-profile/food-menus-sync';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -41,6 +42,19 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       return NextResponse.json(invalidPayloadResponse(error), { status: 400 });
     }
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+
+  const rateLimitResponse = await requireApiRateLimit({
+    request,
+    scope: 'ops.gbp.food_menus.projection',
+    tenantId: restaurantId,
+    userId: access.userId,
+    limit: 12,
+    windowMs: 60_000,
+    message: 'Too many FoodMenus projection requests',
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   try {

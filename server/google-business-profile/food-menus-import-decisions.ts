@@ -5,6 +5,7 @@ import {
 } from './food-menus-canonical-adapter';
 import {
   claimFoodMenusImportReviewDecision,
+  markFoodMenusImportReviewDecisionFailed,
   markFoodMenusImportReviewDecision,
   readFoodMenuSettings,
   readFoodMenusImportReviewForRestaurant,
@@ -68,64 +69,93 @@ export async function decideFoodMenusImportReview({
       decidedByUserId,
     });
   const decisionPlan = resolveFoodMenusImportReviewDecisionPlan(review, action);
+  let claimed = false;
+  const claimDecisionForSideEffects = async () => {
+    const claimedReview = await claimDecision();
+    claimed = true;
+    return claimedReview;
+  };
 
-  if (decisionPlan.kind === 'ignore_google_change') {
-    await claimDecision();
-    const decided = await markFoodMenusImportReviewDecision({
-      client,
-      restaurantId,
-      reviewId,
-      decisionStatus: 'ignored',
-      decisionAction: 'ignore_google_change',
-      decidedByUserId,
-    });
-    return { review: decided, item: null };
-  }
+  try {
+    if (decisionPlan.kind === 'ignore_google_change') {
+      await claimDecisionForSideEffects();
+      const decided = await markFoodMenusImportReviewDecision({
+        client,
+        restaurantId,
+        reviewId,
+        decisionStatus: 'ignored',
+        decisionAction: 'ignore_google_change',
+        decidedByUserId,
+      });
+      return { review: decided, item: null };
+    }
 
-  if (decisionPlan.kind === 'apply_menu_metadata') {
-    const currentSettings = await readFoodMenuSettings({ client, restaurantId });
-    await claimDecision();
-    await upsertFoodMenuSettings({
-      client,
-      restaurantId,
-      ...buildFoodMenuSettingsUpdateFromMetadataPatch(currentSettings, decisionPlan.metadataPatch),
-    });
-    const decided = await markFoodMenusImportReviewDecision({
-      client,
-      restaurantId,
-      reviewId,
-      decisionStatus: 'applied',
-      decisionAction: 'apply_menu_metadata',
-      decidedByUserId,
-    });
-    return { review: decided, item: null };
-  }
+    if (decisionPlan.kind === 'apply_menu_metadata') {
+      const currentSettings = await readFoodMenuSettings({ client, restaurantId });
+      await claimDecisionForSideEffects();
+      await upsertFoodMenuSettings({
+        client,
+        restaurantId,
+        ...buildFoodMenuSettingsUpdateFromMetadataPatch(
+          currentSettings,
+          decisionPlan.metadataPatch,
+        ),
+      });
+      const decided = await markFoodMenusImportReviewDecision({
+        client,
+        restaurantId,
+        reviewId,
+        decisionStatus: 'applied',
+        decisionAction: 'apply_menu_metadata',
+        decidedByUserId,
+      });
+      return { review: decided, item: null };
+    }
 
-  if (decisionPlan.kind === 'missing_local_item') {
-    await claimDecision();
-    const item = await decideMissingLocalItemReview({
-      client,
-      restaurantId,
-      review,
-      action: decisionPlan.action,
-    });
-    const decided = await markFoodMenusImportReviewDecision({
-      client,
-      restaurantId,
-      reviewId,
-      decisionStatus: 'applied',
-      decisionAction: decisionPlan.action,
-      decidedByUserId,
-    });
-    return { review: decided, item };
-  }
+    if (decisionPlan.kind === 'missing_local_item') {
+      await claimDecisionForSideEffects();
+      const item = await decideMissingLocalItemReview({
+        client,
+        restaurantId,
+        review,
+        action: decisionPlan.action,
+      });
+      const decided = await markFoodMenusImportReviewDecision({
+        client,
+        restaurantId,
+        reviewId,
+        decisionStatus: 'applied',
+        decisionAction: decisionPlan.action,
+        decidedByUserId,
+      });
+      return { review: decided, item };
+    }
 
-  if (decisionPlan.kind === 'create_new_item') {
-    await claimDecision();
-    const item = await createCanonicalFoodMenusItemFromPatch({
+    if (decisionPlan.kind === 'create_new_item') {
+      await claimDecisionForSideEffects();
+      const item = await createCanonicalFoodMenusItemFromPatch({
+        client,
+        restaurantId,
+        targetKind: decisionPlan.targetKind,
+        suggestedPatch: decisionPlan.suggestedPatch,
+        reviewId,
+      });
+      const decided = await markFoodMenusImportReviewDecision({
+        client,
+        restaurantId,
+        reviewId,
+        decisionStatus: 'applied',
+        decisionAction: 'create_new_item',
+        decidedByUserId,
+      });
+      return { review: decided, item };
+    }
+
+    await claimDecisionForSideEffects();
+    const item = await applyCanonicalFoodMenusSuggestedPatch({
       client,
       restaurantId,
-      targetKind: decisionPlan.targetKind,
+      localItemId: decisionPlan.localItemId,
       suggestedPatch: decisionPlan.suggestedPatch,
       reviewId,
     });
@@ -134,29 +164,31 @@ export async function decideFoodMenusImportReview({
       restaurantId,
       reviewId,
       decisionStatus: 'applied',
-      decisionAction: 'create_new_item',
+      decisionAction: 'apply_to_nabatable',
       decidedByUserId,
     });
     return { review: decided, item };
+  } catch (error) {
+    if (claimed) {
+      try {
+        await markFoodMenusImportReviewDecisionFailed({
+          client,
+          restaurantId,
+          reviewId,
+          decisionAction: action,
+          decidedByUserId,
+        });
+      } catch (markFailedError) {
+        const message =
+          markFailedError instanceof Error ? markFailedError.message : 'Unknown failure mark error';
+        console.error('[gbp][food-menus][import-review] failed to mark claimed review failed', {
+          reviewId,
+          message,
+        });
+      }
+    }
+    throw error;
   }
-
-  await claimDecision();
-  const item = await applyCanonicalFoodMenusSuggestedPatch({
-    client,
-    restaurantId,
-    localItemId: decisionPlan.localItemId,
-    suggestedPatch: decisionPlan.suggestedPatch,
-    reviewId,
-  });
-  const decided = await markFoodMenusImportReviewDecision({
-    client,
-    restaurantId,
-    reviewId,
-    decisionStatus: 'applied',
-    decisionAction: 'apply_to_nabatable',
-    decidedByUserId,
-  });
-  return { review: decided, item };
 }
 
 async function decideMissingLocalItemReview({

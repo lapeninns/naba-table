@@ -263,6 +263,26 @@ async function clearExisting(client: Client, restaurantId: string): Promise<void
   );
   const tableIds = tables.rows.map((row) => row.id);
 
+  if (tableIds.length > 0) {
+    const assignedBookings = await client.query<{ booking_count: string }>(
+      `
+        select count(*)::text as booking_count
+        from public.booking_table_assignments bta
+        join public.bookings b on b.id = bta.booking_id
+        where bta.table_id = any($1::uuid[])
+          and coalesce(b.status::text, '') not in ('cancelled', 'no_show', 'completed')
+          and b.booking_date >= current_date
+      `,
+      [tableIds],
+    );
+    const bookingCount = Number.parseInt(assignedBookings.rows[0]?.booking_count ?? '0', 10);
+    if (bookingCount > 0) {
+      throw new Error(
+        `Refusing to replace Railway tables: ${bookingCount} active or future booking assignment(s) still reference existing tables.`,
+      );
+    }
+  }
+
   await deleteByIds(client, 'booking_table_assignments', 'table_id', tableIds);
   await deleteByIds(client, 'table_hold_members', 'table_id', tableIds);
   await deleteByIds(client, 'table_hold_windows', 'table_id', tableIds);

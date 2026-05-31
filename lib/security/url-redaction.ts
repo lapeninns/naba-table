@@ -1,9 +1,38 @@
 const REDACTED_QUERY_VALUE = '[redacted]';
+const REDACTED_PATH_SEGMENT = '[redacted]';
+
+const SENSITIVE_PATH_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
+  {
+    pattern: /^\/invite\/[^/?#]+(\/.*)?$/i,
+    replacement: `/invite/${REDACTED_PATH_SEGMENT}$1`,
+  },
+  {
+    pattern: /^\/api\/team\/invitations\/[^/?#]+(\/.*)?$/i,
+    replacement: `/api/team/invitations/${REDACTED_PATH_SEGMENT}$1`,
+  },
+  {
+    pattern: /^\/bookings\/recover\/[^/?#]+(\/.*)?$/i,
+    replacement: `/bookings/recover/${REDACTED_PATH_SEGMENT}$1`,
+  },
+  {
+    pattern: /^\/api\/bookings\/recover\/[^/?#]+(\/.*)?$/i,
+    replacement: `/api/bookings/recover/${REDACTED_PATH_SEGMENT}$1`,
+  },
+];
+
+function redactSensitivePathSegments(pathname: string): string {
+  for (const { pattern, replacement } of SENSITIVE_PATH_PATTERNS) {
+    if (pattern.test(pathname)) {
+      return pathname.replace(pattern, replacement);
+    }
+  }
+  return pathname;
+}
 
 export function stripUrlQueryAndHash(value: string): string {
   try {
     const url = new URL(value, 'https://nabatable.local');
-    const path = `${url.pathname}${url.hash ? '' : ''}`;
+    const path = redactSensitivePathSegments(url.pathname);
     if (value.startsWith('http://') || value.startsWith('https://')) {
       return `${url.origin}${path}`;
     }
@@ -11,7 +40,7 @@ export function stripUrlQueryAndHash(value: string): string {
   } catch {
     const [withoutHash] = value.split('#', 1);
     const [withoutQuery] = withoutHash.split('?', 1);
-    return withoutQuery || value;
+    return redactSensitivePathSegments(withoutQuery) || value;
   }
 }
 

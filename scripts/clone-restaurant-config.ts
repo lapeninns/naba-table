@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 
+import { assertExactSupabaseApiProjectRef } from './db/safety';
+
 type RestaurantRow = {
   id: string;
   name: string;
@@ -214,8 +216,10 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
-if (!supabaseUrl.includes(expectedProjectRef)) {
-  console.error(`Supabase URL does not match expected project ref (${expectedProjectRef}).`);
+try {
+  assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Supabase URL validation failed.');
   process.exit(1);
 }
 

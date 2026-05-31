@@ -8,6 +8,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('replace_restaurant_operating_hours:' || p_restaurant_id::text, 0)
+  );
+
   DROP TABLE IF EXISTS pg_temp.replace_restaurant_operating_hours_rows;
 
   CREATE TEMP TABLE replace_restaurant_operating_hours_rows ON COMMIT DROP AS

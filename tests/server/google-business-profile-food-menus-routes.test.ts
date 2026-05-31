@@ -12,6 +12,7 @@ const publishFoodMenusProjectionToGoogleMock = vi.hoisted(() => vi.fn());
 const refreshFoodMenusImportReviewFromGoogleMock = vi.hoisted(() => vi.fn());
 const getGoogleBusinessProfileFoodMenusContextMock = vi.hoisted(() => vi.fn());
 const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
+const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   ensureRestaurantAdminAccess: ensureRestaurantAdminAccessMock,
@@ -42,12 +43,8 @@ vi.mock('@/server/security/provider-rate-limit', () => ({
   requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
 }));
 
-vi.mock('@/server/security/provider-rate-limit', () => ({
-  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
-}));
-
-vi.mock('@/server/security/provider-rate-limit', () => ({
-  requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
 }));
 
 import { POST as decisionPOST } from '@/src/app/api/ops/restaurants/[id]/google-business-profile/food-menus/import-review/[reviewId]/decision/route';
@@ -94,8 +91,7 @@ describe('GBP FoodMenus routes', () => {
     refreshFoodMenusImportReviewFromGoogleMock.mockReset();
     getGoogleBusinessProfileFoodMenusContextMock.mockReset();
     requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
-    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
-    requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
@@ -144,6 +140,36 @@ describe('GBP FoodMenus routes', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(prepareFoodMenusProjectionMock).not.toHaveBeenCalled();
+  });
+
+  it('rate limits FoodMenus projections before service-role snapshot writes', async () => {
+    requireApiRateLimitMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Too many FoodMenus projection requests' }), {
+        status: 429,
+      }),
+    );
+
+    const response = await projectionPOST(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/projection',
+        {
+          method: 'POST',
+          body: JSON.stringify({ foodMenusName: 'accounts/123/locations/456/foodMenus' }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(429);
+    expect(requireApiRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'ops.gbp.food_menus.projection',
+        tenantId: 'rest-1',
+        userId: 'user-1',
+      }),
+    );
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
     expect(prepareFoodMenusProjectionMock).not.toHaveBeenCalled();
   });
 
@@ -519,7 +545,10 @@ describe('GBP FoodMenus routes', () => {
         'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/publish',
         {
           method: 'POST',
-          body: JSON.stringify({ expectedGoogleHash: 'b'.repeat(64) }),
+          body: JSON.stringify({
+            expectedGoogleHash: 'b'.repeat(64),
+            expectedProjectionHash: 'a'.repeat(64),
+          }),
         },
       ),
       { params: Promise.resolve({ id: 'rest-1' }) },
@@ -585,7 +614,10 @@ describe('GBP FoodMenus routes', () => {
         'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/publish',
         {
           method: 'POST',
-          body: JSON.stringify({ expectedGoogleHash: 'b'.repeat(64) }),
+          body: JSON.stringify({
+            expectedGoogleHash: 'b'.repeat(64),
+            expectedProjectionHash: 'a'.repeat(64),
+          }),
         },
       ),
       { params: Promise.resolve({ id: 'rest-1' }) },
@@ -595,5 +627,21 @@ describe('GBP FoodMenus routes', () => {
     await expect(response.json()).resolves.toMatchObject({
       error: 'Google rejected menu',
     });
+  });
+
+  it('rejects FoodMenus publish requests without both baseline hashes', async () => {
+    const response = await publishPOST(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/publish',
+        {
+          method: 'POST',
+          body: JSON.stringify({ expectedGoogleHash: 'b'.repeat(64) }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(publishFoodMenusProjectionToGoogleMock).not.toHaveBeenCalled();
   });
 });

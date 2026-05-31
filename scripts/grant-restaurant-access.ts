@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 
+import { assertExactSupabaseApiProjectRef } from './db/safety';
 import {
   isRestaurantRole,
   RESTAURANT_ROLE_OPTIONS,
@@ -50,8 +51,15 @@ if (!confirmProduction) {
   process.exit(1);
 }
 
-if (expectedProjectRef && !supabaseUrl?.includes(expectedProjectRef)) {
-  console.error(`Supabase URL does not match expected project ref (${expectedProjectRef}).`);
+if (!expectedProjectRef) {
+  console.error('EXPECTED_PROJECT_REF is required before using the service-role key.');
+  process.exit(1);
+}
+
+try {
+  assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Supabase URL validation failed.');
   process.exit(1);
 }
 if (!restaurantId && !restaurantSlug) {

@@ -23,36 +23,12 @@ type TenantClient = SupabaseClient<Database>;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/**
- * Trusted ops user id forwarded by the middleware (`requireOpsAuth`) via the
- * internal `x-ops-user-id` request header. The middleware always strips any
- * inbound value of this header before re-setting it from the validated
- * Supabase session, so route handlers can trust it without an additional
- * `auth.getUser()` round trip.
- */
 const TRUSTED_OPS_USER_HEADER = 'x-ops-user-id';
 
 export function getOpsUserIdFromHeader(req: NextRequest): string | null {
   const value = req.headers.get(TRUSTED_OPS_USER_HEADER);
   if (!value || !UUID_PATTERN.test(value)) return null;
   return value;
-}
-
-function synthesizeTrustedUser(userId: string): User {
-  // The middleware has already validated the JWT via Supabase; we synthesize a
-  // minimal User shape for downstream code that only reads `user.id`. Mutation
-  // routes do not opt in to this fast path, so audit logs that depend on
-  // `user.email` continue to receive the live session.
-  return {
-    id: userId,
-    aud: 'authenticated',
-    role: 'authenticated',
-    email: undefined,
-    phone: undefined,
-    app_metadata: {},
-    user_metadata: {},
-    created_at: '',
-  } as unknown as User;
 }
 
 export class GuardError extends Error {
@@ -252,22 +228,6 @@ export async function withOpsMutation(
         ok: false,
         response: csrfFailure,
       };
-    }
-  }
-
-  // Fast path for safe (read-only) methods: the middleware has already
-  // validated the session and forwarded the user id in `x-ops-user-id`. Skip
-  // the duplicate `supabase.auth.getUser()` round trip.
-  if (!isUnsafeMutationMethod(req.method)) {
-    const trustedUserId = getOpsUserIdFromHeader(req);
-    if (trustedUserId) {
-      try {
-        const supabase = await getRouteHandlerSupabaseClient();
-        return { ok: true, supabase, user: synthesizeTrustedUser(trustedUserId) };
-      } catch (error) {
-        console.error('[auth:route] failed to init route-handler client', error);
-        // Fall through to the standard requireSession path below.
-      }
     }
   }
 

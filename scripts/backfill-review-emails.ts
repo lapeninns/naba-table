@@ -132,20 +132,10 @@ async function resolveActorId(
     }
   }
 
-  try {
-    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1 });
-    const fallbackId = listData?.users?.[0]?.id ?? null;
-    if (!fallbackId) {
-      console.warn(`[actor-id] no auth users available for fallback on restaurant ${restaurantId}`);
-    }
-    return fallbackId;
-  } catch (authError) {
-    console.warn(
-      `[actor-id] failed to resolve fallback auth user for restaurant ${restaurantId}`,
-      formatError(authError),
-    );
-    return null;
-  }
+  console.warn(
+    `[actor-id] no verified restaurant membership user available for restaurant ${restaurantId}; set ACTOR_ID explicitly to use a reviewed actor.`,
+  );
+  return null;
 }
 
 function ensureArtifactsDir(): void {

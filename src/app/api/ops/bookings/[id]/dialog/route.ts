@@ -31,22 +31,24 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   );
   if (!authorization.ok) return timing.withHeaders(authorization.response);
 
-  const serviceSupabase = getServiceSupabaseClient();
   const restaurantId = authorization.restaurantId;
-  const restaurantClient = getTenantServiceSupabaseClient(restaurantId);
+  const rateLimit = await timing.measure(
+    'rate_limit',
+    requireApiRateLimit({
+      request: req,
+      scope: 'ops-bookings:dialog',
+      tenantId: restaurantId,
+      userId: authorization.user.id,
+      limit: 60,
+      windowMs: 60_000,
+    }),
+  );
 
-  const [rateLimit, detailResult, contextResult] = await Promise.all([
-    timing.measure(
-      'rate_limit',
-      requireApiRateLimit({
-        request: req,
-        scope: 'ops-bookings:dialog',
-        tenantId: restaurantId,
-        userId: authorization.user.id,
-        limit: 60,
-        windowMs: 60_000,
-      }),
-    ),
+  if (rateLimit) return timing.withHeaders(rateLimit);
+
+  const serviceSupabase = getServiceSupabaseClient();
+  const restaurantClient = getTenantServiceSupabaseClient(restaurantId);
+  const [detailResult, contextResult] = await Promise.all([
     timing.measure(
       'booking_detail',
       loadBookingDetailPayload({ serviceSupabase, bookingId, restaurantIdFilter: restaurantId }),
@@ -61,8 +63,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       }),
     ),
   ]);
-
-  if (rateLimit) return timing.withHeaders(rateLimit);
 
   if (!detailResult.ok) {
     return timing.json(

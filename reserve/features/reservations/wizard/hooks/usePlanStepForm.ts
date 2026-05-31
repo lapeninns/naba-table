@@ -193,6 +193,7 @@ function useUnavailableDateTracking({
 }: UnavailableDateTrackingArgs): UnavailableDateTrackingResult {
   const queryClient = useQueryClient();
   const maskPrefetchedMonthsRef = useRef<Set<string>>(new Set());
+  const activeMaskSlugRef = useRef<string | null>(restaurantSlug?.trim() || null);
   const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
     () => new Map(),
   );
@@ -293,10 +294,15 @@ function useUnavailableDateTracking({
           staleTime: 5 * 60_000,
         })
         .then((mask) => {
+          if (activeMaskSlugRef.current !== slug) {
+            return;
+          }
           applyCalendarMask(mask);
         })
         .catch((error) => {
-          maskPrefetchedMonthsRef.current.delete(monthKey);
+          if (activeMaskSlugRef.current === slug) {
+            maskPrefetchedMonthsRef.current.delete(monthKey);
+          }
           const isAbort =
             error instanceof DOMException
               ? error.name === 'AbortError'
@@ -370,6 +376,8 @@ function useUnavailableDateTracking({
   }, [date, normalizedMinDate, prefetchVisibleMonth]);
 
   useEffect(() => {
+    const nextSlug = restaurantSlug?.trim() || null;
+    activeMaskSlugRef.current = nextSlug;
     maskPrefetchedMonthsRef.current.clear();
     setLoadingDates(new Set());
     const nextUnavailableDates = new Map<string, PlanStepUnavailableReason>();

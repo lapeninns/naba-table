@@ -42,18 +42,21 @@ describe('PostHog pageviews', () => {
   it('captures public router-transition pageviews once', async () => {
     const capture = vi.fn();
     (window as PosthogTestWindow).posthog = { capture };
+    window.history.replaceState({}, '', '/');
 
     const instrumentation = await import('../../../src/instrumentation-client');
     capture.mockClear();
 
-    instrumentation.onRouterTransitionStart('/restaurants?source=nav');
-    instrumentation.onRouterTransitionStart('/restaurants?source=nav');
+    instrumentation.onRouterTransitionStart('/restaurants?source=nav&token_hash=secret-token');
+    instrumentation.onRouterTransitionStart('/restaurants?source=nav&token_hash=secret-token');
     instrumentation.onRouterTransitionStart('/restaurants?source=nav#reviews');
 
     expect(capture).toHaveBeenCalledTimes(1);
     expect(capture).toHaveBeenCalledWith('$pageview', {
-      $current_url: expect.stringContaining('/restaurants?source=nav'),
+      $current_url: expect.stringContaining('/restaurants'),
     });
+    expect(capture.mock.calls[0]?.[1].$current_url).not.toContain('secret-token');
+    expect(capture.mock.calls[0]?.[1].$current_url).not.toContain('?');
   });
 
   it('captures app-host router-transition pageviews', async () => {

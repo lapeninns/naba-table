@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { buildAuthCallbackUrl, parseHostname } from '@/lib/auth/redirects';
 import { validatePasswordStrength } from '@/lib/security/passwordPolicy';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import {
   getMagicLinkFailure,
   isMagicLinkDeliveryError,
@@ -38,23 +40,33 @@ const requestSchema = z
   });
 
 const DEFAULT_REDIRECT = '/onboarding/profile';
+const SIGNUP_REDIRECT_PREFIXES = ['/onboarding'] as const;
 
 function sanitizeRedirect(target: string | undefined) {
-  if (!target || !target.startsWith('/')) return undefined;
-  return target;
+  const sanitized = sanitizeLocalRedirectPath(target, {
+    fallback: '',
+    allowedPrefixes: SIGNUP_REDIRECT_PREFIXES,
+  });
+  return sanitized || undefined;
 }
 
-function buildCallbackUrl(origin: string, redirectedFrom: string | undefined) {
-  const url = new URL('/api/auth/callback', origin);
-  if (redirectedFrom) {
-    url.searchParams.set('redirectedFrom', redirectedFrom);
-  }
-  return url.toString();
+function buildSignupCallbackUrl(req: NextRequest, redirectedFrom: string | undefined) {
+  return buildAuthCallbackUrl({
+    hostname: parseHostname(req),
+    rootDomain: process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'nabatable.com',
+    redirectedFrom,
+    rememberMe: false,
+  });
 }
 
 function buildRateLimitId(req: NextRequest, email: string, mode: SignupMode) {
   const ip = extractClientIp(req);
   return `signup:${mode}:${ip}:${email}`;
+}
+
+function buildAggregateRateLimitId(req: NextRequest, mode: SignupMode) {
+  const ip = extractClientIp(req);
+  return `signup:${mode}:${ip}`;
 }
 
 function isExistingAccountError(error: { message?: string | null }) {
@@ -100,6 +112,22 @@ export async function POST(req: NextRequest) {
   const { email, password, mode } = validated.data;
   const redirectedFrom = sanitizeRedirect(validated.data.redirectedFrom) ?? DEFAULT_REDIRECT;
 
+  const aggregateRateResult = await consumeRateLimit({
+    identifier: buildAggregateRateLimitId(req, mode),
+    limit: mode === 'password' ? 20 : 30,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!aggregateRateResult.ok) {
+    const retryAfter = Math.max(1, Math.ceil((aggregateRateResult.resetAt - Date.now()) / 1000));
+    const response = NextResponse.json(
+      { message: 'Too many attempts. Please try again later.' },
+      { status: 429 },
+    );
+    response.headers.set('Retry-After', retryAfter.toString());
+    return setRateHeaders(response, aggregateRateResult);
+  }
+
   const rateResult = await consumeRateLimit({
     identifier: buildRateLimitId(req, email, mode),
     limit: mode === 'password' ? 5 : 8,
@@ -122,18 +150,17 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password: password!,
-      options: { emailRedirectTo: buildCallbackUrl(req.nextUrl.origin, redirectedFrom) },
+      options: { emailRedirectTo: buildSignupCallbackUrl(req, redirectedFrom) },
     });
 
     if (error) {
       const response = isExistingAccountError(error)
         ? NextResponse.json(
             {
-              code: 'ACCOUNT_EXISTS',
-              message: 'An account already exists for this email.',
-              details: { field: 'email' },
+              status: 'confirmation_required',
+              redirectTo: redirectedFrom,
             },
-            { status: 409 },
+            { status: 201 },
           )
         : NextResponse.json(
             { message: error.message ?? 'Unable to create account' },
@@ -149,7 +176,7 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, rateResult);
   }
 
-  const emailRedirectTo = buildCallbackUrl(req.nextUrl.origin, redirectedFrom);
+  const emailRedirectTo = buildSignupCallbackUrl(req, redirectedFrom);
   try {
     await sendAuthMagicLink({
       email,

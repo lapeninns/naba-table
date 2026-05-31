@@ -59,6 +59,36 @@ describe('QA artifact redaction', () => {
     expect(redacted).not.toContain('header-session-secret');
     expect(redacted).toContain('safe=ok');
   });
+
+  it('redacts route token path segments in free-form artifacts', () => {
+    const redacted = redactQaText(
+      'GET /invite/raw-invite-token-secret failed\nGET /bookings/recover/session-recovery-token-secret?safe=ok failed',
+    );
+
+    expect(redacted).not.toContain('raw-invite-token-secret');
+    expect(redacted).not.toContain('session-recovery-token-secret');
+    expect(redacted).toContain('safe=ok');
+  });
+
+  it('redacts common environment assignments and credential URLs in free-form artifacts', () => {
+    const redacted = redactQaText(
+      [
+        'SUPABASE_SERVICE_ROLE_KEY=service-secret',
+        'TWILIO_AUTH_TOKEN="twilio-secret"',
+        'STRIPE_SECRET_KEY=stripe-secret',
+        'DATABASE_URL=postgres://user:database-password@db.example.test:5432/app',
+        'REDIS_URL=redis://:redis-password@redis.example.test:6379/0',
+      ].join('\n'),
+    );
+
+    expect(redacted).not.toContain('service-secret');
+    expect(redacted).not.toContain('twilio-secret');
+    expect(redacted).not.toContain('stripe-secret');
+    expect(redacted).not.toContain('database-password');
+    expect(redacted).not.toContain('redis-password');
+    expect(redacted).toContain('SUPABASE_SERVICE_ROLE_KEY=[redacted]');
+    expect(redacted).toContain('DATABASE_URL=[redacted]');
+  });
 });
 
 describe('QA tag convention', () => {

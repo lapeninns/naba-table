@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 import { getPgSslConfig } from '../db/pg-ssl';
-import { assertStagingScriptSafety } from '../db/safety';
+import { DEFAULT_STAGING_PROJECT_REF, assertStagingScriptSafety } from '../db/safety';
 
 type Args = {
   apply: boolean;
@@ -39,7 +39,8 @@ function parseNumber(value: string | undefined, fallback: number): number {
 function parseArgs(argv: string[]): Args {
   const apply = argv.includes('--apply') || process.env.APPLY === 'true';
 
-  const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || 'ndxmivcrehsacuerwxtm';
+  const expectedProjectRef =
+    process.env.EXPECTED_STAGING_PROJECT_REF?.trim() || DEFAULT_STAGING_PROJECT_REF;
   const sourceSlug = process.env.SOURCE_SLUG?.trim() || 'the-old-crown-girton';
   const seedTag =
     process.env.SEED_TAG?.trim() || new Date().toISOString().slice(0, 10).replaceAll('-', '');

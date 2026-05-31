@@ -28,6 +28,16 @@ const bookingSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 
 export const DEFAULT_SEATING_PREFERENCE = 'any';
 
+const explicitBooleanSchema = z.preprocess((value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return value;
+}, z.boolean());
+
 export const bookingCreateRequestSchema = z.object({
   restaurantId: z.string().uuid().optional(),
   restaurantSlug: z.string().regex(bookingSlugPattern).optional(),
@@ -45,7 +55,7 @@ export const bookingCreateRequestSchema = z.object({
     .refine((value) => isUKPhone(value), {
       message: 'Please enter a valid UK phone number.',
     }),
-  marketingOptIn: z.coerce.boolean().optional().default(false),
+  marketingOptIn: explicitBooleanSchema.optional().default(false),
 });
 
 export type ContactBookingLookupQuery = z.infer<typeof contactBookingLookupQuerySchema>;

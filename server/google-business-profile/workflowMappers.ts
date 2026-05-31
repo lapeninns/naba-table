@@ -5,6 +5,7 @@ import {
   directionIntentForPublishMode,
   type GoogleBusinessProfilePublishMode,
 } from './workflowPublishDirection';
+import { hasNonRetryableGooglePushEvidence } from './workflowPublishLifecycleDomain';
 import { hashJson, toObjectRecord, toStringRecord } from './workflowSerialization';
 import { GOOGLE_RETRYABLE_JOB_STATUSES } from './workflowStatusValidation';
 
@@ -114,10 +115,12 @@ export function mapEvent(row: PublishEventRow): GoogleBusinessProfileWorkflowAud
 export function mapPublishJob(row: PublishJobRow): GoogleBusinessProfileActivePublishJob {
   const googleUpdateMasks = normalizeGoogleMasks(row.google_update_masks);
   const mode = row.mode as GoogleBusinessProfilePublishMode;
+  const hasNonRetryableEvidence = hasNonRetryableGooglePushEvidence(row.errors);
   const canRetryGooglePush =
     mode !== 'nabatable_only' &&
     googleUpdateMasks.length > 0 &&
-    GOOGLE_RETRYABLE_JOB_STATUSES.includes(row.status);
+    GOOGLE_RETRYABLE_JOB_STATUSES.includes(row.status) &&
+    !hasNonRetryableEvidence;
 
   return {
     id: row.id,
@@ -143,7 +146,9 @@ export function mapPublishJob(row: PublishJobRow): GoogleBusinessProfileActivePu
         ? 'This update applied Google changes to Nabatable only.'
         : googleUpdateMasks.length === 0
           ? 'No supported Google fields were selected for this update.'
-          : 'Google retry is available only for failed or partial Google updates.',
+          : hasNonRetryableEvidence
+            ? 'This Google update needs reconciliation before another push can run.'
+            : 'Google retry is available only for failed or partial Google updates.',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

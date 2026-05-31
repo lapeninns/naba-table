@@ -140,9 +140,9 @@ async function hydrateProfileInsertFromCustomers(
   return next;
 }
 
-async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & { id: string }> {
-  const email = typeof user.email === 'string' && user.email.length > 0 ? user.email : null;
-
+function profileInsertFromUserMetadata(
+  user: User,
+): Pick<ProfileInsert, 'name' | 'phone' | 'image'> {
   const metadata = user.user_metadata ?? {};
   const rawName =
     typeof metadata.full_name === 'string' && metadata.full_name.trim().length > 0
@@ -163,12 +163,24 @@ async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & 
         ? metadata.picture
         : null;
 
+  return {
+    name: sanitizeName(rawName),
+    phone: sanitizePhone(rawPhone),
+    image: rawImage,
+  };
+}
+
+async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & { id: string }> {
+  const email = typeof user.email === 'string' && user.email.length > 0 ? user.email : null;
+
+  const metadataProfile = profileInsertFromUserMetadata(user);
+
   const base: ProfileInsert & { id: string } = {
     id: user.id,
     email,
-    name: rawName,
-    phone: rawPhone,
-    image: rawImage,
+    name: metadataProfile.name,
+    phone: metadataProfile.phone,
+    image: metadataProfile.image,
   };
 
   return await hydrateProfileInsertFromCustomers(base);
@@ -221,6 +233,14 @@ export async function ensureProfileRow(
     }
     if (needsPhone && hydrated.phone && hydrated.phone !== existing.phone) {
       updates.phone = hydrated.phone;
+    }
+
+    const metadataProfile = profileInsertFromUserMetadata(user);
+    if (needsName && updates.name === undefined && metadataProfile.name) {
+      updates.name = metadataProfile.name;
+    }
+    if (needsPhone && updates.phone === undefined && metadataProfile.phone) {
+      updates.phone = metadataProfile.phone;
     }
 
     if (Object.keys(updates).length === 0) {

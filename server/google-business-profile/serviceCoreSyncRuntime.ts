@@ -31,6 +31,10 @@ import {
   resolveRequestedDirection,
 } from './serviceSyncPlanning';
 
+import type { RestaurantDetails } from '@/server/restaurants/details';
+import type { OperatingHoursSnapshot } from '@/server/restaurants/operatingHours';
+import type { ServicePeriod } from '@/server/restaurants/servicePeriods';
+
 export type GoogleBusinessProfileCoreSyncRuntimeClock = () => string;
 
 const nowIso: GoogleBusinessProfileCoreSyncRuntimeClock = () => new Date().toISOString();
@@ -51,12 +55,15 @@ export async function syncRestaurantProfileWithGoogleBusinessProfileForClient(pa
   restaurantId: string;
   direction?: CoreSyncDirection;
   fields?: Array<'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl'>;
+  approvedProfile?: RestaurantDetails;
   client: DbClient;
   clock?: GoogleBusinessProfileCoreSyncRuntimeClock;
 }) {
   const resolveNow = params.clock ?? nowIso;
   const [profile, refreshedState, existingExternalProfile] = await Promise.all([
-    getRestaurantDetails(params.restaurantId, params.client),
+    params.approvedProfile
+      ? Promise.resolve(params.approvedProfile)
+      : getRestaurantDetails(params.restaurantId, params.client),
     syncGoogleBusinessProfileBusinessInformationForClient({
       restaurantId: params.restaurantId,
       client: params.client,
@@ -126,12 +133,15 @@ export async function syncRestaurantOperatingHoursWithGoogleBusinessProfileForCl
   restaurantId: string;
   direction?: CoreSyncDirection;
   selection?: OperatingHoursSyncSelection;
+  approvedSnapshot?: OperatingHoursSnapshot;
   client: DbClient;
   clock?: GoogleBusinessProfileCoreSyncRuntimeClock;
 }) {
   const resolveNow = params.clock ?? nowIso;
   const [snapshot, refreshedState, existingExternalProfile] = await Promise.all([
-    getOperatingHours(params.restaurantId, params.client),
+    params.approvedSnapshot
+      ? Promise.resolve(params.approvedSnapshot)
+      : getOperatingHours(params.restaurantId, params.client),
     syncGoogleBusinessProfileBusinessInformationForClient({
       restaurantId: params.restaurantId,
       client: params.client,
@@ -192,12 +202,15 @@ export async function syncRestaurantServicePeriodsWithGoogleBusinessProfileForCl
   restaurantId: string;
   direction?: CoreSyncDirection;
   selection?: ServicePeriodsSyncSelection;
+  approvedPeriods?: ServicePeriod[];
   client: DbClient;
   clock?: GoogleBusinessProfileCoreSyncRuntimeClock;
 }) {
   const resolveNow = params.clock ?? nowIso;
   const [periods, refreshedState, existingExternalProfile] = await Promise.all([
-    getServicePeriods(params.restaurantId, params.client),
+    params.approvedPeriods
+      ? Promise.resolve(params.approvedPeriods)
+      : getServicePeriods(params.restaurantId, params.client),
     syncGoogleBusinessProfileBusinessInformationForClient({
       restaurantId: params.restaurantId,
       client: params.client,

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { assertStagingScriptSafety } from '../db/safety';
+import { DEFAULT_STAGING_PROJECT_REF, assertStagingScriptSafety } from '../db/safety';
 import type { Database } from '@/types/supabase';
 
 type RestaurantRole = 'owner' | 'manager' | 'host' | 'server';
@@ -78,8 +78,7 @@ async function main() {
 
   assertStagingScriptSafety({
     apiUrl: supabaseUrl,
-    expectedProjectRef:
-      process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF,
+    expectedProjectRef: process.env.EXPECTED_STAGING_PROJECT_REF ?? DEFAULT_STAGING_PROJECT_REF,
     targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
     confirmation: process.env.CONFIRM_STAGING_OWNER_BOOTSTRAP,
     confirmationName: 'CONFIRM_STAGING_OWNER_BOOTSTRAP',

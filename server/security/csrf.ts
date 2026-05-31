@@ -5,11 +5,15 @@ import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { buildCsrfCookieOptions, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { recordSecurityEvent } from '@/server/security/events';
+import { anonymizeIp, extractClientIp } from '@/server/security/request';
 
 import type { NextRequest } from 'next/server';
 
 const TOKEN_LENGTH_BYTES = 32;
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const CSRF_FAILURE_EVENT_WINDOW_MS = 60_000;
+const CSRF_FAILURE_EVENT_BUCKET_LIMIT = 500;
+const csrfFailureEventBuckets = new Map<string, number>();
 
 async function shouldUseSecureCookie() {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
@@ -103,23 +107,80 @@ export function createUnsafeMethodRequiredResponse(method: string): NextResponse
   );
 }
 
+function normalizeCsrfFailurePath(path: string): string {
+  return path
+    .split('/')
+    .map((segment) => {
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          segment,
+        ) ||
+        (segment.length >= 20 && /^[A-Za-z0-9_-]+$/.test(segment))
+      ) {
+        return ':param';
+      }
+      return segment;
+    })
+    .join('/');
+}
+
+function pruneExpiredCsrfFailureBuckets(current: number): void {
+  for (const [bucketKey, bucketNextAllowedAt] of csrfFailureEventBuckets) {
+    if (bucketNextAllowedAt <= current) {
+      csrfFailureEventBuckets.delete(bucketKey);
+    }
+  }
+}
+
+function shouldRecordCsrfFailureEvent(req: NextRequest): boolean {
+  const path = normalizeCsrfFailurePath(req.nextUrl.pathname);
+  const ipScope = anonymizeIp(extractClientIp(req));
+  const key = [
+    req.method.toUpperCase(),
+    path,
+    ipScope,
+    req.headers.get(CSRF_HEADER_NAME) ? 'has-header' : 'no-header',
+    req.cookies.get(CSRF_COOKIE_NAME)?.value ? 'has-cookie' : 'no-cookie',
+  ].join(':');
+  const current = Date.now();
+  const nextAllowedAt = csrfFailureEventBuckets.get(key) ?? 0;
+  if (nextAllowedAt > current) {
+    return false;
+  }
+
+  if (csrfFailureEventBuckets.size >= CSRF_FAILURE_EVENT_BUCKET_LIMIT) {
+    pruneExpiredCsrfFailureBuckets(current);
+  }
+  if (
+    !csrfFailureEventBuckets.has(key) &&
+    csrfFailureEventBuckets.size >= CSRF_FAILURE_EVENT_BUCKET_LIMIT
+  ) {
+    return false;
+  }
+
+  csrfFailureEventBuckets.set(key, current + CSRF_FAILURE_EVENT_WINDOW_MS);
+  return true;
+}
+
 export function validateCsrfProtectedMutation(req: NextRequest): NextResponse | null {
   if (!isUnsafeMutationMethod(req.method)) {
     return createUnsafeMethodRequiredResponse(req.method);
   }
 
   if (!validateCsrfToken(req)) {
-    void recordSecurityEvent({
-      eventType: 'csrf_failure',
-      source: 'server.security.csrf',
-      severity: 'warning',
-      context: {
-        method: req.method,
-        path: req.nextUrl.pathname,
-        hasHeaderToken: Boolean(req.headers.get(CSRF_HEADER_NAME)),
-        hasCookieToken: Boolean(req.cookies.get(CSRF_COOKIE_NAME)?.value),
-      },
-    });
+    if (shouldRecordCsrfFailureEvent(req)) {
+      void recordSecurityEvent({
+        eventType: 'csrf_failure',
+        source: 'server.security.csrf',
+        severity: 'warning',
+        context: {
+          method: req.method,
+          path: req.nextUrl.pathname,
+          hasHeaderToken: Boolean(req.headers.get(CSRF_HEADER_NAME)),
+          hasCookieToken: Boolean(req.cookies.get(CSRF_COOKIE_NAME)?.value),
+        },
+      });
+    }
     return createCsrfFailureResponse();
   }
 

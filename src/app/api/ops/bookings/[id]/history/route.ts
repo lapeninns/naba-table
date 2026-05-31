@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { listBookingHistory } from "@/server/ops/booking-lifecycle/history";
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant } from "@/server/team/access";
+import { fetchUserMemberships } from "@/server/team/access";
 
 import type { Tables } from "@/types/supabase";
 
@@ -40,11 +40,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
+  let authorizedRestaurantIds: string[];
+  try {
+    const memberships = await fetchUserMemberships(user.id, supabase);
+    authorizedRestaurantIds = memberships
+      .map((membership) => membership.restaurant_id)
+      .filter((restaurantId): restaurantId is string => typeof restaurantId === "string" && restaurantId.length > 0);
+  } catch (membershipError) {
+    console.error("[ops][booking-history] failed to load memberships", membershipError);
+    return NextResponse.json({ error: "Unable to verify access" }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
+
   const serviceSupabase = getServiceSupabaseClient();
   const { data: booking, error: bookingError } = await serviceSupabase
     .from("bookings")
     .select("id, restaurant_id")
     .eq("id", id)
+    .in("restaurant_id", authorizedRestaurantIds)
     .maybeSingle();
 
   if (bookingError) {
@@ -55,13 +71,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   const bookingRow = booking as Pick<Tables<"bookings">, "id" | "restaurant_id"> | null;
   if (!bookingRow) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
-  }
-
-  try {
-    await requireMembershipForRestaurant({ userId: user.id, restaurantId: bookingRow.restaurant_id });
-  } catch (error) {
-    console.error("[ops][booking-history] membership check failed", error);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -76,4 +85,3 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Unable to load booking history" }, { status: 500 });
   }
 }
-

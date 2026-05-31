@@ -93,7 +93,7 @@ vi.mock('@/server/dual-sync/controls', () => ({
 }));
 
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
-import { runPublish } from '@/server/dual-sync/publish/orchestrator';
+import { runPublish as runPublishBase } from '@/server/dual-sync/publish/orchestrator';
 import { valueForField } from '@/server/dual-sync/publish/orchestrator-domain';
 import { buildRegistry, findFieldConfig } from '@/server/dual-sync/registry';
 
@@ -162,6 +162,32 @@ function makeDecision(over: Partial<DualSyncPublishDecision> = {}): DualSyncPubl
     ...defaultPinsFor(base.fieldKey),
     ...over,
   };
+}
+
+function defaultFullSnapshotPins(): Pick<
+  Parameters<typeof runPublishBase>[1],
+  'pinnedCoreSnapshotHash' | 'pinnedGbpSnapshotHash'
+> {
+  return {
+    pinnedCoreSnapshotHash: hashCanonicalJson(makeSnapshot()),
+    pinnedGbpSnapshotHash: hashCanonicalJson(makeSnapshot()),
+  };
+}
+
+function runPublishWithDefaultSnapshotPins(
+  ...args: Parameters<typeof runPublishBase>
+): ReturnType<typeof runPublishBase> {
+  const [supabase, input, options] = args;
+  const snapshotPins = defaultFullSnapshotPins();
+  return runPublishBase(
+    supabase,
+    {
+      ...input,
+      pinnedCoreSnapshotHash: input.pinnedCoreSnapshotHash ?? snapshotPins.pinnedCoreSnapshotHash,
+      pinnedGbpSnapshotHash: input.pinnedGbpSnapshotHash ?? snapshotPins.pinnedGbpSnapshotHash,
+    },
+    options,
+  );
 }
 
 function noopOperation(over: Record<string, unknown> = {}) {
@@ -305,7 +331,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -343,7 +369,7 @@ describe('dual-sync runPublish', () => {
     };
 
     await expect(
-      runPublish(
+      runPublishWithDefaultSnapshotPins(
         client,
         {
           restaurantId: RESTAURANT_ID,
@@ -371,7 +397,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -396,6 +422,7 @@ describe('dual-sync runPublish', () => {
 
   it('replays an existing client_request_id batch without invoking write ports again', async () => {
     const decisions = [makeDecision()];
+    const snapshotPins = defaultFullSnapshotPins();
     const decisionHash = hashCanonicalJson({
       restaurantId: RESTAURANT_ID,
       fieldPolicyHash: 'policy-hash-1',
@@ -406,8 +433,7 @@ describe('dual-sync runPublish', () => {
         pinnedCoreHash: decision.pinnedCoreHash,
         pinnedGbpHash: decision.pinnedGbpHash,
       })),
-      pinnedCoreSnapshotHash: null,
-      pinnedGbpSnapshotHash: null,
+      ...snapshotPins,
     });
     findPublishBatchByClientRequestMock.mockResolvedValueOnce({
       id: 'existing-job-1',
@@ -426,13 +452,14 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
         decisions,
         actorUserId: 'user-1',
         clientRequestId: 'request-1',
+        ...snapshotPins,
       },
       { ports },
     );
@@ -481,7 +508,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn().mockResolvedValue({ status: 'succeeded' }),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -562,7 +589,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -624,7 +651,7 @@ describe('dual-sync runPublish', () => {
       result: { validateOnly: false },
     });
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -697,6 +724,12 @@ describe('dual-sync runPublish', () => {
         }),
       }),
     ]);
+    expect(updateOperationGroupStatusMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationGroupId: 'group-hours',
+        status: 'skipped',
+      }),
+    );
   });
 
   it('normalizes thrown Google provider errors into actionable failure codes', async () => {
@@ -717,7 +750,7 @@ describe('dual-sync runPublish', () => {
       }),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -779,12 +812,19 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
-        decisions: [makeDecision()],
+        decisions: [
+          makeDecision({
+            pinnedCoreHash: hashCanonicalJson('Old Core value'),
+            pinnedGbpHash: hashCanonicalJson('Fresh Google value'),
+          }),
+        ],
         actorUserId: 'user-1',
+        pinnedCoreSnapshotHash: hashCanonicalJson(initialCore),
+        pinnedGbpSnapshotHash: hashCanonicalJson(googleSnapshot),
       },
       { ports },
     );
@@ -809,7 +849,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn().mockResolvedValue({ status: 'succeeded' }),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -846,7 +886,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -869,7 +909,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -894,7 +934,7 @@ describe('dual-sync runPublish', () => {
       applyExportBatchToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -941,12 +981,14 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision({ action: 'ignore', pinnedCoreHash: null, pinnedGbpHash: null })],
         actorUserId: 'user-1',
+        pinnedCoreSnapshotHash: hashCanonicalJson(absentSnapshot),
+        pinnedGbpSnapshotHash: hashCanonicalJson(absentSnapshot),
       },
       { ports },
     );
@@ -966,7 +1008,7 @@ describe('dual-sync runPublish', () => {
       applyExportBatchToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1006,7 +1048,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1034,7 +1076,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1056,7 +1098,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1093,7 +1135,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1126,7 +1168,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1179,7 +1221,7 @@ describe('dual-sync runPublish', () => {
       }),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1227,7 +1269,7 @@ describe('dual-sync runPublish', () => {
       applyExportBatchToGoogle: vi.fn(),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1270,7 +1312,7 @@ describe('dual-sync runPublish', () => {
       applyExportBatchToGoogle: vi.fn().mockResolvedValue({ supported: false }),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1318,7 +1360,7 @@ describe('dual-sync runPublish', () => {
       applyExportBatchToGoogle: vi.fn().mockRejectedValue(new Error('upstream broke')),
     };
 
-    const result = await runPublish(
+    const result = await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,
@@ -1377,7 +1419,7 @@ describe('dual-sync runPublish', () => {
       applyExportToGoogle: vi.fn(),
     };
 
-    await runPublish(
+    await runPublishWithDefaultSnapshotPins(
       client,
       {
         restaurantId: RESTAURANT_ID,

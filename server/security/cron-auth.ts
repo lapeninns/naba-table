@@ -3,11 +3,14 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 
 import { recordSecurityEvent } from '@/server/security/events';
 import { consumeRateLimit } from '@/server/security/rate-limit';
+import { anonymizeIp, extractClientIp } from '@/server/security/request';
 
 import type { NextRequest } from 'next/server';
 
 const DEFAULT_RATE_LIMIT = 20;
 const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
+const PRE_AUTH_FAILURE_RATE_LIMIT = 10;
+const PRE_AUTH_FAILURE_RATE_LIMIT_WINDOW_MS = 60_000;
 
 type CronRequest = Request | NextRequest;
 
@@ -91,12 +94,52 @@ function logCronAuthFailure(
   });
 }
 
+async function consumePreAuthCronFailureBudget(
+  request: CronRequest,
+  jobName: string,
+): Promise<NextResponse | null> {
+  const clientIp = extractClientIp(request as NextRequest);
+  try {
+    const rateLimit = await consumeRateLimit({
+      identifier: `cron-auth-failure:${jobName}:ip:${clientIp}`,
+      limit: PRE_AUTH_FAILURE_RATE_LIMIT,
+      windowMs: PRE_AUTH_FAILURE_RATE_LIMIT_WINDOW_MS,
+    });
+
+    if (rateLimit.ok) {
+      return null;
+    }
+
+    console.warn('[cron][auth] pre-auth failure rate limit exceeded', {
+      jobName,
+      method: request.method,
+      ipScope: anonymizeIp(clientIp),
+    });
+    return cronJson('Too many cron authentication failures.', 429);
+  } catch (error) {
+    console.error('[cron][auth] pre-auth rate limit unavailable', {
+      jobName,
+      method: request.method,
+      ipScope: anonymizeIp(clientIp),
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return cronJson('Cron rate limit is unavailable.', 503);
+  }
+}
+
 export async function requireCronAuth(
   request: CronRequest,
   jobName: string,
 ): Promise<CronAuthResult> {
   const secrets = getCronAuthSecrets();
   if (secrets.length === 0) {
+    const preAuthLimit = await consumePreAuthCronFailureBudget(request, jobName);
+    if (preAuthLimit) {
+      return {
+        ok: false,
+        response: preAuthLimit,
+      };
+    }
     logCronAuthFailure(jobName, 'missing_secret', request);
     return {
       ok: false,
@@ -106,6 +149,13 @@ export async function requireCronAuth(
 
   const token = extractBearerToken(request.headers.get('authorization'));
   if (!hasValidCronToken(token, secrets)) {
+    const preAuthLimit = await consumePreAuthCronFailureBudget(request, jobName);
+    if (preAuthLimit) {
+      return {
+        ok: false,
+        response: preAuthLimit,
+      };
+    }
     logCronAuthFailure(jobName, 'unauthorized', request);
     return {
       ok: false,

@@ -118,7 +118,7 @@ function buildHistoryEvent(
   );
 
   return {
-    versionId: Number(version.version_id),
+    versionId: version.version_id,
     changeType: version.change_type as BookingHistoryEvent['changeType'],
     changedAt: version.changed_at ?? new Date().toISOString(),
     actor: resolveActor(version, audit),

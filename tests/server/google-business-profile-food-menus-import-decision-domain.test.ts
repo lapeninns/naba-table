@@ -101,6 +101,61 @@ describe('google business profile food menus import decision domain', () => {
     expect(parseSuggestedPatch({ keyIngredients: [123] })).toEqual({ keyIngredients: [] });
   });
 
+  it('drops invalid numeric values from suggested patches', () => {
+    expect(
+      parseSuggestedPatch({
+        basePrice: -1,
+        caloriesKcal: -10,
+        sodiumMg: Number.POSITIVE_INFINITY,
+        servesNum: 2.5,
+        proteinG: 0,
+      }),
+    ).toEqual({ proteinG: 0 });
+  });
+
+  it('normalizes modifier numeric fields so patches cannot create negative option prices', () => {
+    expect(
+      parseSuggestedPatch({
+        modifierGroups: [
+          {
+            externalModifierGroupId: 'extras',
+            groupName: 'Extras',
+            minSelect: 2,
+            maxSelect: 1,
+            options: [
+              {
+                externalModifierOptionId: 'discount',
+                optionName: 'Discounted extra',
+                priceDelta: -15,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toEqual({
+      modifierGroups: [
+        {
+          externalModifierGroupId: 'extras',
+          groupName: 'Extras',
+          required: false,
+          minSelect: 2,
+          maxSelect: 2,
+          displayOrder: 0,
+          options: [
+            {
+              externalModifierOptionId: 'discount',
+              optionName: 'Discounted extra',
+              priceDelta: 0,
+              defaultSelected: false,
+              availabilityStatus: 'available',
+              displayOrder: 0,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('validates create suggestions by required item fields and non-negative price', () => {
     expect(
       isCreateSuggestedPatch(

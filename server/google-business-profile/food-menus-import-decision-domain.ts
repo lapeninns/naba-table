@@ -15,6 +15,14 @@ export type FoodMenusImportReviewDecisionAction =
 
 export type ParsedFoodMenusSuggestedPatch = GoogleFoodMenusImportItemSuggestedPatch;
 
+function isNonNegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
 export function parseSuggestedPatch(value: unknown): ParsedFoodMenusSuggestedPatch | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -38,7 +46,7 @@ export function parseSuggestedPatch(value: unknown): ParsedFoodMenusSuggestedPat
     patch.shortDescription =
       typeof record.shortDescription === 'string' ? record.shortDescription.trim() || null : null;
   }
-  if (typeof record.basePrice === 'number' && Number.isFinite(record.basePrice)) {
+  if (isNonNegativeFiniteNumber(record.basePrice)) {
     patch.basePrice = record.basePrice;
   }
   if (typeof record.currency === 'string' && record.currency.trim()) {
@@ -76,7 +84,13 @@ export function parseSuggestedPatch(value: unknown): ParsedFoodMenusSuggestedPat
     'servesNum',
   ] as const) {
     const value = record[key];
-    if ((typeof value === 'number' && Number.isFinite(value)) || value === null) {
+    if (value === null) {
+      patch[key] = value;
+    } else if (key === 'servesNum') {
+      if (isPositiveInteger(value)) {
+        patch[key] = value;
+      }
+    } else if (isNonNegativeFiniteNumber(value)) {
       patch[key] = value;
     }
   }
@@ -105,22 +119,30 @@ export function parseSuggestedPatch(value: unknown): ParsedFoodMenusSuggestedPat
         ) {
           return [];
         }
+        const minSelect =
+          typeof groupRecord.minSelect === 'number' &&
+          Number.isInteger(groupRecord.minSelect) &&
+          groupRecord.minSelect >= 0
+            ? groupRecord.minSelect
+            : 0;
+        const maxSelect =
+          typeof groupRecord.maxSelect === 'number' &&
+          Number.isInteger(groupRecord.maxSelect) &&
+          groupRecord.maxSelect >= minSelect
+            ? groupRecord.maxSelect
+            : Math.max(1, minSelect);
+
         return [
           {
             externalModifierGroupId: groupRecord.externalModifierGroupId.trim(),
             groupName: groupRecord.groupName.trim(),
             required: groupRecord.required === true,
-            minSelect:
-              typeof groupRecord.minSelect === 'number' && Number.isInteger(groupRecord.minSelect)
-                ? groupRecord.minSelect
-                : 0,
-            maxSelect:
-              typeof groupRecord.maxSelect === 'number' && Number.isInteger(groupRecord.maxSelect)
-                ? groupRecord.maxSelect
-                : 1,
+            minSelect,
+            maxSelect,
             displayOrder:
               typeof groupRecord.displayOrder === 'number' &&
-              Number.isInteger(groupRecord.displayOrder)
+              Number.isInteger(groupRecord.displayOrder) &&
+              groupRecord.displayOrder >= 0
                 ? groupRecord.displayOrder
                 : 0,
             options: Array.isArray(groupRecord.options)
@@ -143,7 +165,8 @@ export function parseSuggestedPatch(value: unknown): ParsedFoodMenusSuggestedPat
                       optionName: optionRecord.optionName.trim(),
                       priceDelta:
                         typeof optionRecord.priceDelta === 'number' &&
-                        Number.isFinite(optionRecord.priceDelta)
+                        Number.isFinite(optionRecord.priceDelta) &&
+                        optionRecord.priceDelta >= 0
                           ? optionRecord.priceDelta
                           : 0,
                       defaultSelected: optionRecord.defaultSelected === true,
@@ -153,7 +176,8 @@ export function parseSuggestedPatch(value: unknown): ParsedFoodMenusSuggestedPat
                           : 'available',
                       displayOrder:
                         typeof optionRecord.displayOrder === 'number' &&
-                        Number.isInteger(optionRecord.displayOrder)
+                        Number.isInteger(optionRecord.displayOrder) &&
+                        optionRecord.displayOrder >= 0
                           ? optionRecord.displayOrder
                           : optionIndex,
                     },

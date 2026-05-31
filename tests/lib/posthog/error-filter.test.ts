@@ -5,6 +5,7 @@ import {
   getPosthogSuppressionDebugState,
   matchPosthogExceptionSuppression,
   recordSuppressedPosthogException,
+  sanitizePosthogEventUrls,
   shouldSuppressPosthogExceptionEvent,
 } from '@/lib/posthog/error-filter';
 
@@ -92,6 +93,26 @@ describe('shouldSuppressPosthogExceptionEvent', () => {
     });
 
     expect(shouldSuppress).toBe(false);
+  });
+
+  it('redacts URL query strings before PostHog events are sent', () => {
+    const result = sanitizePosthogEventUrls({
+      event: '$pageview',
+      properties: {
+        $current_url:
+          'https://app.nabatable.com/api/auth/callback?token_hash=secret-token&type=email',
+        $pathname: '/invite/pathname-invite-token',
+        $prev_pageview_pathname: '/api/team/invitations/previous-invite-token',
+        path: '/invite/raw-invite-token?code=secret-code',
+        safe: 'unchanged?not-a-url-secret',
+      },
+    });
+
+    expect(result?.properties?.$current_url).toBe('https://app.nabatable.com/api/auth/callback');
+    expect(result?.properties?.$pathname).toBe('/invite/[redacted]');
+    expect(result?.properties?.$prev_pageview_pathname).toBe('/api/team/invitations/[redacted]');
+    expect(result?.properties?.path).toBe('/invite/[redacted]');
+    expect(result?.properties?.safe).toBe('unchanged?not-a-url-secret');
   });
 
   it('handles missing properties safely', () => {

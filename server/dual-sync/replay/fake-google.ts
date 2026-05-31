@@ -94,6 +94,24 @@ function sectionValue(
   }
 }
 
+function replayValueForField(
+  snapshot: DualSyncCanonicalSnapshot,
+  config: DualSyncFieldConfig,
+  side: 'core' | 'gbp',
+): unknown {
+  const value = sectionValue(snapshot, config.sectionKey);
+  if (value === null || value === undefined) return null;
+  if (config.kind === 'profile') {
+    const profileKey = config.fieldKey.split('.')[1];
+    if (!profileKey) return null;
+    return (value as Record<string, unknown>)[profileKey] ?? null;
+  }
+  if (config.kind === 'core_only') {
+    return side === 'core' ? value : null;
+  }
+  return value;
+}
+
 function profileFieldName(fieldKey: string): string | null {
   if (!fieldKey.startsWith('profile.')) return null;
   const field = fieldKey.slice('profile.'.length);
@@ -274,7 +292,7 @@ function fieldHash(input: {
   readonly config: DualSyncFieldConfig;
   readonly side: 'core' | 'gbp';
 }): string | null {
-  const value = sectionValue(input.snapshot, input.config.sectionKey);
+  const value = replayValueForField(input.snapshot, input.config, input.side);
   const canonical =
     input.side === 'core'
       ? input.config.canonicalizeCoreValue(value)
@@ -514,8 +532,8 @@ export class FakeGoogleBusinessProfileAdapter {
       const hash = fieldHash({ snapshot, config, side });
       result[config.fieldKey] = {
         status: 'succeeded',
-        afterCoreHash: side === 'core' ? hash : undefined,
-        afterGbpHash: side === 'gbp' ? hash : undefined,
+        afterCoreHash: hash,
+        afterGbpHash: hash,
       };
     }
     return result;

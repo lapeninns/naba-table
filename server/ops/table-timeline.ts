@@ -205,7 +205,7 @@ async function loadTimelineBookings(
 
   if (error) {
     console.error('[ops][tables][timeline] failed to load bookings', error.message);
-    return [];
+    throw new Error('Unable to load table timeline bookings');
   }
 
   return (data ?? []) as TimelineBookingRow[];
@@ -278,7 +278,7 @@ async function loadHolds(
     return await loadActiveHoldsForDate(restaurantId, date, policy, supabase);
   } catch (error) {
     console.warn('[ops][tables][timeline] failed to load holds', error);
-    return [];
+    throw new Error('Unable to load table timeline holds');
   }
 }
 

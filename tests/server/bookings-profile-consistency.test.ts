@@ -126,11 +126,27 @@ describe('booking profile consistency helpers', () => {
     const client = makeClientForQueries([updateQuery]);
     recordCancellationForCustomerProfileMock.mockRejectedValue(new Error('profile unavailable'));
 
-    const booking = await softCancelBooking(client as never, 'booking-1');
+    const result = await softCancelBooking(client as never, 'booking-1');
 
-    expect(booking.status).toBe('cancelled');
+    expect(result).toMatchObject({ cancelled: true, booking: { status: 'cancelled' } });
     expect(updateQuery.neq).toHaveBeenCalledWith('status', 'cancelled');
     expect(recordCancellationForCustomerProfileMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('scopes soft cancellation updates and readback to the authorized restaurant when provided', async () => {
+    const updateQuery = makeQuery({ data: null, error: null });
+    const readQuery = makeQuery({
+      data: makeBooking({ status: 'cancelled' }),
+      error: null,
+    });
+    const client = makeClientForQueries([updateQuery, readQuery]);
+
+    await softCancelBooking(client as never, 'booking-1', { restaurantId: 'rest-1' });
+
+    expect(updateQuery.eq).toHaveBeenCalledWith('id', 'booking-1');
+    expect(updateQuery.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
+    expect(readQuery.eq).toHaveBeenCalledWith('id', 'booking-1');
+    expect(readQuery.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
   });
 
   it('does not double-count customer cancellations for an already-cancelled booking', async () => {
@@ -141,9 +157,9 @@ describe('booking profile consistency helpers', () => {
     });
     const client = makeClientForQueries([updateQuery, readQuery]);
 
-    const booking = await softCancelBooking(client as never, 'booking-1');
+    const result = await softCancelBooking(client as never, 'booking-1');
 
-    expect(booking.status).toBe('cancelled');
+    expect(result).toMatchObject({ cancelled: false, booking: { status: 'cancelled' } });
     expect(recordCancellationForCustomerProfileMock).not.toHaveBeenCalled();
   });
 

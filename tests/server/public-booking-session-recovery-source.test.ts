@@ -14,7 +14,7 @@ describe('session recovery booking mutation source guards', () => {
 
   it('checks the guest self-service lock before session recovery cancellation', () => {
     const lockIndex = routeSource.indexOf('const cancellationLock = evaluateGuestModificationLock');
-    const cancelIndex = routeSource.indexOf('const cancelledRecord = await softCancelBooking');
+    const cancelIndex = routeSource.indexOf('const cancellation = await softCancelBooking');
 
     expect(lockIndex).toBeGreaterThan(0);
     expect(cancelIndex).toBeGreaterThan(lockIndex);

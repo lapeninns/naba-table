@@ -93,6 +93,7 @@ async function maybeNotifyAdminPending(params: {
     .from("bookings")
     .update({ details: nextDetails })
     .eq("id", params.booking.id)
+    .eq("status", "pending")
     .is("details->>pending_admin_notified_at", null)
     .select("*")
     .maybeSingle();
@@ -105,7 +106,12 @@ async function maybeNotifyAdminPending(params: {
     return;
   }
 
-  const targetBooking = (data ?? params.booking) as BookingRecord;
+  if (!data) {
+    params.logJob("pending_admin.notify_skipped_existing", { bookingId: params.booking.id });
+    return;
+  }
+
+  const targetBooking = data as BookingRecord;
 
   try {
     await sendBookingPendingAttentionEmail(targetBooking, { reason: params.reason ?? "Insufficient capacity" });

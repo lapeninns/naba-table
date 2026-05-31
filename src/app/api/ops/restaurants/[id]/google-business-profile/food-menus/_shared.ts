@@ -13,12 +13,16 @@ export const GoogleFoodMenuCuisineSchema = z.enum([...GOOGLE_FOOD_MENU_CUISINES]
 ]);
 
 export const FoodMenusProjectionRequestSchema = z.object({
-  foodMenusName: z.string().trim().min(1),
-  menuLabel: z.string().trim().min(1).nullable().optional(),
-  sourceUrl: z.string().trim().url().nullable().optional(),
-  languageCode: z.string().trim().min(2).nullable().optional(),
+  foodMenusName: z
+    .string()
+    .trim()
+    .max(256)
+    .regex(/^accounts\/[^/]+\/locations\/[^/]+\/foodMenus$/),
+  menuLabel: z.string().trim().min(1).max(120).nullable().optional(),
+  sourceUrl: z.string().trim().url().max(2048).nullable().optional(),
+  languageCode: z.string().trim().min(2).max(16).nullable().optional(),
   includeUnavailable: z.boolean().optional(),
-  cuisines: z.array(GoogleFoodMenuCuisineSchema).optional(),
+  cuisines: z.array(GoogleFoodMenuCuisineSchema).max(16).optional(),
   persist: z.boolean().optional(),
 });
 
@@ -156,16 +160,8 @@ export const FoodMenusPublishRequestSchema = z.object({
   languageCode: z.string().trim().min(2).nullable().optional(),
   includeUnavailable: z.boolean().optional(),
   cuisines: z.array(GoogleFoodMenuCuisineSchema).optional(),
-  expectedGoogleHash: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/i)
-    .nullable()
-    .optional(),
-  expectedProjectionHash: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/i)
-    .nullable()
-    .optional(),
+  expectedGoogleHash: z.string().regex(/^[a-f0-9]{64}$/i),
+  expectedProjectionHash: z.string().regex(/^[a-f0-9]{64}$/i),
 });
 
 export function invalidPayloadResponse(error: z.ZodError) {

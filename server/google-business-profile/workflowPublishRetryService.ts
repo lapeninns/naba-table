@@ -1,4 +1,5 @@
 import { getGoogleBusinessProfileWorkflowState } from './workflowDraftLifecycle';
+import { selectedSectionKeys } from './workflowDraftSelection';
 import { extractFieldDecisions } from './workflowFieldDecisions';
 import { normalizeGoogleMasks } from './workflowGoogleUpdateMasks';
 import { buildCoreSnapshotHashes, mapDraft } from './workflowMappers';
@@ -7,6 +8,7 @@ import { pushDraftToGoogle } from './workflowPublishExecution';
 import {
   classifyWorkflowGooglePushFailure,
   extractGoogleEventIdFromPublishError,
+  hasNonRetryableGooglePushEvidence,
 } from './workflowPublishLifecycleDomain';
 import { assertGooglePushEnabled, createWorkflowNamedError } from './workflowPublishPreflight';
 import {
@@ -26,6 +28,28 @@ import type {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+async function loadChangedPostNabatableSections(params: {
+  restaurantId: string;
+  client: DbClient;
+  storedHashes: Record<string, string>;
+  sections: readonly GoogleBusinessProfileDraftSectionKey[];
+}): Promise<GoogleBusinessProfileDraftSectionKey[]> {
+  const currentHashes: Record<string, string> = buildCoreSnapshotHashes(
+    await readCoreSnapshots(params.restaurantId, params.client),
+  );
+
+  return params.sections.filter(
+    (section) => params.storedHashes[section] !== currentHashes[section],
+  );
+}
+
+function createCoreChangedRetryError(sections: readonly GoogleBusinessProfileDraftSectionKey[]) {
+  return createWorkflowNamedError(
+    'GBP_PUBLISH_JOB_CORE_CHANGED',
+    `Cannot retry Google because Nabatable details changed after the update: ${sections.join(', ')}.`,
+  );
 }
 
 export async function retryGoogleBusinessProfileWorkflowGooglePushState(params: {
@@ -49,7 +73,8 @@ export async function retryGoogleBusinessProfileWorkflowGooglePushState(params: 
   if (
     (job.mode !== 'nabatable_and_google' && job.mode !== 'google_only') ||
     googleUpdateMasks.length === 0 ||
-    !GOOGLE_RETRYABLE_JOB_STATUSES.includes(job.status)
+    !GOOGLE_RETRYABLE_JOB_STATUSES.includes(job.status) ||
+    hasNonRetryableGooglePushEvidence(job.errors)
   ) {
     throw createWorkflowNamedError(
       'GBP_PUBLISH_JOB_INVALID_STATE',
@@ -67,19 +92,23 @@ export async function retryGoogleBusinessProfileWorkflowGooglePushState(params: 
     selectedApprovals,
     extractFieldDecisions<GoogleBusinessProfileDraftSectionKey>(job.selected_approvals),
   );
-  const currentHashes: Record<string, string> = buildCoreSnapshotHashes(
-    await readCoreSnapshots(params.restaurantId, client),
-  );
+  const retryCore = await readCoreSnapshots(params.restaurantId, params.client);
   const storedHashes = toStringRecord(job.post_nabatable_core_hashes);
-  const changedSections = (job.nabatable_sections ?? []).filter(
-    (section) => storedHashes[section] !== currentHashes[section],
-  );
+  const postNabatableSections: GoogleBusinessProfileDraftSectionKey[] = [
+    ...new Set<GoogleBusinessProfileDraftSectionKey>([
+      ...((job.nabatable_sections ?? []) as GoogleBusinessProfileDraftSectionKey[]),
+      ...selectedSectionKeys(draft, 'google_only'),
+    ]),
+  ];
+  const changedSections = await loadChangedPostNabatableSections({
+    restaurantId: params.restaurantId,
+    client,
+    storedHashes,
+    sections: postNabatableSections,
+  });
 
   if (changedSections.length > 0) {
-    throw createWorkflowNamedError(
-      'GBP_PUBLISH_JOB_CORE_CHANGED',
-      `Cannot retry Google because Nabatable details changed after the update: ${changedSections.join(', ')}.`,
-    );
+    throw createCoreChangedRetryError(changedSections);
   }
 
   const externalProfile = await findExternalProfile(params.restaurantId, client);
@@ -89,17 +118,72 @@ export async function retryGoogleBusinessProfileWorkflowGooglePushState(params: 
     actorUserId: params.actorUserId,
     client,
   });
+  const changedSectionsAfterClaim = await loadChangedPostNabatableSections({
+    restaurantId: params.restaurantId,
+    client,
+    storedHashes,
+    sections: postNabatableSections,
+  });
 
+  if (changedSectionsAfterClaim.length > 0) {
+    const error = createCoreChangedRetryError(changedSectionsAfterClaim);
+    const { error: staleUpdateError } = await client
+      .from('restaurant_external_profile_publish_jobs')
+      .update({
+        status: 'google_failed',
+        google_retry_by_user_id: params.actorUserId,
+        retried_at: nowIso(),
+        error_classification: null,
+        errors: toJson([
+          {
+            message: error.message,
+            classification: null,
+            retryable: false,
+            reconciliationRequired: true,
+          },
+        ]),
+      })
+      .eq('id', job.id);
+    if (staleUpdateError) {
+      throw staleUpdateError;
+    }
+    throw error;
+  }
+
+  let googleEventId: string | null = null;
   try {
-    const googleEventId = await pushDraftToGoogle({
+    googleEventId = await pushDraftToGoogle({
       restaurantId: params.restaurantId,
       draft,
       externalProfile,
       actorUserId: params.actorUserId,
       googleUpdateMasks,
+      currentCore: retryCore,
       client,
     });
-    const pushedAt = nowIso();
+  } catch (error) {
+    const classified = classifyWorkflowGooglePushFailure(error);
+    googleEventId = extractGoogleEventIdFromPublishError(error, job.google_publish_event_id);
+    const { error: retryFailureUpdateError } = await client
+      .from('restaurant_external_profile_publish_jobs')
+      .update({
+        status: 'google_failed',
+        google_publish_event_id: googleEventId,
+        google_retry_by_user_id: params.actorUserId,
+        retried_at: nowIso(),
+        error_classification:
+          classified.classification === undefined ? 'retryable' : classified.classification,
+        errors: toJson([classified]),
+      })
+      .eq('id', job.id);
+    if (retryFailureUpdateError) {
+      throw retryFailureUpdateError;
+    }
+    throw error;
+  }
+
+  const pushedAt = nowIso();
+  try {
     const { error: jobUpdateError } = await client
       .from('restaurant_external_profile_publish_jobs')
       .update({
@@ -131,17 +215,26 @@ export async function retryGoogleBusinessProfileWorkflowGooglePushState(params: 
       googleEventId,
     };
   } catch (error) {
-    const classified = classifyWorkflowGooglePushFailure(error);
-    const googleEventId = extractGoogleEventIdFromPublishError(error, job.google_publish_event_id);
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Local status update failed after Google publish succeeded.';
     const { error: retryFailureUpdateError } = await client
       .from('restaurant_external_profile_publish_jobs')
       .update({
-        status: 'google_failed',
+        status: 'failed',
         google_publish_event_id: googleEventId,
         google_retry_by_user_id: params.actorUserId,
-        retried_at: nowIso(),
-        error_classification: classified.classification ?? 'retryable',
-        errors: toJson([classified]),
+        retried_at: pushedAt,
+        error_classification: null,
+        errors: toJson([
+          {
+            message,
+            classification: null,
+            retryable: false,
+            reconciliationRequired: true,
+          },
+        ]),
       })
       .eq('id', job.id);
     if (retryFailureUpdateError) {

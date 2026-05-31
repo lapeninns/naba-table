@@ -48,6 +48,21 @@ describe('logger redaction', () => {
     expect(output).toContain('redacted');
   });
 
+  it('redacts secret route token path segments', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });
+
+    logger.info('invite link generated', {
+      url: '/invite/raw-invite-token-secret',
+      recovery: '/bookings/recover/session-recovery-token-secret?next=/bookings',
+    });
+
+    const output = JSON.stringify(logSpy.mock.calls);
+    expect(output).not.toContain('raw-invite-token-secret');
+    expect(output).not.toContain('session-recovery-token-secret');
+    expect(output).toContain('***redacted***');
+  });
+
   it('redacts sensitive headers, tokens, emails, and phones inside free-form strings', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });

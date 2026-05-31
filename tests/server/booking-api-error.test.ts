@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   buildBookingCreateFailureObservabilityEvent,
@@ -7,13 +7,7 @@ import {
 import { PastBookingError } from '@/server/bookings/pastTimeValidation';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
 
-const originalNodeEnv = process.env.NODE_ENV;
-
 describe('booking API error mapper', () => {
-  afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
-  });
-
   it('maps operating-hours errors to the existing public response shape', () => {
     expect(mapBookingApiError(new OperatingHoursError('CLOSED', 'Restaurant is closed.'))).toEqual({
       status: 400,
@@ -54,23 +48,21 @@ describe('booking API error mapper', () => {
     });
   });
 
-  it('maps generic errors without stack details outside development', () => {
-    process.env.NODE_ENV = 'production';
-
+  it('maps generic errors to a stable public response', () => {
     expect(mapBookingApiError(new Error('Database unavailable'))).toEqual({
       status: 500,
       body: {
-        error: 'Database unavailable',
+        error: 'Unable to create booking',
         code: 'INTERNAL_SERVER_ERROR',
       },
     });
   });
 
-  it('maps string and unknown values using existing fallbacks', () => {
+  it('does not expose raw string or unknown failures', () => {
     expect(mapBookingApiError('plain failure')).toEqual({
       status: 500,
       body: {
-        error: 'plain failure',
+        error: 'Unable to create booking',
         code: 'INTERNAL_SERVER_ERROR',
       },
     });
@@ -78,22 +70,8 @@ describe('booking API error mapper', () => {
     expect(mapBookingApiError(null)).toEqual({
       status: 500,
       body: {
-        error: 'An unexpected error occurred',
+        error: 'Unable to create booking',
         code: 'INTERNAL_SERVER_ERROR',
-      },
-    });
-  });
-
-  it('includes stack details for Error values in development', () => {
-    process.env.NODE_ENV = 'development';
-    const error = new Error('Development failure');
-
-    expect(mapBookingApiError(error)).toEqual({
-      status: 500,
-      body: {
-        error: 'Development failure',
-        code: 'INTERNAL_SERVER_ERROR',
-        stack: error.stack,
       },
     });
   });
@@ -143,7 +121,7 @@ describe('booking create failure observability event builder', () => {
         apiError: {
           status: 500,
           body: {
-            error: 'Database unavailable',
+            error: 'Unable to create booking',
             code: 'INTERNAL_SERVER_ERROR',
           },
         },
@@ -157,7 +135,7 @@ describe('booking create failure observability event builder', () => {
       eventType: 'booking.create.failure',
       severity: 'error',
       context: {
-        message: 'Database unavailable',
+        message: 'Unable to create booking',
         restaurantId: 'restaurant-1',
         bookingDate: '2026-05-23',
         emailDomain: null,

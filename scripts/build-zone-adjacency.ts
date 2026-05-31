@@ -29,9 +29,10 @@ function requireEnv(): { supabaseUrl: string; serviceRoleKey: string } {
   if (!RESTAURANT_SLUG) {
     throw new Error('RESTAURANT_SLUG is required.');
   }
-  if (EXPECTED_PROJECT_REF) {
-    assertExactSupabaseApiProjectRef(supabaseUrl, EXPECTED_PROJECT_REF);
+  if (!EXPECTED_PROJECT_REF) {
+    throw new Error('EXPECTED_PROJECT_REF is required before using the service-role key.');
   }
+  assertExactSupabaseApiProjectRef(supabaseUrl, EXPECTED_PROJECT_REF);
   return { supabaseUrl, serviceRoleKey };
 }
 

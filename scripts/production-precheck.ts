@@ -71,6 +71,7 @@ async function preCheck() {
     console.table(bloatRes.rows);
   } catch (err) {
     console.error('❌ Pre-check failed:', err);
+    process.exitCode = 1;
   } finally {
     await client.end();
   }

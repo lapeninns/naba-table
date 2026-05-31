@@ -17,53 +17,61 @@ export const metadata: Metadata = {
 };
 
 type EmailDeliverySearchParams = {
-  tab?: string;
-  restaurantId?: string;
-  range?: string;
-  page?: string;
-  pageSize?: string;
-  status?: string;
-  fixture?: string;
-  queueFixture?: string;
-  simulateEmailDeliveryError?: string;
-  simulateRetryMutationError?: string;
-  recipientEmail?: string;
-  messageId?: string;
-  bookingRef?: string;
-  templateType?: string;
-  emailType?: string;
+  tab?: string | string[];
+  restaurantId?: string | string[];
+  range?: string | string[];
+  page?: string | string[];
+  pageSize?: string | string[];
+  status?: string | string[];
+  fixture?: string | string[];
+  queueFixture?: string | string[];
+  simulateEmailDeliveryError?: string | string[];
+  simulateRetryMutationError?: string | string[];
+  recipientEmail?: string | string[];
+  messageId?: string | string[];
+  bookingRef?: string | string[];
+  templateType?: string | string[];
+  emailType?: string | string[];
 };
 
 const RANGE_VALUES = OPS_EMAIL_DELIVERY_RANGE_VALUES;
 const STATUS_VALUES = EMAIL_DELIVERY_STATUS_VALUES;
 
-function parseUuid(raw: string | undefined): string | null {
-  if (!raw) return null;
-  const value = raw.trim();
+function firstSearchParam(raw: string | string[] | undefined): string | undefined {
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+function parseUuid(raw: string | string[] | undefined): string | null {
+  const first = firstSearchParam(raw);
+  if (!first) return null;
+  const value = first.trim();
   if (!value) return null;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
     ? value
     : null;
 }
 
-function parseRange(raw: string | undefined): OpsEmailDeliveryRange {
-  if (raw && RANGE_VALUES.includes(raw as OpsEmailDeliveryRange)) {
-    return raw as OpsEmailDeliveryRange;
+function parseRange(raw: string | string[] | undefined): OpsEmailDeliveryRange {
+  const first = firstSearchParam(raw);
+  if (first && RANGE_VALUES.includes(first as OpsEmailDeliveryRange)) {
+    return first as OpsEmailDeliveryRange;
   }
   return '7d';
 }
 
-function parseIntParam(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const parsed = Number.parseInt(raw, 10);
+function parseIntParam(raw: string | string[] | undefined): number | null {
+  const first = firstSearchParam(raw);
+  if (!first) return null;
+  const parsed = Number.parseInt(first, 10);
   if (!Number.isFinite(parsed)) return null;
   return parsed;
 }
 
-function parseStatuses(raw: string | undefined): EmailDeliveryStatus[] {
-  if (!raw) return [];
+function parseStatuses(raw: string | string[] | undefined): EmailDeliveryStatus[] {
+  const first = firstSearchParam(raw);
+  if (!first) return [];
   const allowed = new Set<string>(STATUS_VALUES);
-  const parts = raw
+  const parts = first
     .split(',')
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
@@ -77,17 +85,19 @@ function parseStatuses(raw: string | undefined): EmailDeliveryStatus[] {
   return out;
 }
 
-function parseOptionalString(raw: string | undefined): string | null {
-  if (!raw) return null;
-  const value = raw.trim();
+function parseOptionalString(raw: string | string[] | undefined): string | null {
+  const first = firstSearchParam(raw);
+  if (!first) return null;
+  const value = first.trim();
   return value.length > 0 ? value : null;
 }
 
 const VALID_TABS: readonly string[] = ['delivery-log', 'queue', 'analytics'];
 
-function parseTab(raw: string | undefined): EmailDeliveryTab {
-  if (raw && VALID_TABS.includes(raw)) {
-    return raw as EmailDeliveryTab;
+function parseTab(raw: string | string[] | undefined): EmailDeliveryTab {
+  const first = firstSearchParam(raw);
+  if (first && VALID_TABS.includes(first)) {
+    return first as EmailDeliveryTab;
   }
   return 'delivery-log';
 }
@@ -117,8 +127,12 @@ export default async function OpsEmailDeliveryPage({
       initialFixture={parseOptionalString(resolved.fixture)}
       initialQueueFixture={parseOptionalString(resolved.queueFixture)}
       initialRecipientEmail={parseOptionalString(resolved.recipientEmail)}
-      initialSimulateEmailDeliveryError={resolved.simulateEmailDeliveryError === '1'}
-      initialSimulateRetryMutationError={resolved.simulateRetryMutationError === '1'}
+      initialSimulateEmailDeliveryError={
+        firstSearchParam(resolved.simulateEmailDeliveryError) === '1'
+      }
+      initialSimulateRetryMutationError={
+        firstSearchParam(resolved.simulateRetryMutationError) === '1'
+      }
       initialMessageId={parseOptionalString(resolved.messageId)}
       initialBookingRef={parseOptionalString(resolved.bookingRef)}
       initialTemplateType={parseOptionalString(resolved.templateType)}

@@ -80,6 +80,18 @@ export async function buildPublishPlan(
     ignoredCount: 0,
   });
 
+  if (!input.pinnedCoreSnapshotHash) {
+    return rejectAllForSnapshotDrift(
+      'INVALID_DECISION',
+      'Publish planning requires a pinned Core snapshot hash.',
+    );
+  }
+  if (!input.pinnedGbpSnapshotHash) {
+    return rejectAllForSnapshotDrift(
+      'INVALID_DECISION',
+      'Publish planning requires a pinned Google snapshot hash.',
+    );
+  }
   if (input.pinnedCoreSnapshotHash && input.pinnedCoreSnapshotHash !== coreSnapshotHash) {
     return rejectAllForSnapshotDrift(
       'CORE_DRIFT',

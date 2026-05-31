@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import { env } from '@/lib/env';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
-import { getOpsUserIdFromHeader } from '@/server/auth/guards';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
@@ -49,7 +48,7 @@ import {
   getServiceSupabaseClient,
   getTenantServiceSupabaseClient,
 } from '@/server/supabase';
-import { requireMembershipForRestaurant, fetchUserMemberships } from '@/server/team/access';
+import { fetchUserMemberships } from '@/server/team/access';
 
 import { loadBookingDetailPayload } from './_shared/dialogLoaders';
 import { createOpsBookingApiTiming } from '../_shared/performance';
@@ -166,6 +165,13 @@ function toIsoString(value: unknown): string {
   return date.toISOString();
 }
 
+async function loadAuthorizedRestaurantIds(userId: string, client: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>) {
+  const memberships = await fetchUserMemberships(userId, client);
+  return memberships
+    .map((membership) => membership.restaurant_id)
+    .filter((restaurantId): restaurantId is string => typeof restaurantId === 'string' && restaurantId.length > 0);
+}
+
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
@@ -173,58 +179,59 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
-  // Fast path: trust the `x-ops-user-id` header set by the proxy middleware
-  // (which strips any client-supplied value and re-sets it from the validated
-  // session). Falls back to the canonical Supabase auth.getUser() when the
-  // header is absent (defense in depth).
-  const trustedUserId = getOpsUserIdFromHeader(req);
   const tenantSupabase = await getRouteHandlerSupabaseClient();
-  let userId: string;
-  if (trustedUserId) {
-    userId = trustedUserId;
-  } else {
-    const {
-      data: { user },
-      error: authError,
-    } = await tenantSupabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await tenantSupabase.auth.getUser();
 
-    if (authError) {
-      console.error('[ops/bookings][GET] failed to resolve auth', authError.message);
-      const mapped = mapSupabaseAuthError(authError);
-      return NextResponse.json(
-        { error: mapped.message, code: mapped.code },
-        { status: mapped.status },
-      );
-    }
+  if (authError) {
+    console.error('[ops/bookings][GET] failed to resolve auth', authError.message);
+    const mapped = mapSupabaseAuthError(authError);
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
+  }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    userId = user.id;
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const userId = user.id;
+
+  let authorizedRestaurantIds: string[];
+  try {
+    authorizedRestaurantIds = await loadAuthorizedRestaurantIds(userId, tenantSupabase);
+  } catch (membershipError) {
+    console.error('[ops/bookings][GET] failed to load memberships', membershipError);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
-  const detailResult = await loadBookingDetailPayload({ serviceSupabase, bookingId });
+  let detailResult: Awaited<ReturnType<typeof loadBookingDetailPayload>> | null = null;
+  for (const restaurantId of authorizedRestaurantIds) {
+    const candidate = await loadBookingDetailPayload({
+      serviceSupabase,
+      bookingId,
+      restaurantIdFilter: restaurantId,
+    });
+    if (candidate.ok || candidate.status === 500) {
+      detailResult = candidate;
+      break;
+    }
+  }
+
+  detailResult ??= { ok: false, status: 404, error: 'Booking not found' };
 
   if (!detailResult.ok) {
     if (detailResult.status === 500) {
       return NextResponse.json({ error: detailResult.error }, { status: 500 });
     }
     return NextResponse.json({ error: detailResult.error }, { status: detailResult.status });
-  }
-
-  try {
-    await requireMembershipForRestaurant({
-      userId,
-      restaurantId: detailResult.restaurantId,
-      client: tenantSupabase,
-    });
-  } catch (membershipError) {
-    console.warn('[ops/bookings][GET] membership denied', {
-      bookingId,
-      reason: membershipError instanceof Error ? membershipError.message : membershipError,
-    });
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   return NextResponse.json(detailResult.payload, {
@@ -274,6 +281,21 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return timing.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  let authorizedRestaurantIds: string[];
+  try {
+    authorizedRestaurantIds = await timing.measure(
+      'memberships',
+      loadAuthorizedRestaurantIds(user.id, tenantSupabase),
+    );
+  } catch (membershipError) {
+    console.error('[ops/bookings][PATCH] failed to load memberships', membershipError);
+    return timing.json({ error: 'Unable to verify access' }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return timing.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
   const serviceSupabase = getServiceSupabaseClient();
   const { data: existing, error } = await timing.measure(
     'booking_lookup',
@@ -281,6 +303,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .from('bookings')
       .select('*, restaurants(name, slug, timezone, reservation_interval_minutes)')
       .eq('id', bookingId)
+      .in('restaurant_id', authorizedRestaurantIds)
       .maybeSingle(),
   );
 
@@ -309,23 +332,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     | null;
 
   if (!existingBooking) {
-    return timing.json({ error: 'Booking not found' }, { status: 404 });
-  }
-
-  try {
-    await timing.measure(
-      'membership',
-      requireMembershipForRestaurant({
-        userId: user.id,
-        restaurantId: existingBooking.restaurant_id,
-        client: tenantSupabase,
-      }),
-    );
-  } catch (membershipError) {
-    console.warn('[ops/bookings][PATCH] membership denied', {
-      bookingId,
-      reason: membershipError instanceof Error ? membershipError.message : membershipError,
-    });
     return timing.json({ error: 'Booking not found' }, { status: 404 });
   }
 
@@ -643,14 +649,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         )
       : await timing.measure(
           'booking_update',
-          updateBookingRecord(tenantClient, bookingId, {
-            booking_date: bookingDate,
-            start_time: startTime,
-            end_time: endTime,
-            ...instantFields,
-            party_size: parsed.data.partySize,
-            notes: normalizedNotes,
-          }),
+          updateBookingRecord(
+            tenantClient,
+            bookingId,
+            {
+              booking_date: bookingDate,
+              start_time: startTime,
+              end_time: endTime,
+              ...instantFields,
+              party_size: parsed.data.partySize,
+              notes: normalizedNotes,
+            },
+            { restaurantId: existingBooking.restaurant_id },
+          ),
         );
 
     const auditMetadata = {
@@ -981,11 +992,24 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  let authorizedRestaurantIds: string[];
+  try {
+    authorizedRestaurantIds = await loadAuthorizedRestaurantIds(user.id, tenantSupabase);
+  } catch (membershipError) {
+    console.error('[ops/bookings][DELETE] failed to load memberships', membershipError);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
   const serviceSupabase = getServiceSupabaseClient();
   const { data: existing, error } = await serviceSupabase
     .from('bookings')
     .select('*')
     .eq('id', bookingId)
+    .in('restaurant_id', authorizedRestaurantIds)
     .maybeSingle();
 
   if (error) {
@@ -999,25 +1023,21 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  try {
-    await requireMembershipForRestaurant({
-      userId: user.id,
-      restaurantId: existingBooking.restaurant_id,
-      client: tenantSupabase,
-    });
-  } catch (membershipError) {
-    console.warn('[ops/bookings][DELETE] membership denied', {
-      bookingId,
-      reason: membershipError instanceof Error ? membershipError.message : membershipError,
-    });
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  if (existingBooking.status === 'cancelled') {
+    return NextResponse.json({ id: bookingId, status: existingBooking.status });
   }
 
   // Use tenant-scoped client for all cancellation operations
   const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
 
   try {
-    const cancelled = await softCancelBooking(tenantClient, bookingId);
+    const cancellation = await softCancelBooking(tenantClient, bookingId, {
+      restaurantId: existingBooking.restaurant_id,
+    });
+    const cancelled = cancellation.booking;
+    if (!cancellation.cancelled) {
+      return NextResponse.json({ id: bookingId, status: cancelled.status });
+    }
 
     const auditMetadata = {
       restaurant_id: existingBooking.restaurant_id,

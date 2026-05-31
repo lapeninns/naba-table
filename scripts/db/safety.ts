@@ -51,14 +51,19 @@ export function normalizeSupabaseProjectRef(
 
 function extractProjectRefFromConnectionString(connectionString: string): string | null {
   const url = new URL(connectionString);
+  const hostname = url.hostname.toLowerCase();
   const hostParts = url.hostname.split('.');
-  const dbHostIndex = hostParts.indexOf('db');
-  if (dbHostIndex >= 0 && hostParts[dbHostIndex + 1]) {
-    return hostParts[dbHostIndex + 1];
+  if (
+    hostParts.length === 4 &&
+    hostParts[0] === 'db' &&
+    hostParts[2] === 'supabase' &&
+    hostParts[3] === 'co'
+  ) {
+    return hostParts[1] ?? null;
   }
 
   const userMatch = decodeURIComponent(url.username).match(/^postgres\.([a-z0-9]{20})$/i);
-  if (userMatch) {
+  if (userMatch && hostname.endsWith('.pooler.supabase.com')) {
     return userMatch[1];
   }
 
@@ -85,14 +90,19 @@ export function assertExactSupabaseApiProjectRef(
   urlValue: string,
   expectedProjectRef: string,
 ): string {
+  const expected = normalizeSupabaseProjectRef(expectedProjectRef);
   const url = new URL(urlValue);
-  const [actual] = url.hostname.split('.');
-  if (!actual || actual !== expectedProjectRef) {
+  if (url.protocol !== 'https:') {
+    throw new Error('Supabase API URL must use https.');
+  }
+  const expectedHost = `${expected}.supabase.co`;
+  const actualHost = url.hostname.toLowerCase();
+  if (actualHost !== expectedHost) {
     throw new Error(
-      `Supabase API project ref mismatch: expected ${expectedProjectRef}, received ${actual || 'unknown'}.`,
+      `Supabase API host mismatch: expected ${expectedHost}, received ${actualHost || 'unknown'}.`,
     );
   }
-  return actual;
+  return expected;
 }
 
 export function assertProductionScriptSafety(input: ProductionScriptSafetyInput): void {
@@ -170,6 +180,9 @@ export function assertStagingScriptSafety(input: StagingScriptSafetyInput): stri
     input.expectedProjectRef ?? DEFAULT_STAGING_PROJECT_REF,
     'EXPECTED_STAGING_PROJECT_REF',
   );
+  if (expectedProjectRef === DEFAULT_PRODUCTION_PROJECT_REF) {
+    throw new Error('Staging scripts cannot target the production Supabase project ref.');
+  }
   const targetEnv =
     input.targetEnv?.trim().toLowerCase() ||
     process.env.DB_TARGET_ENV?.trim().toLowerCase() ||

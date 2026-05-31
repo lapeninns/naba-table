@@ -3,10 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const tenantAuthGetUserMock = vi.hoisted(() => vi.fn());
 const maybeSingleMock = vi.hoisted(() => vi.fn());
-const eqMock = vi.hoisted(() => vi.fn(() => ({ maybeSingle: maybeSingleMock })));
-const selectMock = vi.hoisted(() => vi.fn(() => ({ eq: eqMock })));
-const fromMock = vi.hoisted(() => vi.fn(() => ({ select: selectMock })));
+const queryMock = vi.hoisted(() => {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    maybeSingle: maybeSingleMock,
+  };
+  return query;
+});
+const selectMock = vi.hoisted(() => queryMock.select);
+const eqMock = vi.hoisted(() => queryMock.eq);
+const inMock = vi.hoisted(() => queryMock.in);
+const fromMock = vi.hoisted(() => vi.fn(() => queryMock));
 const requireMembershipForRestaurantMock = vi.hoisted(() => vi.fn());
+const fetchUserMembershipsMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
 const getRestaurantTurnBandsMock = vi.hoisted(() => vi.fn());
 const resolveBookingDurationMinutesMock = vi.hoisted(() => vi.fn());
@@ -43,7 +54,7 @@ vi.mock('@/server/supabase', () => ({
 
 vi.mock('@/server/team/access', () => ({
   requireMembershipForRestaurant: requireMembershipForRestaurantMock,
-  fetchUserMemberships: vi.fn(async () => []),
+  fetchUserMemberships: fetchUserMembershipsMock,
 }));
 
 vi.mock('@/server/restaurants/schedule', () => ({
@@ -141,9 +152,11 @@ describe('ops booking PATCH route timezone handling', () => {
     tenantAuthGetUserMock.mockReset();
     maybeSingleMock.mockReset();
     eqMock.mockClear();
+    inMock.mockClear();
     selectMock.mockClear();
     fromMock.mockClear();
     requireMembershipForRestaurantMock.mockReset();
+    fetchUserMembershipsMock.mockReset();
     getRestaurantScheduleMock.mockReset();
     getRestaurantTurnBandsMock.mockReset();
     resolveBookingDurationMinutesMock.mockReset();
@@ -163,6 +176,7 @@ describe('ops booking PATCH route timezone handling', () => {
       error: null,
     });
     requireMembershipForRestaurantMock.mockResolvedValue(undefined);
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: 'rest-1', role: 'owner' }]);
     getRestaurantScheduleMock.mockResolvedValue({
       date: '2026-07-01',
       timezone: 'Europe/London',
@@ -220,6 +234,9 @@ describe('ops booking PATCH route timezone handling', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(fetchUserMembershipsMock).toHaveBeenCalledWith('user-1', expect.anything());
+    expect(eqMock).toHaveBeenCalledWith('id', 'booking-1');
+    expect(inMock).toHaveBeenCalledWith('restaurant_id', ['rest-1']);
     expect(beginBookingModificationFlowMock).toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({
@@ -264,6 +281,9 @@ describe('ops booking PATCH route timezone handling', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(fetchUserMembershipsMock).toHaveBeenCalledWith('user-1', expect.anything());
+    expect(eqMock).toHaveBeenCalledWith('id', 'booking-1');
+    expect(inMock).toHaveBeenCalledWith('restaurant_id', ['rest-1']);
     expect(updateBookingRecordMock).toHaveBeenCalledWith(
       expect.anything(),
       'booking-1',
@@ -275,7 +295,30 @@ describe('ops booking PATCH route timezone handling', () => {
         end_at: '2026-07-01T20:00:00.000Z',
         notes: 'Guest asked for anniversary candle',
       }),
+      { restaurantId: 'rest-1' },
     );
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
+  });
+
+  it('does not look up bookings when the operator has no restaurant memberships', async () => {
+    fetchUserMembershipsMock.mockResolvedValue([]);
+
+    const response = await PATCH(
+      new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          startIso: '2026-07-01T18:30:00.000Z',
+          partySize: 4,
+        }),
+      }),
+      buildRouteParams(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Booking not found' });
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
+    expect(updateBookingRecordMock).not.toHaveBeenCalled();
   });
 });

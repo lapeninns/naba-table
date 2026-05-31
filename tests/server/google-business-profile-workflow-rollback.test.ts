@@ -185,6 +185,7 @@ describe('google business profile workflow rollback helpers', () => {
           businessContext: buildBusinessContext(),
         },
         client: {} as never,
+        allowUnguardedRollback: true,
       });
 
     expect(rollback).toEqual({ status: 'restored', errors: [] });

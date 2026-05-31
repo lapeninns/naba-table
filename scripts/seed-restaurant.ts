@@ -5,7 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { assertStagingScriptSafety } from './db/safety';
+import { DEFAULT_STAGING_PROJECT_REF, assertStagingScriptSafety } from './db/safety';
 import type { Database } from '../types/supabase';
 
 const modulePath = fileURLToPath(import.meta.url);
@@ -64,8 +64,7 @@ function requireEnv(name: string): string {
 function assertSeedRestaurantSafety(): void {
   assertStagingScriptSafety({
     apiUrl: requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    expectedProjectRef:
-      process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF,
+    expectedProjectRef: process.env.EXPECTED_STAGING_PROJECT_REF ?? DEFAULT_STAGING_PROJECT_REF,
     targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
     confirmation: process.env.CONFIRM_STAGING_RESTAURANT_SEED,
     confirmationName: 'CONFIRM_STAGING_RESTAURANT_SEED',
@@ -127,12 +126,23 @@ async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<strin
 async function main(): Promise<void> {
   assertSeedRestaurantSafety();
 
-  const [{ createRestaurant }, { createRestaurantSchema }, { getServiceSupabaseClient }] =
-    await Promise.all([
-      import('../server/restaurants/create'),
-      import('../src/app/api/ops/restaurants/schema'),
-      import('../server/supabase'),
-    ]);
+  const [
+    { createRestaurant },
+    { createRestaurantSchema },
+    { getServiceSupabaseClient, resolveServiceRoleSupabaseUrl },
+  ] = await Promise.all([
+    import('../server/restaurants/create'),
+    import('../src/app/api/ops/restaurants/schema'),
+    import('../server/supabase'),
+  ]);
+
+  assertStagingScriptSafety({
+    apiUrl: resolveServiceRoleSupabaseUrl(),
+    expectedProjectRef: process.env.EXPECTED_STAGING_PROJECT_REF ?? DEFAULT_STAGING_PROJECT_REF,
+    targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
+    confirmation: process.env.CONFIRM_STAGING_RESTAURANT_SEED,
+    confirmationName: 'CONFIRM_STAGING_RESTAURANT_SEED',
+  });
 
   const supabase = getServiceSupabaseClient();
   const ownerId = await resolveOwnerId(supabase);

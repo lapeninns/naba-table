@@ -219,18 +219,34 @@ const baseEnvSchema = z
   })
   .passthrough();
 
-const productionEnvSchema = baseEnvSchema.extend({
-  NEXT_PUBLIC_APP_URL: z.string().url(),
-  NEXT_PUBLIC_SITE_URL: z.string().url(),
-  NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
-  NEXT_PUBLIC_POSTHOG_HOST: z.string().url(),
-  RESEND_API_KEY: z.string().min(1),
-  RESEND_FROM: z.string().email(),
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),
-  TURNSTILE_SECRET_KEY: z.string().min(1),
-  AUTH_AUDIT_HASH_SECRET: z.string().min(1),
-  CRON_SECRET: z.string().min(1),
-});
+const productionEnvSchema = baseEnvSchema
+  .extend({
+    NEXT_PUBLIC_APP_URL: z.string().url(),
+    NEXT_PUBLIC_SITE_URL: z.string().url(),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1),
+    NEXT_PUBLIC_POSTHOG_HOST: z.string().url(),
+    RESEND_API_KEY: z.string().min(1),
+    RESEND_FROM: z.string().email(),
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1),
+    TURNSTILE_SECRET_KEY: z.string().min(1),
+    AUTH_AUDIT_HASH_SECRET: z.string().min(1),
+    CRON_SECRET: z.string().min(1),
+  })
+  .superRefine((env, ctx) => {
+    const hasCloudflareGateway =
+      Boolean(env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL) &&
+      Boolean(env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN);
+    if (hasCloudflareGateway || env.ALLOW_MEMORY_RATE_LIMIT_IN_PROD === true) {
+      return;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL'],
+      message:
+        'Production rate limiting requires Cloudflare gateway credentials or ALLOW_MEMORY_RATE_LIMIT_IN_PROD=true.',
+    });
+  });
 
 const developmentEnvSchema = baseEnvSchema;
 const testEnvSchema = baseEnvSchema;

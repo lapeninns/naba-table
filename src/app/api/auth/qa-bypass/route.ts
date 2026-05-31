@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
@@ -19,7 +21,9 @@ export async function GET(request: Request) {
   });
 
   const { searchParams } = new URL(request.url);
-  const redirectTo = searchParams.get('redirect') ?? '/settings/restaurant';
+  const redirectTo = sanitizeLocalRedirectPath(searchParams.get('redirect'), {
+    fallback: '/settings/restaurant',
+  });
 
   // Use the Host header or standard request URL to ensure proper subdomain routing
   const host = request.headers.get('host') || 'app.localhost:5180';

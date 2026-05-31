@@ -28,6 +28,7 @@ describe('session recovery access tokens', () => {
 
     expect(result.payload.email).toBeNull();
     expect(result.payload.phone).toBe('447467586751');
+    expect(token).not.toContain('447467586751');
   });
 
   it('rejects token creation when neither email nor phone is provided', () => {
@@ -61,6 +62,21 @@ describe('session recovery access tokens', () => {
 
     expect(result.payload.email).toBe('guest@example.com');
     expect(result.payload.phone).toBeNull();
+    expect(token).not.toContain('guest@example.com');
+  });
+
+  it('rejects tampered payloads before exposing unsigned payload fields', () => {
+    const token = createSessionRecoveryAccessToken({
+      restaurantId: '550e8400-e29b-41d4-a716-446655440000',
+      email: 'guest@example.com',
+      secret: 'test-secret',
+    });
+    const parts = token.split('.');
+    parts[2] = `${parts[2]?.slice(0, -1) ?? ''}${parts[2]?.endsWith('A') ? 'B' : 'A'}`;
+
+    const result = validateSessionRecoveryAccessToken(parts.join('.'), { secret: 'test-secret' });
+
+    expect(result).toEqual({ ok: false, reason: 'invalid_signature' });
   });
 
   it('matches phone-only tokens against phone-only bookings', () => {

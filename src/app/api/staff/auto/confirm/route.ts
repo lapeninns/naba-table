@@ -74,6 +74,26 @@ async function postStaffAutoConfirm(req: NextRequest) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
+  const bookingLookup = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('id', bookingId)
+    .eq('restaurant_id', holdRow.restaurant_id)
+    .maybeSingle();
+
+  if (bookingLookup.error) {
+    console.error('[staff/auto/confirm] booking tenant check failed', {
+      error: bookingLookup.error.message,
+      holdId,
+      bookingId,
+    });
+    return NextResponse.json({ error: 'Unable to confirm hold' }, { status: 500 });
+  }
+
+  if (!bookingLookup.data) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
   const serviceClient = getTenantServiceSupabaseClient(holdRow.restaurant_id);
 
   try {
@@ -93,6 +113,10 @@ async function postStaffAutoConfirm(req: NextRequest) {
     }
 
     if (error instanceof AssignTablesRpcError) {
+      if ((error.code ?? '').toUpperCase() === 'HOLD_RESTAURANT_MISMATCH') {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      }
+
       const { status, payload } = mapAssignTablesErrorToHttp(error);
       return NextResponse.json(payload, { status });
     }

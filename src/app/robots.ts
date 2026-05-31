@@ -1,17 +1,15 @@
-import type { MetadataRoute } from "next";
+import type { MetadataRoute } from 'next';
 
 const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  "https://shipfa.st";
+  process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://www.nabatable.com';
 
 export default function robots(): MetadataRoute.Robots {
-  const normalizedBase = baseUrl.replace(/\/+$/, "");
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
   return {
     rules: [
       {
-        userAgent: "*",
-        disallow: ["/api", "/api/*"],
+        userAgent: '*',
+        disallow: ['/api', '/api/*'],
       },
     ],
     sitemap: `${normalizedBase}/sitemap.xml`,

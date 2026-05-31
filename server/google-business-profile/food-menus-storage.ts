@@ -1,3 +1,4 @@
+import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { DUAL_SYNC_PROVIDER } from '@/server/dual-sync/types';
 
 import {
@@ -28,6 +29,7 @@ export {
   claimFoodMenusImportReviewDecision,
   listPendingFoodMenusImportReviews,
   markFoodMenusImportReviewDecision,
+  markFoodMenusImportReviewDecisionFailed,
   readFoodMenusImportReviewForRestaurant,
   replacePendingFoodMenusImportReviews,
 } from './food-menus-import-review-storage';
@@ -204,6 +206,27 @@ function isFoodMenusSnapshotHashConflict(error: unknown): boolean {
   }`;
 
   return code === '23505' && text.includes('restaurant_gbp_food_menu_snapshots_hash_idx');
+}
+
+export function buildFoodMenusProjectionSnapshotHash({
+  projection,
+  foodMenusHash,
+}: {
+  readonly projection: GoogleFoodMenusProjection;
+  readonly foodMenusHash: string;
+}): string {
+  return hashCanonicalJson({
+    kind: 'foodMenusProjectionSnapshot',
+    foodMenusHash,
+    identities: projection.identities.map((identity) => ({
+      stableKey: identity.stableKey,
+      localItemId: identity.localItemId,
+      externalItemId: identity.externalItemId,
+      googlePath: identity.googlePath,
+      googleOptionPaths: identity.googleOptionPaths,
+      projectionKind: identity.projectionKind ?? null,
+    })),
+  })!;
 }
 
 async function readFoodMenusSnapshotByHash({
@@ -428,6 +451,10 @@ export async function recordFoodMenusProjection({
   readonly snapshot: FoodMenusSnapshot;
   readonly identities: ReadonlyArray<FoodMenusProjectedIdentityRecord>;
 }> {
+  const projectionSnapshotHash = buildFoodMenusProjectionSnapshotHash({
+    projection,
+    foodMenusHash: snapshotHash,
+  });
   const snapshot = await recordFoodMenusSnapshot({
     client,
     restaurantId,
@@ -440,7 +467,7 @@ export async function recordFoodMenusProjection({
       projection.foodMenus,
     ) satisfies CanonicalGoogleFoodMenusResource,
     projectionMetadata: buildFoodMenusProjectionSnapshotMetadata(projection, projectionMetadata),
-    snapshotHash,
+    snapshotHash: projectionSnapshotHash,
     createdByUserId,
   });
   const identities = await saveProjectedFoodMenusIdentities({

@@ -77,7 +77,6 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const preflightRateLimit = await requireApiRateLimit({
     request,
     scope: 'calendar-mask:public',
-    tenantId: slug,
     limit: 40,
     windowMs: 60_000,
     message: 'Too many calendar requests. Please try again in a moment.',

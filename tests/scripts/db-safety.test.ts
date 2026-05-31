@@ -32,21 +32,40 @@ describe('script DB safety', () => {
         'actualrefabcdefghijk',
       ),
     ).toThrow(/mismatch/);
+
+    expect(() =>
+      assertExactSupabaseProjectRef(
+        'postgresql://postgres.actualrefabcdefghijk:pw@attacker.example:5432/postgres',
+        'actualrefabcdefghijk',
+      ),
+    ).toThrow(/Unable to determine Supabase project ref/);
   });
 
-  it('validates Supabase API project refs exactly instead of substring matching', () => {
+  it('validates Supabase API project refs by exact HTTPS Supabase host', () => {
     expect(
       assertExactSupabaseApiProjectRef(
-        'https://actualrefabcdefghij.supabase.co',
-        'actualrefabcdefghij',
+        'https://actualrefabcdefghijk.supabase.co',
+        'actualrefabcdefghijk',
       ),
-    ).toBe('actualrefabcdefghij');
+    ).toBe('actualrefabcdefghijk');
     expect(() =>
       assertExactSupabaseApiProjectRef(
         'https://notactualrefabcdefghij.supabase.co',
-        'actualrefabcdefghij',
+        'actualrefabcdefghijk',
       ),
-    ).toThrow(/mismatch/);
+    ).toThrow(/host mismatch/);
+    expect(() =>
+      assertExactSupabaseApiProjectRef(
+        'https://actualrefabcdefghijk.attacker.example',
+        'actualrefabcdefghijk',
+      ),
+    ).toThrow(/host mismatch/);
+    expect(() =>
+      assertExactSupabaseApiProjectRef(
+        'http://actualrefabcdefghijk.supabase.co',
+        'actualrefabcdefghijk',
+      ),
+    ).toThrow(/must use https/);
   });
 
   it('fails closed for destructive production apply without confirmation and break-glass', () => {
@@ -125,7 +144,7 @@ describe('script DB safety', () => {
         apply: true,
         confirmation: 'true',
       }),
-    ).toThrow(/Supabase API project ref mismatch/);
+    ).toThrow(/Supabase API host mismatch/);
   });
 
   it('requires staging env, exact project ref, and confirmation for staging writes', () => {
@@ -184,7 +203,7 @@ describe('script DB safety', () => {
         targetEnv: 'staging',
         confirmation: 'true',
       }),
-    ).toThrow(/Supabase API project ref mismatch/);
+    ).toThrow(/Supabase API host mismatch/);
 
     expect(() =>
       assertStagingScriptSafety({
@@ -193,6 +212,15 @@ describe('script DB safety', () => {
         targetEnv: 'staging',
       }),
     ).toThrow(/CONFIRM_STAGING_WRITE=true/);
+
+    expect(() =>
+      assertStagingScriptSafety({
+        apiUrl: 'https://vrdiqfudmwydclqpydee.supabase.co',
+        expectedProjectRef: 'vrdiqfudmwydclqpydee',
+        targetEnv: 'staging',
+        confirmation: 'true',
+      }),
+    ).toThrow(/Staging scripts cannot target the production Supabase project ref/);
   });
 
   it('keeps Postgres TLS certificate verification enabled by default', () => {
@@ -386,12 +414,36 @@ describe('script DB safety', () => {
 
     expect(source).toContain('assertStagingScriptSafety');
     expect(source).toContain('CONFIRM_STAGING_OWNER_BOOTSTRAP');
+    expect(source).toContain('EXPECTED_STAGING_PROJECT_REF');
+    expect(source).not.toContain(
+      'process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF',
+    );
     expect(mainBody.indexOf('assertStagingScriptSafety')).toBeLessThan(
       mainBody.indexOf('writePasswordToGitignoredBackups'),
     );
     expect(mainBody.indexOf('assertStagingScriptSafety')).toBeLessThan(
       mainBody.indexOf('createClient<Database>(supabaseUrl'),
     );
+  });
+
+  it('guards staging email delivery smoke before service-role reads and redacts recipients', () => {
+    const source = readScript('scripts/staging/smoke-email-delivery-rpc.ts');
+    const mainBody = source.slice(source.indexOf('async function main()'));
+    const sampleLog = source.match(/`- Feed sample:[\s\S]*?`,/)?.[0] ?? '';
+
+    expect(source).toContain('assertStagingScriptSafety');
+    expect(source).toContain('CONFIRM_STAGING_EMAIL_DELIVERY_SMOKE');
+    expect(source).toContain('EXPECTED_STAGING_PROJECT_REF');
+    expect(source).not.toContain('supabaseUrl.includes');
+    expect(mainBody.indexOf('assertStagingScriptSafety({')).toBeLessThan(
+      mainBody.indexOf("const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY')"),
+    );
+    expect(mainBody.indexOf('assertStagingScriptSafety({')).toBeLessThan(
+      mainBody.indexOf('createClient<Database>(url, serviceRoleKey'),
+    );
+    expect(sampleLog).toContain('recipientEmailPresent=${Boolean(sample.recipientEmail)}');
+    expect(sampleLog).not.toContain('recipientEmail=${');
+    expect(sampleLog).not.toContain('maskEmail');
   });
 
   it('guards auth reset script for explicit staging or production targets before admin client use', () => {
@@ -415,6 +467,10 @@ describe('script DB safety', () => {
 
     expect(source).toContain('assertStagingScriptSafety');
     expect(source).toContain('CONFIRM_STAGING_PERF_SEED');
+    expect(source).toContain('EXPECTED_STAGING_PROJECT_REF');
+    expect(source).not.toContain(
+      'process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF',
+    );
     expect(source).toContain('assertLinkedStagingProject(apply, expectedProjectRef)');
     expect(source).toContain('connectionString');
     expect(source).toContain('fs.mkdirSync(artifactsDir, { recursive: true })');
@@ -450,10 +506,84 @@ describe('script DB safety', () => {
 
     expect(source).toContain('assertSeedRestaurantSafety');
     expect(source).toContain('CONFIRM_STAGING_RESTAURANT_SEED');
+    expect(source).toContain('EXPECTED_STAGING_PROJECT_REF');
+    expect(source).not.toContain(
+      'process.env.EXPECTED_PROJECT_REF ?? process.env.EXPECTED_STAGING_PROJECT_REF',
+    );
     expect(source).toContain('Set OWNER_USER_ID or OWNER_EMAIL before seeding a restaurant.');
     expect(source).not.toContain('using first auth user as owner');
     expect(mainBody.indexOf('assertSeedRestaurantSafety()')).toBeLessThan(
       mainBody.indexOf('Promise.all'),
+    );
+  });
+
+  it('validates GBP FoodMenus proof against the actual service-role URL', () => {
+    const source = readScript('scripts/prove-gbp-foodmenus-publish.ts');
+    const assertTargetBody = source.slice(
+      source.indexOf('function assertTargetEnv'),
+      source.indexOf('function parseCuisines'),
+    );
+
+    expect(source).toContain('resolveServiceRoleSupabaseUrl');
+    expect(assertTargetBody).toContain('const supabaseUrl = resolveServiceRoleSupabaseUrl()');
+    expect(assertTargetBody).not.toContain('NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL');
+  });
+
+  it('maps the FoodMenus rollout confirmation into the delegated SQL runner only after wrapper checks', () => {
+    const source = readScript('scripts/rollout-gbp-foodmenus-storage.ts');
+    const runApplyBody = source.slice(
+      source.indexOf('function runApply'),
+      source.indexOf('function main()'),
+    );
+
+    expect(source).toContain('CONFIRM_GBP_FOODMENUS_PRODUCTION_MIGRATION=true authorizes');
+    expect(runApplyBody.indexOf('assertApplyAllowed(target)')).toBeLessThan(
+      runApplyBody.indexOf("CONFIRM_PRODUCTION: 'true'"),
+    );
+    expect(runApplyBody).toContain("target === 'production' ? { CONFIRM_PRODUCTION: 'true' } : {}");
+    expect(runApplyBody).toContain('],\n    env,');
+  });
+
+  it('verifies FoodMenus service-role policies by expected table and policy name', () => {
+    const source = readScript('scripts/verify-gbp-foodmenus-storage.ts');
+
+    expect(source).toContain('EXPECTED_SERVICE_ROLE_POLICIES');
+    expect(source).toContain('missingServiceRolePolicies');
+    expect(source).toContain('policyHasServiceRole');
+    expect(source).toContain('isAllCommand');
+    expect(source).not.toContain(
+      'const hasAllPolicies = result.schema.serviceRolePolicyCount === EXPECTED_TABLES.length',
+    );
+  });
+
+  it('keeps SMS backfill artifacts free of raw booking identifiers and Twilio message ids', () => {
+    const source = readScript('scripts/backfill-sms-delivery.ts');
+    const sampleBodies = [
+      source.match(/matchedRows\.push\(\{[\s\S]*?\n\s*\}\);/)?.[0] ?? '',
+      source.match(/ambiguousRows\.push\(\{[\s\S]*?\n\s*\}\);/)?.[0] ?? '',
+      source.match(/unmatchedRows\.push\(\{[\s\S]*?\n\s*\}\);/)?.[0] ?? '',
+    ].join('\n');
+
+    expect(sampleBodies).toContain('redactNullableSmsRecipientPhone(message.to)');
+    expect(source).toContain('candidateCount: match.candidateBookingIds.length');
+    for (const field of [
+      'messageSid:',
+      'bookingId:',
+      'restaurantId:',
+      'bookingReference:',
+      'candidateBookingIds:',
+    ]) {
+      expect(sampleBodies).not.toContain(field);
+    }
+  });
+
+  it('counts cross-restaurant zone adjacency edges as verification failures', () => {
+    const source = readScript('scripts/verify-zone-adjacencies.ts');
+
+    expect(source).toContain('crossRestaurantEdges');
+    expect(source).toContain('result.ok = result.ok && crossRestaurantEdges.size === 0');
+    expect(source).not.toContain(
+      '// Only consider edges fully inside our filtered restaurant scope.\\n      if (!tableIdSet.has(row.table_a) || !tableIdSet.has(row.table_b)) continue;',
     );
   });
 });

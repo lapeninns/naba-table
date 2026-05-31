@@ -47,6 +47,42 @@ function parseContentLength(value: string | null): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
+async function readBodyWithLimit(req: NextRequest, maxBytes: number): Promise<string | null> {
+  if (!req.body) {
+    const payload = await req.text();
+    return new TextEncoder().encode(payload).byteLength > maxBytes ? null : payload;
+  }
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new TextDecoder().decode(body);
+}
+
 export async function POST(req: NextRequest) {
   // 1. --- Webhook Security ---
   const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
@@ -65,12 +101,15 @@ export async function POST(req: NextRequest) {
   }
 
   const contentLength = parseContentLength(req.headers.get('content-length'));
+  if (contentLength === null) {
+    return NextResponse.json({ error: 'Content-Length required' }, { status: 411 });
+  }
   if (contentLength !== null && contentLength > MAX_RESEND_WEBHOOK_BODY_BYTES) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
-  const payload = await req.text();
-  if (new TextEncoder().encode(payload).byteLength > MAX_RESEND_WEBHOOK_BODY_BYTES) {
+  const payload = await readBodyWithLimit(req, MAX_RESEND_WEBHOOK_BODY_BYTES);
+  if (payload === null) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 

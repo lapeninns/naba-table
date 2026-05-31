@@ -7,6 +7,7 @@
  */
 
 import { getDualSyncDbClient, type DualSyncJobRow } from '../db';
+import { hashCanonicalJson } from '../hashing';
 
 import type { DualSyncJob, DualSyncJobKind, DualSyncJobStatus } from '../types';
 import type { Database, Json } from '@/types/supabase';
@@ -52,12 +53,13 @@ export interface EnqueueDualSyncJobInput {
 
 export async function enqueueDualSyncJob(input: EnqueueDualSyncJobInput): Promise<DualSyncJob> {
   const dual = getDualSyncDbClient(input.client);
+  const payload = (input.payload ?? {}) as Json;
   const insert = {
     restaurant_id: input.restaurantId,
     job_kind: input.jobKind,
     status: 'queued' satisfies DualSyncJobStatus,
     idempotency_key: input.idempotencyKey ?? null,
-    payload: (input.payload ?? {}) as Json,
+    payload,
     priority: input.priority ?? 100,
     max_attempts: input.maxAttempts ?? 3,
     available_at: input.availableAt ?? new Date().toISOString(),
@@ -89,6 +91,9 @@ export async function enqueueDualSyncJob(input: EnqueueDualSyncJobInput): Promis
       throw existingError;
     }
     if (existing) {
+      if (hashCanonicalJson(existing.payload ?? {}) !== hashCanonicalJson(payload)) {
+        throw new Error('Dual-sync idempotency key was already used with a different payload.');
+      }
       return rowToJob(existing);
     }
   }
@@ -99,14 +104,35 @@ export interface ClaimNextDualSyncJobInput {
   readonly client: DbClient;
   readonly workerId: string;
   readonly now?: string;
+  readonly staleRunningAfterMs?: number;
 }
+
+const DEFAULT_RUNNING_STALE_AFTER_MS = 15 * 60 * 1000;
 
 export async function claimNextDualSyncJob({
   client,
   workerId,
   now = new Date().toISOString(),
+  staleRunningAfterMs = DEFAULT_RUNNING_STALE_AFTER_MS,
 }: ClaimNextDualSyncJobInput): Promise<DualSyncJob | null> {
   const dual = getDualSyncDbClient(client);
+  const staleBefore = new Date(new Date(now).getTime() - staleRunningAfterMs).toISOString();
+  const { error: staleError } = await dual
+    .from('dual_sync_jobs')
+    .update({
+      status: 'retrying' satisfies DualSyncJobStatus,
+      available_at: now,
+      locked_at: null,
+      locked_by: null,
+      last_error_code: 'DUAL_SYNC_JOB_STALE_CLAIM',
+      last_error_message: 'Running job lease expired before completion.',
+    } as never)
+    .eq('status', 'running')
+    .lte('locked_at', staleBefore);
+  if (staleError) {
+    throw staleError;
+  }
+
   const { data: candidates, error: readError } = await dual
     .from('dual_sync_jobs')
     .select('*')

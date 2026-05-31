@@ -320,6 +320,24 @@ describe('cron route authentication', () => {
     expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
   });
 
+  it('rate limits failed cron authentication before recording security events', async () => {
+    consumeRateLimitMock.mockResolvedValueOnce({
+      ok: false,
+      limit: 10,
+      remaining: 0,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
+
+    const response = await processEmailsGET(cronRequest('/api/cron/process-emails', 'wrong'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(payload).toEqual({ error: 'Too many cron authentication failures.' });
+    expect(recordObservabilityEventMock).not.toHaveBeenCalled();
+    expect(triggerEmailQueueDrainMock).not.toHaveBeenCalled();
+  });
+
   it('accepts a rotated previous secret', async () => {
     process.env.CRON_SECRET = CURRENT_SECRET;
     process.env.CRON_SECRET_PREVIOUS = PREVIOUS_SECRET;

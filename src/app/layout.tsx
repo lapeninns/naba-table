@@ -50,6 +50,7 @@ const htmlStyle: CSSProperties = {
 };
 
 const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);if(theme==='guest'){root.classList.remove('dark');root.style.colorScheme='light';}else{root.style.removeProperty('color-scheme');}})();`;
+const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -63,7 +64,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: documentThemeBootstrapScript }} />
         {config.domainName ? (
-          <PlausibleProvider domain={config.domainName} />
+          <PlausibleProvider domain={config.domainName} exclude={PLAUSIBLE_EXCLUDED_PATHS} />
         ) : null}
       </head>
       <body className="relative font-sans" suppressHydrationWarning>

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   normalizePhone,
@@ -44,6 +44,10 @@ function createLookupClient(existing: {
 }
 
 describe('server/customers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('normalizes equivalent UK phone formats to the same canonical digits', () => {
     expect(normalizePhone('07950 272147')).toBe('447950272147');
     expect(normalizePhone('+447950272147')).toBe('447950272147');
@@ -280,6 +284,62 @@ describe('server/customers', () => {
 
     expect(customer).toEqual(existing);
     expect(updateBuilder.update).toHaveBeenCalledWith({ phone: '+447000000000' });
+  });
+
+  it('redacts customer update fields and database conflicts in logs', async () => {
+    const infoSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const existing = {
+      id: 'customer-1',
+      restaurant_id: 'rest-1',
+      email: 'guest@example.com',
+      phone: '',
+      full_name: null,
+      marketing_opt_in: false,
+      created_at: '2026-04-01T15:00:00Z',
+      updated_at: '2026-04-01T15:00:00Z',
+      email_normalized: 'guest@example.com',
+      phone_normalized: null,
+      auth_user_id: null,
+      user_profile_id: null,
+      notes: null,
+    };
+    const duplicatePhoneError = {
+      code: '23505',
+      message: 'duplicate key value includes +447000000000 and guest@example.com',
+      details: 'phone +447000000000',
+    };
+
+    const lookupBuilder = {
+      select: vi.fn(() => lookupBuilder),
+      eq: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({ data: existing, error: null }),
+    };
+    const updateSingle = vi.fn().mockResolvedValue({ data: null, error: duplicatePhoneError });
+    const updateBuilder = {
+      update: vi.fn(() => updateBuilder),
+      eq: vi.fn(() => updateBuilder),
+      select: vi.fn(() => updateBuilder),
+      single: updateSingle,
+    };
+    const from = vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(updateBuilder);
+
+    await upsertCustomer({ from } as unknown as DbClient, {
+      restaurantId: 'rest-1',
+      email: 'guest@example.com',
+      phone: '07000 000000',
+      name: 'Private Guest',
+      marketingOptIn: false,
+      identityMatchMode: 'partial',
+      allowExistingUpdates: true,
+    });
+
+    const logOutput = JSON.stringify([...infoSpy.mock.calls, ...warnSpy.mock.calls]);
+    expect(logOutput).toContain('"fields":["full_name","phone"]');
+    expect(logOutput).toContain('"code":"23505"');
+    expect(logOutput).not.toContain('+447000000000');
+    expect(logOutput).not.toContain('guest@example.com');
+    expect(logOutput).not.toContain('Private Guest');
   });
 
   it('recovers from exact duplicate contact inserts by retrying the strict identity lookup', async () => {

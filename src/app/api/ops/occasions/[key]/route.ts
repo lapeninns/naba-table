@@ -7,6 +7,7 @@ import {
   insertAudit,
   toAdminOccasion,
 } from '@/server/occasions/admin';
+import { clearOccasionCatalogCache } from '@/server/occasions/catalog';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 export async function PATCH(
@@ -91,6 +92,7 @@ export async function PATCH(
       changed_by: authorization.user.id,
     });
 
+    clearOccasionCatalogCache();
     const occasion = data ? toAdminOccasion(data as Parameters<typeof toAdminOccasion>[0]) : null;
     return NextResponse.json({ occasion });
   } catch (error) {
@@ -157,6 +159,7 @@ export async function DELETE(
       changed_by: authorization.user.id,
     });
 
+    clearOccasionCatalogCache();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[ops/occasions][DELETE] failed', error);

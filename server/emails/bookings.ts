@@ -17,7 +17,7 @@ import {
   type RestaurantEmailTemplateVariant,
 } from '@/lib/restaurants/email-templates';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl, safePublicHref } from '@/lib/security/safe-url';
-import { getTrustedSiteOrigin } from '@/lib/site-url';
+import { getTrustedAppOrigin, getTrustedSiteOrigin } from '@/lib/site-url';
 import { type VenueDetails } from '@/lib/venue';
 import {
   createEmailIdempotencyKey,
@@ -71,6 +71,7 @@ type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 
 // Prefer the public root host for guest-facing booking links.
 const bookingSiteUrl = getTrustedSiteOrigin().replace(/\/+$/, '');
+const bookingAppUrl = getTrustedAppOrigin().replace(/\/+$/, '');
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
@@ -669,7 +670,7 @@ async function dispatchEmail(
       subject = `${headline} - ${venue.name}`;
       preheader = intro;
       ctaLabel = 'Review Now';
-      ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
+      ctaUrl = `${bookingAppUrl}/bookings?focus=${encodeURIComponent(booking.id)}`;
       toEmail = venue.email || config.email.supportEmail || '';
       break;
   }
