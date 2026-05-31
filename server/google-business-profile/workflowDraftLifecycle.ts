@@ -106,16 +106,6 @@ export async function createGoogleBusinessProfileWorkflowDraftState(params: {
   );
   const fetchedAt = nowIso();
 
-  const { error: archiveError } = await params.client
-    .from('restaurant_external_profile_drafts')
-    .update({ status: 'archived' })
-    .eq('restaurant_id', params.restaurantId)
-    .eq('provider', GOOGLE_BUSINESS_PROFILE_PROVIDER)
-    .in('status', ['review_ready', 'approved', 'stale', 'failed', 'partially_published']);
-  if (archiveError) {
-    throw archiveError;
-  }
-
   const { data, error } = await params.client
     .from('restaurant_external_profile_drafts')
     .insert({
@@ -142,6 +132,17 @@ export async function createGoogleBusinessProfileWorkflowDraftState(params: {
 
   if (error) {
     throw error;
+  }
+
+  const { error: archiveError } = await params.client
+    .from('restaurant_external_profile_drafts')
+    .update({ status: 'archived' })
+    .eq('restaurant_id', params.restaurantId)
+    .eq('provider', GOOGLE_BUSINESS_PROFILE_PROVIDER)
+    .neq('id', data.id)
+    .in('status', ['review_ready', 'approved', 'stale', 'failed', 'partially_published']);
+  if (archiveError) {
+    throw archiveError;
   }
 
   const [events, activePublishJob] = await Promise.all([
@@ -186,11 +187,20 @@ export async function updateGoogleBusinessProfileWorkflowDraftState(params: {
   if (selectedApprovals) {
     patch.selected_approvals = selectedApprovalsWithDecisions(selectedApprovals, decisions);
   }
+  const selectionChanged = params.decisions !== undefined || params.selectedApprovals !== undefined;
+  if (currentDraft.status === 'approved' && selectionChanged && params.status !== 'approved') {
+    patch.status = 'review_ready';
+    patch.approved_by_user_id = null;
+    patch.approved_at = null;
+  }
   if (params.status) {
     patch.status = params.status;
     if (params.status === 'approved') {
       patch.approved_by_user_id = params.actorUserId;
       patch.approved_at = nowIso();
+    } else {
+      patch.approved_by_user_id = null;
+      patch.approved_at = null;
     }
   }
 

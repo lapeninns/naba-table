@@ -36,6 +36,31 @@ export type GuestLookupHttpEventRecorder = typeof recordObservabilityEvent;
 export type GuestLookupHttpTokenValidator = typeof validateSessionRecoveryAccessToken;
 export type GuestLookupHttpBookingFetcher = typeof fetchGuestLookupBookings;
 
+const GUEST_LOOKUP_TOKEN_PREFLIGHT_LIMIT = 20;
+const GUEST_LOOKUP_TOKEN_PREFLIGHT_WINDOW_MS = 60_000;
+
+function buildPreflightRateLimitResponse(
+  rateResult: Awaited<ReturnType<GuestLookupHttpRateLimiter>>,
+) {
+  const retryAfterSeconds = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
+  return NextResponse.json(
+    {
+      error: 'Too many requests',
+      code: 'RATE_LIMITED',
+      retryAfter: retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': retryAfterSeconds.toString(),
+        'X-RateLimit-Limit': rateResult.limit.toString(),
+        'X-RateLimit-Remaining': rateResult.remaining.toString(),
+        'X-RateLimit-Reset': rateResult.resetAt.toString(),
+      },
+    },
+  );
+}
+
 export async function buildGuestLookupHttpResponse({
   clientIp,
   cookieAccessToken,
@@ -85,6 +110,16 @@ export async function buildGuestLookupHttpResponse({
   let targetRestaurantId: string;
 
   if (accessToken) {
+    const tokenPreflightRate = await rateLimiter({
+      identifier: `bookings:lookup:access-token:${clientIp}`,
+      limit: GUEST_LOOKUP_TOKEN_PREFLIGHT_LIMIT,
+      windowMs: GUEST_LOOKUP_TOKEN_PREFLIGHT_WINDOW_MS,
+    });
+    access = markGuestLookupRateSource(access, { rateSource: tokenPreflightRate.source });
+    if (!tokenPreflightRate.ok) {
+      return buildPreflightRateLimitResponse(tokenPreflightRate);
+    }
+
     if (!sessionRecoverySecret) {
       access = markGuestLookupAccessTokenNotConfigured(access);
       void eventRecorder(

@@ -4,13 +4,14 @@ Active contributors: amanshresthaa
 
 ## Purpose
 
-Guest and customer concepts connect Supabase auth users, booking contact data, customer history, profile data, and operator customer views.
+Guest and customer concepts connect Supabase auth users, booking contact data, guest lookup policy, customer history, profile data, exports, and operator customer views.
 
 ## Directory layout
 
 ```text
 server/customers.ts
 server/ops/customers.ts
+server/bookings/guest-lookup-*
 src/app/api/profile/
 src/guest/
 ```
@@ -25,15 +26,23 @@ src/guest/
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Guest portal](../features/guest-portal.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This primitive links to [Guest portal](../features/guest-portal.md), [Public booking](../features/public-booking.md), and [Ops API](../api/ops-api.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
@@ -42,5 +51,3 @@ Start with the first source file in the table below, then follow imports to the 
 | `server/customers.ts`          | Customer domain.     |
 | `server/ops/customers.ts`      | Ops customer domain. |
 | `src/app/api/profile/route.ts` | Profile route.       |
-
-Related: [Guest portal](../features/guest-portal.md)

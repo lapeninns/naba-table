@@ -130,6 +130,32 @@ describe('ensureProfileRow', () => {
     expect(updateChain.eq).toHaveBeenCalledWith('phone', '');
   });
 
+  it('uses authenticated user metadata to hydrate an existing blank profile name', async () => {
+    const customerService = makeCustomerService();
+    getServiceSupabaseClientMock.mockReturnValue(customerService.service);
+    customerService.chain.limit.mockResolvedValueOnce({ data: [], error: null });
+    const existing = makeProfile({ phone: '07123 456789' });
+    const updated = makeProfile({
+      name: 'Submitted Invitee',
+      phone: '07123 456789',
+      updated_at: '2026-05-16T10:15:00.000Z',
+    });
+    const { client, table } = makeProfileClient({ existing, updated });
+
+    const row = await ensureProfileRow(client, {
+      ...makeUser(),
+      user_metadata: { name: 'Submitted Invitee' },
+    } as User);
+
+    expect(row).toEqual(updated);
+    expect(table.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Submitted Invitee',
+        updated_at: expect.any(String),
+      }),
+    );
+  });
+
   it('returns the original row when the guarded hydration update no longer matches', async () => {
     const customerService = makeCustomerService();
     getServiceSupabaseClientMock.mockReturnValue(customerService.service);

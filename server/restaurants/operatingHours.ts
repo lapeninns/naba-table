@@ -86,8 +86,8 @@ function ensureOpenBeforeClose(opensAt: string | null, closesAt: string | null, 
     throw new Error(`${context}: opensAt and closesAt must be provided when not closed`);
   }
 
-  if (opensAt >= closesAt) {
-    throw new Error(`${context}: closesAt must be after opensAt`);
+  if (opensAt === closesAt) {
+    throw new Error(`${context}: opensAt and closesAt must differ`);
   }
 }
 

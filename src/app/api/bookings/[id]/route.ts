@@ -73,6 +73,15 @@ import type { Json, Tables } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
+const explicitBooleanSchema = z.preprocess((value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return value;
+}, z.boolean());
 
 const updateSchema = z.object({
   restaurantId: z.string().uuid().optional(),
@@ -90,7 +99,7 @@ const updateSchema = z.object({
     .refine((value) => isUKPhone(value), {
       message: 'Please enter a valid UK phone number.',
     }),
-  marketingOptIn: z.coerce.boolean().optional().default(false),
+  marketingOptIn: explicitBooleanSchema.optional().default(false),
 });
 
 // Dashboard update schema for minimal booking updates (used by EditBookingDialog)
@@ -117,6 +126,7 @@ const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinut
 const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
 const pastTimeGraceMinutes = env.featureFlags.bookingPastTimeGraceMinutes ?? 5;
 const guestSelfServeCutoffMinutes = 15;
+const bookingIdParamSchema = z.string().uuid();
 
 function respondWithPastBooking(error: PastBookingError) {
   return NextResponse.json(
@@ -315,11 +325,18 @@ async function resolveBookingId(
   const { id } = result;
 
   if (typeof id === 'string') {
-    return id;
+    const parsed = bookingIdParamSchema.safeParse(id);
+    return parsed.success ? parsed.data : null;
   }
 
   if (Array.isArray(id)) {
-    return id[0] ?? null;
+    const first = id[0];
+    if (!first) {
+      return null;
+    }
+
+    const parsed = bookingIdParamSchema.safeParse(first);
+    return parsed.success ? parsed.data : null;
   }
 
   return null;
@@ -825,7 +842,7 @@ async function handleDashboardUpdate(params: {
   } catch (error: unknown) {
     console.error('[bookings][PUT:dashboard]', stringifyError(error));
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to update booking', code: 'UNKNOWN' },
+      { error: 'Unable to update booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }
@@ -836,7 +853,6 @@ function respondWithGuardError(error: GuardError) {
     {
       error: error.message,
       code: error.code,
-      details: error.details ?? null,
     },
     { status: error.status },
   );
@@ -1181,7 +1197,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   } catch (error: unknown) {
     console.error('[bookings][GET:id]', stringifyError(error));
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to load booking', code: 'UNKNOWN' },
+      { error: 'Unable to load booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }
@@ -1601,7 +1617,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to update booking', code: 'UNKNOWN' },
+      { error: 'Unable to update booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }
@@ -1642,6 +1658,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
+        .eq('restaurant_id', result.payload.restaurantId)
         .maybeSingle();
 
       if (error) {
@@ -1678,6 +1695,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
 
       const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
+      if (existingBooking.status === 'cancelled') {
+        return NextResponse.json({ id: bookingId, status: 'cancelled' });
+      }
+
       const schedule = await getRestaurantSchedule(restaurantId, {
         date: existingBooking.booking_date ?? undefined,
         client: serviceSupabase,
@@ -1725,7 +1746,13 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         }
       }
 
-      const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
+      const cancellation = await softCancelBooking(serviceSupabase, bookingId, {
+        restaurantId,
+      });
+      const cancelledRecord = cancellation.booking;
+      if (!cancellation.cancelled) {
+        return NextResponse.json({ id: bookingId, status: cancelledRecord.status ?? 'cancelled' });
+      }
       await clearBookingTableAssignments(serviceSupabase, bookingId);
 
       const cancellationMetadata = {
@@ -1777,7 +1804,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
 
       return NextResponse.json(
-        { error: stringifyError(error) || 'Unable to cancel booking', code: 'UNKNOWN' },
+        { error: 'Unable to cancel booking', code: 'UNKNOWN' },
         { status: 500 },
       );
     }
@@ -1834,6 +1861,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
+    if (existingBooking.status === 'cancelled') {
+      return NextResponse.json({ id: bookingId, status: 'cancelled', bookings: [] });
+    }
+
     const schedule = await getRestaurantSchedule(restaurantId, {
       date: existingBooking.booking_date ?? undefined,
       client: serviceSupabase,
@@ -1881,7 +1912,23 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
+    const cancellation = await softCancelBooking(serviceSupabase, bookingId, {
+      restaurantId,
+    });
+    const cancelledRecord = cancellation.booking;
+    if (!cancellation.cancelled) {
+      const bookings = await fetchBookingsForContact(
+        tenantSupabase,
+        restaurantId,
+        userEmail,
+        existingBooking.customer_phone,
+      );
+      return NextResponse.json({
+        id: bookingId,
+        status: cancelledRecord.status ?? 'cancelled',
+        bookings: bookings.map((booking) => toPublicRecoveryBookingDTO(booking as Tables<'bookings'>)),
+      });
+    }
     await clearBookingTableAssignments(serviceSupabase, bookingId);
 
     const cancellationMetadata = {
@@ -1904,6 +1951,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       userEmail,
       existingBooking.customer_phone,
     );
+    const safeBookings = bookings.map((booking) =>
+      toPublicRecoveryBookingDTO(booking as Tables<'bookings'>),
+    );
     try {
       await enqueueBookingCancelledSideEffects(
         {
@@ -1921,7 +1971,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       id: bookingId,
       status: cancelledRecord.status ?? 'cancelled',
-      bookings,
+      bookings: safeBookings,
     });
   } catch (error: unknown) {
     console.error('[bookings][DELETE:id]', stringifyError(error));
@@ -1941,7 +1991,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to cancel booking', code: 'UNKNOWN' },
+      { error: 'Unable to cancel booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }

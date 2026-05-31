@@ -149,4 +149,21 @@ describe('GET /api/ops/tables/timeline', () => {
       client: supabase,
     });
   });
+
+  it('fails closed when timeline construction cannot prove booking or hold occupancy @p1 @api @security', async () => {
+    getTableAvailabilityTimelineMock.mockRejectedValue(new Error('booking load failed'));
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      const response = await GET(
+        appHostRequest(`/api/ops/tables/timeline?restaurantId=${RESTAURANT_ID}`),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body).toEqual({ error: 'Unable to load table timeline' });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
 });

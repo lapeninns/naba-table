@@ -97,6 +97,54 @@ describe('verifyTurnstileToken', () => {
     });
   });
 
+  it('fails closed when a successful response omits the expected action', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        hostname: 'www.nabatable.com',
+        'error-codes': [],
+      }),
+    );
+
+    const result = await verifyTurnstileToken({
+      token: 'token-123',
+      expectedAction: 'guest_signin_magic_link',
+      expectedHostname: 'www.nabatable.com',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'action_mismatch',
+      action: null,
+      hostname: 'www.nabatable.com',
+      errorCodes: [],
+    });
+  });
+
+  it('fails closed when a successful response omits the expected hostname', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+        action: 'guest_signin_magic_link',
+        'error-codes': [],
+      }),
+    );
+
+    const result = await verifyTurnstileToken({
+      token: 'token-123',
+      expectedAction: 'guest_signin_magic_link',
+      expectedHostname: 'www.nabatable.com',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: 'hostname_mismatch',
+      action: 'guest_signin_magic_link',
+      hostname: null,
+      errorCodes: [],
+    });
+  });
+
   it('returns verify_unavailable when verification endpoint is unreachable', async () => {
     fetchMock.mockRejectedValueOnce(new Error('network timeout'));
 

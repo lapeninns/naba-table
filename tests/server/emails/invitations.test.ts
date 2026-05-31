@@ -15,8 +15,8 @@ vi.mock('@/config', () => ({
   },
 }));
 
-vi.mock('@/lib/owner/team/invite-links', () => ({
-  buildInviteUrl: (token: string) => `https://app.nabatable.com/invite/${token}`,
+vi.mock('@/lib/site-url', () => ({
+  getTrustedSiteOrigin: () => 'https://www.nabatable.com',
 }));
 
 vi.mock('@/libs/resend', () => ({
@@ -69,6 +69,17 @@ describe('sendTeamInviteEmail', () => {
         to: 'manager@example.com',
         replyTo: 'support-replies@nabatable.com',
         fromName: 'Nab a Table Support',
+      }),
+    );
+  });
+
+  it('uses the public root host for invite acceptance links', async () => {
+    await sendTeamInviteEmail({ invite: buildInvite(), token: 'token-1' });
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining('https://www.nabatable.com/invite/token-1'),
+        text: expect.stringContaining('https://www.nabatable.com/invite/token-1'),
       }),
     );
   });

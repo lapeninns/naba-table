@@ -6,6 +6,7 @@ import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { POST as postCheckIn } from '@/src/app/api/ops/bookings/[id]/check-in/route';
 import { POST as postCheckOut } from '@/src/app/api/ops/bookings/[id]/check-out/route';
 import { POST as postNoShow } from '@/src/app/api/ops/bookings/[id]/no-show/route';
+import { DELETE as deleteBookingTable } from '@/src/app/api/ops/bookings/[id]/tables/[tableId]/route';
 import { POST as postUndoNoShow } from '@/src/app/api/ops/bookings/[id]/undo-no-show/route';
 import { POST as postProfileImage } from '@/src/app/api/profile/image/route';
 
@@ -13,7 +14,7 @@ const TOKEN = 'csrf-token-for-tests';
 
 type LifecycleRouteHandler = (
   request: NextRequest,
-  context: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string; tableId?: string }> },
 ) => Promise<Response>;
 
 const lifecycleRoutes: { handler: LifecycleRouteHandler; label: string; path: string }[] = [
@@ -36,6 +37,11 @@ const lifecycleRoutes: { handler: LifecycleRouteHandler; label: string; path: st
     handler: postUndoNoShow,
     label: 'undo-no-show',
     path: '/api/ops/bookings/booking-1/undo-no-show',
+  },
+  {
+    handler: deleteBookingTable,
+    label: 'table-unassign',
+    path: '/api/ops/bookings/booking-1/tables/table-1',
   },
 ];
 
@@ -108,7 +114,7 @@ describe('CSRF-protected mutations', () => {
       const jsonSpy = vi.spyOn(request, 'json');
 
       const response = await handler(request, {
-        params: Promise.resolve({ id: 'booking-1' }),
+        params: Promise.resolve({ id: 'booking-1', tableId: 'table-1' }),
       });
       const body = await response.json();
 

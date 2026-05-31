@@ -6,7 +6,7 @@ export type BookingHistoryChange = {
 };
 
 export type BookingHistoryEvent = {
-  versionId: number;
+  versionId: string;
   changeType: 'created' | 'updated' | 'cancelled' | 'deleted';
   changedAt: string;
   actor: string;

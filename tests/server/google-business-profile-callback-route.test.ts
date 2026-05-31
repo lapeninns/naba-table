@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const completeGoogleBusinessProfileAuthorizationMock = vi.hoisted(() => vi.fn());
 const authGetUserMock = vi.hoisted(() => vi.fn());
@@ -28,6 +28,8 @@ import { GET as legacyGET } from '@/src/app/api/ops/restaurants/[id]/google-busi
 
 describe('google business profile callback route', () => {
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.nabatable.com';
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'nabatable.com';
     completeGoogleBusinessProfileAuthorizationMock.mockReset();
     authGetUserMock.mockReset().mockResolvedValue({
       data: { user: { id: 'user-1' } },
@@ -36,7 +38,12 @@ describe('google business profile callback route', () => {
     loggerErrorMock.mockReset();
   });
 
-  it('preserves the stored return host on successful authorization', async () => {
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+  });
+
+  it('uses the trusted app origin on successful authorization', async () => {
     completeGoogleBusinessProfileAuthorizationMock.mockResolvedValue({
       restaurantId: 'rest-1',
       returnPath:
@@ -56,7 +63,7 @@ describe('google business profile callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://preview.nabatable.example/app/settings/restaurant/google-business-profile?gbp=connected',
+      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=connected',
     );
     expect(completeGoogleBusinessProfileAuthorizationMock).toHaveBeenCalledWith({
       stateToken: 'test-state',
@@ -67,7 +74,7 @@ describe('google business profile callback route', () => {
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
   });
 
-  it('preserves the forwarded host for error redirects', async () => {
+  it('ignores forwarded host headers for error redirects', async () => {
     const response = await GET(
       new NextRequest(
         'http://internal-host/api/ops/google-business-profile/callback?error=access_denied',
@@ -82,7 +89,7 @@ describe('google business profile callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://staging.nabatable.example/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+was+cancelled+or+denied.',
+      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+was+cancelled+or+denied.',
     );
   });
 
@@ -143,7 +150,7 @@ describe('google business profile callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://preview.nabatable.example/app/settings/restaurant/google-business-profile?gbp=connected',
+      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=connected',
     );
     expect(completeGoogleBusinessProfileAuthorizationMock).toHaveBeenCalledWith({
       stateToken: 'test-state',

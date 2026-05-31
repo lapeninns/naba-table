@@ -37,6 +37,7 @@ vi.mock('@/server/team/access', () => ({
   requireAdminMembership: requireAdminMembershipMock,
 }));
 
+import { APP_REQUEST_PATH_HEADER } from '@/lib/url/app-request-path';
 import RestaurantSettingsLayout from '@/src/app/app/(app)/settings/restaurant/layout';
 
 const USER_ID = '22222222-2222-4222-8222-222222222222';
@@ -49,7 +50,9 @@ describe('RestaurantSettingsLayout security', () => {
     cookiesMock.mockReset();
     cookiesMock.mockResolvedValue({ get: cookieGetMock });
     headerGetMock.mockReset();
-    headerGetMock.mockReturnValue('app.localhost:5180');
+    headerGetMock.mockImplementation((name: string) =>
+      name.toLowerCase() === 'host' ? 'app.localhost:5180' : null,
+    );
     headersMock.mockReset();
     headersMock.mockResolvedValue({ get: headerGetMock });
     getUserMock.mockReset();
@@ -71,6 +74,42 @@ describe('RestaurantSettingsLayout security', () => {
     expect(redirectMock).toHaveBeenCalledWith(expect.stringContaining('/app/auth/signin'));
     expect(fetchUserMembershipsCachedMock).not.toHaveBeenCalled();
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves the requested restaurant settings path and query in auth redirects', async () => {
+    headerGetMock.mockImplementation((name: string) => {
+      if (name.toLowerCase() === 'host') return 'localhost:5180';
+      if (name.toLowerCase() === APP_REQUEST_PATH_HEADER) {
+        return '/app/settings/restaurant/email-templates?source=legacy';
+      }
+      return null;
+    });
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/app/auth/signin?redirectedFrom=%2Fapp%2Fsettings%2Frestaurant%2Femail-templates%3Fsource%3Dlegacy',
+    );
+  });
+
+  it('falls back to the canonical profile route when the request-path header is unsafe', async () => {
+    headerGetMock.mockImplementation((name: string) => {
+      if (name.toLowerCase() === 'host') return 'localhost:5180';
+      if (name.toLowerCase() === APP_REQUEST_PATH_HEADER) return 'https://evil.example/settings';
+      return null;
+    });
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/app/auth/signin?redirectedFrom=%2Fapp%2Fsettings%2Frestaurant%2Fprofile',
+    );
   });
 
   it('redirects active non-admin restaurant members away from settings', async () => {

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   if (!restaurantId) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish-preview');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish-preview', req);
   if (access instanceof NextResponse) return access;
 
   let body: unknown = null;

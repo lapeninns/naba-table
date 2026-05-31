@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   claimFoodMenusImportReviewDecision,
+  markFoodMenusImportReviewDecisionFailed,
   listPendingFoodMenusImportReviews,
   markFoodMenusImportReviewDecision,
   readFoodMenusImportReviewForRestaurant,
@@ -155,7 +156,7 @@ describe('GBP FoodMenus import-review storage', () => {
     expect(row?.id).toBe('review-2');
   });
 
-  it('claims and marks decisions using guarded status transitions', async () => {
+  it('claims, marks, and fails decisions using guarded status transitions', async () => {
     const claimChain = makeChain(
       makeImportReviewRow({
         decision_status: 'processing',
@@ -170,7 +171,14 @@ describe('GBP FoodMenus import-review storage', () => {
         decided_by_user_id: 'user-1',
       }),
     );
-    const { client } = makeClient([claimChain, markChain]);
+    const failChain = makeChain(
+      makeImportReviewRow({
+        decision_status: 'failed',
+        decision_action: 'apply_to_nabatable',
+        decided_by_user_id: 'user-1',
+      }),
+    );
+    const { client } = makeClient([claimChain, markChain, failChain]);
 
     const claimed = await claimFoodMenusImportReviewDecision({
       client,
@@ -184,6 +192,13 @@ describe('GBP FoodMenus import-review storage', () => {
       restaurantId: 'rest-1',
       reviewId: 'review-1',
       decisionStatus: 'applied',
+      decisionAction: 'apply_to_nabatable',
+      decidedByUserId: 'user-1',
+    });
+    const failed = await markFoodMenusImportReviewDecisionFailed({
+      client,
+      restaurantId: 'rest-1',
+      reviewId: 'review-1',
       decisionAction: 'apply_to_nabatable',
       decidedByUserId: 'user-1',
     });
@@ -204,7 +219,16 @@ describe('GBP FoodMenus import-review storage', () => {
       }),
     );
     expect(markChain.eq).toHaveBeenCalledWith('decision_status', 'processing');
+    expect(failChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision_status: 'failed',
+        decision_action: 'apply_to_nabatable',
+        decided_by_user_id: 'user-1',
+      }),
+    );
+    expect(failChain.eq).toHaveBeenCalledWith('decision_status', 'processing');
     expect(claimed.decisionStatus).toBe('processing');
     expect(marked.decisionStatus).toBe('applied');
+    expect(failed.decisionStatus).toBe('failed');
   });
 });

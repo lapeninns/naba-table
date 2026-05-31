@@ -1,12 +1,17 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { OpsRejectionAnalytics, OpsRejectionBucket, OpsStrategicPenaltyKey, OpsStrategicSample } from "@/types/ops";
-import type { Database } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  OpsRejectionAnalytics,
+  OpsRejectionBucket,
+  OpsStrategicPenaltyKey,
+  OpsStrategicSample,
+} from '@/types/ops';
+import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, "public">;
+type DbClient = SupabaseClient<Database, 'public'>;
 
 type ObservabilityRow = {
   id: string;
@@ -16,6 +21,7 @@ type ObservabilityRow = {
 };
 
 const DEFAULT_LIMIT = 5000;
+const MAX_LIMIT = 5000;
 const DEFAULT_RANGE_DAYS = 1;
 const STRATEGIC_KEYWORDS = [
   /no suitable tables/i,
@@ -44,30 +50,38 @@ function parseIsoDate(input: string | undefined, fallback: DateTime): DateTime {
   if (!input) {
     return fallback;
   }
-  const parsed = DateTime.fromISO(input, { zone: "utc" });
+  const parsed = DateTime.fromISO(input, { zone: 'utc' });
   return parsed.isValid ? parsed : fallback;
 }
 
 function normalizePenaltyKey(value: unknown): OpsStrategicPenaltyKey {
-  if (value === "slack" || value === "scarcity" || value === "future_conflict" || value === "structural") {
+  if (
+    value === 'slack' ||
+    value === 'scarcity' ||
+    value === 'future_conflict' ||
+    value === 'structural'
+  ) {
     return value;
   }
-  return "unknown";
+  return 'unknown';
 }
 
-function extractPenaltiesFromContext(context: Record<string, unknown> | null | undefined): StrategicPenalties | null {
-  if (!context || typeof context !== "object") {
+function extractPenaltiesFromContext(
+  context: Record<string, unknown> | null | undefined,
+): StrategicPenalties | null {
+  if (!context || typeof context !== 'object') {
     return null;
   }
 
   const telemetry = context.strategicPenalties as Record<string, unknown> | null | undefined;
-  if (!telemetry || typeof telemetry !== "object") {
+  if (!telemetry || typeof telemetry !== 'object') {
     return null;
   }
 
   const slack = Number(telemetry.slack ?? telemetry.slack_penalty ?? 0) || 0;
   const scarcity = Number(telemetry.scarcity ?? telemetry.scarcity_penalty ?? 0) || 0;
-  const futureConflict = Number(telemetry.futureConflict ?? telemetry.future_conflict_penalty ?? 0) || 0;
+  const futureConflict =
+    Number(telemetry.futureConflict ?? telemetry.future_conflict_penalty ?? 0) || 0;
   const dominant = normalizePenaltyKey(telemetry.dominant);
 
   if (slack === 0 && scarcity === 0 && futureConflict === 0) {
@@ -75,13 +89,13 @@ function extractPenaltiesFromContext(context: Record<string, unknown> | null | u
   }
 
   let resolvedDominant = dominant;
-  if (resolvedDominant === "unknown") {
+  if (resolvedDominant === 'unknown') {
     const contributions: Array<[OpsStrategicPenaltyKey, number]> = [
-      ["slack", slack],
-      ["scarcity", scarcity],
-      ["future_conflict", futureConflict],
+      ['slack', slack],
+      ['scarcity', scarcity],
+      ['future_conflict', futureConflict],
     ];
-    let highest: OpsStrategicPenaltyKey = "unknown";
+    let highest: OpsStrategicPenaltyKey = 'unknown';
     let max = 0;
     for (const [key, value] of contributions) {
       if (value > max) {
@@ -89,7 +103,7 @@ function extractPenaltiesFromContext(context: Record<string, unknown> | null | u
         max = value;
       }
     }
-    resolvedDominant = max > 0 ? highest : "unknown";
+    resolvedDominant = max > 0 ? highest : 'unknown';
   }
 
   return {
@@ -104,39 +118,36 @@ function deriveClassification(
   explicitClassification: unknown,
   skipReason: string | null,
   penalties: StrategicPenalties | null,
-): "hard" | "strategic" {
-  if (explicitClassification === "strategic" || explicitClassification === "hard") {
+): 'hard' | 'strategic' {
+  if (explicitClassification === 'strategic' || explicitClassification === 'hard') {
     return explicitClassification;
   }
   if (penalties) {
-    return "strategic";
+    return 'strategic';
   }
   if (skipReason && STRATEGIC_KEYWORDS.some((pattern) => pattern.test(skipReason))) {
-    return "strategic";
+    return 'strategic';
   }
-  return "hard";
+  return 'hard';
 }
 
 function normalizePlannerConfig(input: unknown): Record<string, unknown> | null {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return null;
   }
   return input as Record<string, unknown>;
 }
 
 function toSeriesKey(date: DateTime, bucket: OpsRejectionBucket): string {
-  if (bucket === "hour") {
+  if (bucket === 'hour') {
     return (
-      date.startOf("hour").toUTC().toISO({ suppressMilliseconds: true, suppressSeconds: true }) ??
+      date.startOf('hour').toUTC().toISO({ suppressMilliseconds: true, suppressSeconds: true }) ??
       date.toISO() ??
       date.toString()
     );
   }
   return (
-    date.startOf("day").toUTC().toISODate() ??
-    date.toISODate() ??
-    date.toISO() ??
-    date.toString()
+    date.startOf('day').toUTC().toISODate() ?? date.toISODate() ?? date.toISO() ?? date.toString()
   );
 }
 
@@ -149,7 +160,7 @@ export async function getRejectionAnalytics(
   options: FetchOptions = {},
 ): Promise<OpsRejectionAnalytics> {
   const client = options.client ?? getServiceSupabaseClient();
-  const bucket: OpsRejectionBucket = options.bucket ?? "day";
+  const bucket: OpsRejectionBucket = options.bucket ?? 'day';
 
   const toDateDefault = DateTime.utc();
   const toDate = parseIsoDate(options.to, toDateDefault);
@@ -159,22 +170,26 @@ export async function getRejectionAnalytics(
   const normalizedTo = toDate;
 
   const query = client
-    .from("observability_events")
-    .select("id, created_at, booking_id, context")
-    .eq("source", "capacity.selector")
-    .eq("event_type", "capacity.selector.skipped")
-    .eq("restaurant_id", restaurantId)
-    .gte("created_at", normalizedFrom.toUTC().toISO())
-    .lte("created_at", normalizedTo.toUTC().toISO())
-    .order("created_at", { ascending: true });
+    .from('observability_events')
+    .select('id, created_at, booking_id, context')
+    .eq('source', 'capacity.selector')
+    .eq('event_type', 'capacity.selector.skipped')
+    .eq('restaurant_id', restaurantId)
+    .gte('created_at', normalizedFrom.toUTC().toISO())
+    .lte('created_at', normalizedTo.toUTC().toISO())
+    .order('created_at', { ascending: true });
 
-  const limit = options.limit ?? DEFAULT_LIMIT;
+  const requestedLimit = options.limit ?? DEFAULT_LIMIT;
+  const limit =
+    Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, MAX_LIMIT)
+      : DEFAULT_LIMIT;
   const { data, error } = await query.limit(limit);
 
   if (error) {
     const code = (error as { code?: string }).code;
     // Table doesn't exist - return empty results
-    if (code === "PGRST205" || code === "42P01") {
+    if (code === 'PGRST205' || code === '42P01') {
       return {
         restaurantId,
         range: {
@@ -208,15 +223,19 @@ export async function getRejectionAnalytics(
   const strategicSamples: OpsStrategicSample[] = [];
 
   for (const event of events) {
-    const timestamp = DateTime.fromISO(event.created_at, { zone: "utc" });
+    const timestamp = DateTime.fromISO(event.created_at, { zone: 'utc' });
     if (!timestamp.isValid) {
       continue;
     }
 
     const context = event.context ?? {};
-    const skipReasonRaw = typeof context.skipReason === "string" ? context.skipReason : null;
+    const skipReasonRaw = typeof context.skipReason === 'string' ? context.skipReason : null;
     const penalties = extractPenaltiesFromContext(context);
-    const classification = deriveClassification(context.rejectionClassification, skipReasonRaw, penalties);
+    const classification = deriveClassification(
+      context.rejectionClassification,
+      skipReasonRaw,
+      penalties,
+    );
 
     totals.total += 1;
     totals[classification] += 1;
@@ -226,13 +245,13 @@ export async function getRejectionAnalytics(
     bucketEntry[classification] += 1;
     seriesBuckets.set(bucketKey, bucketEntry);
 
-    if (classification === "hard") {
-      const reasonKey = skipReasonRaw ?? "Unknown reason";
+    if (classification === 'hard') {
+      const reasonKey = skipReasonRaw ?? 'Unknown reason';
       hardReasons.set(reasonKey, (hardReasons.get(reasonKey) ?? 0) + 1);
       continue;
     }
 
-    const dominant = penalties?.dominant ?? "unknown";
+    const dominant = penalties?.dominant ?? 'unknown';
     strategicPenalties.set(dominant, (strategicPenalties.get(dominant) ?? 0) + 1);
 
     if (strategicSamples.length < 64) {
@@ -279,7 +298,11 @@ export async function getRejectionAnalytics(
   };
 
   const series = Array.from(seriesBuckets.entries())
-    .map(([bucketKey, value]) => ({ bucket: bucketKey, hard: value.hard, strategic: value.strategic }))
+    .map(([bucketKey, value]) => ({
+      bucket: bucketKey,
+      hard: value.hard,
+      strategic: value.strategic,
+    }))
     .sort((a, b) => DateTime.fromISO(a.bucket).toMillis() - DateTime.fromISO(b.bucket).toMillis());
 
   return {

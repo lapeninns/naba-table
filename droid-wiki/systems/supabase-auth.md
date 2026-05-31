@@ -1,10 +1,10 @@
 # Supabase and auth
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Supabase is the remote database/auth/storage layer. Central client factories, auth guards, and team access helpers keep sessions and tenant checks consistent.
+Supabase is the remote database, auth, and storage layer. Client factories, auth guards, tenant access helpers, CSRF checks, service-role guards, and env validation keep sessions and tenant boundaries explicit.
 
 ## Directory layout
 
@@ -13,6 +13,8 @@ server/supabase.ts
 server/auth/
 server/team/
 lib/supabase/
+lib/security/
+config/env.schema.ts
 ```
 
 ## Key abstractions
@@ -22,34 +24,33 @@ lib/supabase/
 | `getRouteHandlerSupabaseClient` | Route-handler client.         |
 | `getServiceRoleSupabaseClient`  | Service-role client.          |
 | `server/team/access.ts`         | Restaurant permission checks. |
+| `lib/security/csrf.ts`          | CSRF helpers.                 |
 
 ## How it works
 
 ```mermaid
 graph LR
-  UI[UI or caller] --> Route[Route/service boundary]
+  Caller[UI or caller] --> Route[Route or service boundary]
   Route --> Domain[Domain module]
-  Domain --> DB[(Supabase)]
+  Domain --> DB[(Remote Supabase)]
   Domain --> External[External services]
 ```
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Security](../security.md), [Configuration](../reference/configuration.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Security](../security.md), [Configuration](../reference/configuration.md), and [Supabase remote policy](../background/supabase-remote-policy.md). Recent hardening includes `20260527111100_harden_service_only_rpc_privileges.sql`.
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                       | Purpose           |
-| -------------------------- | ----------------- |
-| `server/supabase.ts`       | Client factories. |
-| `server/auth/guards.ts`    | Auth guards.      |
-| `server/auth/ops-guard.ts` | Ops auth.         |
-| `server/team/access.ts`    | Tenant access.    |
-
-Related: [Security](../security.md), [Configuration](../reference/configuration.md)
+| File                                                                        | Purpose                     |
+| --------------------------------------------------------------------------- | --------------------------- |
+| `server/supabase.ts`                                                        | Client factories.           |
+| `server/auth/guards.ts`                                                     | Auth guards.                |
+| `server/auth/ops-guard.ts`                                                  | Ops auth.                   |
+| `supabase/migrations/20260527111100_harden_service_only_rpc_privileges.sql` | Service-only RPC hardening. |

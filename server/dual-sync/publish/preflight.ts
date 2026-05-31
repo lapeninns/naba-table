@@ -86,6 +86,26 @@ export const defaultDualSyncExportPreflight: DualSyncExportPreflightPort = async
   }
 
   const strategy = googlePreflightStrategy(group);
+  if (group.writeGroup === 'location.foodMenus' && strategy.preflightUnsupported) {
+    return {
+      status: 'failed',
+      failure: {
+        code: 'GOOGLE_VALIDATION_FAILED',
+        message:
+          'FoodMenus replacement exports require a provider-side validation path or alternate baseline contract before writing.',
+        retryable: false,
+      },
+      result: {
+        validator: 'dual_sync_export_preflight_contract',
+        providerValidateOnly: strategy.providerValidateOnly,
+        preflightUnsupported: strategy.preflightUnsupported,
+        maskStrategy: strategy.maskStrategy,
+        unsupportedReason: strategy.reason,
+        googleUpdateMasks: group.googleUpdateMasks,
+        destructiveWritePossible: group.destructiveWritePossible,
+      },
+    };
+  }
   return {
     status: 'passed',
     result: {

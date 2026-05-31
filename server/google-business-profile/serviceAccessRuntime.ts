@@ -37,6 +37,15 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function locationDiscoveryCacheKey(externalProfile: ExternalProfileRow): string {
+  return [
+    externalProfile.id,
+    externalProfile.connection_status ?? 'unknown',
+    externalProfile.external_location_id ?? 'no-location',
+    externalProfile.updated_at ?? 'no-updated-at',
+  ].join(':');
+}
+
 export async function getUsableGoogleBusinessProfileAccessToken(
   externalProfile: ExternalProfileRow,
   client: DbClient,
@@ -110,7 +119,8 @@ export async function discoverGoogleBusinessProfileLocationsForProfile(
   credential: CredentialRow | null;
   availableLocations: GoogleBusinessProfileAvailableLocation[];
 }> {
-  const cached = locationDiscoveryCache.get(externalProfile.id);
+  const cacheKey = locationDiscoveryCacheKey(externalProfile);
+  const cached = locationDiscoveryCache.get(cacheKey);
   if (!options.forceRefresh && cached && cached.expiresAt > Date.now()) {
     return {
       credential: cached.credential,
@@ -134,7 +144,7 @@ export async function discoverGoogleBusinessProfileLocationsForProfile(
     availableLocations: batches.flat(),
   };
 
-  locationDiscoveryCache.set(externalProfile.id, {
+  locationDiscoveryCache.set(cacheKey, {
     ...discovery,
     expiresAt: Date.now() + LOCATION_DISCOVERY_CACHE_TTL_MS,
   });

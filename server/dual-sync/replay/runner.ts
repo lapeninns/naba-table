@@ -171,6 +171,11 @@ export async function runDualSyncReplayScenario(
         {
           ...scenario.publishInput,
           restaurantId: scenario.restaurantId,
+          pinnedCoreSnapshotHash:
+            scenario.publishInput.pinnedCoreSnapshotHash ??
+            hashCanonicalJson(scenario.coreSnapshot),
+          pinnedGbpSnapshotHash:
+            scenario.publishInput.pinnedGbpSnapshotHash ?? hashCanonicalJson(scenario.gbpSnapshot),
         },
         {
           readCoreSnapshot: async () => scenario.coreSnapshot,

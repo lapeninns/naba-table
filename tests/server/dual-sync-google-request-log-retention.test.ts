@@ -11,6 +11,7 @@ interface MockChain {
   readonly order: ReturnType<typeof vi.fn>;
   readonly limit: ReturnType<typeof vi.fn>;
   readonly insert: ReturnType<typeof vi.fn>;
+  readonly upsert: ReturnType<typeof vi.fn>;
   readonly delete: ReturnType<typeof vi.fn>;
   readonly in: ReturnType<typeof vi.fn>;
   readonly then: (resolve: (value: { data: unknown; error: null }) => unknown) => unknown;
@@ -25,6 +26,7 @@ function makeChain(result: unknown): MockChain {
     order: fluent,
     limit: fluent,
     insert: fluent,
+    upsert: fluent,
     delete: fluent,
     in: fluent,
     then: (resolve: (value: { data: unknown; error: null }) => unknown) =>
@@ -95,22 +97,25 @@ describe('pruneExpiredGoogleRequestLogs', () => {
       ascending: true,
     });
     expect(selectChain.limit).toHaveBeenCalledWith(2);
-    expect(archiveChain.insert).toHaveBeenCalledWith([
-      expect.objectContaining({
-        original_request_log_id: 'log-1',
-        restaurant_id: 'rest-1',
-        retention_expires_at: '2026-05-09T00:00:00.000Z',
-        original_created_at: '2026-04-10T00:00:00.000Z',
-        archived_payload: expect.objectContaining({
-          id: 'log-1',
-          request_summary: { fieldKey: 'profile.name' },
-          response_summary: { ok: true },
+    expect(archiveChain.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          original_request_log_id: 'log-1',
+          restaurant_id: 'rest-1',
+          retention_expires_at: '2026-05-09T00:00:00.000Z',
+          original_created_at: '2026-04-10T00:00:00.000Z',
+          archived_payload: expect.objectContaining({
+            id: 'log-1',
+            request_summary: { fieldKey: 'profile.name' },
+            response_summary: { ok: true },
+          }),
         }),
-      }),
-      expect.objectContaining({
-        original_request_log_id: 'log-2',
-      }),
-    ]);
+        expect.objectContaining({
+          original_request_log_id: 'log-2',
+        }),
+      ],
+      { onConflict: 'original_request_log_id' },
+    );
     expect(archiveChain.select).toHaveBeenCalledWith('original_request_log_id');
     expect(deleteChain.delete).toHaveBeenCalled();
     expect(deleteChain.in).toHaveBeenCalledWith('id', ['log-1', 'log-2']);

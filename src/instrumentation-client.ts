@@ -1,5 +1,6 @@
 // This file configures client-side analytics instrumentation.
 import { clientEnv } from '@/lib/env-client';
+import { stripUrlQueryAndHash } from '@/lib/security/url-redaction';
 
 const resolveUrl = (value?: string | URL | null): URL | null => {
   if (typeof window === 'undefined') return null;
@@ -30,7 +31,8 @@ const LAST_PAGEVIEW_URL_WINDOW_KEY = '__nabatablePosthogLastPageviewUrl';
 
 type PosthogQueuedEvent = { event: string; payload: Record<string, unknown> };
 
-const getPageviewKey = (url: URL) => `${url.origin}${url.pathname}${url.search}`;
+const getPosthogPageviewUrl = (url: URL) => stripUrlQueryAndHash(url.href);
+const getPageviewKey = (url: URL) => getPosthogPageviewUrl(url);
 
 const getPosthogQueue = () => {
   if (typeof window === 'undefined') return null;
@@ -73,7 +75,7 @@ const capturePosthogPageview = (targetUrl?: URL | null): boolean => {
   if (win.posthog) {
     flushPosthogQueue();
     win.posthog.capture('$pageview', {
-      $current_url: resolvedTargetUrl.href,
+      $current_url: getPosthogPageviewUrl(resolvedTargetUrl),
     });
     return true;
   }
@@ -81,7 +83,7 @@ const capturePosthogPageview = (targetUrl?: URL | null): boolean => {
   const queue = getPosthogQueue();
   queue?.push({
     event: '$pageview',
-    payload: { $current_url: resolvedTargetUrl.href },
+    payload: { $current_url: getPosthogPageviewUrl(resolvedTargetUrl) },
   });
   return true;
 };

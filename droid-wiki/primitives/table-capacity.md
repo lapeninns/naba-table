@@ -4,7 +4,7 @@ Active contributors: amanshresthaa
 
 ## Purpose
 
-Tables and capacity include table inventory, zones, adjacency, service policy, soft holds, and assignments.
+Tables and capacity include table inventory, zones, adjacency, service policy, soft holds, planner scoring, direct assignment, manual assignment, and availability status.
 
 ## Directory layout
 
@@ -12,34 +12,43 @@ Tables and capacity include table inventory, zones, adjacency, service policy, s
 server/capacity/
 server/ops/tables.ts
 server/ops/zones.ts
+src/app/api/ops/tables/
+src/app/api/ops/zones/
 ```
 
 ## Key abstractions
 
-| Symbol or file                 | Description    |
-| ------------------------------ | -------------- |
-| `server/capacity/types.ts`     | Types.         |
-| `server/capacity/tables.ts`    | Table helpers. |
-| `server/capacity/adjacency.ts` | Adjacency.     |
+| Symbol or file                              | Description          |
+| ------------------------------------------- | -------------------- |
+| `server/capacity/types.ts`                  | Types.               |
+| `server/capacity/tables.ts`                 | Table helpers.       |
+| `server/capacity/adjacency.ts`              | Adjacency.           |
+| `server/capacity/table-assignment/index.ts` | Assignment boundary. |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Capacity and table assignment](../systems/capacity-table-assignment.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This primitive links to [Capacity and table assignment](../systems/capacity-table-assignment.md) and [Ops dashboard and bookings](../features/ops-dashboard-bookings.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                        | Purpose      |
-| ------------------------------------------- | ------------ |
-| `server/capacity/types.ts`                  | Types.       |
-| `server/capacity/tables.ts`                 | Tables.      |
-| `server/capacity/table-assignment/index.ts` | Assignments. |
-
-Related: [Capacity and table assignment](../systems/capacity-table-assignment.md)
+| File                                        | Purpose           |
+| ------------------------------------------- | ----------------- |
+| `server/capacity/types.ts`                  | Types.            |
+| `server/capacity/table-assignment/index.ts` | Assignments.      |
+| `server/ops/tables.ts`                      | Ops table domain. |

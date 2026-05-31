@@ -53,6 +53,7 @@ function externalProfile(overrides: Record<string, unknown> = {}) {
     id: 'external-1',
     external_location_id: 'location-1',
     connection_status: 'linked',
+    updated_at: '2026-05-20T22:00:00.000Z',
     ...overrides,
   };
 }
@@ -196,5 +197,25 @@ describe('google business profile service access runtime', () => {
     ]);
     expect(refreshTokenMock).toHaveBeenCalledTimes(2);
     expect(listLocationsMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not reuse location discovery cache across credential profile updates', async () => {
+    getCredentialRowMock.mockResolvedValue(credential());
+    listAccountsMock.mockResolvedValue([{ name: 'accounts/1', accountName: 'Primary account' }]);
+    listLocationsMock
+      .mockResolvedValueOnce([{ accountName: 'Primary account', locationName: 'locations/old' }])
+      .mockResolvedValueOnce([{ accountName: 'Primary account', locationName: 'locations/new' }]);
+
+    await discoverGoogleBusinessProfileLocationsForProfile(externalProfile() as never, {} as never);
+    const refreshed = await discoverGoogleBusinessProfileLocationsForProfile(
+      externalProfile({ updated_at: '2026-05-21T09:00:00.000Z' }) as never,
+      {} as never,
+    );
+
+    expect(refreshed.availableLocations).toEqual([
+      { accountName: 'Primary account', locationName: 'locations/new' },
+    ]);
+    expect(refreshTokenMock).toHaveBeenCalledTimes(2);
+    expect(listLocationsMock).toHaveBeenCalledTimes(2);
   });
 });

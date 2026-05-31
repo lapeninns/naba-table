@@ -1,10 +1,10 @@
 # Guest portal
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-The guest portal lets signed-in diners view dashboards, bookings, details, receipts, and profile data. Server view models prefetch guest data for hydrated clients.
+The guest portal lets signed-in diners view dashboards, bookings, booking details, receipts, thank-you states, and profile data. Server view models prefetch guest data for hydrated clients.
 
 ## Directory layout
 
@@ -13,35 +13,42 @@ src/app/guest/
 src/guest/
 src/components/features/guest/
 src/app/api/profile/
+server/bookings/guest-lookup-*
 ```
 
 ## Key abstractions
 
-| Symbol or file                 | Description            |
-| ------------------------------ | ---------------------- |
-| `src/guest/services/server.ts` | Server guest adapters. |
-| `GuestDashboardClient`         | Dashboard UI.          |
-| `GuestProfileClient`           | Profile UI.            |
+| Symbol or file                           | Description            |
+| ---------------------------------------- | ---------------------- |
+| `src/guest/services/server.ts`           | Server guest adapters. |
+| `GuestDashboardClient`                   | Dashboard UI.          |
+| `GuestProfileClient`                     | Profile UI.            |
+| `server/bookings/guest-lookup-policy.ts` | Guest lookup policy.   |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Supabase and auth](../systems/supabase-auth.md), [Guest and customer](../primitives/guest-customer.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Supabase and auth](../systems/supabase-auth.md), [Guest and customer](../primitives/guest-customer.md), and [Public booking](public-booking.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                                               | Purpose           |
-| ------------------------------------------------------------------ | ----------------- |
-| `src/app/guest/dashboard/page.tsx`                                 | Dashboard page.   |
-| `src/guest/services/server.ts`                                     | Server adapters.  |
-| `src/app/api/profile/route.ts`                                     | Profile API.      |
-| `src/components/features/guest/dashboard/GuestDashboardClient.tsx` | Dashboard client. |
-
-Related: [Supabase and auth](../systems/supabase-auth.md), [Guest and customer](../primitives/guest-customer.md)
+| File                                                  | Purpose         |
+| ----------------------------------------------------- | --------------- |
+| `src/app/guest/dashboard/page.tsx`                    | Dashboard page. |
+| `src/app/guest/bookings/[bookingId]/receipt/page.tsx` | Receipt page.   |
+| `src/app/api/profile/route.ts`                        | Profile API.    |

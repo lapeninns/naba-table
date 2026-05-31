@@ -80,21 +80,40 @@ export function describeWorkflowPublishError(error: unknown, fallback: string): 
 }
 
 export function classifyWorkflowGooglePushFailure(error: unknown): {
-  readonly classification: GoogleBusinessProfileGoogleErrorClassification | undefined;
+  readonly classification: GoogleBusinessProfileGoogleErrorClassification | null | undefined;
   readonly message: string;
+  readonly retryable?: boolean;
+  readonly reconciliationRequired?: boolean;
 } {
   if (error && typeof error === 'object' && 'classification' in error) {
+    const record = error as {
+      classification?: GoogleBusinessProfileGoogleErrorClassification | null;
+      retryable?: unknown;
+      reconciliationRequired?: unknown;
+    };
     return {
-      classification: (
-        error as {
-          classification?: GoogleBusinessProfileGoogleErrorClassification;
-        }
-      ).classification,
+      classification: record.classification,
       message: describeWorkflowPublishError(error, DEFAULT_GOOGLE_PUSH_ERROR_MESSAGE),
+      ...(typeof record.retryable === 'boolean' ? { retryable: record.retryable } : {}),
+      ...(typeof record.reconciliationRequired === 'boolean'
+        ? { reconciliationRequired: record.reconciliationRequired }
+        : {}),
     };
   }
 
   return classifyGoogleBusinessProfilePushError(error);
+}
+
+export function hasNonRetryableGooglePushEvidence(errors: unknown): boolean {
+  const values = Array.isArray(errors) ? errors : [errors];
+  return values.some((value) => {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const record = value as { retryable?: unknown; reconciliationRequired?: unknown };
+    return record.retryable === false || record.reconciliationRequired === true;
+  });
 }
 
 export function extractGoogleEventIdFromPublishError(

@@ -4,6 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import type { GoogleFoodMenuCuisine } from '@/server/google-business-profile/food-menus';
+import { resolveServiceRoleSupabaseUrl } from '@/server/supabase';
 import { assertExactSupabaseApiProjectRef } from './db/safety';
 
 loadEnv({ path: '.env.local', override: false });
@@ -292,7 +293,7 @@ function parseArgs(argv: string[]): Args {
 
 function assertTargetEnv(target: TargetName) {
   const expectedProjectRef = TARGETS[target].expectedProjectRef;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '';
+  const supabaseUrl = resolveServiceRoleSupabaseUrl();
   try {
     assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
   } catch {

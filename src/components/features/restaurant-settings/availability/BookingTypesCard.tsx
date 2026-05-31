@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { AvailabilityScheduleErrorState } from './AvailabilityScheduleStates';
 import { BookingTypesWorkspace } from './BookingTypesWorkspace';
 import { useBookingTypesCardState } from './useBookingTypesCardState';
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import {
   SETTINGS_COMPACT_CARD_CLASS,
   SETTINGS_COMPACT_CARD_CONTENT_CLASS,
@@ -57,7 +58,10 @@ export function BookingTypesCard({ restaurantId }: BookingTypesCardProps) {
   }
 
   return (
-    <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="booking-occasions">
+    <Card
+      className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')}
+      id={AVAILABILITY_ANCHORS.bookingOccasions}
+    >
       <CardHeader
         className={cn(
           SETTINGS_COMPACT_CARD_HEADER_CLASS,

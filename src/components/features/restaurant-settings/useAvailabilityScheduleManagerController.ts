@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
@@ -43,6 +43,8 @@ export function useAvailabilityScheduleManagerController({
   const updateTurnBands = useOpsUpdateTurnBands(restaurantId);
   const registryDrift = useOptionalGbpDrift();
   const registerDriftDraftOverride = registryDrift?.registerDraftOverride;
+  const clearDriftDraftOverrides = registryDrift?.clearDraftOverrides;
+  const registeredAvailabilityDraftKeysRef = useRef<Set<string>>(new Set());
   const gbpDrift = useWorkspaceGbpDriftCheck({
     restaurantId,
     sectionKeys: AVAILABILITY_DRIFT_SECTIONS,
@@ -123,10 +125,27 @@ export function useAvailabilityScheduleManagerController({
 
   useEffect(() => {
     if (!registerDriftDraftOverride) return;
+    const nextKeys = new Set(availabilityDraftOverrides.map(([fieldKey]) => fieldKey));
+    const staleKeys = Array.from(registeredAvailabilityDraftKeysRef.current).filter(
+      (fieldKey) => !nextKeys.has(fieldKey),
+    );
+    if (staleKeys.length > 0) {
+      clearDriftDraftOverrides?.(staleKeys);
+    }
     for (const [fieldKey, value] of availabilityDraftOverrides) {
       registerDriftDraftOverride(fieldKey, value);
     }
-  }, [availabilityDraftOverrides, registerDriftDraftOverride]);
+    registeredAvailabilityDraftKeysRef.current = nextKeys;
+
+    return () => {
+      if (nextKeys.size > 0) {
+        clearDriftDraftOverrides?.(Array.from(nextKeys));
+      }
+      for (const fieldKey of nextKeys) {
+        registeredAvailabilityDraftKeysRef.current.delete(fieldKey);
+      }
+    };
+  }, [availabilityDraftOverrides, clearDriftDraftOverrides, registerDriftDraftOverride]);
 
   useEffect(() => {
     if (

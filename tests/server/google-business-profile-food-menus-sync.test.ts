@@ -14,6 +14,7 @@ const replacePendingFoodMenusImportReviewsMock = vi.hoisted(() => vi.fn());
 const readFoodMenusImportReviewForRestaurantMock = vi.hoisted(() => vi.fn());
 const claimFoodMenusImportReviewDecisionMock = vi.hoisted(() => vi.fn());
 const markFoodMenusImportReviewDecisionMock = vi.hoisted(() => vi.fn());
+const markFoodMenusImportReviewDecisionFailedMock = vi.hoisted(() => vi.fn());
 const openFoodMenusPublishAttemptMock = vi.hoisted(() => vi.fn());
 const markFoodMenusPublishAttemptRunningMock = vi.hoisted(() => vi.fn());
 const finishFoodMenusPublishAttemptMock = vi.hoisted(() => vi.fn());
@@ -49,6 +50,7 @@ vi.mock('@/server/google-business-profile/food-menus-storage', async (importOrig
     readFoodMenusImportReviewForRestaurant: readFoodMenusImportReviewForRestaurantMock,
     claimFoodMenusImportReviewDecision: claimFoodMenusImportReviewDecisionMock,
     markFoodMenusImportReviewDecision: markFoodMenusImportReviewDecisionMock,
+    markFoodMenusImportReviewDecisionFailed: markFoodMenusImportReviewDecisionFailedMock,
     openFoodMenusPublishAttempt: openFoodMenusPublishAttemptMock,
     markFoodMenusPublishAttemptRunning: markFoodMenusPublishAttemptRunningMock,
     finishFoodMenusPublishAttempt: finishFoodMenusPublishAttemptMock,
@@ -318,6 +320,7 @@ describe('GBP FoodMenus sync service', () => {
     readFoodMenusImportReviewForRestaurantMock.mockReset();
     claimFoodMenusImportReviewDecisionMock.mockReset();
     markFoodMenusImportReviewDecisionMock.mockReset();
+    markFoodMenusImportReviewDecisionFailedMock.mockReset();
     getGoogleBusinessProfileFoodMenusMock.mockReset();
     updateGoogleBusinessProfileFoodMenusMock.mockReset();
     openFoodMenusPublishAttemptMock.mockReset();
@@ -834,6 +837,42 @@ describe('GBP FoodMenus sync service', () => {
     expect(createCanonicalFoodMenusItemFromPatchMock).not.toHaveBeenCalled();
     expect(decideCanonicalMissingLocalFoodMenusItemMock).not.toHaveBeenCalled();
     expect(markFoodMenusImportReviewDecisionMock).not.toHaveBeenCalled();
+    expect(markFoodMenusImportReviewDecisionFailedMock).not.toHaveBeenCalled();
+  });
+
+  it('marks claimed FoodMenus decisions failed when later side effects throw', async () => {
+    readFoodMenusImportReviewForRestaurantMock.mockResolvedValue(makeReview());
+    claimFoodMenusImportReviewDecisionMock.mockResolvedValue(
+      makeReview({
+        decisionStatus: 'processing',
+        decisionAction: 'apply_to_nabatable',
+      }),
+    );
+    applyCanonicalFoodMenusSuggestedPatchMock.mockRejectedValue(new Error('menu write failed'));
+    markFoodMenusImportReviewDecisionFailedMock.mockResolvedValue(
+      makeReview({
+        decisionStatus: 'failed',
+        decisionAction: 'apply_to_nabatable',
+      }),
+    );
+
+    await expect(
+      decideFoodMenusImportReview({
+        client,
+        restaurantId: 'rest-1',
+        reviewId: 'review-1',
+        action: 'apply_to_nabatable',
+        decidedByUserId: 'user-1',
+      }),
+    ).rejects.toThrow('menu write failed');
+
+    expect(markFoodMenusImportReviewDecisionFailedMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: 'rest-1',
+      reviewId: 'review-1',
+      decisionAction: 'apply_to_nabatable',
+      decidedByUserId: 'user-1',
+    });
   });
 
   it('records an explicit ignore decision without mutating the menu item', async () => {

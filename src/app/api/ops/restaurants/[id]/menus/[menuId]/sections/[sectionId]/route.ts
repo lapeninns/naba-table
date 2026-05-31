@@ -25,7 +25,7 @@ type RouteContext = {
 };
 
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  const access = await requireMenusAdmin(params);
+  const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
   const [menuId, sectionId] = await Promise.all([
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  const access = await requireMenusAdmin(params);
+  const access = await requireMenusAdmin(params, _request);
   if (access.response) return access.response;
 
   const [menuId, sectionId] = await Promise.all([

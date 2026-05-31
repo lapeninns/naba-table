@@ -72,6 +72,26 @@ describe('booking request validation', () => {
       });
     });
 
+    it('parses explicit false marketing opt-in strings as false', () => {
+      expect(
+        bookingCreateRequestSchema.parse({
+          ...validBookingRequest,
+          marketingOptIn: 'false',
+        }),
+      ).toMatchObject({
+        marketingOptIn: false,
+      });
+
+      expect(
+        bookingCreateRequestSchema.parse({
+          ...validBookingRequest,
+          marketingOptIn: '0',
+        }),
+      ).toMatchObject({
+        marketingOptIn: false,
+      });
+    });
+
     it('rejects invalid slug, date, time, party size, and phone values', () => {
       const parsed = bookingCreateRequestSchema.safeParse({
         ...validBookingRequest,

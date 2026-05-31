@@ -10,6 +10,7 @@ const updateServicePeriodsMock = vi.hoisted(() => vi.fn());
 const createZoneMock = vi.hoisted(() => vi.fn());
 const insertTableMock = vi.hoisted(() => vi.fn());
 const cleanupOrphanedAssignmentsMock = vi.hoisted(() => vi.fn());
+const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@/server/auth/guards');
@@ -43,6 +44,10 @@ vi.mock('@/server/ops/tables', () => ({
 
 vi.mock('@/server/capacity/table-assignment/direct-assignment', () => ({
   cleanupOrphanedAssignments: cleanupOrphanedAssignmentsMock,
+}));
+
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
 }));
 
 import { POST as onboardingCompletePOST } from '@/src/app/api/onboarding/restaurant/[id]/complete/route';
@@ -90,6 +95,7 @@ function authorizedRestaurant() {
         }
         const chain = {
           select: vi.fn(() => chain),
+          eq: vi.fn(async () => ({ count: 0, error: null })),
           in: vi.fn(async () => ({
             data: [{ id: ZONE_A, restaurant_id: RESTAURANT_A }],
             error: null,
@@ -208,6 +214,7 @@ describe('Sprint 2 tenant authorization route containment', () => {
     createZoneMock.mockReset();
     insertTableMock.mockReset();
     cleanupOrphanedAssignmentsMock.mockReset();
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
   });
 
   it.each([
@@ -270,6 +277,99 @@ describe('Sprint 2 tenant authorization route containment', () => {
 
     expect(response.status).toBe(400);
     expect(insertTableMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized onboarding replacement batches before service-role writes', async () => {
+    withRestaurantAuthorizationMock.mockResolvedValue(authorizedRestaurant());
+
+    const servicePeriods = await onboardingServicePeriodsPATCH(
+      jsonRequest(
+        `/api/onboarding/restaurant/${RESTAURANT_A}/service-periods`,
+        {
+          servicePeriods: Array.from({ length: 51 }, (_, index) => ({
+            name: `Period ${index}`,
+            startTime: '09:00',
+            endTime: '17:00',
+            bookingOption: 'lunch',
+          })),
+        },
+        'PATCH',
+      ),
+      routeContext(RESTAURANT_A),
+    );
+    const zones = await onboardingZonesPOST(
+      jsonRequest(`/api/onboarding/restaurant/${RESTAURANT_A}/zones`, {
+        zones: Array.from({ length: 26 }, (_, index) => ({ name: `Zone ${index}` })),
+      }),
+      routeContext(RESTAURANT_A),
+    );
+    const tables = await onboardingTablesPOST(
+      jsonRequest(`/api/onboarding/restaurant/${RESTAURANT_A}/tables`, {
+        tables: Array.from({ length: 201 }, (_, index) => ({
+          tableNumber: `${index + 1}`,
+          capacity: 2,
+          zoneId: ZONE_A,
+        })),
+      }),
+      routeContext(RESTAURANT_A),
+    );
+
+    expect(servicePeriods.status).toBe(400);
+    expect(zones.status).toBe(400);
+    expect(tables.status).toBe(400);
+    expect(updateServicePeriodsMock).not.toHaveBeenCalled();
+    expect(createZoneMock).not.toHaveBeenCalled();
+    expect(insertTableMock).not.toHaveBeenCalled();
+  });
+
+  it('rate limits onboarding setup mutations before parsing and service-role writes', async () => {
+    withRestaurantAuthorizationMock.mockResolvedValue(authorizedRestaurant());
+    requireApiRateLimitMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Too many onboarding table updates' }), { status: 429 }),
+    );
+
+    const response = await onboardingTablesPOST(
+      jsonRequest(`/api/onboarding/restaurant/${RESTAURANT_A}/tables`, {
+        tables: [{ tableNumber: '1', capacity: 2, zoneId: ZONE_A }],
+      }),
+      routeContext(RESTAURANT_A),
+    );
+
+    expect(response.status).toBe(429);
+    expect(requireApiRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'onboarding:tables',
+        tenantId: RESTAURANT_A,
+        userId: 'user-a',
+      }),
+    );
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(insertTableMock).not.toHaveBeenCalled();
+  });
+
+  it('rate limits onboarding zone setup before service-role writes', async () => {
+    withRestaurantAuthorizationMock.mockResolvedValue(authorizedRestaurant());
+    requireApiRateLimitMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Too many onboarding zone updates' }), { status: 429 }),
+    );
+
+    const response = await onboardingZonesPOST(
+      jsonRequest(`/api/onboarding/restaurant/${RESTAURANT_A}/zones`, {
+        zones: [{ name: 'Dining' }],
+      }),
+      routeContext(RESTAURANT_A),
+    );
+
+    expect(response.status).toBe(429);
+    expect(requireApiRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'onboarding:zones',
+        tenantId: RESTAURANT_A,
+        userId: 'user-a',
+      }),
+    );
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(createZoneMock).not.toHaveBeenCalled();
   });
 
   it('does not construct assignment-context service clients when booking authorization fails', async () => {

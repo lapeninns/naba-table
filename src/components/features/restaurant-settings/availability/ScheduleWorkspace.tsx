@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import { AvailabilityOverridesEditor } from '../AvailabilityOverridesEditor';
 import { GbpDriftBadge } from '../gbpDriftBadges';
 import { SETTINGS_COMPACT_STATUS_ROW_CLASS } from '../shared';
@@ -91,7 +92,7 @@ export function ScheduleWorkspace({
         </TabsList>
 
         <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
-          <div id="availability-hours" className="scroll-mt-28">
+          <div id={AVAILABILITY_ANCHORS.weeklyHours} className="scroll-mt-28">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-foreground">Weekly open hours</p>
               <GbpDriftBadge fields={operatingHoursDriftFields} />
@@ -112,7 +113,7 @@ export function ScheduleWorkspace({
               <span className="font-medium text-foreground">Dinner</span>.
             </span>
           </div>
-          <div id="service-periods" className="scroll-mt-28">
+          <div id={AVAILABILITY_ANCHORS.serviceWindows} className="scroll-mt-28">
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold text-foreground">
                 Meal windows (lunch / dinner inside open hours)

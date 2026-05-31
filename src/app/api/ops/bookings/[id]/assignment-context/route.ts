@@ -26,29 +26,27 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   );
   if (!authorization.ok) return timing.withHeaders(authorization.response);
 
-  const serviceSupabase = getServiceSupabaseClient();
   const restaurantId = authorization.restaurantId;
-  const restaurantClient = getTenantServiceSupabaseClient(restaurantId);
-
-  const [rateLimit, contextResult] = await Promise.all([
-    timing.measure(
-      'rate_limit',
-      requireApiRateLimit({
-        request: req,
-        scope: 'ops-bookings:assignment-context',
-        tenantId: restaurantId,
-        userId: authorization.user.id,
-        limit: 45,
-        windowMs: 60_000,
-      }),
-    ),
-    timing.measure(
-      'assignment_context',
-      loadAssignmentContextPayload({ serviceSupabase, restaurantClient, bookingId, restaurantId }),
-    ),
-  ]);
+  const rateLimit = await timing.measure(
+    'rate_limit',
+    requireApiRateLimit({
+      request: req,
+      scope: 'ops-bookings:assignment-context',
+      tenantId: restaurantId,
+      userId: authorization.user.id,
+      limit: 45,
+      windowMs: 60_000,
+    }),
+  );
 
   if (rateLimit) return timing.withHeaders(rateLimit);
+
+  const serviceSupabase = getServiceSupabaseClient();
+  const restaurantClient = getTenantServiceSupabaseClient(restaurantId);
+  const contextResult = await timing.measure(
+    'assignment_context',
+    loadAssignmentContextPayload({ serviceSupabase, restaurantClient, bookingId, restaurantId }),
+  );
 
   if (!contextResult.ok) {
     return timing.json(

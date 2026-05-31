@@ -16,13 +16,14 @@ export type BookingCreateRequestContext = {
 
 export function buildBookingCreateRequestContext(
   headers: Pick<Headers, 'get'>,
-  options: { generateRequestId?: () => string } = {},
+  options: { generateRequestId?: () => string; trustOpsHeaders?: boolean } = {},
 ): BookingCreateRequestContext {
   const generateRequestId = options.generateRequestId ?? randomUUID;
   const headerIdempotencyKey = normalizeIdempotencyKey(headers.get('Idempotency-Key'));
   const clientRequestId = coerceUuid(headerIdempotencyKey) ?? generateRequestId();
-  const opsEmailProvidedHeader = headers.get('x-ops-email-provided') === 'true';
-  const isOpsWalkIn = headers.get('x-ops-walk-in') === 'true';
+  const trustOpsHeaders = options.trustOpsHeaders === true;
+  const opsEmailProvidedHeader = trustOpsHeaders && headers.get('x-ops-email-provided') === 'true';
+  const isOpsWalkIn = trustOpsHeaders && headers.get('x-ops-walk-in') === 'true';
   const requestSource = isOpsWalkIn ? 'ops.walkin' : 'api.bookings';
   const bookingSource = isOpsWalkIn ? 'ops.walkin' : 'api';
   const bookingDetails = isOpsWalkIn

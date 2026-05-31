@@ -4,45 +4,45 @@ Active contributors: amanshresthaa
 
 ## Purpose
 
-Reserve is the standalone Vite reservation app with its own routes, wizard UI, and tests. It shares booking concepts with public Next booking flows.
+Reserve is the standalone Vite reservation app. It uses React Router, its own wizard UI, and shared booking adapters/configuration to create reservations through platform APIs.
 
 ## Directory layout
 
 ```text
 reserve/
-├── main.tsx
-├── app/routes.tsx
-├── pages/
-└── features/reservations/wizard/
+|-- main.tsx
+|-- app/routes.tsx
+|-- pages/
+|-- features/reservations/wizard/
+`-- vite.config.ts
 ```
 
 ## Key abstractions
 
-| Symbol or file           | Description             |
-| ------------------------ | ----------------------- |
-| `reserve/app/routes.tsx` | Reserve route tree.     |
-| `ReservationWizard`      | Wizard UI.              |
-| `useCreateReservation`   | Guest booking mutation. |
+| Symbol or file           | Description                |
+| ------------------------ | -------------------------- |
+| `reserve/app/routes.tsx` | Reserve route tree.        |
+| `ReservationWizard`      | Wizard UI.                 |
+| `useCreateReservation`   | Reservation mutation hook. |
+| `reserve/vite.config.ts` | Standalone build config.   |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+The Vite app keeps its own UI shell while sharing reservation concepts, validation, and API contracts with public booking. Build verification is `pnpm run reserve:build`; browser coverage uses `playwright.reserve.config.ts`.
 
 ## Integration points
 
-This topic links to [Public booking](../features/public-booking.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Public booking](../features/public-booking.md), [Booking domain](../systems/booking-domain.md), and public booking/availability APIs.
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                          | Purpose               |
-| --------------------------------------------- | --------------------- |
-| `reserve/main.tsx`                            | Vite entry.           |
-| `reserve/app/routes.tsx`                      | Routes.               |
-| `reserve/vite.config.ts`                      | Build config.         |
-| `tests/reserve/buildReservationDraft.test.ts` | Representative tests. |
-
-Related: [Public booking](../features/public-booking.md)
+| File                                                         | Purpose              |
+| ------------------------------------------------------------ | -------------------- |
+| `reserve/main.tsx`                                           | Vite entry.          |
+| `reserve/app/routes.tsx`                                     | Routes.              |
+| `reserve/features/reservations/wizard/ReservationWizard.tsx` | Wizard UI.           |
+| `tests/reserve/buildReservationDraft.test.ts`                | Representative test. |

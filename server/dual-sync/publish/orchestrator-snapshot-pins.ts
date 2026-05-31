@@ -41,6 +41,17 @@ function failureForStaleSnapshot(snapshotKind: 'core' | 'gbp'): DualSyncOperatio
   };
 }
 
+function failureForMissingSnapshotPin(snapshotKind: 'core' | 'gbp'): DualSyncOperationFailure {
+  return {
+    code: 'INVALID_DECISION',
+    message:
+      snapshotKind === 'core'
+        ? 'Publish requires a pinned Core snapshot hash.'
+        : 'Publish requires a pinned Google snapshot hash.',
+    retryable: false,
+  };
+}
+
 async function rejectWithFailure(
   input: RejectStaleSnapshotPinsInput,
   failure: DualSyncOperationFailure,
@@ -71,6 +82,12 @@ async function rejectWithFailure(
 export async function rejectStaleSnapshotPins(
   input: RejectStaleSnapshotPinsInput,
 ): Promise<DualSyncPublishJobSummary | null> {
+  if (!input.pinnedCoreSnapshotHash) {
+    return rejectWithFailure(input, failureForMissingSnapshotPin('core'));
+  }
+  if (!input.pinnedGbpSnapshotHash) {
+    return rejectWithFailure(input, failureForMissingSnapshotPin('gbp'));
+  }
   if (input.pinnedCoreSnapshotHash !== undefined && input.pinnedCoreSnapshotHash !== null) {
     const currentCoreHash = hashCanonicalJson(input.coreSnapshot);
     if (currentCoreHash !== input.pinnedCoreSnapshotHash) {

@@ -10,6 +10,8 @@ import {
 
 import { opsHref } from '@/lib/url/opsHref';
 
+import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
+
 export type SetupStatus = 'complete' | 'attention' | 'optional';
 
 export type SetupCard = {
@@ -123,7 +125,9 @@ export function buildSetupCards({
       key: 'availability',
       title: 'Booking availability',
       description: 'Controls booking rules, weekly hours, meal windows, and booking types.',
-      href: opsHref('/settings/restaurant/availability#booking-rules'),
+      href: opsHref(
+        `/settings/restaurant/availability${availabilityHash(AVAILABILITY_ANCHORS.bookingRules)}`,
+      ),
       cta: 'Open availability',
       status: availabilityComplete ? 'complete' : 'attention',
       detail: availabilityComplete

@@ -18,6 +18,7 @@ const ensureProfileRowMock = vi.hoisted(() => vi.fn());
 const sendTeamInviteEmailMock = vi.hoisted(() => vi.fn());
 const requireMembershipForRestaurantMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
+const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: getRouteHandlerSupabaseClientMock,
@@ -30,6 +31,10 @@ vi.mock('@/lib/profile/server', () => ({
 
 vi.mock('@/server/emails/invitations', () => ({
   sendTeamInviteEmail: sendTeamInviteEmailMock,
+}));
+
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
 }));
 
 vi.mock('@/server/team/access', async () => {
@@ -201,6 +206,7 @@ describe('team invitation security', () => {
     sendTeamInviteEmailMock.mockReset();
     requireMembershipForRestaurantMock.mockReset();
     requireAdminMembershipMock.mockReset();
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
     requireMembershipForRestaurantMock.mockResolvedValue({ role: 'owner' });
     requireAdminMembershipMock.mockResolvedValue({ role: 'owner' });
   });
@@ -293,6 +299,86 @@ describe('team invitation security', () => {
     expect(response.status).toBe(403);
   });
 
+  it('rate limits aggregate invitation creation before profile and email side effects', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: INVITER_ID, email: 'owner@example.com' } },
+          error: null,
+        }),
+      },
+    });
+    requireApiRateLimitMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Too many invitation attempts' }), { status: 429 }),
+    );
+
+    const response = await createInvitePOST(
+      new NextRequest('https://www.nabatable.com/api/ops/team/invitations', {
+        method: 'POST',
+        headers: csrfHeaders(),
+        body: JSON.stringify({
+          restaurantId: RESTAURANT_ID,
+          email: 'victim@example.com',
+          role: 'host',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(requireApiRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: 'ops.team_invitations.create.aggregate',
+        tenantId: RESTAURANT_ID,
+        userId: INVITER_ID,
+        limit: 20,
+      }),
+    );
+    expect(ensureProfileRowMock).not.toHaveBeenCalled();
+    expect(sendTeamInviteEmailMock).not.toHaveBeenCalled();
+  });
+
+  it('also rate limits invitation creation by recipient email', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: INVITER_ID, email: 'owner@example.com' } },
+          error: null,
+        }),
+      },
+    });
+    requireApiRateLimitMock
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Too many invitation attempts' }), { status: 429 }),
+      );
+
+    const response = await createInvitePOST(
+      new NextRequest('https://www.nabatable.com/api/ops/team/invitations', {
+        method: 'POST',
+        headers: csrfHeaders(),
+        body: JSON.stringify({
+          restaurantId: RESTAURANT_ID,
+          email: 'Victim@Example.com',
+          role: 'host',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(requireApiRateLimitMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        scope: 'ops.team_invitations.create',
+        tenantId: RESTAURANT_ID,
+        userId: INVITER_ID,
+        parts: ['victim@example.com'],
+        limit: 8,
+      }),
+    );
+    expect(ensureProfileRowMock).not.toHaveBeenCalled();
+    expect(sendTeamInviteEmailMock).not.toHaveBeenCalled();
+  });
+
   it('allows owners to invite owners when business rules permit it', async () => {
     const invite = makeInvite({ role: 'owner' });
     getRouteHandlerSupabaseClientMock.mockResolvedValue({
@@ -382,6 +468,7 @@ describe('team invitation security', () => {
     const response = await acceptInvitePOST(
       new NextRequest('https://www.nabatable.com/api/team/invitations/raw-token/accept', {
         method: 'POST',
+        headers: csrfHeaders(),
         body: JSON.stringify({ password: 'attacker-password', name: 'Victim' }),
       }),
       { params: Promise.resolve({ token: 'raw-token-value' }) },
@@ -396,6 +483,46 @@ describe('team invitation security', () => {
     });
     expect(serviceClient.auth.admin.createUser).not.toHaveBeenCalled();
     expect(serviceClient.auth.admin.updateUserById).not.toHaveBeenCalled();
+    expect(ensureProfileRowMock).toHaveBeenCalledWith(
+      serviceClient,
+      expect.objectContaining({
+        user_metadata: expect.objectContaining({ name: 'Victim' }),
+      }),
+    );
+  });
+
+  it('requires CSRF before accepting an invite', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(
+      buildRouteSession({ id: INVITED_USER_ID, email: 'victim@example.com' }),
+    );
+    getServiceSupabaseClientMock.mockReturnValue(
+      buildInviteAcceptClient({ foundInvite: makeInvite() }),
+    );
+
+    const response = await acceptInvitePOST(
+      new NextRequest('https://www.nabatable.com/api/team/invitations/raw-token/accept', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Victim' }),
+      }),
+      { params: Promise.resolve({ token: 'raw-token-value' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
+  });
+
+  it('requires a submitted display name before accepting an invite', async () => {
+    const response = await acceptInvitePOST(
+      new NextRequest('https://www.nabatable.com/api/team/invitations/raw-token/accept', {
+        method: 'POST',
+        headers: csrfHeaders(),
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ token: 'raw-token-value' }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
   });
 
   it('rejects invite acceptance when the session email does not match the invite email', async () => {
@@ -410,7 +537,8 @@ describe('team invitation security', () => {
     const response = await acceptInvitePOST(
       new NextRequest('https://www.nabatable.com/api/team/invitations/raw-token/accept', {
         method: 'POST',
-        body: JSON.stringify({}),
+        headers: csrfHeaders(),
+        body: JSON.stringify({ name: 'Attacker' }),
       }),
       { params: Promise.resolve({ token: 'raw-token-value' }) },
     );
@@ -429,7 +557,8 @@ describe('team invitation security', () => {
     const response = await acceptInvitePOST(
       new NextRequest('https://www.nabatable.com/api/team/invitations/raw-token/accept', {
         method: 'POST',
-        body: JSON.stringify({}),
+        headers: csrfHeaders(),
+        body: JSON.stringify({ name: 'Victim' }),
       }),
       { params: Promise.resolve({ token: 'raw-token-value' }) },
     );

@@ -1,8 +1,10 @@
+import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isOpsRejectionAnalyticsEnabled } from '@/server/feature-flags';
 import { getRejectionAnalytics } from '@/server/ops/rejections';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import {
   buildDashboardAccessErrorResponse,
@@ -19,6 +21,54 @@ const querySchema = z.object({
 });
 
 type RejectionsQuery = z.infer<typeof querySchema>;
+
+const MAX_REJECTION_ANALYTICS_RANGE_DAYS = 7;
+
+function parseIsoBound(value: string | undefined, fallback: DateTime): DateTime | null {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = DateTime.fromISO(value, { zone: 'utc' });
+  return parsed.isValid ? parsed : null;
+}
+
+function normalizeRange(
+  query: RejectionsQuery,
+): { ok: true; from: string; to: string } | { ok: false; response: NextResponse } {
+  const fallbackTo = DateTime.utc();
+  const to = parseIsoBound(query.to, fallbackTo);
+  if (!to) {
+    return { ok: false, response: NextResponse.json({ error: 'Invalid query' }, { status: 400 }) };
+  }
+
+  const from = parseIsoBound(query.from, to.minus({ days: 1 }));
+  if (!from) {
+    return { ok: false, response: NextResponse.json({ error: 'Invalid query' }, { status: 400 }) };
+  }
+
+  if (from > to) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: '`from` must be before `to`' }, { status: 400 }),
+    };
+  }
+
+  if (to.diff(from, 'days').days > MAX_REJECTION_ANALYTICS_RANGE_DAYS) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: `Date range must be ${MAX_REJECTION_ANALYTICS_RANGE_DAYS} days or less` },
+        { status: 400 },
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    from: from.toUTC().toISO() ?? from.toString(),
+    to: to.toUTC().toISO() ?? to.toString(),
+  };
+}
 
 function parseQuery(request: NextRequest): RejectionsQuery | null {
   const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
@@ -38,6 +88,10 @@ export async function GET(request: NextRequest) {
   if (!query) {
     return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
   }
+  const range = normalizeRange(query);
+  if (!range.ok) {
+    return range.response;
+  }
 
   try {
     await requireDashboardAccess(query.restaurantId);
@@ -46,10 +100,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const rateLimit = await requireApiRateLimit({
+      request,
+      scope: 'ops-dashboard:rejections',
+      tenantId: query.restaurantId,
+      limit: 30,
+      windowMs: 60_000,
+      message: 'Too many rejection analytics requests',
+    });
+    if (rateLimit) {
+      return rateLimit;
+    }
+
     const analytics = await getRejectionAnalytics(query.restaurantId, {
       client: getServiceSupabaseClient(),
-      from: query.from,
-      to: query.to,
+      from: range.from,
+      to: range.to,
       bucket: query.bucket,
     });
 

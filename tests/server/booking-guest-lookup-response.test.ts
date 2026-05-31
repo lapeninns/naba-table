@@ -129,7 +129,11 @@ describe('buildGuestLookupHttpResponse', () => {
       expect.objectContaining({ eventType: 'guest_lookup.access_token_rejected' }),
     );
     expect(lookupFetcher).not.toHaveBeenCalled();
-    expect(deps.rateLimiter).not.toHaveBeenCalled();
+    expect(deps.rateLimiter).toHaveBeenCalledWith({
+      identifier: 'bookings:lookup:access-token:192.0.2.10',
+      limit: 20,
+      windowMs: 60_000,
+    });
   });
 
   it('returns invalid access-token responses with diagnostics and observability', async () => {
@@ -170,7 +174,43 @@ describe('buildGuestLookupHttpResponse', () => {
         context: expect.objectContaining({ reason: 'invalid_signature' }),
       }),
     );
-    expect(deps.rateLimiter).not.toHaveBeenCalled();
+    expect(deps.rateLimiter).toHaveBeenCalledWith({
+      identifier: 'bookings:lookup:access-token:192.0.2.10',
+      limit: 20,
+      windowMs: 60_000,
+    });
+  });
+
+  it('rate limits invalid access-token attempts before token validation observability writes', async () => {
+    const deps = createBaseDeps();
+    const rateLimiter = vi.fn(async () => ({
+      ok: false,
+      limit: 20,
+      remaining: 0,
+      resetAt: Date.now() + 30_000,
+      source: 'memory' as const,
+    })) as GuestLookupHttpRateLimiter;
+    const tokenValidator = vi.fn() as unknown as GuestLookupHttpTokenValidator;
+
+    const response = await buildGuestLookupHttpResponse({
+      ...deps,
+      clientIp: '192.0.2.10',
+      guestLookupPepper: null,
+      guestLookupPolicyEnabled: false,
+      rateLimiter,
+      requestHeaders: new Headers({ 'x-session-recovery-token': 'token-1' }),
+      searchParams: new URLSearchParams(),
+      sessionRecoverySecret: 'secret',
+      tokenValidator,
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Too many requests',
+      code: 'RATE_LIMITED',
+    });
+    expect(response.status).toBe(429);
+    expect(tokenValidator).not.toHaveBeenCalled();
+    expect(deps.eventRecorder).not.toHaveBeenCalled();
   });
 
   it('returns the guest lookup rate-limit response and records rate-limit observability', async () => {

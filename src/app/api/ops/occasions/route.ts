@@ -1,28 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
-import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { fetchAllOccasions, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { clearOccasionCatalogCache } from '@/server/occasions/catalog';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-export async function GET() {
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error('[ops/occasions][GET] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+export async function GET(request: NextRequest) {
+  const authorization = await withPlatformAdminAuthorization(request);
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   try {
@@ -142,6 +128,7 @@ export async function POST(request: NextRequest) {
       changed_by: authorization.user.id,
     });
 
+    clearOccasionCatalogCache();
     const occasion = data ? toAdminOccasion(data as Parameters<typeof toAdminOccasion>[0]) : null;
     return NextResponse.json({ occasion });
   } catch (error) {

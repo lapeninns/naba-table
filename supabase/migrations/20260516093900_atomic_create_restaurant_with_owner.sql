@@ -29,6 +29,17 @@ AS $$
 DECLARE
   created_restaurant public.restaurants;
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('create_restaurant_with_owner:' || p_user_id::text, 0));
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.restaurant_memberships
+    WHERE user_id = p_user_id
+  ) THEN
+    RAISE EXCEPTION 'User already has restaurant access'
+      USING ERRCODE = '23505';
+  END IF;
+
   IF p_reservation_last_seating_buffer_minutes IS NULL THEN
     INSERT INTO public.restaurants (
       name,

@@ -32,6 +32,7 @@ function applyBaseEnv(overrides: NodeJS.ProcessEnv = {}) {
     CRON_SECRET: 'cron-secret',
     NEXT_PUBLIC_POSTHOG_KEY: 'posthog-key',
     NEXT_PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com',
+    ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
     ...overrides,
   };
   resetEnvCache();
@@ -76,5 +77,38 @@ describe('server feature flags', () => {
     await prefetchFeatureFlagOverrides();
 
     expect(featureFlagEqMock).toHaveBeenCalledWith('environment', 'staging');
+  });
+
+  it('fails closed instead of using development overrides on production Vercel without APP_ENV', async () => {
+    applyBaseEnv({
+      APP_ENV: undefined,
+      VERCEL_ENV: 'production',
+    });
+
+    await prefetchFeatureFlagOverrides();
+
+    expect(featureFlagEqMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed instead of using development overrides on preview Vercel without APP_ENV', async () => {
+    applyBaseEnv({
+      APP_ENV: undefined,
+      VERCEL_ENV: 'preview',
+    });
+
+    await prefetchFeatureFlagOverrides();
+
+    expect(featureFlagEqMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when preview Vercel is configured to read production overrides', async () => {
+    applyBaseEnv({
+      APP_ENV: 'production',
+      VERCEL_ENV: 'preview',
+    });
+
+    await prefetchFeatureFlagOverrides();
+
+    expect(featureFlagEqMock).not.toHaveBeenCalled();
   });
 });

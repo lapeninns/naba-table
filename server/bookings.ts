@@ -429,31 +429,41 @@ export async function addToWaitingList(
 export async function softCancelBooking(
   client: DbClient,
   bookingId: string,
-): Promise<BookingRecord> {
-  const { data, error } = await client
+  options: { restaurantId?: string | null } = {},
+): Promise<{ booking: BookingRecord; cancelled: boolean }> {
+  let updateQuery = client
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('id', bookingId)
-    .neq('status', 'cancelled')
-    .select(BOOKING_SELECT)
-    .maybeSingle();
+    .neq('status', 'cancelled');
+
+  if (options.restaurantId) {
+    updateQuery = updateQuery.eq('restaurant_id', options.restaurantId);
+  }
+
+  const { data, error } = await updateQuery.select(BOOKING_SELECT).maybeSingle();
 
   if (error) {
     throw error;
   }
 
   if (!data) {
-    const { data: existing, error: existingError } = await client
+    let readQuery = client
       .from('bookings')
       .select(BOOKING_SELECT)
-      .eq('id', bookingId)
-      .single();
+      .eq('id', bookingId);
+
+    if (options.restaurantId) {
+      readQuery = readQuery.eq('restaurant_id', options.restaurantId);
+    }
+
+    const { data: existing, error: existingError } = await readQuery.single();
 
     if (existingError) {
       throw existingError;
     }
 
-    return existing as BookingRecord;
+    return { booking: existing as BookingRecord, cancelled: false };
   }
 
   const booking = data as BookingRecord;
@@ -467,7 +477,7 @@ export async function softCancelBooking(
     logCustomerProfileMaintenanceFailure('cancellation', profileError);
   }
 
-  return booking;
+  return { booking, cancelled: true };
 }
 
 function logCustomerProfileMaintenanceFailure(context: string, error: unknown): void {

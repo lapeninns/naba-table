@@ -182,14 +182,21 @@ export async function validateConfirmationToken(
 export async function markTokenUsed(token: string): Promise<void> {
   const supabase = getServiceSupabaseClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('bookings')
     .update({ confirmation_token_used_at: new Date().toISOString() })
-    .eq('confirmation_token', token);
+    .eq('confirmation_token', token)
+    .is('confirmation_token_used_at', null)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     console.error('[confirmation-token] Failed to mark token as used', error);
     throw error;
+  }
+
+  if (!data) {
+    throw new TokenValidationError('Token has already been used', 'TOKEN_USED');
   }
 }
 

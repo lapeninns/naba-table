@@ -1,10 +1,10 @@
 # Google Business Profile
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Google Business Profile connects restaurants to Google, imports business data, manages drafts, and publishes selected sync changes through dual-sync jobs.
+Google Business Profile connects restaurants to Google, imports business data and food menus, compares canonical state, manages workflow/draft leftovers, and publishes selected sync changes through dual-sync jobs.
 
 ## Directory layout
 
@@ -12,35 +12,43 @@ Google Business Profile connects restaurants to Google, imports business data, m
 server/google-business-profile/
 server/dual-sync/
 src/app/api/ops/restaurants/[id]/google-business-profile/
+src/app/api/ops/restaurants/[id]/google-business/
+src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx
 ```
 
 ## Key abstractions
 
-| Symbol or file                               | Description    |
-| -------------------------------------------- | -------------- |
-| `server/google-business-profile/workflow.ts` | Workflow.      |
-| `server/google-business-profile/client.ts`   | Google client. |
-| `server/dual-sync/publish/orchestrator.ts`   | Publish jobs.  |
+| Symbol or file                              | Description       |
+| ------------------------------------------- | ----------------- |
+| `server/google-business-profile/service.ts` | Service facade.   |
+| `server/google-business-profile/client.ts`  | Google client.    |
+| `server/google-business-profile/crypto.ts`  | Token encryption. |
+| `server/dual-sync/publish/orchestrator.ts`  | Publish jobs.     |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Google Business and dual sync](../systems/google-business-dual-sync.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Google Business and dual sync](../systems/google-business-dual-sync.md), [Restaurant settings](restaurant-settings.md), [Security](../security.md), and [Jobs and queues](../systems/jobs-queues.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                                                     | Purpose           |
-| ------------------------------------------------------------------------ | ----------------- |
-| `server/google-business-profile/workflow.ts`                             | Workflow.         |
-| `server/google-business-profile/crypto.ts`                               | Token encryption. |
-| `server/dual-sync/state/read.ts`                                         | State reads.      |
-| `src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx` | Settings page.    |
-
-Related: [Google Business and dual sync](../systems/google-business-dual-sync.md)
+| File                                                                     | Purpose         |
+| ------------------------------------------------------------------------ | --------------- |
+| `server/google-business-profile/core-sync.ts`                            | Core sync.      |
+| `server/google-business-profile/food-menus-sync.ts`                      | Food menu sync. |
+| `src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx` | Settings page.  |

@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { ensureProfileRow } from '@/lib/profile/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import {
   acceptInviteForAuthenticatedUser,
@@ -16,10 +17,17 @@ import type { NextRequest } from 'next/server';
 const paramsSchema = z.object({ token: z.string().min(10) });
 
 const payloadSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').optional(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters'),
 });
 
 export async function POST(request: NextRequest, context: { params: Promise<{ token: string }> }) {
+  return withCsrfProtectedMutation(request, () => postAcceptInvitation(request, context));
+}
+
+async function postAcceptInvitation(
+  request: NextRequest,
+  context: { params: Promise<{ token: string }> },
+) {
   const parsedParams = paramsSchema.safeParse(await context.params);
   if (!parsedParams.success) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
@@ -90,7 +98,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
       userEmail: user.email,
       client: service,
     });
-    await ensureProfileRow(service, user);
+    const profileUser = parsedPayload.data.name
+      ? {
+          ...user,
+          user_metadata: {
+            ...(user.user_metadata ?? {}),
+            name: parsedPayload.data.name,
+          },
+        }
+      : user;
+    await ensureProfileRow(service, profileUser);
 
     return NextResponse.json({
       success: true,

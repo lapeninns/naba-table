@@ -216,7 +216,12 @@ describe('ops booking lifecycle routes', () => {
       performedAt,
       reason,
     });
-    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(serviceSupabase, BOOKING_ID);
+    expect(persistLifecycleTransitionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        releaseAssignments: true,
+      }),
+    );
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
     expect(invalidateOpsDashboardCachesMock).toHaveBeenCalledWith(RESTAURANT_ID, {
       summaryDates: [BOOKING.booking_date],
     });

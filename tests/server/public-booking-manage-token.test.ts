@@ -131,7 +131,7 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
     details: null,
     end_at: null,
     end_time: '20:30',
-    id: 'booking-1',
+    id: '65c3207e-318a-4e4b-b82d-1249a720d776',
     idempotency_key: 'idem-1',
     marketing_opt_in: false,
     notes: null,
@@ -158,14 +158,14 @@ function makeLookup(data: Record<string, unknown> | null, error: unknown = null)
 }
 
 function makeRequest(token = 'valid-token') {
-  return new NextRequest('https://www.nabatable.com/api/bookings/booking-1', {
+  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
     headers: {
       'x-session-recovery-token': token,
     },
   });
 }
 
-function routeParams(id = 'booking-1') {
+function routeParams(id = '65c3207e-318a-4e4b-b82d-1249a720d776') {
   return {
     params: Promise.resolve({ id }),
   };
@@ -206,7 +206,7 @@ describe('public booking manage-token access', () => {
     expect(response.status).toBe(200);
     expect(body.booking).toMatchObject({
       booking_date: '2026-07-01',
-      id: 'booking-1',
+      id: '65c3207e-318a-4e4b-b82d-1249a720d776',
       reference: 'NB123456',
       restaurant_id: 'rest-1',
       restaurants: {
@@ -215,7 +215,7 @@ describe('public booking manage-token access', () => {
         timezone: 'Europe/London',
       },
     });
-    expect(bookingLookup.eq).toHaveBeenCalledWith('id', 'booking-1');
+    expect(bookingLookup.eq).toHaveBeenCalledWith('id', '65c3207e-318a-4e4b-b82d-1249a720d776');
     expect(bookingLookup.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
     expect(sessionRecoveryTokenMatchesBookingContactMock).toHaveBeenCalledWith({
       booking: {
@@ -288,16 +288,25 @@ describe('public booking manage-token access', () => {
     expect(sessionRecoveryTokenMatchesBookingContactMock).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed booking ids before service-role lookup @p0 @api @security @contract', async () => {
+    const response = await GET(makeRequest(), routeParams('not-a-uuid'));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('MISSING_BOOKING_ID');
+    expect(serviceFromMock).not.toHaveBeenCalled();
+  });
+
   it('does not reveal bookings outside the token restaurant scope @p0 @api @security @contract', async () => {
     const bookingLookup = makeLookup(null);
     serviceFromMock.mockReturnValueOnce(bookingLookup);
 
-    const response = await GET(makeRequest(), routeParams('other-booking'));
+    const response = await GET(makeRequest(), routeParams('9876c5cb-9ad9-4af3-a448-b6a5b6dfba42'));
     const body = await response.json();
 
     expect(response.status).toBe(404);
     expect(body.code).toBe('BOOKING_NOT_FOUND');
-    expect(bookingLookup.eq).toHaveBeenCalledWith('id', 'other-booking');
+    expect(bookingLookup.eq).toHaveBeenCalledWith('id', '9876c5cb-9ad9-4af3-a448-b6a5b6dfba42');
     expect(bookingLookup.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
     expect(sessionRecoveryTokenMatchesBookingContactMock).not.toHaveBeenCalled();
   });

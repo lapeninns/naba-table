@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { isBookingLifecycleAllowedToday } from '@/server/ops/booking-lifecycle/availability';
+import { applyBookingStateTransition } from '@/server/ops/booking-lifecycle/persistence';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireMembershipForRestaurant } from '@/server/team/access';
@@ -218,76 +219,27 @@ export async function persistLifecycleTransition(input: {
   serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
   logLabel: string;
   failureMessage: string;
+  releaseAssignments?: boolean;
 }): Promise<PersistTransitionResult> {
-  const { booking, transition, serviceSupabase, logLabel, failureMessage } = input;
+  const { booking, transition, serviceSupabase, logLabel, failureMessage, releaseAssignments } =
+    input;
 
-  if (transition.skipUpdate) {
+  try {
     return {
-      result: {
-        status: transition.response.status,
-        checkedInAt: transition.response.checkedInAt ?? null,
-        checkedOutAt: transition.response.checkedOutAt ?? null,
-        updatedAt: transition.response.updatedAt ?? null,
-        changed: false,
-      },
+      result: await applyBookingStateTransition({
+        supabase: serviceSupabase,
+        booking,
+        transition,
+        releaseAssignments,
+      }),
     };
-  }
-
-  const historyRecord = transition.history;
-  if (!historyRecord) {
-    console.error(`[ops][${logLabel}] missing history payload for transition`);
-    return {
-      response: NextResponse.json(
-        { error: 'Unable to record booking transition' },
-        { status: 500 },
-      ),
-    };
-  }
-
-  const targetStatus = (transition.updates.status ??
-    booking.status) as Tables<'bookings'>['status'];
-  const finalCheckedInAt =
-    transition.updates.checked_in_at !== undefined
-      ? (transition.updates.checked_in_at ?? null)
-      : (booking.checked_in_at ?? null);
-  const finalCheckedOutAt =
-    transition.updates.checked_out_at !== undefined
-      ? (transition.updates.checked_out_at ?? null)
-      : (booking.checked_out_at ?? null);
-  const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
-
-  const { data: transitionResult, error: transitionError } = await serviceSupabase.rpc(
-    'apply_booking_state_transition',
-    {
-      p_booking_id: booking.id,
-      p_status: targetStatus,
-      p_checked_in_at: finalCheckedInAt,
-      p_checked_out_at: finalCheckedOutAt,
-      p_updated_at: finalUpdatedAt,
-      p_history_from: historyRecord.from_status ?? booking.status,
-      p_history_to: historyRecord.to_status,
-      p_history_changed_by: historyRecord.changed_by ?? null,
-      p_history_changed_at: historyRecord.changed_at ?? finalUpdatedAt,
-      p_history_reason: historyRecord.reason ?? 'status_change',
-      p_history_metadata: historyRecord.metadata ?? {},
-    },
-  );
-
-  if (transitionError) {
-    console.error(`[ops][${logLabel}] failed to persist transition`, transitionError.message);
+  } catch (transitionError) {
+    console.error(
+      `[ops][${logLabel}] failed to persist transition`,
+      transitionError instanceof Error ? transitionError.message : transitionError,
+    );
     return {
       response: NextResponse.json({ error: failureMessage }, { status: 500 }),
     };
   }
-
-  const resultRow = transitionResult?.[0];
-  return {
-    result: {
-      status: resultRow?.status ?? targetStatus,
-      checkedInAt: resultRow?.checked_in_at ?? finalCheckedInAt,
-      checkedOutAt: resultRow?.checked_out_at ?? finalCheckedOutAt,
-      updatedAt: resultRow?.updated_at ?? finalUpdatedAt,
-      changed: true,
-    },
-  };
 }

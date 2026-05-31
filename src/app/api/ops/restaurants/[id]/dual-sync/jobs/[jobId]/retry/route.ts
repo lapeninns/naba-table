@@ -36,7 +36,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   if (!jobId) {
     return dualSyncErrorResponse('Missing job id', 400);
   }
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-job-retry');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-job-retry', _req);
   if (access instanceof NextResponse) return access;
 
   try {

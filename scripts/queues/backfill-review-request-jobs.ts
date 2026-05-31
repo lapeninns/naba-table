@@ -96,6 +96,12 @@ function assertReviewQueueBackfillSafety(args: Args): void {
     );
   }
 
+  if (args.drain && TARGET_RESTAURANT_ID) {
+    throw new Error(
+      '--drain calls the global email cron endpoint and cannot be used with TARGET_RESTAURANT_ID/RESTAURANT_ID. Drain targeted jobs through the ops queue tooling instead.',
+    );
+  }
+
   if (!TARGET_RESTAURANT_ID && !ALLOW_ALL_RESTAURANTS_BACKFILL) {
     throw new Error(
       'TARGET_RESTAURANT_ID or RESTAURANT_ID is required for review request queue apply mode. Set ALLOW_ALL_RESTAURANTS_BACKFILL=true only for an intentional all-restaurant run.',

@@ -22,7 +22,14 @@ export interface FoodMenusImportReviewRow {
   match_confidence: 'previous_identity' | 'section_name_price' | 'section_name' | 'none';
   suggested_patch: Json | null;
   warnings: Json;
-  decision_status: 'pending' | 'processing' | 'approved' | 'ignored' | 'applied' | 'superseded';
+  decision_status:
+    | 'pending'
+    | 'processing'
+    | 'approved'
+    | 'ignored'
+    | 'applied'
+    | 'superseded'
+    | 'failed';
   decision_action: FoodMenusImportReviewDecisionAction | null;
   decided_by_user_id: string | null;
   decided_at: string | null;
@@ -259,6 +266,45 @@ export async function markFoodMenusImportReviewDecision({
   }
   if (!data) {
     throw new Error(`restaurant_gbp_food_menu_import_reviews decision failed for ${reviewId}`);
+  }
+  return rowToImportReview(data);
+}
+
+export async function markFoodMenusImportReviewDecisionFailed({
+  client,
+  restaurantId,
+  reviewId,
+  decisionAction,
+  decidedByUserId = null,
+}: {
+  readonly client: DbClient;
+  readonly restaurantId: string;
+  readonly reviewId: string;
+  readonly decisionAction: NonNullable<FoodMenusImportReviewRow['decision_action']>;
+  readonly decidedByUserId?: string | null;
+}): Promise<FoodMenusImportReviewRecord> {
+  const db = getFoodMenusImportReviewDbClient(client);
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from('restaurant_gbp_food_menu_import_reviews')
+    .update({
+      decision_status: 'failed',
+      decision_action: decisionAction,
+      decided_by_user_id: decidedByUserId,
+      decided_at: now,
+      updated_at: now,
+    } as never)
+    .eq('restaurant_id', restaurantId)
+    .eq('id', reviewId)
+    .eq('decision_status', 'processing')
+    .select('*')
+    .maybeSingle<FoodMenusImportReviewRow>();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error(`restaurant_gbp_food_menu_import_reviews failure mark failed for ${reviewId}`);
   }
   return rowToImportReview(data);
 }

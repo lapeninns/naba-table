@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   getBookingTableAssignments,
@@ -51,5 +53,19 @@ describe('table assignment unassign helpers', () => {
       message: 'Failed to load booking table assignments: read failed',
       code: 'READ_FAILED',
     });
+  });
+
+  it('keeps route status reopen logic inside the atomic unassign helper', () => {
+    const routeSource = readFileSync(
+      join(
+        process.cwd(),
+        'src/app/api/ops/bookings/[id]/tables/[tableId]/route.ts',
+      ),
+      'utf8',
+    );
+
+    expect(routeSource).toContain('await unassignTableFromBooking(bookingId, tableId, serviceClient)');
+    expect(routeSource).not.toContain("status: 'pending'");
+    expect(routeSource).not.toContain(".update({");
   });
 });

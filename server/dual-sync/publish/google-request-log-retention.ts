@@ -109,7 +109,7 @@ export async function pruneExpiredGoogleRequestLogs(
 
   const { data: archivedRows, error: archiveError } = await dual
     .from('dual_sync_google_request_log_archives')
-    .insert(archiveRows as never)
+    .upsert(archiveRows as never, { onConflict: 'original_request_log_id' })
     .select('original_request_log_id');
   if (archiveError) {
     throw archiveError;

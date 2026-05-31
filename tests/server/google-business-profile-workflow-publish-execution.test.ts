@@ -4,6 +4,12 @@ const updateRestaurantDetailsMock = vi.hoisted(() => vi.fn());
 const updateOperatingHoursMock = vi.hoisted(() => vi.fn());
 const updateServicePeriodsMock = vi.hoisted(() => vi.fn());
 const updateRestaurantBusinessContextMock = vi.hoisted(() => vi.fn());
+const insertPublishEventMock = vi.hoisted(() => vi.fn());
+const updatePublishEventMock = vi.hoisted(() => vi.fn());
+const getGoogleBusinessProfileConnectionStateMock = vi.hoisted(() => vi.fn());
+const syncRestaurantProfileWithGoogleBusinessProfileMock = vi.hoisted(() => vi.fn());
+const syncRestaurantOperatingHoursWithGoogleBusinessProfileMock = vi.hoisted(() => vi.fn());
+const syncRestaurantServicePeriodsWithGoogleBusinessProfileMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/restaurants/details', () => ({
   updateRestaurantDetails: updateRestaurantDetailsMock,
@@ -19,6 +25,21 @@ vi.mock('@/server/restaurants/servicePeriods', () => ({
 
 vi.mock('@/server/restaurants/businessContext', () => ({
   updateRestaurantBusinessContext: updateRestaurantBusinessContextMock,
+}));
+
+vi.mock('@/server/google-business-profile/service', () => ({
+  getGoogleBusinessProfileConnectionState: getGoogleBusinessProfileConnectionStateMock,
+  syncRestaurantProfileWithGoogleBusinessProfile: syncRestaurantProfileWithGoogleBusinessProfileMock,
+  syncRestaurantOperatingHoursWithGoogleBusinessProfile:
+    syncRestaurantOperatingHoursWithGoogleBusinessProfileMock,
+  syncRestaurantServicePeriodsWithGoogleBusinessProfile:
+    syncRestaurantServicePeriodsWithGoogleBusinessProfileMock,
+}));
+
+vi.mock('@/server/google-business-profile/workflowRepository', () => ({
+  GOOGLE_BUSINESS_PROFILE_PROVIDER: 'google_business_profile',
+  insertPublishEvent: insertPublishEventMock,
+  updatePublishEvent: updatePublishEventMock,
 }));
 
 import {
@@ -137,9 +158,35 @@ function buildSnapshot(): GoogleBusinessProfileWorkflowCoreSnapshots {
 describe('google business profile workflow publish execution', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    insertPublishEventMock.mockResolvedValue({ id: 'google-event-1' });
+    updatePublishEventMock.mockResolvedValue(undefined);
+    getGoogleBusinessProfileConnectionStateMock.mockResolvedValue({});
+    syncRestaurantProfileWithGoogleBusinessProfileMock.mockResolvedValue(undefined);
+    syncRestaurantOperatingHoursWithGoogleBusinessProfileMock.mockResolvedValue(undefined);
+    syncRestaurantServicePeriodsWithGoogleBusinessProfileMock.mockResolvedValue(undefined);
   });
 
-  it('restores selected core sections from the pre-publish snapshot', async () => {
+  it('skips unguarded automatic rollback when current sections cannot be proven unchanged', async () => {
+    const rollback = await restoreCoreSnapshotAfterFailedPublish({
+      restaurantId: 'rest-1',
+      draft: buildDraft(),
+      snapshot: buildSnapshot(),
+      client: {} as never,
+    });
+
+    expect(rollback).toEqual({
+      status: 'failed',
+      errors: [
+        'automatic rollback skipped because current restaurant sections cannot be proven unchanged; manual repair is required.',
+      ],
+    });
+    expect(updateRestaurantDetailsMock).not.toHaveBeenCalled();
+    expect(updateOperatingHoursMock).not.toHaveBeenCalled();
+    expect(updateServicePeriodsMock).not.toHaveBeenCalled();
+    expect(updateRestaurantBusinessContextMock).not.toHaveBeenCalled();
+  });
+
+  it('restores selected core sections from the pre-publish snapshot only with explicit opt-in', async () => {
     updateRestaurantDetailsMock.mockResolvedValue(undefined);
     updateOperatingHoursMock.mockResolvedValue(undefined);
     updateServicePeriodsMock.mockResolvedValue(undefined);
@@ -150,6 +197,7 @@ describe('google business profile workflow publish execution', () => {
       draft: buildDraft(),
       snapshot: buildSnapshot(),
       client: {} as never,
+      allowUnguardedRollback: true,
     });
 
     expect(rollback).toEqual({ status: 'restored', errors: [] });
@@ -195,6 +243,7 @@ describe('google business profile workflow publish execution', () => {
       draft: buildDraft(),
       snapshot: buildSnapshot(),
       client: {} as never,
+      allowUnguardedRollback: true,
     });
 
     expect(rollback).toEqual({
@@ -214,6 +263,7 @@ describe('google business profile workflow publish execution', () => {
         externalProfile: null,
         actorUserId: 'user-1',
         googleUpdateMasks: [],
+        currentCore: buildSnapshot(),
         client: {} as never,
       }),
     ).resolves.toBeNull();
@@ -227,8 +277,79 @@ describe('google business profile workflow publish execution', () => {
         externalProfile: { push_enabled: false } as never,
         actorUserId: 'user-1',
         googleUpdateMasks: ['title'],
+        currentCore: buildSnapshot(),
         client: {} as never,
       }),
     ).rejects.toMatchObject({ name: 'GBP_GOOGLE_PUSH_DISABLED' });
+  });
+
+  it('does not misclassify local event persistence failures as Google push failures', async () => {
+    updatePublishEventMock.mockRejectedValue(new Error('publish event update failed'));
+
+    let thrown: unknown;
+    try {
+      await pushDraftToGoogle({
+        restaurantId: 'rest-1',
+        draft: buildDraft(),
+        externalProfile: { push_enabled: true } as never,
+        actorUserId: 'user-1',
+        googleUpdateMasks: ['title'],
+        currentCore: buildSnapshot(),
+        client: {} as never,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toBe(
+      'Google push succeeded, but local publish event persistence failed.',
+    );
+    expect((thrown as Error).name).not.toBe('GBP_GOOGLE_PUSH_FAILED');
+    expect(thrown).toMatchObject({
+      name: 'GBP_GOOGLE_PUSH_RECONCILIATION_REQUIRED',
+      classification: null,
+      retryable: false,
+      reconciliationRequired: true,
+      googleEventId: 'google-event-1',
+    });
+    expect(syncRestaurantProfileWithGoogleBusinessProfileMock).toHaveBeenCalled();
+    expect(updatePublishEventMock).toHaveBeenCalledWith('google-event-1', 'success', [], {});
+  });
+
+  it('marks later Google section failures after an external success as reconciliation required', async () => {
+    syncRestaurantOperatingHoursWithGoogleBusinessProfileMock.mockRejectedValue(
+      new Error('hours push failed'),
+    );
+
+    await expect(
+      pushDraftToGoogle({
+        restaurantId: 'rest-1',
+        draft: buildDraft(),
+        externalProfile: { push_enabled: true } as never,
+        actorUserId: 'user-1',
+        googleUpdateMasks: ['title', 'regularHours'],
+        currentCore: buildSnapshot(),
+        client: {} as never,
+      }),
+    ).rejects.toMatchObject({
+      name: 'GBP_GOOGLE_PUSH_PARTIAL_STATE',
+      classification: null,
+      retryable: false,
+      reconciliationRequired: true,
+    });
+
+    expect(updatePublishEventMock).toHaveBeenCalledWith(
+      'google-event-1',
+      'failed',
+      [
+        expect.objectContaining({
+          retryable: false,
+          reconciliationRequired: true,
+          completedSections: ['profile'],
+        }),
+      ],
+      {},
+    );
   });
 });

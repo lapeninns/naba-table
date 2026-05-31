@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Client } from 'pg';
 
 import { getPgSslConfig } from './db/pg-ssl';
+import { assertExactSupabaseApiProjectRef } from './db/safety';
 import type { Database } from '@/types/supabase';
 import type { User } from '@supabase/supabase-js';
 
@@ -54,8 +55,10 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
-if (!supabaseUrl.includes(expectedProjectRef)) {
-  console.error(`Supabase URL does not match expected project ref (${expectedProjectRef}).`);
+try {
+  assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Supabase URL validation failed.');
   process.exit(1);
 }
 

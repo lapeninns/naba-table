@@ -35,4 +35,13 @@ describe('performance script safety', () => {
     expect(guardIndex).toBeLessThan(clientIndex);
     expect(source).toContain('fs.mkdirSync(artifactsDir, { recursive: true })');
   });
+
+  it('fails production precheck with a non-zero exit after runtime errors', () => {
+    const source = read('scripts/production-precheck.ts');
+
+    expect(source).toContain('process.exitCode = 1');
+    expect(source.indexOf("console.error('❌ Pre-check failed:'")).toBeLessThan(
+      source.indexOf('process.exitCode = 1'),
+    );
+  });
 });

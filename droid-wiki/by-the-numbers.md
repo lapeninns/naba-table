@@ -1,73 +1,60 @@
 # By the numbers
 
-Data collected on 2026-05-02 from commit `939c208ac93c3c41c66f669ba7e7705a600b828a` on branch `codex/Menu`.
+Data collected on 2026-05-30T17:24:07Z from commit `dd83ed933caee0978331239201255e273c285dc2` on branch `main`.
 
 ```mermaid
 xychart-beta
-  title "Lines by extension"
-  x-axis [ts, tsx, json, md, yaml, sql, mjs, yml]
-  y-axis "Lines" 0 --> 165548
-  bar [165548, 68423, 49403, 23696, 13799, 10029, 2230, 2113]
+  title "Tracked lines by extension"
+  x-axis [json, ts, tsx, md, sql, yaml, css, mjs, yml, js]
+  y-axis "Lines" 0 --> 638863
+  bar [638863, 292736, 95395, 45757, 15629, 15120, 3417, 3003, 2327, 549]
 ```
 
-| Metric                 | Value       |
-| ---------------------- | ----------- |
-| Source files           | 1680        |
-| Test files             | 192         |
-| Config/tooling files   | 128         |
-| API route handlers     | 122         |
-| Page components        | 47          |
-| Supabase migrations    | 54          |
-| Git commits            | 718         |
-| Bot-attributed markers | 184 (25.6%) |
+| Metric                              | Value |
+| ----------------------------------- | ----- |
+| Tracked files                       | 4059  |
+| Tracked JS/TS source-like files     | 2804  |
+| Tracked files under `tests/**`      | 676   |
+| Config/tooling files                | 260   |
+| API route handlers                  | 140   |
+| TS/TSX files under `src/app/api/**` | 156   |
+| Page components                     | 82    |
+| Supabase SQL migrations             | 91    |
+| Droid wiki Markdown pages           | 66    |
+| Git commits                         | 1453  |
 
-## Largest directories
+## Largest top-level directories by tracked file count
 
-| Directory                                                     | Files | Lines |
-| ------------------------------------------------------------- | ----- | ----- |
-| `src`                                                         | 588   | 91702 |
-| `tasks`                                                       | 505   | 66852 |
-| `server`                                                      | 238   | 59372 |
-| `tests`                                                       | 192   | 31182 |
-| `scripts`                                                     | 52    | 14991 |
-| `pnpm-lock.yaml`                                              | 1     | 13179 |
-| `reserve`                                                     | 109   | 11813 |
-| `supabase`                                                    | 55    | 9391  |
-| `components`                                                  | 55    | 8740  |
-| `types`                                                       | 10    | 6771  |
-| `lib`                                                         | 65    | 6097  |
-| `restaurant-profile-frontend-consolidated-20260429-1803.json` | 1     | 4045  |
+| Directory    | Files |
+| ------------ | ----- |
+| `src`        | 1200  |
+| `tests`      | 676   |
+| `.deepsec`   | 568   |
+| `server`     | 467   |
+| `reserve`    | 134   |
+| `tasks`      | 117   |
+| `components` | 116   |
+| `docs`       | 111   |
+| `supabase`   | 101   |
+| `scripts`    | 99    |
+| `lib`        | 84    |
+| `.factory`   | 77    |
+| `droid-wiki` | 68    |
+| `cloudflare` | 16    |
+| `config`     | 13    |
 
-## Recent churn hotspots
+## Recent commits in this snapshot
 
-| Path                                | Touch count signal |
-| ----------------------------------- | ------------------ |
-| `src/components`                    | 1096               |
-| `src/app`                           | 610                |
-| `tests/server`                      | 146                |
-| `tests/components`                  | 141                |
-| `.factory/validation`               | 128                |
-| `reserve/features`                  | 105                |
-| `CONTINUITY.md`                     | 88                 |
-| `src/hooks`                         | 74                 |
-| `supabase/migrations`               | 59                 |
-| `server/google-business-profile-v2` | 58                 |
-| `server/dual-sync`                  | 54                 |
-| `tests/e2e`                         | 49                 |
+| Commit     | Date       | Message                                                                |
+| ---------- | ---------- | ---------------------------------------------------------------------- |
+| `dd83ed93` | 2026-05-27 | Unify restaurant settings date pickers and cron actor fallback         |
+| `e8f5c704` | 2026-05-27 | Harden booking security flows and RPC privileges                       |
+| `2f4fbc1b` | 2026-05-25 | Merge pull request #57 from lapeninns/Restaurant-Settings-Improvements |
+| `b75a5400` | 2026-05-25 | Apply semantic color tokens and add dev pages                          |
+| `0db980a6` | 2026-05-24 | Support client factory in my-bookings response                         |
+| `065cc47d` | 2026-05-24 | Add bookings, dual-sync, GBP and UI features                           |
+| `3542e791` | 2026-05-19 | Deduplicate restaurant settings reference data                         |
 
-## Largest files
+## Largest source/test hotspots
 
-| File                                                                                           | Lines |
-| ---------------------------------------------------------------------------------------------- | ----- |
-| `pnpm-lock.yaml`                                                                               | 13179 |
-| `tasks/unused-cleanup-plan-20260501-1652/artifacts/candidate-inventory.json`                   | 10319 |
-| `types/supabase.ts`                                                                            | 6325  |
-| `tasks/unused-cleanup-20260501-1340/artifacts/unused-candidates.json`                          | 5326  |
-| `restaurant-profile-frontend-consolidated-20260429-1803.json`                                  | 4045  |
-| `server/google-business-profile/workflow.ts`                                                   | 3390  |
-| `server/google-business-profile/business-info.ts`                                              | 2730  |
-| `tasks/luma-compliance-checker-20260502-1344/artifacts/luma-compliance-report.json`            | 2569  |
-| `tasks/luma-shared-primitives-state-20260502-1348/artifacts/luma-compliance-report-after.json` | 2484  |
-| `tasks/gbp-redrift-seed-20260501-1145/artifacts/original-state.json`                           | 2343  |
-| `tasks/luma-guest-navbar-20260502-1357/artifacts/luma-compliance-report-after.json`            | 2303  |
-| `src/components/features/restaurant-settings/RestaurantBusinessContextSection.tsx`             | 2127  |
+See [Complexity hotspots](cleanup-opportunities/complexity-hotspots.md) for the current largest tracked source/test files.

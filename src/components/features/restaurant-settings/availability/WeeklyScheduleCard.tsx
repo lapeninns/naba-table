@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 
 import { AvailabilityScheduleErrorState } from './AvailabilityScheduleStates';
 import { AvailabilityScheduleDayCard } from './ScheduleDayCard';
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import {
   buildOperatingHoursPayload,
   defaultWeeklyRows,
@@ -178,7 +179,10 @@ export function WeeklyScheduleCard({ restaurantId }: WeeklyScheduleCardProps) {
   }
 
   return (
-    <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="weekly-hours">
+    <Card
+      className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')}
+      id={AVAILABILITY_ANCHORS.weeklyHours}
+    >
       <CardHeader
         className={cn(
           SETTINGS_COMPACT_CARD_HEADER_CLASS,

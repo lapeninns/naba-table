@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const getMagicLinkFailureMock = vi.hoisted(() => vi.fn());
@@ -52,6 +52,7 @@ function request(payload: Record<string, unknown> | string) {
 
 describe('POST /api/auth/signup onboarding contract', () => {
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'nabatable.com';
     consumeRateLimitMock.mockReset().mockResolvedValue(buildRateLimitResult());
     getMagicLinkFailureMock.mockReset().mockReturnValue({
       message: 'We could not send a magic link right now. Please try again.',
@@ -69,6 +70,10 @@ describe('POST /api/auth/signup onboarding contract', () => {
       error: null,
     });
     validateCsrfTokenMock.mockReset().mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
   });
 
   it('rejects missing CSRF before parsing onboarding signup payloads', async () => {
@@ -120,12 +125,40 @@ describe('POST /api/auth/signup onboarding contract', () => {
       password: 'Correct horse battery staple 1',
       options: {
         emailRedirectTo:
-          'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fonboarding%2Fprofile',
+          'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fonboarding%2Fprofile&rememberMe=0',
       },
     });
   });
 
-  it('keeps existing-account signup failures in onboarding with an email-field app error', async () => {
+  it('builds password signup callbacks from trusted auth hosts, not attacker request origins', async () => {
+    const response = await POST(
+      new NextRequest('https://evil.example/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          host: 'evil.example',
+        },
+        body: JSON.stringify({
+          mode: 'password',
+          email: 'owner@example.com',
+          password: 'Correct horse battery staple 1',
+          redirectedFrom: '/onboarding/profile',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(signUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: {
+          emailRedirectTo:
+            'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fonboarding%2Fprofile&rememberMe=0',
+        },
+      }),
+    );
+  });
+
+  it('does not reveal existing accounts during signup', async () => {
     signUpMock.mockResolvedValue({
       data: { session: null },
       error: {
@@ -144,11 +177,36 @@ describe('POST /api/auth/signup onboarding contract', () => {
     );
 
     await expect(response.json()).resolves.toEqual({
-      code: 'ACCOUNT_EXISTS',
-      message: 'An account already exists for this email.',
-      details: { field: 'email' },
+      status: 'confirmation_required',
+      redirectTo: '/onboarding/profile',
     });
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(201);
+  });
+
+  it('uses an aggregate IP signup rate limit before the email-specific bucket', async () => {
+    await POST(
+      request({
+        mode: 'password',
+        email: 'owner@example.com',
+        password: 'Correct horse battery staple 1',
+        redirectedFrom: '/onboarding/profile',
+      }),
+    );
+
+    expect(consumeRateLimitMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        identifier: expect.stringMatching(/^signup:password:/),
+        limit: 20,
+      }),
+    );
+    expect(consumeRateLimitMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        identifier: expect.stringContaining(':owner@example.com'),
+        limit: 5,
+      }),
+    );
   });
 
   it('sends magic-link signup through the onboarding callback without provider mutation leaks', async () => {
@@ -168,7 +226,7 @@ describe('POST /api/auth/signup onboarding contract', () => {
     expect(sendAuthMagicLinkMock).toHaveBeenCalledWith({
       email: 'owner@example.com',
       emailRedirectTo:
-        'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fonboarding%2Fprofile',
+        'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fonboarding%2Fprofile&rememberMe=0',
       intent: 'signup',
       data: { intent: 'onboarding_signup' },
     });

@@ -101,4 +101,34 @@ describe('production env schema', () => {
       );
     }
   });
+
+  it('fails production validation when rate limiting has no gateway or explicit fallback', () => {
+    const result = envSchemas.production.safeParse(productionEnv);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.')).sort()).toContain(
+        'CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL',
+      );
+    }
+  });
+
+  it('accepts production rate limiting with Cloudflare gateway credentials', () => {
+    const result = envSchemas.production.safeParse({
+      ...productionEnv,
+      CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL: 'https://gateway.example.com/rate-limit',
+      CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN: 'gateway-token',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts production rate limiting with an explicit memory fallback override', () => {
+    const result = envSchemas.production.safeParse({
+      ...productionEnv,
+      ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

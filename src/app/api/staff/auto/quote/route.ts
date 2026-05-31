@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { quoteTables } from '@/server/capacity/engine';
 import { HoldConflictError } from '@/server/capacity/holds';
 import { ServiceNotFoundError } from '@/server/capacity/policy';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
@@ -75,6 +76,19 @@ async function postStaffAutoQuote(req: NextRequest) {
 
   if (!membership.data) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
+  const rateLimitResponse = await requireApiRateLimit({
+    request: req,
+    scope: 'staff:auto-quote',
+    tenantId: bookingRow.restaurant_id,
+    userId: user.id,
+    limit: 20,
+    windowMs: 60_000,
+    message: 'Too many auto-quote requests. Please try again in a moment.',
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);

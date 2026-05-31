@@ -20,6 +20,7 @@ const SENSITIVE_KEY_PARTS = [
   'phone',
   'refresh_token',
   'secret',
+  'service_role',
   'session',
   'signature',
   'token',
@@ -48,6 +49,10 @@ const PHONE_CANDIDATE_PATTERN = /(?:\+?\d[\d\s().-]{7,}\d)/g;
 const URL_CANDIDATE_PATTERN =
   /(?:https?:\/\/[^\s"'<>]+|\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+(?:\?[^\s"'<>#]+)?(?:#[^\s"'<>]+)?)/g;
 const HEADER_LIKE_PATTERN = /^([A-Za-z0-9_-]+)\s*:\s*[^\r\n]+/gim;
+const ENV_ASSIGNMENT_PATTERN =
+  /\b([A-Za-z_][A-Za-z0-9_ .-]{1,80})\s*=\s*("[^"\r\n]*"|'[^'\r\n]*'|[^&\s"'<>]+)/g;
+const CREDENTIAL_URL_PATTERN =
+  /\b(?:postgres(?:ql)?|mysql|redis|rediss|amqp|amqps|mongodb(?:\+srv)?):\/\/[^\s"'<>]+/gi;
 
 function isSensitiveKey(key: string): boolean {
   const normalized = key.toLowerCase().replace(/\s+/g, '');
@@ -57,6 +62,14 @@ function isSensitiveKey(key: string): boolean {
 function isSensitiveQueryKey(key: string): boolean {
   const normalized = key.toLowerCase();
   return SENSITIVE_QUERY_KEYS.some((part) => normalized.includes(part));
+}
+
+function isSecretAssignmentKey(key: string): boolean {
+  const normalized = key.toLowerCase().replace(/\s+/g, '');
+  if (normalized === 'email' || normalized === 'phone') {
+    return false;
+  }
+  return isSensitiveKey(key);
 }
 
 function redactUrlCandidate(value: string): string {
@@ -86,6 +99,14 @@ function redactUrlQueryText(value: string): string {
 
 function redactLooseAssignments(value: string): string {
   return value
+    .replace(CREDENTIAL_URL_PATTERN, QA_REDACTED_VALUE)
+    .replace(ENV_ASSIGNMENT_PATTERN, (match, key: string) =>
+      isSecretAssignmentKey(key) ? `${key}=${QA_REDACTED_VALUE}` : match,
+    )
+    .replace(
+      /(\/(?:invite|bookings\/recover|bookings)\/)([A-Za-z0-9._~+/=-]{10,})(?=\/|\?|#|\s|$)/gi,
+      `$1${QA_REDACTED_VALUE}`,
+    )
     .replace(
       /"(access_token|api[_-]?key|code|jwt|otp|password|refresh_token|secret|session|signature|token)"\s*:\s*"[^"]*"/gi,
       (_match, key: string) => `"${key}":"${QA_REDACTED_VALUE}"`,

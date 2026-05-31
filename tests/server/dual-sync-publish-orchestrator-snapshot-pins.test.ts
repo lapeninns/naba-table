@@ -162,14 +162,24 @@ describe('rejectStaleSnapshotPins', () => {
     expect(recomputeAllStatesMock).not.toHaveBeenCalled();
   });
 
-  it('returns null when snapshot pins are omitted', async () => {
+  it('rejects publish batches when snapshot pins are omitted', async () => {
     const result = await rejectStaleSnapshotPins(
       input({ pinnedCoreSnapshotHash: null, pinnedGbpSnapshotHash: undefined }),
     );
 
-    expect(result).toBeNull();
-    expect(updatePublishBatchStatusMock).not.toHaveBeenCalled();
-    expect(recomputeAllStatesMock).not.toHaveBeenCalled();
+    expect(updatePublishBatchStatusMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'stale',
+        errorCode: 'INVALID_DECISION',
+        errorMessage: 'Publish requires a pinned Core snapshot hash.',
+      }),
+    );
+    expect(recomputeAllStatesMock).toHaveBeenCalledTimes(1);
+    expect(result?.failures[0]?.failure).toEqual({
+      code: 'INVALID_DECISION',
+      message: 'Publish requires a pinned Core snapshot hash.',
+      retryable: false,
+    });
   });
 
   it('marks the publish batch stale and fans out failures when the core snapshot moved', async () => {

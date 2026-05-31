@@ -1,6 +1,6 @@
 # Lore
 
-The first observed commit is `2026-05-02 939c208a Google Business Profile IA audit & cleanup`. Recent history shows fast iteration around bookings, guest flows, ops dashboards, delivery systems, shadcn primitive enforcement, restaurant profile work, and Google Business Profile cleanup.
+This wiki is a snapshot, not a complete repository history. The current checked-out history is on branch `main` at `dd83ed933caee0978331239201255e273c285dc2`.
 
 ## Eras
 
@@ -14,17 +14,15 @@ Soft-hold and capacity migrations such as `supabase/migrations/20260117_add_soft
 
 ### Mar-Apr 2026: Delivery and integration expansion
 
-Email, SMS, Google Business Profile, and dual-sync systems grew through `server/emails/**`, `server/sms/**`, `server/google-business-profile/**`, and `server/dual-sync/**`.
+Email, SMS, Google Business Profile, dual-sync systems, and Cloudflare workers grew through `server/emails/**`, `server/sms/**`, `server/google-business-profile/**`, `server/dual-sync/**`, and `cloudflare/**`.
 
-### May 2026: UI and IA cleanup
+### May 2026: Booking, settings, security, and dual-sync expansion
 
-Recent commits include:
-
-- 2026-05-02 939c208a Google Business Profile IA audit & cleanup
-- 2026-05-02 4fef367d Refactor restaurant profile UI and model
-- 2026-05-01 2540b3d1 Record shadcn primitive CI evidence
-- 2026-05-01 935ef84f Add shadcn primitive task evidence
-- 2026-05-01 d5bf64a1 Add shadcn primitives plan and CI gate
-- 2026-05-01 84cff20a Remove dev mocks and reservation story files
+- 2026-05-27 `dd83ed93` Unify restaurant settings date pickers and cron actor fallback
+- 2026-05-27 `e8f5c704` Harden booking security flows and RPC privileges
+- 2026-05-25 `2f4fbc1b` Merge pull request #57 from lapeninns/Restaurant-Settings-Improvements
+- 2026-05-25 `b75a5400` Apply semantic color tokens and add dev pages
+- 2026-05-24 `065cc47d` Add bookings, dual-sync, GBP and UI features
+- 2026-05-19 `3542e791` Deduplicate restaurant settings reference data
 
 See [By the numbers](by-the-numbers.md) for current stats.

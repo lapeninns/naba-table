@@ -50,6 +50,38 @@ describe('runWithDualSyncLock', () => {
     expect(manager.release).toHaveBeenCalledWith(lock);
   });
 
+  it('renews long-running locks before their TTL expires', async () => {
+    vi.useFakeTimers();
+    const renewedLock: DualSyncLock = {
+      ...lock,
+      expiresAt: '2026-05-09T00:10:00.000Z',
+    };
+    const manager: DualSyncLockManager = {
+      acquire: vi.fn(async () => lock),
+      renew: vi.fn(async () => renewedLock),
+      release: vi.fn(async () => {}),
+    };
+
+    const resultPromise = runWithDualSyncLock(
+      {
+        client,
+        restaurantId: 'rest-1',
+        jobKind: 'publish_batch',
+        ttlMs: 3_000,
+        manager,
+      },
+      async () => {
+        await vi.advanceTimersByTimeAsync(1_100);
+        return 'done';
+      },
+    );
+
+    await expect(resultPromise).resolves.toBe('done');
+    expect(manager.renew).toHaveBeenCalledWith(lock, 3_000);
+    expect(manager.release).toHaveBeenCalledWith(renewedLock);
+    vi.useRealTimers();
+  });
+
   it('releases the lock when the protected job throws', async () => {
     const manager: DualSyncLockManager = {
       acquire: vi.fn(async () => lock),

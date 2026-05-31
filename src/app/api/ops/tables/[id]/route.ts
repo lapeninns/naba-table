@@ -313,8 +313,7 @@ async function patchTable(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[ops/tables/[id]][PATCH] Unexpected error', { error });
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update table' }, { status: 500 });
   }
 }
 
@@ -397,7 +396,6 @@ async function deleteTable(_req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true, deletedTableNumber: table.table_number });
   } catch (error) {
     console.error('[ops/tables/[id]][DELETE] Unexpected error', { error });
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete table' }, { status: 500 });
   }
 }

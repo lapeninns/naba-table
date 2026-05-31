@@ -85,6 +85,37 @@ describe('resend webhook route', () => {
     expect(request.text).not.toHaveBeenCalled();
   });
 
+  it('rejects signed webhook bodies without content length before reading the body', async () => {
+    const request = buildRequest({
+      'svix-id': 'msg_1',
+      'svix-timestamp': '1710000000',
+      'svix-signature': 'v1,sig',
+    });
+
+    const response = await POST(request as never);
+
+    expect(response.status).toBe(411);
+    expect(request.text).not.toHaveBeenCalled();
+  });
+
+  it('rejects streamed webhook bodies that exceed an understated content length', async () => {
+    const response = await POST(
+      new Request('https://www.nabatable.com/api/webhook/resend', {
+        method: 'POST',
+        headers: {
+          'svix-id': 'msg_1',
+          'svix-timestamp': '1710000000',
+          'svix-signature': 'v1,sig',
+          'content-length': '1',
+        },
+        body: 'x'.repeat(300 * 1024),
+      }) as never,
+    );
+
+    expect(response.status).toBe(413);
+    expect(resendVerifyMock).not.toHaveBeenCalled();
+  });
+
   it('records signed delivery events for every recipient without leaking recipient metadata', async () => {
     resendVerifyMock.mockReturnValue({
       type: 'email.bounced',
@@ -101,6 +132,7 @@ describe('resend webhook route', () => {
         'svix-id': 'msg_1',
         'svix-timestamp': '1710000000',
         'svix-signature': 'v1,sig',
+        'content-length': String('{"type":"email.bounced"}'.length),
       },
       '{"type":"email.bounced"}',
     );
@@ -164,6 +196,7 @@ describe('resend webhook route', () => {
         'svix-id': 'msg_1',
         'svix-timestamp': '1710000000',
         'svix-signature': 'v1,bad',
+        'content-length': String('{"type":"email.delivered"}'.length),
       },
       '{"type":"email.delivered"}',
     );

@@ -16,6 +16,20 @@ describe('QA environment guard remote target classification', () => {
     expect(result.targetClass).toBe('staging-like');
   });
 
+  it('treats generic database URLs as active remote targets', () => {
+    const result = assertQaEnvironment({
+      env: {
+        APP_ENV: 'test',
+        NEXT_PUBLIC_SITE_URL: 'http://localhost:5180',
+        DATABASE_URL:
+          'postgresql://postgres.ndxmivcrehsacuerwxtm:password@aws-0-eu-west-2.pooler.supabase.com/postgres',
+        QA_RUN_ID: 'qa-remote-database-url',
+      },
+    });
+
+    expect(result.targetClass).toBe('staging-like');
+  });
+
   it('treats remote active targets as staging-like even when QA_TARGET_ENV is local', () => {
     const result = assertQaEnvironment({
       env: {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { getRestaurantSettingsHeadingContext } from '@/components/features/restaurant-settings/restaurantSettingsHeading';
+import { RESTAURANT_SETTINGS_AVAILABILITY_ALIASES } from '@/components/features/restaurant-settings/routes';
 
 describe('getRestaurantSettingsHeadingContext', () => {
   it('suppresses duplicate page titles for primary settings routes', () => {
@@ -27,9 +28,7 @@ describe('getRestaurantSettingsHeadingContext', () => {
   });
 
   it('builds availability alias breadcrumbs', () => {
-    const context = getRestaurantSettingsHeadingContext(
-      '/app/settings/restaurant/service-periods',
-    );
+    const context = getRestaurantSettingsHeadingContext('/app/settings/restaurant/service-periods');
 
     expect(context.chromeBreadcrumb).toEqual({
       parentTitle: 'Availability & Booking types',
@@ -38,5 +37,14 @@ describe('getRestaurantSettingsHeadingContext', () => {
     });
     expect(context.suppressVisiblePageTitle).toBe(true);
     expect(context.pageDescription).toMatch(/booking windows/i);
+  });
+
+  it('keeps availability alias anchors aligned with rendered workspace ids', () => {
+    expect(RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.map((route) => route.href)).toEqual([
+      '/app/settings/restaurant/service-periods#service-windows',
+      '/app/settings/restaurant/operating-hours#weekly-hours',
+      '/app/settings/restaurant/turn-durations#booking-occasions',
+      '/app/settings/restaurant/occasions#booking-occasions',
+    ]);
   });
 });

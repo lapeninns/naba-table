@@ -401,26 +401,6 @@ async function readItem(
   return data as ItemRow;
 }
 
-async function listMenuItemIds({
-  restaurantId,
-  menuId,
-  sectionId,
-  client,
-}: {
-  restaurantId: string;
-  menuId?: string;
-  sectionId?: string;
-  client: DbClient;
-}): Promise<string[]> {
-  let query = client.from('restaurant_menu_items').select('id').eq('restaurant_id', restaurantId);
-  if (menuId) query = query.eq('menu_id', menuId);
-  if (sectionId) query = query.eq('section_id', sectionId);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).map((row) => row.id);
-}
-
 async function deleteMenuItemsByIds({
   restaurantId,
   itemIds,
@@ -601,21 +581,14 @@ export async function deleteRestaurantMenu(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
-  const itemIds = await listMenuItemIds({ restaurantId, menuId, client });
-  await deleteMenuItemsByIds({ restaurantId, itemIds, client });
-
-  const { error: sectionsError } = await client
-    .from('restaurant_menu_sections')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('menu_id', menuId);
-  if (sectionsError) throw sectionsError;
-
-  const { error } = await client
-    .from('restaurant_menus')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('id', menuId);
+  const rpc = client.rpc as unknown as (
+    fn: 'delete_restaurant_menu_hierarchy',
+    args: { p_restaurant_id: string; p_menu_id: string },
+  ) => Promise<{ error: Error | null }>;
+  const { error } = await rpc('delete_restaurant_menu_hierarchy', {
+    p_restaurant_id: restaurantId,
+    p_menu_id: menuId,
+  });
   if (error) throw error;
 }
 
@@ -679,15 +652,15 @@ export async function deleteRestaurantMenuSection(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
-  const itemIds = await listMenuItemIds({ restaurantId, menuId, sectionId, client });
-  await deleteMenuItemsByIds({ restaurantId, itemIds, client });
-
-  const { error } = await client
-    .from('restaurant_menu_sections')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('menu_id', menuId)
-    .eq('id', sectionId);
+  const rpc = client.rpc as unknown as (
+    fn: 'delete_restaurant_menu_section_hierarchy',
+    args: { p_restaurant_id: string; p_menu_id: string; p_section_id: string },
+  ) => Promise<{ error: Error | null }>;
+  const { error } = await rpc('delete_restaurant_menu_section_hierarchy', {
+    p_restaurant_id: restaurantId,
+    p_menu_id: menuId,
+    p_section_id: sectionId,
+  });
   if (error) throw error;
 }
 

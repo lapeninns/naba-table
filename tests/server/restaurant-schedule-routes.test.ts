@@ -49,19 +49,40 @@ vi.mock('@/server/team/access', () => ({
   requireAdminMembership: requireAdminMembershipMock,
 }));
 
-import { PUT as putOperatingHours } from '@/src/app/api/ops/restaurants/[id]/hours/route';
-import { PUT as putServicePeriods } from '@/src/app/api/ops/restaurants/[id]/service-periods/route';
+vi.mock('@/server/security/events', () => ({
+  recordSecurityEvent: vi.fn(),
+}));
+
+import {
+  POST as postOperatingHours,
+  PUT as putOperatingHours,
+} from '@/src/app/api/ops/restaurants/[id]/hours/route';
+import {
+  POST as postServicePeriods,
+  PUT as putServicePeriods,
+} from '@/src/app/api/ops/restaurants/[id]/service-periods/route';
+
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../../lib/security/csrf';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
+const CSRF_TOKEN = 'restaurant-schedule-csrf-token';
 
 function routeContext() {
   return { params: Promise.resolve({ id: RESTAURANT_ID }) };
 }
 
-function jsonRequest(path: string, body: unknown, method = 'PUT') {
+function csrfHeaders() {
+  return {
+    [CSRF_HEADER_NAME]: CSRF_TOKEN,
+    cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
+  };
+}
+
+function jsonRequest(path: string, body: unknown, method = 'PUT', includeCsrf = true) {
   return new NextRequest(`https://app.nabatable.com${path}`, {
     method,
     body: JSON.stringify(body),
+    headers: includeCsrf ? csrfHeaders() : undefined,
   });
 }
 
@@ -280,4 +301,43 @@ describe('ops restaurant schedule setting routes', () => {
     expect(body).toEqual({ error: 'Unknown occasion "chef_counter"' });
     expect(updateServicePeriodsMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['hours PUT', putOperatingHours, `/api/ops/restaurants/${RESTAURANT_ID}/hours`, 'PUT'],
+    ['hours POST', postOperatingHours, `/api/ops/restaurants/${RESTAURANT_ID}/hours`, 'POST'],
+    [
+      'service-periods PUT',
+      putServicePeriods,
+      `/api/ops/restaurants/${RESTAURANT_ID}/service-periods`,
+      'PUT',
+    ],
+    [
+      'service-periods POST',
+      postServicePeriods,
+      `/api/ops/restaurants/${RESTAURANT_ID}/service-periods`,
+      'POST',
+    ],
+  ] as const)(
+    'rejects missing CSRF on %s before parsing the request body',
+    async (_label, handler, path, method) => {
+      const request = jsonRequest(
+        path,
+        { password: 'password-1', weekly: [], overrides: [] },
+        method,
+        false,
+      );
+      const jsonSpy = vi.spyOn(request, 'json');
+
+      const response = await handler(request, routeContext());
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.code).toBe('CSRF_INVALID');
+      expect(jsonSpy).not.toHaveBeenCalled();
+      expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
+      expect(updateOperatingHoursMock).not.toHaveBeenCalled();
+      expect(updateServicePeriodsMock).not.toHaveBeenCalled();
+      expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    },
+  );
 });

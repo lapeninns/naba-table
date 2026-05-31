@@ -98,7 +98,7 @@ describe('restaurant google business profile routes', () => {
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
-      returnPath: 'https://example.com/app/settings/restaurant/google-business-profile',
+      returnPath: 'https://nabatable.com/app/settings/restaurant/google-business-profile',
     });
   });
 
@@ -114,7 +114,7 @@ describe('restaurant google business profile routes', () => {
     expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
   });
 
-  it('uses the forwarded host and protocol for GBP connect return paths', async () => {
+  it('ignores forwarded host and protocol for GBP connect return paths', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
     createAuthorizationUrlMock.mockResolvedValue({
@@ -139,8 +139,7 @@ describe('restaurant google business profile routes', () => {
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',
-      returnPath:
-        'https://preview.nabatable.example/app/settings/restaurant/google-business-profile',
+      returnPath: 'https://nabatable.com/app/settings/restaurant/google-business-profile',
     });
   });
 

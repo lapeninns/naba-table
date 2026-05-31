@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 
+import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import { SettingsCard } from '../shared';
 import { toBookingRulesFormValues } from './bookingRulesModel';
 import { BookingRulesSubform } from '../../../../../components/ops/restaurants/RestaurantDetailsForm';
@@ -84,7 +85,7 @@ export function BookingRulesCard({ restaurantId }: BookingRulesCardProps) {
   }
 
   return (
-    <div id="booking-rules" className="scroll-mt-28">
+    <div id={AVAILABILITY_ANCHORS.bookingRules} className="scroll-mt-28">
       <SettingsCard
         title="Booking rules"
         description="Set the restaurant-level reservation slot rhythm, default duration, seating buffer, lifecycle grace, and guest-facing booking policy."

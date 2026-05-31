@@ -42,6 +42,7 @@ import {
   publishGoogleBusinessProfileWorkflowDraftState,
   retryGoogleBusinessProfileWorkflowGooglePushState,
 } from '@/server/google-business-profile/workflowPublishLifecycle';
+import { buildCoreSnapshotHashes } from '@/server/google-business-profile/workflowMappers';
 
 import type { GoogleBusinessProfileWorkflowResponse } from '@/server/google-business-profile/workflow';
 import type { PublishJobRow } from '@/server/google-business-profile/workflowRepository';
@@ -86,6 +87,55 @@ function buildPublishJob(overrides: Partial<PublishJobRow> = {}): PublishJobRow 
     updated_at: '2026-05-21T20:00:00.000Z',
     ...overrides,
   } as PublishJobRow;
+}
+
+function buildDraftRow() {
+  return {
+    id: 'draft-1',
+    status: 'partially_published',
+    fetched_at: '2026-05-21T20:00:00.000Z',
+    approved_at: null,
+    published_at: null,
+    stale_sections: [],
+    conflict_metadata: {},
+    selected_approvals: {},
+    source_snapshot_refs: {},
+    core_snapshot_hashes: {},
+    section_diffs: [],
+    created_at: '2026-05-21T20:00:00.000Z',
+    updated_at: '2026-05-21T20:00:00.000Z',
+  };
+}
+
+function buildCoreSnapshot(name = 'Reviewed') {
+  return {
+    profile: {
+      name,
+      contactPhone: '+441234567890',
+      address: '1 Test Street',
+      googleMapUrl: null,
+      googleReviewUrl: null,
+    },
+    operatingHours: { weekly: [], overrides: [] },
+    servicePeriods: [],
+    businessContext: {
+      core: { categories: [], serviceAreas: [], attributes: [], serviceItems: [] },
+    },
+  };
+}
+
+function clientWithUpdateResults(results: Array<{ error: unknown }>) {
+  const updates: unknown[] = [];
+  const from = vi.fn(() => ({
+    update: vi.fn((payload: unknown) => {
+      updates.push(payload);
+      const result = results.shift() ?? { error: null };
+      return {
+        eq: vi.fn(async () => result),
+      };
+    }),
+  }));
+  return { client: { from }, updates };
 }
 
 describe('google business profile workflow publish lifecycle', () => {
@@ -179,5 +229,163 @@ describe('google business profile workflow publish lifecycle', () => {
     expect(readDraftByIdMock).not.toHaveBeenCalled();
     expect(claimPublishJobForGoogleRetryMock).not.toHaveBeenCalled();
     expect(pushDraftToGoogleMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects Google retry for reconciliation-only failures before claiming the job', async () => {
+    readPublishJobByIdMock.mockResolvedValue(
+      buildPublishJob({
+        status: 'google_failed',
+        google_update_masks: ['title'],
+        errors: [
+          {
+            message: 'Google push succeeded but local persistence failed.',
+            retryable: false,
+            reconciliationRequired: true,
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      retryGoogleBusinessProfileWorkflowGooglePushState({
+        restaurantId: 'rest-1',
+        draftId: 'draft-1',
+        publishJobId: 'job-1',
+        actorUserId: 'user-1',
+        client: {} as never,
+      }),
+    ).rejects.toMatchObject({ name: 'GBP_PUBLISH_JOB_INVALID_STATE' });
+
+    expect(readDraftByIdMock).not.toHaveBeenCalled();
+    expect(claimPublishJobForGoogleRetryMock).not.toHaveBeenCalled();
+    expect(pushDraftToGoogleMock).not.toHaveBeenCalled();
+  });
+
+  it('does not mark Google retry as retryable when local status persistence fails after push', async () => {
+    readPublishJobByIdMock.mockResolvedValue(
+      buildPublishJob({
+        status: 'google_failed',
+        google_update_masks: ['title'],
+      }),
+    );
+    readDraftByIdMock.mockResolvedValue(buildDraftRow());
+    readCoreSnapshotsMock.mockResolvedValue({
+      profile: {},
+      operatingHours: { weekly: [], overrides: [] },
+      servicePeriods: [],
+      businessContext: {
+        core: { categories: [], serviceAreas: [], attributes: [], serviceItems: [] },
+      },
+    });
+    findExternalProfileMock.mockResolvedValue({ push_enabled: true });
+    claimPublishJobForGoogleRetryMock.mockResolvedValue(
+      buildPublishJob({
+        status: 'publishing',
+        google_update_masks: ['title'],
+      }),
+    );
+    pushDraftToGoogleMock.mockResolvedValue('google-event-1');
+    const { client, updates } = clientWithUpdateResults([
+      { error: new Error('job update failed') },
+      { error: null },
+    ]);
+
+    await expect(
+      retryGoogleBusinessProfileWorkflowGooglePushState({
+        restaurantId: 'rest-1',
+        draftId: 'draft-1',
+        publishJobId: 'job-1',
+        actorUserId: 'user-1',
+        client: client as never,
+      }),
+    ).rejects.toThrow('job update failed');
+
+    expect(updates[1]).toMatchObject({
+      status: 'failed',
+      google_publish_event_id: 'google-event-1',
+      error_classification: null,
+      errors: [
+        expect.objectContaining({
+          retryable: false,
+          reconciliationRequired: true,
+        }),
+      ],
+    });
+  });
+
+  it('rechecks approved core hashes after claiming a Google retry and before pushing', async () => {
+    const reviewedCore = buildCoreSnapshot('Reviewed');
+    const editedCore = buildCoreSnapshot('Edited after retry check');
+    readPublishJobByIdMock.mockResolvedValue(
+      buildPublishJob({
+        status: 'google_failed',
+        google_update_masks: ['title'],
+        selected_approvals: { 'profile.name': true },
+        post_nabatable_core_hashes: buildCoreSnapshotHashes(reviewedCore as never),
+      }),
+    );
+    readDraftByIdMock.mockResolvedValue({
+      ...buildDraftRow(),
+      selected_approvals: { 'profile.name': true },
+      section_diffs: [
+        {
+          sectionKey: 'profile',
+          items: [
+            {
+              sectionKey: 'profile',
+              fieldKey: 'profile.name',
+              label: 'Name',
+              status: 'ready',
+              selected: true,
+              nabatableValueHash: 'reviewed-nabatable',
+              googleValueHash: 'reviewed-google',
+              capabilities: {
+                canImportFromGoogle: true,
+                canExportToGoogle: true,
+                canIgnore: true,
+              },
+              canPublishToNabatable: true,
+              canPushToGoogle: true,
+              currentValue: 'Reviewed',
+              providerValue: 'Google',
+            },
+          ],
+        },
+      ],
+    });
+    readCoreSnapshotsMock
+      .mockResolvedValueOnce(reviewedCore)
+      .mockResolvedValueOnce(reviewedCore)
+      .mockResolvedValueOnce(editedCore);
+    findExternalProfileMock.mockResolvedValue({ push_enabled: true });
+    claimPublishJobForGoogleRetryMock.mockResolvedValue(
+      buildPublishJob({
+        status: 'publishing',
+        google_update_masks: ['title'],
+      }),
+    );
+    const { client, updates } = clientWithUpdateResults([{ error: null }]);
+
+    await expect(
+      retryGoogleBusinessProfileWorkflowGooglePushState({
+        restaurantId: 'rest-1',
+        draftId: 'draft-1',
+        publishJobId: 'job-1',
+        actorUserId: 'user-1',
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({ name: 'GBP_PUBLISH_JOB_CORE_CHANGED' });
+
+    expect(pushDraftToGoogleMock).not.toHaveBeenCalled();
+    expect(updates[0]).toMatchObject({
+      status: 'google_failed',
+      error_classification: null,
+      errors: [
+        expect.objectContaining({
+          retryable: false,
+          reconciliationRequired: true,
+        }),
+      ],
+    });
   });
 });

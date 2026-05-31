@@ -3,6 +3,7 @@ import { UtensilsCrossed } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
+import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
 import { AvailabilityOccasionsEditor } from '../AvailabilityOccasionsEditor';
 
 import type { TurnBandRowError } from '../turnBandsDomain';
@@ -39,9 +40,13 @@ export function BookingTypesWorkspace({
             variant="link"
             className="h-auto p-0 text-xs"
             onClick={() => {
-              window.history.replaceState(null, '', '#booking-rules');
+              window.history.replaceState(
+                null,
+                '',
+                availabilityHash(AVAILABILITY_ANCHORS.bookingRules),
+              );
               document
-                .getElementById('booking-rules')
+                .getElementById(AVAILABILITY_ANCHORS.bookingRules)
                 ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
             }}
           >
@@ -51,7 +56,7 @@ export function BookingTypesWorkspace({
         </AlertDescription>
       </Alert>
 
-      <div id="booking-occasions" className="flex scroll-mt-28 flex-col gap-4">
+      <div id={AVAILABILITY_ANCHORS.bookingOccasions} className="flex scroll-mt-28 flex-col gap-4">
         <div>
           <p className="text-sm font-semibold text-foreground">Booking types</p>
           <p className="text-xs leading-5 text-muted-foreground">

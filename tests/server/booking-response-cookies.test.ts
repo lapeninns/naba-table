@@ -56,6 +56,8 @@ describe('booking response cookie payloads', () => {
     expect(validation.payload.restaurantId).toBe(RESTAURANT_ID);
     expect(validation.payload.email).toBe('guest@example.com');
     expect(validation.payload.phone).toBe('447467586751');
+    expect(cookie?.value).not.toContain('guest@example.com');
+    expect(cookie?.value).not.toContain('447467586751');
     expect(validation.payload.exp - validation.payload.iat).toBe(900);
   });
 

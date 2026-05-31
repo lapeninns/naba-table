@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { clearBookingTableAssignments } from '@/server/bookings';
 import { prepareNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
@@ -86,22 +85,10 @@ async function postNoShow(req: NextRequest, { params }: RouteParams) {
     serviceSupabase,
     logLabel: 'booking-no-show',
     failureMessage: 'Unable to mark booking as no-show',
+    releaseAssignments: true,
   });
   if (persistResult.response) {
     return persistResult.response;
-  }
-
-  try {
-    await clearBookingTableAssignments(serviceSupabase, booking.id);
-  } catch (clearError) {
-    console.error('[ops][booking-no-show] failed to clear table assignments', {
-      bookingId: booking.id,
-      error: clearError instanceof Error ? clearError.message : clearError,
-    });
-    return NextResponse.json(
-      { error: 'Booking was updated but table assignments could not be released' },
-      { status: 500 },
-    );
   }
 
   invalidateOpsDashboardCaches(booking.restaurant_id, {

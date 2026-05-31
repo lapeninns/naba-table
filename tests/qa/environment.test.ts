@@ -59,6 +59,26 @@ describe('QA environment guard', () => {
         },
       }),
     ).toThrow(/production-like target URL/);
+
+    expect(() =>
+      assertQaEnvironment({
+        env: {
+          QA_RUN_ID: 'qa-prod-database-url',
+          DATABASE_URL:
+            'postgresql://postgres.vrdiqfudmwydclqpydee:password@aws-0-eu-west-2.pooler.supabase.com/postgres',
+        },
+      }),
+    ).toThrow(/production-like target URL/);
+
+    expect(() =>
+      assertQaEnvironment({
+        env: {
+          QA_RUN_ID: 'qa-prod-db-url',
+          DB_URL:
+            'postgresql://postgres.vrdiqfudmwydclqpydee:password@aws-0-eu-west-2.pooler.supabase.com/postgres',
+        },
+      }),
+    ).toThrow(/production-like target URL/);
   });
 
   it('redacts credentials and query strings from production target errors', () => {

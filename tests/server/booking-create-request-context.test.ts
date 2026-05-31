@@ -58,7 +58,26 @@ describe('booking create request context', () => {
     });
   });
 
-  it('builds ops walk-in source metadata', () => {
+  it('ignores spoofable ops headers by default', () => {
+    const headers = makeHeaders({
+      'x-ops-walk-in': 'true',
+      'x-ops-email-provided': 'true',
+    });
+
+    expect(
+      buildBookingCreateRequestContext(headers, {
+        generateRequestId: () => 'staff-request-id',
+      }),
+    ).toMatchObject({
+      opsEmailProvidedHeader: false,
+      isOpsWalkIn: false,
+      requestSource: 'api.bookings',
+      bookingSource: 'api',
+      bookingDetails: null,
+    });
+  });
+
+  it('builds ops walk-in source metadata only when ops headers are trusted', () => {
     const headers = makeHeaders({
       'x-ops-walk-in': 'true',
     });
@@ -66,6 +85,7 @@ describe('booking create request context', () => {
     expect(
       buildBookingCreateRequestContext(headers, {
         generateRequestId: () => 'staff-request-id',
+        trustOpsHeaders: true,
       }),
     ).toEqual({
       headerIdempotencyKey: null,
@@ -82,7 +102,7 @@ describe('booking create request context', () => {
     });
   });
 
-  it('keeps ops email-provided flag independent from walk-in source', () => {
+  it('keeps trusted ops email-provided flag independent from walk-in source', () => {
     const headers = makeHeaders({
       'x-ops-email-provided': 'true',
     });
@@ -90,6 +110,7 @@ describe('booking create request context', () => {
     expect(
       buildBookingCreateRequestContext(headers, {
         generateRequestId: () => 'generated-request-id',
+        trustOpsHeaders: true,
       }),
     ).toMatchObject({
       opsEmailProvidedHeader: true,

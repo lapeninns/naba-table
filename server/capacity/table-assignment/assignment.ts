@@ -289,17 +289,6 @@ export async function confirmHoldAssignment(
   const supabase = ensureClient(client);
   const actorId = assignedBy ?? null;
 
-  const cachedAssignments = await loadCachedConfirmationResult({
-    supabase,
-    bookingId,
-    holdId,
-    idempotencyKey: providedIdempotencyKey ?? null,
-    signal,
-  });
-  if (cachedAssignments) {
-    return cachedAssignments;
-  }
-
   const holdQuery = applyAbortSignal(
     supabase
       .from('table_holds')
@@ -415,6 +404,19 @@ export async function confirmHoldAssignment(
       hint: 'Regenerate the hold under the correct tenant before confirming.',
     });
   }
+
+  const cachedAssignments = await loadCachedConfirmationResult({
+    supabase,
+    bookingId,
+    holdId,
+    restaurantId: booking.restaurant_id,
+    idempotencyKey: providedIdempotencyKey ?? null,
+    signal,
+  });
+  if (cachedAssignments) {
+    return cachedAssignments;
+  }
+
   const restaurantTimezone =
     (booking.restaurants && !Array.isArray(booking.restaurants)
       ? booking.restaurants.timezone

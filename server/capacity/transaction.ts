@@ -194,7 +194,6 @@ export async function createBookingWithCapacityCheck(
       },
     });
 
-    console.log("[DEBUG] Calling create_booking_with_capacity_check RPC...");
     const { data, error } = await supabase.rpc("create_booking_with_capacity_check", {
       p_restaurant_id: params.restaurantId,
       p_customer_id: params.customerId,
@@ -216,9 +215,6 @@ export async function createBookingWithCapacityCheck(
       p_details: params.details ?? {},
       p_loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
     });
-
-    console.log("[DEBUG] RPC result - data:", JSON.stringify(data, null, 2));
-    console.log("[DEBUG] RPC result - error:", JSON.stringify(error, null, 2));
 
     if (error) {
       if (isMissingCapacityRpcError(error)) {

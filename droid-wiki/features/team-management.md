@@ -1,10 +1,10 @@
 # Team management
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Team management handles restaurant memberships and invitations for operators, backed by team access checks, invitation links, and settings UI.
+Team management handles restaurant memberships, invitations, invite acceptance, role-aware access, and settings UI for operators.
 
 ## Directory layout
 
@@ -13,6 +13,7 @@ server/team/
 lib/owner/team/
 src/app/api/ops/team/
 src/app/api/team/invitations/
+src/components/features/team/
 ```
 
 ## Key abstractions
@@ -25,23 +26,28 @@ src/app/api/team/invitations/
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Supabase and auth](../systems/supabase-auth.md), [Security](../security.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Supabase and auth](../systems/supabase-auth.md), [Security](../security.md), and [Restaurant settings](restaurant-settings.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                                       | Purpose      |
-| ---------------------------------------------------------- | ------------ |
-| `server/team/access.ts`                                    | Access.      |
-| `server/team/invitations.ts`                               | Invitations. |
-| `src/app/api/ops/team/invitations/route.ts`                | Invite API.  |
-| `src/components/features/team/OpsTeamManagementClient.tsx` | Team UI.     |
-
-Related: [Supabase and auth](../systems/supabase-auth.md), [Security](../security.md)
+| File                                       | Purpose                 |
+| ------------------------------------------ | ----------------------- |
+| `server/team/access.ts`                    | Access.                 |
+| `server/team/invitations.ts`               | Invitations.            |
+| `src/app/(public)/invite/[token]/page.tsx` | Invite acceptance page. |

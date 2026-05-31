@@ -1,6 +1,11 @@
 import type { NextRequest } from 'next/server';
 
-const TRUSTED_CLIENT_IP_HEADERS = ['cf-connecting-ip', 'true-client-ip', 'x-vercel-forwarded-for'];
+const FORWARDED_CLIENT_IP_HEADERS = [
+  'cf-connecting-ip',
+  'true-client-ip',
+  'x-vercel-forwarded-for',
+  'x-forwarded-for',
+];
 
 function parseBooleanEnv(value: string | undefined): boolean {
   return /^(true|1|yes)$/i.test(value?.trim() ?? '');
@@ -40,22 +45,17 @@ function normalizeIpHeaderValue(value: string | null): string {
 
 export function extractClientIp(req: NextRequest): string {
   const anyRequest = req as { ip?: string };
-  const direct = typeof anyRequest.ip === 'string' ? anyRequest.ip.trim() : '';
+  const direct = typeof anyRequest.ip === 'string' ? normalizeIpHeaderValue(anyRequest.ip) : '';
   if (direct) {
     return direct;
   }
 
-  for (const header of TRUSTED_CLIENT_IP_HEADERS) {
-    const trustedIp = normalizeIpHeaderValue(req.headers.get(header));
-    if (trustedIp) {
-      return trustedIp;
-    }
-  }
-
   if (parseBooleanEnv(process.env.TRUST_FORWARDED_IP_HEADERS)) {
-    const forwardedIp = normalizeIpHeaderValue(req.headers.get('x-forwarded-for'));
-    if (forwardedIp) {
-      return forwardedIp;
+    for (const header of FORWARDED_CLIENT_IP_HEADERS) {
+      const trustedIp = normalizeIpHeaderValue(req.headers.get(header));
+      if (trustedIp) {
+        return trustedIp;
+      }
     }
   }
 

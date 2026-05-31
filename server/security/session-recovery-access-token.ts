@@ -1,10 +1,12 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 import { normalizeEmail, normalizePhone } from '@/server/customers';
 
-const TOKEN_PREFIX = 'sr1' as const;
+const TOKEN_PREFIX = 'sr2' as const;
 const MAX_TTL_SECONDS = 2_592_000; // 30 days
+const IV_LENGTH_BYTES = 12;
+const AUTH_TAG_LENGTH_BYTES = 16;
 
 const payloadSchema = z
   .object({
@@ -45,33 +47,73 @@ type SessionRecoveryBookingContact = {
   phone: string | null | undefined;
 };
 
-function base64UrlEncode(value: string): string {
-  return Buffer.from(value, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-}
+function base64UrlDecodeBuffer(value: string): Buffer | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+    return null;
+  }
 
-function base64UrlDecode(value: string): string | null {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4));
   try {
-    return Buffer.from(`${normalized}${padding}`, 'base64').toString('utf8');
+    return Buffer.from(value, 'base64url');
   } catch {
     return null;
   }
 }
 
-function computeSignature(secret: string, payloadB64: string): string {
-  return createHmac('sha256', secret).update(`${TOKEN_PREFIX}.${payloadB64}`).digest('base64url');
+function deriveEncryptionKey(secret: string): Buffer {
+  return createHash('sha256').update(`session-recovery-access-token:${secret}`).digest();
 }
 
-function safeEqual(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
+function encryptPayload(secret: string, payload: SessionRecoveryAccessTokenPayload): string {
+  const iv = randomBytes(IV_LENGTH_BYTES);
+  const cipher = createCipheriv('aes-256-gcm', deriveEncryptionKey(secret), iv, {
+    authTagLength: AUTH_TAG_LENGTH_BYTES,
+  });
+  cipher.setAAD(Buffer.from(TOKEN_PREFIX, 'utf8'));
+
+  const ciphertext = Buffer.concat([
+    cipher.update(JSON.stringify(payload), 'utf8'),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return [
+    TOKEN_PREFIX,
+    iv.toString('base64url'),
+    ciphertext.toString('base64url'),
+    authTag.toString('base64url'),
+  ].join('.');
+}
+
+function decryptPayload(
+  secret: string,
+  ivB64: string,
+  ciphertextB64: string,
+  authTagB64: string,
+): string | null {
+  const iv = base64UrlDecodeBuffer(ivB64);
+  const ciphertext = base64UrlDecodeBuffer(ciphertextB64);
+  const authTag = base64UrlDecodeBuffer(authTagB64);
+
+  if (
+    !iv ||
+    !ciphertext ||
+    !authTag ||
+    iv.length !== IV_LENGTH_BYTES ||
+    authTag.length !== AUTH_TAG_LENGTH_BYTES
+  ) {
+    return null;
+  }
+
+  try {
+    const decipher = createDecipheriv('aes-256-gcm', deriveEncryptionKey(secret), iv, {
+      authTagLength: AUTH_TAG_LENGTH_BYTES,
+    });
+    decipher.setAAD(Buffer.from(TOKEN_PREFIX, 'utf8'));
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
 }
 
 function normalizePhoneSafely(value: string | null | undefined): string | null {
@@ -111,9 +153,7 @@ export function createSessionRecoveryAccessToken(params: {
     exp: expiresAt,
   };
 
-  const payloadB64 = base64UrlEncode(JSON.stringify(payload));
-  const signature = computeSignature(params.secret, payloadB64);
-  return `${TOKEN_PREFIX}.${payloadB64}.${signature}`;
+  return encryptPayload(params.secret, payloadSchema.parse(payload));
 }
 
 export function validateSessionRecoveryAccessToken(
@@ -121,18 +161,18 @@ export function validateSessionRecoveryAccessToken(
   params: { secret: string; now?: Date },
 ): SessionRecoveryAccessTokenValidationResult {
   const parts = token.split('.');
-  if (parts.length !== 3) {
+  if (parts.length !== 4) {
     return { ok: false, reason: 'invalid_format' };
   }
 
-  const [prefix, payloadB64, signature] = parts;
+  const [prefix, ivB64, ciphertextB64, authTagB64] = parts;
   if (prefix !== TOKEN_PREFIX) {
     return { ok: false, reason: 'invalid_prefix' };
   }
 
-  const decoded = base64UrlDecode(payloadB64);
+  const decoded = decryptPayload(params.secret, ivB64, ciphertextB64, authTagB64);
   if (!decoded) {
-    return { ok: false, reason: 'invalid_payload' };
+    return { ok: false, reason: 'invalid_signature' };
   }
 
   let parsedPayload: SessionRecoveryAccessTokenPayload;
@@ -140,15 +180,6 @@ export function validateSessionRecoveryAccessToken(
     parsedPayload = payloadSchema.parse(JSON.parse(decoded));
   } catch {
     return { ok: false, reason: 'invalid_payload' };
-  }
-
-  const expectedSignature = computeSignature(params.secret, payloadB64);
-  if (!safeEqual(signature, expectedSignature)) {
-    return {
-      ok: false,
-      reason: 'invalid_signature',
-      restaurantId: parsedPayload.restaurantId,
-    };
   }
 
   const nowSeconds = Math.floor((params.now?.getTime() ?? Date.now()) / 1000);

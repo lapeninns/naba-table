@@ -4,7 +4,7 @@ Active contributors: amanshresthaa
 
 ## Purpose
 
-A restaurant is the tenant/business record behind profile, hours, bookings, tables, memberships, menus, and integrations.
+A restaurant is the tenant/business record behind profile, discovery, hours, schedules, bookings, tables, teams, menus, delivery templates, and integrations.
 
 ## Directory layout
 
@@ -12,34 +12,41 @@ A restaurant is the tenant/business record behind profile, hours, bookings, tabl
 server/restaurants/
 src/app/api/restaurants/
 src/app/api/ops/restaurants/
+types/supabase.ts
 ```
 
 ## Key abstractions
 
-| Symbol or file                                | Description        |
-| --------------------------------------------- | ------------------ |
-| `server/restaurants/details.ts`               | Details.           |
-| `server/restaurants/getActiveRestaurantId.ts` | Active restaurant. |
-| `server/restaurants/listRestaurants.ts`       | Listing.           |
+| Symbol or file                                | Description         |
+| --------------------------------------------- | ------------------- |
+| `server/restaurants/details.ts`               | Details.            |
+| `server/restaurants/getActiveRestaurantId.ts` | Active restaurant.  |
+| `server/restaurants/getRestaurantBySlug.ts`   | Public slug lookup. |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Restaurant profile](../systems/restaurant-profile.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This primitive underpins [Restaurant profile](../systems/restaurant-profile.md), [Restaurant settings](../features/restaurant-settings.md), and most ops APIs.
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                        | Purpose        |
-| ------------------------------------------- | -------------- |
-| `server/restaurants/index.ts`               | Exports.       |
-| `server/restaurants/details.ts`             | Details.       |
-| `server/restaurants/getRestaurantBySlug.ts` | Public lookup. |
-
-Related: [Restaurant profile](../systems/restaurant-profile.md)
+| File                            | Purpose              |
+| ------------------------------- | -------------------- |
+| `server/restaurants/index.ts`   | Exports.             |
+| `server/restaurants/details.ts` | Details.             |
+| `server/restaurants/create.ts`  | Restaurant creation. |

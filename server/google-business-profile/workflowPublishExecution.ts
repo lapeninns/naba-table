@@ -22,6 +22,7 @@ import {
   selectedGooglePushAuditValues,
   servicePeriodsSelectionForDraft,
 } from './workflowDraftPayloads';
+import { buildDraftSections } from './workflowDraftSections';
 import { selectedItems, selectedSectionKeys } from './workflowDraftSelection';
 import {
   profileProjectionCleanupTargets,
@@ -43,6 +44,7 @@ import {
   restoreServicePeriodsPayload,
   type PublishRollbackResult,
 } from './workflowRollbackPayloads';
+import { isEqualValue } from './workflowSerialization';
 
 import type { GoogleBusinessProfileWorkflowDraft } from './workflow';
 import type { GoogleBusinessProfileWorkflowCoreSnapshots } from './workflowDraftSections';
@@ -66,6 +68,33 @@ function describeWorkflowError(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+function assertApprovedProviderSnapshotUnchanged(params: {
+  draft: GoogleBusinessProfileWorkflowDraft;
+  currentCore: GoogleBusinessProfileWorkflowCoreSnapshots;
+  connection: Awaited<ReturnType<typeof getGoogleBusinessProfileConnectionState>>;
+}): void {
+  const sections = buildDraftSections({
+    core: params.currentCore,
+    businessInfo: params.connection.businessInfo,
+    externalLocationTitle:
+      params.connection.externalLocationTitle ?? params.connection.externalLocationName ?? null,
+    canPushServicePeriods: true,
+  });
+  const currentProviderValues = new Map(
+    sections.flatMap((section) => section.items.map((item) => [item.fieldKey, item.providerValue])),
+  );
+  const changedFields = selectedItems(params.draft)
+    .filter((item) => currentProviderValues.has(item.fieldKey))
+    .filter((item) => !isEqualValue(item.providerValue, currentProviderValues.get(item.fieldKey)))
+    .map((item) => item.fieldKey);
+
+  if (changedFields.length > 0) {
+    throw new Error(
+      `Approved Google Business Profile values changed before publish: ${changedFields.join(', ')}.`,
+    );
+  }
 }
 
 async function clearProjectedProfileRowsForPulledFields(params: {
@@ -118,6 +147,11 @@ export async function publishDraftToNabatable(params: {
         params.restaurantId,
         params.client,
       );
+      assertApprovedProviderSnapshotUnchanged({
+        draft: params.draft,
+        currentCore: params.currentCore,
+        connection,
+      });
       const profileFields = profileFieldsForDraft(params.draft);
       const patch = {
         timezone: params.currentCore.profile.timezone,
@@ -141,6 +175,11 @@ export async function publishDraftToNabatable(params: {
         params.restaurantId,
         params.client,
       );
+      assertApprovedProviderSnapshotUnchanged({
+        draft: params.draft,
+        currentCore: params.currentCore,
+        connection,
+      });
       const payload = buildPullOperatingHoursPayload({
         currentSnapshot: params.currentCore.operatingHours,
         businessInfo: connection.businessInfo,
@@ -154,6 +193,11 @@ export async function publishDraftToNabatable(params: {
         params.restaurantId,
         params.client,
       );
+      assertApprovedProviderSnapshotUnchanged({
+        draft: params.draft,
+        currentCore: params.currentCore,
+        connection,
+      });
       const payload = buildPullServicePeriodsPayload({
         currentPeriods: params.currentCore.servicePeriods,
         businessInfo: connection.businessInfo,
@@ -198,9 +242,19 @@ export async function restoreCoreSnapshotAfterFailedPublish(params: {
   draft: GoogleBusinessProfileWorkflowDraft;
   snapshot: GoogleBusinessProfileWorkflowCoreSnapshots;
   client: DbClient;
+  allowUnguardedRollback?: boolean;
 }): Promise<PublishRollbackResult> {
   const sections = new Set(selectedSectionKeys(params.draft));
   const errors: string[] = [];
+
+  if (!params.allowUnguardedRollback) {
+    return {
+      status: 'failed',
+      errors: [
+        'automatic rollback skipped because current restaurant sections cannot be proven unchanged; manual repair is required.',
+      ],
+    };
+  }
 
   const attempt = async (label: string, restore: () => Promise<unknown>) => {
     try {
@@ -256,6 +310,7 @@ export async function pushDraftToGoogle(params: {
   externalProfile: ExternalProfileRow | null;
   actorUserId: string;
   googleUpdateMasks: GoogleBusinessProfileGoogleUpdateMask[];
+  currentCore: GoogleBusinessProfileWorkflowCoreSnapshots;
   client: DbClient;
 }): Promise<string | null> {
   if (params.googleUpdateMasks.length === 0) {
@@ -284,39 +339,92 @@ export async function pushDraftToGoogle(params: {
     client: params.client,
   });
 
+  const completedGoogleSections: string[] = [];
+  const createReconciliationRequiredError = (message: string, cause?: unknown) =>
+    Object.assign(new Error(message), {
+      name: 'GBP_GOOGLE_PUSH_RECONCILIATION_REQUIRED',
+      classification: null,
+      retryable: false,
+      reconciliationRequired: true,
+      googleEventId: googleEvent.id,
+      cause,
+    });
+  const runGoogleSection = async (section: string, action: () => Promise<unknown>) => {
+    try {
+      await action();
+      completedGoogleSections.push(section);
+    } catch (error) {
+      if (completedGoogleSections.length > 0) {
+        const classified = classifyGoogleBusinessProfilePushError(error);
+        const reconciliationError = {
+          ...classified,
+          retryable: false,
+          reconciliationRequired: true,
+          completedSections: completedGoogleSections,
+        };
+        try {
+          await updatePublishEvent(googleEvent.id, 'failed', [reconciliationError], params.client);
+        } catch (eventError) {
+          throw createReconciliationRequiredError(
+            'Google push reached partial external state, but local publish event failure recording failed.',
+            eventError,
+          );
+        }
+        throw Object.assign(new Error(classified.message), {
+          name: 'GBP_GOOGLE_PUSH_PARTIAL_STATE',
+          classification: null,
+          retryable: false,
+          reconciliationRequired: true,
+          googleEventId: googleEvent.id,
+        });
+      }
+      throw error;
+    }
+  };
+
   try {
     if (googleSections.includes('profile')) {
       const fields = (profileFieldsForDraft(params.draft, 'google_only') ?? []).filter((field) =>
         ['name', 'contactPhone'].includes(field),
       ) as Array<'name' | 'contactPhone'>;
       if (fields.length > 0) {
-        await syncRestaurantProfileWithGoogleBusinessProfile({
-          restaurantId: params.restaurantId,
-          direction: 'push_to_gbp',
-          fields,
-          client: params.client,
-        });
+        await runGoogleSection('profile', () =>
+          syncRestaurantProfileWithGoogleBusinessProfile({
+            restaurantId: params.restaurantId,
+            direction: 'push_to_gbp',
+            fields,
+            approvedProfile: params.currentCore.profile,
+            client: params.client,
+          }),
+        );
       }
     }
     if (googleSections.includes('operatingHours')) {
-      await syncRestaurantOperatingHoursWithGoogleBusinessProfile({
-        restaurantId: params.restaurantId,
-        direction: 'push_to_gbp',
-        selection: operatingHoursSelectionForDraft(params.draft, 'google_only'),
-        client: params.client,
-      });
+      await runGoogleSection('operatingHours', () =>
+        syncRestaurantOperatingHoursWithGoogleBusinessProfile({
+          restaurantId: params.restaurantId,
+          direction: 'push_to_gbp',
+          selection: operatingHoursSelectionForDraft(params.draft, 'google_only'),
+          approvedSnapshot: params.currentCore.operatingHours,
+          client: params.client,
+        }),
+      );
     }
     if (googleSections.includes('servicePeriods')) {
-      await syncRestaurantServicePeriodsWithGoogleBusinessProfile({
-        restaurantId: params.restaurantId,
-        direction: 'push_to_gbp',
-        selection: servicePeriodsSelectionForDraft(params.draft, 'google_only'),
-        client: params.client,
-      });
+      await runGoogleSection('servicePeriods', () =>
+        syncRestaurantServicePeriodsWithGoogleBusinessProfile({
+          restaurantId: params.restaurantId,
+          direction: 'push_to_gbp',
+          selection: servicePeriodsSelectionForDraft(params.draft, 'google_only'),
+          approvedPeriods: params.currentCore.servicePeriods,
+          client: params.client,
+        }),
+      );
     }
-    await updatePublishEvent(googleEvent.id, 'success', [], params.client);
-    return googleEvent.id;
   } catch (error) {
+    if (error instanceof Error && error.name === 'GBP_GOOGLE_PUSH_PARTIAL_STATE') {
+      throw error;
+    }
     const classified = classifyGoogleBusinessProfilePushError(error);
     await updatePublishEvent(googleEvent.id, 'failed', [classified], params.client);
     throw Object.assign(new Error(classified.message), {
@@ -325,4 +433,14 @@ export async function pushDraftToGoogle(params: {
       googleEventId: googleEvent.id,
     });
   }
+
+  try {
+    await updatePublishEvent(googleEvent.id, 'success', [], params.client);
+  } catch (error) {
+    throw createReconciliationRequiredError(
+      'Google push succeeded, but local publish event persistence failed.',
+      error,
+    );
+  }
+  return googleEvent.id;
 }

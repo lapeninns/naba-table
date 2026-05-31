@@ -73,7 +73,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const { id: restaurantId } = await context.params;
   let membershipRole: RestaurantDTO['role'] = 'viewer';
   try {
-    const membership = await requireMembershipForRestaurant({ userId: user.id, restaurantId });
+    const membership = await requireAdminMembership({ userId: user.id, restaurantId });
     membershipRole = (membership.role as RestaurantDTO['role']) ?? 'viewer';
   } catch (error) {
     const membershipErrorCode = getMembershipGuardErrorCode(error);

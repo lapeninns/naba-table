@@ -55,15 +55,27 @@ export async function finalizePublish(input: FinalizePublishInput): Promise<{
 
   for (const group of input.operationGroups) {
     const groupOperations = operations.filter((op) => op.operationGroupId === group.id);
-    const groupStatus = operationGroupStatusForOperations(groupOperations);
+    const groupFailure =
+      groupOperations.length === 0
+        ? input.failures.find((failure) =>
+            input.input.decisions.some(
+              (decision) =>
+                decision.fieldKey === failure.fieldKey &&
+                group.groupKey.startsWith(`${decision.action}:${decision.sectionKey}:`),
+            ),
+          )
+        : null;
+    const groupStatus = groupFailure
+      ? 'failed'
+      : operationGroupStatusForOperations(groupOperations);
     const firstFailure = groupOperations.find((op) => op.status === 'failed');
     await updateOperationGroupStatus({
       client: input.client,
       operationGroupId: group.id,
       status: groupStatus,
       responseSummary: operationGroupExecutionSummary(groupOperations),
-      errorCode: firstFailure?.errorCode ?? null,
-      errorMessage: firstFailure?.errorMessage ?? null,
+      errorCode: firstFailure?.errorCode ?? groupFailure?.failure.code ?? null,
+      errorMessage: firstFailure?.errorMessage ?? groupFailure?.failure.message ?? null,
       finishedAt:
         groupStatus === 'running' || groupStatus === 'retrying' ? null : new Date().toISOString(),
     });

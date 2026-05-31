@@ -38,6 +38,12 @@ export function RestaurantSettingsFocusedShell({
     }
   };
 
+  const handleBreadcrumbParentClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!confirmNavigation()) {
+      event.preventDefault();
+    }
+  };
+
   return (
     <SidebarProvider className="flex h-svh min-h-0 w-full overflow-hidden bg-background">
       <RestaurantSettingsSidebar />
@@ -51,7 +57,10 @@ export function RestaurantSettingsFocusedShell({
           <a href="#ops-content">Skip to content</a>
         </Button>
         <RestaurantSettingsSectionNavSlotContext.Provider value={sectionNavSlot}>
-          <RestaurantSettingsChromeHeader onExitClick={handleExitClick} />
+          <RestaurantSettingsChromeHeader
+            onBreadcrumbParentClick={handleBreadcrumbParentClick}
+            onExitClick={handleExitClick}
+          />
           {sectionNav}
 
           {envBanner ? (
@@ -65,17 +74,17 @@ export function RestaurantSettingsFocusedShell({
 
           <div
             id="ops-content"
-          tabIndex={-1}
-          className={cn(
-            'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto',
-            sectionNavSlot.hasDockedSectionNav
-              ? 'px-4 pb-6 pt-4 sm:px-8 lg:pb-8'
-              : 'px-4 py-6 sm:px-8 lg:py-8',
-            SETTINGS_COMPACT_PAGE_CONTENT_CLASS,
-          )}
-        >
-          {children}
-        </div>
+            tabIndex={-1}
+            className={cn(
+              'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto',
+              sectionNavSlot.hasDockedSectionNav
+                ? 'px-4 pb-6 pt-4 sm:px-8 lg:pb-8'
+                : 'px-4 py-6 sm:px-8 lg:py-8',
+              SETTINGS_COMPACT_PAGE_CONTENT_CLASS,
+            )}
+          >
+            {children}
+          </div>
         </RestaurantSettingsSectionNavSlotContext.Provider>
       </SidebarInset>
     </SidebarProvider>

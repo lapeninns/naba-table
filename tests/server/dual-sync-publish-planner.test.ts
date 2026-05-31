@@ -74,16 +74,20 @@ function makeDecision(over: Partial<DualSyncPublishDecision> = {}): DualSyncPubl
 }
 
 function buildPlan(decisions: ReadonlyArray<DualSyncPublishDecision>, actorUserId = 'user-1') {
+  const coreSnapshot = makeSnapshot();
+  const gbpSnapshot = makeSnapshot();
   return buildPublishPlan(
     client,
     {
       restaurantId: RESTAURANT_ID,
       decisions,
       actorUserId,
+      pinnedCoreSnapshotHash: hashCanonicalJson(coreSnapshot),
+      pinnedGbpSnapshotHash: hashCanonicalJson(gbpSnapshot),
     },
     {
-      readCoreSnapshot: vi.fn(async () => makeSnapshot()),
-      readGbpSnapshot: vi.fn(async () => makeSnapshot()),
+      readCoreSnapshot: vi.fn(async () => coreSnapshot),
+      readGbpSnapshot: vi.fn(async () => gbpSnapshot),
     },
   );
 }
@@ -108,6 +112,8 @@ describe('buildPublishPlan', () => {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision(), makeDecision({ fieldKey: 'profile.name' })],
         actorUserId: 'user-1',
+        pinnedCoreSnapshotHash: hashCanonicalJson(makeSnapshot()),
+        pinnedGbpSnapshotHash: hashCanonicalJson(makeSnapshot()),
       },
       {
         readCoreSnapshot: vi.fn(async () => makeSnapshot()),
@@ -182,6 +188,7 @@ describe('buildPublishPlan', () => {
         decisions: [makeDecision(), makeDecision({ fieldKey: 'profile.name' })],
         actorUserId: 'user-1',
         pinnedCoreSnapshotHash: `${hashCanonicalJson(coreSnapshot)}-stale`,
+        pinnedGbpSnapshotHash: hashCanonicalJson(gbpSnapshot),
       },
       {
         readCoreSnapshot: vi.fn(async () => coreSnapshot),
@@ -196,6 +203,28 @@ describe('buildPublishPlan', () => {
       expect.objectContaining({ fieldKey: 'profile.name' }),
     ]);
     expect(plan.rejected.every((entry) => entry.failure.code === 'CORE_DRIFT')).toBe(true);
+  });
+
+  it('rejects the whole plan when full snapshot pins are missing', async () => {
+    const plan = await buildPublishPlan(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [makeDecision(), makeDecision({ fieldKey: 'profile.name' })],
+        actorUserId: 'user-1',
+      },
+      {
+        readCoreSnapshot: vi.fn(async () => makeSnapshot()),
+        readGbpSnapshot: vi.fn(async () => makeSnapshot()),
+      },
+    );
+
+    expect(plan.groups).toEqual([]);
+    expect(plan.rejectedCount).toBe(2);
+    expect(plan.rejected.every((entry) => entry.failure.code === 'INVALID_DECISION')).toBe(true);
+    expect(plan.rejected[0]?.failure.message).toBe(
+      'Publish planning requires a pinned Core snapshot hash.',
+    );
   });
 
   it('rejects section mismatches, stale field pins, unsupported writes, and automation review gaps', async () => {
@@ -221,6 +250,8 @@ describe('buildPublishPlan', () => {
           }),
         ],
         actorUserId: null,
+        pinnedCoreSnapshotHash: hashCanonicalJson(coreSnapshot),
+        pinnedGbpSnapshotHash: hashCanonicalJson(gbpSnapshot),
       },
       {
         readCoreSnapshot: vi.fn(async () => coreSnapshot),
@@ -238,6 +269,8 @@ describe('buildPublishPlan', () => {
   });
 
   it('treats null field pins as expected absent values in preview planning', async () => {
+    const coreSnapshot = makeSnapshot();
+    const gbpSnapshot = makeSnapshot();
     const plan = await buildPublishPlan(
       client,
       {
@@ -250,10 +283,12 @@ describe('buildPublishPlan', () => {
           }),
         ],
         actorUserId: 'user-1',
+        pinnedCoreSnapshotHash: hashCanonicalJson(coreSnapshot),
+        pinnedGbpSnapshotHash: hashCanonicalJson(gbpSnapshot),
       },
       {
-        readCoreSnapshot: vi.fn(async () => makeSnapshot()),
-        readGbpSnapshot: vi.fn(async () => makeSnapshot()),
+        readCoreSnapshot: vi.fn(async () => coreSnapshot),
+        readGbpSnapshot: vi.fn(async () => gbpSnapshot),
       },
     );
 
@@ -280,6 +315,8 @@ describe('buildPublishPlan', () => {
         restaurantId: RESTAURANT_ID,
         decisions: [makeDecision({ action: 'ignore', pinnedCoreHash: null, pinnedGbpHash: null })],
         actorUserId: 'user-1',
+        pinnedCoreSnapshotHash: hashCanonicalJson(absentSnapshot),
+        pinnedGbpSnapshotHash: hashCanonicalJson(absentSnapshot),
       },
       {
         readCoreSnapshot: vi.fn(async () => absentSnapshot),

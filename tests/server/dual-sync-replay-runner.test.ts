@@ -596,6 +596,8 @@ describe('FakeGoogleBusinessProfileAdapter', () => {
       });
 
       expect(result[fieldKey]).toEqual(expect.objectContaining({ status: 'succeeded' }));
+      expect(result[fieldKey]?.afterCoreHash).toEqual(expect.stringMatching(/^[a-f0-9]{64}$/));
+      expect(result[fieldKey]?.afterGbpHash).toBe(result[fieldKey]?.afterCoreHash);
       expect(adapter.requests[0]).toMatchObject({
         operation,
         validateOnly: false,

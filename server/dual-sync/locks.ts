@@ -56,6 +56,7 @@ export function isDualSyncLockError(error: unknown): error is DualSyncLockError 
 
 export interface DualSyncLockManager {
   readonly acquire: (input: AcquireDualSyncLockInput) => Promise<DualSyncLock>;
+  readonly renew?: (lock: DualSyncLock, ttlMs?: number) => Promise<DualSyncLock>;
   readonly release: (lock: DualSyncLock) => Promise<void>;
 }
 
@@ -162,6 +163,25 @@ export function createDatabaseDualSyncLockManager(client: DbClient): DualSyncLoc
         .eq('status', 'held');
       if (error) throw error;
     },
+
+    async renew(lock, ttlMs = DEFAULT_LOCK_TTL_MS) {
+      const expiresAt = new Date(Date.now() + ttlMs).toISOString();
+      const { data, error } = await dual
+        .from('dual_sync_locks')
+        .update({
+          expires_at: expiresAt,
+        } as never)
+        .eq('id', lock.id)
+        .eq('holder_id', lock.holderId)
+        .eq('status', 'held')
+        .select('*')
+        .maybeSingle<DualSyncLockRow>();
+      if (error) throw error;
+      if (!data) {
+        throw new Error(`dual_sync_locks renew failed for ${lock.id}`);
+      }
+      return rowToLock(data);
+    },
   };
 }
 
@@ -170,7 +190,28 @@ export async function runWithDualSyncLock<T>(
   work: (lock: DualSyncLock) => Promise<T>,
 ): Promise<T> {
   const manager = input.manager ?? createDatabaseDualSyncLockManager(input.client);
-  const lock = await manager.acquire(input);
+  let lock = await manager.acquire(input);
+  const ttlMs = input.ttlMs ?? DEFAULT_LOCK_TTL_MS;
+  const renewEveryMs = Math.max(1_000, Math.min(Math.floor(ttlMs / 3), 60_000));
+  let renewTimer: ReturnType<typeof setInterval> | undefined;
+  let renewalError: unknown;
+  if (manager.renew) {
+    renewTimer = setInterval(() => {
+      void manager
+        .renew?.(lock, ttlMs)
+        .then((renewed) => {
+          lock = renewed;
+        })
+        .catch((error) => {
+          renewalError = error;
+          if (renewTimer) {
+            clearInterval(renewTimer);
+            renewTimer = undefined;
+          }
+        });
+    }, renewEveryMs);
+    renewTimer.unref?.();
+  }
   let thrown: unknown;
   let result: T | undefined;
   let releaseError: unknown;
@@ -178,6 +219,9 @@ export async function runWithDualSyncLock<T>(
     result = await work(lock);
   } catch (error) {
     thrown = error;
+  }
+  if (renewTimer) {
+    clearInterval(renewTimer);
   }
   try {
     await manager.release(lock);
@@ -193,6 +237,7 @@ export async function runWithDualSyncLock<T>(
     }
   }
   if (thrown) throw thrown;
+  if (renewalError) throw renewalError;
   if (releaseError) throw releaseError;
   return result as T;
 }

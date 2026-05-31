@@ -22,7 +22,7 @@ type RouteContext = {
 };
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
-  const access = await requireMenusAdmin(params);
+  const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
   const [menuId, sectionId] = await Promise.all([

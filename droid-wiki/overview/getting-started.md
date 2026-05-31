@@ -9,17 +9,17 @@ pnpm validate:env
 pnpm dev
 ```
 
-`pnpm dev` runs environment validation before starting Next. Supabase is remote-only, so keep real credentials in ignored env files or secret managers, and use staging values unless production work is explicitly requested.
+`pnpm dev` runs environment validation before starting Next. Supabase is remote-only, so real credentials belong in ignored env files or hosted secret managers, and local or preview work should use staging values unless production work is explicitly requested.
 
 ## Common commands
 
-| Command                                   | Purpose                                    |
-| ----------------------------------------- | ------------------------------------------ |
-| `pnpm run lint`                           | ESLint plus strict shadcn primitive guard. |
-| `pnpm run typecheck`                      | TypeScript project check.                  |
-| `pnpm exec vitest ...`                    | Unit/component tests.                      |
-| `pnpm exec playwright test ...`           | Browser tests.                             |
-| `pnpm exec prettier --check ...`          | Formatting check.                          |
-| `pnpm reserve:dev` / `pnpm reserve:build` | Reserve app dev/build.                     |
+| Command                          | Purpose                                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `pnpm run lint`                  | ESLint for configured server/lib/scripts/app feature scopes plus strict shadcn primitive guard. |
+| `pnpm run typecheck`             | TypeScript project check.                                                                       |
+| `pnpm exec vitest ...`           | Targeted unit, component, server, QA, and reserve tests.                                        |
+| `pnpm exec playwright test ...`  | Browser tests, usually with root-host or app-host configs.                                      |
+| `pnpm exec prettier --check ...` | Formatting check for docs and touched files.                                                    |
+| `pnpm validate:env`              | Environment and production-resource safety check.                                               |
 
-See [Testing](../how-to-contribute/testing.md) and [Configuration](../reference/configuration.md).
+There is no package-level `pnpm test` script and no markdownlint script.

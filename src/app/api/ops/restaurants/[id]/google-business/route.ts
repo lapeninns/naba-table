@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
-  const resolved = await requireGoogleBusinessAdminAccess(params);
+  const resolved = await requireGoogleBusinessAdminAccess(params, _req);
   if (resolved instanceof NextResponse) {
     return resolved;
   }

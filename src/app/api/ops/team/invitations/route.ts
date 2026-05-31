@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
 import { ensureProfileRow } from '@/lib/profile/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
@@ -160,6 +161,32 @@ async function postTeamInvitation(request: NextRequest) {
   }
 
   const { restaurantId, email, role, expiresAt: requestedExpiry } = parsed.data;
+  const aggregateRateLimitResponse = await requireApiRateLimit({
+    request,
+    scope: 'ops.team_invitations.create.aggregate',
+    tenantId: restaurantId,
+    userId: user.id,
+    limit: 20,
+    windowMs: 10 * 60 * 1000,
+    message: 'Too many invitation attempts',
+  });
+  if (aggregateRateLimitResponse) {
+    return aggregateRateLimitResponse;
+  }
+
+  const recipientRateLimitResponse = await requireApiRateLimit({
+    request,
+    scope: 'ops.team_invitations.create',
+    tenantId: restaurantId,
+    userId: user.id,
+    parts: [email.toLowerCase()],
+    limit: 8,
+    windowMs: 10 * 60 * 1000,
+    message: 'Too many invitation attempts',
+  });
+  if (recipientRateLimitResponse) {
+    return recipientRateLimitResponse;
+  }
 
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });

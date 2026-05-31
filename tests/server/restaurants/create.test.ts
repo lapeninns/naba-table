@@ -1,6 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { createRestaurant } from '@/server/restaurants/create';
@@ -163,6 +162,10 @@ describe('createRestaurant', () => {
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.create_restaurant_with_owner');
     expect(migration).toContain('RETURNS public.restaurants');
     expect(migration).toContain('SECURITY DEFINER');
+    expect(migration).toContain('pg_advisory_xact_lock');
+    expect(migration).toContain('FROM public.restaurant_memberships');
+    expect(migration).toContain('WHERE user_id = p_user_id');
+    expect(migration).toContain('User already has restaurant access');
     expect(migration).toContain('INSERT INTO public.restaurants');
     expect(migration).toContain('INSERT INTO public.restaurant_memberships');
     expect(migration).toContain('RETURN created_restaurant');

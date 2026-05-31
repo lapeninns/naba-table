@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 
+import { AVAILABILITY_ANCHORS } from './availabilityAnchors';
 import { AvailabilityOccasionDialog } from './AvailabilityOccasionDialog';
 import {
   buildOccasionSubmitResult,
@@ -146,7 +147,10 @@ export function AvailabilityOccasionsEditor({
   };
 
   return (
-    <section id="booking-occasions" className="flex scroll-mt-28 flex-col gap-4">
+    <section
+      id={AVAILABILITY_ANCHORS.bookingOccasions}
+      className="flex scroll-mt-28 flex-col gap-4"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-foreground">Booking types</p>

@@ -135,7 +135,7 @@ const otherRestaurantId = '22222222-2222-4222-8222-222222222222';
 
 function makeBooking(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'booking-1',
+    id: '65c3207e-318a-4e4b-b82d-1249a720d776',
     restaurant_id: restaurantId,
     customer_id: 'cust-1',
     booking_date: '2026-07-01',
@@ -175,7 +175,7 @@ function makeBookingLookup(booking: Record<string, unknown> | null) {
 }
 
 function makeUpdateRequest(overrides: Record<string, unknown> = {}) {
-  return new NextRequest('https://www.nabatable.com/api/bookings/booking-1', {
+  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
     method: 'PUT',
     headers: {
       'x-session-recovery-token': 'valid-token',
@@ -197,7 +197,7 @@ function makeUpdateRequest(overrides: Record<string, unknown> = {}) {
 }
 
 function makeDashboardUpdateRequest(overrides: Record<string, unknown> = {}) {
-  return new NextRequest('https://www.nabatable.com/api/bookings/booking-1', {
+  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
     method: 'PUT',
     headers: {
       'x-session-recovery-token': 'valid-token',
@@ -275,13 +275,13 @@ describe('public PUT /api/bookings/[id]', () => {
     serviceFromMock.mockReturnValueOnce(lookup);
 
     const response = await PUT(makeUpdateRequest(), {
-      params: Promise.resolve({ id: 'booking-1' }),
+      params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.booking).toMatchObject({
-      id: 'booking-1',
+      id: '65c3207e-318a-4e4b-b82d-1249a720d776',
       restaurant_id: restaurantId,
       booking_date: '2026-07-01',
       start_time: '19:00',
@@ -290,11 +290,11 @@ describe('public PUT /api/bookings/[id]', () => {
       customer_email: 'alex@example.com',
       notes: 'Window seat if possible',
     });
-    expect(lookup.eq).toHaveBeenCalledWith('id', 'booking-1');
+    expect(lookup.eq).toHaveBeenCalledWith('id', '65c3207e-318a-4e4b-b82d-1249a720d776');
     expect(lookup.eq).toHaveBeenCalledWith('restaurant_id', restaurantId);
     expect(updateBookingRecordMock).toHaveBeenCalledWith(
       expect.anything(),
-      'booking-1',
+      '65c3207e-318a-4e4b-b82d-1249a720d776',
       expect.objectContaining({
         restaurant_id: restaurantId,
         booking_date: '2026-07-01',
@@ -347,7 +347,7 @@ describe('public PUT /api/bookings/[id]', () => {
     );
 
     const response = await PUT(makeDashboardUpdateRequest(), {
-      params: Promise.resolve({ id: 'booking-1' }),
+      params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
     });
     const body = await response.json();
 
@@ -365,7 +365,7 @@ describe('public PUT /api/bookings/[id]', () => {
       }),
     );
     expect(body).toMatchObject({
-      id: 'booking-1',
+      id: '65c3207e-318a-4e4b-b82d-1249a720d776',
       startIso: '2026-07-02T18:30:00.000Z',
       endIso: '2026-07-02T20:00:00.000Z',
       booking: {
@@ -379,7 +379,7 @@ describe('public PUT /api/bookings/[id]', () => {
     serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
 
     const response = await PUT(makeUpdateRequest({ restaurantId: otherRestaurantId }), {
-      params: Promise.resolve({ id: 'booking-1' }),
+      params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
     });
     const body = await response.json();
 
@@ -394,7 +394,7 @@ describe('public PUT /api/bookings/[id]', () => {
     serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
 
     const response = await PUT(makeUpdateRequest(), {
-      params: Promise.resolve({ id: 'booking-1' }),
+      params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
     });
     const body = await response.json();
 

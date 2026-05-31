@@ -66,12 +66,14 @@ function requireEnv(): void {
     );
   }
 
-  if (CONFIRM_PRODUCTION && EXPECTED_PROJECT_REF) {
-    if (!url) {
-      throw new Error('NEXT_PUBLIC_SUPABASE_URL is required.');
-    }
-    assertExactSupabaseApiProjectRef(url, EXPECTED_PROJECT_REF);
+  if (!EXPECTED_PROJECT_REF) {
+    throw new Error('EXPECTED_PROJECT_REF is required before using the service-role key.');
   }
+
+  if (!url) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is required.');
+  }
+  assertExactSupabaseApiProjectRef(url, EXPECTED_PROJECT_REF);
 }
 
 async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<string> {
@@ -605,12 +607,17 @@ async function copyCapacityRules(
 async function main(): Promise<void> {
   requireEnv();
 
-  const [{ createRestaurant }, { createRestaurantSchema }, { getServiceSupabaseClient }] =
-    await Promise.all([
-      import('../server/restaurants/create'),
-      import('../src/app/api/ops/restaurants/schema'),
-      import('../server/supabase'),
-    ]);
+  const [
+    { createRestaurant },
+    { createRestaurantSchema },
+    { getServiceSupabaseClient, resolveServiceRoleSupabaseUrl },
+  ] = await Promise.all([
+    import('../server/restaurants/create'),
+    import('../src/app/api/ops/restaurants/schema'),
+    import('../server/supabase'),
+  ]);
+
+  assertExactSupabaseApiProjectRef(resolveServiceRoleSupabaseUrl(), EXPECTED_PROJECT_REF!);
 
   const supabase = getServiceSupabaseClient();
   const sourceRestaurant = await loadSourceRestaurant(supabase);

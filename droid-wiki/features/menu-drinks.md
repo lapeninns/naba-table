@@ -1,47 +1,54 @@
 # Menu and drinks
 
-Active contributors: amanshresthaa
+Active contributors: amanshresthaa, lapeninns
 
 ## Purpose
 
-Menu and drinks management imports and edits restaurant food and drink items through ops settings, repository modules, and import parsers.
+Menu and drinks management imports, reviews, projects, edits, and syncs food/drink menu data across restaurant settings, Google Business Profile food menus, and local menu hierarchy UI.
 
 ## Directory layout
 
 ```text
 server/menu/
 server/drinks-menu/
-src/app/api/ops/restaurants/[id]/menu/
-src/app/api/ops/restaurants/[id]/drinks/
+server/google-business-profile/food-menus-*
+src/components/features/menu/
+src/app/api/ops/restaurants/[id]/menus/
 ```
 
 ## Key abstractions
 
-| Symbol or file                 | Description      |
-| ------------------------------ | ---------------- |
-| `server/menu/import.ts`        | Menu import.     |
-| `server/menu/repository.ts`    | Menu repository. |
-| `server/drinks-menu/import.ts` | Drinks import.   |
+| Symbol or file                        | Description                |
+| ------------------------------------- | -------------------------- |
+| `server/menu/import.ts`               | Menu import.               |
+| `server/menu/repository.ts`           | Menu repository.           |
+| `server/drinks-menu/import.ts`        | Drinks import.             |
+| `food-menus-import-review-storage.ts` | GBP import-review storage. |
 
 ## How it works
 
-The files above form the main boundary for this topic. Route/page files collect inputs, domain modules enforce business rules, and shared helpers in `lib/**` or `server/**` keep cross-cutting behavior out of components.
+```mermaid
+graph LR
+  Caller[UI or caller] --> Route[Route or service boundary]
+  Route --> Domain[Domain module]
+  Domain --> DB[(Remote Supabase)]
+  Domain --> External[External services]
+```
+
+Route handlers collect request context and delegate business behavior to focused modules under `server/**`. Browser code should prefer existing hooks and service wrappers over ad hoc fetch logic.
 
 ## Integration points
 
-This topic links to [Restaurant settings](restaurant-settings.md). It also uses shared configuration from `lib/env.ts` and project validation rules from `docs/sdlc/verification.md` when changes affect runtime behavior.
+This topic links to [Restaurant settings](restaurant-settings.md), [Google Business Profile](google-business-profile.md), and [Google Business and dual sync](../systems/google-business-dual-sync.md).
 
 ## Entry points for modification
 
-Start with the first source file in the table below, then follow imports to the route, hook, or domain file closest to the behavior being changed.
+Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
 
 ## Key source files
 
-| File                                                       | Purpose          |
-| ---------------------------------------------------------- | ---------------- |
-| `server/menu/import.ts`                                    | Menu import.     |
-| `server/menu/repository.ts`                                | Menu repository. |
-| `server/drinks-menu/import.ts`                             | Drinks import.   |
-| `src/components/features/menu/OpsMenuManagementClient.tsx` | Menu UI.         |
-
-Related: [Restaurant settings](restaurant-settings.md)
+| File                                                       | Purpose             |
+| ---------------------------------------------------------- | ------------------- |
+| `server/menu/import.ts`                                    | Menu import.        |
+| `server/google-business-profile/food-menus-sync.ts`        | GBP food menu sync. |
+| `src/components/features/menu/OpsMenuManagementClient.tsx` | Menu UI.            |

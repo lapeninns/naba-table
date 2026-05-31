@@ -10,6 +10,7 @@ import {
   NoRestaurantAvailabilityScheduleState,
   ScheduleWorkspace,
 } from './availability';
+import { AVAILABILITY_ANCHORS } from './availabilityAnchors';
 import {
   AvailabilityScheduleFooter,
   AvailabilityScheduleHeader,
@@ -49,15 +50,16 @@ export function AvailabilityScheduleManager({
   }
 
   return (
-    <Card className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')} id="availability-schedule">
+    <Card
+      className={cn(SETTINGS_COMPACT_CARD_CLASS, 'overflow-hidden')}
+      id={AVAILABILITY_ANCHORS.availabilitySchedule}
+    >
       <AvailabilityScheduleHeader
         hasLocalChanges={controller.draft.hasLocalChanges}
         isScheduleWorkspace={controller.isScheduleWorkspace}
       />
 
       <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex flex-col gap-4 pt-4')}>
-        <div id="availability-hours" className="scroll-mt-28" />
-        <div id="service-periods" className="scroll-mt-28" />
         <AvailabilitySaveAlert saveState={controller.saveState} />
 
         {!controller.hasRequiredOccasions ? (

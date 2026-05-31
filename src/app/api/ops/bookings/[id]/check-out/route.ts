@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { clearBookingTableAssignments } from '@/server/bookings';
 import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
 import { prepareCheckOutTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
@@ -85,25 +84,13 @@ async function postCheckOut(req: NextRequest, { params }: RouteParams) {
     serviceSupabase,
     logLabel: 'booking-check-out',
     failureMessage: 'Unable to check out booking',
+    releaseAssignments: true,
   });
   if (persistResult.response) {
     return persistResult.response;
   }
 
   if (persistResult.result.changed) {
-    try {
-      await clearBookingTableAssignments(serviceSupabase, booking.id);
-    } catch (clearError) {
-      console.error('[ops][booking-check-out] failed to clear table assignments', {
-        bookingId: booking.id,
-        error: clearError instanceof Error ? clearError.message : clearError,
-      });
-      return NextResponse.json(
-        { error: 'Booking was updated but table assignments could not be released' },
-        { status: 500 },
-      );
-    }
-
     invalidateOpsDashboardCaches(booking.restaurant_id, {
       summaryDates: [booking.booking_date],
     });

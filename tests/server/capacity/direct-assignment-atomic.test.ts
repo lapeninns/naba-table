@@ -76,7 +76,10 @@ vi.mock('@/server/capacity/table-assignment/utils', () => ({
   })),
 }));
 
-import { assignTablesDirectly } from '@/server/capacity/table-assignment/direct-assignment';
+import {
+  assignTablesDirectly,
+  unassignTablesDirect,
+} from '@/server/capacity/table-assignment/direct-assignment';
 
 const BOOKING_ID = '11111111-1111-4111-8111-111111111111';
 const TABLE_ID = '22222222-2222-4222-8222-222222222222';
@@ -220,5 +223,47 @@ describe('assignTablesDirectly', () => {
       },
     ]);
     expect(result.booking.status).toBe('confirmed');
+  });
+
+  it('rejects duplicate table IDs before capacity validation', async () => {
+    const client = makeAssignmentClient();
+    ensureClientMock.mockReturnValue(client);
+
+    await expect(
+      assignTablesDirectly({
+        bookingId: BOOKING_ID,
+        tableIds: [TABLE_ID, TABLE_ID],
+        idempotencyKey: 'idem-1',
+        assignedBy: 'user-1',
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_INPUT',
+    });
+
+    expect(loadBookingMock).not.toHaveBeenCalled();
+    expect(assignTableToBookingMock).not.toHaveBeenCalled();
+  });
+
+  it('removes assignments through the atomic unassign-and-reopen RPC', async () => {
+    const client = {
+      rpc: vi.fn(async () => ({ data: 1, error: null })),
+    };
+    ensureClientMock.mockReturnValue(client);
+
+    const result = await unassignTablesDirect({
+      bookingId: BOOKING_ID,
+      tableIds: [TABLE_ID],
+      client: client as never,
+    });
+
+    expect(client.rpc).toHaveBeenCalledWith(
+      'remove_booking_table_assignments_and_reopen_if_empty',
+      {
+        p_booking_id: BOOKING_ID,
+        p_table_ids: [TABLE_ID],
+      },
+    );
+    expect(result).toEqual({ success: true, removedCount: 1 });
   });
 });

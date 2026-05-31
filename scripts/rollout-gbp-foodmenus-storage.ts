@@ -36,7 +36,7 @@ function usage(): never {
       'Env:',
       '  SUPABASE_ACCESS_TOKEN is required for verify/apply postchecks.',
       '  SUPABASE_DB_URL or DATABASE_URL is required for --mode apply.',
-      '  CONFIRM_GBP_FOODMENUS_PRODUCTION_MIGRATION=true is required for production --mode apply.',
+      '  CONFIRM_GBP_FOODMENUS_PRODUCTION_MIGRATION=true authorizes production --mode apply.',
       '',
       'Notes:',
       '  - Default mode is verify.',
@@ -178,15 +178,24 @@ function runApply(args: Args) {
   }
 
   assertApplyAllowed(target);
-  runStep('apply FoodMenus storage migration', 'pnpm', [
-    '-s',
-    'tsx',
-    'scripts/apply-sql-file.ts',
-    '--file',
-    MIGRATION_FILE,
-    '--expected-ref',
-    TARGETS[target].projectRef,
-  ]);
+  const env = {
+    ...process.env,
+    ...(target === 'production' ? { CONFIRM_PRODUCTION: 'true' } : {}),
+  };
+  runStep(
+    'apply FoodMenus storage migration',
+    'pnpm',
+    [
+      '-s',
+      'tsx',
+      'scripts/apply-sql-file.ts',
+      '--file',
+      MIGRATION_FILE,
+      '--expected-ref',
+      TARGETS[target].projectRef,
+    ],
+    env,
+  );
 }
 
 function main() {

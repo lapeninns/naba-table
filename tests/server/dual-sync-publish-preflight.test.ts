@@ -76,7 +76,7 @@ describe('defaultDualSyncExportPreflight', () => {
     });
   });
 
-  it('records FoodMenus replacement exports as preflight-unsupported by Google', async () => {
+  it('fails FoodMenus replacement exports when provider preflight is unsupported', async () => {
     const result = await defaultDualSyncExportPreflight({
       client,
       restaurantId: 'rest-1',
@@ -91,15 +91,20 @@ describe('defaultDualSyncExportPreflight', () => {
       actorUserId: 'user-1',
     });
 
-    expect(result.status).toBe('passed');
-    expect(result.result).toMatchObject({
-      googleValidateOnly: 'unsupported',
-      providerValidateOnly: 'unsupported',
-      preflightUnsupported: true,
-      maskStrategy: 'updateMask',
-      unsupportedReason: expect.stringContaining('updateFoodMenus'),
-      googleUpdateMasks: ['menus'],
-    });
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.failure).toMatchObject({
+        code: 'GOOGLE_VALIDATION_FAILED',
+        retryable: false,
+      });
+      expect(result.result).toMatchObject({
+        providerValidateOnly: 'unsupported',
+        preflightUnsupported: true,
+        maskStrategy: 'updateMask',
+        unsupportedReason: expect.stringContaining('updateFoodMenus'),
+        googleUpdateMasks: ['menus'],
+      });
+    }
   });
 
   it('fails required export groups with no Google update masks', async () => {

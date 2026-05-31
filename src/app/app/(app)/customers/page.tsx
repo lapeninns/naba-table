@@ -10,10 +10,11 @@ export const metadata: Metadata = {
 export default async function OpsCustomersPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string>>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const focusCustomer = resolvedSearchParams.focus ?? null;
+  const rawFocus = resolvedSearchParams.focus;
+  const focusCustomer = (Array.isArray(rawFocus) ? rawFocus[0] : rawFocus)?.trim() || null;
 
   return <OpsCustomersClient focusCustomer={focusCustomer} />;
 }

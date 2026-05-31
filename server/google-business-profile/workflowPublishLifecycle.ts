@@ -1,4 +1,5 @@
 import { getGoogleBusinessProfileWorkflowState } from './workflowDraftLifecycle';
+import { selectedSectionKeys } from './workflowDraftSelection';
 import { extractFieldDecisions } from './workflowFieldDecisions';
 import { buildCoreSnapshotHashes } from './workflowMappers';
 import { buildPublishPreflightContext, readCoreSnapshots } from './workflowPreflightContext';
@@ -35,6 +36,7 @@ import { formatDraftStatus } from './workflowStatusValidation';
 import type {
   GoogleBusinessProfileDraftSectionKey,
   GoogleBusinessProfileFieldDecisionInput,
+  GoogleBusinessProfileWorkflowDraft,
   GoogleBusinessProfileWorkflowResponse,
   PublishGoogleBusinessProfileDraftResult,
 } from './workflow';
@@ -52,6 +54,27 @@ async function readWorkflow(
   client: DbClient,
 ): Promise<GoogleBusinessProfileWorkflowResponse> {
   return getGoogleBusinessProfileWorkflowState(restaurantId, client);
+}
+
+async function loadChangedGooglePushSections(params: {
+  restaurantId: string;
+  client: DbClient;
+  draft: GoogleBusinessProfileWorkflowDraft;
+  expectedHashes: Record<GoogleBusinessProfileDraftSectionKey, string>;
+}): Promise<GoogleBusinessProfileDraftSectionKey[]> {
+  const currentHashes = buildCoreSnapshotHashes(
+    await readCoreSnapshots(params.restaurantId, params.client),
+  );
+  return selectedSectionKeys(params.draft, 'google_only').filter(
+    (section) => params.expectedHashes[section] !== currentHashes[section],
+  );
+}
+
+function createCoreChangedPublishError(sections: readonly GoogleBusinessProfileDraftSectionKey[]) {
+  return createWorkflowNamedError(
+    'GBP_PUBLISH_JOB_CORE_CHANGED',
+    `Cannot publish Google because Nabatable details changed after the final check: ${sections.join(', ')}.`,
+  );
 }
 
 export async function publishGoogleBusinessProfileWorkflowDraftState(params: {
@@ -257,6 +280,50 @@ export async function publishGoogleBusinessProfileWorkflowDraftState(params: {
   let googleEventId: string | null = null;
   let finalStatus: 'published' | 'partially_published' = 'published';
   if (context.mode !== 'nabatable_only' && context.googleUpdateMasks.length > 0) {
+    const changedGooglePushSections = await loadChangedGooglePushSections({
+      restaurantId: params.restaurantId,
+      client,
+      draft: context.draft,
+      expectedHashes: postNabatableHashes,
+    });
+    if (changedGooglePushSections.length > 0) {
+      const error = createCoreChangedPublishError(changedGooglePushSections);
+      await Promise.all([
+        client
+          .from('restaurant_external_profile_drafts')
+          .update({
+            status: context.mode === 'google_only' ? 'failed' : 'partially_published',
+            conflict_metadata: toJson({
+              failedAt: nowIso(),
+              googlePush: {
+                message: error.message,
+                classification: null,
+                retryable: false,
+                reconciliationRequired: context.mode !== 'google_only',
+              },
+            }),
+          })
+          .eq('id', context.draft.id),
+        client
+          .from('restaurant_external_profile_publish_jobs')
+          .update({
+            status: 'google_failed',
+            error_classification: null,
+            errors: toJson([
+              {
+                message: error.message,
+                classification: null,
+                retryable: false,
+                reconciliationRequired: context.mode !== 'google_only',
+              },
+            ]),
+            failed_at: nowIso(),
+          })
+          .eq('id', job.id),
+      ]);
+      throw error;
+    }
+
     try {
       googleEventId = await pushDraftToGoogle({
         restaurantId: params.restaurantId,
@@ -264,18 +331,22 @@ export async function publishGoogleBusinessProfileWorkflowDraftState(params: {
         externalProfile: context.externalProfile,
         actorUserId: params.actorUserId,
         googleUpdateMasks: context.googleUpdateMasks,
+        currentCore: context.currentCore,
         client,
       });
     } catch (error) {
       finalStatus = 'partially_published';
       googleEventId = extractGoogleEventIdFromPublishError(error, null);
       const classified = classifyWorkflowGooglePushFailure(error);
+      const requiresReconciliation =
+        classified.reconciliationRequired === true || classified.retryable === false;
       const { error: googleFailureUpdateError } = await client
         .from('restaurant_external_profile_publish_jobs')
         .update({
-          status: 'google_failed',
+          status: requiresReconciliation ? 'failed' : 'google_failed',
           google_publish_event_id: googleEventId,
-          error_classification: classified.classification ?? 'retryable',
+          error_classification:
+            classified.classification === undefined ? 'retryable' : classified.classification,
           errors: toJson([classified]),
           failed_at: nowIso(),
         })

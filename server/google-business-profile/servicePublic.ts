@@ -38,6 +38,9 @@ import type {
   GoogleBusinessProfileConnectionState,
   LinkGoogleBusinessProfileLocationInput,
 } from './serviceConnectionStateTypes';
+import type { RestaurantDetails } from '@/server/restaurants/details';
+import type { OperatingHoursSnapshot } from '@/server/restaurants/operatingHours';
+import type { ServicePeriod } from '@/server/restaurants/servicePeriods';
 
 function getClient(client?: DbClient): DbClient {
   return client ?? getServiceSupabaseClient();
@@ -138,12 +141,14 @@ export async function syncRestaurantProfileWithGoogleBusinessProfile(params: {
   restaurantId: string;
   direction?: CoreSyncDirection;
   fields?: Array<'name' | 'contactPhone' | 'address' | 'googleMapUrl' | 'googleReviewUrl'>;
+  approvedProfile?: RestaurantDetails;
   client?: DbClient;
 }) {
   return syncRestaurantProfileWithGoogleBusinessProfileForClient({
     restaurantId: params.restaurantId,
     direction: params.direction,
     fields: params.fields,
+    approvedProfile: params.approvedProfile,
     client: getClient(params.client),
   });
 }
@@ -152,12 +157,14 @@ export async function syncRestaurantOperatingHoursWithGoogleBusinessProfile(para
   restaurantId: string;
   direction?: CoreSyncDirection;
   selection?: OperatingHoursSyncSelection;
+  approvedSnapshot?: OperatingHoursSnapshot;
   client?: DbClient;
 }) {
   return syncRestaurantOperatingHoursWithGoogleBusinessProfileForClient({
     restaurantId: params.restaurantId,
     direction: params.direction,
     selection: params.selection,
+    approvedSnapshot: params.approvedSnapshot,
     client: getClient(params.client),
   });
 }
@@ -166,12 +173,14 @@ export async function syncRestaurantServicePeriodsWithGoogleBusinessProfile(para
   restaurantId: string;
   direction?: CoreSyncDirection;
   selection?: ServicePeriodsSyncSelection;
+  approvedPeriods?: ServicePeriod[];
   client?: DbClient;
 }) {
   return syncRestaurantServicePeriodsWithGoogleBusinessProfileForClient({
     restaurantId: params.restaurantId,
     direction: params.direction,
     selection: params.selection,
+    approvedPeriods: params.approvedPeriods,
     client: getClient(params.client),
   });
 }

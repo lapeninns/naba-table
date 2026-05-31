@@ -17,6 +17,7 @@ import {
   type UpdateOperatingHoursPayload,
 } from '@/server/restaurants/operatingHours';
 import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -194,6 +195,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => putOperatingHours(req, restaurantId));
+}
+
+async function putOperatingHours(req: NextRequest, restaurantId: string) {
   let payload: UpdateOperatingHoursPayload;
   try {
     const json = await req.json();
@@ -227,6 +232,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => postOperatingHours(req, restaurantId));
+}
+
+async function postOperatingHours(req: NextRequest, restaurantId: string) {
   let payload: z.infer<typeof syncSchema>;
   try {
     payload = syncSchema.parse(await req.json());

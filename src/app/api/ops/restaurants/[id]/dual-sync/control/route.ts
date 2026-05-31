@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   if (!restaurantId) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-control');
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-control', req);
   if (access instanceof NextResponse) return access;
 
   let body: z.infer<typeof controlPatchSchema>;
