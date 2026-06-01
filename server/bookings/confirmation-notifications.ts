@@ -22,6 +22,17 @@ type ConfirmationNotificationClaimClient = {
       restaurant_id: string | null;
       channel: ConfirmationNotificationChannel;
     }) => PromiseLike<{ error: ConfirmationNotificationClaimError | null }>;
+    delete: () => {
+      eq: (
+        column: 'booking_id',
+        value: string,
+      ) => {
+        eq: (
+          column: 'channel',
+          value: ConfirmationNotificationChannel,
+        ) => PromiseLike<{ error: ConfirmationNotificationClaimError | null }>;
+      };
+    };
   };
 };
 
@@ -30,9 +41,7 @@ function isValidEmail(value?: string | null): boolean {
 }
 
 function isDuplicateClaimError(error: ConfirmationNotificationClaimError): boolean {
-  return (
-    error.code === '23505' || /duplicate key|unique constraint/i.test(error.message ?? '')
-  );
+  return error.code === '23505' || /duplicate key|unique constraint/i.test(error.message ?? '');
 }
 
 async function claimFirstConfirmationNotification(params: {
@@ -40,8 +49,7 @@ async function claimFirstConfirmationNotification(params: {
   restaurantId?: string | null;
   channel: ConfirmationNotificationChannel;
 }): Promise<boolean> {
-  const supabase =
-    getServiceSupabaseClient() as unknown as ConfirmationNotificationClaimClient;
+  const supabase = getServiceSupabaseClient() as unknown as ConfirmationNotificationClaimClient;
   const { error } = await supabase.from('booking_confirmation_notification_claims').insert({
     booking_id: params.bookingId,
     restaurant_id: params.restaurantId ?? null,
@@ -61,6 +69,26 @@ async function claimFirstConfirmationNotification(params: {
     code: error.code ?? null,
   });
   return false;
+}
+
+async function releaseFirstConfirmationNotificationClaim(params: {
+  bookingId: string;
+  channel: ConfirmationNotificationChannel;
+}): Promise<void> {
+  const supabase = getServiceSupabaseClient() as unknown as ConfirmationNotificationClaimClient;
+  const { error } = await supabase
+    .from('booking_confirmation_notification_claims')
+    .delete()
+    .eq('booking_id', params.bookingId)
+    .eq('channel', params.channel);
+
+  if (error) {
+    console.warn('[booking.confirmation-notifications] claim release failed', {
+      bookingId: params.bookingId,
+      channel: params.channel,
+      code: error.code ?? null,
+    });
+  }
 }
 
 export type FirstConfirmationDispatchResult = {
@@ -112,8 +140,16 @@ export async function sendFirstBookingConfirmationNotifications(
       channel: 'email',
     });
     if (claimed) {
-      await sendBookingConfirmationEmail(booking);
-      emailSent = true;
+      try {
+        await sendBookingConfirmationEmail(booking);
+        emailSent = true;
+      } catch (error) {
+        await releaseFirstConfirmationNotificationClaim({
+          bookingId: booking.id,
+          channel: 'email',
+        });
+        throw error;
+      }
     } else {
       emailClaimedElsewhere = true;
     }
@@ -126,8 +162,22 @@ export async function sendFirstBookingConfirmationNotifications(
       channel: 'sms',
     });
     if (claimed) {
-      const smsResult = await sendGuestBookingConfirmationSms(booking);
-      smsSent = Boolean(smsResult?.messageSid || smsResult?.status);
+      try {
+        const smsResult = await sendGuestBookingConfirmationSms(booking);
+        smsSent = Boolean(smsResult?.messageSid || smsResult?.status);
+        if (!smsSent) {
+          await releaseFirstConfirmationNotificationClaim({
+            bookingId: booking.id,
+            channel: 'sms',
+          });
+        }
+      } catch (error) {
+        await releaseFirstConfirmationNotificationClaim({
+          bookingId: booking.id,
+          channel: 'sms',
+        });
+        throw error;
+      }
     } else {
       smsClaimedElsewhere = true;
     }

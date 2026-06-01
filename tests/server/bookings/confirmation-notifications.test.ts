@@ -6,6 +6,9 @@ const sendBookingConfirmationEmailMock = vi.hoisted(() => vi.fn());
 const sendGuestBookingConfirmationSmsMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const claimInsertMock = vi.hoisted(() => vi.fn());
+const claimDeleteMock = vi.hoisted(() => vi.fn());
+const claimDeleteBookingEqMock = vi.hoisted(() => vi.fn());
+const claimDeleteChannelEqMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/emails/email-delivery-log', () => ({
   hasRecentEmailDelivery: hasRecentEmailDeliveryMock,
@@ -44,6 +47,9 @@ describe('sendFirstBookingConfirmationNotifications', () => {
     sendGuestBookingConfirmationSmsMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
     claimInsertMock.mockReset();
+    claimDeleteMock.mockReset();
+    claimDeleteBookingEqMock.mockReset();
+    claimDeleteChannelEqMock.mockReset();
     hasRecentEmailDeliveryMock.mockResolvedValue(false);
     hasRecentSmsDeliveryMock.mockResolvedValue(false);
     sendBookingConfirmationEmailMock.mockResolvedValue({ id: 'email-log-1' });
@@ -52,10 +58,13 @@ describe('sendFirstBookingConfirmationNotifications', () => {
       status: 'queued',
     });
     claimInsertMock.mockResolvedValue({ error: null });
+    claimDeleteChannelEqMock.mockResolvedValue({ error: null });
+    claimDeleteBookingEqMock.mockReturnValue({ eq: claimDeleteChannelEqMock });
+    claimDeleteMock.mockReturnValue({ eq: claimDeleteBookingEqMock });
     getServiceSupabaseClientMock.mockReturnValue({
       from: vi.fn((table: string) => {
         expect(table).toBe('booking_confirmation_notification_claims');
-        return { insert: claimInsertMock };
+        return { insert: claimInsertMock, delete: claimDeleteMock };
       }),
     });
   });
@@ -164,11 +173,9 @@ describe('sendFirstBookingConfirmationNotifications', () => {
   });
 
   it('does not send a provider notification when another worker already claimed the channel', async () => {
-    claimInsertMock
-      .mockResolvedValueOnce({ error: null })
-      .mockResolvedValueOnce({
-        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
-      });
+    claimInsertMock.mockResolvedValueOnce({ error: null }).mockResolvedValueOnce({
+      error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+    });
 
     const result = await sendFirstBookingConfirmationNotifications(booking as never);
 
@@ -179,6 +186,49 @@ describe('sendFirstBookingConfirmationNotifications', () => {
       emailSent: true,
       smsSent: false,
     });
+  });
+
+  it('releases the email claim when the email provider fails', async () => {
+    const providerError = new Error('email provider unavailable');
+    sendBookingConfirmationEmailMock.mockRejectedValue(providerError);
+
+    await expect(sendFirstBookingConfirmationNotifications(booking as never)).rejects.toThrow(
+      providerError,
+    );
+
+    expect(sendGuestBookingConfirmationSmsMock).not.toHaveBeenCalled();
+    expect(claimDeleteMock).toHaveBeenCalledTimes(1);
+    expect(claimDeleteBookingEqMock).toHaveBeenCalledWith('booking_id', 'booking-1');
+    expect(claimDeleteChannelEqMock).toHaveBeenCalledWith('channel', 'email');
+  });
+
+  it('releases the sms claim when the sms provider fails', async () => {
+    const providerError = new Error('sms provider unavailable');
+    sendGuestBookingConfirmationSmsMock.mockRejectedValue(providerError);
+
+    await expect(sendFirstBookingConfirmationNotifications(booking as never)).rejects.toThrow(
+      providerError,
+    );
+
+    expect(sendBookingConfirmationEmailMock).toHaveBeenCalledWith(booking);
+    expect(claimDeleteMock).toHaveBeenCalledTimes(1);
+    expect(claimDeleteBookingEqMock).toHaveBeenCalledWith('booking_id', 'booking-1');
+    expect(claimDeleteChannelEqMock).toHaveBeenCalledWith('channel', 'sms');
+  });
+
+  it('releases the sms claim when the sms provider reports no delivery attempt', async () => {
+    sendGuestBookingConfirmationSmsMock.mockResolvedValue(null);
+
+    const result = await sendFirstBookingConfirmationNotifications(booking as never);
+
+    expect(result).toEqual({
+      alreadySent: false,
+      emailSent: true,
+      smsSent: false,
+    });
+    expect(claimDeleteMock).toHaveBeenCalledTimes(1);
+    expect(claimDeleteBookingEqMock).toHaveBeenCalledWith('booking_id', 'booking-1');
+    expect(claimDeleteChannelEqMock).toHaveBeenCalledWith('channel', 'sms');
   });
 
   it('fails closed without provider sends when the claim table is unavailable', async () => {
