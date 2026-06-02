@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Loader2, LogIn, LogOut, MoreHorizontal } from 'lucide-react';
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import {
   AlertDialog,
@@ -46,19 +46,66 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
   onCheckOut,
 }: OpsBookingCardActionsProps) {
   const [isNoShowOpen, setIsNoShowOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const isNoShowPending = actions.noShowConfirmation.pending;
   const partySize = actions.noShowConfirmation.description.partySize;
   const primaryButton = actions.primary.kind === 'button' ? actions.primary : null;
+  const primaryHandler =
+    primaryButton?.id === 'check-out'
+      ? onCheckOut
+      : primaryButton?.id === 'check-in'
+        ? onCheckIn
+        : undefined;
   const disableMenuTrigger =
-    actions.details.disabled && actions.menuItems.every((item) => item.disabled);
+    (actions.details.disabled || !onDetails) &&
+    actions.menuItems.every((item) => {
+      if (item.id === 'edit') return item.disabled || !onEdit;
+      if (item.id === 'no-show') return item.disabled || !onMarkNoShow;
+      if (item.id === 'cancel') return item.disabled || !onCancel;
+      return item.disabled;
+    });
+
+  useEffect(() => {
+    setActionError(null);
+  }, [actions.bookingId, primaryButton?.id]);
+
+  const getActionErrorMessage = useCallback((error: unknown) => {
+    return error instanceof Error && error.message.trim()
+      ? error.message
+      : 'Unable to update this booking. Try again.';
+  }, []);
+
+  const handlePrimaryAction = useCallback(async () => {
+    if (!primaryButton || !primaryHandler) {
+      return;
+    }
+
+    setActionError(null);
+    try {
+      await primaryHandler(actions.bookingId);
+    } catch (error) {
+      setActionError(getActionErrorMessage(error));
+    }
+  }, [actions.bookingId, getActionErrorMessage, primaryButton, primaryHandler]);
+
+  const handleOpenNoShow = useCallback(() => {
+    setActionError(null);
+    setIsNoShowOpen(true);
+  }, []);
 
   const handleConfirmNoShow = useCallback(async () => {
-    try {
-      await onMarkNoShow?.(actions.bookingId);
-    } finally {
-      setIsNoShowOpen(false);
+    if (!onMarkNoShow) {
+      return;
     }
-  }, [actions.bookingId, onMarkNoShow]);
+
+    setActionError(null);
+    try {
+      await onMarkNoShow(actions.bookingId);
+      setIsNoShowOpen(false);
+    } catch (error) {
+      setActionError(getActionErrorMessage(error));
+    }
+  }, [actions.bookingId, getActionErrorMessage, onMarkNoShow]);
 
   return (
     <div className="px-3 pb-3 sm:px-4 sm:pb-4">
@@ -70,7 +117,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             size="sm"
             className="h-9 px-3 text-xs font-medium text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30 hover:text-foreground sm:h-8"
             onClick={onDetails}
-            disabled={actions.details.disabled}
+            disabled={actions.details.disabled || !onDetails}
           >
             {actions.details.label}
           </Button>
@@ -92,12 +139,15 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                 Manage
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onEdit} disabled={actions.menuItems[0].disabled}>
+              <DropdownMenuItem
+                onClick={onEdit}
+                disabled={actions.menuItems[0].disabled || !onEdit}
+              >
                 {actions.menuItems[0].label}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setIsNoShowOpen(true)}
-                disabled={actions.menuItems[1].disabled}
+                onClick={handleOpenNoShow}
+                disabled={actions.menuItems[1].disabled || !onMarkNoShow}
                 variant="destructive"
               >
                 {actions.menuItems[1].label}
@@ -105,7 +155,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onCancel}
-                disabled={actions.menuItems[2].disabled}
+                disabled={actions.menuItems[2].disabled || !onCancel}
                 variant="destructive"
               >
                 {actions.menuItems[2].label}
@@ -119,7 +169,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           {primaryButton ? (
             <Button
               size="sm"
-              disabled={primaryButton.disabled}
+              disabled={primaryButton.disabled || !primaryHandler}
               className={cn(
                 'h-9 w-full px-6 font-semibold shadow-sm transition-[box-shadow,background-color] duration-150 ease-out motion-reduce:transition-none sm:w-auto sm:min-w-[140px]',
                 primaryButton.id === 'check-out'
@@ -127,11 +177,7 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
                   : 'bg-primary text-primary-foreground hover:bg-primary/90',
               )}
               variant={primaryButton.id === 'check-out' ? 'outline' : 'default'}
-              onClick={() =>
-                primaryButton.id === 'check-out'
-                  ? onCheckOut?.(actions.bookingId)
-                  : onCheckIn?.(actions.bookingId)
-              }
+              onClick={() => void handlePrimaryAction()}
             >
               {primaryButton.pending ? (
                 <>
@@ -158,6 +204,11 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
           )}
         </div>
       </div>
+      {actionError ? (
+        <p className="mt-2 text-xs font-medium text-destructive" role="alert">
+          {actionError}
+        </p>
+      ) : null}
 
       <AlertDialog open={isNoShowOpen} onOpenChange={setIsNoShowOpen}>
         <AlertDialogContent>
@@ -177,14 +228,22 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
               . You can undo this shortly after confirming.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {actionError ? (
+            <p className="text-xs font-medium text-destructive" role="alert">
+              {actionError}
+            </p>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actions.noShowConfirmation.disabled || isNoShowPending}>
               {actions.noShowConfirmation.cancelLabel}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => void handleConfirmNoShow()}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmNoShow();
+              }}
               className="bg-destructive/10 text-destructive hover:bg-destructive/10"
-              disabled={actions.noShowConfirmation.disabled || isNoShowPending}
+              disabled={actions.noShowConfirmation.disabled || isNoShowPending || !onMarkNoShow}
             >
               {isNoShowPending ? 'Marking…' : actions.noShowConfirmation.confirmLabel}
             </AlertDialogAction>
