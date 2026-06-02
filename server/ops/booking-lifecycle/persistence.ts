@@ -39,9 +39,7 @@ type BookingStateTransitionRpcArgs = {
 };
 
 type UntypedStateTransitionRpc = (
-  fn:
-    | 'apply_booking_state_transition'
-    | 'apply_booking_state_transition_and_clear_assignments',
+  fn: 'apply_booking_state_transition' | 'apply_booking_state_transition_and_clear_assignments',
   args: BookingStateTransitionRpcArgs,
 ) => Promise<{ data: BookingStateTransitionRpcResult[] | null; error: Error | null }>;
 
@@ -93,7 +91,7 @@ export async function applyBookingStateTransition(input: {
     p_history_metadata: historyRecord.metadata ?? {},
   } satisfies BookingStateTransitionRpcArgs;
 
-  const rpc = supabase.rpc as unknown as UntypedStateTransitionRpc;
+  const rpc = supabase.rpc.bind(supabase) as unknown as UntypedStateTransitionRpc;
   const { data, error } = await rpc(
     releaseAssignments
       ? 'apply_booking_state_transition_and_clear_assignments'
