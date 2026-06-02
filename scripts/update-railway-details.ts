@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { assertProductionApiScriptSafety } from './db/safety';
+import {
+  assertExactSupabaseApiProjectRef,
+  assertProductionApiScriptSafety,
+  assertStagingScriptSafety,
+} from './db/safety';
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), '..');
@@ -19,6 +23,7 @@ if (fs.existsSync(envLocalPath)) {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const confirmProduction = process.env.CONFIRM_PRODUCTION === 'true';
+const confirmStagingWrite = process.env.CONFIRM_STAGING_WRITE === 'true';
 const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || null;
 const apply = process.argv.includes('--apply') || process.env.APPLY === 'true';
 
@@ -45,14 +50,34 @@ if (!expectedProjectRef) {
 }
 
 try {
-  assertProductionApiScriptSafety({
-    apiUrl: supabaseUrl,
-    expectedProjectRef,
-    targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
-    requireTargetEnv: true,
-    apply,
-    confirmation: confirmProduction ? 'true' : undefined,
-  });
+  const targetEnv =
+    process.env.DB_TARGET_ENV?.trim().toLowerCase() ||
+    process.env.APP_ENV?.trim().toLowerCase() ||
+    '';
+
+  if (targetEnv === 'production') {
+    assertProductionApiScriptSafety({
+      apiUrl: supabaseUrl,
+      expectedProjectRef,
+      targetEnv,
+      requireTargetEnv: true,
+      apply,
+      confirmation: confirmProduction ? 'true' : undefined,
+    });
+  } else if (targetEnv === 'staging') {
+    if (apply) {
+      assertStagingScriptSafety({
+        apiUrl: supabaseUrl,
+        expectedProjectRef,
+        targetEnv,
+        confirmation: confirmStagingWrite ? 'true' : undefined,
+      });
+    } else {
+      assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
+    }
+  } else {
+    throw new Error(`Unsupported DB_TARGET_ENV/APP_ENV for restaurant update: ${targetEnv}.`);
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Production safety validation failed.');
   process.exit(1);
@@ -124,7 +149,9 @@ async function main(): Promise<void> {
     .from('restaurants')
     .update(updatedValues)
     .eq('slug', restaurantSlug)
-    .select('id, name, slug, address, contact_phone, google_map_url, google_review_url')
+    .select(
+      'id, name, slug, address, contact_email, contact_phone, google_map_url, google_review_url',
+    )
     .maybeSingle();
 
   if (error) {

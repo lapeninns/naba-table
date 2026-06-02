@@ -6,7 +6,11 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { assertExactSupabaseApiProjectRef } from './db/safety';
+import {
+  assertExactSupabaseApiProjectRef,
+  assertProductionApiScriptSafety,
+  assertStagingScriptSafety,
+} from './db/safety';
 import type { Database } from '../types/supabase';
 
 const modulePath = fileURLToPath(import.meta.url);
@@ -19,13 +23,26 @@ if (fs.existsSync(envLocalPath)) {
 
 const APPLY = process.argv.includes('--apply') || process.env.APPLY === 'true';
 const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION === 'true';
+const CONFIRM_STAGING_WRITE = process.env.CONFIRM_STAGING_WRITE === 'true';
+const BREAK_GLASS_PRODUCTION = process.env.BREAK_GLASS_PRODUCTION === 'true';
+const CONFIRM_REPLACE_CONFIG = process.env.CONFIRM_REPLACE_CONFIG === 'true';
 const EXPECTED_PROJECT_REF = process.env.EXPECTED_PROJECT_REF?.trim() || null;
 const SOURCE_SLUG = (process.env.SOURCE_SLUG ?? 'the-corner-house-pub-cambridge').trim();
 const TARGET_NAME = (process.env.TARGET_NAME ?? 'The Railway Pub').trim();
+const TARGET_SLUG = process.env.TARGET_SLUG?.trim() || null;
 const TARGET_RESTAURANT_ID = process.env.TARGET_RESTAURANT_ID?.trim() || null;
+const REPLACE_EXISTING_CONFIG = process.env.REPLACE_EXISTING_CONFIG === 'true';
 const OWNER_EMAIL = process.env.OWNER_EMAIL?.trim();
 const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
 const OWNER_USER_ID = process.env.OWNER_USER_ID?.trim();
+const COPY_SOURCE_OWNER = process.env.COPY_SOURCE_OWNER === 'true';
+const TARGET_CONTACT_EMAIL = process.env.TARGET_CONTACT_EMAIL?.trim();
+const TARGET_CONTACT_PHONE = process.env.TARGET_CONTACT_PHONE?.trim();
+const TARGET_ADDRESS = process.env.TARGET_ADDRESS?.trim();
+const TARGET_GOOGLE_MAP_URL = process.env.TARGET_GOOGLE_MAP_URL?.trim();
+const TARGET_GOOGLE_REVIEW_URL = process.env.TARGET_GOOGLE_REVIEW_URL?.trim();
+const TARGET_BOOKING_POLICY = process.env.TARGET_BOOKING_POLICY?.trim();
+const TARGET_LOGO_URL = process.env.TARGET_LOGO_URL?.trim();
 
 type TablesScope =
   | 'allowed_capacities'
@@ -45,6 +62,10 @@ type CopySummary = {
 function requireEnv(): void {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const targetEnv =
+    process.env.DB_TARGET_ENV?.trim().toLowerCase() ||
+    process.env.APP_ENV?.trim().toLowerCase() ||
+    '';
 
   if (!url || !key) {
     throw new Error(
@@ -60,20 +81,93 @@ function requireEnv(): void {
     throw new Error('TARGET_NAME is required.');
   }
 
-  if (APPLY && !CONFIRM_PRODUCTION) {
-    throw new Error(
-      'APPLY requested without CONFIRM_PRODUCTION=true. Refusing to write in production.',
-    );
-  }
-
   if (!EXPECTED_PROJECT_REF) {
     throw new Error('EXPECTED_PROJECT_REF is required before using the service-role key.');
   }
 
-  if (!url) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is required.');
+  if (REPLACE_EXISTING_CONFIG) {
+    if (!APPLY) {
+      throw new Error('REPLACE_EXISTING_CONFIG=true requires APPLY=true.');
+    }
+    if (!TARGET_RESTAURANT_ID) {
+      throw new Error('REPLACE_EXISTING_CONFIG=true requires TARGET_RESTAURANT_ID.');
+    }
+    if (!CONFIRM_REPLACE_CONFIG) {
+      throw new Error('CONFIRM_REPLACE_CONFIG=true is required to replace target config rows.');
+    }
   }
-  assertExactSupabaseApiProjectRef(url, EXPECTED_PROJECT_REF);
+
+  if (!targetEnv) {
+    throw new Error('DB_TARGET_ENV or APP_ENV is required before using the service-role key.');
+  }
+
+  if (targetEnv === 'production') {
+    if (REPLACE_EXISTING_CONFIG && !BREAK_GLASS_PRODUCTION) {
+      throw new Error(
+        'BREAK_GLASS_PRODUCTION=true is required to replace existing config rows in production.',
+      );
+    }
+    assertProductionApiScriptSafety({
+      apiUrl: url,
+      expectedProjectRef: EXPECTED_PROJECT_REF,
+      targetEnv,
+      requireTargetEnv: true,
+      apply: APPLY,
+      confirmation: CONFIRM_PRODUCTION ? 'true' : undefined,
+    });
+    return;
+  }
+
+  if (targetEnv === 'staging') {
+    if (APPLY) {
+      assertStagingScriptSafety({
+        apiUrl: url,
+        expectedProjectRef: EXPECTED_PROJECT_REF,
+        targetEnv,
+        confirmation: CONFIRM_STAGING_WRITE ? 'true' : undefined,
+      });
+    } else {
+      assertExactSupabaseApiProjectRef(url, EXPECTED_PROJECT_REF);
+    }
+    return;
+  }
+
+  throw new Error(`Unsupported DB_TARGET_ENV/APP_ENV for restaurant seed: ${targetEnv}.`);
+}
+
+async function resolveSourceOwnerId(supabase: SupabaseClient<Database>): Promise<string> {
+  const { data: sourceRestaurant, error: sourceError } = await supabase
+    .from('restaurants')
+    .select('id')
+    .eq('slug', SOURCE_SLUG)
+    .maybeSingle();
+
+  if (sourceError) {
+    throw new Error(`Failed to resolve source restaurant ${SOURCE_SLUG}: ${sourceError.message}`);
+  }
+
+  if (!sourceRestaurant?.id) {
+    throw new Error(`Source restaurant not found for slug: ${SOURCE_SLUG}`);
+  }
+
+  const { data, error } = await supabase
+    .from('restaurant_memberships')
+    .select('user_id, role')
+    .eq('restaurant_id', sourceRestaurant.id)
+    .in('role', ['owner', 'manager'])
+    .order('role', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    throw new Error(`Failed to resolve source owner from ${SOURCE_SLUG}: ${error.message}`);
+  }
+
+  const ownerId = data?.[0]?.user_id;
+  if (!ownerId) {
+    throw new Error(`No owner or manager membership found for source restaurant: ${SOURCE_SLUG}`);
+  }
+
+  return ownerId;
 }
 
 async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<string> {
@@ -103,6 +197,10 @@ async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<strin
     }
 
     return data.user.id;
+  }
+
+  if (COPY_SOURCE_OWNER) {
+    return resolveSourceOwnerId(supabase);
   }
 
   throw new Error('Set OWNER_USER_ID or OWNER_EMAIL to assign the new restaurant owner.');
@@ -141,6 +239,76 @@ async function getRestaurantCount(
   }
 
   return count ?? 0;
+}
+
+async function replaceExistingConfig(
+  supabase: SupabaseClient<Database>,
+  targetId: string,
+): Promise<CopySummary[]> {
+  const { count: bookingCount, error: bookingError } = await supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', targetId);
+
+  if (bookingError) {
+    throw new Error(
+      `Failed to count target bookings before config replacement: ${bookingError.message}`,
+    );
+  }
+
+  if ((bookingCount ?? 0) > 0) {
+    throw new Error(
+      `Refusing to replace config for ${targetId}: ${bookingCount} booking(s) already exist.`,
+    );
+  }
+
+  const summary: CopySummary[] = [];
+  const { data: targetTables, error: tableLoadError } = await supabase
+    .from('table_inventory')
+    .select('id')
+    .eq('restaurant_id', targetId);
+
+  if (tableLoadError) {
+    throw new Error(
+      `Failed to load target tables before config replacement: ${tableLoadError.message}`,
+    );
+  }
+
+  const tableIds = (targetTables ?? []).map((row) => row.id);
+  if (tableIds.length > 0) {
+    const { count, error } = await supabase
+      .from('table_adjacencies')
+      .delete({ count: 'exact' })
+      .or(`table_a.in.(${tableIds.join(',')}),table_b.in.(${tableIds.join(',')})`);
+    if (error) {
+      throw new Error(`Failed to delete target table_adjacencies: ${error.message}`);
+    }
+    summary.push({ table: 'table_adjacencies', rows: count ?? 0 });
+  } else {
+    summary.push({ table: 'table_adjacencies', rows: 0 });
+  }
+
+  const targetTablesInDeleteOrder: TablesScope[] = [
+    'restaurant_capacity_rules',
+    'table_inventory',
+    'zones',
+    'restaurant_service_periods',
+    'restaurant_operating_hours',
+    'allowed_capacities',
+  ];
+
+  for (const table of targetTablesInDeleteOrder) {
+    const { count, error } = await supabase
+      .from(table as keyof Database['public']['Tables'])
+      .delete({ count: 'exact' })
+      .eq('restaurant_id', targetId);
+    if (error) {
+      throw new Error(`Failed to delete target ${table}: ${error.message}`);
+    }
+    summary.push({ table, rows: count ?? 0 });
+  }
+
+  return summary;
 }
 
 async function copyAllowedCapacities(
@@ -624,15 +792,16 @@ async function main(): Promise<void> {
 
   const seedInput = {
     name: TARGET_NAME,
+    ...(TARGET_SLUG ? { slug: TARGET_SLUG } : {}),
     timezone: sourceRestaurant.timezone,
     capacity: sourceRestaurant.capacity,
-    contactEmail: sourceRestaurant.contact_email,
-    contactPhone: sourceRestaurant.contact_phone,
-    address: sourceRestaurant.address,
-    googleMapUrl: sourceRestaurant.google_map_url,
-    googleReviewUrl: sourceRestaurant.google_review_url,
-    bookingPolicy: sourceRestaurant.booking_policy,
-    logoUrl: sourceRestaurant.logo_url,
+    contactEmail: TARGET_CONTACT_EMAIL ?? sourceRestaurant.contact_email,
+    contactPhone: TARGET_CONTACT_PHONE ?? sourceRestaurant.contact_phone,
+    address: TARGET_ADDRESS ?? sourceRestaurant.address,
+    googleMapUrl: TARGET_GOOGLE_MAP_URL ?? sourceRestaurant.google_map_url,
+    googleReviewUrl: TARGET_GOOGLE_REVIEW_URL ?? sourceRestaurant.google_review_url,
+    bookingPolicy: TARGET_BOOKING_POLICY ?? sourceRestaurant.booking_policy,
+    logoUrl: TARGET_LOGO_URL ?? sourceRestaurant.logo_url,
     emailSendReminder24h: sourceRestaurant.email_send_reminder_24h,
     emailSendReminderShort: sourceRestaurant.email_send_reminder_short,
     emailSendReviewRequest: sourceRestaurant.email_send_review_request,
@@ -672,7 +841,10 @@ async function main(): Promise<void> {
 
   const targetId = restaurant?.id ?? restaurantId!;
 
+  const replacementSummary =
+    APPLY && REPLACE_EXISTING_CONFIG ? await replaceExistingConfig(supabase, targetId) : [];
   const summary: CopySummary[] = [];
+  summary.push(...replacementSummary.map((item) => ({ ...item, skipped: false })));
   summary.push(await copyAllowedCapacities(supabase, sourceRestaurant.id, targetId, APPLY));
   summary.push(await copyOperatingHours(supabase, sourceRestaurant.id, targetId, APPLY));
 
