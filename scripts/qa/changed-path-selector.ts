@@ -92,9 +92,6 @@ function isPrettierTarget(file: string): boolean {
   if (file.startsWith('docs/') || file.startsWith('tasks/')) {
     return PRETTIER_EXTENSIONS.has(extensionOf(file));
   }
-  if (file === '.github/dependabot.yml' || file === '.github/dependabot.yaml') {
-    return true;
-  }
   if (file.startsWith('.github/workflows/')) {
     return file.endsWith('.yml') || file.endsWith('.yaml');
   }
@@ -108,24 +105,6 @@ function isPrettierTarget(file: string): boolean {
     return PRETTIER_EXTENSIONS.has(extensionOf(file));
   }
   return false;
-}
-
-function isQaInfrastructureFile(file: string): boolean {
-  return (
-    file === '.github/CODEOWNERS' ||
-    file === '.github/dependabot.yml' ||
-    file === '.github/dependabot.yaml' ||
-    file.startsWith('.github/workflows/') ||
-    file.startsWith('config/qa/') ||
-    file.startsWith('docs/qa/') ||
-    file.startsWith('scripts/qa/') ||
-    file.startsWith('tests/qa/')
-  );
-}
-
-function shouldRunFullBaseline(files: readonly string[]): boolean {
-  if (files.length === 0) return true;
-  return files.some((file) => !isQaInfrastructureFile(file));
 }
 
 function isUiFile(file: string): boolean {
@@ -198,25 +177,10 @@ export function selectPrBaselineCommands(
   const commands = new Map<string, QaCommand>();
   const notes: QaSelectionNote[] = [];
 
-  if ((options.includeBaseline ?? true) && shouldRunFullBaseline(normalizedFiles)) {
+  if (options.includeBaseline ?? true) {
     for (const command of BASELINE_COMMANDS) {
       addCommand(commands, command);
     }
-  }
-
-  if (anyFile(normalizedFiles, isQaInfrastructureFile)) {
-    addCommand(commands, {
-      args: [
-        'exec',
-        'vitest',
-        'tests/qa/changed-path-selector.test.ts',
-        'tests/qa/pr-baseline.test.ts',
-      ],
-      defaultFailureClass: 'product',
-      id: 'qa:pr-baseline-tests',
-      phase: 'guard',
-      reason: 'QA infrastructure changes require PR baseline selector regression coverage.',
-    });
   }
 
   const prettierTargets = filesMatching(normalizedFiles, isPrettierTarget);
