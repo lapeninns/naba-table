@@ -19,6 +19,7 @@ describe('PR baseline changed-path selector', () => {
   it('selects targeted Prettier for docs, workflow, config, and QA test changes', () => {
     const selection = selectPrBaselineCommands([
       'docs/qa/pr-baseline.md',
+      '.github/dependabot.yml',
       '.github/workflows/qa-foundation.yml',
       'tests/qa/changed-path-selector.test.ts',
     ]);
@@ -28,10 +29,42 @@ describe('PR baseline changed-path selector', () => {
       'exec',
       'prettier',
       '--check',
+      '.github/dependabot.yml',
       '.github/workflows/qa-foundation.yml',
       'docs/qa/pr-baseline.md',
       'tests/qa/changed-path-selector.test.ts',
     ]);
+  });
+
+  it('uses targeted QA checks for governance-only changes', () => {
+    const selection = selectPrBaselineCommands([
+      '.github/CODEOWNERS',
+      '.github/dependabot.yml',
+      '.github/workflows/qa-pr-baseline.yml',
+    ]);
+
+    expect(selection.commands.map((command) => command.id)).toEqual([
+      'qa:pr-baseline-tests',
+      'changed:prettier',
+    ]);
+    expect(selection.commands.find((command) => command.id === 'changed:prettier')?.args).toEqual([
+      'exec',
+      'prettier',
+      '--check',
+      '.github/dependabot.yml',
+      '.github/workflows/qa-pr-baseline.yml',
+    ]);
+  });
+
+  it('keeps full baseline checks for product-impacting changes', () => {
+    expect(idsFor(['src/app/api/profile/route.ts'])).toEqual(
+      expect.arrayContaining([
+        'baseline:build',
+        'baseline:reserve-build',
+        'baseline:lint',
+        'baseline:typecheck',
+      ]),
+    );
   });
 
   it('selects shadcn and Luma guards for UI changes', () => {
