@@ -1,6 +1,7 @@
 name: QA PR baseline
 
 on:
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,6 +16,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       QA_TARGET_ENV: ci-ephemeral
+      RESEND_API_KEY: test-resend-api-key
       SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
 
     steps:
