@@ -4,7 +4,6 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-q
 import { useEffect, useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -65,7 +64,7 @@ export function useOpsBookingDialogBundle(
   // `useTableAssignment` (which are now disabled when the bundle is active).
   const restaurantId = query.data?.assignmentContext.booking.restaurant_id ?? null;
   useEffect(() => {
-    if (!isEnabled || !bookingId || !restaurantId || !isRealtimeFloorplanEnabled()) {
+    if (!isEnabled || !bookingId || !restaurantId) {
       return;
     }
 

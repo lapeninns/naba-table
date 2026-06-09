@@ -5,7 +5,6 @@ import { AppProviders } from '@/app/providers';
 import { OpsShell } from '@/components/features/ops-shell/OpsShell';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
-import { env } from '@/lib/env';
 import {
   OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
   resolvePreferredOpsRestaurantId,
@@ -126,16 +125,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     opsMemberships.map((membership) => membership.restaurantId),
     cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,
   );
-  const featureFlags = {
-    opsMetrics: qaOpsFixture?.featureFlags.opsMetrics ?? env.featureFlags.opsMetrics ?? false,
-    selectorScoring:
-      qaOpsFixture?.featureFlags.selectorScoring ?? env.featureFlags.selectorScoring ?? false,
-    rejectionAnalytics:
-      qaOpsFixture?.featureFlags.rejectionAnalytics ??
-      env.featureFlags.opsRejectionAnalytics ??
-      false,
-  } as const;
-
   const opsEnvBanner = resolveOpsEnvBanner();
 
   return (
@@ -143,7 +132,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       user={supabaseUser}
       memberships={opsMemberships}
       initialRestaurantId={initialRestaurantId}
-      featureFlags={featureFlags}
     >
       <OpsServicesProvider>
         <AppProviders>

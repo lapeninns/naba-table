@@ -3,31 +3,13 @@ import { PostHog } from 'posthog-node';
 import { type AnalyticsEvent } from '@/lib/analytics';
 import { sanitizeAnalyticsProps, type AnalyticsProps } from '@/lib/analytics/schema';
 
-type PostHogServerClient = Pick<
-  PostHog,
-  | 'capture'
-  | 'captureException'
-  | 'flush'
-  | 'getFeatureFlagResult'
-  | 'isFeatureEnabled'
-  | 'shutdown'
->;
+type PostHogServerClient = Pick<PostHog, 'capture' | 'captureException' | 'flush' | 'shutdown'>;
 
 export type ServerPostHogCaptureOptions = {
   distinctId?: string | null;
   groups?: Record<string, string>;
   properties?: Record<string, unknown>;
 };
-
-export type ServerPostHogFlagOptions = {
-  distinctId?: string | null;
-  groups?: Record<string, string>;
-  personProperties?: Record<string, string>;
-  groupProperties?: Record<string, Record<string, string>>;
-  fallback?: boolean;
-};
-
-export type ServerPostHogFlagValue = boolean | string | undefined;
 
 let serverPosthogClient: PostHogServerClient | null | undefined;
 
@@ -135,50 +117,6 @@ export function captureServerException(
     : sanitizedProps;
   client.captureException(error, options.distinctId ?? getServerDistinctId(), exceptionProps);
   return true;
-}
-
-export async function isServerFeatureEnabled(
-  key: string,
-  options: ServerPostHogFlagOptions = {},
-): Promise<boolean> {
-  const client = getPosthogServerClient();
-  const fallback = options.fallback ?? false;
-  if (!client) return fallback;
-
-  try {
-    return (
-      (await client.isFeatureEnabled(key, options.distinctId ?? getServerDistinctId(), {
-        groups: options.groups,
-        personProperties: options.personProperties,
-        groupProperties: options.groupProperties,
-      })) ?? fallback
-    );
-  } catch {
-    return fallback;
-  }
-}
-
-export async function getServerFeatureFlag(
-  key: string,
-  options: ServerPostHogFlagOptions = {},
-): Promise<ServerPostHogFlagValue> {
-  const client = getPosthogServerClient();
-  if (!client) return options.fallback ?? false;
-
-  try {
-    const result = await client.getFeatureFlagResult(
-      key,
-      options.distinctId ?? getServerDistinctId(),
-      {
-        groups: options.groups,
-        personProperties: options.personProperties,
-        groupProperties: options.groupProperties,
-      },
-    );
-    return result?.variant ?? result?.enabled ?? options.fallback ?? false;
-  } catch {
-    return options.fallback ?? false;
-  }
 }
 
 export async function flushPosthogServerClient(): Promise<void> {

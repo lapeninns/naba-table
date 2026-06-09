@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 
-import { env } from '@/lib/env';
 import { CancellableAutoAssign } from '@/server/booking/auto-assign/cancellable-auto-assign';
 import {
   updateBookingAndClearAssignmentsAtomically,
@@ -13,6 +12,7 @@ import { atomicConfirmAndTransition, quoteTablesForBooking } from '@/server/capa
 import { sendBookingModificationPendingEmail } from '@/server/emails/bookings';
 import { sendBookingModificationConfirmedEmail } from '@/server/emails/bookings';
 import { recordObservabilityEvent } from '@/server/observability';
+import { getInlineAutoAssignTimeoutMs } from '@/server/runtime-policy';
 
 import type { Database, Tables } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -162,7 +162,7 @@ export async function beginBookingModificationFlow(
     console.warn('[booking.modification] telemetry failed', telemetryError);
   }
 
-  const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
+  const inlineTimeoutMs = getInlineAutoAssignTimeoutMs();
   const inlinePlannerStrategy = { requireAdjacency: null, maxTables: null };
   const inlinePlannerTrigger = 'inline_modification';
   const inlineAttemptId = randomUUID();
@@ -255,7 +255,7 @@ export async function beginBookingModificationFlow(
   try {
     const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
     void autoAssignAndConfirmIfPossible(updated.id, {
-      bypassFeatureFlag: true,
+      forceRun: true,
       reason: 'modification',
       emailVariant: 'modified',
     });

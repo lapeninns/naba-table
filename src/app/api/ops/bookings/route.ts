@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { captureServerException } from '@/lib/posthog/server';
 
-import { env } from '@/lib/env';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
@@ -22,7 +21,12 @@ import {
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
-import { isAutoAssignOnBookingEnabled } from '@/server/feature-flags';
+import {
+  getBookingPastTimeGraceMinutes,
+  getInlineAutoAssignTimeoutMs,
+  isAutoAssignOnBookingEnabled,
+  isBookingPastTimeBlockingEnabled,
+} from '@/server/runtime-policy';
 import {
   enqueueBookingCreatedSideEffects,
   safeBookingPayload,
@@ -893,8 +897,8 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     actorCapabilities,
     tz: schedule.timezone,
     flags: {
-      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
-      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      bookingPastTimeBlocking: isBookingPastTimeBlockingEnabled(),
+      bookingPastTimeGraceMinutes: getBookingPastTimeGraceMinutes(),
       unified: true,
     },
     metadata: {
@@ -919,7 +923,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     // Run auto-assign BEFORE sending emails (if enabled and not a duplicate)
     if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
       const { runInlineAutoAssign } = await import('@/services/inline-auto-assign');
-      const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
+      const inlineTimeoutMs = getInlineAutoAssignTimeoutMs();
 
       try {
         const updatedBooking = await runInlineAutoAssign({

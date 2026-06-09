@@ -14,11 +14,6 @@ const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
-    featureFlags: {
-      pendingSelfServeGraceMinutes: 10,
-      bookingPastTimeGraceMinutes: 5,
-      bookingValidationUnified: false,
-    },
     reserve: {
       defaultDurationMinutes: 90,
     },
@@ -90,6 +85,12 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
   enqueueBookingCancelledSideEffects: vi.fn(),
   enqueueBookingUpdatedSideEffects: enqueueBookingUpdatedSideEffectsMock,
   safeBookingPayload: vi.fn((booking) => booking),
+}));
+
+vi.mock('@/server/runtime-policy', () => ({
+  getBookingPastTimeGraceMinutes: vi.fn(() => 5),
+  getPendingSelfServeGraceMinutes: vi.fn(() => 10),
+  isUnifiedBookingValidationEnabled: vi.fn(() => false),
 }));
 
 vi.mock('@/server/observability', () => ({
@@ -175,40 +176,46 @@ function makeBookingLookup(booking: Record<string, unknown> | null) {
 }
 
 function makeUpdateRequest(overrides: Record<string, unknown> = {}) {
-  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
-    method: 'PUT',
-    headers: {
-      'x-session-recovery-token': 'valid-token',
+  return new NextRequest(
+    'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+    {
+      method: 'PUT',
+      headers: {
+        'x-session-recovery-token': 'valid-token',
+      },
+      body: JSON.stringify({
+        restaurantId,
+        date: '2026-07-01',
+        time: '19:00',
+        party: 2,
+        bookingType: 'dinner',
+        notes: 'Window seat if possible',
+        name: 'Alex Guest',
+        email: 'alex@example.com',
+        phone: '+447700900123',
+        marketingOptIn: false,
+        ...overrides,
+      }),
     },
-    body: JSON.stringify({
-      restaurantId,
-      date: '2026-07-01',
-      time: '19:00',
-      party: 2,
-      bookingType: 'dinner',
-      notes: 'Window seat if possible',
-      name: 'Alex Guest',
-      email: 'alex@example.com',
-      phone: '+447700900123',
-      marketingOptIn: false,
-      ...overrides,
-    }),
-  });
+  );
 }
 
 function makeDashboardUpdateRequest(overrides: Record<string, unknown> = {}) {
-  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
-    method: 'PUT',
-    headers: {
-      'x-session-recovery-token': 'valid-token',
+  return new NextRequest(
+    'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+    {
+      method: 'PUT',
+      headers: {
+        'x-session-recovery-token': 'valid-token',
+      },
+      body: JSON.stringify({
+        startIso: '2026-07-02T18:30:00.000Z',
+        partySize: 4,
+        notes: 'Updated window seat',
+        ...overrides,
+      }),
     },
-    body: JSON.stringify({
-      startIso: '2026-07-02T18:30:00.000Z',
-      partySize: 4,
-      notes: 'Updated window seat',
-      ...overrides,
-    }),
-  });
+  );
 }
 
 describe('public PUT /api/bookings/[id]', () => {

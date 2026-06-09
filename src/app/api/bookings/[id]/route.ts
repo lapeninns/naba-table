@@ -51,6 +51,11 @@ import {
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import {
+  getBookingPastTimeGraceMinutes,
+  getPendingSelfServeGraceMinutes,
+  isUnifiedBookingValidationEnabled,
+} from '@/server/runtime-policy';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import {
   sessionRecoveryTokenMatchesBookingContact,
@@ -123,9 +128,9 @@ function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
   return OPERATING_HOURS_REASON_TO_CODE[reason] ?? 'OUTSIDE_HOURS';
 }
 
-const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinutes ?? 10;
+const pendingSelfServeGraceMinutes = getPendingSelfServeGraceMinutes();
 const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
-const pastTimeGraceMinutes = env.featureFlags.bookingPastTimeGraceMinutes ?? 5;
+const pastTimeGraceMinutes = getBookingPastTimeGraceMinutes();
 const guestSelfServeCutoffMinutes = 15;
 const bookingIdParamSchema = z.string().uuid();
 
@@ -669,7 +674,7 @@ async function handleDashboardUpdate(params: {
       ? existingBookingTypeRaw
       : undefined;
 
-    const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+    const useUnifiedValidation = isUnifiedBookingValidationEnabled();
     let updated: Tables<'bookings'>;
 
     if (useUnifiedValidation) {
@@ -1206,10 +1211,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     });
   } catch (error: unknown) {
     console.error('[bookings][GET:id]', stringifyError(error));
-    return NextResponse.json(
-      { error: 'Unable to load booking', code: 'UNKNOWN' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Unable to load booking', code: 'UNKNOWN' }, { status: 500 });
   }
 }
 
@@ -1629,7 +1631,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       bookingId,
       source: 'api',
       method: 'guest',
-      ...(error instanceof HttpError ? { code: error.code, status: error.status } : { reason: 'unexpected' }),
+      ...(error instanceof HttpError
+        ? { code: error.code, status: error.status }
+        : { reason: 'unexpected' }),
     });
     if (error instanceof HttpError) {
       return NextResponse.json(
@@ -1972,7 +1976,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         id: bookingId,
         status: cancelledRecord.status ?? 'cancelled',
-        bookings: bookings.map((booking) => toPublicRecoveryBookingDTO(booking as Tables<'bookings'>)),
+        bookings: bookings.map((booking) =>
+          toPublicRecoveryBookingDTO(booking as Tables<'bookings'>),
+        ),
       });
     }
     await clearBookingTableAssignments(serviceSupabase, bookingId);

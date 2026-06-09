@@ -30,12 +30,6 @@ const createNoopPostHog = (): PostHog =>
     identify: noop,
     reset: noop,
     capture: noop,
-    onFeatureFlags: () => noop,
-    isFeatureEnabled: () => undefined,
-    getFeatureFlag: () => undefined,
-    getFeatureFlagPayload: () => undefined,
-    getAllFlags: () => ({}),
-    reloadFeatureFlags: noop,
     set_config: noop,
   }) as unknown as PostHog;
 
@@ -54,7 +48,6 @@ const flushPosthogQueue = (client: PosthogCaptureClient) => {
  * Wraps the application to enable PostHog features like:
  * - Automatic pageview tracking
  * - Session recording
- * - Feature flags
  * - Event capturing
  */
 export function PostHogProvider({ children }: { children: ReactNode }) {

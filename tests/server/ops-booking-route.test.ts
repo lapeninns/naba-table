@@ -29,11 +29,6 @@ const invalidateOpsDashboardCachesMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
-    featureFlags: {
-      bookingPastTimeBlocking: false,
-      bookingValidationUnified: false,
-      dbStrictConstraints: false,
-    },
     reserve: {
       defaultDurationMinutes: 90,
     },
@@ -99,6 +94,13 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
   enqueueBookingCancelledSideEffects: vi.fn(),
   enqueueBookingUpdatedSideEffects: enqueueBookingUpdatedSideEffectsMock,
   safeBookingPayload: vi.fn((booking) => booking),
+}));
+
+vi.mock('@/server/runtime-policy', () => ({
+  getBookingPastTimeGraceMinutes: vi.fn(() => 5),
+  isBookingPastTimeBlockingEnabled: vi.fn(() => false),
+  isDbStrictConstraintMappingEnabled: vi.fn(() => false),
+  isUnifiedBookingValidationEnabled: vi.fn(() => false),
 }));
 
 vi.mock('@/server/ops/bookings', () => ({

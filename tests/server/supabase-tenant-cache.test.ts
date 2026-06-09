@@ -28,7 +28,6 @@ vi.mock('@/lib/env', () => ({
     NEXT_PUBLIC_ROOT_DOMAIN: 'localhost',
     NEXT_PUBLIC_DEFAULT_RESTAURANT_ID: null,
     NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG: null,
-    FEATURE_SERVICE_CLIENT_USE_READ_REPLICA: false,
     SUPABASE_READ_REPLICA_URL: null,
     APP_ENV: 'test',
   }),

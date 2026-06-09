@@ -10,7 +10,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import {
   SUMMARY_INVALIDATION_DEBOUNCE_MS,
   SUMMARY_POLL_INTERVAL_MS,
@@ -71,7 +70,6 @@ export function useOpsDashboardData(
   const [isVisible, setIsVisible] = useState(true);
   const subscribedRef = useRef(false);
   const lastSummaryUpdatedAtRef = useRef<number | null>(null);
-  const realtimeFlag = isRealtimeFloorplanEnabled();
   const queryKey = useMemo(
     () =>
       restaurantId
@@ -95,7 +93,7 @@ export function useOpsDashboardData(
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  const realtimeEnabled = isEnabled && realtimeFlag;
+  const realtimeEnabled = isEnabled;
   const shouldPoll = isEnabled && isVisible && (!realtimeEnabled || !realtimeHealthy);
 
   const query = useQuery<OpsDashboardData>({
@@ -156,7 +154,7 @@ export function useOpsDashboardData(
   }, [data, dataUpdatedAt]);
 
   useEffect(() => {
-    if (!isEnabled || !realtimeFlag || !realtimeHealthy || !isVisible) return;
+    if (!realtimeEnabled || !realtimeHealthy || !isVisible) return;
 
     const interval = setInterval(() => {
       const lastUpdatedAt = lastSummaryUpdatedAtRef.current;
@@ -168,10 +166,10 @@ export function useOpsDashboardData(
     }, SUMMARY_SAFETY_POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [isEnabled, isFetching, isVisible, realtimeFlag, realtimeHealthy, refetch]);
+  }, [isFetching, isVisible, realtimeEnabled, realtimeHealthy, refetch]);
 
   useEffect(() => {
-    if (!isEnabled || !restaurantId || !realtimeFlag) {
+    if (!realtimeEnabled || !restaurantId) {
       subscribedRef.current = false;
       setRealtimeHealthy(true);
       return;
@@ -294,7 +292,7 @@ export function useOpsDashboardData(
     isEnabled,
     queryClient,
     queryKey,
-    realtimeFlag,
+    realtimeEnabled,
     restaurantId,
     targetDate,
   ]);

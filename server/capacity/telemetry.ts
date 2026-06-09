@@ -1,31 +1,31 @@
-import { logger } from "@/lib/logger";
-import { recordObservabilityEvent } from "@/server/observability";
+import { logger } from '@/lib/logger';
+import { recordObservabilityEvent } from '@/server/observability';
 
-import type { SelectorScoringWeights, ServiceKey } from "./policy";
-import type { CandidateDiagnostics, ScoreBreakdown } from "./selector";
-import type { Json } from "@/types/supabase";
+import type { SelectorScoringWeights, ServiceKey } from './policy';
+import type { CandidateDiagnostics, ScoreBreakdown } from './selector';
+import type { Json } from '@/types/supabase';
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 
 const SENSITIVE_NAME_KEYS = new Set([
-  "name",
-  "guestName",
-  "guest_name",
-  "customerName",
-  "customer_name",
-  "primaryGuestName",
-  "primary_guest_name",
-  "createdByName",
-  "created_by_name",
-  "assignedToName",
-  "assigned_to_name",
+  'name',
+  'guestName',
+  'guest_name',
+  'customerName',
+  'customer_name',
+  'primaryGuestName',
+  'primary_guest_name',
+  'createdByName',
+  'created_by_name',
+  'assignedToName',
+  'assigned_to_name',
 ]);
 
 function redactEmails(value: string): string {
   if (!value) {
     return value;
   }
-  return value.replace(EMAIL_PATTERN, "[redacted-email]");
+  return value.replace(EMAIL_PATTERN, '[redacted-email]');
 }
 
 function sanitizeTelemetryValue(value: unknown, key?: string): Json {
@@ -33,14 +33,14 @@ function sanitizeTelemetryValue(value: unknown, key?: string): Json {
     return null;
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     if (key && SENSITIVE_NAME_KEYS.has(key)) {
-      return "[redacted]";
+      return '[redacted]';
     }
     return redactEmails(value) as Json;
   }
 
-  if (typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === 'number' || typeof value === 'boolean') {
     return value;
   }
 
@@ -48,11 +48,11 @@ function sanitizeTelemetryValue(value: unknown, key?: string): Json {
     return value.map((item) => sanitizeTelemetryValue(item)) as Json[];
   }
 
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const result: Record<string, Json> = {};
     for (const [entryKey, entryValue] of Object.entries(value as Record<string, unknown>)) {
       if (SENSITIVE_NAME_KEYS.has(entryKey)) {
-        result[entryKey] = "[redacted]";
+        result[entryKey] = '[redacted]';
         continue;
       }
       result[entryKey] = sanitizeTelemetryValue(entryValue, entryKey);
@@ -67,11 +67,11 @@ function sanitizeTelemetryContext<T extends Json>(input: T): T {
   return sanitizeTelemetryValue(input) as T;
 }
 
-const telemetryLogger = logger.child({ module: "capacity.telemetry" });
-const selectorLog = telemetryLogger.child({ scope: "selector" });
-const holdLog = telemetryLogger.child({ scope: "hold" });
-const manualLog = telemetryLogger.child({ scope: "manual" });
-const rpcLog = telemetryLogger.child({ scope: "rpc" });
+const telemetryLogger = logger.child({ module: 'capacity.telemetry' });
+const selectorLog = telemetryLogger.child({ scope: 'selector' });
+const holdLog = telemetryLogger.child({ scope: 'hold' });
+const manualLog = telemetryLogger.child({ scope: 'manual' });
+const rpcLog = telemetryLogger.child({ scope: 'rpc' });
 
 export type CandidateSummary = {
   tableIds: string[];
@@ -80,7 +80,7 @@ export type CandidateSummary = {
   tableCount: number;
   slack?: number;
   score?: number;
-  adjacencyStatus?: "single" | "connected" | "neighbors" | "pairwise" | "disconnected";
+  adjacencyStatus?: 'single' | 'connected' | 'neighbors' | 'pairwise' | 'disconnected';
   scoreBreakdown?: CandidateScoreBreakdown;
 };
 
@@ -105,7 +105,7 @@ export type AvailabilitySnapshot = {
 };
 
 export type StrategicPenaltyTelemetry = {
-  dominant: "slack" | "scarcity" | "future_conflict" | "structural" | "unknown";
+  dominant: 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
   slack: number;
   scarcity: number;
   futureConflict: number;
@@ -119,10 +119,10 @@ export type SelectorDecisionEvent = {
   candidates: CandidateSummary[];
   selected?: CandidateSummary | null;
   skipReason?: string | null;
-  rejectionClassification?: "hard" | "strategic" | null;
+  rejectionClassification?: 'hard' | 'strategic' | null;
   strategicPenalties?: StrategicPenaltyTelemetry | null;
   durationMs: number;
-  featureFlags: {
+  policy: {
     selectorScoring: boolean;
     opsMetrics: boolean;
     plannerTimePruning: boolean;
@@ -148,7 +148,7 @@ export type SelectorDecisionEvent = {
     maxOverage: number;
     maxTables: number;
     weights: SelectorScoringWeights;
-    featureFlags: {
+    policy: {
       selectorScoring: boolean;
       opsMetrics: boolean;
       plannerTimePruning: boolean;
@@ -183,7 +183,7 @@ export type SelectorDecisionEvent = {
 };
 
 export type SelectorDecisionCapture = {
-  type: "capacity.selector";
+  type: 'capacity.selector';
   timestamp: string;
   restaurantId: string;
   bookingId: string;
@@ -193,19 +193,21 @@ export type SelectorDecisionCapture = {
   topCandidates: CandidateSummary[];
   candidates: CandidateSummary[];
   skipReason: string | null;
-  rejectionClassification: "hard" | "strategic" | null;
+  rejectionClassification: 'hard' | 'strategic' | null;
   strategicPenalties: StrategicPenaltyTelemetry | null;
   durationMs: number;
-  featureFlags: SelectorDecisionEvent["featureFlags"];
-  timing: SelectorDecisionEvent["timing"] | null;
-  plannerConfig: SelectorDecisionEvent["plannerConfig"] | null;
+  policy: SelectorDecisionEvent['policy'];
+  timing: SelectorDecisionEvent['timing'] | null;
+  plannerConfig: SelectorDecisionEvent['plannerConfig'] | null;
   diagnostics: CandidateDiagnostics | null;
   availabilitySnapshot: AvailabilitySnapshot | null;
 };
 
-export function buildSelectorDecisionPayload(event: SelectorDecisionEvent): SelectorDecisionCapture {
+export function buildSelectorDecisionPayload(
+  event: SelectorDecisionEvent,
+): SelectorDecisionCapture {
   const payload: SelectorDecisionCapture = {
-    type: "capacity.selector",
+    type: 'capacity.selector',
     timestamp: new Date().toISOString(),
     restaurantId: event.restaurantId,
     bookingId: event.bookingId,
@@ -218,7 +220,7 @@ export function buildSelectorDecisionPayload(event: SelectorDecisionEvent): Sele
     rejectionClassification: event.rejectionClassification ?? null,
     strategicPenalties: event.strategicPenalties ?? null,
     durationMs: event.durationMs,
-    featureFlags: event.featureFlags,
+    policy: event.policy,
     timing: event.timing ?? null,
     plannerConfig: event.plannerConfig ?? null,
     diagnostics: event.diagnostics ?? null,
@@ -232,22 +234,30 @@ export async function emitSelectorDecision(event: SelectorDecisionEvent): Promis
   const sanitizedPayload = buildSelectorDecisionPayload(event);
 
   try {
-    selectorLog.info("selector decision captured", { payload: sanitizedPayload });
+    selectorLog.info('selector decision captured', { payload: sanitizedPayload });
   } catch (error) {
-    selectorLog.error("failed to serialize selector payload", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
+    selectorLog.error('failed to serialize selector payload', {
+      error,
+      bookingId: event.bookingId,
+      restaurantId: event.restaurantId,
+    });
   }
 
   try {
     await recordObservabilityEvent({
-      source: "capacity.selector",
-      eventType: event.selected ? "capacity.selector.assignment" : "capacity.selector.skipped",
-      severity: event.skipReason ? "warning" : "info",
+      source: 'capacity.selector',
+      eventType: event.selected ? 'capacity.selector.assignment' : 'capacity.selector.skipped',
+      severity: event.skipReason ? 'warning' : 'info',
       context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
   } catch (error) {
-    selectorLog.error("failed to persist observability event", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
+    selectorLog.error('failed to persist observability event', {
+      error,
+      bookingId: event.bookingId,
+      restaurantId: event.restaurantId,
+    });
   }
 }
 
@@ -259,22 +269,26 @@ export type SelectorQuoteEvent = SelectorDecisionEvent & {
 export async function emitSelectorQuote(event: SelectorQuoteEvent): Promise<void> {
   const payload = {
     ...event,
-    type: "capacity.selector.quote",
+    type: 'capacity.selector.quote',
   };
 
   const sanitizedPayload = sanitizeTelemetryContext(payload as Json);
 
   try {
     await recordObservabilityEvent({
-      source: "capacity.selector",
-      eventType: "capacity.selector.quote",
-      severity: event.skipReason ? "warning" : "info",
+      source: 'capacity.selector',
+      eventType: 'capacity.selector.quote',
+      severity: event.skipReason ? 'warning' : 'info',
       context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
   } catch (error) {
-    selectorLog.error("failed to record selector quote telemetry", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
+    selectorLog.error('failed to record selector quote telemetry', {
+      error,
+      bookingId: event.bookingId,
+      restaurantId: event.restaurantId,
+    });
   }
 }
 
@@ -301,40 +315,45 @@ async function emitHoldEvent(eventType: string, payload: HoldTelemetryEvent): Pr
   const sanitizedPayload = sanitizeTelemetryContext(payload as Json);
   try {
     await recordObservabilityEvent({
-      source: "capacity.hold",
+      source: 'capacity.hold',
       eventType,
-      severity: eventType.endsWith("expired") ? "warning" : "info",
+      severity: eventType.endsWith('expired') ? 'warning' : 'info',
       context: sanitizedPayload,
       restaurantId: payload.restaurantId,
       bookingId: payload.bookingId ?? undefined,
     });
   } catch (error) {
-    holdLog.error("failed to emit hold telemetry", { error, eventType, holdId: payload.holdId, bookingId: payload.bookingId });
+    holdLog.error('failed to emit hold telemetry', {
+      error,
+      eventType,
+      holdId: payload.holdId,
+      bookingId: payload.bookingId,
+    });
   }
 }
 
 export async function emitHoldCreated(event: HoldTelemetryEvent): Promise<void> {
-  await emitHoldEvent("capacity.hold.created", event);
+  await emitHoldEvent('capacity.hold.created', event);
 }
 
 export async function emitHoldConfirmed(event: HoldTelemetryEvent): Promise<void> {
-  await emitHoldEvent("capacity.hold.confirmed", event);
+  await emitHoldEvent('capacity.hold.confirmed', event);
 }
 
 export async function emitHoldExpired(event: HoldTelemetryEvent): Promise<void> {
-  await emitHoldEvent("capacity.hold.expired", event);
+  await emitHoldEvent('capacity.hold.expired', event);
 }
 
 export async function emitHoldExtended(event: HoldExtendedTelemetryEvent): Promise<void> {
   const baseMetadata: Record<string, unknown> =
-    event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+    event.metadata && typeof event.metadata === 'object' && !Array.isArray(event.metadata)
       ? { ...(event.metadata as Record<string, Json>) }
       : {};
 
   baseMetadata.previousExpiresAt = event.previousExpiresAt;
   baseMetadata.newExpiresAt = event.newExpiresAt;
 
-  await emitHoldEvent("capacity.hold.extended", {
+  await emitHoldEvent('capacity.hold.extended', {
     ...event,
     expiresAt: event.newExpiresAt,
     metadata: baseMetadata as Json,
@@ -361,15 +380,19 @@ export async function emitHoldStrictConflict(event: HoldStrictConflictEvent): Pr
   const sanitizedPayload = sanitizeTelemetryContext(event as Json);
   try {
     await recordObservabilityEvent({
-      source: "capacity.hold",
-      eventType: "capacity.hold.strict_conflict",
-      severity: "warning",
+      source: 'capacity.hold',
+      eventType: 'capacity.hold.strict_conflict',
+      severity: 'warning',
       context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId ?? undefined,
     });
   } catch (error) {
-    holdLog.error("failed to record strict conflict telemetry", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
+    holdLog.error('failed to record strict conflict telemetry', {
+      error,
+      bookingId: event.bookingId,
+      restaurantId: event.restaurantId,
+    });
   }
 }
 
@@ -381,9 +404,11 @@ type ManualActionBase = {
   adjacencyRequired?: boolean | null;
 };
 
-export async function emitManualValidate(event: ManualActionBase & { ok: boolean; code?: string | null }): Promise<void> {
+export async function emitManualValidate(
+  event: ManualActionBase & { ok: boolean; code?: string | null },
+): Promise<void> {
   const payload = sanitizeTelemetryContext({
-    type: "capacity.manual.validate",
+    type: 'capacity.manual.validate',
     ok: event.ok,
     code: event.code ?? null,
     policyVersion: event.policyVersion ?? null,
@@ -391,21 +416,23 @@ export async function emitManualValidate(event: ManualActionBase & { ok: boolean
   } as Json);
   try {
     await recordObservabilityEvent({
-      source: "capacity.manual",
-      eventType: event.ok ? "manual.validate.ok" : "manual.validate.fail",
-      severity: event.ok ? "info" : "warning",
+      source: 'capacity.manual',
+      eventType: event.ok ? 'manual.validate.ok' : 'manual.validate.fail',
+      severity: event.ok ? 'info' : 'warning',
       context: payload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
   } catch (error) {
-    manualLog.error("manual validate telemetry failed", { error, bookingId: event.bookingId });
+    manualLog.error('manual validate telemetry failed', { error, bookingId: event.bookingId });
   }
 }
 
-export async function emitManualHold(event: ManualActionBase & { ok: boolean; code?: string | null }): Promise<void> {
+export async function emitManualHold(
+  event: ManualActionBase & { ok: boolean; code?: string | null },
+): Promise<void> {
   const payload = sanitizeTelemetryContext({
-    type: "capacity.manual.hold",
+    type: 'capacity.manual.hold',
     ok: event.ok,
     code: event.code ?? null,
     policyVersion: event.policyVersion ?? null,
@@ -413,21 +440,23 @@ export async function emitManualHold(event: ManualActionBase & { ok: boolean; co
   } as Json);
   try {
     await recordObservabilityEvent({
-      source: "capacity.manual",
-      eventType: event.ok ? "manual.hold.ok" : "manual.hold.fail",
-      severity: event.ok ? "info" : "warning",
+      source: 'capacity.manual',
+      eventType: event.ok ? 'manual.hold.ok' : 'manual.hold.fail',
+      severity: event.ok ? 'info' : 'warning',
       context: payload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
   } catch (error) {
-    manualLog.error("manual hold telemetry failed", { error, bookingId: event.bookingId });
+    manualLog.error('manual hold telemetry failed', { error, bookingId: event.bookingId });
   }
 }
 
-export async function emitManualConfirm(event: ManualActionBase & { ok: boolean; code?: string | null }): Promise<void> {
+export async function emitManualConfirm(
+  event: ManualActionBase & { ok: boolean; code?: string | null },
+): Promise<void> {
   const payload = sanitizeTelemetryContext({
-    type: "capacity.manual.confirm",
+    type: 'capacity.manual.confirm',
     ok: event.ok,
     code: event.code ?? null,
     policyVersion: event.policyVersion ?? null,
@@ -435,15 +464,15 @@ export async function emitManualConfirm(event: ManualActionBase & { ok: boolean;
   } as Json);
   try {
     await recordObservabilityEvent({
-      source: "capacity.manual",
-      eventType: event.ok ? "manual.confirm.ok" : "manual.confirm.fail",
-      severity: event.ok ? "info" : "warning",
+      source: 'capacity.manual',
+      eventType: event.ok ? 'manual.confirm.ok' : 'manual.confirm.fail',
+      severity: event.ok ? 'info' : 'warning',
       context: payload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
   } catch (error) {
-    manualLog.error("manual confirm telemetry failed", { error, bookingId: event.bookingId });
+    manualLog.error('manual confirm telemetry failed', { error, bookingId: event.bookingId });
   }
 }
 
@@ -466,15 +495,19 @@ export async function emitRpcConflict(event: RpcConflictEvent): Promise<void> {
   const sanitizedPayload = sanitizeTelemetryContext(event as Json);
   try {
     await recordObservabilityEvent({
-      source: "capacity.rpc",
-      eventType: "capacity.rpc.conflict",
-      severity: "warning",
+      source: 'capacity.rpc',
+      eventType: 'capacity.rpc.conflict',
+      severity: 'warning',
       context: sanitizedPayload,
       restaurantId: event.restaurantId,
       bookingId: event.bookingId,
     });
   } catch (error) {
-    rpcLog.error("failed to record RPC conflict telemetry", { error, bookingId: event.bookingId, restaurantId: event.restaurantId });
+    rpcLog.error('failed to record RPC conflict telemetry', {
+      error,
+      bookingId: event.bookingId,
+      restaurantId: event.restaurantId,
+    });
   }
 }
 
@@ -485,7 +518,7 @@ export function summarizeCandidate(input: {
   tableCount: number;
   slack?: number;
   score?: number;
-  adjacencyStatus?: "single" | "connected" | "neighbors" | "pairwise" | "disconnected";
+  adjacencyStatus?: 'single' | 'connected' | 'neighbors' | 'pairwise' | 'disconnected';
   scoreBreakdown?: ScoreBreakdown;
 }): CandidateSummary {
   let scoreBreakdown: CandidateScoreBreakdown | undefined;
@@ -503,7 +536,7 @@ export function summarizeCandidate(input: {
 
   return {
     tableIds: input.tableIds,
-    tableNumbers: input.tableNumbers.map((value) => value ?? ""),
+    tableNumbers: input.tableNumbers.map((value) => value ?? ''),
     totalCapacity: input.totalCapacity,
     tableCount: input.tableCount,
     slack: input.slack,

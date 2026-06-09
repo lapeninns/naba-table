@@ -7,7 +7,7 @@ const requireDashboardAccessMock = vi.hoisted(() => vi.fn());
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   isOpsRejectionAnalyticsEnabled: isOpsRejectionAnalyticsEnabledMock,
 }));
 

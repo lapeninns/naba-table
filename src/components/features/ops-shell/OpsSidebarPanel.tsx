@@ -28,14 +28,13 @@ import type { OpsNavigationSection } from './navigation';
 
 export function OpsSidebarPanel() {
   const pathname = usePathname();
-  const { featureFlags, permissions } = useOpsSession();
+  const { permissions } = useOpsSession();
 
   const sections = useMemo<OpsNavigationSection[]>(() => {
     return filterOpsNavigationSections({
-      featureFlags,
       canViewAdminItems: permissions.canManageSettings,
     });
-  }, [featureFlags, permissions.canManageSettings]);
+  }, [permissions.canManageSettings]);
 
   return (
     <Sidebar collapsible="icon">

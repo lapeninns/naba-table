@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 
 import {
   clampToServiceWindow,
@@ -151,7 +150,7 @@ export function useTableTimelineController() {
     filteredTables,
     handleReleaseHold,
     hasActiveRestaurant: Boolean(activeMembership && activeRestaurantId),
-    isRealtimeEnabled: isRealtimeFloorplanEnabled(),
+    isRealtimeEnabled: true,
     now,
     search,
     selectedDate,

@@ -68,14 +68,13 @@ NEXT_PUBLIC_SUPABASE_URL=https://<your-production-project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<production-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<production-service-role-key>
 SUPABASE_READ_REPLICA_URL=https://<your-production-read-replica>.supabase.co
-FEATURE_SERVICE_CLIENT_USE_READ_REPLICA=true
 OPS_ENV_BANNER="Preview: prod read replica"
 ```
 
 Notes:
 
 - `NEXT_PUBLIC_SUPABASE_URL` stays on the primary production project URL so auth, cookies, and browser-facing Supabase flows remain canonical.
-- The server service-role client can read from `SUPABASE_READ_REPLICA_URL`, which makes write-heavy flows much less likely to succeed.
+- The server service-role client reads from `SUPABASE_READ_REPLICA_URL` on non-production targets, which makes write-heavy flows much less likely to succeed.
 - Validate the deployment config before relying on it: `pnpm exec tsx scripts/validate-env.ts`
 - Verify against the deployed Ops app under `/app/**`. Local `/dev/**` harness routes still use in-memory mocks.
 - If you also inject `PRODUCTION_*` marker variables into that same deployment and they equal the runtime values above, `validate-env` will block unless you intentionally choose the explicit override path.

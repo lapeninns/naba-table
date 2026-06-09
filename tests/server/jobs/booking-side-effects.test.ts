@@ -29,7 +29,7 @@ vi.mock('@/server/sms/bookings', () => ({
   sendGuestBookingUpdateSms: sendGuestBookingUpdateSmsMock,
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   isEmailQueueEnabled: vi.fn(() => false),
 }));
 

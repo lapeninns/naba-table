@@ -5,11 +5,11 @@ import { valueForField } from '@/server/dual-sync/publish/orchestrator-domain';
 import { evaluatePublishDecision } from '@/server/dual-sync/publish/orchestrator-prepare-decisions-domain';
 import { buildRegistry, findFieldConfig } from '@/server/dual-sync/registry';
 
-import type { DualSyncRuntimeFlags } from '@/server/dual-sync/flag';
+import type { DualSyncRuntimeControls } from '@/server/dual-sync/runtime-controls';
 import type { DualSyncPublishDecision } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
 
-const runtimeFlags: DualSyncRuntimeFlags = {
+const runtimeControls: DualSyncRuntimeControls = {
   importEnabled: true,
   exportEnabled: true,
   autoCandidatesEnabled: true,
@@ -95,7 +95,7 @@ function evaluate(
     registry,
     coreSnapshot,
     gbpSnapshot,
-    runtimeFlags,
+    runtimeControls,
     actorUserId: 'user-1',
     ...overrides,
   });
@@ -161,10 +161,10 @@ describe('evaluatePublishDecision', () => {
     });
   });
 
-  it('blocks export decisions when runtime flags disable exports', () => {
+  it('blocks export decisions when runtime controls disable exports', () => {
     expect(
       evaluate(makeDecision(), {
-        runtimeFlags: { ...runtimeFlags, exportEnabled: false },
+        runtimeControls: { ...runtimeControls, exportEnabled: false },
       }),
     ).toMatchObject({
       status: 'failed',

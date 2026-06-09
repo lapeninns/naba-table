@@ -1,13 +1,13 @@
 import { AssignTablesRpcError, HoldNotFoundError } from '@/server/capacity/holds';
 import { getVenuePolicy } from '@/server/capacity/policy';
 import { emitRpcConflict } from '@/server/capacity/telemetry';
+import { recordObservabilityEvent } from '@/server/observability';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
   isAllocatorV2Enabled,
   isPolicyRequoteEnabled,
   isManualAssignmentSnapshotValidationEnabled,
-} from '@/server/feature-flags';
-import { recordObservabilityEvent } from '@/server/observability';
-import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+} from '@/server/runtime-policy';
 import { getTenantServiceSupabaseClient } from '@/server/supabase';
 
 import { synchronizeAssignments } from './assignment-sync';
@@ -475,7 +475,7 @@ export async function confirmHoldAssignment(
   // Validation only runs when ALL of the following are true:
   // 1. A snapshot was captured during hold creation (selectionSnapshot exists)
   // 2. Adjacency was required when the hold was created (wasAdjacencyRequired = true)
-  // 3. Snapshot validation is enabled via feature flag (snapshotValidationEnabled = true)
+  // 3. Snapshot validation is part of the table-assignment policy.
   //
   // If adjacency was NOT required during hold creation (manual assignment with requireAdjacency=false),
   // the snapshot will be null and this validation is skipped entirely.

@@ -34,8 +34,6 @@ describe('booking create failure response', () => {
       capture,
       captureException,
       flush: vi.fn(),
-      getFeatureFlagResult: vi.fn(),
-      isFeatureEnabled: vi.fn(),
       shutdown: vi.fn(),
     });
 

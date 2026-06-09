@@ -5,7 +5,7 @@ import {
 } from '@/server/capacity/adjacency';
 import { getSelectorScoringConfig } from '@/server/capacity/policy';
 import { deriveTableRules } from '@/server/capacity/table-rules';
-import { getAllocatorAdjacencyMode, getManualAssignmentMaxSlack } from '@/server/feature-flags';
+import { getAllocatorAdjacencyMode, getManualAssignmentMaxSlack } from '@/server/runtime-policy';
 
 import type {
   ManualAssignmentConflict,

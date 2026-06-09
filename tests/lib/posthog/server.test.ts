@@ -6,8 +6,6 @@ import {
   captureServerException,
   getPosthogServerConfig,
   getPosthogServerClient,
-  getServerFeatureFlag,
-  isServerFeatureEnabled,
   resetPosthogServerClientForTests,
 } from '@/lib/posthog/server';
 
@@ -25,8 +23,6 @@ describe('server PostHog helpers', () => {
     expect(getPosthogServerClient()).toBeNull();
     expect(captureServerEvent('booking_created', { bookingId: 'booking-1' })).toBe(false);
     expect(captureServerException(new Error('boom'))).toBe(false);
-    await expect(isServerFeatureEnabled('reserve-v2', { fallback: true })).resolves.toBe(true);
-    await expect(getServerFeatureFlag('reserve-v2', { fallback: false })).resolves.toBe(false);
   });
 
   it('captures sanitized server events and exceptions when a client is available', () => {
@@ -36,8 +32,6 @@ describe('server PostHog helpers', () => {
       capture,
       captureException,
       flush: vi.fn(),
-      getFeatureFlagResult: vi.fn(),
-      isFeatureEnabled: vi.fn(),
       shutdown: vi.fn(),
     });
 
@@ -78,8 +72,6 @@ describe('server PostHog helpers', () => {
       capture,
       captureException: vi.fn(),
       flush: vi.fn(),
-      getFeatureFlagResult: vi.fn(),
-      isFeatureEnabled: vi.fn(),
       shutdown: vi.fn(),
     });
 
@@ -120,23 +112,5 @@ describe('server PostHog helpers', () => {
         assignedCount: 2,
       },
     });
-  });
-
-  it('returns feature flag fallbacks on evaluation errors', async () => {
-    resetPosthogServerClientForTests({
-      capture: vi.fn(),
-      captureException: vi.fn(),
-      flush: vi.fn(),
-      getFeatureFlagResult: vi.fn().mockRejectedValue(new Error('flag failed')),
-      isFeatureEnabled: vi.fn().mockRejectedValue(new Error('flag failed')),
-      shutdown: vi.fn(),
-    });
-
-    await expect(isServerFeatureEnabled('new-booking-flow', { fallback: true })).resolves.toBe(
-      true,
-    );
-    await expect(getServerFeatureFlag('new-booking-flow', { fallback: false })).resolves.toBe(
-      false,
-    );
   });
 });

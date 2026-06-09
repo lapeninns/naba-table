@@ -25,8 +25,6 @@ export const PUBLIC_ENV_ALLOWLIST = new Set([
   'NEXT_PUBLIC_DEFAULT_RESTAURANT_ID',
   'NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG',
   'NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG_FALLBACK',
-  'NEXT_PUBLIC_FEATURE_MANUAL_SESSION_ENABLED',
-  'NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN',
   'NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN',
   'NEXT_PUBLIC_POSTHOG_HOST',
   'NEXT_PUBLIC_POSTHOG_KEY',
@@ -58,8 +56,6 @@ const baseEnvSchema = z
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
     /** Supabase read-replica API URL (same project keys). Service-role server client only; see supabase/AGENTS.md */
     SUPABASE_READ_REPLICA_URL: z.string().url().optional(),
-    /** When true with SUPABASE_READ_REPLICA_URL, `getServiceSupabaseClient` uses the replica URL (non-production targets only). */
-    FEATURE_SERVICE_CLIENT_USE_READ_REPLICA: booleanStringOptional,
     /** Optional banner text shown at the top of the Ops app (e.g. "Preview: production read replica"). */
     OPS_ENV_BANNER: z.string().max(500).optional(),
     PRODUCTION_SUPABASE_URL: z.string().url().optional(),
@@ -102,54 +98,6 @@ const baseEnvSchema = z
     TURNSTILE_EXPECTED_HOSTNAME: z.string().min(1).optional(),
     AUTH_AUDIT_HASH_SECRET: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
-    FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
-    FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,
-    FEATURE_BOOKING_VALIDATION_UNIFIED: booleanStringOptional,
-    FEATURE_OPS_BOOKING_LIFECYCLE_V2: booleanStringOptional,
-    FEATURE_ALLOCATOR_K_MAX: z.coerce.number().int().min(1).max(5).optional(),
-    // Adjacency requirement is now fixed (connected); mode/min-party flags removed
-    FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK: z.coerce.number().int().min(0).max(12).optional(),
-    FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION: booleanStringOptional,
-    FEATURE_HOLDS_ENABLED: booleanStringOptional,
-    FEATURE_DB_STRICT_CONSTRAINTS: booleanStringOptional,
-    // Holds TTL and rate limiting now fixed constants
-    FEATURE_EDIT_SCHEDULE_PARITY: booleanStringOptional,
-    FEATURE_SELECTOR_SCORING: booleanStringOptional,
-    FEATURE_SELECTOR_LOOKAHEAD: booleanStringOptional,
-    FEATURE_SELECTOR_LOOKAHEAD_WINDOW_MINUTES: z.coerce.number().int().min(5).max(480).optional(),
-    FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100000)
-      .optional(),
-    FEATURE_SELECTOR_LOOKAHEAD_BLOCK_THRESHOLD: z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(100000)
-      .optional(),
-    FEATURE_COMBINATION_PLANNER: booleanStringOptional,
-    FEATURE_PLANNER_TIME_PRUNING_ENABLED: booleanStringOptional,
-    // Adjacency graph is always treated as connected/undirected
-    FEATURE_SELECTOR_MAX_PLANS_PER_SLACK: z.coerce.number().int().min(1).max(500).optional(),
-    FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(5000)
-      .optional(),
-    FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS: z.coerce.number().int().min(50).max(10000).optional(),
-    FEATURE_CONTEXT_QUERY_PADDING_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
-    FEATURE_ADJACENCY_QUERY_UNDIRECTED: booleanStringOptional,
-    FEATURE_OPS_METRICS: booleanStringOptional,
-    FEATURE_OPS_REJECTION_ANALYTICS: booleanStringOptional,
-    FEATURE_EMAIL_QUEUE_ENABLED: booleanStringOptional,
-    FEATURE_POLICY_REQUOTE_ENABLED: booleanStringOptional,
-    // Allocator v2 is the only path; legacy/shadow flags removed
-    FEATURE_ALLOCATOR_SERVICE_FAIL_HARD: booleanStringOptional,
-    NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN: booleanStringOptional,
-    NEXT_PUBLIC_FEATURE_MANUAL_SESSION_ENABLED: booleanStringOptional,
     BOOKING_PAST_TIME_GRACE_MINUTES: z.coerce.number().int().min(0).max(60).optional(),
     GUEST_LOOKUP_PEPPER: z.string().min(1).optional(),
     SESSION_RECOVERY_ACCESS_TOKEN_SECRET: z.string().min(1).optional(),
@@ -190,13 +138,6 @@ const baseEnvSchema = z
     OPS_CHANGES_CACHE_TTL_MS: z.coerce.number().int().min(0).max(600000).optional(),
     OPS_RESTAURANT_META_CACHE_TTL_MS: z.coerce.number().int().min(0).max(3600000).optional(),
     OPS_CACHE_MAX_ENTRIES: z.coerce.number().int().min(1).max(500).optional(),
-    // Auto-assignment feature: run allocator after booking creation and suppress initial pending email
-    FEATURE_AUTO_ASSIGN_ON_BOOKING: booleanStringOptional,
-    FEATURE_AUTO_ASSIGN_MAX_RETRIES: z.coerce.number().int().min(0).max(10).optional(),
-    FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
-    FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
-    // Auto-assign retry policy unified; v2 flag removed
-    FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).optional(),
     DEBUG_CAPACITY_PROFILING: booleanStringOptional,
     STRATEGIC_SCARCITY_WEIGHT: z.coerce.number().min(0).max(1000).optional(),
     STRATEGIC_DEMAND_MULTIPLIER_OVERRIDE: z.coerce.number().min(0).max(10).optional(),

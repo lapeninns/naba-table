@@ -19,7 +19,7 @@
 import { NextResponse } from 'next/server';
 
 import { captureServerException } from '@/lib/posthog/server';
-import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/runtime-controls';
 import { runAutoExportForAllTenants } from '@/server/dual-sync/scheduling/auto-export';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';

@@ -19,7 +19,7 @@ export * from './replay';
 export * from './scheduling';
 export * from './observability';
 export * from './locks';
-export * from './flag';
+export * from './runtime-controls';
 export * from './controls';
 export {
   getDualSyncDbClient,

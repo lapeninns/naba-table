@@ -45,6 +45,12 @@ import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
+  getBookingPastTimeGraceMinutes,
+  isBookingPastTimeBlockingEnabled,
+  isDbStrictConstraintMappingEnabled,
+  isUnifiedBookingValidationEnabled,
+} from '@/server/runtime-policy';
+import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
   getTenantServiceSupabaseClient,
@@ -166,11 +172,17 @@ function toIsoString(value: unknown): string {
   return date.toISOString();
 }
 
-async function loadAuthorizedRestaurantIds(userId: string, client: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>) {
+async function loadAuthorizedRestaurantIds(
+  userId: string,
+  client: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>,
+) {
   const memberships = await fetchUserMemberships(userId, client);
   return memberships
     .map((membership) => membership.restaurant_id)
-    .filter((restaurantId): restaurantId is string => typeof restaurantId === 'string' && restaurantId.length > 0);
+    .filter(
+      (restaurantId): restaurantId is string =>
+        typeof restaurantId === 'string' && restaurantId.length > 0,
+    );
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
@@ -390,7 +402,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     bookingDate !== existingBooking.booking_date || startTime !== existingBooking.start_time;
 
   const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
-  const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
+  const needsScheduleForPastCheck = isBookingPastTimeBlockingEnabled() && isTimeChanged;
 
   let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
   if (needsScheduleForDuration || needsScheduleForPastCheck) {
@@ -527,7 +539,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     timezone: scheduleTimezone,
   });
 
-  const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+  const useUnifiedValidation = isUnifiedBookingValidationEnabled();
 
   if (useUnifiedValidation) {
     const userForContext: AuthenticatedUser = { id: user.id, email: user.email ?? null };
@@ -549,7 +561,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   // Validate past time if feature enabled and time is changing
-  if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
+  if (isTimeChanged && isBookingPastTimeBlockingEnabled()) {
     const allowPastParam = req.nextUrl.searchParams.get('allow_past');
     const allowOverride = allowPastParam === 'true';
 
@@ -573,7 +585,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         ));
 
       assertBookingNotInPast(scheduleForPast.timezone, bookingDate, startTime, {
-        graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+        graceMinutes: getBookingPastTimeGraceMinutes(),
         allowOverride,
         actorRole: userRole,
       });
@@ -759,7 +771,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
     });
 
-    if (env.featureFlags.dbStrictConstraints) {
+    if (isDbStrictConstraintMappingEnabled()) {
       const mapped = mapDbErrorToConstraint(updateError);
       if (mapped) {
         const status =
@@ -846,8 +858,8 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     actorCapabilities,
     tz: schedule.timezone,
     flags: {
-      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
-      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      bookingPastTimeBlocking: isBookingPastTimeBlockingEnabled(),
+      bookingPastTimeGraceMinutes: getBookingPastTimeGraceMinutes(),
       unified: true,
     },
     metadata: {

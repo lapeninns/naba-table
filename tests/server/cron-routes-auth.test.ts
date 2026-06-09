@@ -21,11 +21,11 @@ vi.mock('@/server/security/rate-limit', () => ({
   consumeRateLimit: consumeRateLimitMock,
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   isEmailQueueEnabled: isEmailQueueEnabledMock,
 }));
 
-vi.mock('@/server/dual-sync/flag', () => ({
+vi.mock('@/server/dual-sync/runtime-controls', () => ({
   isDualSyncAutoCandidatesEnabled: isDualSyncAutoCandidatesEnabledMock,
   isDualSyncScheduledRefreshEnabled: isDualSyncScheduledRefreshEnabledMock,
 }));
@@ -407,7 +407,7 @@ describe('cron route authentication', () => {
     });
   });
 
-  it('lets rollout flags disable scheduled refresh and auto-candidate export crons', async () => {
+  it('lets runtime controls disable scheduled refresh and auto-candidate export crons', async () => {
     isDualSyncScheduledRefreshEnabledMock.mockReturnValue(false);
     isDualSyncAutoCandidatesEnabledMock.mockReturnValue(false);
 

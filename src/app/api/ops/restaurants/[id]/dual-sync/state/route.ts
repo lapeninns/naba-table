@@ -28,8 +28,8 @@ import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/
 import { getDualSyncRestaurantControl } from '@/server/dual-sync/controls';
 import {
   getDualSyncDecisionDisabledReason,
-  getDualSyncRuntimeFlags,
-} from '@/server/dual-sync/flag';
+  getDualSyncRuntimeControls,
+} from '@/server/dual-sync/runtime-controls';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { listOpenOutboundCandidates } from '@/server/dual-sync/outbound/candidates';
 import { buildRegistry, resolveFieldCapability } from '@/server/dual-sync/registry';
@@ -64,7 +64,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       gbpSnapshot,
       includeCoreOnly: true,
     });
-    const runtimeFlags = getDualSyncRuntimeFlags({ restaurantId });
+    const runtimeControls = getDualSyncRuntimeControls({ restaurantId });
 
     const [fieldStates, openCandidates, latestSnapshotRun] = await Promise.all([
       listFieldStates({ client, restaurantId }),
@@ -102,7 +102,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
           riskLevel: config.policy.riskLevel,
           requiresManualReview: config.policy.requiresManualReview,
         },
-        runtimeFlags,
+        runtimeControls,
       );
       const exportDisabledReason = getDualSyncDecisionDisabledReason(
         {
@@ -111,7 +111,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
           riskLevel: config.policy.riskLevel,
           requiresManualReview: config.policy.requiresManualReview,
         },
-        runtimeFlags,
+        runtimeControls,
       );
       const capability = {
         ...baseCapability,
@@ -173,8 +173,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
         const config = configByKey.get(candidate.fieldKey);
         return Boolean(
           candidate.baselineGbpHash &&
-          runtimeFlags.autoCandidatesEnabled &&
-          runtimeFlags.exportEnabled &&
+          runtimeControls.autoCandidatesEnabled &&
+          runtimeControls.exportEnabled &&
           config?.policy.exportable &&
           !config.policy.requiresManualReview &&
           config.policy.googleWriteGroup,

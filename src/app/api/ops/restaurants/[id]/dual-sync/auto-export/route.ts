@@ -29,7 +29,7 @@ import {
   assertDualSyncRestaurantNotPaused,
   isDualSyncRestaurantPausedError,
 } from '@/server/dual-sync/controls';
-import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/runtime-controls';
 import { isDualSyncLockError } from '@/server/dual-sync/locks';
 import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
 import { runAutoExportForRestaurant } from '@/server/dual-sync/scheduling/auto-export';

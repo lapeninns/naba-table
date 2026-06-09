@@ -14,7 +14,7 @@ import { NextResponse } from 'next/server';
 import { captureServerException } from '@/lib/posthog/server';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
-import { isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/runtime-controls';
 import { runScheduledRefreshForAllTenants } from '@/server/dual-sync/scheduling';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';

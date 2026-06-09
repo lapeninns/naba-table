@@ -11,7 +11,7 @@ import {
   type ServiceKey,
   type VenuePolicy,
 } from '@/server/capacity/policy';
-import { isAllocatorServiceFailHard } from '@/server/feature-flags';
+import { isAllocatorServiceFailHard } from '@/server/runtime-policy';
 
 import { ManualSelectionInputError, type BookingWindow } from './types';
 

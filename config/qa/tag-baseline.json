@@ -1651,7 +1651,7 @@
       "untagged": 4
     },
     {
-      "file": "tests/server/dual-sync-flags.test.ts",
+      "file": "tests/server/dual-sync-runtime-controls.test.ts",
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3

@@ -12,8 +12,8 @@ import type {
   DualSyncPublishPlan,
   DualSyncRunPublishInput,
 } from './types';
-import type { DualSyncRuntimeFlags } from '../flag';
 import type { buildRegistry } from '../registry';
+import type { DualSyncRuntimeControls } from '../runtime-controls';
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 import type { DualSyncPublishBatch, DualSyncPublishOperationGroup } from '../types';
 import type { DualSyncExportPreflightPort } from './preflight';
@@ -38,7 +38,7 @@ interface RunPublishExecutionPhaseInput {
   readonly coreSnapshot: DualSyncCanonicalSnapshot;
   readonly gbpSnapshot: DualSyncCanonicalSnapshot;
   readonly registry: ReturnType<typeof buildRegistry>;
-  readonly runtimeFlags: DualSyncRuntimeFlags;
+  readonly runtimeControls: DualSyncRuntimeControls;
   readonly ports: DualSyncOrchestratorPorts;
   readonly exportPreflight: DualSyncExportPreflightPort;
   readonly googleEditThrottle?: DualSyncGoogleEditThrottle;
@@ -79,7 +79,7 @@ export async function runPublishExecutionPhase(input: RunPublishExecutionPhaseIn
     gbpSnapshot: input.gbpSnapshot,
     preflightFailures,
     operationGroupIdByKey: input.operationGroupIdByKey,
-    runtimeFlags: input.runtimeFlags,
+    runtimeControls: input.runtimeControls,
     actorUserId: input.input.actorUserId,
   });
 

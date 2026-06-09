@@ -333,7 +333,7 @@ describe('buildPublishPlan', () => {
     expect(plan.rejected).toEqual([]);
   });
 
-  it('rejects decisions disabled by production rollback flags before grouping', async () => {
+  it('rejects decisions disabled by production rollback controls before grouping', async () => {
     process.env.GBP_EXPORT_ENABLED = 'false';
 
     const plan = await buildPlan([

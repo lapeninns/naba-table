@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { captureServerException } from '@/lib/posthog/server';
-import { isEmailQueueEnabled } from '@/server/feature-flags';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { recordObservabilityEvent } from '@/server/observability';
 import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
 import {
@@ -9,10 +9,7 @@ import {
   type EmailJobType,
   triggerEmailQueueDrain,
 } from '@/server/queue/email';
-import {
-  processEmailJobs,
-  processEmailJobsRequestSchema,
-} from '@/server/queue/email-processing';
+import { processEmailJobs, processEmailJobsRequestSchema } from '@/server/queue/email-processing';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
@@ -24,7 +21,10 @@ const MAX_EMAIL_DRAIN_JOBS = 100;
 const MAX_EMAIL_POST_JOBS = 25;
 const ALLOWED_TYPES: ReadonlySet<EmailJobType> = new Set(EMAIL_JOB_TYPE_VALUES);
 
-function parseTypeFilter(typesParam: string | null): { types: Set<EmailJobType> | null; error?: string } {
+function parseTypeFilter(typesParam: string | null): {
+  types: Set<EmailJobType> | null;
+  error?: string;
+} {
   if (!typesParam) {
     return { types: null };
   }
@@ -207,10 +207,13 @@ export async function POST(request: Request) {
       captureServerException(error, {
         properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Cron email processing failed.',
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Cron email processing failed.',
+        },
+        { status: 500 },
+      );
     }
   });
 }

@@ -33,7 +33,7 @@ vi.mock('@/server/dual-sync/publish/orchestrator-finalize', () => ({
 
 import { runPublishExecutionPhase } from '@/server/dual-sync/publish/orchestrator-execution-phase';
 
-import type { DualSyncRuntimeFlags } from '@/server/dual-sync/flag';
+import type { DualSyncRuntimeControls } from '@/server/dual-sync/runtime-controls';
 import type { PreparedPublishDecision } from '@/server/dual-sync/publish/orchestrator-prepare-decisions';
 import type { DualSyncOrchestratorPorts } from '@/server/dual-sync/publish/ports';
 import type {
@@ -56,7 +56,7 @@ const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
 const registry = [
   { fieldKey: 'profile.businessDescription' },
 ] as unknown as ReadonlyArray<DualSyncFieldConfig>;
-const runtimeFlags: DualSyncRuntimeFlags = {
+const runtimeControls: DualSyncRuntimeControls = {
   importEnabled: true,
   exportEnabled: true,
   autoCandidatesEnabled: true,
@@ -277,7 +277,7 @@ function input(overrides: Partial<Parameters<typeof runPublishExecutionPhase>[0]
     coreSnapshot,
     gbpSnapshot,
     registry,
-    runtimeFlags,
+    runtimeControls,
     ports,
     exportPreflight: vi.fn(),
     googleEditThrottle: { reserve: vi.fn() },
@@ -398,7 +398,7 @@ describe('runPublishExecutionPhase', () => {
       gbpSnapshot: phaseInput.gbpSnapshot,
       preflightFailures: expect.any(Map),
       operationGroupIdByKey: phaseInput.operationGroupIdByKey,
-      runtimeFlags,
+      runtimeControls,
       actorUserId: 'user-1',
     });
     expect(runBatchExportPortsMock).toHaveBeenCalledWith(
