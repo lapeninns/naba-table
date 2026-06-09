@@ -103,23 +103,16 @@ const baseEnvSchema = z
     AUTH_AUDIT_HASH_SECRET: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
     FEATURE_GUEST_LOOKUP_POLICY: booleanStringOptional,
-    FEATURE_OPS_GUARD_V2: booleanStringOptional,
     FEATURE_BOOKING_PAST_TIME_BLOCKING: booleanStringOptional,
     FEATURE_BOOKING_VALIDATION_UNIFIED: booleanStringOptional,
     FEATURE_OPS_BOOKING_LIFECYCLE_V2: booleanStringOptional,
-    FEATURE_ALLOCATIONS_DUAL_WRITE: booleanStringOptional,
-    FEATURE_ALLOCATOR_MERGES_ENABLED: booleanStringOptional,
-    FEATURE_ALLOCATOR_REQUIRE_ADJACENCY: booleanStringOptional,
     FEATURE_ALLOCATOR_K_MAX: z.coerce.number().int().min(1).max(5).optional(),
     // Adjacency requirement is now fixed (connected); mode/min-party flags removed
     FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK: z.coerce.number().int().min(0).max(12).optional(),
-    FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED: booleanStringOptional,
     FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION: booleanStringOptional,
     FEATURE_HOLDS_ENABLED: booleanStringOptional,
-    FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED: booleanStringOptional,
     FEATURE_DB_STRICT_CONSTRAINTS: booleanStringOptional,
     // Holds TTL and rate limiting now fixed constants
-    FEATURE_STATUS_TRIGGERS: booleanStringOptional,
     FEATURE_EDIT_SCHEDULE_PARITY: booleanStringOptional,
     FEATURE_SELECTOR_SCORING: booleanStringOptional,
     FEATURE_SELECTOR_LOOKAHEAD: booleanStringOptional,
@@ -148,7 +141,6 @@ const baseEnvSchema = z
       .optional(),
     FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS: z.coerce.number().int().min(50).max(10000).optional(),
     FEATURE_CONTEXT_QUERY_PADDING_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
-    FEATURE_ADJACENCY_VALIDATION: booleanStringOptional,
     FEATURE_ADJACENCY_QUERY_UNDIRECTED: booleanStringOptional,
     FEATURE_OPS_METRICS: booleanStringOptional,
     FEATURE_OPS_REJECTION_ANALYTICS: booleanStringOptional,
@@ -203,12 +195,6 @@ const baseEnvSchema = z
     FEATURE_AUTO_ASSIGN_MAX_RETRIES: z.coerce.number().int().min(0).max(10).optional(),
     FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS: z.string().optional(),
     FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES: z.coerce.number().int().min(0).max(240).optional(),
-    FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES: z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(120)
-      .optional(),
     // Auto-assign retry policy unified; v2 flag removed
     FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).optional(),
     DEBUG_CAPACITY_PROFILING: booleanStringOptional,

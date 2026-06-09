@@ -8,6 +8,11 @@ vi.mock('@/server/dual-sync/controls', () => ({
 
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { buildPublishPlan } from '@/server/dual-sync/publish/planner';
+import { computeReplayDecisionPins } from '@/server/dual-sync/replay/runner';
+import {
+  createReplaySnapshot,
+  FOOD_MENU_TIKKA_FIELD_KEY,
+} from '@/server/dual-sync/replay/fixtures';
 
 import type { DualSyncPublishDecision } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
@@ -356,5 +361,49 @@ describe('buildPublishPlan', () => {
       direction: 'import_from_google',
       writeGroup: 'core.profile',
     });
+  });
+
+  it('rejects FoodMenus decisions when menu sync is disabled before grouping', async () => {
+    process.env.GBP_MENU_SYNC_ENABLED = 'false';
+    const coreSnapshot = createReplaySnapshot();
+    const gbpSnapshot = createReplaySnapshot();
+
+    const plan = await buildPublishPlan(
+      client,
+      {
+        restaurantId: RESTAURANT_ID,
+        decisions: [
+          {
+            fieldKey: FOOD_MENU_TIKKA_FIELD_KEY,
+            sectionKey: 'foodMenus',
+            action: 'export_to_google',
+            ...computeReplayDecisionPins({
+              coreSnapshot,
+              gbpSnapshot,
+              fieldKey: FOOD_MENU_TIKKA_FIELD_KEY,
+            }),
+          },
+        ],
+        actorUserId: 'user-1',
+        pinnedCoreSnapshotHash: hashCanonicalJson(coreSnapshot),
+        pinnedGbpSnapshotHash: hashCanonicalJson(gbpSnapshot),
+      },
+      {
+        readCoreSnapshot: vi.fn(async () => coreSnapshot),
+        readGbpSnapshot: vi.fn(async () => gbpSnapshot),
+      },
+    );
+
+    expect(plan.acceptedCount).toBe(0);
+    expect(plan.groups).toEqual([]);
+    expect(plan.rejected).toEqual([
+      expect.objectContaining({
+        fieldKey: FOOD_MENU_TIKKA_FIELD_KEY,
+        failure: expect.objectContaining({
+          code: 'UNSUPPORTED_FIELD',
+          message: 'Food menu sync is disabled for this deployment.',
+        }),
+      }),
+    ]);
   });
 });

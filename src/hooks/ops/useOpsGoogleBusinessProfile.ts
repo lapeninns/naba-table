@@ -18,6 +18,7 @@ import type {
   GoogleBusinessProfileAuthorizationStart,
   GoogleBusinessProfileAvailableLocation,
   GoogleBusinessProfileConnection,
+  GoogleBusinessProfileProtectedActionPayload,
   LinkGoogleBusinessProfileLocationInput,
 } from '@/services/ops/restaurants';
 
@@ -108,16 +109,24 @@ export function useOpsLinkGoogleBusinessProfileLocation(
 
 export function useOpsDisconnectGoogleBusinessProfile(
   restaurantId?: string | null,
-): UseMutationResult<GoogleBusinessProfileConnection, HttpError | Error, void> {
+): UseMutationResult<
+  GoogleBusinessProfileConnection,
+  HttpError | Error,
+  GoogleBusinessProfileProtectedActionPayload
+> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
 
-  return useMutation<GoogleBusinessProfileConnection, HttpError | Error, void>({
-    mutationFn: () => {
+  return useMutation<
+    GoogleBusinessProfileConnection,
+    HttpError | Error,
+    GoogleBusinessProfileProtectedActionPayload
+  >({
+    mutationFn: (payload) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.disconnectGoogleBusinessProfileConnection(restaurantId);
+      return restaurantService.disconnectGoogleBusinessProfileConnection(restaurantId, payload);
     },
     onSuccess: (state) => {
       if (!restaurantId) return;

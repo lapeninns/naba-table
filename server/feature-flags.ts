@@ -25,10 +25,6 @@ function resolveFeatureFlag(flag: FeatureFlagKey, fallback: boolean): boolean {
   return fallback;
 }
 
-export function isAllocationsDualWriteEnabled(): boolean {
-  return env.featureFlags.allocationsDualWrite ?? false;
-}
-
 export function isSelectorScoringEnabled(): boolean {
   return env.featureFlags.selectorScoring ?? false;
 }
@@ -60,10 +56,6 @@ export function isCombinationPlannerEnabled(): boolean {
   return env.featureFlags.combinationPlanner ?? false;
 }
 
-export function isAdjacencyValidationEnabled(): boolean {
-  return env.featureFlags.adjacencyValidation ?? false;
-}
-
 export function isOpsMetricsEnabled(): boolean {
   return env.featureFlags.opsMetrics ?? false;
 }
@@ -74,10 +66,6 @@ export function isOpsRejectionAnalyticsEnabled(): boolean {
 
 export function isHoldsEnabled(): boolean {
   return env.featureFlags.holds.enabled ?? true;
-}
-
-export function isAllocatorMergesEnabled(): boolean {
-  return env.featureFlags.allocator.mergesEnabled ?? !isProductionEnv();
 }
 
 export function isPlannerTimePruningEnabled(): boolean {
@@ -131,10 +119,6 @@ export function getAllocatorAdjacencyMode(): AdjacencyMode {
 export function getManualAssignmentMaxSlack(): number | null {
   const value = env.featureFlags.manualAssignments?.maxSlack;
   return typeof value === 'number' ? value : null;
-}
-
-export function isManualAssignmentSessionEnabled(): boolean {
-  return env.featureFlags.manualAssignments?.sessionEnabled ?? false;
 }
 
 export function isManualAssignmentSnapshotValidationEnabled(): boolean {
@@ -249,22 +233,7 @@ export function getAutoAssignRetryDelaysMs(): number[] {
 }
 
 function validateFeatureFlagSafety(): void {
-  const { holds, allocator, selectorLookahead } = env.featureFlags;
-
-  if ((holds?.enabled ?? true) && !(holds?.strictConflicts ?? false)) {
-    warnUnsafeFeatureFlag('holds.strictConflicts disabled while holds.enabled=true', {
-      environment: env.node.env,
-      strictConflicts: holds?.strictConflicts ?? null,
-    });
-  }
-
-  if ((allocator?.mergesEnabled ?? false) && allocator?.requireAdjacency === false) {
-    warnUnsafeFeatureFlag('allocator merges enabled while adjacency requirement disabled', {
-      environment: env.node.env,
-      mergesEnabled: allocator?.mergesEnabled ?? null,
-      requireAdjacency: allocator?.requireAdjacency ?? null,
-    });
-  }
+  const { selectorLookahead } = env.featureFlags;
 
   if (selectorLookahead?.enabled && (selectorLookahead?.penaltyWeight ?? 0) === 0) {
     warnUnsafeFeatureFlag('selectorLookahead enabled but penaltyWeight equals 0', {
@@ -278,12 +247,4 @@ validateFeatureFlagSafety();
 
 export function getAutoAssignStartCutoffMinutes(): number {
   return env.featureFlags.autoAssign?.startCutoffMinutes ?? 10;
-}
-
-export function getAutoAssignCreatedEmailDeferMinutes(): number {
-  return env.featureFlags.autoAssign?.createdEmailDeferMinutes ?? 0;
-}
-
-export function isAutoAssignRetryPolicyV2Enabled(): boolean {
-  return false;
 }

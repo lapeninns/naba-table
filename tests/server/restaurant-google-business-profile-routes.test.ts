@@ -155,6 +155,84 @@ describe('restaurant google business profile routes', () => {
     );
 
     expect(response.status).toBe(401);
+    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+    expect(getConnectionStateMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-tenant location linking before service calls', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue(
+      NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
+    );
+
+    const response = await connectionPUT(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile', {
+        method: 'PUT',
+        body: 'not-json',
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(linkLocationMock).not.toHaveBeenCalled();
+    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-tenant manual sync before password or provider calls', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue(
+      NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
+    );
+
+    const response = await connectionPOST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile', {
+        method: 'POST',
+        body: 'not-json',
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+    expect(syncBusinessInfoMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-tenant disconnect before password or unlink calls', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue(
+      NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
+    );
+
+    const response = await connectionDELETE(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile', {
+        method: 'DELETE',
+        body: 'not-json',
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(disconnectConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-tenant OAuth start before creating state', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue(
+      NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
+    );
+
+    const response = await connectPOST(
+      new NextRequest(
+        'https://example.com/api/ops/restaurants/rest-1/google-business-profile/connect',
+        { method: 'POST' },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(createAuthorizationUrlMock).not.toHaveBeenCalled();
   });
 
   it('rejects invalid payloads for location linking', async () => {
@@ -195,7 +273,10 @@ describe('restaurant google business profile routes', () => {
 
   it('returns the updated connection state after disconnecting', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
-    ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
+    ensureRestaurantAdminAccessMock.mockResolvedValue({
+      userId: 'user-1',
+      userEmail: 'owner@example.com',
+    });
     disconnectConnectionMock.mockResolvedValue({
       isConfigured: true,
       provider: 'google_business_profile',
@@ -259,6 +340,7 @@ describe('restaurant google business profile routes', () => {
     const response = await connectionDELETE(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile', {
         method: 'DELETE',
+        body: JSON.stringify({ password: 'secret-password' }),
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
@@ -266,7 +348,55 @@ describe('restaurant google business profile routes', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.status).toBe('unlinked');
+    expect(verifyUserPasswordConfirmationMock).toHaveBeenCalledWith({
+      email: 'owner@example.com',
+      password: 'secret-password',
+    });
     expect(disconnectConnectionMock).toHaveBeenCalledWith('rest-1');
+  });
+
+  it('requires password confirmation before disconnecting', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({
+      userId: 'user-1',
+      userEmail: 'owner@example.com',
+    });
+
+    const response = await connectionDELETE(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile', {
+        method: 'DELETE',
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(disconnectConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it('does not disconnect when password confirmation fails', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({
+      userId: 'user-1',
+      userEmail: 'owner@example.com',
+    });
+    verifyUserPasswordConfirmationMock.mockRejectedValue(
+      new PasswordConfirmationErrorMock(
+        'Incorrect password. Confirm the change with your login password and try again.',
+      ),
+    );
+
+    const response = await connectionDELETE(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile', {
+        method: 'DELETE',
+        body: JSON.stringify({ password: 'wrong-password' }),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(disconnectConnectionMock).not.toHaveBeenCalled();
   });
 
   it('returns refreshed business info after syncing', async () => {

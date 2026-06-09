@@ -135,12 +135,13 @@ describe('dual-sync publish preview route', () => {
     const response = await POST(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish/preview', {
         method: 'POST',
-        body: JSON.stringify({ decisions: [] }),
+        body: 'not-json',
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
     expect(response.status).toBe(403);
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
     expect(buildPublishPlanMock).not.toHaveBeenCalled();
   });
 

@@ -219,6 +219,33 @@ describe('google business profile service authorization flow', () => {
     );
   });
 
+  it('rejects invalid OAuth state records before membership or consumption side effects', async () => {
+    readOAuthStateByTokenMock
+      .mockResolvedValueOnce(oauthState({ consumed_at: '2026-05-21T21:00:00.000Z' }))
+      .mockResolvedValueOnce(oauthState({ expires_at: '2026-05-21T21:59:59.000Z' }))
+      .mockResolvedValueOnce(oauthState({ requested_by_user_id: 'user-2' }))
+      .mockResolvedValueOnce(oauthState({ restaurant_id: 'rest-2' }));
+
+    for (let index = 0; index < 4; index += 1) {
+      await expect(
+        consumeOAuthStateRecord(
+          {
+            stateToken: `state-token-${index}`,
+            requestedByUserId: 'user-1',
+            expectedRestaurantId: 'rest-1',
+            consumedAt: '2026-05-21T22:00:00.000Z',
+          },
+          {} as never,
+        ),
+      ).rejects.toMatchObject({
+        status: expect.any(Number),
+      });
+    }
+
+    expect(requireAdminMembershipMock).not.toHaveBeenCalled();
+    expect(markOAuthStateConsumedMock).not.toHaveBeenCalled();
+  });
+
   it('maps membership access errors to stable Google Business Profile errors', async () => {
     readOAuthStateByTokenMock.mockResolvedValue(oauthState());
     requireAdminMembershipMock.mockRejectedValue(

@@ -264,11 +264,7 @@ Restaurants can override turn bands per booking option using `restaurant_turn_ba
 2. **`pairwise`**: Each pair of tables must be adjacent
 3. **`neighbors`**: Tables must be direct neighbors
 
-**Minimum party size for adjacency requirement**:
-
-- **Configurable**: `FEATURE_ALLOCATOR_ADJACENCY_MIN_PARTY_SIZE`
-- **Default**: `null` (always required for merged tables)
-- **Range**: 1-20
+**Minimum party size for adjacency requirement**: not configurable; adjacency is always required for merged tables.
 
 **Source**: `lib/env.ts:152-157`
 
@@ -397,24 +393,20 @@ Each check returns:
 
 ### Core Capacity Features
 
-| Flag                                   | Default       | Description                                 |
-| -------------------------------------- | ------------- | ------------------------------------------- |
-| `FEATURE_COMBINATION_PLANNER`          | `true`        | Enable table combinations for large parties |
-| `FEATURE_ALLOCATOR_MERGES_ENABLED`     | `!production` | Enable table merging in allocator           |
-| `FEATURE_ALLOCATOR_K_MAX`              | `3`           | Max tables per booking (1-5)                |
-| `FEATURE_SELECTOR_SCORING`             | `true`        | Enable scoring-based table selection        |
-| `FEATURE_SELECTOR_LOOKAHEAD`           | `true`        | Consider future bookings when assigning     |
-| `FEATURE_PLANNER_TIME_PRUNING_ENABLED` | `true`        | Pre-filter tables by time availability      |
+| Flag                                   | Default | Description                                 |
+| -------------------------------------- | ------- | ------------------------------------------- |
+| `FEATURE_COMBINATION_PLANNER`          | `true`  | Enable table combinations for large parties |
+| `FEATURE_ALLOCATOR_K_MAX`              | `3`     | Max tables per booking (1-5)                |
+| `FEATURE_SELECTOR_SCORING`             | `true`  | Enable scoring-based table selection        |
+| `FEATURE_SELECTOR_LOOKAHEAD`           | `true`  | Consider future bookings when assigning     |
+| `FEATURE_PLANNER_TIME_PRUNING_ENABLED` | `true`  | Pre-filter tables by time availability      |
 
 ### Assignment Features
 
-| Flag                                            | Default | Description                            |
-| ----------------------------------------------- | ------- | -------------------------------------- |
-| `FEATURE_ALLOCATOR_ADJACENCY`                   | `true`  | Require adjacent tables for merges     |
-| `FEATURE_ADJACENCY_VALIDATION`                  | `false` | Validate adjacency in manual selection |
-| `FEATURE_ADJACENCY_QUERY_UNDIRECTED`            | `true`  | Treat adjacency as bidirectional       |
-| `FEATURE_MANUAL_ASSIGNMENT_SESSION`             | `false` | Enable session-based manual assignment |
-| `FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION` | `true`  | Validate assignment against snapshot   |
+| Flag                                            | Default | Description                          |
+| ----------------------------------------------- | ------- | ------------------------------------ |
+| `FEATURE_ADJACENCY_QUERY_UNDIRECTED`            | `true`  | Treat adjacency as bidirectional     |
+| `FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION` | `true`  | Validate assignment against snapshot |
 
 ### Booking Lifecycle
 
@@ -423,7 +415,6 @@ Each check returns:
 | `FEATURE_BOOKING_PAST_TIME_BLOCKING` | `false` | Block bookings in the past             |
 | `FEATURE_OPS_BOOKING_LIFECYCLE_V2`   | `false` | Use V2 lifecycle management            |
 | `FEATURE_AUTO_ASSIGN_ON_BOOKING`     | `true`  | Auto-assign tables on booking creation |
-| `AUTO_ASSIGN_RETRY_POLICY_V2`        | `false` | Use V2 retry policy                    |
 
 ### Optimization Features
 

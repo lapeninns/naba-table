@@ -403,6 +403,7 @@ describe('GoogleBusinessProfileSection', () => {
     await user.click(screen.getByRole('button', { name: /disconnect/i }));
 
     expect(screen.getByText(/disconnect google business profile\?/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/confirm with your password/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));
 
@@ -410,7 +411,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.queryByText(/disconnect google business profile\?/i)).not.toBeInTheDocument();
   });
 
-  it('confirms disconnect through the existing mutation', async () => {
+  it('confirms disconnect with password through the existing mutation', async () => {
     const user = userEvent.setup();
     connectionResult.data = buildConnection({
       status: 'linked',
@@ -424,9 +425,18 @@ describe('GoogleBusinessProfileSection', () => {
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     await user.click(screen.getByRole('button', { name: /disconnect/i }));
+    expect(screen.getAllByRole('button', { name: /^disconnect$/i }).at(-1)).toBeDisabled();
+    await user.type(screen.getByLabelText(/confirm with your password/i), 'secret-password');
     await user.click(screen.getAllByRole('button', { name: /^disconnect$/i }).at(-1)!);
 
     expect(disconnectMutation.mutate).toHaveBeenCalledTimes(1);
+    expect(disconnectMutation.mutate).toHaveBeenCalledWith(
+      { password: 'secret-password' },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      }),
+    );
   });
 
   it('disables disconnect dialog controls while the mutation is pending', async () => {

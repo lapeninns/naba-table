@@ -205,8 +205,7 @@ export const env = {
     const parsed = parseEnv();
     const isProduction = parsed.NODE_ENV === 'production';
     const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
-    const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
-    const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
+    const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? !isProduction;
     const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
     const plannerCacheTtlMs = 60_000;
     const adjacencyMinPartySize = null;
@@ -215,8 +214,6 @@ export const env = {
       typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === 'number'
         ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
         : null;
-    const manualAssignmentSessionEnabled =
-      parsed.FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED ?? false;
     const manualAssignmentSnapshotValidation =
       parsed.FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION !== false;
     const selectorMaxPlansPerSlack =
@@ -236,7 +233,6 @@ export const env = {
     const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
     return {
       guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
-      opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
       bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
       bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
       pendingSelfServeGraceMinutes: Math.max(
@@ -245,8 +241,6 @@ export const env = {
       ),
       bookingValidationUnified: parsed.FEATURE_BOOKING_VALIDATION_UNIFIED ?? false,
       bookingLifecycleV2: parsed.FEATURE_OPS_BOOKING_LIFECYCLE_V2 ?? false,
-      allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
-      statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
       editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
       selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
       selectorLookahead: {
@@ -265,7 +259,6 @@ export const env = {
         ),
       },
       combinationPlanner: combinationPlannerDefault,
-      adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
       opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
       opsRejectionAnalytics: parsed.FEATURE_OPS_REJECTION_ANALYTICS ?? false,
       realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? true,
@@ -276,8 +269,6 @@ export const env = {
         debugProfiling: parsed.DEBUG_CAPACITY_PROFILING ?? false,
       },
       allocator: {
-        mergesEnabled: allocatorMergesDefault,
-        requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
         kMax: allocatorKMax,
         adjacencyMinPartySize,
         adjacencyMode,
@@ -287,7 +278,6 @@ export const env = {
       },
       manualAssignments: {
         maxSlack: manualAssignmentMaxSlack,
-        sessionEnabled: manualAssignmentSessionEnabled,
         snapshotValidation: manualAssignmentSnapshotValidation,
       },
       selector: {
@@ -328,10 +318,6 @@ export const env = {
         startCutoffMinutes: Math.max(
           0,
           Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240),
-        ),
-        createdEmailDeferMinutes: Math.max(
-          0,
-          Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120),
         ),
       },
       emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,

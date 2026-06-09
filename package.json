@@ -124,7 +124,6 @@
     "sms:delivery:smoke:staging": "tsx -r tsconfig-paths/register scripts/sms-delivery-staging-smoke.ts --target staging",
     "sms:delivery:smoke:staging:preview": "tsx -r tsconfig-paths/register scripts/sms-delivery-staging-smoke.ts --target staging --callback-base-url https://nabatable-git-codex-menu-lapen-inns-projects.vercel.app",
     "sms:delivery:smoke:staging:preview:env-run": "tsx -r tsconfig-paths/register scripts/vercel-preview-env-run.ts --branch codex/Menu -- pnpm exec tsx -r tsconfig-paths/register scripts/sms-delivery-staging-smoke.ts --target staging --callback-base-url https://nabatable-git-codex-menu-lapen-inns-projects.vercel.app --skip-pulled-env-files --skip-local-env-files --require-preview-audit",
-    "flags:audit": "tsx scripts/feature-flags/audit.ts",
     "email:check": "tsx scripts/email/check-resend-status.ts",
     "email:preview": "tsx -r tsconfig-paths/register scripts/preview-booking-email.ts",
     "email:setup:notifications-domain": "tsx scripts/email/setup-notifications-domain.ts",

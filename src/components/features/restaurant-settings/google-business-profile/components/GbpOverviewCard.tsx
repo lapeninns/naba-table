@@ -135,6 +135,7 @@ export function GbpOverviewCard({
                   type="button"
                   variant="outline"
                   size="sm"
+                  data-testid="gbp-disconnect-button"
                   onClick={onRequestDisconnect}
                   disabled={isDisconnecting}
                 >
