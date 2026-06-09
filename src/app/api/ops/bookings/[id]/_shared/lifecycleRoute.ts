@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { isBookingLifecycleAllowedToday } from '@/server/ops/booking-lifecycle/availability';
 import { applyBookingStateTransition } from '@/server/ops/booking-lifecycle/persistence';
@@ -238,6 +239,10 @@ export async function persistLifecycleTransition(input: {
       `[ops][${logLabel}] failed to persist transition`,
       transitionError instanceof Error ? transitionError.message : transitionError,
     );
+    captureServerException(transitionError, {
+      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
+      properties: { bookingId: booking.id, source: 'ops', kind: logLabel },
+    });
     return {
       response: NextResponse.json({ error: failureMessage }, { status: 500 }),
     };

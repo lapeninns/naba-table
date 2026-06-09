@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { isEmailQueueEnabled } from '@/server/feature-flags';
 import { recordObservabilityEvent } from '@/server/observability';
 import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
@@ -13,6 +14,7 @@ import {
   processEmailJobsRequestSchema,
 } from '@/server/queue/email-processing';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -53,6 +55,7 @@ function clampLimit(value: number | null, max: number): number | null {
 }
 
 export async function GET(request: Request) {
+  await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     const url = new URL(request.url);
     const { types: allowedTypes, error: typesError } = parseTypeFilter(
@@ -129,6 +132,9 @@ export async function GET(request: Request) {
         runId: auth.runId,
         error,
       });
+      captureServerException(error, {
+        properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
+      });
       return NextResponse.json(
         {
           success: false,
@@ -141,6 +147,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, `${JOB_NAME}:post`, async (auth) => {
     try {
       const raw = (await request.json()) as unknown;
@@ -196,6 +203,9 @@ export async function POST(request: Request) {
         jobName: auth.jobName,
         runId: auth.runId,
         error,
+      });
+      captureServerException(error, {
+        properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });
       return NextResponse.json({
         success: false,

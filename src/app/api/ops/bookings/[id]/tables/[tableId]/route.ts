@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getBookingTableAssignments, unassignTableFromBooking } from '@/server/capacity';
@@ -99,6 +100,16 @@ async function deleteBookingTableAssignment(_request: NextRequest, context: Rout
     tableAssignments = await getBookingTableAssignments(bookingId, serviceClient);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load table assignments';
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: booking.restaurant_id },
+      properties: {
+        bookingId,
+        restaurantId: booking.restaurant_id,
+        source: 'ops',
+        kind: 'ops-booking-table',
+      },
+    });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 

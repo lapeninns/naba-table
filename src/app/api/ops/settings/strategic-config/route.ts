@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getStrategicConfigSnapshot } from '@/server/capacity/strategic-config';
@@ -97,6 +98,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (settingsError) {
     console.error('[ops/settings][strategic-config][GET] failed to load config', settingsError);
+    captureServerException(settingsError, {
+      properties: { source: 'ops', kind: 'ops-strategic-config' },
+    });
     return NextResponse.json({ error: 'Unable to load strategic settings' }, { status: 500 });
   }
 }

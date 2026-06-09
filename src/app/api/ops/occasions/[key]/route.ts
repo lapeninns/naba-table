@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import {
@@ -97,6 +98,9 @@ export async function PATCH(
     return NextResponse.json({ occasion });
   } catch (error) {
     console.error('[ops/occasions][PATCH] failed', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-occasion' },
+    });
     return NextResponse.json({ error: 'Unable to update occasion' }, { status: 500 });
   }
 }
@@ -163,6 +167,10 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[ops/occasions][DELETE] failed', error);
+    captureServerException(error, {
+      distinctId: authorization.user.id,
+      properties: { source: 'ops', kind: 'ops-occasion' },
+    });
     return NextResponse.json({ error: 'Unable to delete occasion' }, { status: 500 });
   }
 }

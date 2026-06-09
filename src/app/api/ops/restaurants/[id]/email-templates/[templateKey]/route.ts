@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   restaurantEmailTemplateKeySchema,
@@ -69,6 +70,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops][restaurants][email-templates][PATCH] failed', error);
+    captureServerException(error, {
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-email-templates' },
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to save template' },
       { status: 500 },
@@ -105,6 +110,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops][restaurants][email-templates][DELETE] failed', error);
+    captureServerException(error, {
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-email-templates' },
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to reset template' },
       { status: 500 },

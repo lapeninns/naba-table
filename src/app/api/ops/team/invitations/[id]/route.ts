@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -126,6 +127,10 @@ async function deleteTeamInvitation(_request: NextRequest, context: RouteParams)
     }
 
     console.error('[ops][team][invitations][DELETE]', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-team-invitation' },
+    });
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
   }
 }

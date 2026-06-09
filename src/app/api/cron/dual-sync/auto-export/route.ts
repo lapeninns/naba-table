@@ -18,10 +18,12 @@
 
 import { NextResponse } from 'next/server';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/flag';
 import { runAutoExportForAllTenants } from '@/server/dual-sync/scheduling/auto-export';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -42,6 +44,7 @@ function isTruthyFlag(value: string | null): boolean {
 }
 
 export async function GET(request: Request) {
+  await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     if (!isDualSyncAutoCandidatesEnabled()) {
       return NextResponse.json(
@@ -76,6 +79,9 @@ export async function GET(request: Request) {
         jobName: auth.jobName,
         runId: auth.runId,
         error,
+      });
+      captureServerException(error, {
+        properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });
       return NextResponse.json({ error: 'Dual-sync auto-export cron failed.' }, { status: 500 });
     }

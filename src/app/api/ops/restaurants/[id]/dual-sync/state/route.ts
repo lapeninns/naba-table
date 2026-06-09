@@ -18,6 +18,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -212,6 +213,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load dual-sync state';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-state' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_STATE_ERROR');
   }
 }

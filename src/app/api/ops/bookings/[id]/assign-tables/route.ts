@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { isFeatureEnabledWithFallback } from "@/lib/posthog/feature-flags";
+import { captureRestaurantServerEvent, captureServerException } from "@/lib/posthog/server";
 import { assignTablesDirectly, unassignTablesDirect, DirectAssignmentError } from "@/server/capacity/table-assignment/direct-assignment";
 import { enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
 import { withCsrfProtectedMutation } from "@/server/security/csrf";
@@ -109,6 +111,21 @@ async function postAssignTables(
     return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
   }
 
+  // PostHog-first flag with a behavior-preserving env fallback (defaults to the
+  // current v1 path). The evaluated decision is recorded for analytics; the
+  // divergent v2 behavior is gated by the same boolean when it ships.
+  const tableAssignmentV2 = await isFeatureEnabledWithFallback("ops-table-assignment-v2", {
+    distinctId: user.id,
+    groups: { restaurant: bookingRow.restaurant_id },
+    fallback: false,
+  });
+
+  captureRestaurantServerEvent("table_assignment_started", {
+    restaurantId: bookingRow.restaurant_id,
+    distinctId: user.id,
+    props: { bookingId, source: "ops", kind: tableAssignmentV2 ? "v2" : "v1" },
+  });
+
   // === Execute Assignment ===
   const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
 
@@ -171,6 +188,12 @@ async function postAssignTables(
       }
     }
 
+    captureRestaurantServerEvent("table_assignment_completed", {
+      restaurantId: bookingRow.restaurant_id,
+      distinctId: user.id,
+      props: { bookingId, source: "ops", assignedCount: tableIds.length },
+    });
+
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     if (error instanceof DirectAssignmentError) {
@@ -180,6 +203,11 @@ async function postAssignTables(
         details: error.details,
         bookingId,
         tableIds,
+      });
+      captureRestaurantServerEvent("table_assignment_failed", {
+        restaurantId: bookingRow.restaurant_id,
+        distinctId: user.id,
+        props: { bookingId, source: "ops", code: error.code, reason: "validation" },
       });
       return NextResponse.json(
         {
@@ -199,6 +227,17 @@ async function postAssignTables(
       bookingId,
       tableIds,
       userId: user.id,
+    });
+
+    captureRestaurantServerEvent("table_assignment_failed", {
+      restaurantId: bookingRow.restaurant_id,
+      distinctId: user.id,
+      props: { bookingId, source: "ops", reason: "unexpected" },
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: { bookingId, source: "ops", path: "/api/ops/bookings/[id]/assign-tables" },
     });
 
     const message = error instanceof Error ? error.message : "Unexpected error";
@@ -317,6 +356,12 @@ async function deleteAssignTables(
       bookingId,
       tableIds,
       userId: user.id,
+    });
+
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: { bookingId, source: "ops", path: "/api/ops/bookings/[id]/assign-tables" },
     });
 
     const message = error instanceof Error ? error.message : "Unexpected error";

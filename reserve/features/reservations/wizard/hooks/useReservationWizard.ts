@@ -35,6 +35,14 @@ const EMPTY_ACTIONS: StepAction[] = [];
 
 const DEFAULT_BOOKING_OPTION = BOOKING_TYPES_UI[0];
 
+// Controlled vocabulary for the `step` analytics prop (privacy-safe enum).
+const RESERVE_STEP_NAMES = {
+  1: 'plan',
+  2: 'details',
+  3: 'review',
+  4: 'confirmation',
+} as const;
+
 const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   return (
     Boolean(details.time?.trim()?.length) ||
@@ -350,6 +358,14 @@ export function useReservationWizard(
       previousStepRef.current = state.step;
     }
   }, [haptics, state.step]);
+
+  const trackedStepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (trackedStepRef.current === state.step) return;
+    trackedStepRef.current = state.step;
+    const stepName = RESERVE_STEP_NAMES[state.step as keyof typeof RESERVE_STEP_NAMES] ?? 'unknown';
+    analytics.track('reserve_step_viewed', { step: stepName });
+  }, [analytics, state.step]);
 
   const previousVisibilityRef = useRef(stickyVisible);
   useEffect(() => {

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { track } from '@/lib/analytics';
 import { HttpError } from '@/lib/http/errors';
 
 import type { OpsEmailDeliveryTableRowViewModel } from '@/components/features/email-delivery/opsEmailDeliveryTypes';
@@ -76,6 +77,7 @@ export function useOpsEmailDeliveryRetryState(params: {
     }
 
     setRetryingAttemptKey(pendingRetryRow.attemptKey);
+    track('email_delivery_retry_clicked', { provider: 'resend', source: 'ops' });
 
     try {
       await params.bookingService.retryEmailDelivery({
@@ -98,6 +100,7 @@ export function useOpsEmailDeliveryRetryState(params: {
             : 'Failed to retry email delivery';
 
       setPendingRetryAttemptKey(null);
+      track('email_delivery_retry_failed', { provider: 'resend', source: 'ops' });
       toast.error('Retry failed', { description: message });
     } finally {
       setRetryingAttemptKey(null);

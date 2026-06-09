@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
-import { listSmsDeliveryEventsForBooking, SmsDeliveryLogUnavailableError } from '@/server/sms/delivery-log';
+import {
+  listSmsDeliveryEventsForBooking,
+  SmsDeliveryLogUnavailableError,
+} from '@/server/sms/delivery-log';
 import { sanitizeOpsSmsDeliveryEvents } from '@/src/lib/sms-delivery/sanitize';
 
 import type { BookingSmsDeliveryResponse } from '@/types/smsDelivery';
@@ -124,6 +128,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     console.error('[ops][bookings][sms-delivery] unexpected error', {
       bookingId,
       error: error instanceof Error ? error.message : String(error),
+    });
+    captureServerException(error, {
+      properties: { bookingId, source: 'ops', kind: 'ops-booking-sms-delivery' },
     });
 
     return jsonError(500, { code: 'INTERNAL', error: 'Internal error' });

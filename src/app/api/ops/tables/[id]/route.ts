@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   TABLE_CATEGORY_VALUES,
@@ -234,6 +235,11 @@ async function patchTable(req: NextRequest, context: RouteContext) {
       }
 
       console.error('[ops/tables/[id]][PATCH] Update error', { error: updateError });
+      captureServerException(updateError, {
+        distinctId: user.id,
+        groups: { restaurant: existingTable.restaurant_id },
+        properties: { restaurantId: existingTable.restaurant_id, source: 'ops', kind: 'ops-table' },
+      });
       return NextResponse.json({ error: 'Failed to update table' }, { status: 500 });
     }
 
@@ -256,6 +262,15 @@ async function patchTable(req: NextRequest, context: RouteContext) {
           '[ops/tables/[id]][PATCH] Failed to reset maintenance allocation',
           removeExisting.error,
         );
+        captureServerException(removeExisting.error, {
+          distinctId: user.id,
+          groups: { restaurant: existingTable.restaurant_id },
+          properties: {
+            restaurantId: existingTable.restaurant_id,
+            source: 'ops',
+            kind: 'ops-table',
+          },
+        });
         return NextResponse.json({ error: 'Failed to schedule maintenance' }, { status: 500 });
       }
 
@@ -275,6 +290,15 @@ async function patchTable(req: NextRequest, context: RouteContext) {
           '[ops/tables/[id]][PATCH] Failed to create maintenance allocation',
           maintenanceInsert.error,
         );
+        captureServerException(maintenanceInsert.error, {
+          distinctId: user.id,
+          groups: { restaurant: existingTable.restaurant_id },
+          properties: {
+            restaurantId: existingTable.restaurant_id,
+            source: 'ops',
+            kind: 'ops-table',
+          },
+        });
         if (updates.status !== existingTable.status) {
           await supabase
             .from('table_inventory')
@@ -313,6 +337,9 @@ async function patchTable(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[ops/tables/[id]][PATCH] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-table' },
+    });
     return NextResponse.json({ error: 'Failed to update table' }, { status: 500 });
   }
 }
@@ -386,6 +413,11 @@ async function deleteTable(_req: NextRequest, context: RouteContext) {
         );
       }
       console.error('[ops/tables/[id]][DELETE] Delete error', { error: deleteError });
+      captureServerException(deleteError, {
+        distinctId: user.id,
+        groups: { restaurant: table.restaurant_id },
+        properties: { restaurantId: table.restaurant_id, source: 'ops', kind: 'ops-table' },
+      });
       return NextResponse.json({ error: 'Failed to delete table' }, { status: 500 });
     }
 
@@ -396,6 +428,9 @@ async function deleteTable(_req: NextRequest, context: RouteContext) {
     return NextResponse.json({ success: true, deletedTableNumber: table.table_number });
   } catch (error) {
     console.error('[ops/tables/[id]][DELETE] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-table' },
+    });
     return NextResponse.json({ error: 'Failed to delete table' }, { status: 500 });
   }
 }

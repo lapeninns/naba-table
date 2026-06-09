@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
+import { captureServerException } from '@/lib/posthog/server';
 import {
   mapTwilioMessageStatusToDeliveryStatus,
   validateTwilioWebhookSignature,
@@ -156,23 +157,32 @@ export async function POST(req: NextRequest) {
   });
   const signedContext = linkage ? null : readSignedLinkageContext(req);
 
-  await recordSmsDeliveryLog({
-    bookingId: linkage?.bookingId ?? signedContext?.bookingId ?? null,
-    restaurantId: linkage?.restaurantId ?? signedContext?.restaurantId ?? null,
-    smsType: linkage?.smsType ?? signedContext?.smsType ?? null,
-    recipientPhone,
-    messageSid,
-    status: mappedStatus,
-    provider: 'twilio',
-    occurredAt: form.get('Timestamp')?.trim() || undefined,
-    error: form.get('ErrorMessage')?.trim() || null,
-    metadata: {
-      messageStatus: providerStatus,
-      errorCode: form.get('ErrorCode')?.trim() || null,
-      from: form.get('From')?.trim() || null,
-      accountSid: form.get('AccountSid')?.trim() || null,
-    },
-  });
+  const linkedRestaurantId = linkage?.restaurantId ?? signedContext?.restaurantId ?? null;
+  try {
+    await recordSmsDeliveryLog({
+      bookingId: linkage?.bookingId ?? signedContext?.bookingId ?? null,
+      restaurantId: linkedRestaurantId,
+      smsType: linkage?.smsType ?? signedContext?.smsType ?? null,
+      recipientPhone,
+      messageSid,
+      status: mappedStatus,
+      provider: 'twilio',
+      occurredAt: form.get('Timestamp')?.trim() || undefined,
+      error: form.get('ErrorMessage')?.trim() || null,
+      metadata: {
+        messageStatus: providerStatus,
+        errorCode: form.get('ErrorCode')?.trim() || null,
+        from: form.get('From')?.trim() || null,
+        accountSid: form.get('AccountSid')?.trim() || null,
+      },
+    });
+  } catch (error) {
+    captureServerException(error, {
+      groups: linkedRestaurantId ? { restaurant: linkedRestaurantId } : undefined,
+      properties: { provider: 'twilio', source: 'webhook', path: '/api/webhook/twilio/sms-status' },
+    });
+    throw error;
+  }
 
   return NextResponse.json({ success: true }, { status: 200 });
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -88,6 +89,11 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
       }
 
       console.error('[ops/restaurants/logo][POST] membership guard failed', error);
+      captureServerException(error, {
+        distinctId: user.id,
+        groups: { restaurant: restaurantId },
+        properties: { restaurantId, source: 'ops', kind: 'ops-restaurant-logo' },
+      });
       return jsonError(500, 'ACCESS_CHECK_FAILED', 'Unable to verify access');
     }
 
@@ -164,6 +170,9 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error('[ops/restaurants/logo][POST] unexpected', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-restaurant-logo' },
+    });
     return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t upload your image. Please try again.');
   }
 }

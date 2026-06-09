@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { firstString, safeDate } from '@/lib/api/query-params';
 import { getTodayBookingsSummary } from '@/server/ops/bookings';
@@ -67,6 +68,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(summary);
   } catch (summaryError) {
     console.error('[ops/dashboard][summary] failed to load summary', summaryError);
+    captureServerException(summaryError, {
+      groups: { restaurant: query.restaurantId },
+      properties: {
+        restaurantId: query.restaurantId,
+        source: 'ops',
+        kind: 'ops-dashboard-summary',
+      },
+    });
     return NextResponse.json({ error: 'Unable to load summary' }, { status: 500 });
   }
 }

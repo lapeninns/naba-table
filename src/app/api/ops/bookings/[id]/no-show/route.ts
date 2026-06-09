@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { prepareNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
@@ -76,6 +77,11 @@ async function postNoShow(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: validationError.message }, { status });
     }
     console.error('[ops][booking-no-show] unexpected validation error', validationError);
+    captureServerException(validationError, {
+      distinctId: userId,
+      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
+      properties: { bookingId: booking.id, source: 'ops', kind: 'booking-no-show' },
+    });
     return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 

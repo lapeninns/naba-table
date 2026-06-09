@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { captureServerException } from '@/lib/posthog/server';
+
 import { ensureRestaurantAdminAccess } from '../_shared';
 
 import type { NextRequest } from 'next/server';
@@ -43,5 +45,8 @@ export function invalidPayload(details: unknown) {
 
 export function routeError(scope: string, error: unknown, message: string) {
   console.error(`[ops][menus][${scope}] failed`, error);
+  captureServerException(error, {
+    properties: { source: 'ops', section: 'menus', kind: scope },
+  });
   return NextResponse.json({ error: message }, { status: 500 });
 }

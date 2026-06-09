@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { captureServerException } from "@/lib/posthog/server";
 import { autoCompletePastBookings } from "@/server/jobs/auto-complete-bookings";
 import { requireCronAuthAndRun } from "@/server/security/cron-auth";
+import { flushPosthogLogsAfterResponse } from "@/src/instrumentation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +19,7 @@ function parseOptionalInt(value: string | null | undefined): number | undefined 
 }
 
 export async function GET(request: Request) {
+  await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     const url = new URL(request.url);
     const dryRun = ["1", "true", "yes"].includes(
@@ -37,6 +40,9 @@ export async function GET(request: Request) {
         jobName: auth.jobName,
         runId: auth.runId,
         error,
+      });
+      captureServerException(error, {
+        properties: { jobName: auth.jobName, runId: auth.runId, source: "cron" },
       });
       return NextResponse.json({ error: "Auto-complete cron failed." }, { status: 500 });
     }

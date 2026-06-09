@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { firstString, safeBool } from '@/lib/api/query-params';
 import { HttpError } from '@/lib/http/errors';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { checkSlotAvailability, findAlternativeSlots } from '@/server/capacity';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getActiveRestaurantId } from '@/server/restaurants/getActiveRestaurantId';
@@ -158,6 +159,7 @@ export async function GET(req: NextRequest) {
 
       // Get alternatives if requested and slot is unavailable
       let alternatives = undefined;
+      let alternativeCount = 0;
       if (includeAlternatives && !result.available) {
         const altSlots = await findAlternativeSlots({
           restaurantId,
@@ -172,6 +174,7 @@ export async function GET(req: NextRequest) {
           time: slot.time,
           available: slot.available,
         }));
+        alternativeCount = alternatives.length;
       }
 
       // Log check
@@ -188,6 +191,21 @@ export async function GET(req: NextRequest) {
           utilizationPercent: result.metadata.utilizationPercent,
         },
       });
+
+      captureRestaurantServerEvent('availability_slots_loaded', {
+        restaurantId,
+        props: {
+          available: result.available,
+          slotCount: alternativeCount,
+          source: 'api',
+        },
+      });
+      if (!result.available) {
+        captureRestaurantServerEvent('availability_no_slots_shown', {
+          restaurantId,
+          props: { source: 'api' },
+        });
+      }
 
       return NextResponse.json(
         {
@@ -257,6 +275,13 @@ export async function GET(req: NextRequest) {
       context: {
         error: error instanceof Error ? error.message : String(error),
       },
+    });
+
+    captureRestaurantServerEvent('availability_request_failed', {
+      props: { source: 'api', path: '/api/availability' },
+    });
+    captureServerException(error, {
+      properties: { source: 'api', path: '/api/availability' },
     });
 
     return NextResponse.json(

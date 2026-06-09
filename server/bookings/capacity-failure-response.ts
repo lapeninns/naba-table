@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { captureRestaurantServerEvent } from '@/lib/posthog/server';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import { buildBookingCapacityPrecheckFailedObservabilityEvent } from '@/server/bookings/create-observability-events';
 import { checkSlotAvailability, findAlternativeSlots } from '@/server/capacity';
@@ -197,6 +198,15 @@ export async function buildCapacityFailureResponse(args: {
       },
     });
   }
+
+  captureRestaurantServerEvent('booking_capacity_rejected', {
+    restaurantId: args.restaurantId,
+    props: {
+      code: args.code,
+      source: args.requestSource,
+      reason: args.code === 'BOOKING_CONFLICT' ? 'conflict' : 'capacity_full',
+    },
+  });
 
   const utilizationPercent =
     args.details && typeof args.details.utilizationPercent === 'number'

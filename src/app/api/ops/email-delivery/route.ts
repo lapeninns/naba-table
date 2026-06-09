@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import {
   GuardError,
   listUserRestaurantMemberships,
@@ -44,10 +45,16 @@ const querySchema = z.object({
 });
 
 function isDevOrTestFaultInjectionEnabled() {
-  return process.env.NODE_ENV !== 'production' || process.env.APP_ENV === 'development' || process.env.APP_ENV === 'test';
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.APP_ENV === 'development' ||
+    process.env.APP_ENV === 'test'
+  );
 }
 
-function buildRetryActionsFixture(restaurantId: string): Extract<OpsEmailDeliveryFeedResponse, { ok: true }> {
+function buildRetryActionsFixture(
+  restaurantId: string,
+): Extract<OpsEmailDeliveryFeedResponse, { ok: true }> {
   const failedDeliveryLogId = '11111111-1111-4111-8111-111111111111';
   const bouncedDeliveryLogId = '22222222-2222-4222-8222-222222222222';
   const deliveredDeliveryLogId = '33333333-3333-4333-8333-333333333333';
@@ -251,7 +258,9 @@ function jsonError(
   );
 }
 
-function parseStatuses(raw: string | null): { ok: true; statuses: EmailDeliveryStatus[] } | { ok: false } {
+function parseStatuses(
+  raw: string | null,
+): { ok: true; statuses: EmailDeliveryStatus[] } | { ok: false } {
   if (!raw) {
     return { ok: true, statuses: [] };
   }
@@ -286,7 +295,8 @@ export async function GET(request: NextRequest) {
 
   if (
     isDevOrTestFaultInjectionEnabled() &&
-    (parsedQuery.data.messageId === '__force_error__' || parsedQuery.data.simulateEmailDeliveryError === '1')
+    (parsedQuery.data.messageId === '__force_error__' ||
+      parsedQuery.data.simulateEmailDeliveryError === '1')
   ) {
     return jsonError(418, {
       code: 'FORCED_ERROR',
@@ -300,8 +310,10 @@ export async function GET(request: NextRequest) {
 
     const memberships = await listUserRestaurantMemberships(supabase, user.id);
     const fallbackRestaurantId =
-      memberships.find((membership) => typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0)
-        ?.restaurant_id ?? null;
+      memberships.find(
+        (membership) =>
+          typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0,
+      )?.restaurant_id ?? null;
 
     const restaurantId = parsedQuery.data.restaurantId ?? fallbackRestaurantId;
 
@@ -327,7 +339,9 @@ export async function GET(request: NextRequest) {
       statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
       recipientEmail: parsedQuery.data.recipientEmail,
       messageId: parsedQuery.data.messageId,
-      bookingRef: parsedQuery.data.bookingRef ? parsedQuery.data.bookingRef.toUpperCase() : undefined,
+      bookingRef: parsedQuery.data.bookingRef
+        ? parsedQuery.data.bookingRef.toUpperCase()
+        : undefined,
       templateType: parsedQuery.data.templateType,
       emailType: parsedQuery.data.emailType,
     });
@@ -341,7 +355,9 @@ export async function GET(request: NextRequest) {
           statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
           recipientEmail: parsedQuery.data.recipientEmail,
           messageId: parsedQuery.data.messageId,
-          bookingRef: parsedQuery.data.bookingRef ? parsedQuery.data.bookingRef.toUpperCase() : undefined,
+          bookingRef: parsedQuery.data.bookingRef
+            ? parsedQuery.data.bookingRef.toUpperCase()
+            : undefined,
           templateType: parsedQuery.data.templateType,
           emailType: parsedQuery.data.emailType,
         });
@@ -359,25 +375,24 @@ export async function GET(request: NextRequest) {
           ok: true,
           restaurantId,
           range: parsedQuery.data.range,
-          summary:
-            summary ?? {
-              total: 0,
-              sent: 0,
-              delivered: 0,
-              deliveryDelayed: 0,
-              bounced: 0,
-              complained: 0,
-              failed: 0,
-              deliveredRate: 0,
-              failureRate: 0,
-              uniqueRecipients: 0,
-              uniqueBookings: 0,
-              p50DeliverySeconds: null,
-              p95DeliverySeconds: null,
-              topFailedTemplates: [],
-              topFailedEmailTypes: [],
-              stuckInFlight: 0,
-            },
+          summary: summary ?? {
+            total: 0,
+            sent: 0,
+            delivered: 0,
+            deliveryDelayed: 0,
+            bounced: 0,
+            complained: 0,
+            failed: 0,
+            deliveredRate: 0,
+            failureRate: 0,
+            uniqueRecipients: 0,
+            uniqueBookings: 0,
+            p50DeliverySeconds: null,
+            p95DeliverySeconds: null,
+            topFailedTemplates: [],
+            topFailedEmailTypes: [],
+            stuckInFlight: 0,
+          },
         } satisfies Extract<OpsEmailDeliverySummaryResponse, { ok: true }>,
         { status: 200 },
       );
@@ -405,7 +420,11 @@ export async function GET(request: NextRequest) {
           ? { status: 401 as const, code: 'UNAUTHENTICATED' as const, error: error.message }
           : error.code === 'FORBIDDEN'
             ? { status: 403 as const, code: 'FORBIDDEN' as const, error: error.message }
-            : { status: error.status as 401 | 403 | 500, code: 'INTERNAL' as const, error: error.message };
+            : {
+                status: error.status as 401 | 403 | 500,
+                code: 'INTERNAL' as const,
+                error: error.message,
+              };
       return jsonError(mapped.status, { code: mapped.code, error: mapped.error });
     }
 
@@ -419,6 +438,7 @@ export async function GET(request: NextRequest) {
     console.error('[ops/email-delivery] unexpected error', {
       error: error instanceof Error ? error.message : String(error),
     });
+    captureServerException(error, { properties: { source: 'ops', kind: 'email-delivery' } });
     return jsonError(500, { code: 'INTERNAL', error: 'Internal error' });
   }
 }

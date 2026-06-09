@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { getRestaurantBySlug, type RestaurantDetail } from '@/server/restaurants/getRestaurantBySlug';
+import {
+  getRestaurantBySlug,
+  type RestaurantDetail,
+} from '@/server/restaurants/getRestaurantBySlug';
 
 import type { VenueDetails } from '@reserve/shared/config/venue';
 import type { NextRequest } from 'next/server';
@@ -67,6 +71,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     );
   } catch (error) {
     console.error('[restaurants][detail] failed to load restaurant', { slug, error });
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'restaurant-detail' },
+    });
     return NextResponse.json({ error: 'Unable to load restaurant' }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { resetPosthogServerClientForTests } from '@/lib/posthog/server';
 import {
   buildBookingCreateFailureResponse,
   maskEmailForBookingCreateLog,
@@ -22,6 +23,62 @@ const bookingRequest: BookingCreateRequest = {
 };
 
 describe('booking create failure response', () => {
+  afterEach(() => {
+    resetPosthogServerClientForTests();
+  });
+
+  it('captures a privacy-safe PostHog event and exception without changing the response', async () => {
+    const capture = vi.fn();
+    const captureException = vi.fn();
+    resetPosthogServerClientForTests({
+      capture,
+      captureException,
+      flush: vi.fn(),
+      getFeatureFlagResult: vi.fn(),
+      isFeatureEnabled: vi.fn(),
+      shutdown: vi.fn(),
+    });
+
+    const error = new Error('Database unavailable');
+    const response = buildBookingCreateFailureResponse({
+      error,
+      eventRecorder: vi.fn(),
+      logger: vi.fn(),
+      request: bookingRequest,
+      restaurantId: bookingRequest.restaurantId!,
+    });
+
+    // Response is unchanged by instrumentation.
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Unable to create booking',
+      code: 'INTERNAL_SERVER_ERROR',
+    });
+
+    expect(capture).toHaveBeenCalledWith({
+      distinctId: 'server:test',
+      event: 'booking_create_failed',
+      groups: { restaurant: bookingRequest.restaurantId },
+      properties: {
+        restaurantId: bookingRequest.restaurantId,
+        code: 'INTERNAL_SERVER_ERROR',
+        status: 500,
+        source: 'api',
+      },
+    });
+
+    // The captured exception properties never include the customer email or phone.
+    const exceptionProps = captureException.mock.calls[0]?.[2] ?? {};
+    const serialized = JSON.stringify([capture.mock.calls, captureException.mock.calls]);
+    expect(serialized).not.toContain('ada@example.com');
+    expect(serialized).not.toContain('07123456789');
+    expect(exceptionProps).toMatchObject({
+      restaurantId: bookingRequest.restaurantId,
+      path: '/api/bookings',
+      source: 'api',
+    });
+  });
+
   it('maps duplicate resource errors to the API response and records observability', async () => {
     const eventRecorder = vi.fn();
     const logger = vi.fn();

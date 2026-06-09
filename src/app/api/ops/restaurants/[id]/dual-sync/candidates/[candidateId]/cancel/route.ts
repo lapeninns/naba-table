@@ -6,6 +6,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -60,6 +61,11 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ restaurantId, candidate }, { status: 200 });
   } catch (error) {
     console.error('[dual-sync][candidate-cancel] failed', error);
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-candidate-cancel' },
+    });
     return dualSyncErrorResponse(
       'Failed to cancel dual-sync candidate',
       500,

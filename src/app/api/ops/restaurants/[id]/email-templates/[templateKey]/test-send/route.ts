@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   restaurantEmailTemplateKeySchema,
@@ -96,6 +97,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops][restaurants][email-templates][test-send] failed', error);
+    captureServerException(error, {
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-email-template-test-send' },
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to send test email' },
       { status: 500 },

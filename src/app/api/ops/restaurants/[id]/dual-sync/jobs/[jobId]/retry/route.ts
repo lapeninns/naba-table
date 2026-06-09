@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -55,6 +56,11 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ restaurantId, job }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to retry dual-sync job';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-job-retry' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_JOB_RETRY_ERROR');
   }
 }

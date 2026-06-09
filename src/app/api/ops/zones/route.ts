@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { createZone, listZones } from '@/server/ops/zones';
@@ -62,6 +63,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ zones });
     } catch (error) {
       console.error('[ops/zones][GET] Failed to list zones', { error });
+      captureServerException(error, {
+        distinctId: user.id,
+        groups: { restaurant: restaurantId },
+        properties: { restaurantId, source: 'ops', kind: 'ops-zones' },
+      });
       return NextResponse.json(
         { error: 'Failed to load zones', message: 'Failed to load zones' },
         { status: 500 },
@@ -69,6 +75,9 @@ export async function GET(req: NextRequest) {
     }
   } catch (error) {
     console.error('[ops/zones][GET] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-zones' },
+    });
     return NextResponse.json(
       { error: 'An unexpected error occurred', message: 'An unexpected error occurred' },
       { status: 500 },
@@ -150,6 +159,11 @@ async function postZone(req: NextRequest) {
       return NextResponse.json({ zone }, { status: 201 });
     } catch (error) {
       console.error('[ops/zones][POST] Create error', { error });
+      captureServerException(error, {
+        distinctId: user.id,
+        groups: { restaurant: data.restaurantId },
+        properties: { restaurantId: data.restaurantId, source: 'ops', kind: 'ops-zones' },
+      });
       return NextResponse.json(
         { error: 'Failed to create zone', message: 'Failed to create zone' },
         { status: 500 },
@@ -157,6 +171,9 @@ async function postZone(req: NextRequest) {
     }
   } catch (error) {
     console.error('[ops/zones][POST] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-zones' },
+    });
     return NextResponse.json(
       { error: 'An unexpected error occurred', message: 'An unexpected error occurred' },
       { status: 500 },
