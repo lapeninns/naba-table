@@ -1,6 +1,6 @@
-import { isAllocatorServiceFailHard } from "@/server/feature-flags";
-import { recordObservabilityEvent } from "@/server/observability";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import { recordObservabilityEvent } from '@/server/observability';
+import { isAllocatorServiceFailHard } from '@/server/runtime-policy';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
 import {
   CapacityError,
@@ -12,12 +12,12 @@ import {
   type BookingRecord,
   DEFAULT_RETRY_CONFIG,
   type RetryConfig,
-} from "./types";
+} from './types';
 
-import type { Database } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-type DbClient = SupabaseClient<Database, "public">;
+type DbClient = SupabaseClient<Database, 'public'>;
 
 type RetryableError = {
   message?: string;
@@ -25,24 +25,24 @@ type RetryableError = {
 };
 
 function isRetryableError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
+  if (!error || typeof error !== 'object') {
     return false;
   }
 
   const record = error as RetryableError;
-  const message = record.message?.toLowerCase() ?? "";
-  const code = record.code?.toLowerCase() ?? "";
+  const message = record.message?.toLowerCase() ?? '';
+  const code = record.code?.toLowerCase() ?? '';
 
-  const retryableCodes = new Set(["40001", "40p01", "55p03"]);
+  const retryableCodes = new Set(['40001', '40p01', '55p03']);
   if (retryableCodes.has(code)) {
     return true;
   }
 
   return [
-    "serialization failure",
-    "deadlock detected",
-    "could not serialize access",
-    "lock not available",
+    'serialization failure',
+    'deadlock detected',
+    'could not serialize access',
+    'lock not available',
   ].some((pattern) => message.includes(pattern));
 }
 
@@ -66,9 +66,9 @@ export async function retryWithBackoff<T>(
       const delay = config.initialDelayMs * Math.pow(config.backoffMultiplier, attempt);
 
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.transaction.retry",
-        severity: "info",
+        source: 'capacity.transaction',
+        eventType: 'booking.transaction.retry',
+        severity: 'info',
         context: {
           ...(context ?? {}),
           attempt: attempt + 1,
@@ -97,20 +97,20 @@ type CapacityRpcPayload = {
 };
 
 function isBookingRecordPayload(value: unknown): value is BookingRecord {
-  if (!value || typeof value !== "object") {
+  if (!value || typeof value !== 'object') {
     return false;
   }
 
   const record = value as Record<string, unknown>;
-  return typeof record.id === "string" && typeof record.restaurant_id === "string";
+  return typeof record.id === 'string' && typeof record.restaurant_id === 'string';
 }
 
 function normalizeRpcResult(payload: CapacityRpcPayload | null | undefined): BookingResult {
   if (!payload) {
     return {
       success: false,
-      error: "INTERNAL_ERROR",
-      message: "Capacity RPC returned no payload",
+      error: 'INTERNAL_ERROR',
+      message: 'Capacity RPC returned no payload',
     };
   }
 
@@ -133,7 +133,7 @@ function normalizeRpcResult(payload: CapacityRpcPayload | null | undefined): Boo
     duplicate: payload.duplicate ?? false,
     booking,
     capacity,
-    error: (payload.error ?? "INTERNAL_ERROR") as BookingResult["error"],
+    error: (payload.error ?? 'INTERNAL_ERROR') as BookingResult['error'],
     message: payload.message ?? undefined,
     details: payload.details ?? undefined,
     retryable: payload.retryable ?? undefined,
@@ -146,30 +146,26 @@ type PostgrestErrorLike = {
   details?: string | null;
 };
 
-const MISSING_RPC_ERROR_CODES = new Set(["PGRST202", "PGRST201", "42883", "42P01"]);
+const MISSING_RPC_ERROR_CODES = new Set(['PGRST202', 'PGRST201', '42883', '42P01']);
 
 function isMissingCapacityRpcError(error: PostgrestErrorLike | null | undefined): boolean {
   if (!error) {
     return false;
   }
 
-  const code = (error.code ?? "").toUpperCase();
+  const code = (error.code ?? '').toUpperCase();
   if (code && MISSING_RPC_ERROR_CODES.has(code)) {
     return true;
   }
 
-  const message = (error.message ?? "").toLowerCase();
-  const details = (error.details ?? "").toLowerCase();
-  const indicators = [
-    "no matches were found in the schema cache",
-    "function",
-    "does not exist",
-  ];
+  const message = (error.message ?? '').toLowerCase();
+  const details = (error.details ?? '').toLowerCase();
+  const indicators = ['no matches were found in the schema cache', 'function', 'does not exist'];
 
   const hasMissingPattern = (text: string) =>
     indicators.every((indicator) => text.includes(indicator)) ||
-    text.includes("missing sql function") ||
-    text.includes("function create_booking_with_capacity_check");
+    text.includes('missing sql function') ||
+    text.includes('function create_booking_with_capacity_check');
 
   return hasMissingPattern(message) || hasMissingPattern(details);
 }
@@ -182,9 +178,9 @@ export async function createBookingWithCapacityCheck(
 
   try {
     recordObservabilityEvent({
-      source: "capacity.transaction",
-      eventType: "booking.creation.attempt",
-      severity: "info",
+      source: 'capacity.transaction',
+      eventType: 'booking.creation.attempt',
+      severity: 'info',
       context: {
         restaurantId: params.restaurantId,
         bookingDate: params.bookingDate,
@@ -194,7 +190,7 @@ export async function createBookingWithCapacityCheck(
       },
     });
 
-    const { data, error } = await supabase.rpc("create_booking_with_capacity_check", {
+    const { data, error } = await supabase.rpc('create_booking_with_capacity_check', {
       p_restaurant_id: params.restaurantId,
       p_customer_id: params.customerId,
       p_booking_date: params.bookingDate,
@@ -209,7 +205,7 @@ export async function createBookingWithCapacityCheck(
       p_notes: params.notes ?? undefined,
       p_marketing_opt_in: params.marketingOptIn ?? false,
       p_idempotency_key: params.idempotencyKey ?? undefined,
-      p_source: params.source ?? "api",
+      p_source: params.source ?? 'api',
       p_auth_user_id: params.authUserId ?? undefined,
       p_client_request_id: params.clientRequestId ?? undefined,
       p_details: params.details ?? {},
@@ -225,30 +221,26 @@ export async function createBookingWithCapacityCheck(
           startTime: params.startTime,
           partySize: params.partySize,
           code: error.code ?? undefined,
-          fallbackStrategy: failHardModeEnabled ? "fail_hard" : "legacy_fallback",
+          fallbackStrategy: failHardModeEnabled ? 'fail_hard' : 'legacy_fallback',
         };
 
         recordObservabilityEvent({
-          source: "capacity.transaction",
-          eventType: "booking.creation.rpc_missing",
-          severity: "error",
+          source: 'capacity.transaction',
+          eventType: 'booking.creation.rpc_missing',
+          severity: 'error',
           context: baseContext,
         });
 
-        throw new CapacityError(
-          "Capacity enforcement unavailable",
-          "CAPACITY_UNAVAILABLE",
-          {
-            sqlstate: error.code ?? undefined,
-            sqlerrm: error.details ?? undefined,
-          },
-        );
+        throw new CapacityError('Capacity enforcement unavailable', 'CAPACITY_UNAVAILABLE', {
+          sqlstate: error.code ?? undefined,
+          sqlerrm: error.details ?? undefined,
+        });
       }
 
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.creation.rpc_error",
-        severity: "error",
+        source: 'capacity.transaction',
+        eventType: 'booking.creation.rpc_error',
+        severity: 'error',
         context: {
           restaurantId: params.restaurantId,
           bookingDate: params.bookingDate,
@@ -259,29 +251,22 @@ export async function createBookingWithCapacityCheck(
         },
       });
 
-      throw new CapacityError(
-        error.message ?? "Failed to execute capacity RPC",
-        "INTERNAL_ERROR",
-        {
-          sqlstate: error.code ?? undefined,
-          sqlerrm: error.details ?? undefined,
-        },
-      );
+      throw new CapacityError(error.message ?? 'Failed to execute capacity RPC', 'INTERNAL_ERROR', {
+        sqlstate: error.code ?? undefined,
+        sqlerrm: error.details ?? undefined,
+      });
     }
 
     const result = normalizeRpcResult(data as CapacityRpcPayload);
 
     if (result.success) {
       if (!result.booking) {
-        throw new CapacityError(
-          "Capacity RPC returned no booking record",
-          "CAPACITY_UNAVAILABLE",
-        );
+        throw new CapacityError('Capacity RPC returned no booking record', 'CAPACITY_UNAVAILABLE');
       }
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.creation.success",
-        severity: "info",
+        source: 'capacity.transaction',
+        eventType: 'booking.creation.success',
+        severity: 'info',
         context: {
           restaurantId: params.restaurantId,
           bookingId: result.booking?.id,
@@ -291,15 +276,15 @@ export async function createBookingWithCapacityCheck(
       });
     } else {
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.creation.failure",
-        severity: result.error === "CAPACITY_EXCEEDED" ? "warning" : "error",
+        source: 'capacity.transaction',
+        eventType: 'booking.creation.failure',
+        severity: result.error === 'CAPACITY_EXCEEDED' ? 'warning' : 'error',
         context: {
           restaurantId: params.restaurantId,
           bookingDate: params.bookingDate,
           startTime: params.startTime,
           partySize: params.partySize,
-          error: result.error ?? "UNKNOWN",
+          error: result.error ?? 'UNKNOWN',
           message: result.message ?? undefined,
           details: result.details ?? undefined,
         },
@@ -313,14 +298,14 @@ export async function createBookingWithCapacityCheck(
     }
 
     const details: BookingErrorDetails | undefined =
-      error && typeof error === "object" && "details" in (error as Record<string, unknown>)
+      error && typeof error === 'object' && 'details' in (error as Record<string, unknown>)
         ? ((error as Record<string, unknown>).details as BookingErrorDetails | undefined)
         : undefined;
 
     recordObservabilityEvent({
-      source: "capacity.transaction",
-      eventType: "booking.creation.failure",
-      severity: "error",
+      source: 'capacity.transaction',
+      eventType: 'booking.creation.failure',
+      severity: 'error',
       context: {
         restaurantId: params.restaurantId,
         error: error instanceof Error ? error.message : String(error),
@@ -328,8 +313,8 @@ export async function createBookingWithCapacityCheck(
     });
 
     throw new CapacityError(
-      error instanceof Error ? error.message : "Failed to create booking",
-      "INTERNAL_ERROR",
+      error instanceof Error ? error.message : 'Failed to create booking',
+      'INTERNAL_ERROR',
       details,
     );
   }
@@ -343,9 +328,9 @@ export async function updateBookingWithCapacityCheck(
 
   try {
     recordObservabilityEvent({
-      source: "capacity.transaction",
-      eventType: "booking.update.attempt",
-      severity: "info",
+      source: 'capacity.transaction',
+      eventType: 'booking.update.attempt',
+      severity: 'info',
       context: {
         restaurantId: params.restaurantId,
         bookingId: params.bookingId,
@@ -355,7 +340,7 @@ export async function updateBookingWithCapacityCheck(
       },
     });
 
-    const { data, error } = await supabase.rpc("update_booking_with_capacity_check", {
+    const { data, error } = await supabase.rpc('update_booking_with_capacity_check', {
       p_booking_id: params.bookingId,
       p_restaurant_id: params.restaurantId,
       p_customer_id: params.customerId,
@@ -374,14 +359,14 @@ export async function updateBookingWithCapacityCheck(
       p_client_request_id: params.clientRequestId ?? undefined,
       p_details: params.details ?? {},
       p_loyalty_points_awarded: params.loyaltyPointsAwarded ?? 0,
-      p_source: params.source ?? "api",
+      p_source: params.source ?? 'api',
     });
 
     if (error) {
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.update.rpc_error",
-        severity: "error",
+        source: 'capacity.transaction',
+        eventType: 'booking.update.rpc_error',
+        severity: 'error',
         context: {
           restaurantId: params.restaurantId,
           bookingId: params.bookingId,
@@ -391,8 +376,8 @@ export async function updateBookingWithCapacityCheck(
       });
 
       throw new CapacityError(
-        error.message ?? "Failed to execute capacity update RPC",
-        "INTERNAL_ERROR",
+        error.message ?? 'Failed to execute capacity update RPC',
+        'INTERNAL_ERROR',
         {
           sqlstate: error.code ?? undefined,
           sqlerrm: error.details ?? undefined,
@@ -404,9 +389,9 @@ export async function updateBookingWithCapacityCheck(
 
     if (result.success) {
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.update.success",
-        severity: "info",
+        source: 'capacity.transaction',
+        eventType: 'booking.update.success',
+        severity: 'info',
         context: {
           restaurantId: params.restaurantId,
           bookingId: params.bookingId,
@@ -415,16 +400,16 @@ export async function updateBookingWithCapacityCheck(
       });
     } else {
       recordObservabilityEvent({
-        source: "capacity.transaction",
-        eventType: "booking.update.failure",
-        severity: result.error === "CAPACITY_EXCEEDED" ? "warning" : "error",
+        source: 'capacity.transaction',
+        eventType: 'booking.update.failure',
+        severity: result.error === 'CAPACITY_EXCEEDED' ? 'warning' : 'error',
         context: {
           restaurantId: params.restaurantId,
           bookingId: params.bookingId,
           bookingDate: params.bookingDate,
           startTime: params.startTime,
           partySize: params.partySize,
-          error: result.error ?? "UNKNOWN",
+          error: result.error ?? 'UNKNOWN',
           message: result.message ?? undefined,
           details: result.details ?? undefined,
         },
@@ -438,14 +423,14 @@ export async function updateBookingWithCapacityCheck(
     }
 
     const details: BookingErrorDetails | undefined =
-      error && typeof error === "object" && "details" in (error as Record<string, unknown>)
+      error && typeof error === 'object' && 'details' in (error as Record<string, unknown>)
         ? ((error as Record<string, unknown>).details as BookingErrorDetails | undefined)
         : undefined;
 
     recordObservabilityEvent({
-      source: "capacity.transaction",
-      eventType: "booking.update.failure",
-      severity: "error",
+      source: 'capacity.transaction',
+      eventType: 'booking.update.failure',
+      severity: 'error',
       context: {
         restaurantId: params.restaurantId,
         bookingId: params.bookingId,
@@ -454,8 +439,8 @@ export async function updateBookingWithCapacityCheck(
     });
 
     throw new CapacityError(
-      error instanceof Error ? error.message : "Failed to update booking",
-      "INTERNAL_ERROR",
+      error instanceof Error ? error.message : 'Failed to update booking',
+      'INTERNAL_ERROR',
       details,
     );
   }
@@ -471,8 +456,8 @@ export async function createBookingOrThrow(
     return result;
   }
 
-  const message = result.message ?? "Booking creation failed";
-  throw new CapacityError(message, result.error ?? "INTERNAL_ERROR", result.details);
+  const message = result.message ?? 'Booking creation failed';
+  throw new CapacityError(message, result.error ?? 'INTERNAL_ERROR', result.details);
 }
 
 export function isRetryableBookingError(result: BookingResult): boolean {
@@ -481,13 +466,13 @@ export function isRetryableBookingError(result: BookingResult): boolean {
 
 export function getBookingErrorMessage(result: BookingResult): string {
   if (result.success) {
-    return result.message ?? "Booking created successfully";
+    return result.message ?? 'Booking created successfully';
   }
 
   if (result.message) {
     return result.message;
   }
 
-  const details = result.details ? JSON.stringify(result.details) : "";
-  return details.length > 0 ? `Booking failed: ${details}` : "Booking failed";
+  const details = result.details ? JSON.stringify(result.details) : '';
+  return details.length > 0 ? `Booking failed: ${details}` : 'Booking failed';
 }

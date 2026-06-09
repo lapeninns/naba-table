@@ -1,3 +1,4 @@
+import { captureRestaurantServerEvent } from '@/lib/posthog/server';
 import { finalizeBookingCreateCommit } from '@/server/bookings/create-finalization';
 import { buildBookingCreateHttpResponse } from '@/server/bookings/create-response';
 
@@ -70,6 +71,22 @@ export async function completeBookingCreate({
     restaurantId,
     reusedExisting: persistence.reusedExisting,
   });
+
+  captureRestaurantServerEvent('booking_created', {
+    restaurantId,
+    props: {
+      bookingId: finalBooking.id,
+      source: 'api',
+      idempotent: persistence.reusedExisting,
+    },
+  });
+
+  if (persistence.reusedExisting) {
+    captureRestaurantServerEvent('booking_duplicate_prevented', {
+      restaurantId,
+      props: { bookingId: finalBooking.id, source: 'api' },
+    });
+  }
 
   return await responseBuilder({
     booking: finalBooking,

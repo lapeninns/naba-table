@@ -100,6 +100,7 @@ export function useCreateReservation() {
       };
       track('wizard_submit_failed', payload);
       emit('wizard_submit_failed', payload);
+      track('reserve_submit_failed', { reason: payload.code });
     },
   });
 }

@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   TABLE_CATEGORY_VALUES,
@@ -129,6 +130,9 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('[ops/tables][GET] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-tables' },
+    });
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -221,6 +225,11 @@ async function postTable(req: NextRequest) {
       }
     } catch (lookupError) {
       console.error('[ops/tables][POST] Duplicate check failed', { error: lookupError });
+      captureServerException(lookupError, {
+        distinctId: user.id,
+        groups: { restaurant: data.restaurantId },
+        properties: { restaurantId: data.restaurantId, source: 'ops', kind: 'ops-tables' },
+      });
       return NextResponse.json({ error: 'Failed to verify table uniqueness' }, { status: 500 });
     }
 
@@ -265,10 +274,18 @@ async function postTable(req: NextRequest) {
       }
 
       console.error('[ops/tables][POST] Create error', { error: createError });
+      captureServerException(createError, {
+        distinctId: user.id,
+        groups: { restaurant: data.restaurantId },
+        properties: { restaurantId: data.restaurantId, source: 'ops', kind: 'ops-tables' },
+      });
       return NextResponse.json({ error: 'Failed to create table' }, { status: 500 });
     }
   } catch (error) {
     console.error('[ops/tables][POST] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-tables' },
+    });
     const message = error instanceof Error ? error.message : 'An unexpected error occurred';
     return NextResponse.json({ error: message }, { status: 500 });
   }

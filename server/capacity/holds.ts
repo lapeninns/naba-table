@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 
-import { getHoldMinTtlSeconds } from '@/server/feature-flags';
+import { getHoldMinTtlSeconds } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database, Json, Tables } from '@/types/supabase';

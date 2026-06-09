@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { firstString } from '@/lib/api/query-params';
 import { env } from '@/lib/env';
@@ -171,6 +172,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       });
     } catch (error) {
       console.error('[bookings][history] unexpected', error);
+      captureServerException(error, {
+        groups: { restaurant: bookingRow.restaurant_id },
+        properties: {
+          bookingId,
+          restaurantId: bookingRow.restaurant_id,
+          source: 'api',
+          kind: 'booking-history',
+        },
+      });
       return NextResponse.json({ error: 'Unable to fetch booking history' }, { status: 500 });
     }
   }
@@ -248,6 +258,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('[bookings][history] unexpected', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: {
+        bookingId,
+        restaurantId: bookingRow.restaurant_id,
+        source: 'api',
+        kind: 'booking-history',
+      },
+    });
     return NextResponse.json({ error: 'Unable to fetch booking history' }, { status: 500 });
   }
 }

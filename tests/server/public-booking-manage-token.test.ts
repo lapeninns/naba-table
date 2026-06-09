@@ -9,11 +9,6 @@ const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
-    featureFlags: {
-      bookingPastTimeGraceMinutes: 5,
-      bookingValidationUnified: false,
-      pendingSelfServeGraceMinutes: 10,
-    },
     reserve: {
       defaultDurationMinutes: 90,
     },
@@ -158,11 +153,14 @@ function makeLookup(data: Record<string, unknown> | null, error: unknown = null)
 }
 
 function makeRequest(token = 'valid-token') {
-  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
-    headers: {
-      'x-session-recovery-token': token,
+  return new NextRequest(
+    'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+    {
+      headers: {
+        'x-session-recovery-token': token,
+      },
     },
-  });
+  );
 }
 
 function routeParams(id = '65c3207e-318a-4e4b-b82d-1249a720d776') {

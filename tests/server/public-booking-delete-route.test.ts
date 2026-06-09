@@ -17,15 +17,6 @@ vi.mock('@/lib/env', () => ({
     node: {
       env: 'test',
     },
-    featureFlags: {
-      pendingSelfServeGraceMinutes: 10,
-      bookingPastTimeGraceMinutes: 5,
-      bookingValidationUnified: false,
-      holds: {
-        enabled: true,
-        strictConflicts: true,
-      },
-    },
     security: {
       sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret',
     },
@@ -150,9 +141,12 @@ function makeBookingLookup(booking: Record<string, unknown> | null) {
 }
 
 function makeDeleteRequest() {
-  return new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
-    method: 'DELETE',
-  });
+  return new NextRequest(
+    'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 describe('public DELETE /api/bookings/[id]', () => {
@@ -209,11 +203,22 @@ describe('public DELETE /api/bookings/[id]', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ id: '65c3207e-318a-4e4b-b82d-1249a720d776', status: 'cancelled', bookings: [] });
-    expect(softCancelBookingMock).toHaveBeenCalledWith(expect.anything(), '65c3207e-318a-4e4b-b82d-1249a720d776', {
-      restaurantId: 'rest-1',
+    expect(body).toEqual({
+      id: '65c3207e-318a-4e4b-b82d-1249a720d776',
+      status: 'cancelled',
+      bookings: [],
     });
-    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(expect.anything(), '65c3207e-318a-4e4b-b82d-1249a720d776');
+    expect(softCancelBookingMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '65c3207e-318a-4e4b-b82d-1249a720d776',
+      {
+        restaurantId: 'rest-1',
+      },
+    );
+    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '65c3207e-318a-4e4b-b82d-1249a720d776',
+    );
     expect(enqueueBookingCancelledSideEffectsMock).toHaveBeenCalledOnce();
   });
 
@@ -228,7 +233,11 @@ describe('public DELETE /api/bookings/[id]', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ id: '65c3207e-318a-4e4b-b82d-1249a720d776', status: 'cancelled', bookings: [] });
+    expect(body).toEqual({
+      id: '65c3207e-318a-4e4b-b82d-1249a720d776',
+      status: 'cancelled',
+      bookings: [],
+    });
     expect(softCancelBookingMock).not.toHaveBeenCalled();
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
     expect(logAuditEventMock).not.toHaveBeenCalled();
@@ -256,12 +265,15 @@ describe('public DELETE /api/bookings/[id]', () => {
     );
 
     const response = await DELETE(
-      new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
-        method: 'DELETE',
-        headers: {
-          'x-session-recovery-token': 'valid-token',
+      new NextRequest(
+        'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+        {
+          method: 'DELETE',
+          headers: {
+            'x-session-recovery-token': 'valid-token',
+          },
         },
-      }),
+      ),
       {
         params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
       },
@@ -288,12 +300,15 @@ describe('public DELETE /api/bookings/[id]', () => {
     serviceFromMock.mockReturnValueOnce(lookup);
 
     await DELETE(
-      new NextRequest('https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776', {
-        method: 'DELETE',
-        headers: {
-          'x-session-recovery-token': 'valid-token',
+      new NextRequest(
+        'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+        {
+          method: 'DELETE',
+          headers: {
+            'x-session-recovery-token': 'valid-token',
+          },
         },
-      }),
+      ),
       {
         params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
       },
@@ -301,8 +316,12 @@ describe('public DELETE /api/bookings/[id]', () => {
 
     expect(lookup.eq).toHaveBeenCalledWith('id', '65c3207e-318a-4e4b-b82d-1249a720d776');
     expect(lookup.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
-    expect(softCancelBookingMock).toHaveBeenCalledWith(expect.anything(), '65c3207e-318a-4e4b-b82d-1249a720d776', {
-      restaurantId: 'rest-1',
-    });
+    expect(softCancelBookingMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '65c3207e-318a-4e4b-b82d-1249a720d776',
+      {
+        restaurantId: 'rest-1',
+      },
+    );
   });
 });

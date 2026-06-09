@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { Resend, type WebhookEvent } from 'resend';
 
+import { captureServerException } from '@/lib/posthog/server';
 import {
   recordEmailDeliveryLog,
   findLatestEmailDeliveryByMessageId,
@@ -9,6 +10,7 @@ import {
 } from '@/server/emails/email-delivery-log';
 import { suppressProfilesByEmail } from '@/server/emails/recipient-suppression';
 import { recordObservabilityEvent } from '@/server/observability';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import type { NextRequest } from 'next/server';
 
@@ -84,6 +86,7 @@ async function readBodyWithLimit(req: NextRequest, maxBytes: number): Promise<st
 }
 
 export async function POST(req: NextRequest) {
+  await flushPosthogLogsAfterResponse();
   // 1. --- Webhook Security ---
   const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (!resendWebhookSecret) {
@@ -219,6 +222,9 @@ export async function POST(req: NextRequest) {
       context: {
         error: errorMessage,
       },
+    });
+    captureServerException(error, {
+      properties: { provider: 'resend', source: 'webhook', path: '/api/webhook/resend' },
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

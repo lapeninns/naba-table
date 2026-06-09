@@ -1,22 +1,30 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { assignTablesDirectly, unassignTablesDirect, DirectAssignmentError } from "@/server/capacity/table-assignment/direct-assignment";
-import { enqueueBookingUpdatedSideEffects, safeBookingPayload } from "@/server/jobs/booking-side-effects";
-import { withCsrfProtectedMutation } from "@/server/security/csrf";
-import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
+import {
+  assignTablesDirectly,
+  unassignTablesDirect,
+  DirectAssignmentError,
+} from '@/server/capacity/table-assignment/direct-assignment';
+import {
+  enqueueBookingUpdatedSideEffects,
+  safeBookingPayload,
+} from '@/server/jobs/booking-side-effects';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
-import type { BookingRecord } from "@/server/bookings";
-import type { NextRequest } from "next/server";
+import type { BookingRecord } from '@/server/bookings';
+import type { NextRequest } from 'next/server';
 
 const assignSchema = z.object({
-  tableIds: z.array(z.string().uuid()).min(1, "At least one table must be selected"),
-  idempotencyKey: z.string().min(1, "Idempotency key is required"),
+  tableIds: z.array(z.string().uuid()).min(1, 'At least one table must be selected'),
+  idempotencyKey: z.string().min(1, 'Idempotency key is required'),
   requireAdjacency: z.boolean().optional(),
 });
 
 const unassignSchema = z.object({
-  tableIds: z.array(z.string().uuid()).min(1, "At least one table must be selected"),
+  tableIds: z.array(z.string().uuid()).min(1, 'At least one table must be selected'),
 });
 
 /**
@@ -31,17 +39,11 @@ const unassignSchema = z.object({
  * - Clear validation and error messages
  * - Fast and reliable
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withCsrfProtectedMutation(req, () => postAssignTables(req, { params }));
 }
 
-async function postAssignTables(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+async function postAssignTables(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: bookingId } = await params;
 
   // === Authentication ===
@@ -52,7 +54,7 @@ async function postAssignTables(
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
   }
 
   // === Parse Request Body ===
@@ -62,8 +64,8 @@ async function postAssignTables(
   if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Invalid request payload",
-        code: "INVALID_PAYLOAD",
+        error: 'Invalid request payload',
+        code: 'INVALID_PAYLOAD',
         details: parsed.error.flatten(),
       },
       { status: 400 },
@@ -74,52 +76,61 @@ async function postAssignTables(
 
   // === Authorization - Check restaurant access ===
   const bookingLookup = await supabase
-    .from("bookings")
-    .select("restaurant_id")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select('restaurant_id')
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (bookingLookup.error) {
     return NextResponse.json(
-      { error: "Failed to load booking", code: "BOOKING_LOOKUP_FAILED" },
+      { error: 'Failed to load booking', code: 'BOOKING_LOOKUP_FAILED' },
       { status: 500 },
     );
   }
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow?.restaurant_id) {
-    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+      { status: 404 },
+    );
   }
 
   const membership = await supabase
-    .from("restaurant_memberships")
-    .select("role")
-    .eq("restaurant_id", bookingRow.restaurant_id)
-    .eq("user_id", user.id)
+    .from('restaurant_memberships')
+    .select('role')
+    .eq('restaurant_id', bookingRow.restaurant_id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (membership.error) {
     return NextResponse.json(
-      { error: "Failed to verify access", code: "ACCESS_LOOKUP_FAILED" },
+      { error: 'Failed to verify access', code: 'ACCESS_LOOKUP_FAILED' },
       { status: 500 },
     );
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
+    return NextResponse.json({ error: 'Access denied', code: 'ACCESS_DENIED' }, { status: 403 });
   }
+
+  captureRestaurantServerEvent('table_assignment_started', {
+    restaurantId: bookingRow.restaurant_id,
+    distinctId: user.id,
+    props: { bookingId, source: 'ops', kind: 'v1' },
+  });
 
   // === Execute Assignment ===
   const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
 
   const { data: previousBooking, error: previousError } = await serviceClient
-    .from("bookings")
-    .select("*")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (previousError) {
-    console.error("[ops/bookings/assign-tables] failed to load booking before assignment", {
+    console.error('[ops/bookings/assign-tables] failed to load booking before assignment', {
       bookingId,
       error: previousError,
     });
@@ -138,13 +149,13 @@ async function postAssignTables(
     if (previousBooking) {
       try {
         const { data: currentBooking, error: currentError } = await serviceClient
-          .from("bookings")
-          .select("*")
-          .eq("id", bookingId)
+          .from('bookings')
+          .select('*')
+          .eq('id', bookingId)
           .maybeSingle();
 
         if (currentError) {
-          console.error("[ops/bookings/assign-tables] failed to load booking after assignment", {
+          console.error('[ops/bookings/assign-tables] failed to load booking after assignment', {
             bookingId,
             error: currentError,
           });
@@ -153,8 +164,8 @@ async function postAssignTables(
           const currStatus = (currentBooking as { status?: string | null }).status ?? null;
 
           if (
-            (prevStatus === "pending" || prevStatus === "pending_allocation") &&
-            currStatus === "confirmed"
+            (prevStatus === 'pending' || prevStatus === 'pending_allocation') &&
+            currStatus === 'confirmed'
           ) {
             await enqueueBookingUpdatedSideEffects(
               {
@@ -167,19 +178,30 @@ async function postAssignTables(
           }
         }
       } catch (jobError) {
-        console.error("[ops/bookings/assign-tables] side effects failed", jobError);
+        console.error('[ops/bookings/assign-tables] side effects failed', jobError);
       }
     }
+
+    captureRestaurantServerEvent('table_assignment_completed', {
+      restaurantId: bookingRow.restaurant_id,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', assignedCount: tableIds.length },
+    });
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     if (error instanceof DirectAssignmentError) {
-      console.error("[ops/bookings/assign-tables] validation error", {
+      console.error('[ops/bookings/assign-tables] validation error', {
         code: error.code,
         message: error.message,
         details: error.details,
         bookingId,
         tableIds,
+      });
+      captureRestaurantServerEvent('table_assignment_failed', {
+        restaurantId: bookingRow.restaurant_id,
+        distinctId: user.id,
+        props: { bookingId, source: 'ops', code: error.code, reason: 'validation' },
       });
       return NextResponse.json(
         {
@@ -192,7 +214,7 @@ async function postAssignTables(
     }
 
     // Log the full error for debugging
-    console.error("[ops/bookings/assign-tables] unexpected error", {
+    console.error('[ops/bookings/assign-tables] unexpected error', {
       error,
       errorMessage: error instanceof Error ? error.message : String(error),
       errorStack: error instanceof Error ? error.stack : undefined,
@@ -201,8 +223,19 @@ async function postAssignTables(
       userId: user.id,
     });
 
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    return NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 });
+    captureRestaurantServerEvent('table_assignment_failed', {
+      restaurantId: bookingRow.restaurant_id,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]/assign-tables' },
+    });
+
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message, code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }
 
@@ -211,10 +244,7 @@ async function postAssignTables(
  *
  * Remove table assignments from a booking.
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   return withCsrfProtectedMutation(req, () => deleteAssignTables(req, { params }));
 }
 
@@ -232,7 +262,7 @@ async function deleteAssignTables(
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized", code: "UNAUTHORIZED" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
   }
 
   // === Parse Request Body ===
@@ -242,8 +272,8 @@ async function deleteAssignTables(
   if (!parsed.success) {
     return NextResponse.json(
       {
-        error: "Invalid request payload",
-        code: "INVALID_PAYLOAD",
+        error: 'Invalid request payload',
+        code: 'INVALID_PAYLOAD',
         details: parsed.error.flatten(),
       },
       { status: 400 },
@@ -254,39 +284,42 @@ async function deleteAssignTables(
 
   // === Authorization - Check restaurant access ===
   const bookingLookup = await supabase
-    .from("bookings")
-    .select("restaurant_id")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select('restaurant_id')
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (bookingLookup.error) {
     return NextResponse.json(
-      { error: "Failed to load booking", code: "BOOKING_LOOKUP_FAILED" },
+      { error: 'Failed to load booking', code: 'BOOKING_LOOKUP_FAILED' },
       { status: 500 },
     );
   }
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow?.restaurant_id) {
-    return NextResponse.json({ error: "Booking not found", code: "BOOKING_NOT_FOUND" }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+      { status: 404 },
+    );
   }
 
   const membership = await supabase
-    .from("restaurant_memberships")
-    .select("role")
-    .eq("restaurant_id", bookingRow.restaurant_id)
-    .eq("user_id", user.id)
+    .from('restaurant_memberships')
+    .select('role')
+    .eq('restaurant_id', bookingRow.restaurant_id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (membership.error) {
     return NextResponse.json(
-      { error: "Failed to verify access", code: "ACCESS_LOOKUP_FAILED" },
+      { error: 'Failed to verify access', code: 'ACCESS_LOOKUP_FAILED' },
       { status: 500 },
     );
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: "Access denied", code: "ACCESS_DENIED" }, { status: 403 });
+    return NextResponse.json({ error: 'Access denied', code: 'ACCESS_DENIED' }, { status: 403 });
   }
 
   // === Execute Unassignment ===
@@ -312,14 +345,20 @@ async function deleteAssignTables(
       );
     }
 
-    console.error("[ops/bookings/unassign-tables] unexpected error", {
+    console.error('[ops/bookings/unassign-tables] unexpected error', {
       error,
       bookingId,
       tableIds,
       userId: user.id,
     });
 
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    return NextResponse.json({ error: message, code: "INTERNAL_ERROR" }, { status: 500 });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]/assign-tables' },
+    });
+
+    const message = error instanceof Error ? error.message : 'Unexpected error';
+    return NextResponse.json({ error: message, code: 'INTERNAL_ERROR' }, { status: 500 });
   }
 }

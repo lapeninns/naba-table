@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { captureServerException } from '@/lib/posthog/server';
+
 const PUBLIC_WORKFLOW_ERROR_NAMES = new Set([
   'GBP_DRAFT_INVALID_STATE',
   'GBP_DRAFT_NO_SELECTION',
@@ -53,6 +55,14 @@ export function googleBusinessProfileWorkflowErrorResponse(
       ? (errorMessage(error) ?? options.fallbackMessage)
       : options.fallbackMessage;
   const name = errorName(error);
+
+  // Only capture genuine server faults; known public workflow errors are
+  // expected business outcomes (stale draft, push disabled, etc.).
+  if (!isPublicGoogleBusinessProfileWorkflowError(error)) {
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'gbp_workflow', status: options.status },
+    });
+  }
 
   return NextResponse.json(
     {

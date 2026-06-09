@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
@@ -111,6 +112,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
       if (zoneError) {
         console.error('[onboarding][tables][POST] Zone ownership lookup failed', zoneError);
+        captureServerException(zoneError, {
+          distinctId: authorization.user.id,
+          groups: { restaurant: restaurantId },
+          properties: { restaurantId, source: 'api', kind: 'onboarding-tables' },
+        });
         return NextResponse.json({ message: 'Unable to verify table zones' }, { status: 500 });
       }
 
@@ -149,6 +155,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ tables: created }, { status: 201 });
   } catch (creationError) {
     console.error('[onboarding][tables][POST]', creationError);
+    captureServerException(creationError, {
+      distinctId: authorization.user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'api', kind: 'onboarding-tables' },
+    });
     const message =
       creationError instanceof Error ? creationError.message : 'Unable to create tables';
     return NextResponse.json({ message }, { status: 500 });

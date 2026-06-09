@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { ensureProfileRow } from '@/lib/profile/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -136,6 +137,9 @@ async function postAcceptInvitation(
     }
 
     console.error('[api/team/invitations/token/accept][POST] failed', error);
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'team-invitation-accept' },
+    });
     return NextResponse.json({ error: 'Unable to accept invitation' }, { status: 500 });
   }
 }

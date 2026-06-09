@@ -15,6 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -28,7 +29,7 @@ import {
   assertDualSyncRestaurantNotPaused,
   isDualSyncRestaurantPausedError,
 } from '@/server/dual-sync/controls';
-import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/runtime-controls';
 import { isDualSyncLockError } from '@/server/dual-sync/locks';
 import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
 import { runAutoExportForRestaurant } from '@/server/dual-sync/scheduling/auto-export';
@@ -110,6 +111,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
     const message = error instanceof Error ? error.message : 'Auto-export failed';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-auto-export' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_AUTO_EXPORT_ERROR');
   }
 }

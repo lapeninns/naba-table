@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { isEmailQueueEnabled } from '@/server/feature-flags';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { getEmailQueueStatus } from '@/server/queue/email';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 
@@ -42,6 +43,9 @@ async function getQueueStatus(request: Request) {
     return NextResponse.json(snapshot);
   } catch (error) {
     console.error('[admin][queue-status] error:', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'admin-queue-status' },
+    });
     return NextResponse.json(
       {
         status: 'error',

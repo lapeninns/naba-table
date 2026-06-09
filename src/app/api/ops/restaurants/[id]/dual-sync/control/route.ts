@@ -8,6 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -45,6 +46,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ restaurantId, control }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load dual-sync control';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-control-read' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_CONTROL_ERROR');
   }
 }
@@ -81,6 +87,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ restaurantId, control }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update dual-sync control';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-control-update' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_CONTROL_ERROR');
   }
 }

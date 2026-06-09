@@ -2,8 +2,8 @@ import { createOperation } from './operations';
 import { evaluatePublishDecision } from './orchestrator-prepare-decisions-domain';
 import { markIgnored } from '../state/write';
 
-import type { DualSyncRuntimeFlags } from '../flag';
 import type { buildRegistry } from '../registry';
+import type { DualSyncRuntimeControls } from '../runtime-controls';
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 import type { DualSyncGoogleUpdateMask, DualSyncPublishOperation } from '../types';
 import type { DualSyncOperationFailure, DualSyncPublishDecision } from './types';
@@ -34,7 +34,7 @@ export interface PreparePublishDecisionsInput {
   readonly gbpSnapshot: DualSyncCanonicalSnapshot;
   readonly preflightFailures: ReadonlyMap<string, DualSyncOperationFailure>;
   readonly operationGroupIdByKey: ReadonlyMap<string, string>;
-  readonly runtimeFlags: DualSyncRuntimeFlags;
+  readonly runtimeControls: DualSyncRuntimeControls;
   readonly actorUserId: string | null;
 }
 
@@ -58,7 +58,7 @@ export async function preparePublishDecisions(input: PreparePublishDecisionsInpu
       coreSnapshot: input.coreSnapshot,
       gbpSnapshot: input.gbpSnapshot,
       preflightFailure: input.preflightFailures.get(decision.fieldKey),
-      runtimeFlags: input.runtimeFlags,
+      runtimeControls: input.runtimeControls,
       actorUserId: input.actorUserId,
     });
     if (evaluation.status === 'failed') {

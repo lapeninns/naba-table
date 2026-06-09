@@ -10,16 +10,11 @@ import {
   sendBookingUpdateEmail,
   sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
-import {
-  isEmailQueueEnabled,
-} from '@/server/feature-flags';
 import { recordObservabilityEvent } from '@/server/observability';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { cancelEmailIntents } from '@/server/queue/email-intents';
-import {
-  sendGuestBookingCancellationSms,
-  sendGuestBookingUpdateSms,
-} from '@/server/sms/bookings';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
+import { sendGuestBookingCancellationSms, sendGuestBookingUpdateSms } from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -121,7 +116,7 @@ async function reportInlineFallbackInUse(context: {
   }
   warnedAboutInlineFallback = true;
   console.error(
-    '[jobs][email-fallback] inline setTimeout fallback engaged in production/serverless; scheduled emails will NOT survive invocation recycling. Set FEATURE_EMAIL_QUEUE_ENABLED=true.',
+    '[jobs][email-fallback] inline setTimeout fallback engaged in production/serverless; scheduled emails will NOT survive invocation recycling. Configure the durable email queue before deploying.',
     context,
   );
   try {
@@ -513,8 +508,7 @@ async function processBookingCreatedSideEffects(
   const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
   const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
   const shouldSendConfirmationNotifications =
-    booking.status === 'confirmed' &&
-    ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
+    booking.status === 'confirmed' && ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
 
   const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 

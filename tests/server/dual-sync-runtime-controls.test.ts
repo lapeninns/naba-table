@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   getDualSyncDecisionDisabledReason,
-  getDualSyncRuntimeFlags,
+  getDualSyncRuntimeControls,
   isDualSyncAutoCandidatesEnabled,
   isDualSyncScheduledRefreshEnabled,
-} from '@/server/dual-sync/flag';
+} from '@/server/dual-sync/runtime-controls';
 
 const FLAG_NAMES = [
   'GBP_IMPORT_ENABLED',
@@ -32,15 +32,15 @@ afterEach(() => {
   }
 });
 
-describe('dual-sync runtime flags', () => {
-  it('defaults targeted rollback flags to enabled', () => {
+describe('dual-sync runtime controls', () => {
+  it('defaults targeted rollback controls to enabled', () => {
     for (const name of FLAG_NAMES) {
       delete process.env[name];
     }
 
     expect(isDualSyncAutoCandidatesEnabled()).toBe(true);
     expect(isDualSyncScheduledRefreshEnabled()).toBe(true);
-    expect(getDualSyncRuntimeFlags()).toMatchObject({
+    expect(getDualSyncRuntimeControls()).toMatchObject({
       importEnabled: true,
       exportEnabled: true,
       autoCandidatesEnabled: true,
@@ -51,7 +51,7 @@ describe('dual-sync runtime flags', () => {
     });
   });
 
-  it('supports granular rollback flags for risky decision families', () => {
+  it('supports granular rollback controls for risky decision families', () => {
     process.env.GBP_EXPORT_ENABLED = 'false';
     process.env.GBP_HIGH_RISK_EXPORTS_ENABLED = 'false';
     process.env.GBP_MENU_SYNC_ENABLED = 'false';

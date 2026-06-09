@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 
 import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 import { releaseTableHold } from '@/server/capacity/holds';
-import { getContextQueryPaddingMinutes, isAdjacencyQueryUndirected } from '@/server/feature-flags';
+import { getContextQueryPaddingMinutes, isAdjacencyQueryUndirected } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { ManualSelectionInputError, type DbClient, type Table, type BookingWindow } from './types';

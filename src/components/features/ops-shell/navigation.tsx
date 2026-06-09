@@ -11,7 +11,6 @@ import {
   Users,
 } from 'lucide-react';
 
-import type { OpsFeatureFlags } from '@/types/ops';
 import type { ComponentType, SVGProps } from 'react';
 
 export type OpsNavigationItem = {
@@ -20,7 +19,6 @@ export type OpsNavigationItem = {
   href: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   match?: (pathname: string) => boolean;
-  requiresFeatureFlag?: keyof OpsFeatureFlags;
   requiresActiveAdmin?: boolean;
 };
 
@@ -101,7 +99,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/rejections'),
         icon: TrendingDown,
         match: (pathname) => pathname === path('/rejections'),
-        requiresFeatureFlag: 'rejectionAnalytics',
       },
     ],
   },
@@ -135,7 +132,6 @@ export function isNavItemActive(pathname: string, item: OpsNavigationItem): bool
 
 export function filterOpsNavigationSections(params: {
   sections?: readonly OpsNavigationSection[];
-  featureFlags: OpsFeatureFlags;
   canViewAdminItems: boolean;
 }): OpsNavigationSection[] {
   const sections = params.sections ?? OPS_NAV_SECTIONS;
@@ -143,9 +139,6 @@ export function filterOpsNavigationSections(params: {
     .map((section) => ({
       label: section.label,
       items: section.items.filter((item) => {
-        if (item.requiresFeatureFlag && !params.featureFlags[item.requiresFeatureFlag]) {
-          return false;
-        }
         if (item.requiresActiveAdmin && !params.canViewAdminItems) {
           return false;
         }

@@ -73,15 +73,13 @@ function assertSameSupabaseProjectApiUrl(primaryUrl: string, dataUrl: string): v
 
 /**
  * Supabase REST URL for the memoized service-role client.
- * On staging/preview, can target a read replica when configured (same API keys as the primary).
+ * On staging/preview, targets a read replica when configured (same API keys as the primary).
  * Never switches away from the primary URL on production deployment targets.
  */
 export function resolveServiceRoleSupabaseUrl(): string {
   const parsed = getEnv();
   const replicaUrl = parsed.SUPABASE_READ_REPLICA_URL?.trim();
-  const wantsReplica =
-    parsed.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA === true && Boolean(replicaUrl);
-  if (!wantsReplica) {
+  if (!replicaUrl) {
     return parsed.NEXT_PUBLIC_SUPABASE_URL;
   }
   const treatAsProdTarget =
@@ -89,8 +87,8 @@ export function resolveServiceRoleSupabaseUrl(): string {
   if (treatAsProdTarget) {
     return parsed.NEXT_PUBLIC_SUPABASE_URL;
   }
-  assertSameSupabaseProjectApiUrl(parsed.NEXT_PUBLIC_SUPABASE_URL, replicaUrl!);
-  return replicaUrl!;
+  assertSameSupabaseProjectApiUrl(parsed.NEXT_PUBLIC_SUPABASE_URL, replicaUrl);
+  return replicaUrl;
 }
 
 const runtimeEnv = getEnv();

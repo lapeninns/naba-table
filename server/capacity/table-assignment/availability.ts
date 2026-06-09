@@ -1,28 +1,47 @@
-import { performance } from "node:perf_hooks";
+import { performance } from 'node:perf_hooks';
 
-import { AssignTablesRpcError } from "@/server/capacity/holds";
-import { createAvailabilityBitset, markWindow, isWindowFree } from "@/server/capacity/planner/bitset";
-import { getVenuePolicy, type VenuePolicy, type SelectorScoringConfig, type ServiceKey } from "@/server/capacity/policy";
-import { buildScoredTablePlans, type RankedTablePlan, type CandidateDiagnostics, type BuildCandidatesResult } from "@/server/capacity/selector";
-import { deriveTableRules } from "@/server/capacity/table-rules";
-import { windowsOverlap } from "@/server/capacity/time-windows";
-import { isAllocatorAdjacencyRequired, isPlannerTimePruningEnabled } from "@/server/feature-flags";
+import { AssignTablesRpcError } from '@/server/capacity/holds';
+import {
+  createAvailabilityBitset,
+  markWindow,
+  isWindowFree,
+} from '@/server/capacity/planner/bitset';
+import {
+  getVenuePolicy,
+  type VenuePolicy,
+  type SelectorScoringConfig,
+  type ServiceKey,
+} from '@/server/capacity/policy';
+import {
+  buildScoredTablePlans,
+  type RankedTablePlan,
+  type CandidateDiagnostics,
+  type BuildCandidatesResult,
+} from '@/server/capacity/selector';
+import { deriveTableRules } from '@/server/capacity/table-rules';
+import { windowsOverlap } from '@/server/capacity/time-windows';
+import { isAllocatorAdjacencyRequired, isPlannerTimePruningEnabled } from '@/server/runtime-policy';
 
-import { computeBookingWindowWithFallback, type BookingWindowWithFallback } from "./booking-window";
-import { ensureClient, extractErrorCode, type ContextBookingRow } from "./supabase";
-import { type BookingWindow, type Table, type ManualAssignmentConflict, type DbClient } from "./types";
-import { toIsoUtc, serializeDetails } from "./utils";
+import { computeBookingWindowWithFallback, type BookingWindowWithFallback } from './booking-window';
+import { ensureClient, extractErrorCode, type ContextBookingRow } from './supabase';
+import {
+  type BookingWindow,
+  type Table,
+  type ManualAssignmentConflict,
+  type DbClient,
+} from './types';
+import { toIsoUtc, serializeDetails } from './utils';
 
-import type { TableHold } from "@/server/capacity/holds";
-import type { getSelectorPlannerLimits} from "@/server/feature-flags";
-import type { Tables } from "@/types/supabase";
+import type { TableHold } from '@/server/capacity/holds';
+import type { getSelectorPlannerLimits } from '@/server/runtime-policy';
+import type { Tables } from '@/types/supabase';
 
 type BusyWindow = {
   tableId: string;
   startAt: string;
   endAt: string;
   bookingId: string | null;
-  source: "booking" | "hold";
+  source: 'booking' | 'hold';
 };
 
 export type AvailabilityMap = Map<
@@ -33,7 +52,7 @@ export type AvailabilityMap = Map<
   }
 >;
 
-export type TimeFilterMode = "strict" | "approx";
+export type TimeFilterMode = 'strict' | 'approx';
 
 export type TimeFilterStats = {
   prunedByTime: number;
@@ -48,7 +67,7 @@ export type TimeFilterOptions = {
   captureStats?: (stats: TimeFilterStats) => void;
 };
 
-export type TableFilterStatusPolicy = "available_only" | "exclude_out_of_service";
+export type TableFilterStatusPolicy = 'available_only' | 'exclude_out_of_service';
 
 export type TableFilterDiagnostics = {
   inputTables: number;
@@ -78,7 +97,7 @@ export function filterTimeAvailableTables(
   captureStats?: (stats: TimeFilterStats) => void,
 ): Table[] {
   const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
-  if (!busy || busy.size === 0 || mode === "approx") {
+  if (!busy || busy.size === 0 || mode === 'approx') {
     captureStats?.({
       prunedByTime: 0,
       candidatesAfterTimePrune: tables.length,
@@ -152,7 +171,9 @@ export function filterAvailableTables(
   const allowMinPartySizeViolation = options?.allowMinPartySizeViolation ?? false;
   const avoid = avoidTables ?? new Set<string>();
   const futureWindow = window.block.start.toMillis() > Date.now();
-  const statusPolicy: TableFilterStatusPolicy = futureWindow ? "exclude_out_of_service" : "available_only";
+  const statusPolicy: TableFilterStatusPolicy = futureWindow
+    ? 'exclude_out_of_service'
+    : 'available_only';
   const diagnostics: TableFilterDiagnostics = {
     inputTables: tables.length,
     candidatesAfterBasic: 0,
@@ -210,13 +231,13 @@ export function filterAvailableTables(
       diagnostics.droppedByTableInactive += 1;
       return false;
     }
-    const normalizedStatus = ((table.status ?? "").toString().trim().toLowerCase() || "unknown");
-    if (statusPolicy === "available_only") {
-      if (normalizedStatus !== "available") {
+    const normalizedStatus = (table.status ?? '').toString().trim().toLowerCase() || 'unknown';
+    if (statusPolicy === 'available_only') {
+      if (normalizedStatus !== 'available') {
         diagnostics.droppedByStatus += 1;
         return false;
       }
-    } else if (normalizedStatus === "out_of_service" || normalizedStatus === "unknown") {
+    } else if (normalizedStatus === 'out_of_service' || normalizedStatus === 'unknown') {
       diagnostics.droppedByStatus += 1;
       return false;
     }
@@ -253,10 +274,7 @@ export function filterAvailableTables(
       return false;
     }
 
-    if (
-      !allowMinPartySizeViolation &&
-      partySize < rules.minPartySize
-    ) {
+    if (!allowMinPartySizeViolation && partySize < rules.minPartySize) {
       diagnostics.droppedByMinPartySize += 1;
       return false;
     }
@@ -280,8 +298,12 @@ export function filterAvailableTables(
 
   const timeFiltered =
     options?.timeFilter && window
-      ? filterTimeAvailableTables(filtered, window, options.timeFilter.busy, options.timeFilter.mode ?? "strict", (stats) =>
-          options.timeFilter?.captureStats?.(stats),
+      ? filterTimeAvailableTables(
+          filtered,
+          window,
+          options.timeFilter.busy,
+          options.timeFilter.mode ?? 'strict',
+          (stats) => options.timeFilter?.captureStats?.(stats),
         )
       : filtered;
   diagnostics.droppedByTime = Math.max(0, filtered.length - timeFiltered.length);
@@ -448,7 +470,10 @@ function applyLookaheadPenalties(params: {
   } = params;
   const start = performance.now();
   const MAX_LOOKAHEAD_PLANS = Math.min(20, plans.length);
-  const LOOKAHEAD_TIME_BUDGET_MS = Math.max(15, Math.min(100, selectorLimits.enumerationTimeoutMs ?? 50));
+  const LOOKAHEAD_TIME_BUDGET_MS = Math.max(
+    15,
+    Math.min(100, selectorLimits.enumerationTimeoutMs ?? 50),
+  );
 
   if (futureBookings.length === 0 || plans.length === 0 || penaltyWeight <= 0) {
     return {
@@ -492,7 +517,9 @@ function applyLookaheadPenalties(params: {
       return false;
     }
     caps.sort((a, b) => b - a);
-    const upperBound = caps.slice(0, Math.min(kLimit, caps.length)).reduce((sum, value) => sum + value, 0);
+    const upperBound = caps
+      .slice(0, Math.min(kLimit, caps.length))
+      .reduce((sum, value) => sum + value, 0);
     return upperBound >= required;
   };
 
@@ -523,7 +550,7 @@ function applyLookaheadPenalties(params: {
           allowMaxPartySizeViolation: combinationEnabled,
           timeFilter: {
             busy: future.busy,
-            mode: "strict",
+            mode: 'strict',
           },
         },
       );
@@ -534,7 +561,9 @@ function applyLookaheadPenalties(params: {
         continue;
       }
 
-      if (!quickCapacityFeasible(availableTables, future.partySize, combinationLimit, zoneId ?? null)) {
+      if (
+        !quickCapacityFeasible(availableTables, future.partySize, combinationLimit, zoneId ?? null)
+      ) {
         planPenalty += penaltyWeight;
         conflicts.push({ bookingId: future.bookingId, planKey: plan.tableKey });
         precheckedConflicts += 1;
@@ -610,7 +639,7 @@ export function evaluateLookahead(params: {
   combinationLimit: number;
   selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
   scoringConfig: SelectorScoringConfig;
-}): CandidateDiagnostics["lookahead"] {
+}): CandidateDiagnostics['lookahead'] {
   const {
     lookahead,
     bookingId,
@@ -673,7 +702,15 @@ export function evaluateLookahead(params: {
     };
   }
 
-  const { penalizedPlans, totalPenalty, evaluationMs, conflicts, blockedPlans, timeBudgetHit, precheckedConflicts } = applyLookaheadPenalties({
+  const {
+    penalizedPlans,
+    totalPenalty,
+    evaluationMs,
+    conflicts,
+    blockedPlans,
+    timeBudgetHit,
+    precheckedConflicts,
+  } = applyLookaheadPenalties({
     plans: plansResult.plans,
     bookingWindow,
     tables,
@@ -748,14 +785,14 @@ function sortPlansByScore(plans: RankedTablePlan[]): void {
     if (a.metrics.adjacencyCost !== b.metrics.adjacencyCost) {
       return a.metrics.adjacencyCost - b.metrics.adjacencyCost;
     }
-    return a.tableKey.localeCompare(b.tableKey, "en");
+    return a.tableKey.localeCompare(b.tableKey, 'en');
   });
 }
 
 function registerBusyWindow(
   map: AvailabilityMap,
   tableId: string,
-  window: { startAt: string; endAt: string; bookingId: string | null; source: "booking" | "hold" },
+  window: { startAt: string; endAt: string; bookingId: string | null; source: 'booking' | 'hold' },
 ): void {
   if (!map.has(tableId)) {
     map.set(tableId, {
@@ -819,7 +856,7 @@ export function buildBusyMaps(params: {
         startAt: bookingInterval.start,
         endAt: bookingInterval.end,
         bookingId: booking.id,
-        source: "booking",
+        source: 'booking',
       });
     }
   }
@@ -828,10 +865,7 @@ export function buildBusyMaps(params: {
     if (excludeHoldId && hold.id === excludeHoldId) continue;
     if (
       targetInterval &&
-      !windowsOverlap(
-        { start: hold.startAt, end: hold.endAt },
-        targetInterval,
-      )
+      !windowsOverlap({ start: hold.startAt, end: hold.endAt }, targetInterval)
     ) {
       continue;
     }
@@ -840,7 +874,7 @@ export function buildBusyMaps(params: {
         startAt: hold.startAt,
         endAt: hold.endAt,
         bookingId: hold.bookingId,
-        source: "hold",
+        source: 'hold',
       });
     }
   }
@@ -862,7 +896,12 @@ export function extractConflictsForTables(
     if (!entry) continue;
     if (isWindowFree(entry.bitset, targetStart, targetEnd)) continue;
     for (const other of entry.windows) {
-      if (windowsOverlap({ start: targetStart, end: targetEnd }, { start: other.startAt, end: other.endAt })) {
+      if (
+        windowsOverlap(
+          { start: targetStart, end: targetEnd },
+          { start: other.startAt, end: other.endAt },
+        )
+      ) {
         conflicts.push({
           tableId,
           bookingId: other.bookingId,
@@ -881,7 +920,7 @@ type AssignmentAvailabilityRow = {
   table_id: string | null;
   start_at: string | null;
   end_at: string | null;
-  bookings: Pick<Tables<"bookings">, "id" | "status" | "start_at" | "end_at"> | null;
+  bookings: Pick<Tables<'bookings'>, 'id' | 'status' | 'start_at' | 'end_at'> | null;
 };
 
 async function legacyTableAvailabilityCheck(params: {
@@ -894,16 +933,16 @@ async function legacyTableAvailabilityCheck(params: {
   const { supabase, tableId, startAt, endAt, excludeBookingId } = params;
 
   const { data, error } = await supabase
-    .from("booking_table_assignments")
-    .select("table_id, start_at, end_at, bookings(id, status, start_at, end_at)")
-    .eq("table_id", tableId)
-    .lt("start_at", endAt)
-    .gt("end_at", startAt);
+    .from('booking_table_assignments')
+    .select('table_id, start_at, end_at, bookings(id, status, start_at, end_at)')
+    .eq('table_id', tableId)
+    .lt('start_at', endAt)
+    .gt('end_at', startAt);
 
   if (error || !data) {
     throw new AssignTablesRpcError({
-      message: error?.message ?? "Failed to query table availability",
-      code: "TABLE_AVAILABILITY_QUERY_FAILED",
+      message: error?.message ?? 'Failed to query table availability',
+      code: 'TABLE_AVAILABILITY_QUERY_FAILED',
       details: serializeDetails({
         code: (error as { code?: string })?.code ?? null,
         details: error?.details ?? null,
@@ -919,7 +958,7 @@ async function legacyTableAvailabilityCheck(params: {
     if (excludeBookingId && booking?.id === excludeBookingId) {
       continue;
     }
-    if (booking && !["pending", "confirmed", "seated"].includes(booking.status ?? "")) {
+    if (booking && !['pending', 'confirmed', 'seated'].includes(booking.status ?? '')) {
       continue;
     }
     const otherStart = row.start_at ?? booking?.start_at;
@@ -959,17 +998,27 @@ export async function isTableAvailableV2(
   const endAt = toIsoUtc(window.block.end);
 
   try {
-    const { data, error } = await (supabase as unknown as {
-      rpc: (
-        fn: string,
-        args: {
-          p_table_id: string;
-          p_start_at: string;
-          p_end_at: string;
-          p_exclude_booking_id: string | null;
-        },
-      ) => Promise<{ data: boolean | null; error: { message?: string; details?: string | null; hint?: string | null; code?: string | null } | null }>;
-    }).rpc("is_table_available_v2", {
+    const { data, error } = await (
+      supabase as unknown as {
+        rpc: (
+          fn: string,
+          args: {
+            p_table_id: string;
+            p_start_at: string;
+            p_end_at: string;
+            p_exclude_booking_id: string | null;
+          },
+        ) => Promise<{
+          data: boolean | null;
+          error: {
+            message?: string;
+            details?: string | null;
+            hint?: string | null;
+            code?: string | null;
+          } | null;
+        }>;
+      }
+    ).rpc('is_table_available_v2', {
       p_table_id: tableId,
       p_start_at: startAt,
       p_end_at: endAt,
@@ -978,7 +1027,7 @@ export async function isTableAvailableV2(
 
     if (error) {
       const code = extractErrorCode(error);
-      if (code === "42883" || code === "42P01") {
+      if (code === '42883' || code === '42P01') {
         return await legacyTableAvailabilityCheck({
           supabase,
           tableId,
@@ -988,8 +1037,8 @@ export async function isTableAvailableV2(
         });
       }
       throw new AssignTablesRpcError({
-        message: error.message ?? "Failed to query table availability",
-        code: "TABLE_AVAILABILITY_QUERY_FAILED",
+        message: error.message ?? 'Failed to query table availability',
+        code: 'TABLE_AVAILABILITY_QUERY_FAILED',
         details: serializeDetails({
           code: code ?? null,
           details: error.details ?? null,
@@ -999,16 +1048,16 @@ export async function isTableAvailableV2(
       });
     }
 
-    if (typeof data === "boolean") {
+    if (typeof data === 'boolean') {
       return data;
     }
   } catch (error) {
     const code = extractErrorCode(error);
-    if (code !== "42883" && code !== "42P01") {
+    if (code !== '42883' && code !== '42P01') {
       throw new AssignTablesRpcError({
-        message: error instanceof Error ? error.message : "Failed to verify table availability",
-        code: "TABLE_AVAILABILITY_QUERY_FAILED",
-        details: error instanceof Error ? error.stack ?? null : null,
+        message: error instanceof Error ? error.message : 'Failed to verify table availability',
+        code: 'TABLE_AVAILABILITY_QUERY_FAILED',
+        details: error instanceof Error ? (error.stack ?? null) : null,
         hint: null,
       });
     }
@@ -1045,8 +1094,8 @@ export async function isTableAvailable(
   } catch (error) {
     if (error instanceof AssignTablesRpcError) {
       throw new AssignTablesRpcError({
-        message: "Failed to verify table availability",
-        code: error.code ?? "TABLE_AVAILABILITY_QUERY_FAILED",
+        message: 'Failed to verify table availability',
+        code: error.code ?? 'TABLE_AVAILABILITY_QUERY_FAILED',
         details: error.details,
         hint: error.hint ?? null,
       });

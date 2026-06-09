@@ -1,4 +1,4 @@
-import type { AdjacencyMode } from "@/server/feature-flags";
+import type { AdjacencyMode } from '@/server/runtime-policy';
 
 export type AdjacencyEvaluation = {
   connected: boolean;
@@ -11,7 +11,10 @@ function hasEdge(a: string, b: string, adjacency: Map<string, Set<string>>): boo
   return Boolean(adjacency.get(a)?.has(b) || adjacency.get(b)?.has(a));
 }
 
-export function evaluateAdjacency(ids: string[], adjacency: Map<string, Set<string>>): AdjacencyEvaluation {
+export function evaluateAdjacency(
+  ids: string[],
+  adjacency: Map<string, Set<string>>,
+): AdjacencyEvaluation {
   const depths = new Map<string, number>();
   if (ids.length === 0) {
     return { connected: true, pairwise: true, hubAligned: true, depths };
@@ -69,11 +72,14 @@ export function evaluateAdjacency(ids: string[], adjacency: Map<string, Set<stri
   return { connected, pairwise, hubAligned, depths };
 }
 
-export function isAdjacencySatisfied(evaluation: AdjacencyEvaluation, mode: AdjacencyMode): boolean {
+export function isAdjacencySatisfied(
+  evaluation: AdjacencyEvaluation,
+  mode: AdjacencyMode,
+): boolean {
   switch (mode) {
-    case "pairwise":
+    case 'pairwise':
       return evaluation.pairwise;
-    case "neighbors":
+    case 'neighbors':
       return evaluation.hubAligned;
     default:
       return evaluation.connected;
@@ -83,18 +89,18 @@ export function isAdjacencySatisfied(evaluation: AdjacencyEvaluation, mode: Adja
 export function summarizeAdjacencyStatus(
   evaluation: AdjacencyEvaluation,
   tableCount: number,
-): "single" | "pairwise" | "neighbors" | "connected" | "disconnected" {
+): 'single' | 'pairwise' | 'neighbors' | 'connected' | 'disconnected' {
   if (tableCount <= 1) {
-    return "single";
+    return 'single';
   }
   if (evaluation.pairwise) {
-    return "pairwise";
+    return 'pairwise';
   }
   if (evaluation.hubAligned) {
-    return "neighbors";
+    return 'neighbors';
   }
   if (evaluation.connected) {
-    return "connected";
+    return 'connected';
   }
-  return "disconnected";
+  return 'disconnected';
 }

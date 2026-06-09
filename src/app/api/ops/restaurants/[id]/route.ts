@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -294,6 +295,16 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops/restaurants/[id]][PATCH] update failed', error);
+    captureRestaurantServerEvent('restaurant_profile_section_save_failed', {
+      restaurantId,
+      distinctId: user.id,
+      props: { section: 'restaurant', source: 'ops' },
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: restaurantId },
+      properties: { section: 'restaurant', source: 'ops', path: '/api/ops/restaurants/[id]' },
+    });
     const message = error instanceof Error ? error.message : 'Unable to update restaurant';
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -355,6 +366,11 @@ async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops/restaurants/[id]][DELETE] deletion failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: restaurantId },
+      properties: { source: 'ops', path: '/api/ops/restaurants/[id]' },
+    });
     const message = error instanceof Error ? error.message : 'Unable to delete restaurant';
     return NextResponse.json({ error: message }, { status: 500 });
   }

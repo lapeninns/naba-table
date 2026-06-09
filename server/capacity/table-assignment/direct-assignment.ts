@@ -25,8 +25,8 @@ import {
   type TurnBandsByOption,
 } from '@/server/capacity/policy';
 import { deriveTableRules } from '@/server/capacity/table-rules';
-import { getAllocatorAdjacencyMode } from '@/server/feature-flags';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import { getAllocatorAdjacencyMode } from '@/server/runtime-policy';
 
 import { assignTableToBooking } from './assignment';
 import { buildBusyMaps, extractConflictsForTables } from './availability';

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { daysBetweenInclusive, firstString, safeDate } from '@/lib/api/query-params';
 import { getBookingsHeatmap } from '@/server/ops/bookings';
@@ -75,6 +76,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(heatmap);
   } catch (heatmapError) {
     console.error('[ops/dashboard][heatmap] failed to load heatmap', heatmapError);
+    captureServerException(heatmapError, {
+      groups: { restaurant: query.restaurantId },
+      properties: {
+        restaurantId: query.restaurantId,
+        source: 'ops',
+        kind: 'ops-dashboard-heatmap',
+      },
+    });
     return NextResponse.json({ error: 'Unable to load heatmap' }, { status: 500 });
   }
 }

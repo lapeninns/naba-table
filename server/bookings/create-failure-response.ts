@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
   buildBookingCreateFailureObservabilityEvent,
   mapBookingApiError,
@@ -61,6 +62,20 @@ export function buildBookingCreateFailureResponse({
       phone: request.phone,
     }),
   );
+
+  captureRestaurantServerEvent('booking_create_failed', {
+    restaurantId,
+    props: { code: apiError.body.code, status: apiError.status, source: 'api' },
+  });
+  captureServerException(error, {
+    groups: restaurantId ? { restaurant: restaurantId } : undefined,
+    properties: {
+      restaurantId,
+      code: apiError.body.code,
+      path: '/api/bookings',
+      source: 'api',
+    },
+  });
 
   return NextResponse.json(apiError.body, { status: apiError.status });
 }

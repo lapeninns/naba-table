@@ -1,6 +1,6 @@
 import { DEV_RESTAURANT_ID } from './devIds';
 
-import type { OpsFeatureFlags, OpsMembership, OpsUser } from '@/types/ops';
+import type { OpsMembership, OpsUser } from '@/types/ops';
 
 export const DEV_USER: OpsUser = {
   id: 'dev-user',
@@ -24,11 +24,4 @@ export const DEV_MEMBERSHIPS: OpsMembership[] = [
   },
 ];
 
-export const DEV_FEATURE_FLAGS: OpsFeatureFlags = {
-  opsMetrics: true,
-  selectorScoring: true,
-  rejectionAnalytics: true,
-};
-
 export { DEV_RESTAURANT_ID };
-

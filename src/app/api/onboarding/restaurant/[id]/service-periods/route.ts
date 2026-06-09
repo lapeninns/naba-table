@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
@@ -75,6 +76,11 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ servicePeriods: periods });
   } catch (updateError) {
     console.error('[onboarding][service-periods][PATCH]', updateError);
+    captureServerException(updateError, {
+      distinctId: authorization.user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'api', kind: 'onboarding-service-periods' },
+    });
     const message =
       updateError instanceof Error ? updateError.message : 'Unable to save service periods';
     return NextResponse.json({ message }, { status: 500 });

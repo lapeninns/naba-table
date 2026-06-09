@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { env } from '@/lib/env';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
@@ -43,6 +44,12 @@ import { recordObservabilityEvent } from '@/server/observability';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import {
+  getBookingPastTimeGraceMinutes,
+  isBookingPastTimeBlockingEnabled,
+  isDbStrictConstraintMappingEnabled,
+  isUnifiedBookingValidationEnabled,
+} from '@/server/runtime-policy';
 import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
@@ -165,11 +172,17 @@ function toIsoString(value: unknown): string {
   return date.toISOString();
 }
 
-async function loadAuthorizedRestaurantIds(userId: string, client: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>) {
+async function loadAuthorizedRestaurantIds(
+  userId: string,
+  client: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>,
+) {
   const memberships = await fetchUserMemberships(userId, client);
   return memberships
     .map((membership) => membership.restaurant_id)
-    .filter((restaurantId): restaurantId is string => typeof restaurantId === 'string' && restaurantId.length > 0);
+    .filter(
+      (restaurantId): restaurantId is string =>
+        typeof restaurantId === 'string' && restaurantId.length > 0,
+    );
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
@@ -353,6 +366,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   const startDate = startVenue.dateTime.toUTC().toJSDate();
   const restaurantId = existingBooking.restaurant_id ?? '';
+
+  captureRestaurantServerEvent('booking_modify_started', {
+    restaurantId: restaurantId || undefined,
+    distinctId: user.id,
+    props: { bookingId, source: 'ops', method: 'ops' },
+  });
+
   const explicitEndIso = typeof parsed.data.endIso === 'string' ? parsed.data.endIso : null;
   let explicitEndVenue = convertOptionalIsoToVenueDateTime(explicitEndIso, restaurantTimezone);
   let existingStartVenue = convertOptionalIsoToVenueDateTime(
@@ -382,7 +402,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     bookingDate !== existingBooking.booking_date || startTime !== existingBooking.start_time;
 
   const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
-  const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
+  const needsScheduleForPastCheck = isBookingPastTimeBlockingEnabled() && isTimeChanged;
 
   let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
   if (needsScheduleForDuration || needsScheduleForPastCheck) {
@@ -519,7 +539,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     timezone: scheduleTimezone,
   });
 
-  const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+  const useUnifiedValidation = isUnifiedBookingValidationEnabled();
 
   if (useUnifiedValidation) {
     const userForContext: AuthenticatedUser = { id: user.id, email: user.email ?? null };
@@ -541,7 +561,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   // Validate past time if feature enabled and time is changing
-  if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
+  if (isTimeChanged && isBookingPastTimeBlockingEnabled()) {
     const allowPastParam = req.nextUrl.searchParams.get('allow_past');
     const allowOverride = allowPastParam === 'true';
 
@@ -565,7 +585,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         ));
 
       assertBookingNotInPast(scheduleForPast.timezone, bookingDate, startTime, {
-        graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+        graceMinutes: getBookingPastTimeGraceMinutes(),
         allowOverride,
         actorRole: userRole,
       });
@@ -740,7 +760,18 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   } catch (updateError) {
     console.error('[ops/bookings][PATCH] update failed', updateError);
 
-    if (env.featureFlags.dbStrictConstraints) {
+    captureRestaurantServerEvent('booking_modify_failed', {
+      restaurantId: restaurantId || undefined,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', method: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(updateError, {
+      distinctId: user.id,
+      groups: restaurantId ? { restaurant: restaurantId } : undefined,
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
+    });
+
+    if (isDbStrictConstraintMappingEnabled()) {
       const mapped = mapDbErrorToConstraint(updateError);
       if (mapped) {
         const status =
@@ -827,8 +858,8 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     actorCapabilities,
     tz: schedule.timezone,
     flags: {
-      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
-      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      bookingPastTimeBlocking: isBookingPastTimeBlockingEnabled(),
+      bookingPastTimeGraceMinutes: getBookingPastTimeGraceMinutes(),
       unified: true,
     },
     metadata: {
@@ -957,11 +988,29 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
         },
       });
 
+      captureRestaurantServerEvent('booking_modify_failed', {
+        restaurantId: existingBooking.restaurant_id ?? undefined,
+        distinctId: user.id,
+        props: { bookingId, source: 'ops', method: 'ops', reason: 'validation' },
+      });
+
       const mapped = mapValidationFailure(error.response);
       return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
     }
 
     console.error('[ops/bookings][PATCH][unified] update failed', error);
+    captureRestaurantServerEvent('booking_modify_failed', {
+      restaurantId: existingBooking.restaurant_id ?? undefined,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', method: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: existingBooking.restaurant_id
+        ? { restaurant: existingBooking.restaurant_id }
+        : undefined,
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
+    });
     return NextResponse.json({ error: 'Unable to update booking' }, { status: 500 });
   }
 }
@@ -1030,6 +1079,12 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   // Use tenant-scoped client for all cancellation operations
   const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
 
+  captureRestaurantServerEvent('booking_cancel_started', {
+    restaurantId: existingBooking.restaurant_id ?? undefined,
+    distinctId: user.id,
+    props: { bookingId, source: 'ops', method: 'ops' },
+  });
+
   try {
     const cancellation = await softCancelBooking(tenantClient, bookingId, {
       restaurantId: existingBooking.restaurant_id,
@@ -1077,6 +1132,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     if (typeof deleteError === 'object' && deleteError !== null) {
       const record = deleteError as { code?: string; message?: string };
       if (record.code === '42501') {
+        captureRestaurantServerEvent('booking_cancel_failed', {
+          restaurantId: existingBooking.restaurant_id ?? undefined,
+          distinctId: user.id,
+          props: { bookingId, source: 'ops', method: 'ops', reason: 'cutoff_passed' },
+        });
         return NextResponse.json(
           {
             error: 'This booking can no longer be cancelled online.',
@@ -1087,6 +1147,18 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    captureRestaurantServerEvent('booking_cancel_failed', {
+      restaurantId: existingBooking.restaurant_id ?? undefined,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', method: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(deleteError, {
+      distinctId: user.id,
+      groups: existingBooking.restaurant_id
+        ? { restaurant: existingBooking.restaurant_id }
+        : undefined,
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
+    });
     return NextResponse.json({ error: 'Unable to cancel booking' }, { status: 500 });
   }
 }

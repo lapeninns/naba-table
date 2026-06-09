@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -129,6 +130,9 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     console.error('[profile][avatar][post] unexpected', error);
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'profile-image' },
+    });
     return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t upload your image. Please try again.');
   }
 }

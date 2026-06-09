@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -81,6 +82,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
   } catch (error) {
     console.error('[ops][gbp][food-menus][projection] failed', error);
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-projection' },
+    });
     const message =
       error instanceof Error ? error.message : 'Unable to prepare Google FoodMenus projection.';
     return NextResponse.json({ error: message }, { status: 500 });

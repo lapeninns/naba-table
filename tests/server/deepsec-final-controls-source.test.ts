@@ -8,16 +8,18 @@ function readSource(path: string) {
 }
 
 describe('DeepSec final remediation source guards', () => {
-  it('keeps hold overlap prevention independent of runtime flags and legacy fallback', () => {
-    const featureFlagsSource = readSource('server/feature-flags.ts');
+  it('keeps hold overlap prevention on the fixed runtime policy and away from legacy fallback', () => {
+    const runtimePolicySource = readSource('server/runtime-policy.ts');
     const holdsSource = readSource('server/capacity/holds.ts');
     const findHoldConflictsBody = holdsSource.slice(
       holdsSource.indexOf('export async function findHoldConflicts('),
       holdsSource.indexOf('async function findHoldConflictsLegacy('),
     );
 
-    expect(featureFlagsSource).toContain('export function isHoldStrictConflictsEnabled(): boolean');
-    expect(featureFlagsSource).toContain('return true;');
+    expect(runtimePolicySource).toContain(
+      'export function isHoldStrictConflictsEnabled(): boolean',
+    );
+    expect(runtimePolicySource).toContain('return true;');
     expect(holdsSource).toContain('const enabled = true;');
     expect(holdsSource).toContain(
       'Strict hold conflict enforcement requires an RPC-capable client',
@@ -28,24 +30,24 @@ describe('DeepSec final remediation source guards', () => {
     expect(findHoldConflictsBody).not.toContain('return [] as HoldConflictInfo[]');
   });
 
-  it('enforces rejection analytics gates in backing API routes before data access', () => {
+  it('keeps rejection analytics backing API routes protected by access checks before data access', () => {
     const rejectionsSource = readSource('src/app/api/ops/dashboard/rejections/route.ts');
     const strategicSource = readSource('src/app/api/ops/settings/strategic-config/route.ts');
+    const strategicGetSource = strategicSource.slice(
+      strategicSource.indexOf('export async function GET'),
+      strategicSource.indexOf('export async function POST'),
+    );
 
-    const rejectionsGate = rejectionsSource.indexOf('if (!isOpsRejectionAnalyticsEnabled())');
-    expect(rejectionsGate).toBeGreaterThan(0);
-    expect(rejectionsGate).toBeLessThan(rejectionsSource.indexOf('parseQuery(request)'));
-    expect(rejectionsGate).toBeLessThan(rejectionsSource.indexOf('await requireDashboardAccess'));
-    expect(rejectionsGate).toBeLessThan(rejectionsSource.indexOf('getServiceSupabaseClient()'));
-
-    const strategicGetGate = strategicSource.indexOf('if (!isOpsRejectionAnalyticsEnabled())');
-    const strategicPostGate = strategicSource.lastIndexOf('if (!isOpsRejectionAnalyticsEnabled())');
-    expect(strategicGetGate).toBeGreaterThan(0);
-    expect(strategicPostGate).toBeGreaterThan(strategicGetGate);
-    expect(strategicGetGate).toBeLessThan(strategicSource.indexOf('getQuerySchema.safeParse'));
-    expect(strategicPostGate).toBeLessThan(strategicSource.indexOf('payloadSchema.safeParse'));
-    expect(strategicGetGate).toBeLessThan(
-      strategicSource.indexOf('await getRouteHandlerSupabaseClient'),
+    expect(rejectionsSource).not.toContain('isOpsRejectionAnalyticsEnabled');
+    expect(strategicSource).not.toContain('isOpsRejectionAnalyticsEnabled');
+    expect(rejectionsSource.indexOf('await requireDashboardAccess')).toBeLessThan(
+      rejectionsSource.indexOf('getServiceSupabaseClient()'),
+    );
+    expect(strategicGetSource.indexOf('getQuerySchema.safeParse')).toBeLessThan(
+      strategicGetSource.indexOf('await getRouteHandlerSupabaseClient'),
+    );
+    expect(strategicGetSource.indexOf('await requireMembershipForRestaurant')).toBeLessThan(
+      strategicGetSource.indexOf('getStrategicConfigSnapshot'),
     );
   });
 
@@ -84,7 +86,7 @@ describe('DeepSec final remediation source guards', () => {
   it('forces fresh occasion validation for booking writes', () => {
     const validationSource = readSource('server/occasions/validateBookingType.ts');
 
-    expect(validationSource).toContain("getOccasionCatalog({ forceRefresh: true })");
+    expect(validationSource).toContain('getOccasionCatalog({ forceRefresh: true })');
     expect(validationSource).not.toContain('getCachedOccasionCatalog');
   });
 });

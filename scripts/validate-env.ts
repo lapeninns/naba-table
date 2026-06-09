@@ -55,26 +55,15 @@ if (blockedPublicEnvKeys.length > 0) {
 // Production safety invariants (avoid silent background job failures)
 // -----------------------------------------------------------------------------
 if (treatAsProdTarget) {
-  const emailQueueEnabled = env.FEATURE_EMAIL_QUEUE_ENABLED === true;
-  if (emailQueueEnabled) {
-    if (!env.CRON_SECRET) {
-      blockers.push(
-        'FEATURE_EMAIL_QUEUE_ENABLED=true requires CRON_SECRET to be set so trusted cron invocations can call /api/cron/process-emails.',
-      );
-    }
+  if (!env.CRON_SECRET) {
+    blockers.push(
+      'CRON_SECRET is required so trusted cron invocations can call /api/cron/process-emails.',
+    );
   }
 
   if (env.RESEND_USE_MOCK === true) {
     blockers.push('RESEND_USE_MOCK=true is not allowed for production targets.');
   }
-}
-
-const readReplicaUrl = env.SUPABASE_READ_REPLICA_URL?.trim();
-const useReadReplicaForService = env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA === true;
-if (useReadReplicaForService && !readReplicaUrl) {
-  blockers.push(
-    'FEATURE_SERVICE_CLIENT_USE_READ_REPLICA=true requires SUPABASE_READ_REPLICA_URL (Supabase read replica API URL for the same project).',
-  );
 }
 
 if (!treatAsProdTarget && !allowProdResources) {

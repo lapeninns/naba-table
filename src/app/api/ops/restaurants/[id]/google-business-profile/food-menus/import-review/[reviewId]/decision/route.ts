@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -87,6 +88,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('[ops][gbp][food-menus][import-review-decision] failed', error);
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review-decision' },
+    });
     return decisionErrorResponse(error);
   }
 }

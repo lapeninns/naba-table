@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { mapAssignTablesErrorToHttp } from '@/app/api/staff/_utils/assign-tables-error';
 import { confirmHold } from '@/server/capacity/engine';
@@ -122,6 +123,16 @@ async function postStaffAutoConfirm(req: NextRequest) {
     }
 
     console.error('[staff/auto/confirm] unexpected error', { error, holdId, bookingId });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: holdRow.restaurant_id },
+      properties: {
+        bookingId,
+        restaurantId: holdRow.restaurant_id,
+        source: 'ops',
+        kind: 'staff-auto-confirm',
+      },
+    });
     const message = error instanceof Error ? error.message : 'Unexpected error';
     return NextResponse.json({ error: message }, { status: 500 });
   }

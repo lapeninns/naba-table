@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { RESTAURANT_EDITABLE_LINK_TYPES } from '@/lib/ops/restaurant-link-types';
 import {
@@ -167,6 +168,10 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     return NextResponse.json(snapshot);
   } catch (error) {
     console.error('[ops][restaurants][business-context][GET] failed', error);
+    captureServerException(error, {
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-restaurant-business-context' },
+    });
     return NextResponse.json(
       { error: 'Unable to load restaurant business context' },
       { status: 500 },

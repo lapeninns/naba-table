@@ -9,7 +9,6 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { debounce } from '@/utils/debounceThrottle';
@@ -60,7 +59,6 @@ export function useOpsBookingsList(
   const queryClient = useQueryClient();
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
-  const realtimeEnabled = isRealtimeFloorplanEnabled();
   const pollIntervalMs = 15_000;
 
   const normalizedFilters = useMemo(() => {
@@ -81,7 +79,7 @@ export function useOpsBookingsList(
   }, []);
 
   useEffect(() => {
-    if (!realtimeEnabled || !filters?.restaurantId) {
+    if (!filters?.restaurantId) {
       setRealtimeHealthy(true);
       return;
     }
@@ -120,10 +118,9 @@ export function useOpsBookingsList(
       channel.unsubscribe();
       client.removeChannel(channel);
     };
-  }, [filters?.restaurantId, queryClient, queryKey, realtimeEnabled]);
+  }, [filters?.restaurantId, queryClient, queryKey]);
 
-  const shouldPoll =
-    Boolean(filters?.restaurantId) && isVisible && (!realtimeEnabled || !realtimeHealthy);
+  const shouldPoll = Boolean(filters?.restaurantId) && isVisible && !realtimeHealthy;
 
   return useInfiniteQuery<OpsBookingsPage, HttpError>({
     queryKey,

@@ -5,7 +5,7 @@ const refreshFromGoogleWithoutLockMock = vi.hoisted(() => vi.fn());
 const buildRegistryMock = vi.hoisted(() => vi.fn());
 const ensureActiveFieldPolicyVersionMock = vi.hoisted(() => vi.fn());
 const buildDecisionHashMock = vi.hoisted(() => vi.fn());
-const getDualSyncRuntimeFlagsMock = vi.hoisted(() => vi.fn());
+const getDualSyncRuntimeControlsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/dual-sync/controls', () => ({
   assertDualSyncRestaurantNotPaused: assertDualSyncRestaurantNotPausedMock,
@@ -27,8 +27,8 @@ vi.mock('@/server/dual-sync/publish/orchestrator-domain', () => ({
   buildDecisionHash: buildDecisionHashMock,
 }));
 
-vi.mock('@/server/dual-sync/flag', () => ({
-  getDualSyncRuntimeFlags: getDualSyncRuntimeFlagsMock,
+vi.mock('@/server/dual-sync/runtime-controls', () => ({
+  getDualSyncRuntimeControls: getDualSyncRuntimeControlsMock,
 }));
 
 import { preparePublishRuntimeContext } from '@/server/dual-sync/publish/orchestrator-runtime-context';
@@ -44,7 +44,7 @@ const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
 const registry = [
   { fieldKey: 'profile.businessDescription' },
 ] as unknown as ReadonlyArray<DualSyncFieldConfig>;
-const runtimeFlags = {
+const runtimeControls = {
   importEnabled: true,
   exportEnabled: true,
   autoCandidatesEnabled: true,
@@ -127,8 +127,8 @@ describe('preparePublishRuntimeContext', () => {
     ensureActiveFieldPolicyVersionMock.mockResolvedValue(fieldPolicyVersion());
     buildDecisionHashMock.mockReset();
     buildDecisionHashMock.mockReturnValue('decision-hash');
-    getDualSyncRuntimeFlagsMock.mockReset();
-    getDualSyncRuntimeFlagsMock.mockReturnValue(runtimeFlags);
+    getDualSyncRuntimeControlsMock.mockReset();
+    getDualSyncRuntimeControlsMock.mockReturnValue(runtimeControls);
   });
 
   it('builds runtime context without refreshing Google when refresh is disabled', async () => {
@@ -167,7 +167,7 @@ describe('preparePublishRuntimeContext', () => {
       createdByUserId: 'user-1',
     });
     expect(buildDecisionHashMock).toHaveBeenCalledWith(input, 'policy-hash');
-    expect(getDualSyncRuntimeFlagsMock).toHaveBeenCalledWith({ restaurantId: 'rest-1' });
+    expect(getDualSyncRuntimeControlsMock).toHaveBeenCalledWith({ restaurantId: 'rest-1' });
     expect(result).toMatchObject({
       restaurantId: 'rest-1',
       coreSnapshot,
@@ -175,7 +175,7 @@ describe('preparePublishRuntimeContext', () => {
       registry,
       fieldPolicyVersion: expect.objectContaining({ id: 'policy-version-1' }),
       decisionHash: 'decision-hash',
-      runtimeFlags,
+      runtimeControls,
     });
     expect(result.readCoreSnapshot).toBe(readCoreSnapshot);
     expect(result.readGbpSnapshot).toBe(readGbpSnapshot);

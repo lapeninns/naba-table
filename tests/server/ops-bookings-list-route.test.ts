@@ -37,14 +37,7 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('@/lib/env', () => ({
-  env: {
-    featureFlags: {
-      bookingPastTimeBlocking: false,
-      bookingPastTimeGraceMinutes: 5,
-      bookingValidationUnified: false,
-      inlineAutoAssignTimeoutMs: 4000,
-    },
-  },
+  env: {},
 }));
 
 vi.mock('@/server/supabase', () => ({
@@ -100,7 +93,7 @@ vi.mock('@/server/customers', () => ({
   upsertCustomer: vi.fn(),
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   isAutoAssignOnBookingEnabled: vi.fn(() => false),
 }));
 

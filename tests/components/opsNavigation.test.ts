@@ -5,12 +5,6 @@ import {
   filterOpsNavigationSections,
 } from '@/components/features/ops-shell/navigation';
 
-const disabledFlags = {
-  opsMetrics: false,
-  selectorScoring: false,
-  rejectionAnalytics: false,
-};
-
 describe('OPS_NAV_SECTIONS restaurant settings', () => {
   it('exposes a single Settings entry for all restaurant settings routes', () => {
     const settingsSection = OPS_NAV_SECTIONS.find((section) =>
@@ -43,7 +37,6 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
 
   it('hides active-admin navigation for non-admin active memberships', () => {
     const filtered = filterOpsNavigationSections({
-      featureFlags: disabledFlags,
       canViewAdminItems: false,
     });
     const titles = filtered.flatMap((section) => section.items.map((item) => item.title));
@@ -54,7 +47,6 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
 
   it('keeps active-admin navigation for admin active memberships', () => {
     const filtered = filterOpsNavigationSections({
-      featureFlags: disabledFlags,
       canViewAdminItems: true,
     });
     const titles = filtered.flatMap((section) => section.items.map((item) => item.title));

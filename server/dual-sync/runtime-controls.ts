@@ -6,11 +6,11 @@
  * can be mutated.
  */
 
-export interface DualSyncFlagInput {
+export interface DualSyncRuntimeControlInput {
   readonly restaurantId: string;
 }
 
-export interface DualSyncRuntimeFlags {
+export interface DualSyncRuntimeControls {
   readonly importEnabled: boolean;
   readonly exportEnabled: boolean;
   readonly autoCandidatesEnabled: boolean;
@@ -20,7 +20,7 @@ export interface DualSyncRuntimeFlags {
   readonly scheduledRefreshEnabled: boolean;
 }
 
-export interface DualSyncDecisionFlagInput {
+export interface DualSyncDecisionControlInput {
   readonly action: 'import_from_google' | 'export_to_google' | 'ignore';
   readonly sectionKey: string;
   readonly riskLevel?: 'low' | 'medium' | 'high' | 'critical';
@@ -37,7 +37,9 @@ function readEnvBoolean(name: string): boolean | null {
   return null;
 }
 
-export function getDualSyncRuntimeFlags(_input?: DualSyncFlagInput): DualSyncRuntimeFlags {
+export function getDualSyncRuntimeControls(
+  _input?: DualSyncRuntimeControlInput,
+): DualSyncRuntimeControls {
   return {
     importEnabled: readEnvBoolean('GBP_IMPORT_ENABLED') ?? true,
     exportEnabled: readEnvBoolean('GBP_EXPORT_ENABLED') ?? true,
@@ -49,35 +51,35 @@ export function getDualSyncRuntimeFlags(_input?: DualSyncFlagInput): DualSyncRun
   };
 }
 
-export function isDualSyncAutoCandidatesEnabled(input?: DualSyncFlagInput): boolean {
-  return getDualSyncRuntimeFlags(input).autoCandidatesEnabled;
+export function isDualSyncAutoCandidatesEnabled(input?: DualSyncRuntimeControlInput): boolean {
+  return getDualSyncRuntimeControls(input).autoCandidatesEnabled;
 }
 
-export function isDualSyncScheduledRefreshEnabled(input?: DualSyncFlagInput): boolean {
-  return getDualSyncRuntimeFlags(input).scheduledRefreshEnabled;
+export function isDualSyncScheduledRefreshEnabled(input?: DualSyncRuntimeControlInput): boolean {
+  return getDualSyncRuntimeControls(input).scheduledRefreshEnabled;
 }
 
 export function getDualSyncDecisionDisabledReason(
-  input: DualSyncDecisionFlagInput,
-  flags: DualSyncRuntimeFlags = getDualSyncRuntimeFlags(),
+  input: DualSyncDecisionControlInput,
+  controls: DualSyncRuntimeControls = getDualSyncRuntimeControls(),
 ): string | null {
   if (input.action === 'ignore') return null;
-  if (input.sectionKey === 'foodMenus' && !flags.menuSyncEnabled) {
+  if (input.sectionKey === 'foodMenus' && !controls.menuSyncEnabled) {
     return 'Food menu sync is disabled for this deployment.';
   }
-  if (input.sectionKey === 'businessContext.attributes' && !flags.attributesSyncEnabled) {
+  if (input.sectionKey === 'businessContext.attributes' && !controls.attributesSyncEnabled) {
     return 'Google attribute sync is disabled for this deployment.';
   }
-  if (input.action === 'import_from_google' && !flags.importEnabled) {
+  if (input.action === 'import_from_google' && !controls.importEnabled) {
     return 'Google imports are disabled for this deployment.';
   }
   if (input.action === 'export_to_google') {
-    if (!flags.exportEnabled) return 'Google exports are disabled for this deployment.';
+    if (!controls.exportEnabled) return 'Google exports are disabled for this deployment.';
     const highRisk =
       input.requiresManualReview === true ||
       input.riskLevel === 'high' ||
       input.riskLevel === 'critical';
-    if (highRisk && !flags.highRiskExportsEnabled) {
+    if (highRisk && !controls.highRiskExportsEnabled) {
       return 'High-risk Google exports are disabled for this deployment.';
     }
   }

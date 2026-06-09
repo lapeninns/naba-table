@@ -1,6 +1,5 @@
 import { DateTime } from 'luxon';
 
-import { env } from '@/lib/env';
 import {
   resolveDemandMultiplier,
   type DemandMultiplierResult,
@@ -36,6 +35,7 @@ import {
   type SelectorDecisionEvent,
 } from '@/server/capacity/telemetry';
 import { computePayloadChecksum, hashPolicyVersion } from '@/server/capacity/v2';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
   getAllocatorKMax as getAllocatorCombinationLimit,
   getAllocatorAdjacencyMinPartySize,
@@ -53,8 +53,8 @@ import {
   isSelectorScoringEnabled,
   isAllocatorServiceFailHard,
   isOpsMetricsEnabled,
-} from '@/server/feature-flags';
-import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+  shouldEmitCapacityPlannerStats,
+} from '@/server/runtime-policy';
 import { getTenantServiceSupabaseClient } from '@/server/supabase';
 
 import {
@@ -111,7 +111,7 @@ export function computeQuoteHoldExpiresAt(
   return now.toUTC().plus({ seconds: clampQuoteHoldTtlSeconds(ttlSeconds) });
 }
 
-function buildSelectorFeatureFlagsTelemetry(): {
+function buildSelectorPolicyTelemetry(): {
   selectorScoring: boolean;
   opsMetrics: boolean;
   plannerTimePruning: boolean;
@@ -138,7 +138,7 @@ function composePlannerConfig(params: {
   requireAdjacency: boolean;
   adjacencyRequiredGlobally: boolean;
   adjacencyMinPartySize: number | null;
-  featureFlags: ReturnType<typeof buildSelectorFeatureFlagsTelemetry>;
+  policy: ReturnType<typeof buildSelectorPolicyTelemetry>;
   serviceFallback: {
     usedFallback: boolean;
     fallbackService: ServiceKey | null;
@@ -171,14 +171,14 @@ function composePlannerConfig(params: {
       adjacencyCost: scoringConfig.weights.adjacencyCost,
       scarcity: scoringConfig.weights.scarcity,
     },
-    featureFlags: {
-      plannerTimePruning: params.featureFlags.plannerTimePruning,
-      adjacencyUndirected: params.featureFlags.adjacencyUndirected,
-      holdsStrictConflicts: params.featureFlags.holdsStrictConflicts,
-      allocatorFailHard: params.featureFlags.allocatorFailHard,
-      selectorScoring: params.featureFlags.selectorScoring,
-      opsMetrics: params.featureFlags.opsMetrics,
-      selectorLookahead: params.featureFlags.selectorLookahead,
+    policy: {
+      plannerTimePruning: params.policy.plannerTimePruning,
+      adjacencyUndirected: params.policy.adjacencyUndirected,
+      holdsStrictConflicts: params.policy.holdsStrictConflicts,
+      allocatorFailHard: params.policy.allocatorFailHard,
+      selectorScoring: params.policy.selectorScoring,
+      opsMetrics: params.policy.opsMetrics,
+      selectorLookahead: params.policy.selectorLookahead,
     },
     serviceFallback: {
       used: params.serviceFallback.usedFallback,
@@ -361,7 +361,7 @@ export async function quoteTablesForBooking(
     bookingOption: booking.booking_type ?? null,
     policy,
   });
-  const shouldEmitPlannerStats = env.featureFlags.planner.debugProfiling ?? false;
+  const shouldEmitPlannerStats = shouldEmitCapacityPlannerStats();
   const attachPlannerStats = (result: QuoteTablesResult, stats?: QuotePlannerStats | null) => {
     const shouldAttachStats = Boolean(stats) && (shouldEmitPlannerStats || !result.hold);
     if (shouldAttachStats && stats) {
@@ -701,7 +701,7 @@ export async function quoteTablesForBooking(
   const plannerDurationMs = highResNow() - plannerStart;
   const adjacencyRequiredGlobally = adjacency.size > 0 && isAllocatorAdjacencyRequired();
   const adjacencyMinPartySize = getAllocatorAdjacencyMinPartySize();
-  const featureFlags = buildSelectorFeatureFlagsTelemetry();
+  const policyTelemetry = buildSelectorPolicyTelemetry();
   const plannerConfigTelemetry = composePlannerConfig({
     diagnostics: plans.diagnostics,
     scoringConfig,
@@ -709,7 +709,7 @@ export async function quoteTablesForBooking(
     requireAdjacency: requireAdjacencyUsed,
     adjacencyRequiredGlobally,
     adjacencyMinPartySize: adjacencyMinPartySize ?? null,
-    featureFlags,
+    policy: policyTelemetry,
     serviceFallback: {
       usedFallback: bookingWindowUsedFallback,
       fallbackService: bookingWindowFallbackService,
@@ -830,7 +830,7 @@ export async function quoteTablesForBooking(
       const snapshot = buildSelectionSnapshot({
         planTables: plan.tables,
         adjacency,
-        adjacencyUndirected: featureFlags.adjacencyUndirected,
+        adjacencyUndirected: policyTelemetry.adjacencyUndirected,
         fallbackZoneId: zoneForHold,
       });
 
@@ -979,7 +979,7 @@ export async function quoteTablesForBooking(
         candidates: [candidateSummary, ...alternates],
         selected: candidateSummary,
         durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags,
+        policy: policyTelemetry,
         timing: buildTiming({
           totalMs: totalDurationMs,
           plannerMs: plannerDurationMs,

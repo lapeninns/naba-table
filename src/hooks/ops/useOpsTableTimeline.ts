@@ -4,7 +4,6 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useEffect, useMemo, useState } from 'react';
 
 import { useTableInventoryService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -126,5 +125,5 @@ export function useOpsTableTimeline({
 }
 
 function realtimeEnabled() {
-  return isRealtimeFloorplanEnabled();
+  return true;
 }

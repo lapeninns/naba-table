@@ -9,6 +9,7 @@ import {
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
+import { captureServerException } from '@/lib/posthog/server';
 import { isMagicLinkDeliveryError, sendAuthMagicLink } from '@/server/auth/magic-link-email';
 import { recordMagicLinkSigninAudit } from '@/server/auth/signin-audit';
 import { classifySigninSurface } from '@/server/auth/signin-surface';
@@ -394,6 +395,9 @@ export async function POST(req: NextRequest) {
     return setRateHeaders(response, primaryRateResult);
   } catch (err) {
     console.error('[Auth/signin] Unhandled error:', err);
+    captureServerException(err, {
+      properties: { source: 'auth', path: '/api/auth/signin' },
+    });
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,11 +1,11 @@
-import { getDualSyncDecisionDisabledReason } from '../flag';
 import { hashCanonicalJson } from '../hashing';
 import { findFieldConfig, resolveFieldCapability } from '../registry';
+import { getDualSyncDecisionDisabledReason } from '../runtime-controls';
 import { groupKeyForDecision, isImport, policyFailure, valueForField } from './orchestrator-domain';
 import { validatePublishDecisionPins } from './pinning';
 
-import type { DualSyncRuntimeFlags } from '../flag';
 import type { buildRegistry } from '../registry';
+import type { DualSyncRuntimeControls } from '../runtime-controls';
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 import type { DualSyncGoogleUpdateMask } from '../types';
 import type { DualSyncOperationFailure, DualSyncPublishDecision } from './types';
@@ -37,7 +37,7 @@ export interface EvaluatePublishDecisionInput {
   readonly coreSnapshot: DualSyncCanonicalSnapshot;
   readonly gbpSnapshot: DualSyncCanonicalSnapshot;
   readonly preflightFailure?: DualSyncOperationFailure;
-  readonly runtimeFlags: DualSyncRuntimeFlags;
+  readonly runtimeControls: DualSyncRuntimeControls;
   readonly actorUserId: string | null;
 }
 
@@ -47,7 +47,7 @@ export function evaluatePublishDecision({
   coreSnapshot,
   gbpSnapshot,
   preflightFailure,
-  runtimeFlags,
+  runtimeControls,
   actorUserId,
 }: EvaluatePublishDecisionInput): PublishDecisionEvaluation {
   const config = findFieldConfig(registry, decision.fieldKey);
@@ -112,20 +112,20 @@ export function evaluatePublishDecision({
   }
 
   const capability = resolveFieldCapability({ config, coreValue, gbpValue });
-  const flagDisabledReason = getDualSyncDecisionDisabledReason(
+  const controlDisabledReason = getDualSyncDecisionDisabledReason(
     {
       action: decision.action,
       sectionKey: config.sectionKey,
       riskLevel: config.policy.riskLevel,
       requiresManualReview: config.policy.requiresManualReview,
     },
-    runtimeFlags,
+    runtimeControls,
   );
-  if (flagDisabledReason) {
+  if (controlDisabledReason) {
     return {
       status: 'failed',
       fieldKey: decision.fieldKey,
-      failure: policyFailure(flagDisabledReason),
+      failure: policyFailure(controlDisabledReason),
     };
   }
 

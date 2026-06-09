@@ -1,5 +1,5 @@
 import { logger } from '@/lib/logger';
-import { getAllocatorAdjacencyMode, type AdjacencyMode } from '@/server/feature-flags';
+import { getAllocatorAdjacencyMode, type AdjacencyMode } from '@/server/runtime-policy';
 
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from './adjacency';
 

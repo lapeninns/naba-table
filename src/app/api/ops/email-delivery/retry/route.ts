@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
   GuardError,
   listUserRestaurantMemberships,
@@ -294,6 +295,15 @@ async function postEmailDeliveryRetry(request: NextRequest) {
 
     console.error('[ops/email-delivery/retry] unexpected error', {
       error: error instanceof Error ? error.message : String(error),
+    });
+
+    captureServerEvent('email_delivery_retry_failed', {
+      provider: 'resend',
+      source: 'ops',
+      reason: 'unexpected',
+    });
+    captureServerException(error, {
+      properties: { provider: 'resend', source: 'ops', path: '/api/ops/email-delivery/retry' },
     });
 
     return jsonError(500, 'INTERNAL', 'Internal error');

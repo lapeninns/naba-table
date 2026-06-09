@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { isOpsRejectionAnalyticsEnabled } from '@/server/feature-flags';
 import { getRejectionAnalytics } from '@/server/ops/rejections';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -80,10 +80,6 @@ function parseQuery(request: NextRequest): RejectionsQuery | null {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isOpsRejectionAnalyticsEnabled()) {
-    return NextResponse.json({ error: 'Rejection analytics is disabled' }, { status: 404 });
-  }
-
   const query = parseQuery(request);
   if (!query) {
     return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
@@ -122,6 +118,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(analytics);
   } catch (analyticsError) {
     console.error('[ops/dashboard][rejections] failed to load analytics', analyticsError);
+    captureServerException(analyticsError, {
+      groups: { restaurant: query.restaurantId },
+      properties: {
+        restaurantId: query.restaurantId,
+        source: 'ops',
+        kind: 'ops-dashboard-rejections',
+      },
+    });
     return NextResponse.json({ error: 'Unable to load rejection analytics' }, { status: 500 });
   }
 }

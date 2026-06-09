@@ -7,6 +7,8 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import { pruneExpiredGoogleRequestLogs } from '@/server/dual-sync/publish';
 import { recordObservabilityEvent } from '@/server/observability';
@@ -32,6 +34,7 @@ function isTruthyFlag(value: string | null): boolean {
 }
 
 export async function GET(request: Request) {
+  await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     const url = new URL(request.url);
     const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
@@ -101,6 +104,14 @@ export async function GET(request: Request) {
         jobName: auth.jobName,
         runId: auth.runId,
         error,
+      });
+      captureServerException(error, {
+        properties: {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          source: 'cron',
+          kind: 'dual-sync-request-log-retention',
+        },
       });
       await recordObservabilityEvent({
         source: 'cron.dual-sync.request-log-retention',

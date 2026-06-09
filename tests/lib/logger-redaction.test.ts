@@ -86,4 +86,40 @@ describe('logger redaction', () => {
     expect(output).toContain('[redacted-email]');
     expect(output).toContain('[redacted-phone]');
   });
+
+  it('emits sanitized structured logs to the configured OpenTelemetry logger', () => {
+    const logSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const emit = vi.fn();
+    const logger = createLogger(
+      { module: 'posthog-test' },
+      {
+        now: () => new Date('2026-05-05T12:00:00.000Z'),
+        otelLogger: {
+          enabled: () => true,
+          emit,
+        },
+      },
+    );
+
+    logger.error('client error report', {
+      path: '/bookings/recover?access_token=recovery-secret',
+      customer: { email: 'guest@example.com', phone: '+44 7700 900123' },
+    });
+
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    const emitted = emit.mock.calls[0]?.[0];
+    expect(emitted).toMatchObject({
+      body: 'client error report',
+      severityText: 'ERROR',
+      attributes: {
+        module: 'posthog-test',
+        level: 'error',
+      },
+    });
+    const serialized = JSON.stringify(emitted);
+    expect(serialized).not.toContain('recovery-secret');
+    expect(serialized).not.toContain('guest@example.com');
+    expect(serialized).not.toContain('+44 7700 900123');
+  });
 });

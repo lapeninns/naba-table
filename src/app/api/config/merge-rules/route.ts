@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { withOpsMutation } from '@/server/auth/guards';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -39,6 +40,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[config/merge-rules][GET] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'config-merge-rules' },
+    });
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }

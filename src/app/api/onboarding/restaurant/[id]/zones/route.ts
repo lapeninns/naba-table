@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
@@ -94,6 +95,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ zones: created }, { status: 201 });
   } catch (creationError) {
     console.error('[onboarding][zones][POST]', creationError);
+    captureServerException(creationError, {
+      distinctId: authorization.user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'api', kind: 'onboarding-zones' },
+    });
     const message =
       creationError instanceof Error ? creationError.message : 'Unable to create zones';
     return NextResponse.json({ message }, { status: 500 });

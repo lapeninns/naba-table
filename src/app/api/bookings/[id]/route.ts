@@ -6,6 +6,7 @@ import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/par
 import { isBookingType } from '@/lib/enums';
 import { env } from '@/lib/env';
 import { HttpError } from '@/lib/http/errors';
+import { captureServerEvent, captureServerException } from '@/lib/posthog/server';
 import { GuardError, listUserRestaurantMemberships, requireSession } from '@/server/auth/guards';
 import {
   createBookingValidationService,
@@ -50,6 +51,11 @@ import {
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import {
+  getBookingPastTimeGraceMinutes,
+  getPendingSelfServeGraceMinutes,
+  isUnifiedBookingValidationEnabled,
+} from '@/server/runtime-policy';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import {
   sessionRecoveryTokenMatchesBookingContact,
@@ -122,9 +128,9 @@ function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
   return OPERATING_HOURS_REASON_TO_CODE[reason] ?? 'OUTSIDE_HOURS';
 }
 
-const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinutes ?? 10;
+const pendingSelfServeGraceMinutes = getPendingSelfServeGraceMinutes();
 const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
-const pastTimeGraceMinutes = env.featureFlags.bookingPastTimeGraceMinutes ?? 5;
+const pastTimeGraceMinutes = getBookingPastTimeGraceMinutes();
 const guestSelfServeCutoffMinutes = 15;
 const bookingIdParamSchema = z.string().uuid();
 
@@ -668,7 +674,7 @@ async function handleDashboardUpdate(params: {
       ? existingBookingTypeRaw
       : undefined;
 
-    const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+    const useUnifiedValidation = isUnifiedBookingValidationEnabled();
     let updated: Tables<'bookings'>;
 
     if (useUnifiedValidation) {
@@ -841,6 +847,15 @@ async function handleDashboardUpdate(params: {
     return NextResponse.json(bookingDTO, responseInit);
   } catch (error: unknown) {
     console.error('[bookings][PUT:dashboard]', stringifyError(error));
+    captureServerEvent('booking_modify_failed', {
+      bookingId,
+      source: 'api',
+      method: 'guest',
+      reason: 'unexpected',
+    });
+    captureServerException(error, {
+      properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+    });
     return NextResponse.json(
       { error: 'Unable to update booking', code: 'UNKNOWN' },
       { status: 500 },
@@ -1196,10 +1211,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     });
   } catch (error: unknown) {
     console.error('[bookings][GET:id]', stringifyError(error));
-    return NextResponse.json(
-      { error: 'Unable to load booking', code: 'UNKNOWN' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Unable to load booking', code: 'UNKNOWN' }, { status: 500 });
   }
 }
 
@@ -1224,6 +1236,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   }
 
   const body = (payload ?? {}) as Record<string, unknown>;
+
+  captureServerEvent('booking_modify_started', {
+    bookingId,
+    source: 'api',
+    method: 'guest',
+  });
 
   // Try dashboard format first (minimal update from EditBookingDialog)
   const dashboardParsed = dashboardUpdateSchema.safeParse(body);
@@ -1609,6 +1627,14 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ booking: toGuestBookingDTO(updated) });
   } catch (error: unknown) {
     console.error('[bookings][PUT:id]', stringifyError(error));
+    captureServerEvent('booking_modify_failed', {
+      bookingId,
+      source: 'api',
+      method: 'guest',
+      ...(error instanceof HttpError
+        ? { code: error.code, status: error.status }
+        : { reason: 'unexpected' }),
+    });
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message, code: error.code, details: error.details ?? null },
@@ -1616,6 +1642,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    captureServerException(error, {
+      properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+    });
     return NextResponse.json(
       { error: 'Unable to update booking', code: 'UNKNOWN' },
       { status: 500 },
@@ -1632,6 +1661,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       { status: 400 },
     );
   }
+
+  captureServerEvent('booking_cancel_started', {
+    bookingId,
+    source: 'api',
+    method: 'guest',
+  });
 
   const recoveryToken = extractSessionRecoveryAccessToken(req);
   if (recoveryToken) {
@@ -1793,6 +1828,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         const record = error as { code?: string; message?: string };
 
         if (record.code === '42501') {
+          captureServerEvent('booking_cancel_failed', {
+            bookingId,
+            source: 'api',
+            method: 'guest',
+            reason: 'cutoff_passed',
+          });
           return NextResponse.json(
             {
               error: 'This booking can no longer be cancelled online. Please contact the venue.',
@@ -1803,6 +1844,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         }
       }
 
+      captureServerEvent('booking_cancel_failed', {
+        bookingId,
+        source: 'api',
+        method: 'guest',
+        reason: 'unexpected',
+      });
+      captureServerException(error, {
+        properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+      });
       return NextResponse.json(
         { error: 'Unable to cancel booking', code: 'UNKNOWN' },
         { status: 500 },
@@ -1926,7 +1976,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         id: bookingId,
         status: cancelledRecord.status ?? 'cancelled',
-        bookings: bookings.map((booking) => toPublicRecoveryBookingDTO(booking as Tables<'bookings'>)),
+        bookings: bookings.map((booking) =>
+          toPublicRecoveryBookingDTO(booking as Tables<'bookings'>),
+        ),
       });
     }
     await clearBookingTableAssignments(serviceSupabase, bookingId);
@@ -1980,6 +2032,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       const record = error as { code?: string; message?: string };
 
       if (record.code === '42501') {
+        captureServerEvent('booking_cancel_failed', {
+          bookingId,
+          source: 'api',
+          method: 'guest',
+          reason: 'cutoff_passed',
+        });
         return NextResponse.json(
           {
             error: 'This booking can no longer be cancelled online. Please contact the venue.',
@@ -1990,6 +2048,16 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    captureServerEvent('booking_cancel_failed', {
+      bookingId,
+      source: 'api',
+      method: 'guest',
+      reason: 'unexpected',
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+    });
     return NextResponse.json(
       { error: 'Unable to cancel booking', code: 'UNKNOWN' },
       { status: 500 },

@@ -14,7 +14,7 @@ const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const fetchUserMembershipsMock = vi.hoisted(() => vi.fn());
 const getAllCustomersWithHistoryMock = vi.hoisted(() => vi.fn());
-const featureFlagState = vi.hoisted(() => ({ combinationEnabled: true }));
+const policyState = vi.hoisted(() => ({ combinationEnabled: true }));
 const loadRestaurantTimezoneMock = vi.hoisted(() => vi.fn());
 const loadTablesForRestaurantMock = vi.hoisted(() => vi.fn());
 const loadAdjacencyMock = vi.hoisted(() => vi.fn());
@@ -68,13 +68,13 @@ vi.mock('@/server/team/access', () => ({
   fetchUserMemberships: fetchUserMembershipsMock,
 }));
 
-vi.mock('@/server/feature-flags', async (importOriginal) => {
+vi.mock('@/server/runtime-policy', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     getAllocatorKMax: vi.fn(() => 3),
     getSelectorPlannerLimits: vi.fn(() => ({})),
-    isCombinationPlannerEnabled: vi.fn(() => featureFlagState.combinationEnabled),
+    isCombinationPlannerEnabled: vi.fn(() => policyState.combinationEnabled),
     isHoldsEnabled: vi.fn(() => false),
     isPlannerTimePruningEnabled: vi.fn(() => false),
   };
@@ -265,7 +265,7 @@ describe('QA performance smoke thresholds', () => {
       Array.from({ length: 1000 }, (_, index) => makeCustomer(index)),
     );
 
-    featureFlagState.combinationEnabled = true;
+    policyState.combinationEnabled = true;
     loadRestaurantTimezoneMock.mockResolvedValue('Europe/London');
     loadTablesForRestaurantMock.mockResolvedValue(
       Array.from({ length: 24 }, (_, index) => makeTable(index)),

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
 import { ensureProfileRow } from '@/lib/profile/server';
@@ -117,6 +118,11 @@ export async function GET(request: NextRequest) {
     }
 
     console.error('[team/invitations][GET] failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-team-invitations' },
+    });
     return NextResponse.json({ error: 'Unable to load invitations' }, { status: 500 });
   }
 }

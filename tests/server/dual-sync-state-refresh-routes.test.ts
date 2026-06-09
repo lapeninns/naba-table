@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
-const getDualSyncRuntimeFlagsMock = vi.hoisted(() => vi.fn());
+const getDualSyncRuntimeControlsMock = vi.hoisted(() => vi.fn());
 const getDualSyncDecisionDisabledReasonMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const readNabatableSnapshotMock = vi.hoisted(() => vi.fn());
@@ -26,8 +26,8 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   resolveRestaurantId: resolveRestaurantIdMock,
 }));
 
-vi.mock('@/server/dual-sync/flag', () => ({
-  getDualSyncRuntimeFlags: getDualSyncRuntimeFlagsMock,
+vi.mock('@/server/dual-sync/runtime-controls', () => ({
+  getDualSyncRuntimeControls: getDualSyncRuntimeControlsMock,
   getDualSyncDecisionDisabledReason: getDualSyncDecisionDisabledReasonMock,
 }));
 
@@ -93,7 +93,7 @@ describe('dual-sync state and refresh routes', () => {
   beforeEach(() => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
-    getDualSyncRuntimeFlagsMock.mockReset();
+    getDualSyncRuntimeControlsMock.mockReset();
     getDualSyncDecisionDisabledReasonMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
     readNabatableSnapshotMock.mockReset();
@@ -113,7 +113,7 @@ describe('dual-sync state and refresh routes', () => {
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
-    getDualSyncRuntimeFlagsMock.mockReturnValue({
+    getDualSyncRuntimeControlsMock.mockReturnValue({
       importEnabled: true,
       exportEnabled: true,
       autoCandidatesEnabled: true,
@@ -172,7 +172,7 @@ describe('dual-sync state and refresh routes', () => {
     expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
   });
 
-  it('adds rollout-flag blocked reasons to field capabilities in state', async () => {
+  it('adds runtime-control blocked reasons to field capabilities in state', async () => {
     buildRegistryMock.mockReturnValue([
       {
         fieldKey: 'profile.name',

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { createRestaurantSchema } from '@/app/api/ops/restaurants/schema';
 import { createRestaurant } from '@/server/restaurants/create';
@@ -45,6 +46,10 @@ export async function POST(req: NextRequest) {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (membershipError) {
     console.error('[onboarding][restaurant][POST] membership lookup failed', membershipError);
+    captureServerException(membershipError, {
+      distinctId: user.id,
+      properties: { source: 'api', kind: 'onboarding-restaurant' },
+    });
     return NextResponse.json({ message: 'Unable to verify onboarding state' }, { status: 500 });
   }
 
@@ -89,6 +94,10 @@ export async function POST(req: NextRequest) {
     );
   } catch (creationError) {
     console.error('[onboarding][restaurant][POST]', creationError);
+    captureServerException(creationError, {
+      distinctId: user.id,
+      properties: { source: 'api', kind: 'onboarding-restaurant' },
+    });
     const message =
       creationError instanceof Error ? creationError.message : 'Unable to create restaurant';
     return NextResponse.json({ message }, { status: 500 });

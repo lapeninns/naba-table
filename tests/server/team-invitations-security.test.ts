@@ -51,6 +51,7 @@ const INVITER_ID = '33eeab93-378a-41c0-bfaa-9e2e73b7920e';
 const INVITED_USER_ID = '0b106691-80b1-4f92-91c3-d8f4a9d5fd48';
 const CSRF_TOKEN = 'team-invite-csrf-token';
 const REVOKED_AT = '2026-05-16T08:30:00.000Z';
+const ACTIVE_INVITE_EXPIRES_AT = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
 function csrfHeaders(): Headers {
   return new Headers({
@@ -68,7 +69,7 @@ function makeInvite(overrides: Partial<RestaurantInvite> = {}): RestaurantInvite
     role: 'host',
     token_hash: 'hashed-token',
     status: 'pending',
-    expires_at: '2026-06-01T12:00:00.000Z',
+    expires_at: ACTIVE_INVITE_EXPIRES_AT,
     invited_by: INVITER_ID,
     accepted_at: null,
     revoked_at: null,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { captureRestaurantServerEvent } from '@/lib/posthog/server';
 import { completeBookingCreate } from '@/server/bookings/create-completion';
 import { runBookingCreateEntryGate } from '@/server/bookings/create-entry-gate';
 import { buildBookingCreateFailureResponse } from '@/server/bookings/create-failure-response';
@@ -84,6 +85,11 @@ export async function buildBookingsPostHttpResponse({
   }
 
   const restaurantId = entryGate.restaurantId;
+
+  captureRestaurantServerEvent('booking_create_started', {
+    restaurantId,
+    props: { source: 'api' },
+  });
 
   try {
     const client = serviceClientFor();

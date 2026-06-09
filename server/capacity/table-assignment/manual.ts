@@ -6,7 +6,7 @@ import {
   isHoldStrictConflictsEnabled,
   isAllocatorAdjacencyRequired,
   isAdjacencyQueryUndirected,
-} from '@/server/feature-flags';
+} from '@/server/runtime-policy';
 
 import { resolveRequireAdjacency } from './availability';
 import { DEFAULT_HOLD_TTL_SECONDS } from './constants';
