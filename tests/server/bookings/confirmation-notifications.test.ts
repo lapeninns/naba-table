@@ -231,25 +231,26 @@ describe('sendFirstBookingConfirmationNotifications', () => {
     expect(claimDeleteChannelEqMock).toHaveBeenCalledWith('channel', 'sms');
   });
 
-  it('fails closed without provider sends when the claim table is unavailable', async () => {
+  it('throws without provider sends when the claim table is unavailable', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     claimInsertMock.mockResolvedValue({
-      error: { code: '42P01', message: 'relation does not exist' },
+      error: {
+        code: 'PGRST205',
+        message:
+          "Could not find the table 'public.booking_confirmation_notification_claims' in the schema cache",
+      },
     });
 
     try {
-      const result = await sendFirstBookingConfirmationNotifications(booking as never);
+      await expect(sendFirstBookingConfirmationNotifications(booking as never)).rejects.toThrow(
+        'Booking confirmation notification claim failed for email',
+      );
 
       expect(sendBookingConfirmationEmailMock).not.toHaveBeenCalled();
       expect(sendGuestBookingConfirmationSmsMock).not.toHaveBeenCalled();
-      expect(result).toEqual({
-        alreadySent: true,
-        emailSent: false,
-        smsSent: false,
-      });
       expect(warnSpy).toHaveBeenCalledWith('[booking.confirmation-notifications] claim failed', {
         channel: 'email',
-        code: '42P01',
+        code: 'PGRST205',
       });
     } finally {
       warnSpy.mockRestore();
