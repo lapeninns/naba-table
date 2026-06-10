@@ -2,13 +2,11 @@ import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 
 import type { NextRequest } from 'next/server';
 
-
 const OPS_REDIRECT_PREFIXES = [
   '/app',
   '/dashboard',
   '/bookings',
   '/customers',
-  '/rejections',
   '/new-bookings',
   '/settings',
   '/management',

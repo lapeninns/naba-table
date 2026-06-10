@@ -15,7 +15,6 @@ import type {
   OpsBookingsFilters,
   OpsBookingsPage,
   OpsBookingStatus,
-  OpsRejectionAnalytics,
   OpsServiceError,
   OpsStrategicSettings,
   OpsTodayBooking,
@@ -44,13 +43,6 @@ type HeatmapParams = {
   restaurantId: string;
   startDate: string;
   endDate: string;
-};
-
-type RejectionAnalyticsParams = {
-  restaurantId: string;
-  from?: string | null;
-  to?: string | null;
-  bucket?: 'day' | 'hour';
 };
 
 type StrategicSettingsParams = {
@@ -448,7 +440,6 @@ export type DisabledAssignmentsResponse = {
 export interface BookingService {
   getTodaySummary(params: SummaryParams): Promise<OpsTodayBookingsSummary>;
   getBookingHeatmap(params: HeatmapParams): Promise<OpsBookingHeatmap>;
-  getRejectionAnalytics(params: RejectionAnalyticsParams): Promise<OpsRejectionAnalytics>;
   getStrategicSettings(params: StrategicSettingsParams): Promise<OpsStrategicSettings>;
   updateStrategicSettings(input: StrategicSettingsUpdate): Promise<OpsStrategicSettings>;
   listBookings(filters: OpsBookingsFilters): Promise<OpsBookingsPage>;
@@ -640,15 +631,6 @@ export function createBrowserBookingService(): BookingService {
     async getBookingHeatmap({ restaurantId, startDate, endDate }) {
       const params = new URLSearchParams({ restaurantId, startDate, endDate });
       return fetchJson<OpsBookingHeatmap>(`${OPS_DASHBOARD_BASE}/heatmap?${params.toString()}`);
-    },
-    async getRejectionAnalytics({ restaurantId, from, to, bucket }) {
-      const params = new URLSearchParams({ restaurantId });
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
-      if (bucket) params.set('bucket', bucket);
-      return fetchJson<OpsRejectionAnalytics>(
-        `${OPS_DASHBOARD_BASE}/rejections?${params.toString()}`,
-      );
     },
     async getStrategicSettings({ restaurantId }) {
       const params = new URLSearchParams({ restaurantId });
@@ -1138,10 +1120,6 @@ export class NotImplementedBookingService implements BookingService {
 
   getBookingHeatmap(): Promise<OpsBookingHeatmap> {
     this.error('getBookingHeatmap not implemented');
-  }
-
-  getRejectionAnalytics(): Promise<OpsRejectionAnalytics> {
-    this.error('getRejectionAnalytics not implemented');
   }
 
   getStrategicSettings(): Promise<OpsStrategicSettings> {

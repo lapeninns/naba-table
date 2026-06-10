@@ -30,19 +30,13 @@ describe('DeepSec final remediation source guards', () => {
     expect(findHoldConflictsBody).not.toContain('return [] as HoldConflictInfo[]');
   });
 
-  it('keeps rejection analytics backing API routes protected by access checks before data access', () => {
-    const rejectionsSource = readSource('src/app/api/ops/dashboard/rejections/route.ts');
+  it('keeps strategic config reads protected by access checks before data access', () => {
     const strategicSource = readSource('src/app/api/ops/settings/strategic-config/route.ts');
     const strategicGetSource = strategicSource.slice(
       strategicSource.indexOf('export async function GET'),
       strategicSource.indexOf('export async function POST'),
     );
 
-    expect(rejectionsSource).not.toContain('isOpsRejectionAnalyticsEnabled');
-    expect(strategicSource).not.toContain('isOpsRejectionAnalyticsEnabled');
-    expect(rejectionsSource.indexOf('await requireDashboardAccess')).toBeLessThan(
-      rejectionsSource.indexOf('getServiceSupabaseClient()'),
-    );
     expect(strategicGetSource.indexOf('getQuerySchema.safeParse')).toBeLessThan(
       strategicGetSource.indexOf('await getRouteHandlerSupabaseClient'),
     );

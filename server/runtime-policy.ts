@@ -32,10 +32,6 @@ export function isOpsMetricsEnabled(): boolean {
   return true;
 }
 
-export function isOpsRejectionAnalyticsEnabled(): boolean {
-  return true;
-}
-
 export function isHoldsEnabled(): boolean {
   return true;
 }

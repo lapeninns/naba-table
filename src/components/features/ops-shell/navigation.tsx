@@ -7,7 +7,6 @@ import {
   MailCheck,
   MessageSquare,
   Settings2,
-  TrendingDown,
   Users,
 } from 'lucide-react';
 
@@ -92,13 +91,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         href: path('/email-templates'),
         icon: Mail,
         match: (pathname) => pathname.startsWith(path('/email-templates')),
-      },
-      {
-        title: 'Rejections',
-        description: 'Analyze booking rejections',
-        href: path('/rejections'),
-        icon: TrendingDown,
-        match: (pathname) => pathname === path('/rejections'),
       },
     ],
   },
