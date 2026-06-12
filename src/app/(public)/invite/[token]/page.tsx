@@ -39,17 +39,17 @@ function InviteStatusCard({
   actionLabel?: string;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
-      <Card className="w-full max-w-xl border border-slate-200 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      <Card className="w-full max-w-xl shadow-sm">
         <CardHeader className="space-y-2 text-center">
           <CardTitle
-            className="text-2xl font-semibold text-slate-900"
+            className="text-2xl font-semibold text-foreground"
             role="heading"
             aria-level={1}
           >
             {title}
           </CardTitle>
-          <CardDescription className="text-slate-600">{description}</CardDescription>
+          <CardDescription className="text-muted-foreground">{description}</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
           <Button asChild>
@@ -107,7 +107,7 @@ export default async function InvitePage({ params }: { params: InvitePageParams 
   const { restaurantName, inviterName } = await resolveInviteContext(invite);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <InviteAcceptanceClient
         token={token}
         invite={{

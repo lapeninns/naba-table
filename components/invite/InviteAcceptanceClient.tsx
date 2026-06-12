@@ -94,30 +94,30 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
   };
 
   const containerClassName = 'space-y-6';
-  const cardClassName = 'w-full max-w-xl border border-slate-200 shadow-sm';
+  const cardClassName = 'w-full max-w-xl shadow-sm';
 
   return (
     <div className={containerClassName}>
       <Card className={cardClassName}>
         <CardHeader className="space-y-2 text-center">
           <CardTitle
-            className="text-2xl font-semibold text-slate-900"
+            className="text-2xl font-semibold text-foreground"
             role="heading"
             aria-level={1}
           >
             Join {invite.restaurantName}
           </CardTitle>
-          <CardDescription className="text-slate-600">
+          <CardDescription className="text-muted-foreground">
             {invite.inviterName ? `${invite.inviterName} invited you` : 'You have been invited'} to
             join the team as a{' '}
-            <span className="font-medium capitalize text-slate-900">{invite.role}</span>.
+            <span className="font-medium capitalize text-foreground">{invite.role}</span>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="rounded-md bg-slate-100 px-4 py-3 text-sm text-slate-700">
+          <div className="rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground">
             <p className="font-medium">Invitation details</p>
             <p>
-              Email: <span className="font-mono text-slate-900">{invite.email}</span>
+              Email: <span className="font-mono text-foreground">{invite.email}</span>
             </p>
             <p>Expires: {new Date(invite.expiresAt).toLocaleString()}</p>
           </div>
@@ -139,7 +139,7 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
               />
 
               {errorMessage ? (
-                <p className="text-sm text-red-600" role="alert">
+                <p className="text-sm text-destructive" role="alert">
                   {errorMessage}
                 </p>
               ) : null}

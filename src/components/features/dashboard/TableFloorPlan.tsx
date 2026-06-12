@@ -43,11 +43,11 @@ function getVariantClasses(variant: FloorPlanTableVariant): string {
     case 'selected':
       return 'bg-primary text-primary-foreground border-primary shadow-sm';
     case 'owned':
-      return 'bg-blue-100 text-blue-900 border-blue-300';
+      return 'bg-info/15 text-info border-info/40';
     case 'assigned':
-      return 'bg-emerald-100 text-emerald-900 border-emerald-300';
+      return 'bg-success/15 text-success border-success/40';
     case 'blocked':
-      return 'bg-amber-50 text-amber-900 border-amber-400';
+      return 'bg-warning/10 text-warning border-warning/50';
     case 'inactive':
       return 'bg-muted text-muted-foreground border-muted-foreground/30 opacity-70';
     default:
@@ -92,13 +92,13 @@ export const TableFloorPlan = memo(function TableFloorPlan({
           <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">
             Selected
           </span>
-          <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">
+          <span className="rounded-full bg-success/15 px-2.5 py-1 font-semibold text-success">
             Assigned
           </span>
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-800">
+          <span className="rounded-full bg-warning/15 px-2.5 py-1 font-semibold text-warning">
             Held/Blocked
           </span>
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-700">
+          <span className="rounded-full bg-muted px-2.5 py-1 font-semibold text-muted-foreground">
             Inactive
           </span>
         </div>
@@ -258,15 +258,15 @@ export const TableFloorPlan = memo(function TableFloorPlan({
                       {(holdOther || hasConflict || isInactive) && (
                         <div className="mt-1 flex items-center gap-1">
                           {holdOther ? (
-                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                            <span className="rounded-md bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning">
                               Held
                             </span>
                           ) : hasConflict ? (
-                            <span className="rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-900">
+                            <span className="rounded-md bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive">
                               Conflict
                             </span>
                           ) : isInactive ? (
-                            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
+                            <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                               Inactive
                             </span>
                           ) : null}

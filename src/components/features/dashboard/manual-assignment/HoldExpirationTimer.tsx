@@ -47,7 +47,7 @@ export function HoldExpirationTimer({ expiresAt, onExpired, className }: HoldExp
         isExpired
           ? 'border-destructive/20 bg-destructive/5'
           : isLowTime
-            ? 'border-amber-200 bg-amber-50'
+            ? 'border-warning/20 bg-warning/5'
             : 'border-border bg-muted/30',
         className
       )}
@@ -58,7 +58,7 @@ export function HoldExpirationTimer({ expiresAt, onExpired, className }: HoldExp
       <Clock
         className={cn(
           'h-4 w-4',
-          isExpired ? 'text-destructive' : isLowTime ? 'text-amber-600' : 'text-muted-foreground'
+          isExpired ? 'text-destructive' : isLowTime ? 'text-warning' : 'text-muted-foreground'
         )}
       />
       <div className="flex flex-col">
@@ -68,7 +68,7 @@ export function HoldExpirationTimer({ expiresAt, onExpired, className }: HoldExp
         <span
           className={cn(
             'text-sm font-mono font-bold tabular-nums',
-            isExpired ? 'text-destructive' : isLowTime ? 'text-amber-600' : 'text-foreground'
+            isExpired ? 'text-destructive' : isLowTime ? 'text-warning' : 'text-foreground'
           )}
         >
           {isExpired ? 'Expired' : `${minutes}:${seconds.toString().padStart(2, '0')}`}

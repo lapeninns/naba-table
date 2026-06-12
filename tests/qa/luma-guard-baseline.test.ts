@@ -1,6 +1,5 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 type LumaBaseline = {
@@ -20,7 +19,9 @@ describe('Luma guard baseline ratchet', () => {
     expect(baseline.version).toBe(1);
     expect(baseline.counts?.bySeverity?.exception).toBeGreaterThan(0);
     expect(baseline.counts?.byFileKind).toMatchObject({
-      'exception::hardcoded-palette-utility::components/TimeSlider.tsx': expect.any(Number),
+      // ConnectCard intentionally keeps the literal Google brand stripe colors.
+      'exception::hardcoded-palette-utility::src/components/features/restaurant-settings/google-business-profile/components/ConnectCard.tsx':
+        expect.any(Number),
     });
   });
 
