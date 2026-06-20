@@ -470,6 +470,19 @@ export async function quoteTablesForBooking(
   await strategicConfigPromise;
   const combinationEnabled = isCombinationPlannerEnabled();
   const totalVenueCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  if (!Number.isFinite(booking.party_size) || booking.party_size <= 0) {
+    // A zero/negative/NaN party size slips past the capacity guard below and corrupts
+    // downstream overage/slack math; reject it explicitly rather than masking it as
+    // "No tables available". (gap #12)
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult('Invalid party size', {
+      totalTables: tables.length,
+      filteredTables: 0,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
   if (booking.party_size > totalVenueCapacity) {
     await demandMultiplierPromise.catch(() => null);
     return buildFailureResult('Insufficient global capacity', {
@@ -696,6 +709,10 @@ export async function quoteTablesForBooking(
     combinationLimit,
     selectorLimits,
     scoringConfig,
+    // Plan future bookings under the SAME adjacency policy as the current booking,
+    // otherwise a staff opt-out (requireAdjacency=false) here drifts against the
+    // runtime default in lookahead. (gap #7)
+    requireAdjacencyOverride: requireAdjacencyUsed,
   });
   plans.diagnostics.lookahead = lookaheadDiagnostics;
   const plannerDurationMs = highResNow() - plannerStart;

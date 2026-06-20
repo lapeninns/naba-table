@@ -89,8 +89,15 @@ export async function listManualActiveHoldsForBooking({
 
   try {
     return await listActiveHoldsForBooking({ bookingId, client });
-  } catch {
-    return [];
+  } catch (error) {
+    // Fail closed: a hold-lookup failure must NOT be reported as "no active holds",
+    // which would let a manual assignment proceed onto a still-held table. Surface
+    // it so confirmation is blocked rather than silently double-booking. (#20b)
+    console.error('[capacity.manual] active hold lookup failed; blocking assignment', {
+      bookingId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
 }
 
@@ -116,8 +123,16 @@ export async function findManualHoldConflicts({
       excludeHoldId,
       client,
     });
-  } catch {
-    return [];
+  } catch (error) {
+    // Fail closed: swallowing a hold-conflict lookup error as "no conflicts" can
+    // double-book a table whose hold lookup transiently failed. Surface it so the
+    // manual selection check blocks instead of passing. (#1)
+    console.error('[capacity.manual] hold conflict lookup failed; blocking assignment', {
+      restaurantId,
+      tableIds,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
   }
 }
 

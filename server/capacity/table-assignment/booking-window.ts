@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import { logger } from '@/lib/logger';
 import {
   bandDuration,
   getBufferConfig,
@@ -14,6 +15,8 @@ import {
 import { isAllocatorServiceFailHard } from '@/server/runtime-policy';
 
 import { ManualSelectionInputError, type BookingWindow } from './types';
+
+const windowLogger = logger.child({ module: 'capacity.booking-window' });
 
 export type ComputeWindowArgs = {
   startISO?: string | null;
@@ -114,10 +117,11 @@ export function computeBookingWindowWithFallback(
         serviceHint: fallbackService,
       });
 
-      console.warn('[capacity][window][fallback] service not found, using fallback service', {
+      windowLogger.warn('service not found, using fallback service', {
         start: fallbackWindow.dining.start.toISO(),
         fallbackService,
         clamped: fallbackWindow.clampedToServiceEnd,
+        usedFallback: true,
       });
 
       return {
@@ -200,6 +204,20 @@ function resolveStartDateTime(
   const composed = DateTime.fromISO(`${bookingDate}T${startTime}`, { zone: policy.timezone });
   if (!composed.isValid) {
     throw new ManualSelectionInputError('Invalid booking date/time', 'INVALID_START');
+  }
+  // Guard against DST spring-forward silent coercion: a non-existent local
+  // wall-clock time (e.g. 02:30 on a US/Eastern spring-forward date) stays
+  // isValid:true but Luxon shifts it forward (02:30 -> 03:30). Detect the
+  // shift by round-tripping the time-of-day in the same zone and fail closed
+  // rather than silently booking a different time than requested. Compare on
+  // the HH:mm portion so seconds-bearing inputs (e.g. "19:00:00") are not
+  // falsely rejected.
+  const requestedHourMinute = startTime.slice(0, 5);
+  if (composed.toFormat('HH:mm') !== requestedHourMinute) {
+    throw new ManualSelectionInputError(
+      `Requested start time ${startTime} does not exist on ${bookingDate} in ${policy.timezone} (daylight saving time transition)`,
+      'INVALID_START',
+    );
   }
   return composed;
 }

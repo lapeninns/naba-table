@@ -92,6 +92,14 @@ export class DirectAssignmentError extends Error {
   }
 }
 
+type ExistingAssignmentRow = {
+  id: string | null;
+  booking_id: string | null;
+  table_id: string | null;
+  assigned_at: string | null;
+  assigned_by: string | null;
+};
+
 function mapAtomicAssignmentError(error: AssignTablesRpcError): DirectAssignmentError {
   const normalizedCode = (error.code ?? 'ASSIGNMENT_FAILED').toUpperCase();
   const status =
@@ -109,6 +117,41 @@ function mapAtomicAssignmentError(error: AssignTablesRpcError): DirectAssignment
     details: error.details,
     hint: error.hint,
   });
+}
+
+/**
+ * Re-reads assignment rows for the (booking_id, idempotency_key) pair.
+ *
+ * Used by the conflict-recovery path: the up-front idempotency check is a plain
+ * read with no DB unique constraint on (booking_id, idempotency_key), so two
+ * concurrent same-key requests can both pass it. Whichever loses the
+ * (booking_id, table_id) unique constraint at commit must still observe the
+ * idempotent result rather than a raw 409.
+ *
+ * Fails closed: if this lookup itself errors we throw, so the caller surfaces
+ * the original conflict instead of fabricating a success from a failed read.
+ */
+async function loadAssignmentsForIdempotencyKey(params: {
+  bookingId: string;
+  idempotencyKey: string;
+  supabase: DbClient;
+}): Promise<ExistingAssignmentRow[]> {
+  const { bookingId, idempotencyKey, supabase } = params;
+  const { data, error } = await supabase
+    .from('booking_table_assignments')
+    .select('id, booking_id, table_id, assigned_at, assigned_by')
+    .eq('booking_id', bookingId)
+    .eq('idempotency_key', idempotencyKey);
+
+  if (error) {
+    throw new DirectAssignmentError(
+      `Failed to verify idempotent assignment after conflict: ${error.message}`,
+      'ASSIGNMENT_SYNC_FAILED',
+      500,
+    );
+  }
+
+  return (data ?? []) as ExistingAssignmentRow[];
 }
 
 // ============================================================================
@@ -184,6 +227,59 @@ async function confirmPendingBookingAfterAssignment(params: {
   };
 }
 
+/**
+ * Builds the normalized idempotent success result from already-persisted
+ * assignment rows.
+ *
+ * Used both for the up-front idempotency hit and as the recovery path when a
+ * concurrent request with the SAME idempotency key wins the race and our commit
+ * loses on the (booking_id, table_id) unique constraint. In both cases the
+ * caller should observe the same already-assigned result rather than an error.
+ */
+async function buildIdempotentResultFromExisting(params: {
+  existingRows: ExistingAssignmentRow[];
+  bookingId: string;
+  tableIds: string[];
+  idempotencyKey: string;
+  assignedBy: string | null;
+  supabase: DbClient;
+}): Promise<DirectAssignmentResult> {
+  const { existingRows, bookingId, tableIds, idempotencyKey, assignedBy, supabase } = params;
+
+  const booking = await loadBooking(bookingId, supabase);
+  const transitionedBooking = await confirmPendingBookingAfterAssignment({
+    booking,
+    tableIds,
+    idempotencyKey,
+    assignedBy,
+    supabase,
+  });
+  const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
+  const summary = summarizeSelection(tables, booking.party_size);
+
+  return {
+    success: true,
+    assignments: existingRows.map((a) => ({
+      id: a.id!,
+      booking_id: a.booking_id!,
+      table_id: a.table_id!,
+      assigned_at: a.assigned_at!,
+      assigned_by: a.assigned_by ?? null,
+    })),
+    booking: {
+      id: transitionedBooking.id,
+      status: transitionedBooking.status,
+      party_size: transitionedBooking.party_size,
+    },
+    summary: {
+      tableCount: summary.tableCount,
+      totalCapacity: summary.totalCapacity,
+      partySize: summary.partySize,
+      slack: summary.slack,
+    },
+  };
+}
+
 // ============================================================================
 // Main Assignment Function
 // ============================================================================
@@ -239,38 +335,14 @@ export async function assignTablesDirectly(
 
   if (existingData && existingData.length > 0) {
     // Already processed - return existing result (idempotency)
-    const booking = await loadBooking(bookingId, supabase);
-    const transitionedBooking = await confirmPendingBookingAfterAssignment({
-      booking,
+    return buildIdempotentResultFromExisting({
+      existingRows: existingData,
+      bookingId,
       tableIds,
       idempotencyKey,
       assignedBy,
       supabase,
     });
-    const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
-    const summary = summarizeSelection(tables, booking.party_size);
-
-    return {
-      success: true,
-      assignments: existingData.map((a) => ({
-        id: a.id!,
-        booking_id: a.booking_id!,
-        table_id: a.table_id!,
-        assigned_at: a.assigned_at!,
-        assigned_by: a.assigned_by ?? null,
-      })),
-      booking: {
-        id: transitionedBooking.id,
-        status: transitionedBooking.status,
-        party_size: transitionedBooking.party_size,
-      },
-      summary: {
-        tableCount: summary.tableCount,
-        totalCapacity: summary.totalCapacity,
-        partySize: summary.partySize,
-        slack: summary.slack,
-      },
-    };
   }
 
   // === STEP 3: Load Booking ===
@@ -370,7 +442,33 @@ export async function assignTablesDirectly(
     });
   } catch (error) {
     if (error instanceof AssignTablesRpcError) {
-      throw mapAtomicAssignmentError(error);
+      const mapped = mapAtomicAssignmentError(error);
+
+      // TOCTOU recovery: the idempotency pre-check (STEP 2) is a plain read with
+      // no DB unique constraint, so a concurrent request with the SAME
+      // idempotency key can race past it and win the (booking_id, table_id)
+      // unique constraint, leaving us with a raw 409. If the same-key rows are
+      // now present, treat this as already-assigned and return the same
+      // idempotent result the loser would otherwise have gotten.
+      if (mapped.status === 409) {
+        const existingRows = await loadAssignmentsForIdempotencyKey({
+          bookingId,
+          idempotencyKey,
+          supabase,
+        });
+        if (existingRows.length > 0) {
+          return buildIdempotentResultFromExisting({
+            existingRows,
+            bookingId,
+            tableIds,
+            idempotencyKey,
+            assignedBy,
+            supabase,
+          });
+        }
+      }
+
+      throw mapped;
     }
     throw error;
   }

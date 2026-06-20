@@ -451,10 +451,18 @@ describe('Sprint 2 tenant authorization route containment', () => {
 
     expect(response.status).toBe(200);
     expect(body.window.endAt).toBe('2026-05-05T15:30:00');
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[capacity][window][fallback] service not found, using fallback service',
-      expect.objectContaining({ fallbackService: 'dinner' }),
-    );
+    // #10: the service-not-found fallback is now emitted via the structured logger
+    // (a single JSON payload) and exposes usedFallback, instead of the old
+    // two-argument console.warn(message, meta) call.
+    const warnMessages = warnSpy.mock.calls.map((call) => String(call[0]));
+    expect(
+      warnMessages.some(
+        (message) =>
+          message.includes('capacity.booking-window') &&
+          message.includes('"usedFallback":true') &&
+          message.includes('"fallbackService":"dinner"'),
+      ),
+    ).toBe(true);
 
     warnSpy.mockRestore();
   });

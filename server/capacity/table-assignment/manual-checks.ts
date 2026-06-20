@@ -16,6 +16,20 @@ import type {
 import type { HoldConflictInfo } from '@/server/capacity/holds';
 
 const DEFAULT_MANUAL_SLACK_BUDGET = 4;
+// Generous ceiling so a misconfigured runtime override cannot effectively DISABLE
+// the slack check (a huge value would let any oversized selection pass). A slack of
+// 24 already permits seating a party of 2 at a 26-top, so anything above this is a
+// misconfiguration rather than intent.
+const MAX_MANUAL_SLACK_BUDGET = DEFAULT_MANUAL_SLACK_BUDGET * 6;
+
+/** Clamp a slack budget into a sane range: never negative (which would reject every
+ * selection) and never unbounded (which would disable the check). (#12) */
+function clampSlackBudget(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_MANUAL_SLACK_BUDGET;
+  }
+  return Math.max(0, Math.min(MAX_MANUAL_SLACK_BUDGET, value));
+}
 
 export function findUnavailableTables(tables: Table[]): Table[] {
   return tables.filter((table) => {
@@ -28,10 +42,10 @@ export function findUnavailableTables(tables: Table[]): Table[] {
 export function resolveManualSlackBudget(): number {
   const override = getManualAssignmentMaxSlack();
   if (typeof override === 'number') {
-    return override;
+    return clampSlackBudget(override);
   }
   const selectorConfig = getSelectorScoringConfig();
-  return Math.max(0, selectorConfig.maxOverage ?? DEFAULT_MANUAL_SLACK_BUDGET);
+  return clampSlackBudget(selectorConfig.maxOverage ?? DEFAULT_MANUAL_SLACK_BUDGET);
 }
 
 export function buildManualChecks(params: {

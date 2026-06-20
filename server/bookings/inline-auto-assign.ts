@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { CancellableAutoAssign } from '@/server/booking/auto-assign/cancellable-auto-assign';
 import { type BookingRecord, updateBookingRecord } from '@/server/bookings';
 import { buildInlineLastResult } from '@/server/capacity/auto-assign-last-result';
+import { releaseTableHold } from '@/server/capacity/holds';
 import { classifyPlannerReason } from '@/server/capacity/planner-reason';
 import { recordPlannerQuoteTelemetry } from '@/server/capacity/planner-telemetry';
 import { quoteTablesForBooking, atomicConfirmAndTransition } from '@/server/capacity/tables';
@@ -38,6 +39,41 @@ export async function attemptInlineAutoAssign(
   const inlinePlannerTrigger = 'inline_creation';
   const inlineEmailVariant = 'standard';
   let inlineTimeoutPersisted = false;
+  // Track the hold acquired during the inline quote so a timeout/abort can
+  // release it (the 120s hold otherwise lingers and a fast 180s retry job would
+  // create a second overlapping hold for the same booking). `inlineConfirmed`
+  // guards against releasing a hold that a successful confirm already consumed.
+  let acquiredHoldId: string | null = null;
+  let inlineConfirmed = false;
+  let inlineHoldReleased = false;
+
+  // Best-effort release of the inline hold. Never throws: a failure here must
+  // not mask the original timeout/abort, but it is logged via the structured
+  // logger so a stuck hold is observable.
+  const releaseInlineHoldBestEffort = async (trigger: string) => {
+    if (!acquiredHoldId || inlineConfirmed || inlineHoldReleased) {
+      return;
+    }
+    const holdId = acquiredHoldId;
+    inlineHoldReleased = true;
+    try {
+      await releaseTableHold({ holdId, client: supabase });
+      console.info('[bookings][inline-auto-assign] released inline hold after timeout', {
+        bookingId: finalBooking.id,
+        attemptId: inlineAttemptId,
+        holdId,
+        trigger,
+      });
+    } catch (releaseError) {
+      console.warn('[bookings][inline-auto-assign] failed releasing inline hold after timeout', {
+        bookingId: finalBooking.id,
+        attemptId: inlineAttemptId,
+        holdId,
+        trigger,
+        error: stringifyError(releaseError),
+      });
+    }
+  };
 
   const persistInlinePlanResult = async (params: {
     success: boolean;
@@ -85,6 +121,9 @@ export async function attemptInlineAutoAssign(
     const handleInlineTimeout = async () => {
       const elapsedMs =
         inlineAttemptStartedAt > 0 ? Date.now() - inlineAttemptStartedAt : undefined;
+      // Release the inline hold (if one was acquired before the timeout) so the
+      // retry job starts clean instead of colliding with our own lingering hold.
+      await releaseInlineHoldBestEffort('inline_timeout');
       await recordObservabilityEvent({
         source: 'bookings.inline_auto_assign',
         eventType: 'inline_auto_assign.timeout',
@@ -238,6 +277,9 @@ export async function attemptInlineAutoAssign(
         return;
       }
 
+      // Record the acquired hold so a concurrent timeout/abort can release it.
+      acquiredHoldId = quote.hold.id;
+
       const confirmStartedAt = Date.now();
       try {
         await atomicConfirmAndTransition({
@@ -306,6 +348,9 @@ export async function attemptInlineAutoAssign(
         throw confirmError;
       }
 
+      // Confirm consumed the hold; never release it from here on.
+      inlineConfirmed = true;
+
       const confirmDurationMs = Date.now() - confirmStartedAt;
       console.info('[bookings][inline-auto-assign] confirm completed', {
         bookingId: finalBooking.id,
@@ -336,14 +381,24 @@ export async function attemptInlineAutoAssign(
         finalBooking = reloaded as BookingRecord;
       }
 
-      await persistInlinePlanResult({
-        success: true,
-        reason: quote.reason ?? null,
-        alternates: quote?.alternates?.length ?? 0,
-        durationMs: quoteDurationMs,
-        emailSent: false,
-        emailVariant: inlineEmailVariant,
-      });
+      if (!inlineTimeoutPersisted) {
+        await persistInlinePlanResult({
+          success: true,
+          reason: quote.reason ?? null,
+          alternates: quote?.alternates?.length ?? 0,
+          durationMs: quoteDurationMs,
+          emailSent: false,
+          emailVariant: inlineEmailVariant,
+        });
+      } else {
+        // A confirm that completed just after the 4s inline timeout already persisted
+        // an INLINE_TIMEOUT result must NOT overwrite it with success — that corrupts
+        // retry telemetry and re-triggers background jobs. Preserve the timeout. (gap #11)
+        console.warn(
+          '[bookings][inline-auto-assign] late confirm success after inline timeout; preserving timeout result',
+          { bookingId: finalBooking.id, restaurantId },
+        );
+      }
 
       await recordObservabilityEvent({
         source: 'bookings.inline_auto_assign',
@@ -369,6 +424,10 @@ export async function attemptInlineAutoAssign(
         timeoutMs: inlineTimeoutMs,
         attemptId: inlineAttemptId,
       });
+      // Defense in depth: the onAbort hook normally releases the hold, but if the
+      // abort surfaced without it (or the hold was acquired in a race), release
+      // here too. Idempotent via the inlineHoldReleased guard.
+      await releaseInlineHoldBestEffort('inline_abort');
       if (!inlineTimeoutPersisted) {
         await persistInlinePlanResult({
           success: false,
