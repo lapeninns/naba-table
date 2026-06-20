@@ -72,7 +72,8 @@
   h6 {
     scroll-margin-top: 5rem;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    /* Design system rule: no negative letter-spacing. */
+    letter-spacing: 0;
   }
 
   p {
@@ -511,10 +512,15 @@
   --font-serif: var(--pg-font-display);
   --font-mono: var(--pg-font-mono);
 
-  --radius-sm: 0.525rem;
-  --radius-md: 0.7rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.225rem;
+  /* Restrained radius scale: controls ≤ 8px, cards ≤ 12px, containers ≤ 16px.
+     Keep in sync with styles/design-system/public-guest.tokens.css. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1rem;
+  --radius-4xl: 1.25rem;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));

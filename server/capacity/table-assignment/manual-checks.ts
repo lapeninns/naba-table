@@ -16,6 +16,18 @@ import type {
 import type { HoldConflictInfo } from '@/server/capacity/holds';
 
 const DEFAULT_MANUAL_SLACK_BUDGET = 4;
+// Upper bound for the manual slack budget. The runtime override is otherwise
+// unbounded: a large misconfiguration would effectively disable the slack check,
+// while a negative value would reject every selection. Clamp to a finite,
+// generous ceiling that stays consistent with the fallback budget.
+const MAX_MANUAL_SLACK_BUDGET = DEFAULT_MANUAL_SLACK_BUDGET * 6;
+
+function clampSlackBudget(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_MANUAL_SLACK_BUDGET;
+  }
+  return Math.max(0, Math.min(MAX_MANUAL_SLACK_BUDGET, value));
+}
 
 export function findUnavailableTables(tables: Table[]): Table[] {
   return tables.filter((table) => {
@@ -28,10 +40,10 @@ export function findUnavailableTables(tables: Table[]): Table[] {
 export function resolveManualSlackBudget(): number {
   const override = getManualAssignmentMaxSlack();
   if (typeof override === 'number') {
-    return override;
+    return clampSlackBudget(override);
   }
   const selectorConfig = getSelectorScoringConfig();
-  return Math.max(0, selectorConfig.maxOverage ?? DEFAULT_MANUAL_SLACK_BUDGET);
+  return clampSlackBudget(selectorConfig.maxOverage ?? DEFAULT_MANUAL_SLACK_BUDGET);
 }
 
 export function buildManualChecks(params: {
@@ -42,9 +54,14 @@ export function buildManualChecks(params: {
   conflicts: ManualAssignmentConflict[];
   holdConflicts: HoldConflictInfo[];
   slackBudget: number;
+  // When false, the hold/conflict lookup could not be completed (e.g. a DB error).
+  // Fail closed: treat conflict and hold detection as unverified/blocking rather
+  // than reporting "no conflicts". Defaults to true to preserve existing callers.
+  holdLookupOk?: boolean;
 }): ManualSelectionCheck[] {
   const checks: ManualSelectionCheck[] = [];
   const { summary, tables, adjacency, conflicts, holdConflicts, slackBudget } = params;
+  const holdLookupOk = params.holdLookupOk ?? true;
 
   const unavailableTables = findUnavailableTables(tables);
   checks.push({
@@ -157,26 +174,34 @@ export function buildManualChecks(params: {
     });
   }
 
+  const conflictOk = holdLookupOk && conflicts.length === 0 && holdConflicts.length === 0;
   checks.push({
     id: 'conflict',
-    status: conflicts.length === 0 && holdConflicts.length === 0 ? 'ok' : 'error',
-    message:
-      conflicts.length === 0 && holdConflicts.length === 0
-        ? 'No conflicting assignments'
-        : 'Existing assignments or holds conflict with selection',
+    status: conflictOk ? 'ok' : 'error',
+    message: conflictOk
+      ? 'No conflicting assignments'
+      : holdLookupOk
+        ? 'Existing assignments or holds conflict with selection'
+        : 'Unable to verify conflicting assignments (hold lookup failed)',
     details: {
       conflicts,
       holdConflicts,
+      holdLookupOk,
     },
   });
 
+  const holdsOk = holdLookupOk && holdConflicts.length === 0;
   checks.push({
     id: 'holds',
-    status: holdConflicts.length === 0 ? 'ok' : 'error',
-    message:
-      holdConflicts.length === 0 ? 'No holds blocking selection' : 'Tables currently on hold',
+    status: holdsOk ? 'ok' : 'error',
+    message: holdsOk
+      ? 'No holds blocking selection'
+      : holdLookupOk
+        ? 'Tables currently on hold'
+        : 'Unable to verify table holds (hold lookup failed)',
     details: {
       holds: holdConflicts,
+      holdLookupOk,
     },
   });
 

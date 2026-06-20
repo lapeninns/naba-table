@@ -15,10 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { StaleBoundary } from '@/components/ui/stale-boundary';
+import { getSwrUiState } from '@/lib/query/swrUiState';
 
 import type { OpsEmailDeliveryState } from '@/components/features/email-delivery/useOpsEmailDeliveryState';
 
 export function OpsEmailDeliveryLogTab({ state }: { state: OpsEmailDeliveryState }) {
+  // Param-change stale state (filters/range/page) per docs/sdlc/react-query-swr-ux.md.
+  const swr = getSwrUiState(state.dataState.feedQuery);
   return (
     <>
       <OpsPageToolbar className="space-y-4">
@@ -89,18 +93,21 @@ export function OpsEmailDeliveryLogTab({ state }: { state: OpsEmailDeliveryState
             </AlertDescription>
           </Alert>
         ) : (
-          <OpsEmailDeliveryTable
-            rows={state.dataState.rows}
-            timezone={state.timezone}
-            restaurantId={state.effectiveRestaurantId ?? ''}
-            isLoading={state.dataState.feedQuery.isLoading}
-            retryingAttemptKey={state.retryState.retryingAttemptKey}
-            pendingRetryRow={state.retryState.pendingRetryRow}
-            isRetryDialogOpen={state.retryState.pendingRetryAttemptKey !== null}
-            onRetryAttempt={state.retryState.handleRetryAttempt}
-            onRetryDialogOpenChange={state.retryState.handleRetryDialogOpenChange}
-            onConfirmRetry={state.retryState.handleConfirmRetry}
-          />
+          /* Filter bar and pagination stay outside; only the table body dims. */
+          <StaleBoundary isStale={swr.isPlaceholderStale}>
+            <OpsEmailDeliveryTable
+              rows={state.dataState.rows}
+              timezone={state.timezone}
+              restaurantId={state.effectiveRestaurantId ?? ''}
+              isLoading={state.dataState.feedQuery.isLoading}
+              retryingAttemptKey={state.retryState.retryingAttemptKey}
+              pendingRetryRow={state.retryState.pendingRetryRow}
+              isRetryDialogOpen={state.retryState.pendingRetryAttemptKey !== null}
+              onRetryAttempt={state.retryState.handleRetryAttempt}
+              onRetryDialogOpenChange={state.retryState.handleRetryDialogOpenChange}
+              onConfirmRetry={state.retryState.handleConfirmRetry}
+            />
+          </StaleBoundary>
         )}
 
         {state.shouldShowEmptyGuidance ? <OpsEmailDeliveryEmptyGuidance /> : null}

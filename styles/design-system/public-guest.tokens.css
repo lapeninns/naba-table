@@ -149,19 +149,21 @@
       var(--font-radix-luma-body, Inter), ui-sans-serif, system-ui, -apple-system,
       BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --pg-font-mono: var(--font-radix-luma-mono, 'Geist Mono'), ui-monospace, monospace;
+    /* Mobile-first fixed steps; desktop steps via the min-width media query
+       below. No viewport-based font scaling. */
     --pg-text-kicker: 0.75rem;
     --pg-text-caption: 0.875rem;
     --pg-text-body: 1rem;
     --pg-text-lead: 1.125rem;
-    --pg-text-card-title: clamp(1.25rem, 2vw, 1.5rem);
-    --pg-text-section: clamp(1.75rem, 4vw, 2.25rem);
-    --pg-text-hero: clamp(2rem, 5vw, 3rem);
+    --pg-text-card-title: 1.25rem;
+    --pg-text-section: 1.625rem;
+    --pg-text-hero: 2rem;
 
     --pg-leading-tight: 1.1667;
     --pg-leading-snug: 1.22;
     --pg-leading-body: 1.5;
-    --pg-tracking-display: -0.02em;
-    --pg-tracking-tight: -0.01em;
+    --pg-tracking-display: 0em;
+    --pg-tracking-tight: 0em;
     --pg-tracking-wide: 0.08em;
 
     /* Rhythm and layout. */
@@ -174,19 +176,20 @@
     --pg-grid-gap: clamp(1rem, 2vw, 1.5rem);
     --pg-touch-target: 2.75rem;
 
-    /* Shape and elevation. */
-    --radius-base: 0.7rem;
-    --radius: 0.7rem;
-    --radius-sm: 0.525rem;
-    --radius-md: 0.7rem;
-    --radius-lg: 0.875rem;
-    --radius-xl: 1.225rem;
+    /* Shape and elevation. Restrained scale: controls ≤ 8px, cards ≤ 12px,
+       largest container radius 16px. */
+    --radius-base: 0.5rem;
+    --radius: 0.5rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
     --radius-pill: 9999px;
-    --pg-radius-xs: 0.525rem;
-    --pg-radius-sm: 0.7rem;
-    --pg-radius-md: 0.875rem;
-    --pg-radius-lg: 1.225rem;
-    --pg-radius-xl: 1.575rem;
+    --pg-radius-xs: 0.375rem;
+    --pg-radius-sm: 0.5rem;
+    --pg-radius-md: 0.625rem;
+    --pg-radius-lg: 0.75rem;
+    --pg-radius-xl: 1rem;
     --pg-radius-pill: 999px;
 
     --shadow-sm: 0 1px 2px rgb(9 9 11 / 0.05);
@@ -380,5 +383,18 @@
     --pg-shadow-nav: 0 8px 30px rgb(0 0 0 / 0.24);
     --pg-shadow-button: 0 10px 15px -3px rgb(43 127 255 / 0.18);
     --pg-shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  /* Desktop display-type steps. Breakpoint-stepped on purpose: the design
+     system forbids viewport-based font scaling. */
+  @media (min-width: 768px) {
+    :root,
+    [data-theme='guest'],
+    [data-theme='app'],
+    .guest-theme {
+      --pg-text-card-title: 1.5rem;
+      --pg-text-section: 2rem;
+      --pg-text-hero: 2.75rem;
+    }
   }
 }

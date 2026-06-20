@@ -107,13 +107,15 @@ Hooks that already use `keepPreviousData`:
 - `src/hooks/ops/useOpsDualSync.ts` → `operationsQuery`, `publishJobsQuery`
 
 > [!NOTE]
-> `src/hooks/ops/useOpsBookingsList.ts` does **not** currently use `keepPreviousData`. If it gains user-driven key changes (e.g. pagination, filters), add it.
+> `src/hooks/ops/useOpsBookingsList.ts` is an infinite query and uses the equivalent `placeholderData: (previous) => previous`. `getSwrUiState` accepts it via the structural `SwrUiStateSource` type.
 
 ## Feature-level `StaleBoundary` adoption
 
-| Feature       | Hook                  | Uses `getSwrUiState` | Uses `StaleBoundary` | Notes                                                  |
-| ------------- | --------------------- | -------------------- | -------------------- | ------------------------------------------------------ |
-| Ops dashboard | `useOpsDashboardData` | ✅                   | ✅                   | Composed with `isSummaryMismatch` via `isStaleContent` |
+| Feature            | Hook                      | Uses `getSwrUiState` | Uses `StaleBoundary` | Notes                                                  |
+| ------------------ | ------------------------- | -------------------- | -------------------- | ------------------------------------------------------ |
+| Ops dashboard      | `useOpsDashboardData`     | ✅                   | ✅                   | Composed with `isSummaryMismatch` via `isStaleContent` |
+| Ops bookings       | `useOpsBookingsList`      | ✅                   | ✅                   | List body only; toolbar/search stay interactive        |
+| Ops email delivery | `useOpsEmailDeliveryFeed` | ✅                   | ✅                   | Delivery-log table only; filter bar/pagination outside |
 
 When adopting `StaleBoundary` in a new feature:
 

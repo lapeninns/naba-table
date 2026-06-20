@@ -47,6 +47,7 @@ export function useOpsCustomersDataState({
     };
   }, [activeRestaurantId, lastVisit, marketingOptIn, minBookings, normalizedSearch, sort, sortBy]);
 
+  const customersQuery = useOpsCustomers(filters);
   const {
     data,
     error,
@@ -56,7 +57,7 @@ export function useOpsCustomersDataState({
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useOpsCustomers(filters);
+  } = customersQuery;
 
   const customerPages = useMemo(() => data?.pages ?? [], [data?.pages]);
   const guestRows = useMemo(
@@ -87,6 +88,7 @@ export function useOpsCustomersDataState({
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isOnline]);
 
   return {
+    customersQuery,
     error,
     isLoading,
     guestRows,

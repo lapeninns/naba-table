@@ -817,6 +817,7 @@ export function buildBusyMaps(params: {
   targetWindow?: BookingWindow | null;
 }): AvailabilityMap {
   const { targetBookingId, bookings, holds, excludeHoldId, policy, targetWindow } = params;
+  const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
   const map: AvailabilityMap = new Map();
   const pruneToTargetWindow = isPlannerTimePruningEnabled();
   const targetInterval =
@@ -832,14 +833,32 @@ export function buildBusyMaps(params: {
     const assignments = booking.booking_table_assignments ?? [];
     if (assignments.length === 0) continue;
 
-    const { window } = computeBookingWindowWithFallback({
-      startISO: booking.start_at,
-      bookingDate: booking.booking_date,
-      startTime: booking.start_time,
-      partySize: booking.party_size,
-      bookingOption: booking.booking_type ?? null,
-      policy,
-    });
+    // A context booking may lack sufficient temporal data (e.g. null start_at AND
+    // null booking_date/start_time) yet still carry table assignments. Computing its
+    // window throws (ManualSelectionInputError). Guard per booking so one malformed
+    // row is SKIPPED rather than aborting the entire busy-map / lookahead build for
+    // the current assignment. Well-formed bookings are unaffected. This mirrors the
+    // guard already present in prepareLookaheadBookings; we do NOT widen the catch to
+    // swallow unrelated errors.
+    let window: BookingWindow;
+    try {
+      ({ window } = computeBookingWindowWithFallback({
+        startISO: booking.start_at,
+        bookingDate: booking.booking_date,
+        startTime: booking.start_time,
+        partySize: booking.party_size,
+        bookingOption: booking.booking_type ?? null,
+        policy,
+      }));
+    } catch (error) {
+      if (DEBUG) {
+        console.warn('[capacity.debug][busy-map] skipping booking with insufficient window data', {
+          bookingId: booking.id,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+      continue;
+    }
 
     const bookingInterval = {
       start: toIsoUtc(window.block.start),

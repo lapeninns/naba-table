@@ -336,14 +336,35 @@ export async function attemptInlineAutoAssign(
         finalBooking = reloaded as BookingRecord;
       }
 
-      await persistInlinePlanResult({
-        success: true,
-        reason: quote.reason ?? null,
-        alternates: quote?.alternates?.length ?? 0,
-        durationMs: quoteDurationMs,
-        emailSent: false,
-        emailVariant: inlineEmailVariant,
-      });
+      // Telemetry-integrity guard: a confirm that completes just after the 4s
+      // inline timeout already fired must NOT overwrite the persisted
+      // INLINE_TIMEOUT record with success:true. Doing so loses the timeout
+      // signal (corrupting retry telemetry) and triggers redundant background
+      // jobs that key off auto_assign_last_result. Booking correctness is
+      // unaffected — the confirm did consume the hold — so we keep the timeout
+      // record and only log that a late success arrived. Mirrors the ERROR and
+      // abort paths, which already gate their persists on inlineTimeoutPersisted.
+      if (inlineTimeoutPersisted) {
+        console.warn(
+          '[bookings][inline-auto-assign] late confirm success after inline timeout; preserving timeout result',
+          {
+            bookingId: finalBooking.id,
+            attemptId: inlineAttemptId,
+            holdId: quote.hold.id,
+            confirmDurationMs,
+            timeoutMs: inlineTimeoutMs,
+          },
+        );
+      } else {
+        await persistInlinePlanResult({
+          success: true,
+          reason: quote.reason ?? null,
+          alternates: quote?.alternates?.length ?? 0,
+          durationMs: quoteDurationMs,
+          emailSent: false,
+          emailVariant: inlineEmailVariant,
+        });
+      }
 
       await recordObservabilityEvent({
         source: 'bookings.inline_auto_assign',

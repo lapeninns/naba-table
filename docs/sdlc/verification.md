@@ -15,8 +15,8 @@ Use commands that actually exist in this repo:
 
 Coverage reality:
 
-- `pnpm run lint` only covers `server`, `lib`, and `scripts`.
-- It does **not** cover `src/**`, `components/**`, or markdown files.
+- `pnpm run lint` covers `server`, `lib`, `scripts`, `src/app/app`, and `src/components/features` (plus the `guard:no-shadcn:strict` check).
+- It does **not** cover all of `src/**`, `components/**`, or markdown files.
 - For changed JS/TS files outside that scope, run targeted eslint such as `pnpm exec eslint --max-warnings=0 <files...>` or explicitly record that no repo lint command covered those files.
 - There is no package-level `pnpm test` script and no markdownlint script.
 
@@ -73,7 +73,7 @@ Required:
 - verify the changed boundary directly
 - include route/API identity rows for the changed endpoints or handlers
 - run `pnpm run lint` and `pnpm run typecheck` when the touched code is covered by those commands
-- run targeted eslint or record the lint-coverage gap for changed JS/TS outside `server`, `lib`, and `scripts`
+- run targeted eslint or record the lint-coverage gap for changed JS/TS outside `server`, `lib`, `scripts`, `src/app/app`, and `src/components/features`
 - add targeted Vitest or Playwright coverage when a regression path exists
 
 ### Auth, security, or permission change

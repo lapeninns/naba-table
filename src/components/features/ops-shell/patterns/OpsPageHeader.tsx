@@ -18,9 +18,9 @@ export type OpsPageHeaderProps = {
 };
 
 const headingStyles: Record<NonNullable<OpsPageHeaderProps['headingLevel']>, string> = {
-  h1: 'text-2xl font-bold tracking-tight text-foreground sm:text-3xl',
-  h2: 'text-xl font-semibold tracking-tight text-foreground sm:text-2xl',
-  h3: 'text-lg font-semibold tracking-tight text-foreground',
+  h1: 'text-2xl font-semibold text-foreground sm:text-3xl',
+  h2: 'text-xl font-semibold text-foreground sm:text-2xl',
+  h3: 'text-lg font-semibold text-foreground',
 };
 
 export function OpsPageHeader({

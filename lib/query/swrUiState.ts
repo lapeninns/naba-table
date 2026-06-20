@@ -21,6 +21,16 @@
 
 import type { UseQueryResult } from '@tanstack/react-query';
 
+/**
+ * Structural subset of a query result that the helper reads. Declared as a
+ * `Pick` so both `UseQueryResult` and `UseInfiniteQueryResult` (e.g. the ops
+ * bookings list) can be passed without casts.
+ */
+export type SwrUiStateSource = Pick<
+  UseQueryResult<unknown>,
+  'isPending' | 'isFetching' | 'isPlaceholderData' | 'data'
+>;
+
 export type SwrUiState = {
   /** First load ever — no data, no placeholder. Show full skeleton. */
   isInitialLoad: boolean;
@@ -38,7 +48,7 @@ export type SwrUiState = {
  * always be `false` and the helper degrades cleanly to `isInitialLoad` /
  * `isRefetching`.
  */
-export function getSwrUiState(query: UseQueryResult<unknown>): SwrUiState {
+export function getSwrUiState(query: SwrUiStateSource): SwrUiState {
   const { isPending, isFetching, isPlaceholderData, data } = query;
 
   return {

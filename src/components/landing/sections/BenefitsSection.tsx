@@ -86,7 +86,7 @@ export function BenefitsSection() {
                 className={cn(
                   'group overflow-hidden border-border/70 bg-background/96 motion-safe:reveal-up',
                   isFeatured
-                    ? 'pg-panel border-primary/20 bg-[linear-gradient(180deg,hsl(var(--primary)/0.08),hsl(var(--background)))] sm:col-span-2 lg:col-span-6'
+                    ? 'pg-panel border-primary/20 bg-primary/[0.04] sm:col-span-2 lg:col-span-6'
                     : index < 2
                       ? 'pg-card lg:col-span-3'
                       : 'pg-card lg:col-span-2',

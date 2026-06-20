@@ -87,10 +87,18 @@ export async function listManualActiveHoldsForBooking({
     return [];
   }
 
+  // Fail closed: a lookup error must NOT be silently treated as "no active holds",
+  // which would hide live holds and allow conflicting confirmations. Log via the
+  // structured logger and rethrow so the caller blocks instead of proceeding on
+  // incomplete data.
   try {
     return await listActiveHoldsForBooking({ bookingId, client });
-  } catch {
-    return [];
+  } catch (error) {
+    console.error('[capacity][manual][context] active hold lookup failed; blocking', {
+      bookingId,
+      error,
+    });
+    throw error;
   }
 }
 
@@ -107,6 +115,10 @@ export async function findManualHoldConflicts({
   tableIds: string[];
   window: BookingWindow;
 }): Promise<HoldConflictInfo[]> {
+  // Fail closed: swallowing a hold-conflict lookup error here would make a failed
+  // DB query look like "no conflicts" and let manual checks pass, risking a
+  // double-booking. Log via the structured logger and rethrow so confirmation is
+  // blocked when conflict detection is unavailable.
   try {
     return await findHoldConflicts({
       restaurantId,
@@ -116,8 +128,13 @@ export async function findManualHoldConflicts({
       excludeHoldId,
       client,
     });
-  } catch {
-    return [];
+  } catch (error) {
+    console.error('[capacity][manual][context] hold conflict lookup failed; blocking', {
+      restaurantId,
+      tableIds,
+      error,
+    });
+    throw error;
   }
 }
 
