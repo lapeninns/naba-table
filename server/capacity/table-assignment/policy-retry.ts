@@ -72,6 +72,56 @@ export async function confirmWithPolicyRetry(
   let conflictDetected = false;
   let lastError: unknown = null;
   let lastDriftInfo: { kind: PolicyDriftKind; details: PolicyDriftDetails } | null = null;
+  // Hold ids whose release failed during a retry. These rows would otherwise
+  // linger in the DB until their TTL; we surface them for reconciliation so a
+  // release failure is never silently swallowed.
+  const orphanedHoldIds: string[] = [];
+
+  // Reliably release the hold from a retry path. If release ultimately fails we
+  // record the hold id for reconciliation and emit a structured event instead of
+  // only console.warn-ing, so a leaked hold is always observable.
+  const releaseHoldForRetry = async (
+    holdId: string,
+    reason: "assignment_conflict" | "policy_drift",
+  ): Promise<void> => {
+    try {
+      await releaseHoldWithRetry({ holdId, client: supabase });
+    } catch (releaseError) {
+      orphanedHoldIds.push(holdId);
+      await recordObservabilityEvent({
+        source: "capacity.policy",
+        eventType: "hold.release_failed",
+        severity: "error",
+        restaurantId: restaurantId ?? undefined,
+        bookingId,
+        context: {
+          holdId,
+          reason,
+          attempt: attempt + 1,
+          error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+        },
+      });
+    }
+  };
+
+  // Emit a single reconciliation signal for any holds whose release failed and
+  // that were not subsequently superseded by a successful confirm.
+  const reportOrphanedHolds = async (): Promise<void> => {
+    if (orphanedHoldIds.length === 0) {
+      return;
+    }
+    await recordObservabilityEvent({
+      source: "capacity.policy",
+      eventType: "hold.orphaned",
+      severity: "error",
+      restaurantId: restaurantId ?? undefined,
+      bookingId,
+      context: {
+        holdIds: orphanedHoldIds,
+        reason: "release_failed_during_retry",
+      },
+    });
+  };
 
   while (attempt < totalAttempts) {
     try {
@@ -123,6 +173,11 @@ export async function confirmWithPolicyRetry(
         });
       }
 
+      // Even when this attempt succeeds, any earlier hold whose release failed
+      // is still a stale row in the DB. Surface it for reconciliation so the
+      // leak is never silently swallowed by an eventual success.
+      await reportOrphanedHolds();
+
       return { assignments, attempts: attempt + 1 };
     } catch (error) {
       if (isRetryableAssignmentConflict(error) && enableRetry && attempt < totalAttempts - 1) {
@@ -142,14 +197,7 @@ export async function confirmWithPolicyRetry(
           },
         });
 
-        try {
-          await releaseHoldWithRetry({ holdId: contextRef.currentHoldId, client: supabase });
-        } catch (releaseError) {
-          console.warn("[capacity.policy] failed to release hold during conflict retry", {
-            holdId: contextRef.currentHoldId,
-            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
-          });
-        }
+        await releaseHoldForRetry(contextRef.currentHoldId, "assignment_conflict");
 
         const quote = await quoteTablesForBooking({
           bookingId,
@@ -206,14 +254,7 @@ export async function confirmWithPolicyRetry(
           });
         }
 
-        try {
-          await releaseHoldWithRetry({ holdId: contextRef.currentHoldId, client: supabase });
-        } catch (releaseError) {
-          console.warn("[capacity.policy] failed to release hold during policy drift retry", {
-            holdId: contextRef.currentHoldId,
-            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
-          });
-        }
+        await releaseHoldForRetry(contextRef.currentHoldId, "policy_drift");
 
         const quote = await quoteTablesForBooking({
           bookingId,
@@ -273,6 +314,11 @@ export async function confirmWithPolicyRetry(
       },
     });
   }
+
+  // The retry loop is giving up. If a release failed earlier (e.g. release-fail
+  // followed by a requote-fail), the old hold would otherwise linger until TTL
+  // with no trace. Emit the reconciliation signal before propagating the error.
+  await reportOrphanedHolds();
 
   if (lastError instanceof Error) {
     throw lastError;

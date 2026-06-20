@@ -529,6 +529,43 @@ export async function createTableHold(input: CreateTableHoldInput): Promise<Tabl
   return hold;
 }
 
+async function manualDeleteHold(supabase: DbClient, holdId: string): Promise<void> {
+  const { error: membersError } = await supabase
+    .from('table_hold_members')
+    .delete()
+    .eq('hold_id', holdId);
+  if (membersError) {
+    throw new HoldPersistenceError(
+      membersError.message ?? 'Failed to delete table hold members',
+      membersError.code ?? null,
+    );
+  }
+
+  const { error: holdError } = await supabase.from('table_holds').delete().eq('id', holdId);
+  if (holdError) {
+    throw new HoldPersistenceError(
+      holdError.message ?? 'Failed to delete table hold',
+      holdError.code ?? null,
+    );
+  }
+
+  // Verify the hold row is actually gone; never report success on partial deletion.
+  const { data: remaining, error: verifyError } = await supabase
+    .from('table_holds')
+    .select('id')
+    .eq('id', holdId)
+    .maybeSingle();
+  if (verifyError) {
+    throw new HoldPersistenceError(
+      verifyError.message ?? 'Failed to verify table hold deletion',
+      verifyError.code ?? null,
+    );
+  }
+  if (remaining) {
+    throw new HoldPersistenceError('Hold deletion did not remove the hold row', null);
+  }
+}
+
 export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<void> {
   const { holdId, client } = input;
   const supabase = ensureClient(client);
@@ -538,16 +575,21 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
     // actor id is optional for system-triggered releases; Supabase RPC expects string | undefined
     p_actor_id: undefined,
   });
-  const { error: rpcError } = await rpcCall;
+  const { data: rpcData, error: rpcError } = await rpcCall;
 
-  if (rpcError) {
-    console.warn('[capacity.hold] release_hold_and_emit failed; falling back to manual delete', {
+  // The RPC returns a boolean indicating whether a hold was actually deleted.
+  // A falsy return with no error means the RPC did not delete the hold, so the
+  // hold may still be active. Fall back to the manual delete (with verification)
+  // rather than reporting success on partial/no deletion.
+  const deleted = rpcData === true;
+  if (rpcError || !deleted) {
+    console.warn('[capacity.hold] release_hold_and_emit did not confirm deletion; falling back to manual delete', {
       holdId,
-      code: rpcError.code ?? null,
-      message: rpcError.message ?? null,
+      deleted,
+      code: rpcError?.code ?? null,
+      message: rpcError?.message ?? null,
     });
-    await supabase.from('table_hold_members').delete().eq('hold_id', holdId);
-    await supabase.from('table_holds').delete().eq('id', holdId);
+    await manualDeleteHold(supabase, holdId);
   }
 }
 
@@ -683,7 +725,18 @@ export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Pr
     .eq('booking_id', bookingId)
     .gt('expires_at', new Date().toISOString());
 
-  if (error || !data) {
+  if (error) {
+    // Fail closed: a failed holds query must NOT be reported as "no active holds",
+    // which would let an assignment proceed past a real hold and double-book. Mirror
+    // findHoldConflicts (log + rethrow) instead of swallowing the error. (gap #1)
+    console.error('[capacity.hold] listActiveHoldsForBooking query failed; failing closed', {
+      bookingId,
+      code: (error as { code?: string }).code ?? null,
+      message: (error as { message?: string }).message ?? String(error),
+    });
+    throw error;
+  }
+  if (!data) {
     return [];
   }
 
@@ -810,8 +863,41 @@ export async function sweepExpiredHolds(
   }
 
   const holdIds = data.map((row) => row.id);
-  await supabase.from('table_hold_members').delete().in('hold_id', holdIds);
-  await supabase.from('table_holds').delete().in('id', holdIds);
+  // Delete the parent hold rows FIRST. Conflict/availability reads start from
+  // `table_holds` (joined with members), so removing the hold row first ensures a
+  // concurrent reader never observes a hold that is still "active" but has had its
+  // members already deleted (active-but-empty). Members are cleaned up afterward
+  // (orphaned rows are also removed by the FK cascade if present).
+  const { error: holdsDeleteError } = await supabase
+    .from('table_holds')
+    .delete()
+    .in('id', holdIds);
+  if (holdsDeleteError) {
+    console.warn('[capacity.hold] sweepExpiredHolds failed to delete holds', {
+      error: holdsDeleteError,
+      cutoff,
+      limit,
+    });
+    return {
+      total: 0,
+      holdIds: [],
+    };
+  }
+
+  const { error: membersDeleteError } = await supabase
+    .from('table_hold_members')
+    .delete()
+    .in('hold_id', holdIds);
+  if (membersDeleteError) {
+    // The holds are already gone, so they no longer appear active; surface the
+    // residual member cleanup failure for observability but treat the sweep of the
+    // (now-deleted) holds as completed.
+    console.warn('[capacity.hold] sweepExpiredHolds failed to delete hold members', {
+      error: membersDeleteError,
+      cutoff,
+      limit,
+    });
+  }
 
   return {
     total: holdIds.length,

@@ -52,7 +52,12 @@ export function isAllocatorV2ShadowMode(): boolean {
   return false;
 }
 
-export function isAllocatorAdjacencyRequired(): boolean {
+export function isAllocatorAdjacencyRequired(override?: boolean | null): boolean {
+  // Adjacency-required is configurable per request via the override.
+  // Default (when no override is supplied) preserves the historical invariant of `true`.
+  if (typeof override === 'boolean') {
+    return override;
+  }
   return true;
 }
 

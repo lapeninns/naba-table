@@ -1,8 +1,18 @@
+import { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
+import { getVenuePolicy } from "@/server/capacity/policy";
+import {
+  loadActiveHoldsForDate,
+  loadAdjacency,
+  loadRestaurantTimezone,
+  loadTablesForRestaurant,
+} from "@/server/capacity/table-assignment/supabase";
 import { getRestaurantSchedule } from "@/server/restaurants/schedule";
 import { isTimeWithinPeriod, selectMatchingPeriod } from "@/server/restaurants/servicePeriodMatching";
+import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
+import { isHoldsEnabled } from "@/server/runtime-policy";
 import { getServiceSupabaseClient } from "@/server/supabase";
 
-import { checkRequestSeatability } from "./seatability";
+import { checkRequestSeatability, type SeatabilityPreloadedContext } from "./seatability";
 
 import type {
   AvailabilityCheckParams,
@@ -137,12 +147,17 @@ async function loadCapacityContext(
     .select("id,capacity,active,status")
     .eq("restaurant_id", restaurantId)
     .eq("active", true);
+  // Count only bookings whose status blocks capacity, matching the
+  // seatability layer (BOOKING_BLOCKING_STATUSES). Previously this excluded
+  // only cancelled/no_show and therefore counted completed/checked_in
+  // bookings, diverging from seatability and double-counting seats that are
+  // no longer reservable.
   const bookingsPromise = supabase
     .from("bookings")
     .select("id,party_size,start_time,end_time,status")
     .eq("restaurant_id", restaurantId)
     .eq("booking_date", date)
-    .not("status", "in", '("cancelled","no_show")');
+    .in("status", [...BOOKING_BLOCKING_STATUSES]);
 
   const [schedule, periodResult, ruleResult, tableResult, bookingResult] = await Promise.all([
     schedulePromise,
@@ -337,10 +352,44 @@ export async function findAlternativeSlots(
   params: AlternativeSlotParams,
   client?: DbClient,
 ): Promise<TimeSlot[]> {
-  const context = await loadCapacityContext(params.restaurantId, params.date, client);
+  const supabase = client ?? getServiceSupabaseClient();
+  const context = await loadCapacityContext(params.restaurantId, params.date, supabase);
   const preferredMinutes = parseTimeToMinutes(params.preferredTime);
   const searchWindowMinutes = params.searchWindowMinutes ?? 120;
   const maxAlternatives = params.maxAlternatives ?? 5;
+
+  // N+1 mitigation (#5): checkRequestSeatability runs once per candidate slot and
+  // would otherwise re-load the restaurant/date-constant resources for each one.
+  // Load them ONCE here and pass them into every per-candidate check:
+  //   - timezone + turn bands + tables + adjacency: restaurant-scoped
+  //   - active holds: restaurant + date scoped
+  // Only context bookings stay per-candidate because they are window-specific.
+  const [preloadTimezone, preloadTurnBands, preloadTables] = await Promise.all([
+    loadRestaurantTimezone(params.restaurantId, supabase).catch(() => null),
+    getRestaurantTurnBands(params.restaurantId, supabase).catch(() => ({})),
+    loadTablesForRestaurant(params.restaurantId, supabase),
+  ]);
+  const preloadAdjacency = await loadAdjacency(
+    params.restaurantId,
+    preloadTables.map((table) => table.id),
+    supabase,
+  );
+  const preloadPolicy = getVenuePolicy({
+    timezone: preloadTimezone ?? undefined,
+    turnBandsByOption: preloadTurnBands,
+  });
+  const preloadHolds: SeatabilityPreloadedContext['holdsForDay'] = isHoldsEnabled()
+    ? await loadActiveHoldsForDate(params.restaurantId, params.date, preloadPolicy, supabase).catch(
+        () => [],
+      )
+    : [];
+  const seatabilityPreloaded: SeatabilityPreloadedContext = {
+    restaurantTimezone: preloadTimezone,
+    turnBandsByOption: preloadTurnBands,
+    holdsForDay: preloadHolds,
+    tables: preloadTables,
+    adjacency: preloadAdjacency,
+  };
 
   const candidates = context.schedule.slots
     .filter((slot) => !slot.disabled && slot.value !== params.preferredTime)
@@ -390,7 +439,8 @@ export async function findAlternativeSlots(
         partySize: params.partySize,
         bookingOption: matchingSlot?.bookingOption ?? params.bookingOption ?? null,
       },
-      client,
+      supabase,
+      seatabilityPreloaded,
     );
 
     if (!seatability.seatable) {

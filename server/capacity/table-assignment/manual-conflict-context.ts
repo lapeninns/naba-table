@@ -87,16 +87,15 @@ export async function listManualActiveHoldsForBooking({
     return [];
   }
 
-  // Fail closed: a lookup error must NOT be silently treated as "no active holds",
-  // which would hide live holds and allow conflicting confirmations. Log via the
-  // structured logger and rethrow so the caller blocks instead of proceeding on
-  // incomplete data.
   try {
     return await listActiveHoldsForBooking({ bookingId, client });
   } catch (error) {
-    console.error('[capacity][manual][context] active hold lookup failed; blocking', {
+    // Fail closed: a hold-lookup failure must NOT be reported as "no active holds",
+    // which would let a manual assignment proceed onto a still-held table. Surface
+    // it so confirmation is blocked rather than silently double-booking. (#20b)
+    console.error('[capacity.manual] active hold lookup failed; blocking assignment', {
       bookingId,
-      error,
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
@@ -115,10 +114,6 @@ export async function findManualHoldConflicts({
   tableIds: string[];
   window: BookingWindow;
 }): Promise<HoldConflictInfo[]> {
-  // Fail closed: swallowing a hold-conflict lookup error here would make a failed
-  // DB query look like "no conflicts" and let manual checks pass, risking a
-  // double-booking. Log via the structured logger and rethrow so confirmation is
-  // blocked when conflict detection is unavailable.
   try {
     return await findHoldConflicts({
       restaurantId,
@@ -129,10 +124,13 @@ export async function findManualHoldConflicts({
       client,
     });
   } catch (error) {
-    console.error('[capacity][manual][context] hold conflict lookup failed; blocking', {
+    // Fail closed: swallowing a hold-conflict lookup error as "no conflicts" can
+    // double-book a table whose hold lookup transiently failed. Surface it so the
+    // manual selection check blocks instead of passing. (#1)
+    console.error('[capacity.manual] hold conflict lookup failed; blocking assignment', {
       restaurantId,
       tableIds,
-      error,
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }

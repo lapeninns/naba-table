@@ -65,4 +65,43 @@ describe('confirmation cache lookups', () => {
       ]),
     );
   });
+
+  it('#4: treats a cached confirmation with a non-matching idempotency key as a miss', async () => {
+    // The request omits an idempotency key, but the cached row carries a (different)
+    // key. The guard must NOT serve those assignments — otherwise confirmations with
+    // distinct keys would share assignments. It must also not read the assignments
+    // table at all for the non-matching row.
+    const confirmation = chain({ data: { idempotency_key: 'some-other-key' }, error: null });
+    let assignmentsRead = 0;
+    const assignments = chain({
+      data: [
+        {
+          id: 'assignment-1',
+          table_id: 'table-1',
+          start_at: '2026-07-01T18:00:00Z',
+          end_at: '2026-07-01T20:00:00Z',
+          merge_group_id: null,
+        },
+      ],
+      error: null,
+    });
+    const from = vi.fn((table: string) => {
+      if (table === 'booking_confirmation_results') {
+        return confirmation;
+      }
+      assignmentsRead += 1;
+      return assignments;
+    });
+
+    const result = await loadCachedConfirmationResult({
+      supabase: { from } as never,
+      bookingId: 'booking-1',
+      holdId: 'hold-1',
+      restaurantId: 'restaurant-1',
+      idempotencyKey: null,
+    });
+
+    expect(result).toBeNull();
+    expect(assignmentsRead).toBe(0);
+  });
 });

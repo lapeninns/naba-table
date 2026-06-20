@@ -161,6 +161,7 @@ export function filterAvailableTables(
     allowInsufficientCapacity?: boolean;
     allowMaxPartySizeViolation?: boolean;
     allowMinPartySizeViolation?: boolean;
+    requireAdjacency?: boolean;
     timeFilter?: TimeFilterOptions;
     captureDiagnostics?: (diagnostics: TableFilterDiagnostics) => void;
   },
@@ -169,6 +170,9 @@ export function filterAvailableTables(
   const allowPartial = options?.allowInsufficientCapacity ?? false;
   const allowMaxPartySizeViolation = options?.allowMaxPartySizeViolation ?? false;
   const allowMinPartySizeViolation = options?.allowMinPartySizeViolation ?? false;
+  // Adjacency-required is configurable per call. When no explicit override is
+  // supplied the runtime default applies (historically `true`).
+  const requireAdjacency = partiesRequireAdjacency(partySize, options?.requireAdjacency);
   const avoid = avoidTables ?? new Set<string>();
   const futureWindow = window.block.start.toMillis() > Date.now();
   const statusPolicy: TableFilterStatusPolicy = futureWindow
@@ -279,7 +283,7 @@ export function filterAvailableTables(
       return false;
     }
     // Adjacency evidence is required only for merge candidates.
-    if (requiresMerge && partiesRequireAdjacency(partySize) && !adjacency.has(table.id)) {
+    if (requiresMerge && requireAdjacency && !adjacency.has(table.id)) {
       diagnostics.droppedByAdjacency += 1;
       return false;
     }
@@ -324,21 +328,20 @@ export function filterAvailableTables(
   });
 }
 
-export function partiesRequireAdjacency(partySize: number): boolean {
-  // Hard business invariant: if we ever consider merged plans, adjacency is required.
-  // The party-size threshold concept is deprecated; adjacency applies uniformly.
+export function partiesRequireAdjacency(partySize: number, override?: boolean | null): boolean {
+  // Adjacency-required is configurable. The party-size threshold concept is deprecated;
+  // adjacency applies uniformly when required. An explicit boolean override is honored;
+  // otherwise the runtime default applies, which preserves the historical invariant (true).
   void partySize;
-  return isAllocatorAdjacencyRequired();
+  return isAllocatorAdjacencyRequired(override);
 }
 
 export function resolveRequireAdjacency(partySize: number, override?: boolean): boolean {
-  // Callers are not allowed to bypass adjacency (override=false) for merged plans.
-  // We accept override=true only for forward compatibility, but default to the invariant.
+  // Adjacency-required is configurable. An explicit boolean override (e.g. a staff
+  // manual assignment opting out via requireAdjacency=false) is honored; otherwise we
+  // fall back to the runtime default, which preserves the historical invariant (true).
   void partySize;
-  if (override === true) {
-    return true;
-  }
-  return true;
+  return isAllocatorAdjacencyRequired(override);
 }
 
 export type LookaheadConfig = {
@@ -432,6 +435,53 @@ function prepareLookaheadBookings(params: {
   return candidates;
 }
 
+/**
+ * Produces a deterministic visiting order over [0, count) that, for any prefix,
+ * is spread across the whole range rather than concentrated at the front.
+ *
+ * Used by the lookahead so that when the time budget is exhausted mid-pass the
+ * plans that did get evaluated are sampled fairly across the ranked list instead
+ * of always being the first few (top-ranked) ones. This avoids ranking being
+ * decided purely by enumeration order under load.
+ *
+ * The order is built by sweeping the range with a coarse stride and progressively
+ * filling in the gaps, which keeps it cheap (O(count)) and stable across runs.
+ */
+export function buildFairEvaluationOrder(count: number): number[] {
+  if (count <= 0) {
+    return [];
+  }
+  if (count <= 2) {
+    return Array.from({ length: count }, (_value, index) => index);
+  }
+
+  const order: number[] = [];
+  const seen = new Set<number>();
+  // Binary subdivision (van der Corput style): start with the coarsest stride that
+  // still spans the range, then repeatedly halve. This guarantees any truncated
+  // prefix is spread across the FULL range rather than clustered at the top-ranked
+  // head, so a budget-limited evaluation still samples low-ranked plans. The final
+  // stride-1 pass guarantees every index is included (total/fail-safe).
+  let stride = 1;
+  while (stride * 2 <= count) {
+    stride *= 2;
+  }
+  while (true) {
+    for (let index = 0; index < count; index += stride) {
+      if (!seen.has(index)) {
+        seen.add(index);
+        order.push(index);
+      }
+    }
+    if (stride === 1) {
+      break;
+    }
+    stride = Math.floor(stride / 2);
+  }
+
+  return order;
+}
+
 function applyLookaheadPenalties(params: {
   plans: RankedTablePlan[];
   bookingWindow: BookingWindow;
@@ -445,6 +495,7 @@ function applyLookaheadPenalties(params: {
   selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
   penaltyWeight: number;
   blockThreshold: number;
+  requireAdjacencyOverride?: boolean | null;
 }): {
   penalizedPlans: number;
   totalPenalty: number;
@@ -467,6 +518,7 @@ function applyLookaheadPenalties(params: {
     selectorLimits,
     penaltyWeight,
     blockThreshold,
+    requireAdjacencyOverride,
   } = params;
   const start = performance.now();
   const MAX_LOOKAHEAD_PLANS = Math.min(20, plans.length);
@@ -523,7 +575,20 @@ function applyLookaheadPenalties(params: {
     return upperBound >= required;
   };
 
-  for (const plan of plans.slice(0, MAX_LOOKAHEAD_PLANS)) {
+  // Evaluate plans in a fair (strided) order rather than strictly best-first.
+  // The time budget can be exhausted by the first few (top-ranked) plans, which
+  // would leave every later plan un-evaluated and therefore un-penalized — biasing
+  // ranking purely by enumeration order under load. Visiting the eligible window in
+  // a deterministic stride spreads any budget cutoff across high/mid/low-ranked plans
+  // so later conflicting plans still get a fair chance to be penalized. Work stays
+  // bounded (<= MAX_LOOKAHEAD_PLANS) and per-plan cost is unchanged.
+  const evaluationOrder = buildFairEvaluationOrder(MAX_LOOKAHEAD_PLANS);
+
+  for (const planIndex of evaluationOrder) {
+    const plan = plans[planIndex];
+    if (!plan) {
+      continue;
+    }
     if (performance.now() - start > LOOKAHEAD_TIME_BUDGET_MS) {
       timeBudgetHit = true;
       break;
@@ -537,7 +602,10 @@ function applyLookaheadPenalties(params: {
         continue;
       }
 
-      const requireAdjacencyForFuture = resolveRequireAdjacency(future.partySize);
+      const requireAdjacencyForFuture = resolveRequireAdjacency(
+        future.partySize,
+        requireAdjacencyOverride ?? undefined,
+      );
       const availableTables = filterAvailableTables(
         tables,
         future.partySize,
@@ -548,6 +616,7 @@ function applyLookaheadPenalties(params: {
         {
           allowInsufficientCapacity: true,
           allowMaxPartySizeViolation: combinationEnabled,
+          requireAdjacency: requireAdjacencyForFuture,
           timeFilter: {
             busy: future.busy,
             mode: 'strict',
@@ -639,6 +708,10 @@ export function evaluateLookahead(params: {
   combinationLimit: number;
   selectorLimits: ReturnType<typeof getSelectorPlannerLimits>;
   scoringConfig: SelectorScoringConfig;
+  // Optional adjacency override propagated from the originating quote so the
+  // lookahead evaluates future bookings under the same adjacency policy as the
+  // current booking. Absent => runtime default (historically `true`).
+  requireAdjacencyOverride?: boolean | null;
 }): CandidateDiagnostics['lookahead'] {
   const {
     lookahead,
@@ -655,6 +728,7 @@ export function evaluateLookahead(params: {
     combinationLimit,
     selectorLimits,
     scoringConfig,
+    requireAdjacencyOverride,
   } = params;
 
   if (!lookahead.enabled) {
@@ -723,6 +797,7 @@ export function evaluateLookahead(params: {
     selectorLimits,
     penaltyWeight: lookahead.penaltyWeight,
     blockThreshold: lookahead.blockThreshold,
+    requireAdjacencyOverride,
   });
 
   if (plansResult.plans.length === 0) {
@@ -817,7 +892,6 @@ export function buildBusyMaps(params: {
   targetWindow?: BookingWindow | null;
 }): AvailabilityMap {
   const { targetBookingId, bookings, holds, excludeHoldId, policy, targetWindow } = params;
-  const DEBUG = process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true';
   const map: AvailabilityMap = new Map();
   const pruneToTargetWindow = isPlannerTimePruningEnabled();
   const targetInterval =
@@ -833,32 +907,30 @@ export function buildBusyMaps(params: {
     const assignments = booking.booking_table_assignments ?? [];
     if (assignments.length === 0) continue;
 
-    // A context booking may lack sufficient temporal data (e.g. null start_at AND
-    // null booking_date/start_time) yet still carry table assignments. Computing its
-    // window throws (ManualSelectionInputError). Guard per booking so one malformed
-    // row is SKIPPED rather than aborting the entire busy-map / lookahead build for
-    // the current assignment. Well-formed bookings are unaffected. This mirrors the
-    // guard already present in prepareLookaheadBookings; we do NOT widen the catch to
-    // swallow unrelated errors.
-    let window: BookingWindow;
+    let windowResult;
     try {
-      ({ window } = computeBookingWindowWithFallback({
+      windowResult = computeBookingWindowWithFallback({
         startISO: booking.start_at,
         bookingDate: booking.booking_date,
         startTime: booking.start_time,
         partySize: booking.party_size,
         bookingOption: booking.booking_type ?? null,
         policy,
-      }));
+      });
     } catch (error) {
-      if (DEBUG) {
-        console.warn('[capacity.debug][busy-map] skipping booking with insufficient window data', {
+      // A context booking carrying table assignments but lacking sufficient temporal
+      // data (null start_at AND null booking_date/start_time) makes window
+      // computation throw. Skip that single booking instead of aborting the whole
+      // busy-map / lookahead build for the current assignment. (gap #8)
+      if (process.env.CAPACITY_DEBUG === '1' || process.env.CAPACITY_DEBUG === 'true') {
+        console.warn('[capacity.debug][busy-map] skipping booking with unresolvable window', {
           bookingId: booking.id,
-          reason: error instanceof Error ? error.message : String(error),
+          error: error instanceof Error ? error.message : String(error),
         });
       }
       continue;
     }
+    const { window } = windowResult;
 
     const bookingInterval = {
       start: toIsoUtc(window.block.start),

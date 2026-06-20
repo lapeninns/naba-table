@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const findHoldConflicts = vi.fn();
 const listActiveHoldsForBooking = vi.fn();
 
-vi.mock('@/server/capacity/holds', () => ({
+// Spread the real module so value exports the merged code path needs at import
+// time (e.g. AssignTablesRpcError) stay defined; override only the two lookups
+// we drive to throw.
+vi.mock('@/server/capacity/holds', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/server/capacity/holds')>()),
   findHoldConflicts: (...args: unknown[]) => findHoldConflicts(...args),
   listActiveHoldsForBooking: (...args: unknown[]) => listActiveHoldsForBooking(...args),
 }));

@@ -338,6 +338,55 @@ export async function autoAssignAndConfirmIfPossible(
 
     while (attempt < maxAttempts) {
       logJob('attempt.start', { attempt, maxAttempts });
+
+      // Re-check status immediately before the first quote. The status snapshot
+      // taken at job start can go stale if an admin manually assigns/confirms (or
+      // cancels) the booking between scheduling and this attempt; without this we
+      // would waste a 180s hold on a booking that no longer needs one. Subsequent
+      // attempts already re-read status between retries (see end of loop), so this
+      // only guards attempt 0.
+      if (attempt === 0) {
+        const { data: preAttempt, error: preAttemptError } = await supabase
+          .from('bookings')
+          .select('status')
+          .eq('id', bookingId)
+          .maybeSingle();
+
+        if (preAttemptError) {
+          // Fail safe: a transient lookup error must not skip needed work, and
+          // must never be read as "still actionable". Log and fall through to the
+          // attempt (the original start-of-job lookup already succeeded).
+          console.warn('[auto-assign] pre-attempt status re-check failed', {
+            bookingId,
+            error: preAttemptError.message ?? preAttemptError,
+          });
+          logJob('attempt.precheck_lookup_failed', {
+            attempt,
+            error: preAttemptError.message ?? preAttemptError,
+          });
+        } else {
+          const latestStatus = String(preAttempt?.status ?? '');
+          if (latestStatus === 'confirmed') {
+            await recordObservabilityEvent({
+              source: 'auto_assign',
+              eventType: 'auto_assign.exited_already_confirmed',
+              restaurantId: booking.restaurant_id,
+              bookingId: booking.id,
+              context: { attempt_index: attempt, trigger: reason, stage: 'pre_attempt' },
+            });
+            if (emitAutoAssignSummary) {
+              await emitAutoAssignSummary('already_confirmed', attempt);
+            }
+            logJob('attempt.precheck_already_confirmed', { attempt, status: latestStatus });
+            return;
+          }
+          if (['cancelled', 'no_show', 'completed'].includes(latestStatus)) {
+            logJob('attempt.precheck_skipped_status', { attempt, status: latestStatus });
+            return;
+          }
+        }
+      }
+
       if (attempt > 0 && withinCutoff()) {
         if (emitAutoAssignSummary) {
           await emitAutoAssignSummary('cutoff', attempt);
@@ -620,7 +669,17 @@ export async function autoAssignAndConfirmIfPossible(
           }
         } catch (e) {
           const plannerDurationMs = Date.now() - plannerStart;
-          const plannerErrorReason = e instanceof Error && e.name ? e.name : 'QUOTE_ERROR';
+          const plannerErrorName = e instanceof Error && e.name ? e.name : 'QUOTE_ERROR';
+          const plannerErrorMessage = e instanceof Error ? e.message : String(e);
+          // Classify against the name AND message: the underlying constraint
+          // failure (e.g. allocations_no_overlap) and any transient DB hints
+          // (lock wait / deadlock / timeout) live in the message, while the
+          // error name alone (AssignTablesRpcError) loses that signal and would
+          // otherwise be matched only by the generic name pattern. Including
+          // both lets a true concurrency conflict classify as hard (so the job
+          // backs off like the inline path) while still allowing genuinely
+          // transient DB messages to remain retryable.
+          const plannerErrorReason = `${plannerErrorName}: ${plannerErrorMessage}`;
           const classification = classifyPlannerReason(plannerErrorReason);
 
           await recordPlannerQuoteTelemetry({
