@@ -9,7 +9,11 @@ import type {
   FloorPlanTable,
   NormalizedPosition,
 } from '@/components/features/floor-plan/domain/types';
-import type { TableTimelineBookingRef, TableTimelineSegment } from '@/types/ops';
+import type {
+  OpsBookingStatus,
+  TableTimelineBookingRef,
+  TableTimelineSegment,
+} from '@/types/ops';
 
 const BASE = Date.parse('2026-06-21T18:00:00.000Z');
 const mins = (n: number) => n * 60_000;
@@ -77,6 +81,20 @@ describe('computeJoinGroups', () => {
 
   it('does not group a single-table booking', () => {
     const tables = [makeTable('M1', bookingSeg('book-2', ['M1']))];
+    expect(computeJoinGroups(tables, BASE + mins(30))).toHaveLength(0);
+  });
+
+  it('does not group tables whose shared booking is completed (resolves to free)', () => {
+    // A finished multi-table party still carries a stale booking ref on its 'reserved'
+    // segment, but resolves to 'free' — it must not paint a "Joined" overlay.
+    const done = (ids: string[]): TableTimelineSegment => {
+      const s = bookingSeg('book-done', ids);
+      return {
+        ...s,
+        booking: { ...(s.booking as TableTimelineBookingRef), status: 'completed' as OpsBookingStatus },
+      };
+    };
+    const tables = [makeTable('B2', done(['B2', 'M5'])), makeTable('M5', done(['B2', 'M5']))];
     expect(computeJoinGroups(tables, BASE + mins(30))).toHaveLength(0);
   });
 });

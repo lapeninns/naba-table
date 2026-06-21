@@ -135,7 +135,6 @@ Ops dashboard has **60+ instances** of hardcoded Tailwind color classes scattere
 | File                                                                                   | Colors used                                |
 | -------------------------------------------------------------------------------------- | ------------------------------------------ |
 | `src/components/features/dashboard/booking-details/BookingDialog.tsx`                  | emerald, blue, rose, indigo, orange, slate |
-| `src/components/features/dashboard/TableFloorPlan.tsx`                                 | blue, emerald, amber, muted (mixed)        |
 | `src/components/features/dashboard/cards/OpsBookingCardActions.tsx`                    | emerald-600, rose-600, slate-700           |
 | `src/components/features/dashboard/HeatmapCalendar.tsx`                                | emerald-100 through emerald-600            |
 | `src/components/features/dashboard/ConnectionStatusBeacon.tsx`                         | emerald-500, amber-500, rose-500           |

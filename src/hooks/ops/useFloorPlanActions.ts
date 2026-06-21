@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
+import { toast } from 'sonner';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
@@ -65,6 +66,7 @@ export function useFloorPlanActions({ restaurantId, date }: UseFloorPlanActionsO
         .then(invalidateTimeline)
         .catch((error: unknown) => {
           console.error('[floor-plan] split failed', error);
+          toast.error('Could not split the table. Please try again.');
         });
     },
     [bookingService, invalidateTimeline],

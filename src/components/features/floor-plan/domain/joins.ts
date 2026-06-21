@@ -1,4 +1,5 @@
 import { resolveTableState } from './serviceState';
+import { SERVICE_STATE_META } from './types';
 
 import type { FloorPlanTable, NormalizedPosition } from './types';
 
@@ -36,8 +37,13 @@ export function computeJoinGroups(tables: FloorPlanTable[], tMs: number): JoinGr
   const byBooking = new Map<string, Set<string>>();
 
   for (const table of tables) {
-    const { booking } = resolveTableState(table, tMs);
+    const { booking, state } = resolveTableState(table, tMs);
     if (!booking) continue;
+    // Only tables actively holding/booking the floor join a party. A completed/cleared
+    // booking derives to state 'free' but still carries a stale booking ref — skip it so
+    // the overlay doesn't paint "Joined" brackets over tables the floor reads as free.
+    const meta = SERVICE_STATE_META[state];
+    if (!meta.occupied && !meta.booked) continue;
     const ids = booking.tableIds && booking.tableIds.length > 0 ? booking.tableIds : [table.id];
     const set = byBooking.get(booking.id) ?? new Set<string>();
     for (const id of ids) {

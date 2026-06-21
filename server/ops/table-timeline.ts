@@ -72,6 +72,8 @@ type BookingMeta = {
   status: OpsBookingStatus;
   startAt: string;
   endAt: string;
+  diningStartAt: string | null;
+  diningEndAt: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
   notes: string | null;
@@ -253,6 +255,8 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         status: normalizeOpsStatus(booking.status),
         startAt: window.block.start.toISO() ?? booking.start_at ?? '',
         endAt: window.block.end.toISO() ?? booking.end_at ?? '',
+        diningStartAt: window.dining.start.toISO() ?? booking.start_at ?? null,
+        diningEndAt: window.dining.end.toISO() ?? booking.end_at ?? null,
         customerEmail: booking.customer_email ?? null,
         customerPhone: booking.customer_phone ?? null,
         notes: booking.notes ?? null,

@@ -37,6 +37,9 @@ export function FloorPlanDetailPanel({
   onMarkNoShow,
   onSplit,
 }: FloorPlanDetailPanelProps) {
+  // Split is a member-level service action (like seat/clear/no-show), intentionally not
+  // admin-gated — it keys off the joined group's presence, not canEdit.
+  const canSplit = Boolean(joinGroup);
   return (
     <aside className="w-full lg:w-[320px] lg:flex-none">
       <div className="flex h-full flex-col gap-3.5 rounded-xl border border-border bg-card p-4">
@@ -47,7 +50,7 @@ export function FloorPlanDetailPanel({
             timezone={timezone}
             isSeating={isSeating}
             isClearing={isClearing}
-            canSplit={Boolean(joinGroup)}
+            canSplit={canSplit}
             onClose={onClose}
             onSeatParty={onSeatParty}
             onClearTable={onClearTable}

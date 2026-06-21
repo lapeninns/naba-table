@@ -94,8 +94,12 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
   // ── Time window ─────────────────────────────────────────────────────────
   const windowStartMs = toMs(data.window?.start) ?? nowMs - FALLBACK_BACK_MS;
   const windowEndMs = Math.max(windowStartMs + 60_000, toMs(data.window?.end) ?? nowMs + FALLBACK_FWD_MS);
-  const liveNowMs = clamp(nowMs, windowStartMs, windowEndMs);
-  const effectiveMs = scrubMs === null ? liveNowMs : clamp(scrubMs, windowStartMs, windowEndMs);
+  // The server's final segment ends exactly at windowEnd (half-open intervals), so resolving
+  // a table state AT windowEnd yields null and every table would blink to free. Keep the
+  // playback head 1ms inside the window so the last segment always resolves.
+  const headMaxMs = windowEndMs - 1;
+  const liveNowMs = clamp(nowMs, windowStartMs, headMaxMs);
+  const effectiveMs = scrubMs === null ? liveNowMs : clamp(scrubMs, windowStartMs, headMaxMs);
   const scrubbing = scrubMs !== null && Math.abs(effectiveMs - liveNowMs) > 60_000;
 
   // Play / pause: advance the scrub head through the service window.

@@ -4,9 +4,9 @@ import { segmentAt, toMs } from './timeSelection';
 import type { FloorPlanTable, ResolvedTableState, ServiceState } from './types';
 import type { TableTimelineBookingRef, TableTimelineSegment } from '@/types/ops';
 
-/** Minutes before a booking's end where a seated table reads as "finishing". */
+/** Minutes before a booking's dining end where a seated table reads as "finishing". */
 export const FINISHING_THRESHOLD_MIN = 15;
-/** Minutes after a booked start with no check-in before it reads as "overdue" (no-show risk). */
+/** Minutes after the reservation (dining) start with no check-in before it reads "overdue" (no-show risk). */
 export const OVERDUE_GRACE_MIN = 20;
 
 const MINUTE_MS = 60_000;
@@ -26,12 +26,14 @@ export type DeriveServiceStateInput = {
  * Real signals (src/types/ops.ts, server/ops/table-timeline.ts):
  *  - segment.state: 'available' | 'reserved' | 'hold' | 'out_of_service'
  *  - booking.status: 'checked_in' is the only hard "seated" signal; confirmed/pending are booked-ahead
- *  - booking.startAt / endAt: the computed block window (drives derived finishing/overdue)
+ *  - booking.startAt / endAt: prep-buffered block window (segment layout);
+ *    booking.diningStartAt / diningEndAt: customer-facing reservation window
+ *    (preferred for derived finishing/overdue).
  *
  * Honest gaps:
- *  - 'finishing'/'overdue' have no backing column → time-derived from endAt/startAt vs T.
- *  - 'walkin' source isn't on the timeline ref yet → caller passes isWalkIn (false until P6),
- *    so walk-ins collapse into 'seated' until the server exposes bookingType.
+ *  - 'finishing'/'overdue' have no backing column → time-derived from the dining window vs T
+ *    (falls back to the block window when dining boundaries are absent).
+ *  - 'walkin' is derived from booking.bookingType, now threaded through the timeline ref.
  */
 export function deriveServiceState({
   segment,
@@ -48,8 +50,10 @@ export function deriveServiceState({
   const booking = segment.booking;
   if (!booking) return 'confirmed';
 
-  const endMs = toMs(booking.endAt);
-  const startMs = toMs(booking.startAt);
+  // Prefer the customer-facing reservation (dining) window for the finishing/overdue
+  // thresholds; fall back to the prep-buffered block window when dining isn't exposed.
+  const endMs = toMs(booking.diningEndAt ?? booking.endAt);
+  const startMs = toMs(booking.diningStartAt ?? booking.startAt);
   const finishingMs = finishingThresholdMin * MINUTE_MS;
   const graceMs = overdueGraceMin * MINUTE_MS;
 
@@ -90,13 +94,11 @@ export function resolveTableState(
 }
 
 /**
- * Walk-in detection. The timeline booking ref does not yet carry bookingType (plan P6),
- * so this reads an optional bookingType when present and otherwise returns false —
- * until the server exposes it, walk-ins render as 'seated'.
+ * Walk-in detection from the timeline ref's bookingType (threaded end-to-end via
+ * server/ops/table-timeline.ts). Returns false when bookingType is absent, so bookings
+ * without a type render as 'seated' rather than 'walkin'.
  */
-function isWalkInBooking(
-  booking: (TableTimelineBookingRef & { bookingType?: string | null }) | null,
-): boolean {
+function isWalkInBooking(booking: TableTimelineBookingRef | null): boolean {
   const bookingType = booking?.bookingType;
   if (!bookingType) return false;
   return /walk[\s-]?in/i.test(bookingType);

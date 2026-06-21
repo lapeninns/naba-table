@@ -55,6 +55,14 @@ export function TimeScrubber({
     [onScrub, range, windowStartMs],
   );
 
+  const stepScrub = useCallback(
+    (deltaMs: number) => {
+      const next = Math.min(windowEndMs, Math.max(windowStartMs, effectiveMs + deltaMs));
+      onScrub(Math.round(next / 60_000) * 60_000);
+    },
+    [effectiveMs, onScrub, windowEndMs, windowStartMs],
+  );
+
   const ticks: { pct: number; label: string }[] = [];
   const hourMs = 60 * 60_000;
   for (let t = Math.ceil(windowStartMs / hourMs) * hourMs; t <= windowEndMs; t += hourMs) {
@@ -130,6 +138,35 @@ export function TimeScrubber({
             } catch {
               /* ignore */
             }
+          }}
+          onKeyDown={(event) => {
+            const STEP = 60_000; // 1 min
+            const PAGE = 15 * 60_000; // 15 min
+            switch (event.key) {
+              case 'ArrowLeft':
+              case 'ArrowDown':
+                stepScrub(-STEP);
+                break;
+              case 'ArrowRight':
+              case 'ArrowUp':
+                stepScrub(STEP);
+                break;
+              case 'PageDown':
+                stepScrub(-PAGE);
+                break;
+              case 'PageUp':
+                stepScrub(PAGE);
+                break;
+              case 'Home':
+                onScrub(windowStartMs);
+                break;
+              case 'End':
+                onScrub(windowEndMs);
+                break;
+              default:
+                return;
+            }
+            event.preventDefault();
           }}
           className="relative h-10 cursor-pointer touch-none rounded-lg border border-border bg-muted/50"
           role="slider"

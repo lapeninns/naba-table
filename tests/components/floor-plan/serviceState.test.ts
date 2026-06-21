@@ -199,3 +199,40 @@ describe('resolveTableState — integration', () => {
     expect(resolveTableState(table, BASE).outOfService).toBe(true);
   });
 });
+
+describe('deriveServiceState — dining-window thresholds (buffer-aware)', () => {
+  it('measures the overdue grace from the dining start, not the buffered block start', () => {
+    // Real pre-buffer: block starts 15 min before the customer's reservation.
+    const s = seg(
+      'reserved',
+      booking('confirmed', {
+        startAt: iso(BASE + mins(45)),
+        diningStartAt: iso(BASE + mins(60)),
+      }),
+    );
+    // T = dining start + 15 (= block start + 30). Block-relative would already be overdue
+    // (>20 past block start); dining-relative is still within the 20-min grace → confirmed.
+    expect(deriveServiceState({ segment: s, tMs: BASE + mins(75) })).toBe('confirmed');
+    // 21 min past the dining start → overdue.
+    expect(deriveServiceState({ segment: s, tMs: BASE + mins(81) })).toBe('overdue');
+  });
+
+  it('measures finishing/overdue from the dining end, not the buffered block end', () => {
+    // Real post-buffer: block ends 15 min after the dining window.
+    const s = seg(
+      'reserved',
+      booking('checked_in', {
+        endAt: iso(BASE + mins(165)),
+        diningEndAt: iso(BASE + mins(150)),
+      }),
+    );
+    // 1 min past the dining end. Block-relative (end 165) would still read seated.
+    expect(deriveServiceState({ segment: s, tMs: BASE + mins(151) })).toBe('overdue');
+  });
+
+  it('falls back to the block window when dining boundaries are absent', () => {
+    // No diningStartAt → uses startAt (BASE+60); grace 20 → overdue after BASE+80.
+    const s = seg('reserved', booking('confirmed'));
+    expect(deriveServiceState({ segment: s, tMs: BASE + mins(81) })).toBe('overdue');
+  });
+});

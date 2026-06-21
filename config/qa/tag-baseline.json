@@ -115,12 +115,6 @@
       "untagged": 7
     },
     {
-      "file": "tests/components/BookingAssignmentAssignedTablesPanel.test.tsx",
-      "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
-    },
-    {
       "file": "tests/components/bookingAssignmentDomain.test.ts",
       "tagged": 0,
       "testTitles": 3,
@@ -523,6 +517,30 @@
       "untagged": 1
     },
     {
+      "file": "tests/components/floor-plan/joins.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/floor-plan/layout.test.ts",
+      "tagged": 0,
+      "testTitles": 13,
+      "untagged": 13
+    },
+    {
+      "file": "tests/components/floor-plan/serviceState.test.ts",
+      "tagged": 0,
+      "testTitles": 22,
+      "untagged": 22
+    },
+    {
+      "file": "tests/components/floor-plan/timeSelection.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
       "file": "tests/components/GbpCompareDialog.test.tsx",
       "tagged": 0,
       "testTitles": 2,
@@ -841,6 +859,12 @@
       "untagged": 3
     },
     {
+      "file": "tests/components/scheduleAwareTimestampPicker-disabled-dates.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
       "file": "tests/components/scheduleAwareTimestampPickerDomain.test.ts",
       "tagged": 0,
       "testTitles": 11,
@@ -905,18 +929,6 @@
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
-    },
-    {
-      "file": "tests/components/TableFloorPlan.test.tsx",
-      "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
-    },
-    {
-      "file": "tests/components/tableFloorPlanDomain.test.ts",
-      "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
     },
     {
       "file": "tests/components/TableInventoryClient.test.tsx",
@@ -1037,6 +1049,12 @@
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
+    },
+    {
+      "file": "tests/components/WizardNavigation-resize-observer.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/components/workspace-progress.test.ts",
@@ -1245,8 +1263,8 @@
     {
       "file": "tests/guest/booking-return-paths.test.ts",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/guest/bookingDateTime.test.ts",
@@ -1322,6 +1340,12 @@
     },
     {
       "file": "tests/hooks/fetchBookingsByContact.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/hooks/piiQueriesNonPersistent.test.tsx",
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
@@ -1493,6 +1517,12 @@
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
+    },
+    {
+      "file": "tests/lib/resend-sanitize-display-name.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/lib/restaurant-email-templates.test.ts",
@@ -1825,6 +1855,12 @@
       "untagged": 1
     },
     {
+      "file": "tests/reserve/plan-step-normalize-interval.test.tsx",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
       "file": "tests/reserve/reservation-config.test.ts",
       "tagged": 0,
       "testTitles": 1,
@@ -1867,10 +1903,22 @@
       "untagged": 2
     },
     {
+      "file": "tests/reserve/wizard-context-optional.test.tsx",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/reserve/wizardDraftStorage.test.ts",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
+    },
+    {
+      "file": "tests/reserve/wizardDraftStoragePii.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/scripts/db-safety.test.ts",
@@ -2377,6 +2425,12 @@
       "untagged": 3
     },
     {
+      "file": "tests/server/capacity/assignment-rpc-privileges-security.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/server/capacity/availability-status-policy.test.ts",
       "tagged": 0,
       "testTitles": 5,
@@ -2387,6 +2441,12 @@
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/busy-map-stored-end-at.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/server/capacity/confirmation-cache.test.ts",
@@ -2555,6 +2615,12 @@
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/legacy-table-availability-null-times.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/server/capacity/manual-assignment-context-holds.test.ts",
@@ -3145,6 +3211,18 @@
       "untagged": 8
     },
     {
+      "file": "tests/server/email-categories.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/email-category-suppression.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
       "file": "tests/server/email-delivery-log-attempts.test.ts",
       "tagged": 0,
       "testTitles": 4,
@@ -3167,6 +3245,18 @@
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/server/email-suppression-list.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/email-unsubscribe-route.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/server/emails/bookings-pending-attention-link.test.ts",
@@ -3799,6 +3889,12 @@
       "untagged": 0
     },
     {
+      "file": "tests/server/image-upload-svg-rejection-route.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/server/inline-auto-assign.test.ts",
       "tagged": 0,
       "testTitles": 1,
@@ -3833,6 +3929,18 @@
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/server/list-restaurants-public-projection.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/list-unsubscribe-headers.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/menu-hierarchy-routes.test.ts",
@@ -3875,6 +3983,12 @@
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
+    },
+    {
+      "file": "tests/server/occasion-catalog-cache-poisoning.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/onboarding-restaurant-route-security.test.ts",
@@ -4147,6 +4261,12 @@
       "untagged": 19
     },
     {
+      "file": "tests/server/restaurant-name-control-chars-schema.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
       "file": "tests/server/restaurant-schedule-replacements.test.ts",
       "tagged": 0,
       "testTitles": 5,
@@ -4321,6 +4441,12 @@
       "untagged": 11
     },
     {
+      "file": "tests/server/unsubscribe-token.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
       "file": "tests/services/menu-hierarchy-service.test.ts",
       "tagged": 0,
       "testTitles": 1,
@@ -4374,11 +4500,11 @@
     "tests"
   ],
   "totals": {
-    "files": 728,
+    "files": 749,
     "tagged": 91,
-    "testTitles": 3226,
+    "testTitles": 3343,
     "unknownTags": 0,
-    "untagged": 3135
+    "untagged": 3252
   },
   "unknownTags": []
 }

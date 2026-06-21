@@ -56,9 +56,9 @@ const updateTableSchema = z.object({
   status: tableStatusEnum.optional(),
   position: z
     .object({
-      x: z.number(),
-      y: z.number(),
-      rotation: z.number().optional(),
+      x: z.number().finite(),
+      y: z.number().finite(),
+      rotation: z.number().finite().min(-360).max(360).optional(),
     })
     .optional()
     .nullable(),
