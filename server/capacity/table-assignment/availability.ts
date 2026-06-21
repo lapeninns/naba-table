@@ -1,4 +1,6 @@
+import { DateTime } from 'luxon';
 import { performance } from 'node:perf_hooks';
+
 
 import { AssignTablesRpcError } from '@/server/capacity/holds';
 import {
@@ -932,9 +934,20 @@ export function buildBusyMaps(params: {
     }
     const { window } = windowResult;
 
+    // triage-063: the policy-derived block can be SHORTER than the booking's persisted end_at
+    // (e.g. a 105m policy block vs a 120m stored end), which under-reserves the table and can let
+    // an overlapping assignment through. Extend the busy interval to the later of the two ends.
+    let busyEnd = window.block.end;
+    if (booking.end_at) {
+      const storedEnd = DateTime.fromISO(booking.end_at);
+      if (storedEnd.isValid && storedEnd > busyEnd) {
+        busyEnd = storedEnd;
+      }
+    }
+
     const bookingInterval = {
       start: toIsoUtc(window.block.start),
-      end: toIsoUtc(window.block.end),
+      end: toIsoUtc(busyEnd),
     };
 
     if (targetInterval && !windowsOverlap(bookingInterval, targetInterval)) {
@@ -1014,7 +1027,7 @@ type AssignmentAvailabilityRow = {
   bookings: Pick<Tables<'bookings'>, 'id' | 'status' | 'start_at' | 'end_at'> | null;
 };
 
-async function legacyTableAvailabilityCheck(params: {
+export async function legacyTableAvailabilityCheck(params: {
   supabase: DbClient;
   tableId: string;
   startAt: string;
@@ -1023,12 +1036,14 @@ async function legacyTableAvailabilityCheck(params: {
 }): Promise<boolean> {
   const { supabase, tableId, startAt, endAt, excludeBookingId } = params;
 
+  // triage-079: do NOT pre-filter on the nullable assignment-level start_at/end_at columns. A row
+  // with NULL assignment times (legacy data) would be dropped by .lt/.gt before the in-loop
+  // fallback to the booking's own start_at/end_at could catch an overlap, allowing a double
+  // assignment. Fetch the table's assignments and resolve overlap in-loop (rare legacy fallback).
   const { data, error } = await supabase
     .from('booking_table_assignments')
     .select('table_id, start_at, end_at, bookings(id, status, start_at, end_at)')
-    .eq('table_id', tableId)
-    .lt('start_at', endAt)
-    .gt('end_at', startAt);
+    .eq('table_id', tableId);
 
   if (error || !data) {
     throw new AssignTablesRpcError({

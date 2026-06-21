@@ -96,12 +96,22 @@ export function WizardProvider({ children, state, actions }: WizardProviderProps
   return <WizardContext.Provider value={value}>{children}</WizardContext.Provider>;
 }
 
+/**
+ * Non-throwing context accessor (triage-091). The step hooks support a "legacy explicit props"
+ * contract where state/actions are passed in directly; those callers must not crash when rendered
+ * outside a WizardProvider. The public return types stay non-nullable (provider-only consumers such
+ * as PlanStep dereference them directly); the value is null at runtime only when no provider exists.
+ */
+function useOptionalWizardContext(): WizardContextValue | null {
+  return useContext(WizardContext);
+}
+
 export function useWizardState() {
-  return useWizardContext().state;
+  return (useOptionalWizardContext()?.state ?? null) as State;
 }
 
 export function useWizardActions() {
-  return useWizardContext().actions;
+  return (useOptionalWizardContext()?.actions ?? null) as WizardActions;
 }
 
 export function useWizardNavigation() {
