@@ -107,6 +107,11 @@ export function useConfirmationStep({
   const { errorReporter } = useWizardDependencies();
   const contextState = useWizardState();
   const state = providedState ?? contextState;
+  if (!state) {
+    throw new Error(
+      'useConfirmationStep requires an explicit state prop or a WizardProvider ancestor.',
+    );
+  }
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const booking = state.lastConfirmed;
