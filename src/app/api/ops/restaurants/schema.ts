@@ -28,13 +28,10 @@ const SCRIPT_DELIMITER_REGEX = /<\s*\/?\s*script\b/i;
 function hasUnsafeControlCharacter(value: string): boolean {
   for (const char of value) {
     const code = char.charCodeAt(0);
-    if (
-      (code >= 0 && code <= 8) ||
-      code === 11 ||
-      code === 12 ||
-      (code >= 14 && code <= 31) ||
-      code === 127
-    ) {
+    // Reject all C0 control characters (0-31, including TAB/LF/CR) and DEL (127).
+    // CR/LF in particular are the header/display-name injection vector these
+    // single-line plain-text fields must never carry.
+    if ((code >= 0 && code <= 31) || code === 127) {
       return true;
     }
   }
@@ -104,7 +101,10 @@ export const listRestaurantsQuerySchema = z.object({
 export type ListRestaurantsQuery = z.infer<typeof listRestaurantsQuerySchema>;
 
 export const createRestaurantSchema = z.object({
-  name: z.string().trim().min(1, 'Restaurant name is required'),
+  name: plainTextSchema(
+    z.string().trim().min(1, 'Restaurant name is required'),
+    'Restaurant name',
+  ),
   slug: z
     .string()
     .trim()
@@ -175,7 +175,10 @@ export const createRestaurantSchema = z.object({
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
 
 export const updateRestaurantSchema = z.object({
-  name: z.string().trim().min(1, 'Restaurant name is required').optional(),
+  name: plainTextSchema(
+    z.string().trim().min(1, 'Restaurant name is required'),
+    'Restaurant name',
+  ).optional(),
   slug: z
     .string()
     .trim()

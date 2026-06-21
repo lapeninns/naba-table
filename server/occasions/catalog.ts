@@ -90,17 +90,25 @@ export async function getOccasionCatalog(options: CatalogOptions = {}): Promise<
   } catch (error: unknown) {
     const code = extractErrorCode(error);
     const permissionDenied = code === '42501';
+    // Track whether the service-role client itself failed. Only a verified
+    // service-client failure may overwrite the shared cache with the fallback;
+    // a caller-supplied (cookie/RLS) read failure must never poison the
+    // process-wide cache for subsequent service-role callers.
+    let serviceReadFailed = isServiceClient;
     if (permissionDenied && !isServiceClient && !options.disableServiceRetry) {
       console.warn('[occasions][catalog] permission denied with provided client, retrying with service role');
       try {
         return await attemptFetch(serviceClient);
       } catch (serviceError) {
+        serviceReadFailed = true;
         console.error('[occasions][catalog] service retry failed, using fallback', serviceError);
       }
     } else {
       console.error('[occasions][catalog] failed to load, using fallback', error);
     }
-    cachedCatalog = { data: FALLBACK_CATALOG, fetchedAt: now };
+    if (serviceReadFailed) {
+      cachedCatalog = { data: FALLBACK_CATALOG, fetchedAt: now };
+    }
     return FALLBACK_CATALOG;
   }
 }
