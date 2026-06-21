@@ -22,7 +22,7 @@ Non-negotiables:
 - Keep ops and guest/public on one Radix Luma shadcn theme.
 - UI changes require browser verification on real shipped routes, not only `/dev/**` or harness routes.
 - Do not claim verification that was not performed.
-- Medium/high-risk work must create a task folder under `tasks/<slug>-YYYYMMDD-HHMM>/`.
+- Medium/high-risk work must create a task folder under `tasks/<slug>-YYYYMMDD-HHMM/`.
 
 Product surfaces to redesign:
 

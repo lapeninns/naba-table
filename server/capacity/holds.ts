@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import { HOLD_EXPIRY_SKEW_MS } from '@/server/capacity/hold-expiry';
 import { getHoldMinTtlSeconds } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -723,7 +724,10 @@ export async function listActiveHoldsForBooking(input: ListActiveHoldsInput): Pr
     .from('table_holds')
     .select('*, table_hold_members(table_id)')
     .eq('booking_id', bookingId)
-    .gt('expires_at', new Date().toISOString());
+    // Skew-padded lower bound (mirrors holdExpiryLowerBoundIso in
+    // table-assignment/supabase.ts): keep near-boundary holds visible so a
+    // lagging DB clock can't make this fail-closed check miss a live hold. (#3)
+    .gt('expires_at', new Date(Date.now() - HOLD_EXPIRY_SKEW_MS).toISOString());
 
   if (error) {
     // Fail closed: a failed holds query must NOT be reported as "no active holds",
@@ -758,7 +762,10 @@ export async function findHoldConflicts(
 
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
-  const nowIso = new Date().toISOString();
+  // Skew-padded lower bound (mirrors holdExpiryLowerBoundIso in
+  // table-assignment/supabase.ts): keep near-boundary holds visible so a lagging
+  // DB clock can't make strict conflict detection miss a still-live hold. (#3)
+  const expiresAfter = new Date(Date.now() - HOLD_EXPIRY_SKEW_MS).toISOString();
   const rangeLiteral = `[${startAt},${endAt})`;
 
   try {
@@ -766,7 +773,7 @@ export async function findHoldConflicts(
       .from('table_hold_windows')
       .select('hold_id, booking_id, restaurant_id, table_id, start_at, end_at, expires_at')
       .eq('restaurant_id', restaurantId)
-      .gt('expires_at', nowIso)
+      .gt('expires_at', expiresAfter)
       .in('table_id', tableIds)
       .filter('hold_window', 'ov', rangeLiteral);
 

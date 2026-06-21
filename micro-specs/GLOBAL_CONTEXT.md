@@ -1,7 +1,7 @@
 # Global Context for AI Agents
 
 This file is the **single source of product, stack, security, and verification baselines**
-for every Micro-Spec. Per `Instructions_MircroSpecsCreation.md`, individual specs **must not
+for every Micro-Spec. Per `Instructions_MicroSpecsCreation.md`, individual specs **must not
 restate** anything here — they reference it and add only the business logic specific to the
 change. If a rule is broad and reusable, it belongs here (or in `AGENTS.md` / `docs/sdlc/*`),
 not in a spec.

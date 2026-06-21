@@ -365,7 +365,11 @@ export async function findAlternativeSlots(
   //   - active holds: restaurant + date scoped
   // Only context bookings stay per-candidate because they are window-specific.
   const [preloadTimezone, preloadTurnBands, preloadTables] = await Promise.all([
-    loadRestaurantTimezone(params.restaurantId, supabase).catch(() => null),
+    // Fail CLOSED on a timezone load error: a wrong timezone yields wrong
+    // alternative-slot times, so let the error propagate rather than silently
+    // degrading to the default zone — consistent with checkRequestSeatability. A
+    // genuinely unset timezone still resolves to null and falls back below. (#9)
+    loadRestaurantTimezone(params.restaurantId, supabase),
     getRestaurantTurnBands(params.restaurantId, supabase).catch(() => ({})),
     loadTablesForRestaurant(params.restaurantId, supabase),
   ]);

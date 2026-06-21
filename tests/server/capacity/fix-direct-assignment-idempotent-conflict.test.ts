@@ -267,3 +267,76 @@ describe('assignTablesDirectly idempotent conflict recovery (#15)', () => {
     });
   });
 });
+
+describe('assignTablesDirectly idempotency key table-set guard (#2)', () => {
+  const OTHER_TABLE_ID = '44444444-4444-4444-8444-444444444444';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    loadBookingMock.mockResolvedValue({
+      id: BOOKING_ID,
+      restaurant_id: RESTAURANT_ID,
+      party_size: 4,
+      status: 'pending',
+      checked_in_at: null,
+      checked_out_at: null,
+      restaurants: { timezone: 'Europe/London' },
+    });
+    loadTablesByIdsMock.mockResolvedValue([
+      {
+        id: TABLE_ID,
+        tableNumber: '12',
+        capacity: 4,
+        zoneId: 'zone-1',
+        active: true,
+        zoneActive: true,
+        status: 'available',
+        mobility: 'movable',
+      },
+    ]);
+    loadRestaurantTimezoneMock.mockResolvedValue('Europe/London');
+    loadContextBookingsMock.mockResolvedValue([]);
+    loadAdjacencyMock.mockResolvedValue([]);
+    getRestaurantTurnBandsMock.mockResolvedValue(null);
+  });
+
+  it('rejects a same-key replay that requests a DIFFERENT table set with a 409, without re-assigning', async () => {
+    // Up-front idempotency read returns rows for TABLE_ID; the caller now asks for
+    // a different table under the SAME key. Returning the old rows as success
+    // would emit an inconsistent body and silently drop the requested assignment.
+    const client = makeScriptedClient([{ data: [WINNER_ROW], error: null }]);
+    ensureClientMock.mockReturnValue(client);
+
+    await expect(
+      assignTablesDirectly({
+        bookingId: BOOKING_ID,
+        tableIds: [OTHER_TABLE_ID],
+        idempotencyKey: 'idem-shared',
+        assignedBy: 'user-1',
+        client: client as never,
+      }),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_CONFLICT', status: 409 });
+
+    // Must NOT silently drop the request or attempt a (conflicting) commit.
+    expect(assignTableToBookingMock).not.toHaveBeenCalled();
+  });
+
+  it('returns the idempotent result when the same key replays the SAME table set', async () => {
+    const client = makeScriptedClient([{ data: [WINNER_ROW], error: null }]);
+    ensureClientMock.mockReturnValue(client);
+
+    const result = await assignTablesDirectly({
+      bookingId: BOOKING_ID,
+      tableIds: [TABLE_ID],
+      idempotencyKey: 'idem-shared',
+      assignedBy: 'user-1',
+      client: client as never,
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0].table_id).toBe(TABLE_ID);
+    // Up-front idempotency hit short-circuits the commit path.
+    expect(assignTableToBookingMock).not.toHaveBeenCalled();
+  });
+});

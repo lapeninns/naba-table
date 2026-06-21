@@ -48,7 +48,11 @@ describe('StaleBoundary', () => {
 
     const boundary = screen.getByText('Stale action').parentElement!;
     expect(boundary).toHaveAttribute('inert');
-    expect(boundary).toHaveAttribute('aria-hidden', 'true');
+    // `inert` (not a forced aria-hidden) handles non-interactivity. We must NOT
+    // also set aria-hidden when stale: pairing it with aria-busy is contradictory
+    // (aria-hidden would remove the busy state from the a11y tree). (#14)
+    expect(boundary).toHaveAttribute('aria-busy', 'true');
+    expect(boundary).not.toHaveAttribute('aria-hidden');
   });
 
   it('does not apply pointer-events-none when not stale', () => {

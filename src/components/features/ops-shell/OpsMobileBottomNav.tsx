@@ -39,7 +39,7 @@ export function OpsMobileBottomNav() {
   const internalPathname = pathname ? opsHref(pathname) : null;
   const isOnline = useOnlineStatus();
   const { confirmNavigation } = useOpsUnsavedChanges();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, openMobile } = useSidebar();
 
   const items = useMemo<OpsNavigationItem[]>(() => {
     const flat = OPS_NAV_SECTIONS.flatMap((section) => section.items);
@@ -82,6 +82,9 @@ export function OpsMobileBottomNav() {
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
                 aria-disabled={!isOnline}
+                // Offline links are dead (onClick preventDefault); drop them from
+                // the tab order so keyboard users don't land on a no-op target.
+                tabIndex={!isOnline ? -1 : undefined}
                 onClick={handleNavigationIntent}
               >
                 <Icon aria-hidden className="size-5" />
@@ -97,6 +100,8 @@ export function OpsMobileBottomNav() {
           className={itemClass}
           onClick={toggleSidebar}
           aria-label="Open navigation menu"
+          aria-expanded={openMobile}
+          aria-haspopup="dialog"
         >
           <Menu aria-hidden className="size-5" />
           <span className="max-w-full truncate text-[11px] font-medium leading-tight">Menu</span>

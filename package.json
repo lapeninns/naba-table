@@ -29,7 +29,7 @@
     "build": "next build --webpack",
     "build:turbo": "next build",
     "start": "next start",
-    "lint": "eslint --ext .ts,.tsx,.js server lib scripts src/app/app src/components/features && pnpm run guard:no-shadcn:strict",
+    "lint": "eslint --ext .ts,.tsx,.js server lib scripts src/app/app src/components/features && pnpm run guard:no-shadcn:strict && pnpm run guard:micro-specs",
     "lint:ops-ui": "eslint --max-warnings=0 \"src/app/app/**/*.{js,jsx,ts,tsx}\" \"src/components/features/**/*.{js,jsx,ts,tsx}\" && pnpm run guard:no-shadcn:strict",
     "typecheck": "tsc --noEmit",
     "typecheck:strict": "tsc --noEmit -p tsconfig.strict.json",

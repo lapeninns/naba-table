@@ -4,7 +4,7 @@ Once a Micro-Spec's requirements have been turned into granular, failing tests, 
 
 ## Vocabulary and Handoff
 
-Micro-Specs are authored per `Instructions_MircroSpecsCreation.md` (the WHAT); this workflow implements them test-first (the HOW). Keep the three terms distinct:
+Micro-Specs are authored per `Instructions_MicroSpecsCreation.md` (the WHAT); this workflow implements them test-first (the HOW). Keep the three terms distinct:
 
 - A **Micro-Spec** is the source document.
 - A **requirement** is one EARS line inside it.

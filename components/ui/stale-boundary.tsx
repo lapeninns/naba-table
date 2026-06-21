@@ -14,6 +14,11 @@
  *
  * ## Accessibility
  * - Sets `aria-busy="true"` on the wrapper when stale.
+ * - Uses `inert` to drop the stale region from focus/interaction while refetching.
+ *   We deliberately do NOT also force `aria-hidden="true"`: pairing it with
+ *   `aria-busy` is contradictory (aria-hidden removes the node from the a11y tree,
+ *   so the busy state could never be conveyed). `inert` already covers
+ *   non-interactivity; a caller-supplied `aria-hidden` is still respected. (#14)
  * - Blur effect is **disabled** when `prefers-reduced-motion` is active;
  *   opacity-only transition is used instead.
  *
@@ -43,7 +48,7 @@ function StaleBoundary({
     <div
       data-slot="stale-boundary"
       aria-busy={isStale}
-      aria-hidden={isStale ? true : ariaHidden}
+      aria-hidden={ariaHidden}
       inert={isStale ? true : undefined}
       className={cn(
         'transition-opacity duration-200',

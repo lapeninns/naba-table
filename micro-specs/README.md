@@ -2,7 +2,7 @@
 
 This is the **binding AI governance contract** for Nabatable. It is authoritative for
 Micro-Spec **metadata**, **source hierarchy**, **lifecycle status transitions**,
-**risk_class**, **blast radius**, and **verification gates**. `Instructions_MircroSpecsCreation.md`
+**risk_class**, **blast radius**, and **verification gates**. `Instructions_MicroSpecsCreation.md`
 (the WHAT) and `Instructions_tdd.md` (the HOW) both defer to this file; where they describe a
 process, this file defines the enforceable rules behind it.
 
@@ -17,7 +17,7 @@ its Vitest gate `tests/micro-specs/check-micro-specs.test.ts`.
 A Micro-Spec is a small, declarative statement of a desired end state: its goal, blast radius,
 settled decisions, EARS requirements, and verification criteria. It owns the **WHAT**; it never
 dictates line-by-line **HOW**. It targets a single feature, workflow, or state machine
-completable in ~1–3 days. Authoring rules: `Instructions_MircroSpecsCreation.md`.
+completable in ~1–3 days. Authoring rules: `Instructions_MicroSpecsCreation.md`.
 
 This directory is a **backlog, not a fixed plan**. A spec describing an end state is not proof
 the work is unstarted (see the Working Rule, §7).
@@ -77,7 +77,7 @@ verification_gates:
 approved_exceptions: []
 ```
 
-Below the block, use the six section headings from `Instructions_MircroSpecsCreation.md` in
+Below the block, use the six section headings from `Instructions_MicroSpecsCreation.md` in
 order: **1. Exact Goal and User-Visible Outcomes**, **2. Blast Radius: In Scope and Out of
 Scope**, **3. Strict Constraints and Assumptions**, **4. Decisions Already Made**, **5.
 Behavioral Requirements Using EARS Notation**, **6. Verification Criteria and Task Breakdown**. The worked example to copy is
@@ -148,7 +148,7 @@ pnpm exec vitest run tests/micro-specs/check-micro-specs.test.ts # the validator
 
 ## 9. Authoring → implementation flow
 
-1. **Author** the spec per `Instructions_MircroSpecsCreation.md`; set `status: draft`.
+1. **Author** the spec per `Instructions_MicroSpecsCreation.md`; set `status: draft`.
 2. **Approve** → `status: active`; `pnpm guard:micro-specs` must pass.
 3. **Narrow** (Working Rule), then **implement test-first** per `Instructions_tdd.md`
    (Red → Green → Refactor); tests in `tests/micro-specs/` (mocked) and `supabase/tests/`
