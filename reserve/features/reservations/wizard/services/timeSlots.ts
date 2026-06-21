@@ -36,6 +36,7 @@ export type ReservationSchedule = {
   restaurantId: string;
   date: string;
   timezone: string;
+  notes: string | null;
   intervalMinutes: number;
   defaultDurationMinutes: number;
   lastSeatingBufferMinutes: number;

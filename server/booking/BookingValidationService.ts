@@ -1,14 +1,16 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { isBookingType, type BookingType } from "@/lib/enums";
-import { inferMealTypeFromTime, calculateDurationMinutes } from "@/server/bookings";
-import { PastBookingError, assertBookingNotInPast } from "@/server/bookings/pastTimeValidation";
-import { OperatingHoursError, assertBookingWithinOperatingWindow } from "@/server/bookings/timeValidation";
-import { recordObservabilityEvent } from "@/server/observability";
-import { toBookingUtcIso } from "@reserve/shared/formatting/bookingDateTime";
+import { isBookingType, type BookingType } from '@/lib/enums';
+import { inferMealTypeFromTime, calculateDurationMinutes } from '@/server/bookings';
+import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
+import {
+  OperatingHoursError,
+  assertBookingWithinOperatingWindow,
+} from '@/server/bookings/timeValidation';
+import { recordObservabilityEvent } from '@/server/observability';
+import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
 
-
-import { mapCapacityErrorCode } from "./types";
+import { mapCapacityErrorCode } from './types';
 
 import type {
   BookingError,
@@ -27,15 +29,15 @@ import type {
   CapacityCommitResult,
   BookingCommitSuccess,
   BookingErrorSeverity,
-} from "./types";
-import type { BookingRecord as ExistingBookingRecord } from "@/server/capacity";
+} from './types';
+import type { BookingRecord as ExistingBookingRecord } from '@/server/capacity';
 
 export class BookingValidationError extends Error {
   readonly response: BookingValidationResponse & { ok: false };
 
   constructor(response: BookingValidationResponse & { ok: false }) {
-    super(response.issues[0]?.message ?? "Booking validation failed");
-    this.name = "BookingValidationError";
+    super(response.issues[0]?.message ?? 'Booking validation failed');
+    this.name = 'BookingValidationError';
     this.response = response;
   }
 }
@@ -64,17 +66,18 @@ type OverrideResolution = {
   overrideCodes: BookingErrorCode[];
 };
 
-const BOOKING_OVERRIDE_CAPABILITY = "booking.override";
+const BOOKING_OVERRIDE_CAPABILITY = 'booking.override';
+const MAX_BOOKING_DURATION_MINUTES = 6 * 60;
 
 function ensureLogger(logger?: Logger): Logger {
   if (logger) {
     return logger;
   }
   return {
-    debug: (message, context) => console.debug("[booking-validation]", message, context ?? {}),
-    info: (message, context) => console.info("[booking-validation]", message, context ?? {}),
-    warn: (message, context) => console.warn("[booking-validation]", message, context ?? {}),
-    error: (message, context) => console.error("[booking-validation]", message, context ?? {}),
+    debug: (message, context) => console.debug('[booking-validation]', message, context ?? {}),
+    info: (message, context) => console.info('[booking-validation]', message, context ?? {}),
+    warn: (message, context) => console.warn('[booking-validation]', message, context ?? {}),
+    error: (message, context) => console.error('[booking-validation]', message, context ?? {}),
   };
 }
 
@@ -117,7 +120,8 @@ export class BookingValidationService {
       ...patch,
       bookingId: existing.id,
       restaurantId: existing.restaurant_id,
-      durationMinutes: patch.durationMinutes ?? calculateDurationMinutes(existing.booking_type as BookingType),
+      durationMinutes:
+        patch.durationMinutes ?? calculateDurationMinutes(existing.booking_type as BookingType),
       start:
         patch.start ??
         existing.start_at ??
@@ -137,7 +141,10 @@ export class BookingValidationService {
     };
   }
 
-  async createWithEnforcement(input: BookingInput, ctx: ValidationContext): Promise<BookingCommitSuccess> {
+  async createWithEnforcement(
+    input: BookingInput,
+    ctx: ValidationContext,
+  ): Promise<BookingCommitSuccess> {
     const outcome = await this.runValidation(input, ctx, { checkCapacity: false });
     if (!outcome.ok) {
       throw new BookingValidationError(outcome.response);
@@ -165,7 +172,7 @@ export class BookingValidationService {
       source: input.source ?? null,
       loyaltyPointsAwarded: input.loyaltyPointsAwarded ?? null,
       idempotencyKey: input.idempotencyKey ?? null,
-      authUserId: ctx.actorId ?? null,
+      authUserId: ctx.authenticatedCustomerUserId ?? null,
       clientRequestId,
       details: input.details ?? null,
     };
@@ -200,7 +207,7 @@ export class BookingValidationService {
     const { bookingType, bookingDate, startTime, endTime } = metadata;
 
     const legacyClientRequestId =
-      typeof (existing as Record<string, unknown>).client_request_id === "string"
+      typeof (existing as Record<string, unknown>).client_request_id === 'string'
         ? ((existing as Record<string, unknown>).client_request_id as string)
         : null;
     const clientRequestId = this.extractClientRequestId(ctx, legacyClientRequestId);
@@ -222,7 +229,7 @@ export class BookingValidationService {
       source: input.source ?? existing.source ?? null,
       loyaltyPointsAwarded: input.loyaltyPointsAwarded ?? existing.loyalty_points_awarded ?? null,
       idempotencyKey: input.idempotencyKey ?? existing.idempotency_key ?? null,
-      authUserId: ctx.actorId ?? null,
+      authUserId: ctx.authenticatedCustomerUserId ?? null,
       clientRequestId,
       details: input.details ?? existing.details ?? null,
     };
@@ -245,9 +252,9 @@ export class BookingValidationService {
       const issue: BookingError = {
         code,
         message:
-          code === "CAPACITY_EXCEEDED"
-            ? "No capacity available for the requested time."
-            : "Unable to complete booking due to capacity constraints.",
+          code === 'CAPACITY_EXCEEDED'
+            ? 'No capacity available for the requested time.'
+            : 'Unable to complete booking due to capacity constraints.',
         detail: commitResult.details ?? commitResult.originalResult?.details ?? undefined,
         overridable: false,
       };
@@ -280,17 +287,21 @@ export class BookingValidationService {
 
     const startDateTime = DateTime.fromISO(input.start, { zone: ctx.tz });
     if (!startDateTime.isValid) {
-      issues.push(this.createError("UNKNOWN", "Invalid start time provided.", { value: input.start }, false));
+      issues.push(
+        this.createError('UNKNOWN', 'Invalid start time provided.', { value: input.start }, false),
+      );
       return this.buildFailure(issues, input, ctx, options);
     }
 
     scheduleDate = startDateTime.toISODate();
     if (!scheduleDate) {
-      issues.push(this.createError("UNKNOWN", "Unable to derive booking date from start time.", {}, false));
+      issues.push(
+        this.createError('UNKNOWN', 'Unable to derive booking date from start time.', {}, false),
+      );
       return this.buildFailure(issues, input, ctx, options);
     }
 
-    const startTime = startDateTime.toFormat("HH:mm");
+    const startTime = startDateTime.toFormat('HH:mm');
     const bookingType = this.resolveBookingType(input, startTime);
 
     try {
@@ -299,15 +310,15 @@ export class BookingValidationService {
         date: scheduleDate,
       });
     } catch (error) {
-      this.logger.error("Failed to load schedule for validation", {
+      this.logger.error('Failed to load schedule for validation', {
         restaurantId: input.restaurantId,
         date: scheduleDate,
         error: error instanceof Error ? error.message : String(error),
       });
       issues.push(
         this.createError(
-          "UNKNOWN",
-          "Unable to load schedule for validation. Please try again later.",
+          'UNKNOWN',
+          'Unable to load schedule for validation. Please try again later.',
           { restaurantId: input.restaurantId, date: scheduleDate },
           false,
         ),
@@ -321,11 +332,11 @@ export class BookingValidationService {
     if (schedule.isClosed) {
       issues.push(
         this.createError(
-          "CLOSED_DATE",
-          "The restaurant is closed on the selected date.",
+          'CLOSED_DATE',
+          'The restaurant is closed on the selected date.',
           { date: scheduleDate },
           true,
-          "warning",
+          'warning',
         ),
       );
     }
@@ -337,16 +348,20 @@ export class BookingValidationService {
       });
 
       normalizedStartTime = normalizedTime;
-      normalizedStartDateTime = DateTime.fromISO(`${scheduleDate}T${normalizedTime}`, { zone: scheduleTimezone });
+      normalizedStartDateTime = DateTime.fromISO(`${scheduleDate}T${normalizedTime}`, {
+        zone: scheduleTimezone,
+      });
     } catch (error) {
-        if (error instanceof OperatingHoursError) {
-          const mapped = this.mapOperatingHoursError(error, scheduleDate, startTime);
-          issues.push(mapped);
-        } else {
-          this.logger.error("Unexpected error during operating hours validation", {
+      if (error instanceof OperatingHoursError) {
+        const mapped = this.mapOperatingHoursError(error, scheduleDate, startTime);
+        issues.push(mapped);
+      } else {
+        this.logger.error('Unexpected error during operating hours validation', {
           error: error instanceof Error ? error.message : String(error),
         });
-        issues.push(this.createError("UNKNOWN", "Unable to validate operating hours.", undefined, false));
+        issues.push(
+          this.createError('UNKNOWN', 'Unable to validate operating hours.', undefined, false),
+        );
       }
     }
 
@@ -358,11 +373,11 @@ export class BookingValidationService {
     if (slot?.disabled) {
       issues.push(
         this.createError(
-          "SERVICE_PERIOD",
-          "Selected time is not available for reservations.",
+          'SERVICE_PERIOD',
+          'Selected time is not available for reservations.',
           {
             slot: normalizedStartTime,
-            reason: "disabled_slot",
+            reason: 'disabled_slot',
           },
           true,
         ),
@@ -372,8 +387,8 @@ export class BookingValidationService {
     if (input.serviceId && slot && slot.bookingOption && input.serviceId !== slot.bookingOption) {
       issues.push(
         this.createError(
-          "SERVICE_PERIOD",
-          "Selected time is not part of the requested service.",
+          'SERVICE_PERIOD',
+          'Selected time is not part of the requested service.',
           {
             requestedService: input.serviceId,
             slotService: slot.bookingOption,
@@ -383,11 +398,11 @@ export class BookingValidationService {
       );
     }
 
-    if (input.durationMinutes <= 0) {
+    if (!Number.isFinite(input.durationMinutes) || input.durationMinutes <= 0) {
       issues.push(
         this.createError(
-          "INVALID_DURATION",
-          "Duration must be greater than zero.",
+          'INVALID_DURATION',
+          'Duration must be greater than zero.',
           { durationMinutes: input.durationMinutes },
           false,
         ),
@@ -395,7 +410,60 @@ export class BookingValidationService {
     }
 
     normalizedEndDateTime = normalizedStartDateTime.plus({ minutes: input.durationMinutes });
-    normalizedEndTime = normalizedEndDateTime.toFormat("HH:mm");
+    normalizedEndTime = normalizedEndDateTime.toFormat('HH:mm');
+
+    if (input.durationMinutes > MAX_BOOKING_DURATION_MINUTES) {
+      issues.push(
+        this.createError(
+          'INVALID_DURATION',
+          'Duration is longer than the online booking limit.',
+          {
+            durationMinutes: input.durationMinutes,
+            maxDurationMinutes: MAX_BOOKING_DURATION_MINUTES,
+          },
+          false,
+        ),
+      );
+    }
+
+    if (!normalizedEndDateTime.isValid || normalizedEndDateTime <= normalizedStartDateTime) {
+      issues.push(
+        this.createError(
+          'INVALID_DURATION',
+          'Booking end time must be after the start time.',
+          { durationMinutes: input.durationMinutes },
+          false,
+        ),
+      );
+    } else if (normalizedEndDateTime.toISODate() !== scheduleDate) {
+      issues.push(
+        this.createError(
+          'INVALID_DURATION',
+          'Online bookings must start and end on the same day.',
+          { durationMinutes: input.durationMinutes },
+          false,
+        ),
+      );
+    }
+
+    if (schedule.window.closesAt) {
+      const closesAtDateTime = DateTime.fromISO(`${scheduleDate}T${schedule.window.closesAt}`, {
+        zone: scheduleTimezone,
+      });
+      if (closesAtDateTime.isValid && normalizedEndDateTime > closesAtDateTime) {
+        issues.push(
+          this.createError(
+            'OUTSIDE_HOURS',
+            'Selected duration extends beyond closing hours.',
+            {
+              closingTime: schedule.window.closesAt,
+              endTime: normalizedEndTime,
+            },
+            false,
+          ),
+        );
+      }
+    }
 
     if (ctx.flags.bookingPastTimeBlocking) {
       try {
@@ -408,7 +476,7 @@ export class BookingValidationService {
         if (error instanceof PastBookingError) {
           issues.push(
             this.createError(
-              "PAST_TIME",
+              'PAST_TIME',
               error.message,
               error.details ?? {
                 bookingTime: normalizedStartTime,
@@ -418,10 +486,12 @@ export class BookingValidationService {
             ),
           );
         } else {
-          this.logger.error("Unexpected error during past-time validation", {
+          this.logger.error('Unexpected error during past-time validation', {
             error: error instanceof Error ? error.message : String(error),
           });
-          issues.push(this.createError("UNKNOWN", "Unable to validate booking time.", undefined, false));
+          issues.push(
+            this.createError('UNKNOWN', 'Unable to validate booking time.', undefined, false),
+          );
         }
       }
     }
@@ -439,8 +509,8 @@ export class BookingValidationService {
       if (!capacityResult.ok) {
         issues.push(
           this.createError(
-            capacityResult.errorCode ?? "CAPACITY_EXCEEDED",
-            "No capacity available for the requested time.",
+            capacityResult.errorCode ?? 'CAPACITY_EXCEEDED',
+            'No capacity available for the requested time.',
             capacityResult.detail,
             true,
           ),
@@ -457,13 +527,20 @@ export class BookingValidationService {
     const normalizedEndIso = normalizedEndDateTime.toISO();
 
     if (!normalizedStartIso || !normalizedEndIso) {
-      const response = this.createError("UNKNOWN", "Failed to normalize booking time.", undefined, false);
+      const response = this.createError(
+        'UNKNOWN',
+        'Failed to normalize booking time.',
+        undefined,
+        false,
+      );
       issues.push(response);
       return this.buildFailure(issues, input, ctx, options);
     }
 
     if (!normalizedStartTime || !normalizedEndTime) {
-      issues.push(this.createError("UNKNOWN", "Failed to normalize booking time.", undefined, false));
+      issues.push(
+        this.createError('UNKNOWN', 'Failed to normalize booking time.', undefined, false),
+      );
       return this.buildFailure(issues, input, ctx, options);
     }
 
@@ -486,7 +563,8 @@ export class BookingValidationService {
       ok: true,
       issues: overrideResolution.updatedIssues,
       overridden: overrideResolution.overridden || undefined,
-      overrideCodes: overrideResolution.overrideCodes.length > 0 ? overrideResolution.overrideCodes : undefined,
+      overrideCodes:
+        overrideResolution.overrideCodes.length > 0 ? overrideResolution.overrideCodes : undefined,
       normalizedStart: metadata.normalizedStart,
       normalizedEnd: metadata.normalizedEnd,
     };
@@ -498,7 +576,11 @@ export class BookingValidationService {
     };
   }
 
-  private resolveOverride(issues: BookingError[], input: BookingInput, ctx: ValidationContext): OverrideResolution {
+  private resolveOverride(
+    issues: BookingError[],
+    input: BookingInput,
+    ctx: ValidationContext,
+  ): OverrideResolution {
     if (issues.length === 0) {
       return {
         ok: true,
@@ -534,8 +616,8 @@ export class BookingValidationService {
       const updated = [
         ...issues,
         this.createError(
-          "MISSING_OVERRIDE",
-          "Override capability is required to bypass booking validation rules.",
+          'MISSING_OVERRIDE',
+          'Override capability is required to bypass booking validation rules.',
           { capability: BOOKING_OVERRIDE_CAPABILITY },
           false,
         ),
@@ -552,7 +634,7 @@ export class BookingValidationService {
     if (!reason) {
       const updated = [
         ...issues,
-        this.createError("MISSING_OVERRIDE", "Override reason is required.", undefined, false),
+        this.createError('MISSING_OVERRIDE', 'Override reason is required.', undefined, false),
       ];
       return {
         ok: false,
@@ -602,7 +684,7 @@ export class BookingValidationService {
     message: string,
     detail?: Record<string, unknown>,
     overridable: boolean = true,
-    severity: BookingErrorSeverity = "error",
+    severity: BookingErrorSeverity = 'error',
   ): BookingError {
     return {
       code,
@@ -625,14 +707,14 @@ export class BookingValidationService {
     };
 
     switch (error.reason) {
-      case "CLOSED":
-        return this.createError("CLOSED_DATE", error.message, detail, true, "warning");
-      case "OUTSIDE_WINDOW":
-      case "AFTER_CLOSE":
-        return this.createError("OUTSIDE_HOURS", error.message, detail, true);
-      case "INVALID_TIME":
+      case 'CLOSED':
+        return this.createError('CLOSED_DATE', error.message, detail, true, 'warning');
+      case 'OUTSIDE_WINDOW':
+      case 'AFTER_CLOSE':
+        return this.createError('OUTSIDE_HOURS', error.message, detail, true);
+      case 'INVALID_TIME':
       default:
-        return this.createError("UNKNOWN", error.message, detail, false);
+        return this.createError('UNKNOWN', error.message, detail, false);
     }
   }
 
@@ -650,7 +732,7 @@ export class BookingValidationService {
     if (!value) {
       return 0;
     }
-    const [hoursPart = "0", minutesPart = "0"] = value.split(":");
+    const [hoursPart = '0', minutesPart = '0'] = value.split(':');
     const hours = Number.parseInt(hoursPart, 10) || 0;
     const minutes = Number.parseInt(minutesPart, 10) || 0;
     return hours * 60 + minutes;
@@ -658,9 +740,9 @@ export class BookingValidationService {
 
   private logOverrideFailure(issues: BookingError[], input: BookingInput, ctx: ValidationContext) {
     recordObservabilityEvent({
-      source: "booking.validation",
-      eventType: "booking.override.rejected",
-      severity: "warning",
+      source: 'booking.validation',
+      eventType: 'booking.override.rejected',
+      severity: 'warning',
       context: {
         restaurantId: input.restaurantId,
         bookingId: input.bookingId ?? null,
@@ -668,7 +750,7 @@ export class BookingValidationService {
         issues: issues.map((issue) => issue.code),
       },
     }).catch((error) => {
-      this.logger.warn("Failed to record override rejection event", {
+      this.logger.warn('Failed to record override rejection event', {
         error: error instanceof Error ? error.message : String(error),
       });
     });
@@ -676,13 +758,14 @@ export class BookingValidationService {
 
   private extractClientRequestId(ctx: ValidationContext, fallback?: unknown): string | null {
     const directValue =
-      ctx.metadata && typeof (ctx.metadata as Record<string, unknown>)["clientRequestId"] === "string"
-        ? ((ctx.metadata as Record<string, unknown>)["clientRequestId"] as string)
+      ctx.metadata &&
+      typeof (ctx.metadata as Record<string, unknown>)['clientRequestId'] === 'string'
+        ? ((ctx.metadata as Record<string, unknown>)['clientRequestId'] as string)
         : null;
     if (directValue && directValue.trim().length > 0) {
       return directValue.trim();
     }
-    if (typeof fallback === "string" && fallback.trim().length > 0) {
+    if (typeof fallback === 'string' && fallback.trim().length > 0) {
       return fallback.trim();
     }
     return null;

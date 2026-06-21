@@ -10,15 +10,11 @@ import {
   sendBookingUpdateEmail,
   sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
-import {
-  isEmailQueueEnabled,
-} from '@/server/feature-flags';
+import { recordObservabilityEvent } from '@/server/observability';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { cancelEmailIntents } from '@/server/queue/email-intents';
-import {
-  sendGuestBookingCancellationSms,
-  sendGuestBookingUpdateSms,
-} from '@/server/sms/bookings';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
+import { sendGuestBookingCancellationSms, sendGuestBookingUpdateSms } from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -98,6 +94,44 @@ const REMINDER_24H_MINUTES = 24 * 60;
 const REMINDER_SHORT_MINUTES = 2 * 60;
 const REVIEW_DELAY_MINUTES = 180; // 3 hours after visit ends
 const INLINE_EMAIL_DELAY_CAP_MS = 48 * 60 * 60 * 1000;
+
+const SERVERLESS_LIKE_HOSTS = ['VERCEL', 'AWS_LAMBDA_FUNCTION_NAME', 'NETLIFY', 'CF_PAGES'];
+
+function isServerlessHost(): boolean {
+  return SERVERLESS_LIKE_HOSTS.some((key) => Boolean(process.env[key]));
+}
+
+let warnedAboutInlineFallback = false;
+async function reportInlineFallbackInUse(context: {
+  bookingId: string;
+  restaurantId: string;
+  variant: string;
+  delayMs: number;
+}): Promise<void> {
+  if (process.env.NODE_ENV !== 'production' && !isServerlessHost()) {
+    return;
+  }
+  if (warnedAboutInlineFallback) {
+    return;
+  }
+  warnedAboutInlineFallback = true;
+  console.error(
+    '[jobs][email-fallback] inline setTimeout fallback engaged in production/serverless; scheduled emails will NOT survive invocation recycling. Configure the durable email queue before deploying.',
+    context,
+  );
+  try {
+    await recordObservabilityEvent({
+      source: 'jobs.email',
+      eventType: 'email_queue.disabled_in_serverless',
+      severity: 'error',
+      context,
+      restaurantId: context.restaurantId,
+      bookingId: context.bookingId,
+    });
+  } catch {
+    // observability is best-effort; never let it block booking flows
+  }
+}
 
 type EmailPrefs = {
   sendReminder24h: boolean;
@@ -377,6 +411,12 @@ async function scheduleReminderJob(
   }
 
   // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
+  await reportInlineFallbackInUse({
+    bookingId: booking.id,
+    restaurantId,
+    variant,
+    delayMs: optimizedDelayMs,
+  });
   await sendEmailInlineWithDelay(
     optimizedDelayMs,
     async () => {
@@ -440,6 +480,12 @@ async function scheduleReviewJob(
   // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
   // Note: any delay > 0 is not reliable in serverless environments.
   if (optimizedDelayMs >= 0) {
+    await reportInlineFallbackInUse({
+      bookingId: booking.id,
+      restaurantId,
+      variant: 'review_request',
+      delayMs: optimizedDelayMs,
+    });
     await sendEmailInlineWithDelay(
       optimizedDelayMs,
       async () => {
@@ -462,8 +508,7 @@ async function processBookingCreatedSideEffects(
   const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
   const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
   const shouldSendConfirmationNotifications =
-    booking.status === 'confirmed' &&
-    ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
+    booking.status === 'confirmed' && ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
 
   const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 

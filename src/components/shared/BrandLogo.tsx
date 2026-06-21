@@ -21,11 +21,11 @@ export function BrandLogo({
   variant = 'light',
   animated = false,
 }: BrandLogoProps) {
-  const textColor = variant === 'dark' ? 'text-white' : 'text-slate-900';
+  const textColor = variant === 'dark' ? 'text-primary-foreground' : 'text-foreground';
   const betaBg =
     variant === 'dark'
-      ? 'bg-blue-600/20 border-blue-500/30 text-blue-100'
-      : 'bg-blue-50 border-blue-100 text-blue-700';
+      ? 'border-primary/30 bg-primary/20 text-primary-foreground'
+      : 'border-primary/20 bg-primary/10 text-primary';
 
   return (
     <Link
@@ -45,7 +45,7 @@ export function BrandLogo({
             textColor,
           )}
         >
-          Nab a Table
+          Nabatable
         </span>
         {showBeta && (
           <span

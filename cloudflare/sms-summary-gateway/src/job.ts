@@ -1,4 +1,4 @@
-import { RetryableDispatchError, sendTwilioSmsMessage } from './twilio';
+import { RetryableDispatchError, TerminalDispatchError, sendTwilioSmsMessage } from './twilio';
 
 import type { DailySummaryPreview, DailySummaryQueueMessage } from './contracts';
 
@@ -69,6 +69,12 @@ export async function processDailySummaryDispatch(params: {
   } catch (error) {
     if (!sendCompleted) {
       await params.idempotency.release();
+    } else {
+      throw new TerminalDispatchError(
+        `SMS send completed but idempotency finalization failed; manual reconciliation required: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
     throw error;
   }

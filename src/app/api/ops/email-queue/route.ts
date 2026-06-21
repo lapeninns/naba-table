@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   GuardError,
@@ -32,14 +33,21 @@ const querySchema = z.object({
   queueFixture: z.string().trim().min(1).optional(),
 });
 
-function normalizeFixture(rawFixture: string | undefined, rawQueueFixture: string | undefined): string | null {
+function normalizeFixture(
+  rawFixture: string | undefined,
+  rawQueueFixture: string | undefined,
+): string | null {
   const fixture = rawQueueFixture?.trim() || rawFixture?.trim();
   return fixture ? fixture : null;
 }
 
 async function applyQueueFixtureDelay(fixture: string | null) {
   if (fixture !== 'loading') return;
-  if (process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'development' && process.env.APP_ENV !== 'test') {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.APP_ENV !== 'development' &&
+    process.env.APP_ENV !== 'test'
+  ) {
     return;
   }
 
@@ -130,6 +138,13 @@ function sortJobs(a: OpsEmailQueueJobDTO, b: OpsEmailQueueJobDTO): number {
   return a.id.localeCompare(b.id);
 }
 
+function totalForStatus(
+  summary: Record<'total' | OpsEmailQueueJobStatus, number>,
+  status: OpsEmailQueueJobStatus | null,
+) {
+  return status ? summary[status] : summary.total;
+}
+
 async function loadBookingMap(
   restaurantId: string,
   bookingIds: string[],
@@ -184,8 +199,10 @@ export async function GET(request: NextRequest) {
 
     const memberships = await listUserRestaurantMemberships(supabase, user.id);
     const fallbackRestaurantId =
-      memberships.find((membership) => typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0)
-        ?.restaurant_id ?? null;
+      memberships.find(
+        (membership) =>
+          typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0,
+      )?.restaurant_id ?? null;
 
     const restaurantId = parsedQuery.data.restaurantId ?? fallbackRestaurantId;
     if (!restaurantId) {
@@ -200,36 +217,35 @@ export async function GET(request: NextRequest) {
 
     await applyQueueFixtureDelay(queueFixture);
 
-    const snapshot = await getEmailQueueStatus(true, { jobLimit: 'all' });
+    const page = parsedQuery.data.page;
+    const pageSize = parsedQuery.data.pageSize;
+    const offset = (page - 1) * pageSize;
+    const snapshot = await getEmailQueueStatus(true, {
+      jobLimit: offset + pageSize,
+      restaurantId,
+    });
     const queueJobs = snapshot.queue.jobs ? flattenQueueJobs(snapshot.queue.jobs) : [];
     const restaurantJobs = queueJobs
       .filter((job) => job.restaurantId === restaurantId)
       .sort(sortJobs);
 
-    const summary = restaurantJobs.reduce(
-      (acc, job) => {
-        acc.total += 1;
-        acc[job.status] += 1;
-        return acc;
-      },
-      {
-        total: 0,
-        waiting: 0,
-        active: 0,
-        delayed: 0,
-        dlq: 0,
-      },
-    );
+    const counts = snapshot.queue.counts;
+    const dlqCount = counts.dlq ?? 0;
+    const summary = {
+      total: counts.waiting + counts.active + counts.delayed + dlqCount,
+      waiting: counts.waiting,
+      active: counts.active,
+      delayed: counts.delayed,
+      dlq: dlqCount,
+    };
 
     const filteredJobs =
       parsedStatus.status === null
         ? restaurantJobs
         : restaurantJobs.filter((job) => job.status === parsedStatus.status);
 
-    const page = parsedQuery.data.page;
-    const pageSize = parsedQuery.data.pageSize;
-    const offset = (page - 1) * pageSize;
     const pageJobs = filteredJobs.slice(offset, offset + pageSize);
+    const total = totalForStatus(summary, parsedStatus.status);
     const bookingMap = await loadBookingMap(
       restaurantId,
       Array.from(new Set(pageJobs.map((job) => job.bookingId))),
@@ -247,8 +263,8 @@ export async function GET(request: NextRequest) {
         pageInfo: {
           page,
           pageSize,
-          hasNext: offset + pageSize < filteredJobs.length,
-          total: filteredJobs.length,
+          hasNext: offset + pageSize < total,
+          total,
         },
         summary,
         jobs,
@@ -263,12 +279,19 @@ export async function GET(request: NextRequest) {
           ? { status: 401 as const, code: 'UNAUTHENTICATED' as const, error: error.message }
           : error.code === 'FORBIDDEN'
             ? { status: 403 as const, code: 'FORBIDDEN' as const, error: error.message }
-            : { status: error.status as 401 | 403 | 500, code: 'INTERNAL' as const, error: error.message };
+            : {
+                status: error.status as 401 | 403 | 500,
+                code: 'INTERNAL' as const,
+                error: error.message,
+              };
       return jsonError(mapped.status, { code: mapped.code, error: mapped.error });
     }
 
     console.error('[ops/email-queue] unexpected error', {
       error: error instanceof Error ? error.message : String(error),
+    });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-email-queue' },
     });
     return jsonError(500, { code: 'INTERNAL', error: 'Internal error' });
   }

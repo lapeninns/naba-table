@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const AUTH_NAV_LINKS = [
@@ -99,8 +100,9 @@ export function AuthNavbar() {
         </div>
 
         <div className="flex items-center gap-2 sm:hidden">
-          <button
+          <Button
             type="button"
+            variant="outline"
             className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition hover:text-primary"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileOpen}
@@ -112,7 +114,7 @@ export function AuthNavbar() {
             ) : (
               <Menu className="h-5 w-5" aria-hidden />
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -132,14 +134,15 @@ export function AuthNavbar() {
                   </p>
                   <p className="text-base font-semibold text-foreground">Find your way</p>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background"
                   onClick={closeMenu}
                   aria-label="Close menu"
                 >
                   <X className="h-5 w-5" aria-hidden />
-                </button>
+                </Button>
               </div>
               <nav className="flex flex-col gap-3" aria-label="Mobile auth navigation">
                 {AUTH_NAV_LINKS.map((item) => (

@@ -29,7 +29,7 @@ export function BookingsFilterBar({ value, onChange, counts }: BookingsFilterBar
         <ToggleGroupItem
           key={filter.value}
           value={filter.value}
-          className="h-10 w-auto touch-manipulation gap-2 rounded-full border border-border/40 bg-muted/30 px-3 text-xs font-medium text-foreground/70 transition-colors sm:px-4 sm:text-sm data-[state=on]:border-foreground/20 data-[state=on]:bg-foreground/5 data-[state=on]:text-foreground"
+          className="h-9 w-auto touch-manipulation gap-2 rounded-full border border-border/40 bg-muted/30 px-3 text-xs font-medium text-foreground/70 transition-colors sm:px-4 sm:text-sm data-[state=on]:border-foreground/20 data-[state=on]:bg-foreground/5 data-[state=on]:text-foreground"
           aria-label={filter.description}
         >
           <span>{filter.label}</span>

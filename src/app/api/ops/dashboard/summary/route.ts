@@ -1,12 +1,17 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getTodayBookingsSummary } from "@/server/ops/bookings";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant } from "@/server/team/access";
+import { firstString, safeDate } from '@/lib/api/query-params';
+import { getTodayBookingsSummary } from '@/server/ops/bookings';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  buildDashboardAccessErrorResponse,
+  requireDashboardAccess,
+} from '@/src/app/api/ops/dashboard/_shared';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
 const summaryQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -19,8 +24,12 @@ const summaryQuerySchema = z.object({
 type SummaryQuery = z.infer<typeof summaryQuerySchema>;
 
 function parseQuery(request: NextRequest): SummaryQuery | null {
-  const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const result = summaryQuerySchema.safeParse(entries);
+  const params = request.nextUrl.searchParams;
+  const rawDate = firstString(params, 'date');
+  const result = summaryQuerySchema.safeParse({
+    restaurantId: firstString(params, 'restaurantId'),
+    date: rawDate === undefined ? undefined : (safeDate(params, 'date') ?? '__invalid_date__'),
+  });
   if (!result.success) {
     return null;
   }
@@ -30,30 +39,24 @@ function parseQuery(request: NextRequest): SummaryQuery | null {
 export async function GET(request: NextRequest) {
   const query = parseQuery(request);
   if (!query) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
-  }
-
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    console.error("[ops/dashboard][summary] failed to resolve auth", error.message);
-    const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
   }
 
   try {
-    await requireMembershipForRestaurant({ userId: user.id, restaurantId: query.restaurantId });
-  } catch (membershipError) {
-    console.error("[ops/dashboard][summary] membership validation failed", membershipError);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    await requireDashboardAccess(query.restaurantId);
+  } catch (error) {
+    return buildDashboardAccessErrorResponse('summary', error);
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request,
+    scope: 'ops-dashboard:summary',
+    tenantId: query.restaurantId,
+    limit: 90,
+    windowMs: 60_000,
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {
@@ -64,7 +67,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(summary);
   } catch (summaryError) {
-    console.error("[ops/dashboard][summary] failed to load summary", summaryError);
-    return NextResponse.json({ error: "Unable to load summary" }, { status: 500 });
+    console.error('[ops/dashboard][summary] failed to load summary', summaryError);
+    captureServerException(summaryError, {
+      groups: { restaurant: query.restaurantId },
+      properties: {
+        restaurantId: query.restaurantId,
+        source: 'ops',
+        kind: 'ops-dashboard-summary',
+      },
+    });
+    return NextResponse.json({ error: 'Unable to load summary' }, { status: 500 });
   }
 }

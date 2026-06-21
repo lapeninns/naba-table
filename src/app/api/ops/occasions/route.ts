@@ -1,24 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import { fetchAllOccasions, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { clearOccasionCatalogCache } from '@/server/occasions/catalog';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-export async function GET() {
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error('[ops/occasions][GET] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+export async function GET(request: NextRequest) {
+  const authorization = await withPlatformAdminAuthorization(request);
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   try {
@@ -26,25 +17,17 @@ export async function GET() {
     return NextResponse.json({ occasions });
   } catch (error) {
     console.error('[ops/occasions][GET] failed to load occasions', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-occasions' },
+    });
     return NextResponse.json({ error: 'Unable to load occasions' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error('[ops/occasions][POST] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const authorization = await withPlatformAdminAuthorization(request, { csrf: true });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   const body = await request.json().catch(() => null);
@@ -68,7 +51,10 @@ export async function POST(request: NextRequest) {
   }
   const normalizedKey = key.trim();
   if (!/^[a-z0-9_-]+$/.test(normalizedKey)) {
-    return NextResponse.json({ error: 'Key must be lowercase letters, numbers, dashes, or underscores' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Key must be lowercase letters, numbers, dashes, or underscores' },
+      { status: 400 },
+    );
   }
 
   if (typeof label !== 'string' || label.trim().length === 0) {
@@ -98,8 +84,12 @@ export async function POST(request: NextRequest) {
   const payload = {
     key: normalizedKey,
     label: String(label).trim(),
-    short_label: typeof shortLabel === 'string' && shortLabel.trim().length > 0 ? shortLabel.trim() : String(label).trim(),
-    description: typeof description === 'string' && description.trim().length > 0 ? description.trim() : null,
+    short_label:
+      typeof shortLabel === 'string' && shortLabel.trim().length > 0
+        ? shortLabel.trim()
+        : String(label).trim(),
+    description:
+      typeof description === 'string' && description.trim().length > 0 ? description.trim() : null,
     availability: Array.isArray(availability) ? availability : [],
     default_duration_minutes:
       typeof defaultDurationMinutes === 'number' && Number.isFinite(defaultDurationMinutes)
@@ -108,8 +98,8 @@ export async function POST(request: NextRequest) {
     display_order: resolvedDisplayOrder,
     is_active: Boolean(isActive),
     is_builtin: normalizedKey === 'lunch' || normalizedKey === 'dinner',
-    created_by: user.id,
-    updated_by: user.id,
+    created_by: authorization.user.id,
+    updated_by: authorization.user.id,
   };
 
   try {
@@ -125,7 +115,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Occasion already exists' }, { status: 409 });
     }
 
-    const { data, error } = await serviceClient.from('booking_occasions').upsert(payload).select().maybeSingle();
+    const { data, error } = await serviceClient
+      .from('booking_occasions')
+      .upsert(payload)
+      .select()
+      .maybeSingle();
     if (error) {
       throw error;
     }
@@ -135,13 +129,18 @@ export async function POST(request: NextRequest) {
       action: 'create',
       before_change: null,
       after_change: data ?? null,
-      changed_by: user.id,
+      changed_by: authorization.user.id,
     });
 
+    clearOccasionCatalogCache();
     const occasion = data ? toAdminOccasion(data as Parameters<typeof toAdminOccasion>[0]) : null;
     return NextResponse.json({ occasion });
   } catch (error) {
     console.error('[ops/occasions][POST] failed to create occasion', error);
+    captureServerException(error, {
+      distinctId: authorization.user.id,
+      properties: { source: 'ops', kind: 'ops-occasions' },
+    });
     return NextResponse.json({ error: 'Unable to create occasion' }, { status: 500 });
   }
 }

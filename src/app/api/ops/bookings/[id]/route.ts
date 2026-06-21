@@ -1,9 +1,9 @@
-import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { env } from '@/lib/env';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
@@ -20,6 +20,10 @@ import {
   updateBookingRecord,
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
+import {
+  buildBookingInstantFieldsFromLocalTimes,
+  type BookingInstantFields,
+} from '@/server/bookings/instant-fields';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import {
   PastBookingError,
@@ -41,11 +45,20 @@ import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
+  getBookingPastTimeGraceMinutes,
+  isBookingPastTimeBlockingEnabled,
+  isDbStrictConstraintMappingEnabled,
+  isUnifiedBookingValidationEnabled,
+} from '@/server/runtime-policy';
+import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
   getTenantServiceSupabaseClient,
 } from '@/server/supabase';
-import { requireMembershipForRestaurant, fetchUserMemberships } from '@/server/team/access';
+import { fetchUserMemberships } from '@/server/team/access';
+
+import { loadBookingDetailPayload } from './_shared/dialogLoaders';
+import { createOpsBookingApiTiming } from '../_shared/performance';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -95,6 +108,7 @@ type UnifiedOpsUpdateParams = {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  instantFields: BookingInstantFields;
   durationMinutes: number;
   payload: DashboardUpdatePayload;
   existingBooking: Tables<'bookings'> & {
@@ -158,27 +172,20 @@ function toIsoString(value: unknown): string {
   return date.toISOString();
 }
 
-function deriveFallbackIso(
-  date: string | null | undefined,
-  time: string | null | undefined,
-  timezone: string | null | undefined,
-): string {
-  if (!date || !time) return '';
-
-  const zone = typeof timezone === 'string' && timezone.trim().length > 0 ? timezone : 'UTC';
-  const trimmedTime = time.trim();
-  if (trimmedTime.length === 0) return '';
-
-  const normalizedTime = trimmedTime.length === 5 ? `${trimmedTime}:00` : trimmedTime;
-  const dt = DateTime.fromISO(`${date}T${normalizedTime}`, { zone });
-  if (!dt.isValid) {
-    return '';
-  }
-
-  return dt.toUTC().toISO() ?? '';
+async function loadAuthorizedRestaurantIds(
+  userId: string,
+  client: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>,
+) {
+  const memberships = await fetchUserMemberships(userId, client);
+  return memberships
+    .map((membership) => membership.restaurant_id)
+    .filter(
+      (restaurantId): restaurantId is string =>
+        typeof restaurantId === 'string' && restaurantId.length > 0,
+    );
 }
 
-export async function GET(_req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
@@ -203,226 +210,119 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const userId = user.id;
+
+  let authorizedRestaurantIds: string[];
+  try {
+    authorizedRestaurantIds = await loadAuthorizedRestaurantIds(userId, tenantSupabase);
+  } catch (membershipError) {
+    console.error('[ops/bookings][GET] failed to load memberships', membershipError);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
 
   const serviceSupabase = getServiceSupabaseClient();
-  const { data: booking, error } = await serviceSupabase
-    .from('bookings')
-    .select(
-      `
-      *,
-      restaurants (
-        name,
-        slug,
-        timezone,
-        reservation_interval_minutes
-      ),
-      booking_table_assignments (
-        table_id,
-        merge_group_id,
-        table_inventory (
-          table_number,
-          capacity,
-          section
-        )
-      )
-    `,
-    )
-    .eq('id', bookingId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[ops/bookings][GET] failed to load booking', error);
-    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
-  }
-
-  if (!booking) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-  }
-
-  try {
-    await requireMembershipForRestaurant({
-      userId: user.id,
-      restaurantId: booking.restaurant_id,
-      client: tenantSupabase,
-    });
-  } catch (membershipError) {
-    console.warn('[ops/bookings][GET] membership denied', {
+  let detailResult: Awaited<ReturnType<typeof loadBookingDetailPayload>> | null = null;
+  for (const restaurantId of authorizedRestaurantIds) {
+    const candidate = await loadBookingDetailPayload({
+      serviceSupabase,
       bookingId,
-      reason: membershipError instanceof Error ? membershipError.message : membershipError,
+      restaurantIdFilter: restaurantId,
     });
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    if (candidate.ok || candidate.status === 500) {
+      detailResult = candidate;
+      break;
+    }
   }
 
-  const restaurantRelation = Array.isArray(booking.restaurants)
-    ? (booking.restaurants[0] ?? null)
-    : (booking.restaurants ?? null);
+  detailResult ??= { ok: false, status: 404, error: 'Booking not found' };
 
-  const reservationIntervalMinutes =
-    restaurantRelation && typeof restaurantRelation.reservation_interval_minutes === 'number'
-      ? restaurantRelation.reservation_interval_minutes
-      : null;
-
-  const restaurantTimezone =
-    restaurantRelation && typeof restaurantRelation.timezone === 'string'
-      ? restaurantRelation.timezone
-      : null;
-
-  const startIso =
-    toIsoString(booking.start_at) ||
-    deriveFallbackIso(booking.booking_date, booking.start_time, restaurantTimezone);
-
-  const endIso =
-    toIsoString(booking.end_at) ||
-    deriveFallbackIso(booking.booking_date, booking.end_time, restaurantTimezone);
-
-  const rawPhone = typeof booking.customer_phone === 'string' ? booking.customer_phone.trim() : '';
-  const customerPhone = rawPhone.length > 0 ? rawPhone : null;
-
-  // Transform table assignments
-  const rawAssignments = booking.booking_table_assignments as unknown as Array<{
-    table_id: string;
-    merge_group_id: string | null;
-    table_inventory: {
-      table_number: string;
-      capacity: number;
-      section: string | null;
-    } | null;
-  }> | null;
-
-  const assignments = rawAssignments ?? [];
-  const groupedAssignments = new Map<
-    string,
-    {
-      groupId: string | null;
-      members: Array<{
-        tableId: string;
-        tableNumber: string;
-        capacity: number | null;
-        section: string | null;
-      }>;
+  if (!detailResult.ok) {
+    if (detailResult.status === 500) {
+      return NextResponse.json({ error: detailResult.error }, { status: 500 });
     }
-  >();
-
-  // Group by merge_group_id (or create unique groups for singles if desired, but OpsTodayBooking groups by assignment logic)
-  // For now, we'll just group by merge_group_id or put singles in their own group
-  for (const assignment of assignments) {
-    const groupId = assignment.merge_group_id ?? `single-${assignment.table_id}`;
-    if (!groupedAssignments.has(groupId)) {
-      groupedAssignments.set(groupId, {
-        groupId: assignment.merge_group_id,
-        members: [],
-      });
-    }
-    const group = groupedAssignments.get(groupId)!;
-    const inventory = assignment.table_inventory;
-    group.members.push({
-      tableId: assignment.table_id,
-      tableNumber: inventory?.table_number ?? '?',
-      capacity: inventory?.capacity ?? null,
-      section: inventory?.section ?? null,
-    });
+    return NextResponse.json({ error: detailResult.error }, { status: detailResult.status });
   }
 
-  const tableAssignments = Array.from(groupedAssignments.values()).map((group) => ({
-    groupId: group.groupId,
-    capacitySum: group.members.reduce((sum, m) => sum + (m.capacity ?? 0), 0),
-    members: group.members,
-  }));
-
-  const response = {
-    id: booking.id,
-    restaurantId: booking.restaurant_id ?? null,
-    restaurantName: restaurantRelation?.name ?? '',
-    restaurantSlug: restaurantRelation?.slug ?? null,
-    restaurantTimezone: restaurantRelation?.timezone ?? null,
-    reservationIntervalMinutes,
-    partySize: booking.party_size,
-    startTime: booking.start_time, // OpsTodayBooking expects startTime/endTime as HH:MM:SS or ISO?
-    // OpsTodayBooking type says: startTime: string | null; endTime: string | null;
-    // But OpsBookingListItem has startIso/endIso.
-    // Let's provide both sets to be safe/compatible.
-    startIso,
-    endIso,
-    // OpsTodayBooking fields:
-    // startIso/endIso are not in OpsTodayBooking type explicitly but widely used.
-    // OpsTodayBooking has startTime/endTime which are usually time strings in dashboard context.
-    // But here we can pass startIso as startTime if needed, or actual start_time.
-    // Let's pass actual DB columns.
-    status: booking.status,
-    notes: booking.notes ?? null,
-    customerName: booking.customer_name ?? null,
-    customerEmail: booking.customer_email ?? null,
-    customerPhone,
-    // Extended fields
-    reference: booking.client_request_id ?? null,
-    source: booking.source ?? null,
-    // Removed loyalty/profile/allergies fields not present in schema
-    seatingPreference: booking.seating_preference ?? null,
-    marketingOptIn: booking.marketing_opt_in ?? false,
-    tableAssignments,
-    requiresTableAssignment:
-      tableAssignments.length === 0 &&
-      booking.status !== 'cancelled' &&
-      booking.status !== 'no_show',
-    checkedInAt: booking.checked_in_at ?? null,
-    checkedOutAt: booking.checked_out_at ?? null,
-    details: booking.details ?? null,
-  };
-
-  return NextResponse.json(response);
+  return NextResponse.json(detailResult.payload, {
+    headers: {
+      // Personalized data; keep CDN out but allow browser back/forward cache.
+      'Cache-Control': 'private, max-age=0, must-revalidate',
+    },
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const bookingId = await resolveBookingId(params);
+  const timing = createOpsBookingApiTiming('ops.bookings.patch');
+  const bookingId = await timing.measure('params', resolveBookingId(params));
 
   if (!bookingId) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return timing.json({ error: 'Missing booking id' }, { status: 400 });
   }
 
   let payload: unknown;
   try {
-    payload = await req.json();
+    payload = await timing.measure('parse_body', req.json());
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    return timing.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
   const parsed = dashboardUpdateSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
+    return timing.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
 
-  const tenantSupabase = await getRouteHandlerSupabaseClient();
+  const tenantSupabase = await timing.measure('route_client', getRouteHandlerSupabaseClient());
   const {
     data: { user },
     error: authError,
-  } = await tenantSupabase.auth.getUser();
+  } = await timing.measure('auth_get_user', tenantSupabase.auth.getUser());
 
   if (authError) {
     console.error('[ops/bookings][PATCH] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return timing.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return timing.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let authorizedRestaurantIds: string[];
+  try {
+    authorizedRestaurantIds = await timing.measure(
+      'memberships',
+      loadAuthorizedRestaurantIds(user.id, tenantSupabase),
+    );
+  } catch (membershipError) {
+    console.error('[ops/bookings][PATCH] failed to load memberships', membershipError);
+    return timing.json({ error: 'Unable to verify access' }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return timing.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
-  const { data: existing, error } = await serviceSupabase
-    .from('bookings')
-    .select('*, restaurants(name, slug, timezone, reservation_interval_minutes)')
-    .eq('id', bookingId)
-    .maybeSingle();
+  const { data: existing, error } = await timing.measure(
+    'booking_lookup',
+    serviceSupabase
+      .from('bookings')
+      .select('*, restaurants(name, slug, timezone, reservation_interval_minutes)')
+      .eq('id', bookingId)
+      .in('restaurant_id', authorizedRestaurantIds)
+      .maybeSingle(),
+  );
 
   if (error) {
     console.error('[ops/bookings][PATCH] failed to load booking', error);
-    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
+    return timing.json({ error: 'Unable to load booking' }, { status: 500 });
   }
 
   const existingBooking = existing as
@@ -445,28 +345,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     | null;
 
   if (!existingBooking) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
-  }
-
-  try {
-    await requireMembershipForRestaurant({
-      userId: user.id,
-      restaurantId: existingBooking.restaurant_id,
-      client: tenantSupabase,
-    });
-  } catch (membershipError) {
-    console.warn('[ops/bookings][PATCH] membership denied', {
-      bookingId,
-      reason: membershipError instanceof Error ? membershipError.message : membershipError,
-    });
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return timing.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const restaurantRelation = Array.isArray(existingBooking.restaurants)
     ? (existingBooking.restaurants[0] ?? null)
     : (existingBooking.restaurants ?? null);
   const restaurantTimezone =
-    typeof restaurantRelation?.timezone === 'string' && restaurantRelation.timezone.trim().length > 0
+    typeof restaurantRelation?.timezone === 'string' &&
+    restaurantRelation.timezone.trim().length > 0
       ? restaurantRelation.timezone.trim()
       : 'Europe/London';
 
@@ -474,18 +361,28 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     startVenue = convertIsoToVenueDateTime(parsed.data.startIso, restaurantTimezone);
   } catch {
-    return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
+    return timing.json({ error: 'Invalid date values' }, { status: 400 });
   }
 
   const startDate = startVenue.dateTime.toUTC().toJSDate();
   const restaurantId = existingBooking.restaurant_id ?? '';
+
+  captureRestaurantServerEvent('booking_modify_started', {
+    restaurantId: restaurantId || undefined,
+    distinctId: user.id,
+    props: { bookingId, source: 'ops', method: 'ops' },
+  });
+
   const explicitEndIso = typeof parsed.data.endIso === 'string' ? parsed.data.endIso : null;
   let explicitEndVenue = convertOptionalIsoToVenueDateTime(explicitEndIso, restaurantTimezone);
   let existingStartVenue = convertOptionalIsoToVenueDateTime(
     existingBooking.start_at,
     restaurantTimezone,
   );
-  let existingEndVenue = convertOptionalIsoToVenueDateTime(existingBooking.end_at, restaurantTimezone);
+  let existingEndVenue = convertOptionalIsoToVenueDateTime(
+    existingBooking.end_at,
+    restaurantTimezone,
+  );
 
   let bookingDate = startVenue.date;
   let startTime = startVenue.time;
@@ -505,14 +402,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     bookingDate !== existingBooking.booking_date || startTime !== existingBooking.start_time;
 
   const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
-  const needsScheduleForPastCheck = env.featureFlags.bookingPastTimeBlocking && isTimeChanged;
+  const needsScheduleForPastCheck = isBookingPastTimeBlockingEnabled() && isTimeChanged;
 
   let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
   if (needsScheduleForDuration || needsScheduleForPastCheck) {
-    schedule = await getRestaurantSchedule(restaurantId, {
-      date: bookingDate,
-      client: serviceSupabase,
-    });
+    schedule = await timing.measure(
+      'schedule',
+      getRestaurantSchedule(restaurantId, {
+        date: bookingDate,
+        client: serviceSupabase,
+      }),
+    );
   }
 
   const scheduleTimezone =
@@ -524,10 +424,16 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     try {
       startVenue = convertIsoToVenueDateTime(parsed.data.startIso, scheduleTimezone);
       explicitEndVenue = convertOptionalIsoToVenueDateTime(explicitEndIso, scheduleTimezone);
-      existingStartVenue = convertOptionalIsoToVenueDateTime(existingBooking.start_at, scheduleTimezone);
-      existingEndVenue = convertOptionalIsoToVenueDateTime(existingBooking.end_at, scheduleTimezone);
+      existingStartVenue = convertOptionalIsoToVenueDateTime(
+        existingBooking.start_at,
+        scheduleTimezone,
+      );
+      existingEndVenue = convertOptionalIsoToVenueDateTime(
+        existingBooking.end_at,
+        scheduleTimezone,
+      );
     } catch {
-      return NextResponse.json({ error: 'Invalid date values' }, { status: 400 });
+      return timing.json({ error: 'Invalid date values' }, { status: 400 });
     }
 
     bookingDate = startVenue.date;
@@ -549,45 +455,56 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       (needsScheduleForDuration || needsScheduleForPastCheck) &&
       schedule.date !== bookingDate
     ) {
-      schedule = await getRestaurantSchedule(restaurantId, {
-        date: bookingDate,
-        client: serviceSupabase,
-      });
+      schedule = await timing.measure(
+        'schedule_rebased',
+        getRestaurantSchedule(restaurantId, {
+          date: bookingDate,
+          client: serviceSupabase,
+        }),
+      );
     }
   }
 
+  const turnBandsPromise = needsScheduleForDuration
+    ? timing.measure('turn_bands', getRestaurantTurnBands(restaurantId, serviceSupabase))
+    : Promise.resolve(null);
   const bookingOption =
-    typeof existingBooking.booking_type === 'string' && existingBooking.booking_type.trim().length > 0
+    typeof existingBooking.booking_type === 'string' &&
+    existingBooking.booking_type.trim().length > 0
       ? existingBooking.booking_type
       : inferMealTypeFromTime(startTime);
-  const turnBandsByOption = needsScheduleForDuration
-    ? await getRestaurantTurnBands(restaurantId, serviceSupabase)
-    : null;
+  const turnBandsByOption = await turnBandsPromise;
   const computedDuration = needsScheduleForDuration
     ? (
-        await resolveBookingDurationMinutes({
-          restaurantId,
-          bookingDate,
-          startTime,
-          partySize: parsed.data.partySize,
-          bookingOption,
-          timezone: schedule?.timezone ?? null,
-          client: serviceSupabase,
-          turnBandsByOption: turnBandsByOption ?? undefined,
-        })
+        await timing.measure(
+          'duration',
+          resolveBookingDurationMinutes({
+            restaurantId,
+            bookingDate,
+            startTime,
+            partySize: parsed.data.partySize,
+            bookingOption,
+            timezone: schedule?.timezone ?? null,
+            client: serviceSupabase,
+            turnBandsByOption: turnBandsByOption ?? undefined,
+          }),
+        )
       ).durationMinutes
     : null;
   const fallbackDuration =
     existingDurationMinutes && existingDurationMinutes > 0
       ? existingDurationMinutes
-      : (computedDuration && computedDuration > 0 ? computedDuration : (env.reserve.defaultDurationMinutes ?? 90));
+      : computedDuration && computedDuration > 0
+        ? computedDuration
+        : (env.reserve.defaultDurationMinutes ?? 90);
 
   let durationMinutes: number;
   let endDate: Date;
   let endTime: string;
 
   if (isTimeChanged) {
-    durationMinutes = computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
+    durationMinutes =
+      computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
     endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
     endTime = startVenue.dateTime.plus({ minutes: durationMinutes }).toFormat('HH:mm');
   } else if (explicitEndVenue) {
@@ -599,13 +516,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     durationMinutes = fallbackDuration > 0 ? fallbackDuration : 90;
     endTime = existingEndVenue.time;
   } else {
-    durationMinutes = computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
+    durationMinutes =
+      computedDuration && computedDuration > 0 ? computedDuration : fallbackDuration;
     endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
     endTime = startVenue.dateTime.plus({ minutes: durationMinutes }).toFormat('HH:mm');
   }
 
   if (endDate.getTime() <= startDate.getTime()) {
-    return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 });
+    return timing.json({ error: 'End time must be after start time' }, { status: 400 });
   }
 
   const requiresTableRealignment =
@@ -614,44 +532,60 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     endTime !== (existingBooking.end_time ?? '') ||
     parsed.data.partySize !== (existingBooking.party_size ?? 0);
   const normalizedNotes = parsed.data.notes ?? null;
+  const instantFields = buildBookingInstantFieldsFromLocalTimes({
+    bookingDate,
+    startTime,
+    endTime,
+    timezone: scheduleTimezone,
+  });
 
-  const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+  const useUnifiedValidation = isUnifiedBookingValidationEnabled();
 
   if (useUnifiedValidation) {
     const userForContext: AuthenticatedUser = { id: user.id, email: user.email ?? null };
-    return handleUnifiedOpsUpdate({
-      bookingId,
-      bookingDate,
-      startTime,
-      endTime,
-      durationMinutes,
-      payload: parsed.data,
-      existingBooking,
-      user: userForContext,
-      serviceSupabase,
-    });
+    return timing.withHeaders(
+      await handleUnifiedOpsUpdate({
+        bookingId,
+        bookingDate,
+        startTime,
+        endTime,
+        instantFields,
+        durationMinutes,
+        payload: parsed.data,
+        existingBooking,
+        user: userForContext,
+        serviceSupabase,
+      }),
+      { path: 'unified' },
+    );
   }
 
   // Validate past time if feature enabled and time is changing
-  if (isTimeChanged && env.featureFlags.bookingPastTimeBlocking) {
+  if (isTimeChanged && isBookingPastTimeBlockingEnabled()) {
     const allowPastParam = req.nextUrl.searchParams.get('allow_past');
     const allowOverride = allowPastParam === 'true';
 
     // Get user's role for the restaurant
-    const memberships = await fetchUserMemberships(user.id, serviceSupabase);
+    const memberships = await timing.measure(
+      'past_check_memberships',
+      fetchUserMemberships(user.id, serviceSupabase),
+    );
     const membership = memberships.find((m) => m.restaurant_id === existingBooking.restaurant_id);
     const userRole = membership?.role as RestaurantRole | null;
 
     try {
       const scheduleForPast =
         schedule ??
-        (await getRestaurantSchedule(existingBooking.restaurant_id ?? '', {
-          date: bookingDate,
-          client: serviceSupabase,
-        }));
+        (await timing.measure(
+          'past_check_schedule',
+          getRestaurantSchedule(existingBooking.restaurant_id ?? '', {
+            date: bookingDate,
+            client: serviceSupabase,
+          }),
+        ));
 
       assertBookingNotInPast(scheduleForPast.timezone, bookingDate, startTime, {
-        graceMinutes: env.featureFlags.bookingPastTimeGraceMinutes,
+        graceMinutes: getBookingPastTimeGraceMinutes(),
         allowOverride,
         actorRole: userRole,
       });
@@ -698,7 +632,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           });
         });
 
-        return NextResponse.json(
+        return timing.json(
           {
             error: pastTimeError.message,
             code: pastTimeError.code,
@@ -716,26 +650,39 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   try {
     const updated: Tables<'bookings'> = requiresTableRealignment
-      ? await beginBookingModificationFlow({
-          client: tenantClient,
-          bookingId,
-          existingBooking,
-          source: 'ops',
-          payload: {
-            booking_date: bookingDate,
-            start_time: startTime,
-            end_time: endTime,
-            party_size: parsed.data.partySize,
-            notes: normalizedNotes,
-          },
-        })
-      : await updateBookingRecord(tenantClient, bookingId, {
-          booking_date: bookingDate,
-          start_time: startTime,
-          end_time: endTime,
-          party_size: parsed.data.partySize,
-          notes: normalizedNotes,
-        });
+      ? await timing.measure(
+          'modification_flow',
+          beginBookingModificationFlow({
+            client: tenantClient,
+            bookingId,
+            existingBooking,
+            source: 'ops',
+            payload: {
+              booking_date: bookingDate,
+              start_time: startTime,
+              end_time: endTime,
+              ...instantFields,
+              party_size: parsed.data.partySize,
+              notes: normalizedNotes,
+            },
+          }),
+        )
+      : await timing.measure(
+          'booking_update',
+          updateBookingRecord(
+            tenantClient,
+            bookingId,
+            {
+              booking_date: bookingDate,
+              start_time: startTime,
+              end_time: endTime,
+              ...instantFields,
+              party_size: parsed.data.partySize,
+              notes: normalizedNotes,
+            },
+            { restaurantId: existingBooking.restaurant_id },
+          ),
+        );
 
     const auditMetadata = {
       restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,
@@ -806,16 +753,30 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           : null,
     };
 
-    return NextResponse.json(response);
+    return timing.json(response, undefined, {
+      restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,
+      realigned: requiresTableRealignment,
+    });
   } catch (updateError) {
     console.error('[ops/bookings][PATCH] update failed', updateError);
 
-    if (env.featureFlags.dbStrictConstraints) {
+    captureRestaurantServerEvent('booking_modify_failed', {
+      restaurantId: restaurantId || undefined,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', method: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(updateError, {
+      distinctId: user.id,
+      groups: restaurantId ? { restaurant: restaurantId } : undefined,
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
+    });
+
+    if (isDbStrictConstraintMappingEnabled()) {
       const mapped = mapDbErrorToConstraint(updateError);
       if (mapped) {
         const status =
           mapped.kind === 'overlap_conflict' || mapped.kind === 'unique_conflict' ? 409 : 422;
-        return NextResponse.json(
+        return timing.json(
           {
             error: mapped.userMessage,
             code:
@@ -835,7 +796,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    return NextResponse.json({ error: 'Unable to update booking' }, { status: 500 });
+    return timing.json({ error: 'Unable to update booking' }, { status: 500 });
   }
 }
 
@@ -844,6 +805,7 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     bookingId,
     bookingDate,
     durationMinutes,
+    instantFields,
     payload,
     existingBooking,
     user,
@@ -896,8 +858,8 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     actorCapabilities,
     tz: schedule.timezone,
     flags: {
-      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
-      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      bookingPastTimeBlocking: isBookingPastTimeBlockingEnabled(),
+      bookingPastTimeGraceMinutes: getBookingPastTimeGraceMinutes(),
       unified: true,
     },
     metadata: {
@@ -911,7 +873,12 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       bookingInput,
       context,
     );
-    const updated = commit.booking as Tables<'bookings'>;
+    let updated = commit.booking as Tables<'bookings'>;
+    if (updated.start_at !== instantFields.start_at || updated.end_at !== instantFields.end_at) {
+      updated = await updateBookingRecord(tenantClient, bookingId, instantFields, {
+        restaurantId: existingBooking.restaurant_id,
+      });
+    }
     const validationResponse = commit.response;
 
     const auditMetadata: Json = {
@@ -1021,11 +988,29 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
         },
       });
 
+      captureRestaurantServerEvent('booking_modify_failed', {
+        restaurantId: existingBooking.restaurant_id ?? undefined,
+        distinctId: user.id,
+        props: { bookingId, source: 'ops', method: 'ops', reason: 'validation' },
+      });
+
       const mapped = mapValidationFailure(error.response);
       return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
     }
 
     console.error('[ops/bookings][PATCH][unified] update failed', error);
+    captureRestaurantServerEvent('booking_modify_failed', {
+      restaurantId: existingBooking.restaurant_id ?? undefined,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', method: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: existingBooking.restaurant_id
+        ? { restaurant: existingBooking.restaurant_id }
+        : undefined,
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
+    });
     return NextResponse.json({ error: 'Unable to update booking' }, { status: 500 });
   }
 }
@@ -1056,11 +1041,24 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  let authorizedRestaurantIds: string[];
+  try {
+    authorizedRestaurantIds = await loadAuthorizedRestaurantIds(user.id, tenantSupabase);
+  } catch (membershipError) {
+    console.error('[ops/bookings][DELETE] failed to load memberships', membershipError);
+    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+  }
+
+  if (authorizedRestaurantIds.length === 0) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  }
+
   const serviceSupabase = getServiceSupabaseClient();
   const { data: existing, error } = await serviceSupabase
     .from('bookings')
     .select('*')
     .eq('id', bookingId)
+    .in('restaurant_id', authorizedRestaurantIds)
     .maybeSingle();
 
   if (error) {
@@ -1074,25 +1072,27 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
-  try {
-    await requireMembershipForRestaurant({
-      userId: user.id,
-      restaurantId: existingBooking.restaurant_id,
-      client: tenantSupabase,
-    });
-  } catch (membershipError) {
-    console.warn('[ops/bookings][DELETE] membership denied', {
-      bookingId,
-      reason: membershipError instanceof Error ? membershipError.message : membershipError,
-    });
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+  if (existingBooking.status === 'cancelled') {
+    return NextResponse.json({ id: bookingId, status: existingBooking.status });
   }
 
   // Use tenant-scoped client for all cancellation operations
   const tenantClient = getTenantServiceSupabaseClient(existingBooking.restaurant_id);
 
+  captureRestaurantServerEvent('booking_cancel_started', {
+    restaurantId: existingBooking.restaurant_id ?? undefined,
+    distinctId: user.id,
+    props: { bookingId, source: 'ops', method: 'ops' },
+  });
+
   try {
-    const cancelled = await softCancelBooking(tenantClient, bookingId);
+    const cancellation = await softCancelBooking(tenantClient, bookingId, {
+      restaurantId: existingBooking.restaurant_id,
+    });
+    const cancelled = cancellation.booking;
+    if (!cancellation.cancelled) {
+      return NextResponse.json({ id: bookingId, status: cancelled.status });
+    }
 
     const auditMetadata = {
       restaurant_id: existingBooking.restaurant_id,
@@ -1132,6 +1132,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     if (typeof deleteError === 'object' && deleteError !== null) {
       const record = deleteError as { code?: string; message?: string };
       if (record.code === '42501') {
+        captureRestaurantServerEvent('booking_cancel_failed', {
+          restaurantId: existingBooking.restaurant_id ?? undefined,
+          distinctId: user.id,
+          props: { bookingId, source: 'ops', method: 'ops', reason: 'cutoff_passed' },
+        });
         return NextResponse.json(
           {
             error: 'This booking can no longer be cancelled online.',
@@ -1142,6 +1147,18 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    captureRestaurantServerEvent('booking_cancel_failed', {
+      restaurantId: existingBooking.restaurant_id ?? undefined,
+      distinctId: user.id,
+      props: { bookingId, source: 'ops', method: 'ops', reason: 'unexpected' },
+    });
+    captureServerException(deleteError, {
+      distinctId: user.id,
+      groups: existingBooking.restaurant_id
+        ? { restaurant: existingBooking.restaurant_id }
+        : undefined,
+      properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
+    });
     return NextResponse.json({ error: 'Unable to cancel booking' }, { status: 500 });
   }
 }

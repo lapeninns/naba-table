@@ -1,12 +1,11 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { isOpsRejectionAnalyticsEnabled } from "@/server/feature-flags";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
-import { requireAdminMembership } from "@/server/team/access";
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+import { requireAdminMembership } from '@/server/team/access';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
 const payloadSchema = z.object({
   restaurantId: z.string().uuid(),
@@ -28,10 +27,6 @@ const payloadSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  if (!isOpsRejectionAnalyticsEnabled()) {
-    return NextResponse.json({ error: "Simulation feature is disabled" }, { status: 404 });
-  }
-
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -39,19 +34,22 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error("[ops/strategies/simulate][POST] auth lookup failed", error.message);
+    console.error('[ops/strategies/simulate][POST] auth lookup failed', error.message);
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const parsedPayload = payloadSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedPayload.success) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
   const { restaurantId, strategies, notes } = parsedPayload.data;
@@ -59,15 +57,15 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
   } catch (accessError) {
-    console.error("[ops/strategies/simulate][POST] membership check failed", accessError);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    console.error('[ops/strategies/simulate][POST] membership check failed', accessError);
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const timestamp = new Date().toISOString();
 
   return NextResponse.json(
     {
-      status: "queued",
+      status: 'queued',
       restaurantId,
       receivedAt: timestamp,
       strategies: strategies.map((strategy) => ({
@@ -76,12 +74,13 @@ export async function POST(request: NextRequest) {
         weights: strategy.weights,
       })),
       notes: notes ?? null,
-      message: "Simulation job scheduling is not yet implemented. This endpoint returns a placeholder response while the pipeline is defined.",
+      message:
+        'Simulation job scheduling is not yet implemented. This endpoint returns a placeholder response while the pipeline is defined.',
     },
     { status: 202 },
   );
 }
 
 export function GET() {
-  return NextResponse.json({ error: "Not implemented" }, { status: 405 });
+  return NextResponse.json({ error: 'Not implemented' }, { status: 405 });
 }

@@ -1,8 +1,9 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useDeferredValue, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { sanitizeDateParam } from '@/utils/ops/dashboard';
 
 import { normalizeBookingFilter } from './bookingFilters';
@@ -42,7 +43,7 @@ export function useOpsDashboardQueryState({ initialDate }: { initialDate: string
     return initial ?? DEFAULT_FILTER;
   });
   const [searchQuery, setSearchQuery] = useState(() => searchParams?.get('search') ?? '');
-  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const deferredSearchQuery = useDebouncedValue(searchQuery, 250);
   const [selectedDate, setSelectedDate] = useState<string | null>(
     sanitizeDateParam(initialDate ?? undefined),
   );

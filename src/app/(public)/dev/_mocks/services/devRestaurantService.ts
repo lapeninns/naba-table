@@ -53,6 +53,7 @@ function buildRestaurantSnapshot(
     contactEmail: overrides.contactEmail ?? 'ops@example.com',
     contactPhone: overrides.contactPhone ?? '+44 7700 900123',
     address: overrides.address ?? '1 Example Street, London',
+    businessDescription: overrides.businessDescription ?? null,
     managerDailySummaryEnabled: overrides.managerDailySummaryEnabled ?? true,
     managerNotificationPhone: overrides.managerNotificationPhone ?? '+44 7700 900123',
     googleMapUrl: overrides.googleMapUrl ?? null,
@@ -172,6 +173,12 @@ export class DevRestaurantService implements RestaurantService {
     this.state = buildInitialState();
   }
 
+  private unimplemented<T extends (...args: unknown[]) => unknown>(name: string): T {
+    return (async (..._args: unknown[]) => {
+      throw new Error(`[dev][restaurantService] ${name} is not implemented`);
+    }) as unknown as T;
+  }
+
   listRestaurants: RestaurantService['listRestaurants'] = async () =>
     Object.values(this.state.restaurants).map(({ profile }, index) => ({
       id: profile.id,
@@ -192,6 +199,14 @@ export class DevRestaurantService implements RestaurantService {
     return snapshot.profile;
   }
 
+  getBusinessContext =
+    this.unimplemented<RestaurantService['getBusinessContext']>('getBusinessContext');
+  updateBusinessContext =
+    this.unimplemented<RestaurantService['updateBusinessContext']>('updateBusinessContext');
+  syncProfileWithGoogleBusinessProfile = this.unimplemented<
+    RestaurantService['syncProfileWithGoogleBusinessProfile']
+  >('syncProfileWithGoogleBusinessProfile');
+
   async getOperatingHours(restaurantId: string) {
     return getRestaurantSnapshot(this.state, restaurantId).hours;
   }
@@ -202,6 +217,10 @@ export class DevRestaurantService implements RestaurantService {
     return restaurant.hours;
   }
 
+  syncOperatingHoursWithGoogleBusinessProfile = this.unimplemented<
+    RestaurantService['syncOperatingHoursWithGoogleBusinessProfile']
+  >('syncOperatingHoursWithGoogleBusinessProfile');
+
   async getServicePeriods(restaurantId: string) {
     return getRestaurantSnapshot(this.state, restaurantId).servicePeriods;
   }
@@ -211,6 +230,10 @@ export class DevRestaurantService implements RestaurantService {
     restaurant.servicePeriods = rows;
     return restaurant.servicePeriods;
   }
+
+  syncServicePeriodsWithGoogleBusinessProfile = this.unimplemented<
+    RestaurantService['syncServicePeriodsWithGoogleBusinessProfile']
+  >('syncServicePeriodsWithGoogleBusinessProfile');
 
   async getTurnBands(restaurantId: string) {
     return getRestaurantSnapshot(this.state, restaurantId).turnBands;
@@ -402,6 +425,43 @@ export class DevRestaurantService implements RestaurantService {
       preview: await this.previewEmailTemplate(restaurantId, templateKey, payload),
     };
   }
+
+  getGoogleBusinessProfileConnection = this.unimplemented<
+    RestaurantService['getGoogleBusinessProfileConnection']
+  >('getGoogleBusinessProfileConnection');
+  getGoogleBusinessProfileAvailableLocations = this.unimplemented<
+    RestaurantService['getGoogleBusinessProfileAvailableLocations']
+  >('getGoogleBusinessProfileAvailableLocations');
+  startGoogleBusinessProfileAuthorization = this.unimplemented<
+    RestaurantService['startGoogleBusinessProfileAuthorization']
+  >('startGoogleBusinessProfileAuthorization');
+  getGoogleBusinessProfileWorkflow = this.unimplemented<
+    RestaurantService['getGoogleBusinessProfileWorkflow']
+  >('getGoogleBusinessProfileWorkflow');
+  createGoogleBusinessProfileDraft = this.unimplemented<
+    RestaurantService['createGoogleBusinessProfileDraft']
+  >('createGoogleBusinessProfileDraft');
+  updateGoogleBusinessProfileDraft = this.unimplemented<
+    RestaurantService['updateGoogleBusinessProfileDraft']
+  >('updateGoogleBusinessProfileDraft');
+  preflightGoogleBusinessProfileDraftPublish = this.unimplemented<
+    RestaurantService['preflightGoogleBusinessProfileDraftPublish']
+  >('preflightGoogleBusinessProfileDraftPublish');
+  publishGoogleBusinessProfileDraft = this.unimplemented<
+    RestaurantService['publishGoogleBusinessProfileDraft']
+  >('publishGoogleBusinessProfileDraft');
+  retryGoogleBusinessProfileDraftGooglePush = this.unimplemented<
+    RestaurantService['retryGoogleBusinessProfileDraftGooglePush']
+  >('retryGoogleBusinessProfileDraftGooglePush');
+  linkGoogleBusinessProfileLocation = this.unimplemented<
+    RestaurantService['linkGoogleBusinessProfileLocation']
+  >('linkGoogleBusinessProfileLocation');
+  syncGoogleBusinessProfileBusinessInfo = this.unimplemented<
+    RestaurantService['syncGoogleBusinessProfileBusinessInfo']
+  >('syncGoogleBusinessProfileBusinessInfo');
+  disconnectGoogleBusinessProfileConnection = this.unimplemented<
+    RestaurantService['disconnectGoogleBusinessProfileConnection']
+  >('disconnectGoogleBusinessProfileConnection');
 }
 
 export function createDevRestaurantService(): RestaurantService {

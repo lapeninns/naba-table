@@ -80,7 +80,7 @@ describe('OpsBookingCardActions', () => {
 
   it('uses the correct primary button label and disabled state for confirmed and checked-in bookings', () => {
     const { rerender } = render(
-      <OpsBookingCardActions actions={createActions()} />,
+      <OpsBookingCardActions actions={createActions()} onCheckIn={vi.fn()} />,
     );
 
     expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeEnabled();
@@ -88,6 +88,7 @@ describe('OpsBookingCardActions', () => {
     rerender(
       <OpsBookingCardActions
         actions={createActions({ status: 'checked_in' })}
+        onCheckOut={vi.fn()}
       />,
     );
 
@@ -101,10 +102,33 @@ describe('OpsBookingCardActions', () => {
             now: new Date('2026-03-30T18:00:00.000Z'),
           },
         )}
+        onCheckIn={vi.fn()}
       />,
     );
 
     expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeDisabled();
+  });
+
+  it('disables primary lifecycle buttons when the matching handler is missing', () => {
+    const { rerender } = render(<OpsBookingCardActions actions={createActions()} />);
+
+    expect(screen.getByRole('button', { name: 'Seat Guest' })).toBeDisabled();
+
+    rerender(<OpsBookingCardActions actions={createActions({ status: 'checked_in' })} />);
+
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeDisabled();
+  });
+
+  it('shows a visible error when Seat Guest fails', async () => {
+    const user = userEvent.setup();
+    const onCheckIn = vi.fn().mockRejectedValue(new Error('Lifecycle action rejected'));
+
+    render(<OpsBookingCardActions actions={createActions()} onCheckIn={onCheckIn} />);
+
+    await user.click(screen.getByRole('button', { name: 'Seat Guest' }));
+
+    expect(onCheckIn).toHaveBeenCalledWith('booking-1');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Lifecycle action rejected');
   });
 
   it.each([
@@ -112,9 +136,7 @@ describe('OpsBookingCardActions', () => {
     ['cancelled', 'Cancelled'],
     ['no_show', 'No show'],
   ] as const)('shows a closed status label for %s bookings', (status, statusText) => {
-    render(
-      <OpsBookingCardActions actions={createActions({ status })} />,
-    );
+    render(<OpsBookingCardActions actions={createActions({ status })} />);
 
     expect(screen.getByRole('status')).toHaveTextContent(statusText);
   });
@@ -123,7 +145,13 @@ describe('OpsBookingCardActions', () => {
     const user = userEvent.setup();
 
     render(
-      <OpsBookingCardActions actions={createActions({ status: 'completed' })} />,
+      <OpsBookingCardActions
+        actions={createActions({ status: 'completed' })}
+        onDetails={vi.fn()}
+        onEdit={vi.fn()}
+        onCancel={vi.fn()}
+        onMarkNoShow={vi.fn()}
+      />,
     );
 
     expect(screen.queryByRole('button', { name: 'Seat Guest' })).not.toBeInTheDocument();
@@ -169,7 +197,7 @@ describe('OpsBookingCardActions', () => {
   it('uses singular and plural cover copy in the no-show dialog', async () => {
     const user = userEvent.setup();
     const { rerender } = render(
-      <OpsBookingCardActions actions={createActions({ partySize: 1 })} />,
+      <OpsBookingCardActions actions={createActions({ partySize: 1 })} onMarkNoShow={vi.fn()} />,
     );
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
@@ -177,7 +205,9 @@ describe('OpsBookingCardActions', () => {
     expect(screen.getByRole('alertdialog')).toHaveTextContent('1 cover on');
     await user.click(screen.getByRole('button', { name: /keep booking/i }));
 
-    rerender(<OpsBookingCardActions actions={createActions({ partySize: 3 })} />);
+    rerender(
+      <OpsBookingCardActions actions={createActions({ partySize: 3 })} onMarkNoShow={vi.fn()} />,
+    );
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('3 covers on');
@@ -187,9 +217,7 @@ describe('OpsBookingCardActions', () => {
     const user = userEvent.setup();
     const onMarkNoShow = vi.fn().mockResolvedValue(undefined);
 
-    render(
-      <OpsBookingCardActions actions={createActions()} onMarkNoShow={onMarkNoShow} />,
-    );
+    render(<OpsBookingCardActions actions={createActions()} onMarkNoShow={onMarkNoShow} />);
 
     await user.click(screen.getByRole('button', { name: /more actions/i }));
     await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
@@ -197,5 +225,20 @@ describe('OpsBookingCardActions', () => {
 
     expect(onMarkNoShow).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps the no-show dialog open and shows an error when confirmation fails', async () => {
+    const user = userEvent.setup();
+    const onMarkNoShow = vi.fn().mockRejectedValue(new Error('No-show rejected'));
+
+    render(<OpsBookingCardActions actions={createActions()} onMarkNoShow={onMarkNoShow} />);
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(screen.getByRole('menuitem', { name: /mark no show/i }));
+    await user.click(screen.getByRole('button', { name: /confirm no-show/i }));
+
+    expect(onMarkNoShow).toHaveBeenCalledWith('booking-1');
+    expect(await screen.findByRole('alert')).toHaveTextContent('No-show rejected');
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
 });

@@ -1,17 +1,21 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { AppProviders } from '@/app/providers';
 import { OpsShell } from '@/components/features/ops-shell/OpsShell';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
-import { env } from '@/lib/env';
 import {
   OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
+import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
+import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
-import { fetchUserMembershipsCached, type RestaurantMembershipWithDetails } from '@/server/team/access';
+import {
+  fetchUserMembershipsCached,
+  type RestaurantMembershipWithDetails,
+} from '@/server/team/access';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { OpsMembership, OpsUser } from '@/types/ops';
@@ -55,40 +59,54 @@ function mapMembershipToOps(membership: RestaurantMembershipWithDetails): OpsMem
 
 export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
   const cookieStore = await cookies();
+  const headerStore = await headers();
   const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
+  const qaOpsFixture = getQaOpsAuthFixture({
+    cookieValue: cookieStore.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
+    host: headerStore.get('host'),
+  });
 
   const supabase = await getServerComponentSupabaseClient();
 
   let supabaseUser: OpsUser | null = null;
   let memberships: RestaurantMembershipWithDetails[] = [];
+  let qaOpsMemberships: OpsMembership[] | null = null;
 
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+  if (qaOpsFixture) {
+    supabaseUser = qaOpsFixture.user;
+    qaOpsMemberships = qaOpsFixture.memberships;
+  } else {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
 
-    if (error) {
-      console.error('[app/layout] failed to load user', error.message);
+      if (error) {
+        console.error('[app/layout] failed to load user', error.message);
+      }
+
+      if (user) {
+        supabaseUser = {
+          id: user.id,
+          email: user.email ?? null,
+        };
+      }
+    } catch (authError) {
+      console.error('[app/layout] unexpected error while resolving account', authError);
     }
-
-    if (user) {
-      supabaseUser = {
-        id: user.id,
-        email: user.email ?? null,
-      };
-    }
-  } catch (authError) {
-    console.error('[app/layout] unexpected error while resolving account', authError);
   }
 
-  if (supabaseUser) {
+  if (supabaseUser && !qaOpsFixture) {
     const membershipsPromise = fetchUserMembershipsCached(supabaseUser.id);
 
     try {
       memberships = await membershipsPromise;
     } catch (membershipError) {
-      console.error('[app/layout] failed to load memberships', describeSupabaseError(membershipError));
+      console.error(
+        '[app/layout] failed to load memberships',
+        describeSupabaseError(membershipError),
+      );
       memberships = [];
     }
   }
@@ -99,30 +117,27 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     redirect('/app/auth/signin');
   }
 
-  const opsMemberships: OpsMembership[] = memberships
-    .filter((membership) => Boolean(membership.restaurant_id))
-    .map(mapMembershipToOps);
+  const opsMemberships: OpsMembership[] =
+    qaOpsMemberships ??
+    memberships.filter((membership) => Boolean(membership.restaurant_id)).map(mapMembershipToOps);
 
   const initialRestaurantId = resolvePreferredOpsRestaurantId(
     opsMemberships.map((membership) => membership.restaurantId),
     cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,
   );
-  const featureFlags = {
-    opsMetrics: env.featureFlags.opsMetrics ?? false,
-    selectorScoring: env.featureFlags.selectorScoring ?? false,
-    rejectionAnalytics: env.featureFlags.opsRejectionAnalytics ?? false,
-  } as const;
+  const opsEnvBanner = resolveOpsEnvBanner();
 
   return (
     <OpsSessionProvider
       user={supabaseUser}
       memberships={opsMemberships}
       initialRestaurantId={initialRestaurantId}
-      featureFlags={featureFlags}
     >
       <OpsServicesProvider>
         <AppProviders>
-          <OpsShell defaultSidebarOpen={defaultOpen}>{children}</OpsShell>
+          <OpsShell defaultSidebarOpen={defaultOpen} envBanner={opsEnvBanner}>
+            {children}
+          </OpsShell>
         </AppProviders>
       </OpsServicesProvider>
     </OpsSessionProvider>

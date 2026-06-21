@@ -12,7 +12,10 @@ type ExportCustomersButtonProps = {
   restaurantName: string;
   disabled?: boolean;
   sort?: 'asc' | 'desc';
-  filters?: Pick<CustomerListParams, 'sortBy' | 'search' | 'marketingOptIn' | 'lastVisit' | 'minBookings'>;
+  filters?: Pick<
+    CustomerListParams,
+    'sortBy' | 'search' | 'marketingOptIn' | 'lastVisit' | 'minBookings'
+  >;
 };
 
 function buildFallbackFilename(restaurantName: string): string {
@@ -44,7 +47,13 @@ function extractFilename(headerValue: string | null, fallback: string): string {
   return fallback;
 }
 
-export function ExportCustomersButton({ restaurantId, restaurantName, disabled, sort = 'desc', filters }: ExportCustomersButtonProps) {
+export function ExportCustomersButton({
+  restaurantId,
+  restaurantName,
+  disabled,
+  sort = 'desc',
+  filters,
+}: ExportCustomersButtonProps) {
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async () => {
@@ -59,8 +68,10 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
 
       if (filters?.sortBy) params.set('sortBy', filters.sortBy);
       if (filters?.search) params.set('search', filters.search);
-      if (filters?.marketingOptIn && filters.marketingOptIn !== 'all') params.set('marketingOptIn', filters.marketingOptIn);
-      if (filters?.lastVisit && filters.lastVisit !== 'any') params.set('lastVisit', filters.lastVisit);
+      if (filters?.marketingOptIn && filters.marketingOptIn !== 'all')
+        params.set('marketingOptIn', filters.marketingOptIn);
+      if (filters?.lastVisit && filters.lastVisit !== 'any')
+        params.set('lastVisit', filters.lastVisit);
       if (typeof filters?.minBookings === 'number' && filters.minBookings > 0) {
         params.set('minBookings', String(filters.minBookings));
       }
@@ -78,7 +89,10 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
 
       const blob = await response.blob();
       const fallbackFilename = buildFallbackFilename(restaurantName);
-      const filename = extractFilename(response.headers.get('content-disposition'), fallbackFilename);
+      const filename = extractFilename(
+        response.headers.get('content-disposition'),
+        fallbackFilename,
+      );
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -90,7 +104,6 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error('[ExportCustomersButton] Export failed', error);
     } finally {
@@ -111,7 +124,7 @@ export function ExportCustomersButton({ restaurantId, restaurantName, disabled, 
       className="h-11 sm:h-9"
       aria-label={isExporting ? 'Exporting guests...' : 'Export guests to CSV'}
     >
-      <Download className="mr-2 h-4 w-4" />
+      <Download className="mr-2 size-4" />
       {isExporting ? 'Exporting...' : 'Export CSV'}
     </Button>
   );

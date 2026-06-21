@@ -6,9 +6,16 @@ import process from 'node:process';
 
 import { createClient } from '@supabase/supabase-js';
 
+import { redactSmsRecipientPhone } from '@/lib/sms/phone-redaction';
+import { DEFAULT_PRODUCTION_PROJECT_REF, assertProductionApiScriptSafety } from './db/safety';
+
 import type { Database } from '@/types/supabase';
 
 const projectRoot = process.cwd();
+
+function redactNullableSmsRecipientPhone(phone: string | null): string | null {
+  return phone ? redactSmsRecipientPhone(phone) : null;
+}
 
 type EnvTarget = 'production' | 'staging';
 
@@ -141,15 +148,25 @@ async function main(): Promise<void> {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
   }
 
+  if (args.env === 'production') {
+    assertProductionApiScriptSafety({
+      apiUrl: supabaseUrl,
+      expectedProjectRef: process.env.EXPECTED_PROJECT_REF ?? DEFAULT_PRODUCTION_PROJECT_REF,
+      targetEnv: process.env.DB_TARGET_ENV ?? process.env.APP_ENV,
+      requireTargetEnv: true,
+      apply: args.apply,
+      confirmation: process.env.CONFIRM_PRODUCTION,
+    });
+  }
+
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const [{ listTwilioMessagesPage, mapTwilioMessageStatusToDeliveryStatus }, { matchHistoricalTwilioMessageToBooking }] =
-    await Promise.all([
-      import('@/lib/twilio/sms'),
-      import('@/server/sms/backfill'),
-    ]);
+  const [
+    { listTwilioMessagesPage, mapTwilioMessageStatusToDeliveryStatus },
+    { matchHistoricalTwilioMessageToBooking },
+  ] = await Promise.all([import('@/lib/twilio/sms'), import('@/server/sms/backfill')]);
   const since = new Date(Date.now() - args.days * 24 * 60 * 60 * 1000);
   const sinceIso = since.toISOString();
   const untilIso = new Date().toISOString();
@@ -276,15 +293,11 @@ async function main(): Promise<void> {
     if (match.kind === 'matched') {
       summary.matched += 1;
       matchedRows.push({
-        messageSid: match.messageSid,
-        bookingId: match.bookingId,
-        restaurantId: match.restaurantId,
-        bookingReference: match.bookingReference,
         smsType: match.smsType,
         matchedBy: match.matchedBy,
         occurredAt: match.occurredAt,
         providerStatus: match.providerStatus,
-        to: message.to,
+        to: redactNullableSmsRecipientPhone(message.to),
       });
 
       if (args.apply) {
@@ -315,10 +328,8 @@ async function main(): Promise<void> {
           } else {
             summary.insertFailed += 1;
             ambiguousRows.push({
-              messageSid: match.messageSid,
               reason: 'insert_failed',
               error: error.message,
-              bookingId: match.bookingId,
             });
           }
         }
@@ -330,10 +341,9 @@ async function main(): Promise<void> {
     if (match.kind === 'ambiguous') {
       summary.ambiguous += 1;
       ambiguousRows.push({
-        messageSid: match.messageSid,
         reason: match.reason,
-        candidateBookingIds: match.candidateBookingIds,
-        to: message.to,
+        candidateCount: match.candidateBookingIds.length,
+        to: redactNullableSmsRecipientPhone(message.to),
         providerStatus: message.status,
       });
       continue;
@@ -341,14 +351,16 @@ async function main(): Promise<void> {
 
     summary.unmatched += 1;
     unmatchedRows.push({
-      messageSid: match.messageSid,
       reason: match.reason,
-      to: message.to,
+      to: redactNullableSmsRecipientPhone(message.to),
       providerStatus: message.status,
     });
   }
 
-  const stamp = new Date().toISOString().replace(/[:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z');
   const artifactPath = path.join(
     ARTIFACT_DIR,
     `sms-backfill-${args.env}-${args.apply ? 'apply' : 'dry-run'}-${stamp}.json`,

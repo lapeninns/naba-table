@@ -1,0 +1,43 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - link "Nabatable logo Nabatable" [ref=e8] [cursor=pointer]:
+        - /url: /
+        - img "Nabatable logo" [ref=e9]
+        - generic [ref=e11]: Nabatable
+      - generic [ref=e12]:
+        - navigation "Primary navigation" [ref=e13]:
+          - link "Restaurants" [ref=e14] [cursor=pointer]:
+            - /url: /restaurants
+          - link "Book a table" [ref=e15] [cursor=pointer]:
+            - /url: /bookings
+        - link "Sign in" [ref=e17] [cursor=pointer]:
+          - /url: /auth
+    - main [ref=e18]
+    - contentinfo [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]:
+          - link "Nabatable logo Nabatable" [ref=e34] [cursor=pointer]:
+            - /url: /
+            - img "Nabatable logo" [ref=e35]
+            - generic [ref=e37]: Nabatable
+          - paragraph [ref=e38]: Live availability · Instant confirmation · Guest receipts
+        - navigation "Footer navigation" [ref=e39]:
+          - link "Browse restaurants" [ref=e40] [cursor=pointer]:
+            - /url: /restaurants
+          - link "Book a table" [ref=e41] [cursor=pointer]:
+            - /url: /bookings
+          - link "Sign in" [ref=e42] [cursor=pointer]:
+            - /url: /auth/signin
+      - separator [ref=e44]
+      - generic [ref=e45]:
+        - paragraph [ref=e46]: © 2026 Nab a Table. All rights reserved.
+        - navigation "Legal links" [ref=e47]:
+          - link "Privacy Policy" [ref=e48] [cursor=pointer]:
+            - /url: /privacy
+          - link "Support" [ref=e49] [cursor=pointer]:
+            - /url: /contact
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e55] [cursor=pointer]:
+    - img [ref=e56]
+  - alert [ref=e59]

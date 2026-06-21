@@ -18,20 +18,32 @@ vi.mock('next/image', () => ({
   // eslint-disable-next-line @next/next/no-img-element
   default: (props: ComponentProps<'img'>) => <img alt={props.alt ?? ''} {...props} />,
 }));
+vi.mock('@/guest/services/auth-state.server', () => ({
+  getGuestAuthState: vi.fn(async () => ({ isAuthenticated: false })),
+}));
 
 describe('public booking confirmation and recovery surfaces', () => {
   it('renders the canonical restaurant thank-you copy and exits', () => {
-    const { container } = render(<ReservationThankYouCard />);
+    const restaurant = {
+      id: 'rest-1',
+      slug: 'the-fox',
+      name: 'The Fox',
+      address: '1 High Street',
+    };
 
+    const { container } = render(
+      <ReservationThankYouCard restaurant={restaurant} isAuthenticated={false} />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Your table request is in.' })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Reservation confirmed!' }),
+      screen.getByText(
+        'Your table request for The Fox is in. Check your inbox for confirmation details, or sign in with the booking email to keep it with your guest portal.',
+      ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('Confirmation email sent with your details and link.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'View my bookings' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Sign in to view bookings' })).toHaveAttribute(
       'href',
-      '/guest/bookings',
+      '/auth/signin?redirectedFrom=/guest/bookings',
     );
     expect(screen.getByRole('link', { name: 'Explore restaurants' })).toHaveAttribute(
       'href',
@@ -47,17 +59,32 @@ describe('public booking confirmation and recovery surfaces', () => {
       }),
     );
 
-    expect(screen.getByRole('heading', { name: 'Link has expired' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'This booking link has expired' }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'This booking link has expired. Please request a new link or sign in to manage your booking.',
+        'For safety, booking recovery links expire after a period of time. Your booking may still be valid.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/signin');
+    expect(screen.getByRole('link', { name: 'Manage another booking' })).toHaveAttribute(
       'href',
-      '/auth/signin',
+      '/bookings',
     );
-    expect(screen.getByRole('link', { name: 'Return home' })).toHaveAttribute('href', '/');
     expect(container.querySelector('main')).not.toBeInTheDocument();
+  });
+
+  it('normalizes duplicated recovery codes before rendering reason details', async () => {
+    render(
+      await BookingRecoverErrorPage({
+        searchParams: Promise.resolve({ code: ['ACCESS_TOKEN_EXPIRED', 'INVALID_ACCESS_TOKEN'] }),
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'This booking link has expired' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('ACCESS TOKEN EXPIRED')).toBeInTheDocument();
   });
 });

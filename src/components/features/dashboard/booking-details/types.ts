@@ -100,8 +100,11 @@ export type BookingDetailsProps = {
   }) => Promise<void>;
   onUndoNoShow?: (reason?: string | null) => Promise<void>;
   onCancel?: () => Promise<void>;
+  onDataRefresh?: () => Promise<void> | void;
   pendingLifecycleAction?: BookingActionType | null;
   cancelPending?: boolean;
+  tableAssignmentQueryEnabled?: boolean;
+  tableAssignmentRealtime?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   isToday?: boolean;
@@ -120,6 +123,13 @@ export type UseTableAssignmentOptions = {
   date?: string | null;
   currentAssignments?: string[];
   onAssignmentComplete?: () => void;
+  enabled?: boolean;
+  /**
+   * Whether to maintain a per-hook realtime subscription. Set `false` when a
+   * parent (e.g. `useOpsBookingDialogBundle`) already owns a consolidated
+   * channel that invalidates the assignment-context cache key.
+   */
+  realtime?: boolean;
 };
 
 export type UseTableAssignmentReturn = {

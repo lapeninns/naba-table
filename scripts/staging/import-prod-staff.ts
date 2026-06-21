@@ -1,16 +1,18 @@
-import { config as loadEnv, parse as parseEnv } from "dotenv";
-import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { config as loadEnv, parse as parseEnv } from 'dotenv';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { Client } from "pg";
-import { createClient } from "@supabase/supabase-js";
+import { Client } from 'pg';
+import { createClient } from '@supabase/supabase-js';
 
-import type { Database } from "@/types/supabase";
+import { getPgSslConfig } from '../db/pg-ssl';
+import { assertStagingScriptSafety, DEFAULT_STAGING_PROJECT_REF } from '../db/safety';
+import type { Database } from '@/types/supabase';
 
-type RestaurantRole = "owner" | "manager" | "host" | "server";
+type RestaurantRole = 'owner' | 'manager' | 'host' | 'server';
 
 type ProdMembershipRow = {
   email: string;
@@ -30,12 +32,14 @@ type StagingUser = {
   restaurantIds: Set<string>;
 };
 
+const CONFIRM_STAGING_IMPORT_ENV = 'CONFIRM_STAGING_STAFF_IMPORT';
+
 function readRepoEnvFiles() {
   const modulePath = fileURLToPath(import.meta.url);
-  const repoRoot = path.resolve(path.dirname(modulePath), "../..");
+  const repoRoot = path.resolve(path.dirname(modulePath), '../..');
 
-  const envLocalPath = path.join(repoRoot, ".env.local");
-  const envProdPath = path.join(repoRoot, ".env.vercel-production");
+  const envLocalPath = path.join(repoRoot, '.env.local');
+  const envProdPath = path.join(repoRoot, '.env.vercel-production');
 
   if (fs.existsSync(envLocalPath)) {
     loadEnv({ path: envLocalPath, override: false });
@@ -53,7 +57,7 @@ function requireEnv(name: string): string {
 }
 
 function parseSupabaseProjectRefFromUrl(url: string): string {
-  const raw = url.trim().replace(/"/g, "");
+  const raw = url.trim().replace(/"/g, '');
   const match = raw.match(/^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/i);
   if (!match) {
     throw new Error(`Unable to parse Supabase project ref from url: ${url}`);
@@ -61,31 +65,61 @@ function parseSupabaseProjectRefFromUrl(url: string): string {
   return match[1]!.toLowerCase();
 }
 
+function requireConfirmedStagingDestination(params: {
+  stagingUrl: string;
+  prodRef: string;
+}): string {
+  const stagingRef = parseSupabaseProjectRefFromUrl(params.stagingUrl);
+  const expectedStagingRef =
+    process.env.EXPECTED_STAGING_PROJECT_REF?.trim().toLowerCase() ||
+    process.env.STAGING_SUPABASE_PROJECT_REF?.trim().toLowerCase() ||
+    DEFAULT_STAGING_PROJECT_REF;
+
+  if (stagingRef === params.prodRef) {
+    throw new Error(
+      `Destination Supabase project ref ${stagingRef} matches production. Refusing to import staff.`,
+    );
+  }
+
+  const targetEnv = process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim();
+  assertStagingScriptSafety({
+    apiUrl: params.stagingUrl,
+    expectedProjectRef: expectedStagingRef,
+    targetEnv,
+    confirmation: process.env[CONFIRM_STAGING_IMPORT_ENV],
+    confirmationName: CONFIRM_STAGING_IMPORT_ENV,
+  });
+
+  return stagingRef;
+}
+
 function normalizeRole(value: unknown): RestaurantRole | null {
-  if (typeof value !== "string") return null;
+  if (typeof value !== 'string') return null;
   const raw = value.trim().toLowerCase();
-  if (raw === "owner" || raw === "manager" || raw === "host" || raw === "server") {
+  if (raw === 'owner' || raw === 'manager' || raw === 'host' || raw === 'server') {
     return raw;
   }
   return null;
 }
 
 function generatePassword(): string {
-  return crypto.randomBytes(18).toString("base64url"); // ~24 chars
+  return crypto.randomBytes(18).toString('base64url'); // ~24 chars
 }
 
 function parseRoleAllowlist(): Set<RestaurantRole> {
   // Default: only import roles that can administer restaurants.
-  const raw = (process.env.IMPORT_ROLES ?? "owner,manager").trim();
+  const raw = (process.env.IMPORT_ROLES ?? 'owner,manager').trim();
   const values = raw
-    .split(",")
+    .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
   const roles = new Set<RestaurantRole>();
   for (const v of values) {
     const role = normalizeRole(v);
     if (!role) {
-      throw new Error(`Invalid IMPORT_ROLES entry "${v}". Expected one of: owner,manager,host,server`);
+      throw new Error(
+        `Invalid IMPORT_ROLES entry "${v}". Expected one of: owner,manager,host,server`,
+      );
     }
     roles.add(role);
   }
@@ -101,7 +135,7 @@ async function loadProdMemberships(params: {
 
   const client = new Client({
     connectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: getPgSslConfig(),
   });
 
   await client.connect();
@@ -127,10 +161,10 @@ async function loadProdMemberships(params: {
       .map((row) => {
         const role = normalizeRole(row.role);
         return {
-          email: String(row.email ?? "").trim(),
+          email: String(row.email ?? '').trim(),
           name: row.name ? String(row.name) : null,
-          role: role ?? "host",
-          restaurant_id: String(row.restaurant_id ?? "").trim(),
+          role: role ?? 'host',
+          restaurant_id: String(row.restaurant_id ?? '').trim(),
           restaurant_slug: row.restaurant_slug ? String(row.restaurant_slug) : null,
           restaurant_name: row.restaurant_name ? String(row.restaurant_name) : null,
         } satisfies ProdMembershipRow;
@@ -157,20 +191,22 @@ async function ensureStagingUser(params: {
   });
 
   if (!created.error) {
-    const id = created.data.user?.id ?? "";
+    const id = created.data.user?.id ?? '';
     if (!id) throw new Error(`User created for ${email}, but no id returned.`);
     return id;
   }
 
   // If already exists, find it.
-  const msg = created.error.message ?? "Unknown error";
+  const msg = created.error.message ?? 'Unknown error';
   if (!/already|exists|duplicate/i.test(msg)) {
     throw created.error;
   }
 
   const listed = await staging.auth.admin.listUsers({ perPage: 1000, page: 1 });
   if (listed.error) throw listed.error;
-  const existing = (listed.data?.users ?? []).find((u) => (u.email ?? "").toLowerCase() === email.toLowerCase());
+  const existing = (listed.data?.users ?? []).find(
+    (u) => (u.email ?? '').toLowerCase() === email.toLowerCase(),
+  );
   if (!existing?.id) {
     throw new Error(`User exists but could not be resolved by listUsers: ${email}`);
   }
@@ -190,41 +226,50 @@ async function main() {
   const { repoRoot, envProdPath } = readRepoEnvFiles();
   const allowRoles = parseRoleAllowlist();
 
-  const stagingUrl = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const stagingServiceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const stagingUrl = requireEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const stagingServiceKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!fs.existsSync(envProdPath)) {
-    throw new Error(`Missing ${envProdPath}. This script needs production DB access to read staff memberships.`);
+    throw new Error(
+      `Missing ${envProdPath}. This script needs production DB access to read staff memberships.`,
+    );
   }
 
   // Load prod connection details from .env.vercel-production without mutating process.env staging values.
   const prodEnv = parseEnv(fs.readFileSync(envProdPath));
-  const prodUrl = (prodEnv.NEXT_PUBLIC_SUPABASE_URL ?? "").trim().replace(/"/g, "");
-  const prodDbPassword = (prodEnv.SUPABASE_DB_PASSWORD ?? "").trim();
+  const prodUrl = (prodEnv.NEXT_PUBLIC_SUPABASE_URL ?? '').trim().replace(/"/g, '');
+  const prodDbPassword = (prodEnv.SUPABASE_DB_PASSWORD ?? '').trim();
   if (!prodUrl || !prodDbPassword) {
-    throw new Error(`.env.vercel-production must include NEXT_PUBLIC_SUPABASE_URL and SUPABASE_DB_PASSWORD`);
+    throw new Error(
+      `.env.vercel-production must include NEXT_PUBLIC_SUPABASE_URL and SUPABASE_DB_PASSWORD`,
+    );
   }
 
   const prodRef = parseSupabaseProjectRefFromUrl(prodUrl);
+  const stagingRef = requireConfirmedStagingDestination({ stagingUrl, prodRef });
 
   const staging = createClient<Database>(stagingUrl, stagingServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  const stagingRestaurantsRes = await staging.from("restaurants").select("id");
+  const stagingRestaurantsRes = await staging.from('restaurants').select('id');
   if (stagingRestaurantsRes.error) {
     throw stagingRestaurantsRes.error;
   }
   const stagingRestaurantIds = new Set((stagingRestaurantsRes.data ?? []).map((row) => row.id));
   if (stagingRestaurantIds.size === 0) {
-    throw new Error("No restaurants found in staging. Seed restaurants before importing staff.");
+    throw new Error('No restaurants found in staging. Seed restaurants before importing staff.');
   }
 
   const rows = await loadProdMemberships({ prodRef, prodDbPassword });
-  const filtered = rows.filter((row) => allowRoles.has(row.role) && stagingRestaurantIds.has(row.restaurant_id));
+  const filtered = rows.filter(
+    (row) => allowRoles.has(row.role) && stagingRestaurantIds.has(row.restaurant_id),
+  );
 
   if (filtered.length === 0) {
-    throw new Error(`No production memberships found for roles: ${Array.from(allowRoles).join(", ")}`);
+    throw new Error(
+      `No production memberships found for roles: ${Array.from(allowRoles).join(', ')}`,
+    );
   }
 
   const users = new Map<string, StagingUser>();
@@ -239,7 +284,7 @@ async function main() {
     users.set(key, {
       email: row.email,
       name: row.name,
-      userId: "",
+      userId: '',
       password: generatePassword(),
       roles: new Set([row.role]),
       restaurantIds: new Set([row.restaurant_id]),
@@ -258,7 +303,7 @@ async function main() {
 
     // Keep both profile tables present so all code paths work.
     const profileUpsert = await staging
-      .from("profiles")
+      .from('profiles')
       .upsert(
         {
           id: userId,
@@ -266,14 +311,14 @@ async function main() {
           name: user.name,
           has_access: true,
         },
-        { onConflict: "id" },
+        { onConflict: 'id' },
       )
-      .select("id")
+      .select('id')
       .maybeSingle();
     if (profileUpsert.error) throw profileUpsert.error;
 
     const userProfileUpsert = await staging
-      .from("user_profiles")
+      .from('user_profiles')
       .upsert(
         {
           id: userId,
@@ -281,14 +326,18 @@ async function main() {
           marketing_opt_in: false,
           is_email_suppressed: false,
         },
-        { onConflict: "id" },
+        { onConflict: 'id' },
       )
-      .select("id")
+      .select('id')
       .maybeSingle();
     if (userProfileUpsert.error) throw userProfileUpsert.error;
 
     // Choose the highest privilege role they had in prod.
-    const role: RestaurantRole = user.roles.has("owner") ? "owner" : user.roles.has("manager") ? "manager" : "host";
+    const role: RestaurantRole = user.roles.has('owner')
+      ? 'owner'
+      : user.roles.has('manager')
+        ? 'manager'
+        : 'host';
 
     const membershipRows = Array.from(user.restaurantIds).map((restaurantId) => ({
       user_id: userId,
@@ -296,36 +345,39 @@ async function main() {
       role,
     }));
 
-    const membershipUpsert = await staging.from("restaurant_memberships").upsert(membershipRows, {
-      onConflict: "user_id,restaurant_id",
+    const membershipUpsert = await staging.from('restaurant_memberships').upsert(membershipRows, {
+      onConflict: 'user_id,restaurant_id',
     });
     if (membershipUpsert.error) throw membershipUpsert.error;
   }
 
   // Write creds to a gitignored location (never to tasks artifacts).
-  const timestamp = new Date().toISOString().replace(/[:-]/g, "").slice(0, 15); // YYYYMMDDTHHMMSS
-  const outPath = path.join(repoRoot, "backups", `staging-staff-creds-${timestamp}.csv`);
-  const header = "email,password,role,restaurants_access_count,user_id\n";
+  const timestamp = new Date().toISOString().replace(/[:-]/g, '').slice(0, 15); // YYYYMMDDTHHMMSS
+  const outPath = path.join(repoRoot, 'backups', `staging-staff-creds-${timestamp}.csv`);
+  const header = 'email,password,role,restaurants_access_count,user_id\n';
   const lines = Array.from(users.values())
     .sort((a, b) => a.email.localeCompare(b.email))
     .map((u) => {
-      const role = u.roles.has("owner") ? "owner" : u.roles.has("manager") ? "manager" : "host";
-      return [u.email, u.password, role, String(u.restaurantIds.size), u.userId].join(",");
+      const role = u.roles.has('owner') ? 'owner' : u.roles.has('manager') ? 'manager' : 'host';
+      return [u.email, u.password, role, String(u.restaurantIds.size), u.userId].join(',');
     })
-    .join("\n");
+    .join('\n');
 
-  fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, header + lines + "\n", { encoding: "utf-8" });
+  const outputDir = path.dirname(outPath);
+  fs.mkdirSync(outputDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(outputDir, 0o700);
+  fs.writeFileSync(outPath, header + lines + '\n', { encoding: 'utf-8', mode: 0o600 });
+  fs.chmodSync(outPath, 0o600);
 
-  console.log("[import-prod-staff] Imported restaurant staff from production into staging.");
+  console.log('[import-prod-staff] Imported restaurant staff from production into staging.');
   console.log(`- Prod ref: ${prodRef}`);
-  console.log(`- Staging URL: ${stagingUrl}`);
-  console.log(`- Roles imported: ${Array.from(allowRoles).join(", ")}`);
+  console.log(`- Staging ref: ${stagingRef}`);
+  console.log(`- Roles imported: ${Array.from(allowRoles).join(', ')}`);
   console.log(`- Users created/ensured: ${users.size}`);
   console.log(`- Creds CSV (gitignored): ${outPath}`);
 }
 
 main().catch((error) => {
-  console.error("[import-prod-staff] Failed:", error instanceof Error ? error.message : error);
+  console.error('[import-prod-staff] Failed:', error instanceof Error ? error.message : error);
   process.exit(1);
 });

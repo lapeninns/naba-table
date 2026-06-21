@@ -277,6 +277,10 @@ export function saveWizardDraft(details: BookingDetails): void {
     expiresAt: Date.now() + WIZARD_DRAFT_TTL_MS,
     details: {
       ...details,
+      // Strip at-rest PII from the localStorage draft. `notes` is free text that
+      // routinely carries allergies / accessibility needs, so it is blanked
+      // alongside name/email/phone (contact fields live in sessionStorage).
+      notes: '',
       name: '',
       email: '',
       phone: '',

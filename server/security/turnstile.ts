@@ -1,18 +1,18 @@
-import { env } from "@/lib/env";
+import { env } from '@/lib/env';
 
 type TurnstileVerifyApiResponse = {
   success?: unknown;
   action?: unknown;
   hostname?: unknown;
-  ["error-codes"]?: unknown;
+  ['error-codes']?: unknown;
 };
 
 export type TurnstileVerifyFailureReason =
-  | "missing_secret"
-  | "verification_failed"
-  | "action_mismatch"
-  | "hostname_mismatch"
-  | "verify_unavailable";
+  | 'missing_secret'
+  | 'verification_failed'
+  | 'action_mismatch'
+  | 'hostname_mismatch'
+  | 'verify_unavailable';
 
 export type TurnstileVerifyResult =
   | {
@@ -40,7 +40,7 @@ function normalizeErrorCodes(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter((entry): entry is string => typeof entry === "string");
+  return value.filter((entry): entry is string => typeof entry === 'string');
 }
 
 function toFailure(
@@ -63,66 +63,61 @@ export async function verifyTurnstileToken(
 ): Promise<TurnstileVerifyResult> {
   const secret = env.security.turnstileSecretKey;
   if (!secret) {
-    return toFailure("missing_secret", ["missing-secret"], null, null);
+    return toFailure('missing_secret', ['missing-secret'], null, null);
   }
 
   const payload = new URLSearchParams();
-  payload.set("secret", secret);
-  payload.set("response", params.token);
+  payload.set('secret', secret);
+  payload.set('response', params.token);
 
-  if (params.remoteIp && params.remoteIp !== "unknown") {
-    payload.set("remoteip", params.remoteIp);
+  if (params.remoteIp && params.remoteIp !== 'unknown') {
+    payload.set('remoteip', params.remoteIp);
   }
 
   let response: Response;
   try {
-    response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
+    response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: payload.toString(),
-      cache: "no-store",
+      cache: 'no-store',
     });
   } catch {
-    return toFailure("verify_unavailable", ["verification-request-failed"], null, null);
+    return toFailure('verify_unavailable', ['verification-request-failed'], null, null);
   }
 
   if (!response.ok) {
-    return toFailure(
-      "verify_unavailable",
-      [`verification-http-${response.status}`],
-      null,
-      null,
-    );
+    return toFailure('verify_unavailable', [`verification-http-${response.status}`], null, null);
   }
 
   let verifyBody: TurnstileVerifyApiResponse;
   try {
     verifyBody = (await response.json()) as TurnstileVerifyApiResponse;
   } catch {
-    return toFailure("verify_unavailable", ["verification-invalid-json"], null, null);
+    return toFailure('verify_unavailable', ['verification-invalid-json'], null, null);
   }
 
-  const errorCodes = normalizeErrorCodes(verifyBody["error-codes"]);
-  const action = typeof verifyBody.action === "string" ? verifyBody.action : null;
-  const hostname = typeof verifyBody.hostname === "string" ? verifyBody.hostname : null;
+  const errorCodes = normalizeErrorCodes(verifyBody['error-codes']);
+  const action = typeof verifyBody.action === 'string' ? verifyBody.action : null;
+  const hostname = typeof verifyBody.hostname === 'string' ? verifyBody.hostname : null;
   const success = verifyBody.success === true;
 
   if (!success) {
-    return toFailure("verification_failed", errorCodes, action, hostname);
+    return toFailure('verification_failed', errorCodes, action, hostname);
   }
 
-  if (params.expectedAction && action && action !== params.expectedAction) {
-    return toFailure("action_mismatch", errorCodes, action, hostname);
+  if (params.expectedAction && action !== params.expectedAction) {
+    return toFailure('action_mismatch', errorCodes, action, hostname);
   }
 
   const expectedHostname = params.expectedHostname ?? env.security.turnstileExpectedHostname;
   if (expectedHostname) {
     const normalizedExpected = expectedHostname.toLowerCase();
     const normalizedReceived = hostname?.toLowerCase() ?? null;
-    if (normalizedReceived && normalizedExpected !== normalizedReceived) {
-      return toFailure("hostname_mismatch", errorCodes, action, hostname);
+    if (normalizedExpected !== normalizedReceived) {
+      return toFailure('hostname_mismatch', errorCodes, action, hostname);
     }
   }
 

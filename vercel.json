@@ -7,6 +7,22 @@
     {
       "path": "/api/cron/auto-complete-bookings",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/auto-export",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/queue",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/health",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/request-log-retention",
+      "schedule": "30 2 * * *"
     }
   ]
 }

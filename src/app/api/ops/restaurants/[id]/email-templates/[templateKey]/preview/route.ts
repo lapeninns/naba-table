@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { previewRestaurantEmailTemplateSchema, restaurantEmailTemplateKeySchema, type RestaurantEmailTemplatePreviewResponse } from '@/app/api/ops/restaurants/schema';
+import {
+  previewRestaurantEmailTemplateSchema,
+  restaurantEmailTemplateKeySchema,
+  type RestaurantEmailTemplatePreviewResponse,
+} from '@/app/api/ops/restaurants/schema';
 import { renderRestaurantBookingEmailPreview } from '@/server/emails/bookings';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 
-import { ensureTemplateReadAccess, resolveRestaurantId, resolveTemplateKeyParam, type RouteParams } from '../../_shared';
+import {
+  ensureTemplateReadAccess,
+  resolveRestaurantId,
+  resolveTemplateKeyParam,
+  type RouteParams,
+} from '../../_shared';
 
 import type { NextRequest } from 'next/server';
 
@@ -13,7 +24,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
-  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(await resolveTemplateKeyParam(params));
+  const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
+    await resolveTemplateKeyParam(params),
+  );
   if (!parsedTemplateKey.success) {
     return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
   }
@@ -21,6 +34,18 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const access = await ensureTemplateReadAccess(restaurantId);
   if (access instanceof NextResponse) {
     return access;
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'ops-email-templates:preview',
+    tenantId: restaurantId,
+    limit: 30,
+    windowMs: 60_000,
+    message: 'Too many preview requests. Please try again later.',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   let body: unknown = {};
@@ -32,7 +57,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const parsedBody = previewRestaurantEmailTemplateSchema.safeParse(body);
   if (!parsedBody.success) {
-    return NextResponse.json({ error: 'Validation failed', details: parsedBody.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsedBody.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
@@ -62,9 +90,20 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'",
+      },
+    });
   } catch (error) {
     console.error('[ops][restaurants][email-templates][preview] failed', error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to render preview' }, { status: 500 });
+    captureServerException(error, {
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-email-template-preview' },
+    });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unable to render preview' },
+      { status: 500 },
+    );
   }
 }

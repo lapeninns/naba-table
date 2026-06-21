@@ -1,34 +1,37 @@
 // src/app/api/webhook/resend/route.ts
-import { NextResponse } from "next/server";
-import { Resend, type WebhookEvent } from "resend";
+import { NextResponse } from 'next/server';
+import { Resend, type WebhookEvent } from 'resend';
 
+import { captureServerException } from '@/lib/posthog/server';
 import {
   recordEmailDeliveryLog,
   findLatestEmailDeliveryByMessageId,
   type EmailDeliveryStatus,
-} from "@/server/emails/email-delivery-log";
-import { suppressProfilesByEmail } from "@/server/emails/recipient-suppression";
-import { recordObservabilityEvent } from "@/server/observability";
+} from '@/server/emails/email-delivery-log';
+import { addEmailToSuppressionList } from '@/server/emails/email-suppression-list';
+import { suppressProfilesByEmail } from '@/server/emails/recipient-suppression';
+import { recordObservabilityEvent } from '@/server/observability';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET;
 const resendWebhookVerifier = new Resend();
+const MAX_RESEND_WEBHOOK_BODY_BYTES = 256 * 1024;
 
 type ResendWebhookEvent = {
   type:
-    | Extract<WebhookEvent, "email.sent">
-    | Extract<WebhookEvent, "email.delivered">
-    | Extract<WebhookEvent, "email.delivery_delayed">
-    | Extract<WebhookEvent, "email.complained">
-    | Extract<WebhookEvent, "email.bounced">
-    | Extract<WebhookEvent, "email.opened">
-    | Extract<WebhookEvent, "email.clicked">
-    | Extract<WebhookEvent, "email.failed">
-    | "email.complaint";
+    | Extract<WebhookEvent, 'email.sent'>
+    | Extract<WebhookEvent, 'email.delivered'>
+    | Extract<WebhookEvent, 'email.delivery_delayed'>
+    | Extract<WebhookEvent, 'email.complained'>
+    | Extract<WebhookEvent, 'email.bounced'>
+    | Extract<WebhookEvent, 'email.opened'>
+    | Extract<WebhookEvent, 'email.clicked'>
+    | Extract<WebhookEvent, 'email.failed'>
+    | 'email.complaint';
   created_at: string;
   data: {
     email_id: string;
@@ -41,21 +44,77 @@ type ResendWebhookEvent = {
   };
 };
 
-export async function POST(req: NextRequest) {
-  // 1. --- Webhook Security ---
-  if (!RESEND_WEBHOOK_SECRET) {
-    console.error("[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+function parseContentLength(value: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+async function readBodyWithLimit(req: NextRequest, maxBytes: number): Promise<string | null> {
+  if (!req.body) {
+    const payload = await req.text();
+    return new TextEncoder().encode(payload).byteLength > maxBytes ? null : payload;
   }
 
-  const payload = await req.text();
-  const svixId = req.headers.get("svix-id")?.trim();
-  const svixTimestamp = req.headers.get("svix-timestamp")?.trim();
-  const svixSignature = req.headers.get("svix-signature")?.trim();
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new TextDecoder().decode(body);
+}
+
+export async function POST(req: NextRequest) {
+  await flushPosthogLogsAfterResponse();
+  // 1. --- Webhook Security ---
+  const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!resendWebhookSecret) {
+    console.error('[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook');
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+  }
+
+  const svixId = req.headers.get('svix-id')?.trim();
+  const svixTimestamp = req.headers.get('svix-timestamp')?.trim();
+  const svixSignature = req.headers.get('svix-signature')?.trim();
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    console.warn("[webhook][resend] Missing svix verification headers");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    console.warn('[webhook][resend] Missing svix verification headers');
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const contentLength = parseContentLength(req.headers.get('content-length'));
+  if (contentLength === null) {
+    return NextResponse.json({ error: 'Content-Length required' }, { status: 411 });
+  }
+  if (contentLength !== null && contentLength > MAX_RESEND_WEBHOOK_BODY_BYTES) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+
+  const payload = await readBodyWithLimit(req, MAX_RESEND_WEBHOOK_BODY_BYTES);
+  if (payload === null) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
   }
 
   try {
@@ -66,24 +125,24 @@ export async function POST(req: NextRequest) {
         timestamp: svixTimestamp,
         signature: svixSignature,
       },
-      webhookSecret: RESEND_WEBHOOK_SECRET,
+      webhookSecret: resendWebhookSecret,
     }) as ResendWebhookEvent;
 
     const recipients = event.data.to ?? [];
     const primaryRecipient = recipients[0] ?? null;
 
     if (!primaryRecipient) {
-      return NextResponse.json({ error: "No recipient email found" }, { status: 400 });
+      return NextResponse.json({ error: 'No recipient email found' }, { status: 400 });
     }
 
-    const statusMap: Partial<Record<ResendWebhookEvent["type"], EmailDeliveryStatus>> = {
-      "email.sent": "sent",
-      "email.delivered": "delivered",
-      "email.delivery_delayed": "delivery_delayed",
-      "email.complained": "complained",
-      "email.complaint": "complained",
-      "email.bounced": "bounced",
-      "email.failed": "failed",
+    const statusMap: Partial<Record<ResendWebhookEvent['type'], EmailDeliveryStatus>> = {
+      'email.sent': 'sent',
+      'email.delivered': 'delivered',
+      'email.delivery_delayed': 'delivery_delayed',
+      'email.complained': 'complained',
+      'email.complaint': 'complained',
+      'email.bounced': 'bounced',
+      'email.failed': 'failed',
     };
 
     const mappedStatus = statusMap[event.type] ?? null;
@@ -105,7 +164,7 @@ export async function POST(req: NextRequest) {
           recipientEmail,
           messageId: event.data.email_id,
           status: mappedStatus,
-          provider: "resend",
+          provider: 'resend',
           providerEventId: null,
           occurredAt,
           error: errorDetails,
@@ -119,16 +178,25 @@ export async function POST(req: NextRequest) {
 
     // 2. --- Handle Relevant Events ---
     switch (event.type) {
-      case "email.bounced":
-      case "email.complained":
-      case "email.complaint": {
-        const result = await suppressProfilesByEmail(primaryRecipient);
+      case 'email.bounced':
+      case 'email.complained':
+      case 'email.complaint': {
+        // Suppress in both stores: the profile-bound flag (registered users) and the
+        // email-keyed list (honours every recipient, incl. guests without an account).
+        const suppressionReason = event.type === 'email.bounced' ? 'bounce' : 'complaint';
+        const [result] = await Promise.all([
+          suppressProfilesByEmail(primaryRecipient),
+          addEmailToSuppressionList(primaryRecipient, suppressionReason, {
+            via: 'resend-webhook',
+            eventType: event.type,
+          }),
+        ]);
 
         if (result.updatedProfiles > 0) {
           await recordObservabilityEvent({
-            source: "webhook.resend",
-            eventType: "email_suppression.added",
-            severity: "warning",
+            source: 'webhook.resend',
+            eventType: 'email_suppression.added',
+            severity: 'warning',
             context: {
               reason: event.type,
               matchedProfiles: result.matchedProfiles,
@@ -150,21 +218,24 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    if (error instanceof Error && error.name === "WebhookVerificationError") {
-      console.warn("[webhook][resend] Invalid signature received");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (error instanceof Error && error.name === 'WebhookVerificationError') {
+      console.warn('[webhook][resend] Invalid signature received');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.error("[webhook][resend] Error processing webhook:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error('[webhook][resend] Error processing webhook:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await recordObservabilityEvent({
-      source: "webhook.resend",
-      eventType: "webhook.processing_failed",
-      severity: "error",
+      source: 'webhook.resend',
+      eventType: 'webhook.processing_failed',
+      severity: 'error',
       context: {
         error: errorMessage,
       },
     });
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    captureServerException(error, {
+      properties: { provider: 'resend', source: 'webhook', path: '/api/webhook/resend' },
+    });
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

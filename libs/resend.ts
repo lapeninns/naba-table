@@ -11,6 +11,9 @@ import {
 import config from "@/config";
 import { env } from "@/lib/env";
 import { normalizeEmail } from "@/server/customers";
+import { type EmailCategory, isEssentialCategory } from "@/server/emails/email-categories";
+import { getEmailSuppressionStates } from "@/server/emails/email-suppression-list";
+import { buildListUnsubscribeHeaders } from "@/server/emails/list-unsubscribe";
 import { getSuppressedRecipientEmails } from "@/server/emails/recipient-suppression";
 import { recordObservabilityEvent } from "@/server/observability";
 
@@ -26,6 +29,45 @@ function normalizeAddress(value?: string | null) {
   if (!value) return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+const MAX_DISPLAY_NAME_LENGTH = 128;
+const EMBEDDED_EMAIL_FRAGMENT_REGEX = /<[^<>]*@[^<>]*>/g;
+
+function stripControlCharacters(value: string): string {
+  let result = "";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    // Drop C0 controls (incl. CR/LF/tab) and DEL, replacing each with a space so
+    // surrounding words do not run together. Other characters pass through.
+    result += code <= 31 || code === 127 ? " " : char;
+  }
+  return result;
+}
+
+/**
+ * Sanitizes a free-text display name before it is interpolated into the email
+ * `From` header (e.g. `Name <addr@host>`). Restaurant names are operator-supplied
+ * and would otherwise allow header/display-name injection: CR/LF could smuggle
+ * extra headers, and `<...@...>` fragments could spoof the sending address.
+ *
+ * Defense in depth: strips control characters (incl. CR/LF), removes embedded
+ * email fragments and any angle brackets/`@`, collapses whitespace, and caps
+ * length. Returns undefined when nothing usable remains so callers fall back to
+ * the bare address.
+ */
+export function sanitizeDisplayName(value?: string | null): string | undefined {
+  if (!value) return undefined;
+
+  const withoutFragments = value.replace(EMBEDDED_EMAIL_FRAGMENT_REGEX, " ");
+  const sanitized = stripControlCharacters(withoutFragments)
+    .replace(/[<>@]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_DISPLAY_NAME_LENGTH)
+    .trim();
+
+  return sanitized.length > 0 ? sanitized : undefined;
 }
 
 function isLikelyPlaceholderEmail(value: string): boolean {
@@ -141,6 +183,12 @@ export type SendEmailParams = EmailBody & {
   tags?: Tag[];
   topicId?: string | null;
   idempotencyKey?: string;
+  /**
+   * Drives the transactional/marketing split. Essential categories (the default) are
+   * always delivered unless the address is hard-suppressed (bounce/complaint); optional
+   * categories additionally honour one-click unsubscribes. Defaults to essential.
+   */
+  category?: EmailCategory;
 };
 
 function normalize(value?: string | string[]) {
@@ -177,16 +225,31 @@ function normalizeTags(tags?: Tag[]): Tag[] | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
-async function assertRecipientsAreDeliverable(recipients: string[]): Promise<void> {
+async function assertRecipientsAreDeliverable(
+  recipients: string[],
+  essential: boolean,
+): Promise<void> {
   const normalizedRecipients = [...new Set(recipients.map((value) => normalizeEmail(value)).filter(Boolean))];
 
   if (normalizedRecipients.length === 0) {
     return;
   }
 
-  const suppressedRecipients = await getSuppressedRecipientEmails(normalizedRecipients);
+  // Profile-bound suppression (set by the bounce/complaint webhook) is always HARD.
+  // The email-keyed list distinguishes hard (bounce/complaint/manual) from soft
+  // (one-click marketing opt-out).
+  const [profileSuppressed, listStates] = await Promise.all([
+    getSuppressedRecipientEmails(normalizedRecipients),
+    getEmailSuppressionStates(normalizedRecipients),
+  ]);
 
-  if (suppressedRecipients.length === 0) {
+  const hardBlocked = new Set<string>([...profileSuppressed, ...listStates.hard]);
+
+  // Essential mail is blocked only by hard suppression; optional mail additionally
+  // honours soft (marketing) opt-outs.
+  const blocked = essential ? [...hardBlocked] : [...new Set([...hardBlocked, ...listStates.soft])];
+
+  if (blocked.length === 0) {
     return;
   }
 
@@ -195,12 +258,13 @@ async function assertRecipientsAreDeliverable(recipients: string[]): Promise<voi
     eventType: "recipient_suppressed",
     severity: "warning",
     context: {
-      suppressedRecipientCount: suppressedRecipients.length,
+      suppressedRecipientCount: blocked.length,
       attemptedRecipientCount: normalizedRecipients.length,
+      essential,
     },
   });
 
-  throw new EmailRecipientSuppressedError(suppressedRecipients);
+  throw new EmailRecipientSuppressedError(blocked);
 }
 
 let replyToWarningLogged = false;
@@ -224,6 +288,7 @@ export async function sendEmail({
   tags,
   topicId,
   idempotencyKey,
+  category,
 }: SendEmailParams): Promise<SendEmailResult> {
   if (!html && !text) {
     throw new Error("Resend email payloads must include HTML or text content.");
@@ -234,7 +299,9 @@ export async function sendEmail({
     throw new Error("At least one recipient is required to send an email.");
   }
 
-  await assertRecipientsAreDeliverable(normalizedTo);
+  // Untagged sends default to essential so a missing category can never drop transactional mail.
+  const essential = category ? isEssentialCategory(category) : true;
+  await assertRecipientsAreDeliverable(normalizedTo, essential);
 
   const baseFromAddress = resendFrom ?? (resendUseMock ? DEFAULT_MOCK_FROM_ADDRESS : undefined);
 
@@ -242,8 +309,11 @@ export async function sendEmail({
     throw new Error("Resend is not configured. Set RESEND_API_KEY/RESEND_FROM or enable RESEND_USE_MOCK.");
   }
 
-  // Format the from address with custom name if provided
-  const fromAddress = fromName ? `${fromName} <${baseFromAddress}>` : baseFromAddress;
+  // Format the from address with custom name if provided. The display name is
+  // sanitized first to prevent header/display-name injection via untrusted input
+  // (e.g. operator-supplied restaurant names).
+  const safeFromName = sanitizeDisplayName(fromName);
+  const fromAddress = safeFromName ? `${safeFromName} <${baseFromAddress}>` : baseFromAddress;
 
   const replyToResolution = resolveReplyToAddress({
     requested: replyTo,
@@ -300,7 +370,12 @@ export async function sendEmail({
 
     const normalizedCc = normalize(cc);
     const normalizedBcc = normalize(bcc);
-    const normalizedHeaders = normalizeHeaders(headers);
+    // Attach one-click List-Unsubscribe headers for single-recipient sends (the
+    // transactional norm). The token is per-recipient, so it is only meaningful when
+    // there is exactly one `to`. Caller-supplied headers win if they set their own.
+    const listUnsubscribeHeaders =
+      normalizedTo.length === 1 ? buildListUnsubscribeHeaders(normalizedTo[0]) : {};
+    const normalizedHeaders = normalizeHeaders({ ...listUnsubscribeHeaders, ...headers });
     const normalizedTags = normalizeTags(tags);
 
     const bodyFields =

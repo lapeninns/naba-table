@@ -1,17 +1,10 @@
 import { reservationConfigResult } from '@reserve/shared/config/reservations';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 import { normalizeTime } from '@reserve/shared/time';
-import {
-  BOOKING_TYPES_UI,
-  SEATING_PREFERENCES_UI,
-  type BookingType,
-  type SeatingPreference,
-} from '@shared/config/booking';
+import { BOOKING_TYPES_UI, type BookingType } from '@shared/config/booking';
 
 import type { BookingOption } from '@reserve/shared/booking';
-import type { IconKey } from '@reserve/shared/ui/icons';
-
-export type SeatingOption = (typeof SEATING_PREFERENCES_UI)[number];
+import type { BookingSubmissionUiError } from '@reserve/shared/error';
 
 export type ApiBooking = {
   id: string;
@@ -23,7 +16,6 @@ export type ApiBooking = {
   reference: string;
   party_size: number;
   booking_type: BookingType;
-  seating_preference: SeatingPreference;
   status: string;
   customer_name: string;
   customer_email: string;
@@ -43,7 +35,7 @@ export type StepAction = {
   variant?: 'default' | 'outline' | 'ghost' | 'destructive';
   disabled?: boolean;
   loading?: boolean;
-  icon?: IconKey;
+  icon?: string;
   ariaLabel?: string;
   role?: 'primary' | 'secondary' | 'support';
   fullWidth?: boolean;
@@ -62,7 +54,6 @@ export type BookingDetails = {
   time: string;
   party: number;
   bookingType: BookingOption;
-  seating: SeatingOption;
   notes: string;
   name: string;
   email: string;
@@ -83,6 +74,7 @@ export type State = {
   submitting: boolean;
   loading: boolean;
   error: string | null;
+  submissionError: BookingSubmissionUiError | null;
   editingId: string | null;
   lastAction: LastAction;
   bookings: ApiBooking[];
@@ -96,6 +88,7 @@ export type Action =
   | { type: 'SET_SUBMITTING'; value: boolean }
   | { type: 'SET_LOADING'; value: boolean }
   | { type: 'SET_ERROR'; message: string | null }
+  | { type: 'SET_SUBMISSION_ERROR'; error: BookingSubmissionUiError | null }
   | { type: 'SET_BOOKINGS'; bookings: ApiBooking[] }
   | {
       type: 'SET_CONFIRMATION';
@@ -123,7 +116,6 @@ export type ReservationDraft = {
   time: string;
   party: number;
   bookingType: BookingOption;
-  seating: SeatingOption;
   notes?: string | null;
   name: string;
   email: string | null;
@@ -131,24 +123,12 @@ export type ReservationDraft = {
   marketingOptIn: boolean;
 };
 
-const SEATING_OPTIONS_SET = new Set<SeatingOption>(SEATING_PREFERENCES_UI);
-
 export function toBookingOption(value: BookingType): BookingOption {
   const normalized = (value ?? '').toString().trim();
   if (BOOKING_TYPES_UI.includes(normalized as BookingOption)) {
     return normalized as BookingOption;
   }
   return BOOKING_TYPES_UI[0];
-}
-
-export function toSeatingOption(value: SeatingPreference): SeatingOption {
-  if (SEATING_OPTIONS_SET.has(value as SeatingOption)) {
-    return value as SeatingOption;
-  }
-  if (value === 'window' || value === 'booth' || value === 'bar') {
-    return 'indoor';
-  }
-  return SEATING_PREFERENCES_UI[0];
 }
 
 export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingDetails => {
@@ -164,7 +144,6 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     time: '',
     party: 1,
     bookingType: BOOKING_TYPES_UI[0],
-    seating: SEATING_PREFERENCES_UI[0],
     notes: '',
     name: '',
     email: '',
@@ -196,6 +175,7 @@ export const getInitialState = (overrides?: Partial<BookingDetails>): State => (
   submitting: false,
   loading: false,
   error: null,
+  submissionError: null,
   editingId: null,
   lastAction: null,
   bookings: [],
@@ -206,11 +186,12 @@ export const getInitialState = (overrides?: Partial<BookingDetails>): State => (
 export function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SET_STEP':
-      return { ...state, step: action.step, error: null };
+      return { ...state, step: action.step, error: null, submissionError: null };
     case 'SET_FIELD':
       return {
         ...state,
         error: null,
+        submissionError: null,
         details: {
           ...state.details,
           [action.key]: action.value,
@@ -222,6 +203,8 @@ export function reducer(state: State, action: Action): State {
       return { ...state, loading: action.value };
     case 'SET_ERROR':
       return { ...state, error: action.message };
+    case 'SET_SUBMISSION_ERROR':
+      return { ...state, submissionError: action.error };
     case 'SET_BOOKINGS':
       return { ...state, bookings: action.bookings };
     case 'SET_CONFIRMATION': {
@@ -239,7 +222,6 @@ export function reducer(state: State, action: Action): State {
           : state.details.time,
         party: booking ? booking.party_size : state.details.party,
         bookingType: booking ? toBookingOption(booking.booking_type) : state.details.bookingType,
-        seating: booking ? toSeatingOption(booking.seating_preference) : state.details.seating,
         notes: booking?.notes ?? state.details.notes,
         marketingOptIn: booking ? booking.marketing_opt_in : state.details.marketingOptIn,
       };
@@ -255,6 +237,7 @@ export function reducer(state: State, action: Action): State {
         lastConfirmed: booking ?? state.lastConfirmed,
         details: updatedDetails,
         error: null,
+        submissionError: null,
       };
     }
     case 'START_EDIT': {
@@ -267,6 +250,7 @@ export function reducer(state: State, action: Action): State {
         editingId: booking.id,
         lastAction: null,
         error: null,
+        submissionError: null,
         details: {
           ...state.details,
           bookingId: booking.id,
@@ -278,7 +262,6 @@ export function reducer(state: State, action: Action): State {
           time: normalizeTime(booking.start_time) ?? state.details.time,
           party: booking.party_size,
           bookingType: toBookingOption(booking.booking_type),
-          seating: toSeatingOption(booking.seating_preference),
           notes: booking.notes ?? '',
           name: booking.customer_name,
           email: booking.customer_email,
@@ -298,6 +281,7 @@ export function reducer(state: State, action: Action): State {
         editingId: null,
         lastAction: null,
         error: null,
+        submissionError: null,
         details: {
           ...base,
           rememberDetails: shouldRemember,
@@ -310,6 +294,8 @@ export function reducer(state: State, action: Action): State {
     case 'HYDRATE_CONTACTS':
       return {
         ...state,
+        error: null,
+        submissionError: null,
         details: {
           ...state.details,
           name: action.payload.name,
@@ -324,6 +310,7 @@ export function reducer(state: State, action: Action): State {
         step: 1,
         editingId: null,
         error: null,
+        submissionError: null,
         details: {
           ...state.details,
           ...action.details,

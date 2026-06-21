@@ -168,6 +168,30 @@ export function isPastOrClosing(params: {
 }
 
 /**
+ * Filter schedule slots to those the guest can still pick (not disabled, not in the past).
+ */
+export function filterSelectableTimeSlots(
+  slots: TimeSlotDescriptor[],
+  params: {
+    date: string;
+    schedule: ReservationSchedule | null | undefined;
+    now?: Date;
+  },
+): TimeSlotDescriptor[] {
+  return slots.filter((slot) => {
+    if (slot.disabled) {
+      return false;
+    }
+    return !isPastOrClosing({
+      date: params.date,
+      time: slot.value,
+      schedule: params.schedule,
+      now: params.now,
+    });
+  });
+}
+
+/**
  * Determine whether a slot still has capacity. Slots marked as disabled are considered full.
  */
 export function hasCapacity(slot: TimeSlotDescriptor | null | undefined): boolean {

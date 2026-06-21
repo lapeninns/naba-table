@@ -1,7 +1,7 @@
 /**
  * GET /api/availability - Check booking availability
  * Story 3: New Endpoint for Availability Checking
- * 
+ *
  * This endpoint allows guests to check availability before attempting to book.
  * It's used by:
  * - Booking forms to show real-time availability
@@ -9,18 +9,20 @@
  * - Alternative time suggestions
  */
 
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
-import { HttpError } from "@/lib/http/errors";
-import { checkSlotAvailability, findAlternativeSlots } from "@/server/capacity";
-import { recordObservabilityEvent } from "@/server/observability";
-import { getActiveRestaurantId } from "@/server/restaurants/getActiveRestaurantId";
-import { consumeRateLimit } from "@/server/security/rate-limit";
-import { extractClientIp, anonymizeIp } from "@/server/security/request";
-import { getDefaultRestaurantId, MissingRestaurantContextError } from "@/server/supabase";
+import { firstString, safeBool } from '@/lib/api/query-params';
+import { HttpError } from '@/lib/http/errors';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
+import { checkSlotAvailability, findAlternativeSlots } from '@/server/capacity';
+import { recordObservabilityEvent } from '@/server/observability';
+import { getActiveRestaurantId } from '@/server/restaurants/getActiveRestaurantId';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { extractClientIp, anonymizeIp } from '@/server/security/request';
+import { getDefaultRestaurantId, MissingRestaurantContextError } from '@/server/supabase';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
 // =====================================================
 // Request Validation
@@ -28,11 +30,14 @@ import type { NextRequest} from "next/server";
 
 const availabilityQuerySchema = z.object({
   restaurantId: z.string().uuid().optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format").optional(),
-  partySize: z.coerce.number().int().min(1).max(50, "Party size must be between 1 and 50"),
-  seating: z.enum(["any", "indoor", "outdoor", "bar", "window", "quiet", "booth"]).optional(),
-  includeAlternatives: z.coerce.boolean().default(false),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format')
+    .optional(),
+  partySize: z.coerce.number().int().min(1).max(50, 'Party size must be between 1 and 50'),
+  seating: z.enum(['any', 'indoor', 'outdoor', 'bar', 'window', 'quiet', 'booth']).optional(),
+  includeAlternatives: z.boolean().default(false),
 });
 
 // =====================================================
@@ -44,15 +49,15 @@ export async function GET(req: NextRequest) {
     // =====================================================
     // Step 1: Parse and Validate Query Parameters
     // =====================================================
-    
+
     const searchParams = req.nextUrl.searchParams;
     const rawParams = {
-      restaurantId: searchParams.get("restaurantId") ?? undefined,
-      date: searchParams.get("date"),
-      time: searchParams.get("time") ?? undefined,
-      partySize: searchParams.get("partySize"),
-      seating: searchParams.get("seating") ?? undefined,
-      includeAlternatives: searchParams.get("includeAlternatives") ?? "false",
+      restaurantId: firstString(searchParams, 'restaurantId'),
+      date: firstString(searchParams, 'date'),
+      time: firstString(searchParams, 'time'),
+      partySize: firstString(searchParams, 'partySize'),
+      seating: firstString(searchParams, 'seating'),
+      includeAlternatives: safeBool(searchParams, 'includeAlternatives', false),
     };
 
     const parsed = availabilityQuerySchema.safeParse(rawParams);
@@ -60,26 +65,53 @@ export async function GET(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         {
-          error: "Invalid query parameters",
+          error: 'Invalid query parameters',
           details: parsed.error.flatten(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { restaurantId: rawRestaurantId, date, time, partySize, seating, includeAlternatives } = parsed.data;
+    const {
+      restaurantId: rawRestaurantId,
+      date,
+      time,
+      partySize,
+      seating,
+      includeAlternatives,
+    } = parsed.data;
+
+    const preflightRateLimit = await requireApiRateLimit({
+      request: req,
+      scope: 'availability:public',
+      tenantId: rawRestaurantId ?? 'default',
+      limit: 30,
+      windowMs: 60_000,
+      message: 'Too many availability requests. Please try again in a moment.',
+    });
+    if (preflightRateLimit) {
+      return preflightRateLimit;
+    }
 
     const resolvedRestaurantId = rawRestaurantId
       ? await getActiveRestaurantId(rawRestaurantId)
       : await getDefaultRestaurantId().catch((error) => {
           if (error instanceof MissingRestaurantContextError) {
-            throw new HttpError({ message: "restaurantId is required", status: 400, code: "RESTAURANT_REQUIRED" });
+            throw new HttpError({
+              message: 'restaurantId is required',
+              status: 400,
+              code: 'RESTAURANT_REQUIRED',
+            });
           }
           throw error;
         });
 
     if (!resolvedRestaurantId) {
-      throw new HttpError({ message: "Restaurant not found", status: 404, code: "RESTAURANT_NOT_FOUND" });
+      throw new HttpError({
+        message: 'Restaurant not found',
+        status: 404,
+        code: 'RESTAURANT_NOT_FOUND',
+      });
     }
 
     const restaurantId = resolvedRestaurantId;
@@ -87,44 +119,28 @@ export async function GET(req: NextRequest) {
     // =====================================================
     // Step 2: Rate Limiting
     // =====================================================
-    
+
     const clientIp = extractClientIp(req);
-    const rateResult = await consumeRateLimit({
-      identifier: `availability:check:${restaurantId}:${clientIp}`,
-      limit: 20, // Lower limit than booking creation
-      windowMs: 60_000, // 1 minute
+    const tenantRateLimit = await requireApiRateLimit({
+      request: req,
+      scope: 'availability:tenant',
+      tenantId: restaurantId,
+      limit: 20,
+      windowMs: 60_000,
+      message: 'Too many availability requests. Please try again in a moment.',
     });
 
-    if (!rateResult.ok) {
-      const retryAfterSeconds = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
-
+    if (tenantRateLimit) {
       void recordObservabilityEvent({
-        source: "api.availability",
-        eventType: "availability_check.rate_limited",
-        severity: "warning",
+        source: 'api.availability',
+        eventType: 'availability_check.rate_limited',
+        severity: 'warning',
         context: {
           restaurant_id: restaurantId,
           ip_scope: anonymizeIp(clientIp),
-          limit: rateResult.limit,
         },
       });
-
-      return NextResponse.json(
-        {
-          error: "Too many availability requests. Please try again in a moment.",
-          code: "RATE_LIMITED",
-          retryAfter: retryAfterSeconds,
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": retryAfterSeconds.toString(),
-            "X-RateLimit-Limit": rateResult.limit.toString(),
-            "X-RateLimit-Remaining": rateResult.remaining.toString(),
-            "X-RateLimit-Reset": rateResult.resetAt.toString(),
-          },
-        }
-      );
+      return tenantRateLimit;
     }
 
     // =====================================================
@@ -143,6 +159,7 @@ export async function GET(req: NextRequest) {
 
       // Get alternatives if requested and slot is unavailable
       let alternatives = undefined;
+      let alternativeCount = 0;
       if (includeAlternatives && !result.available) {
         const altSlots = await findAlternativeSlots({
           restaurantId,
@@ -153,18 +170,18 @@ export async function GET(req: NextRequest) {
           searchWindowMinutes: 120,
         });
 
-        alternatives = altSlots.map(slot => ({
+        alternatives = altSlots.map((slot) => ({
           time: slot.time,
           available: slot.available,
-          utilizationPercent: slot.utilizationPercent,
         }));
+        alternativeCount = alternatives.length;
       }
 
       // Log check
       void recordObservabilityEvent({
-        source: "api.availability",
-        eventType: "availability.check.specific_time",
-        severity: "info",
+        source: 'api.availability',
+        eventType: 'availability.check.specific_time',
+        severity: 'info',
         context: {
           restaurantId,
           date,
@@ -174,6 +191,21 @@ export async function GET(req: NextRequest) {
           utilizationPercent: result.metadata.utilizationPercent,
         },
       });
+
+      captureRestaurantServerEvent('availability_slots_loaded', {
+        restaurantId,
+        props: {
+          available: result.available,
+          slotCount: alternativeCount,
+          source: 'api',
+        },
+      });
+      if (!result.available) {
+        captureRestaurantServerEvent('availability_no_slots_shown', {
+          restaurantId,
+          props: { source: 'api' },
+        });
+      }
 
       return NextResponse.json(
         {
@@ -185,39 +217,32 @@ export async function GET(req: NextRequest) {
           reason: result.reason,
           metadata: {
             servicePeriod: result.metadata.servicePeriod,
-            maxCovers: result.metadata.maxCovers,
-            bookedCovers: result.metadata.bookedCovers,
-            availableCovers: result.metadata.availableCovers,
-            utilizationPercent: result.metadata.utilizationPercent,
-            maxParties: result.metadata.maxParties,
-            bookedParties: result.metadata.bookedParties,
           },
           alternatives,
         },
         {
           status: 200,
           headers: {
-            "Cache-Control": "public, max-age=60, stale-while-revalidate=30",
-            "X-Available": result.available.toString(),
-            "X-Utilization": result.metadata.utilizationPercent.toString(),
+            'Cache-Control': 'public, max-age=60, stale-while-revalidate=30',
+            'X-Available': result.available.toString(),
           },
-        }
+        },
       );
     }
 
     // =====================================================
     // Step 4: Check All Day Availability (no specific time)
     // =====================================================
-    
+
     // For "all day" queries, we could generate common time slots
     // For now, return error asking for specific time
     return NextResponse.json(
       {
-        error: "Time parameter required",
-        message: "Please specify a time parameter (HH:MM format) to check availability",
-        hint: "Example: ?restaurantId=uuid&date=2025-10-20&time=19:00&partySize=4",
+        error: 'Time parameter required',
+        message: 'Please specify a time parameter (HH:MM format) to check availability',
+        hint: 'Example: ?restaurantId=uuid&date=2025-10-20&time=19:00&partySize=4',
       },
-      { status: 400 }
+      { status: 400 },
     );
 
     // Future enhancement: Return availability for common time slots
@@ -233,45 +258,54 @@ export async function GET(req: NextRequest) {
     //   })
     // );
     // return NextResponse.json({ restaurantId, date, partySize, slots });
-
   } catch (error: unknown) {
     if (error instanceof HttpError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
     }
 
-    console.error("[availability][GET] Unexpected error", { error });
+    console.error('[availability][GET] Unexpected error', { error });
 
     void recordObservabilityEvent({
-      source: "api.availability",
-      eventType: "availability.check.failure",
-      severity: "error",
+      source: 'api.availability',
+      eventType: 'availability.check.failure',
+      severity: 'error',
       context: {
         error: error instanceof Error ? error.message : String(error),
       },
     });
 
+    captureRestaurantServerEvent('availability_request_failed', {
+      props: { source: 'api', path: '/api/availability' },
+    });
+    captureServerException(error, {
+      properties: { source: 'api', path: '/api/availability' },
+    });
+
     return NextResponse.json(
       {
-        error: "Failed to check availability",
-        message: "An unexpected error occurred. Please try again.",
+        error: 'Failed to check availability',
+        message: 'An unexpected error occurred. Please try again.',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /**
  * Usage Examples:
- * 
+ *
  * 1. Check specific time:
  *    GET /api/availability?restaurantId=uuid&date=2025-10-20&time=19:00&partySize=4
- * 
+ *
  * 2. Check with alternatives:
  *    GET /api/availability?restaurantId=uuid&date=2025-10-20&time=19:00&partySize=4&includeAlternatives=true
- * 
+ *
  * 3. Check with seating preference:
  *    GET /api/availability?restaurantId=uuid&date=2025-10-20&time=19:00&partySize=4&seating=window
- * 
+ *
  * Response (available):
  * {
  *   "restaurantId": "uuid",
@@ -287,7 +321,7 @@ export async function GET(req: NextRequest) {
  *     "utilizationPercent": 60
  *   }
  * }
- * 
+ *
  * Response (unavailable with alternatives):
  * {
  *   "restaurantId": "uuid",

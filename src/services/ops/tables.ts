@@ -31,7 +31,7 @@ type TableInventorySummaryDto = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
-  zones: { id: string; name: string; active?: boolean | null }[];
+  zones: { id: string; name: string; active?: boolean | null; sort_order?: number | null }[];
   serviceCapacities?: ServiceCapacitySummaryDto[];
 };
 
@@ -64,7 +64,7 @@ export type TableInventorySummary = {
   totalTables: number;
   totalCapacity: number;
   availableTables: number;
-  zones: { id: string; name: string; active: boolean }[];
+  zones: { id: string; name: string; active: boolean; sortOrder: number }[];
   serviceCapacities: ServiceCapacitySummaryDto[];
 };
 
@@ -143,7 +143,9 @@ export class NotImplementedTableInventoryService implements TableInventoryServic
   }
 }
 
-export function createTableInventoryService(factory?: TableInventoryServiceFactory): TableInventoryService {
+export function createTableInventoryService(
+  factory?: TableInventoryServiceFactory,
+): TableInventoryService {
   try {
     return factory ? factory() : createBrowserTableInventoryService();
   } catch (error) {
@@ -179,7 +181,7 @@ function mapTableInventory(dto: TableInventoryDto): TableInventory {
   };
 }
 
-function normalizePosition(value: TableInventoryDto["position"]): Record<string, unknown> | null {
+function normalizePosition(value: TableInventoryDto['position']): Record<string, unknown> | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
@@ -209,9 +211,41 @@ function mapSummary(dto: TableInventorySummaryDto | undefined): TableInventorySu
     totalTables: dto.totalTables,
     totalCapacity: dto.totalCapacity,
     availableTables: dto.availableTables,
-    zones: (dto.zones ?? []).map((zone) => ({ id: zone.id, name: zone.name, active: zone.active ?? true })),
+    zones: (dto.zones ?? []).map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      active: zone.active ?? true,
+      sortOrder: zone.sort_order ?? 0,
+    })),
     serviceCapacities: dto.serviceCapacities ?? [],
   };
+}
+
+function buildUpdateTablePayload(payload: UpdateTablePayload): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  const entries = {
+    tableNumber: payload.tableNumber,
+    capacity: payload.capacity,
+    minPartySize: payload.minPartySize,
+    maxPartySize: payload.maxPartySize,
+    section: payload.section,
+    category: payload.category,
+    seatingType: payload.seatingType,
+    mobility: payload.mobility,
+    zoneId: payload.zoneId,
+    status: payload.status,
+    active: payload.active,
+    position: payload.position,
+    notes: payload.notes,
+  };
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (value !== undefined) {
+      body[key] = value;
+    }
+  }
+
+  return body;
 }
 
 export function createBrowserTableInventoryService(): TableInventoryService {
@@ -231,7 +265,9 @@ export function createBrowserTableInventoryService(): TableInventoryService {
         searchParams.set('includeSummary', '0');
       }
 
-      const response = await fetchJson<ListTablesResponseDto>(`${OPS_TABLES_BASE}?${searchParams.toString()}`);
+      const response = await fetchJson<ListTablesResponseDto>(
+        `${OPS_TABLES_BASE}?${searchParams.toString()}`,
+      );
       return {
         tables: (response.tables ?? []).map(mapTableInventory),
         summary: mapSummary(response.summary),
@@ -263,25 +299,15 @@ export function createBrowserTableInventoryService(): TableInventoryService {
     },
 
     async update(tableId, payload) {
-      const response = await fetchJson<{ table: TableInventoryDto }>(`${OPS_TABLES_BASE}/${tableId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tableNumber: payload.tableNumber,
-          capacity: payload.capacity,
-          minPartySize: payload.minPartySize,
-          maxPartySize: payload.maxPartySize,
-          section: payload.section,
-          category: payload.category,
-          seatingType: payload.seatingType,
-          mobility: payload.mobility,
-          zoneId: payload.zoneId,
-          status: payload.status,
-          active: payload.active,
-          position: payload.position ?? null,
-          notes: payload.notes ?? null,
-        }),
-      });
+      const body = buildUpdateTablePayload(payload);
+      const response = await fetchJson<{ table: TableInventoryDto }>(
+        `${OPS_TABLES_BASE}/${tableId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+      );
       return mapTableInventory(response.table);
     },
 
@@ -306,8 +332,9 @@ export function createBrowserTableInventoryService(): TableInventoryService {
         searchParams.set('includeSummary', '0');
       }
 
-      return fetchJson<TableTimelineResponse>(`${OPS_TABLE_TIMELINE_BASE}?${searchParams.toString()}`);
+      return fetchJson<TableTimelineResponse>(
+        `${OPS_TABLE_TIMELINE_BASE}?${searchParams.toString()}`,
+      );
     },
-
   };
 }

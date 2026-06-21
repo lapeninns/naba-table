@@ -2,6 +2,9 @@
   "name": "nabatable-sms-summary-gateway",
   "main": "src/index.ts",
   "compatibility_date": "2026-04-11",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
   "triggers": {
     "crons": [

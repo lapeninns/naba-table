@@ -16,15 +16,15 @@ type ValidationChecksProps = {
 const statusConfig = {
   ok: {
     icon: CheckCircle2,
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
+    color: 'text-success',
+    bgColor: 'bg-success/5',
+    borderColor: 'border-success/20',
   },
   warn: {
     icon: AlertTriangle,
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
+    color: 'text-warning',
+    bgColor: 'bg-warning/5',
+    borderColor: 'border-warning/20',
   },
   error: {
     icon: XCircle,
@@ -73,12 +73,12 @@ export function ValidationChecks({ checks, className }: ValidationChecksProps) {
               </span>
             )}
             {warnCount > 0 && (
-              <span className="text-xs font-medium text-amber-600">
+              <span className="text-xs font-medium text-warning">
                 {warnCount} warning{warnCount === 1 ? '' : 's'}
               </span>
             )}
             {okCount > 0 && errorCount === 0 && warnCount === 0 && (
-              <span className="text-xs font-medium text-emerald-600">All checks passed</span>
+              <span className="text-xs font-medium text-success">All checks passed</span>
             )}
           </div>
         </div>

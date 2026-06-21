@@ -4,10 +4,13 @@ import Link from 'next/link';
 import { memo, useMemo } from 'react';
 
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Button } from '@/components/ui/button';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
+import { opsHref } from '@/lib/url/opsHref';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { DashboardErrorState } from './DashboardErrorState';
@@ -81,7 +84,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       bookings: [],
     };
   }, [state.requestedDate, state.restaurantId, state.restaurantTimezone]);
-  const summary = state.summary && !state.isSummaryMismatch ? state.summary : fallbackSummary;
+  const summary = state.summary ?? fallbackSummary;
   const selectedDate = state.requestedDate ?? summary.date;
   const showSummarySkeleton = useMinimumDelay(!state.summary || state.isInitialLoading, {
     delayMs: 120,
@@ -132,46 +135,53 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       summary,
     ],
   );
-  const summarySectionProps = useMemo<OpsDashboardSummarySectionProps>(
+  const dashboardListControls = useMemo<DashboardListControls>(
     () => ({
-      summary,
-      restaurantName: state.restaurantName,
-      controls: {
-        filter: state.filter,
-        tabCounts: state.tabCounts,
-        searchQuery: state.searchQuery,
-        deferredSearchQuery: state.deferredSearchQuery,
-        sortKey: state.sortKey,
-        sortDir: state.sortDir,
-        isRefetching: state.isRefetching,
-        onFilterChange: state.handleSelectFilter,
-        onSearchChange: state.handleSearchChange,
-        onPrint: state.handlePrint,
-        onSortKeyChange: state.setSortKey,
-        onSortDirChange: state.setSortDir,
-      } satisfies DashboardListControls,
-      bookingActions: {
-        onDetails: state.handleDetails,
-        onEdit: state.handleEdit,
-        onCancel: state.handleCancelRequest,
-        onAssignTable: state.handleAssignTable,
-        onUnassignTable: state.handleUnassignTable,
-        tableActionState: state.tableActionState,
-        onMarkNoShow: state.handleMarkNoShow,
-        onUndoNoShow: state.handleUndoNoShow,
-        onCheckIn: state.handleCheckIn,
-        onCheckOut: state.handleCheckOut,
-        pendingLifecycleAction: state.pendingBookingAction,
-      } satisfies DashboardBookingActionHandlers,
-      initialNowIso,
-      allowTableAssignments: state.allowTableAssignments,
-      restaurantSlug: state.restaurantSlug,
+      filter: state.filter,
+      tabCounts: state.tabCounts,
+      searchQuery: state.searchQuery,
+      deferredSearchQuery: state.deferredSearchQuery,
+      sortKey: state.sortKey,
+      sortDir: state.sortDir,
+      isRefetching: state.isRefetching,
+      dataUpdatedAt: state.dataUpdatedAt,
+      onFilterChange: state.handleSelectFilter,
+      onSearchChange: state.handleSearchChange,
+      onPrint: state.handlePrint,
+      onSortKeyChange: state.setSortKey,
+      onSortDirChange: state.setSortDir,
     }),
     [
-      initialNowIso,
-      state.allowTableAssignments,
+      state.dataUpdatedAt,
       state.deferredSearchQuery,
       state.filter,
+      state.handlePrint,
+      state.handleSearchChange,
+      state.handleSelectFilter,
+      state.isRefetching,
+      state.searchQuery,
+      state.setSortDir,
+      state.setSortKey,
+      state.sortDir,
+      state.sortKey,
+      state.tabCounts,
+    ],
+  );
+  const dashboardBookingActions = useMemo<DashboardBookingActionHandlers>(
+    () => ({
+      onDetails: state.handleDetails,
+      onEdit: state.handleEdit,
+      onCancel: state.handleCancelRequest,
+      onAssignTable: state.handleAssignTable,
+      onUnassignTable: state.handleUnassignTable,
+      tableActionState: state.tableActionState,
+      onMarkNoShow: state.handleMarkNoShow,
+      onUndoNoShow: state.handleUndoNoShow,
+      onCheckIn: state.handleCheckIn,
+      onCheckOut: state.handleCheckOut,
+      pendingLifecycleAction: state.pendingBookingAction,
+    }),
+    [
       state.handleAssignTable,
       state.handleCancelRequest,
       state.handleCheckIn,
@@ -179,22 +189,31 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       state.handleDetails,
       state.handleEdit,
       state.handleMarkNoShow,
-      state.handlePrint,
-      state.handleSearchChange,
-      state.handleSelectFilter,
       state.handleUndoNoShow,
       state.handleUnassignTable,
-      state.isRefetching,
       state.pendingBookingAction,
+      state.tableActionState,
+    ],
+  );
+  const summarySectionProps = useMemo<OpsDashboardSummarySectionProps>(
+    () => ({
+      summary,
+      restaurantName: state.restaurantName,
+      controls: dashboardListControls,
+      bookingActions: dashboardBookingActions,
+      initialNowIso,
+      allowTableAssignments: state.allowTableAssignments,
+      restaurantSlug: state.restaurantSlug,
+      isStale: state.isStaleContent,
+    }),
+    [
+      dashboardBookingActions,
+      dashboardListControls,
+      initialNowIso,
+      state.allowTableAssignments,
+      state.isStaleContent,
       state.restaurantName,
       state.restaurantSlug,
-      state.searchQuery,
-      state.setSortDir,
-      state.setSortKey,
-      state.sortDir,
-      state.sortKey,
-      state.tabCounts,
-      state.tableActionState,
       summary,
     ],
   );
@@ -232,33 +251,39 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
   );
 
   if (!state.restaurantId) {
-    return <NoAccessState />;
+    return (
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <NoAccessState />
+      </OpsPageShell>
+    );
   }
 
   if (state.hasError) {
-    return <DashboardErrorState onRetry={state.handleRetry} />;
+    return (
+      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+        <DashboardErrorState onRetry={state.handleRetry} />
+      </OpsPageShell>
+    );
   }
 
   return (
-    <div className="w-full min-w-0 bg-background font-sans text-foreground">
-      <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
-        <DashboardHeaderSection {...headerProps} />
+    <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
+      <DashboardHeaderSection {...headerProps} />
 
-        <section aria-label="Connection status">
-          <BookingOfflineBanner />
-        </section>
+      <section aria-label="Connection status">
+        <BookingOfflineBanner />
+      </section>
 
-        {showSummarySkeleton ? (
-          <DashboardSummarySkeleton restaurantName={state.restaurantName} />
-        ) : (
-          <div className="motion-safe:animate-fade-in">
-            <DashboardSummarySectionContent {...summarySectionProps} />
-          </div>
-        )}
+      {showSummarySkeleton ? (
+        <DashboardSummarySkeleton restaurantName={state.restaurantName} />
+      ) : (
+        <div className="motion-safe:animate-fade-in">
+          <DashboardSummarySectionContent {...summarySectionProps} />
+        </div>
+      )}
 
-        <DashboardDialogsSection {...dialogProps} />
-      </div>
-    </div>
+      <DashboardDialogsSection {...dialogProps} />
+    </OpsPageShell>
   );
 }
 
@@ -270,7 +295,7 @@ function NoAccessState() {
         description="Ask an owner or manager to send you an invitation so you can manage bookings."
         action={
           <Button variant="outline" size="sm" asChild>
-            <Link href="/guest/dashboard">Back to dashboard</Link>
+            <Link href={opsHref('/dashboard')}>Return to ops home</Link>
           </Button>
         }
       />

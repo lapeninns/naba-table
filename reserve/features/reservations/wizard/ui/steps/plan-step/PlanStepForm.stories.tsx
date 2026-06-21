@@ -53,6 +53,7 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
     const setSubmittingMock = fn();
     const setLoadingMock = fn();
     const setErrorMock = fn();
+    const setSubmissionErrorMock = fn();
     const clearErrorMock = fn();
     const setBookingsMock = fn();
     const applyConfirmationMock = fn();
@@ -66,6 +67,7 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
       setSubmitting: setSubmittingMock,
       setLoading: setLoadingMock,
       setError: setErrorMock,
+      setSubmissionError: setSubmissionErrorMock,
       clearError: clearErrorMock,
       setBookings: setBookingsMock,
       applyConfirmation: applyConfirmationMock,

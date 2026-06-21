@@ -1,24 +1,20 @@
 'use client';
 
-import { useMemo } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+import { resolveGuestProfileFacts } from '../guestProfilePanelDomain';
 import { ArrivalCountdown } from './ArrivalCountdown';
 import { EmailDeliveryPanel } from './EmailDeliveryPanel';
-import { SmsDeliveryPanel } from './SmsDeliveryPanel';
-import { formatBookingTime, parseBookingDateTime } from '../utils';
-import { GuestContactCard } from './guest/GuestContactCard';
-import { GuestDepositCard } from './guest/GuestDepositCard';
 import { GuestDietaryBadge } from './guest/GuestDietaryBadge';
-import { GuestIdentityCard } from './guest/GuestIdentityCard';
-import { GuestMetaGrid } from './guest/GuestMetaGrid';
-import { GuestNotesCard } from './guest/GuestNotesCard';
 import { GuestSeatingCard } from './guest/GuestSeatingCard';
 import { GuestTimelineCard } from './guest/GuestTimelineCard';
+import { GuestProfileIdentitySection } from './GuestProfileIdentitySection';
+import { GuestProfileStatsGrid } from './GuestProfileStatsGrid';
+import { SmsDeliveryPanel } from './SmsDeliveryPanel';
 
 import type { FlattenedTable } from '../utils';
 import type { OpsBookingStatus, OpsTodayBooking } from '@/types/ops';
@@ -32,32 +28,7 @@ export interface GuestProfilePanelProps {
   assignedTableRows: FlattenedTable[];
   totalCapacity: number;
   capacityPercent: number;
-  /**
-   * When true, the panel renders a desktop-only IA using Tabs to reduce scanning cost.
-   * Mobile and constrained layouts should keep the linear stack.
-   */
   enableDesktopTabs?: boolean;
-}
-
-function formatDepositGBP(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-
-  const parsed =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? Number(value)
-        : Number.NaN;
-
-  if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(parsed);
-  }
-
-  if (typeof value === 'string' && value.trim().length > 0) {
-    return value.trim();
-  }
-
-  return null;
 }
 
 export function GuestProfilePanel({
@@ -69,162 +40,136 @@ export function GuestProfilePanel({
   assignedTableRows,
   totalCapacity,
   capacityPercent,
-  enableDesktopTabs = false,
 }: GuestProfilePanelProps) {
-  const formattedStartTime = useMemo(
-    () => formatBookingTime(booking.startTime, bookingDate, timezone),
-    [booking.startTime, bookingDate, timezone],
-  );
-
-  const durationMinutes = useMemo(() => {
-    if (!bookingDate) return null;
-    const start = parseBookingDateTime({ time: booking.startTime, date: bookingDate, timezone });
-    const end = parseBookingDateTime({ time: booking.endTime, date: bookingDate, timezone });
-    if (!start || !end) return null;
-    const minutes = Math.max(0, Math.round(end.diff(start, 'minutes').minutes ?? 0));
-    return Number.isFinite(minutes) ? minutes : null;
-  }, [booking.endTime, booking.startTime, bookingDate, timezone]);
-
-  const sourceLabel = booking.source ? booking.source : 'Direct';
-  const occasionLabel =
-    booking.details && typeof booking.details['occasion'] === 'string'
-      ? String(booking.details['occasion'])
-      : 'Standard';
-
-  const depositRaw =
-    booking.details?.['deposit'] ??
-    booking.details?.['depositAmount'] ??
-    booking.details?.['prepay'] ??
-    booking.details?.['prepayAmount'] ??
-    booking.details?.['prepaidAmount'];
-  const depositLabel = formatDepositGBP(depositRaw);
-
-  const isLate = status === 'confirmed' && minutesRemaining !== null && minutesRemaining < 0;
-  const hasDietary =
-    Boolean(booking.allergies && booking.allergies.length > 0) ||
-    Boolean(booking.dietaryRestrictions && booking.dietaryRestrictions.length > 0);
-
-  const CriticalStrip = (
-    <div className="flex flex-wrap items-center gap-2">
-      {hasDietary ? (
-        <GuestDietaryBadge
-          allergies={booking.allergies}
-          dietaryRestrictions={booking.dietaryRestrictions}
-        />
-      ) : null}
-
-      {isLate ? (
-        <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-800">
-          Late
-        </Badge>
-      ) : null}
-
-      {booking.requiresTableAssignment && assignedTableRows.length === 0 ? (
-        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-900">
-          No table assigned
-        </Badge>
-      ) : null}
-    </div>
-  );
-
-  const CountdownCard =
-    minutesRemaining !== null && minutesRemaining > -120 ? (
-      <Card
-        className={cn(
-          'border-slate-200/60 bg-white shadow-sm',
-          isLate && 'border-rose-200 bg-rose-50/40',
-        )}
-      >
-        <CardContent className="p-4">
-          <ArrivalCountdown
-            status={status}
-            startTime={booking.startTime}
-            date={bookingDate}
-            timezone={timezone}
-          />
-        </CardContent>
-      </Card>
-    ) : null;
-
-  if (enableDesktopTabs) {
-    return (
-      <div className="space-y-4">
-        {CriticalStrip}
-        <GuestIdentityCard booking={booking} />
-
-        <Tabs defaultValue="guest" className="w-full">
-          <TabsList className="w-full justify-start gap-1">
-            <TabsTrigger value="guest">Guest</TabsTrigger>
-            <TabsTrigger value="booking">Booking</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="guest" className="mt-4">
-            <div className="space-y-4">
-              <GuestContactCard booking={booking} />
-              <GuestNotesCard bookingNotes={null} profileNotes={booking.profileNotes ?? null} />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="booking" className="mt-4">
-            <div className="space-y-4">
-              <GuestMetaGrid
-                partySize={booking.partySize}
-                formattedStartTime={formattedStartTime}
-                durationMinutes={durationMinutes}
-                sourceLabel={sourceLabel}
-                occasionLabel={occasionLabel}
-              />
-              {CountdownCard}
-              <GuestSeatingCard
-                assignedTableRows={assignedTableRows}
-                totalCapacity={totalCapacity}
-                capacityPercent={capacityPercent}
-                partySize={booking.partySize}
-                seatingPreference={booking.seatingPreference ?? null}
-              />
-              <GuestNotesCard bookingNotes={booking.notes ?? null} profileNotes={null} />
-              <GuestDepositCard depositLabel={depositLabel} />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="history" className="mt-4">
-            <div className="space-y-4">
-              <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
-              <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} />
-              <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} />
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const facts = resolveGuestProfileFacts({
+    booking,
+    bookingDate,
+    timezone,
+    status,
+    minutesRemaining,
+  });
 
   return (
-    <div className="space-y-4">
-      {CriticalStrip}
-      <GuestIdentityCard booking={booking} />
-      <GuestContactCard booking={booking} />
-      <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} />
-      <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} />
-      <GuestMetaGrid
-        partySize={booking.partySize}
-        formattedStartTime={formattedStartTime}
-        durationMinutes={durationMinutes}
-        sourceLabel={sourceLabel}
-        occasionLabel={occasionLabel}
-      />
-      {CountdownCard}
-      <GuestSeatingCard
+    <div className="flex flex-col gap-6 w-full">
+      {/* ── 1. Hero Identity Strip ───────────────────────────────────────── */}
+      <GuestProfileIdentitySection
+        booking={booking}
+        initials={facts.initials}
+        isLate={facts.isLate}
+        whatsappHref={facts.whatsappHref}
         assignedTableRows={assignedTableRows}
-        totalCapacity={totalCapacity}
-        capacityPercent={capacityPercent}
-        partySize={booking.partySize}
-        seatingPreference={booking.seatingPreference ?? null}
       />
-      <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
-      <GuestNotesCard bookingNotes={booking.notes ?? null} profileNotes={booking.profileNotes ?? null} />
-      <GuestDepositCard depositLabel={depositLabel} />
+
+      {/* ── 2. Glassy Stat Grid ─────────────────────────────────────────── */}
+      <GuestProfileStatsGrid
+        formattedStartTime={facts.formattedStartTime}
+        durationMinutes={facts.durationMinutes}
+        partySize={booking.partySize}
+        occasionLabel={facts.occasionLabel}
+        depositLabel={facts.depositLabel}
+        sourceLabel={facts.sourceLabel}
+      />
+
+      {/* ── 3. Arrival Countdown (urgent) ──────────────────────────────── */}
+      {facts.showCountdown && (
+        <section>
+          <div
+            className={cn(
+              'flex items-center rounded-2xl border p-4',
+              facts.isLate
+                ? 'border-destructive/20 bg-destructive/5'
+                : 'border-primary/15 bg-primary/5',
+            )}
+          >
+            <ArrivalCountdown
+              status={status}
+              startTime={booking.startTime}
+              date={bookingDate}
+              timezone={timezone}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* ── 4. Dietary / Allergy Alert ──────────────────────────────────── */}
+      {facts.hasDietary && (
+        <section className="rounded-2xl border border-border/40 bg-muted/30 p-4">
+          <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            Dietary Requirements
+          </h3>
+          <GuestDietaryBadge
+            allergies={booking.allergies}
+            dietaryRestrictions={booking.dietaryRestrictions}
+          />
+        </section>
+      )}
+
+      {/* ── 5. Notes ────────────────────────────────────────────────────── */}
+      {facts.hasNotes && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-border/40 bg-background/40 p-4 backdrop-blur-md">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            Notes &amp; Preferences
+          </h3>
+          {booking.notes && (
+            <div className="rounded-xl border border-border/30 bg-muted/30 p-3 text-sm text-foreground">
+              <span className="mr-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Booking:
+              </span>
+              {booking.notes}
+            </div>
+          )}
+          {booking.profileNotes && (
+            <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 text-sm text-foreground">
+              <span className="mr-2 text-[10px] font-bold uppercase tracking-widest text-primary/60">
+                Profile:
+              </span>
+              {booking.profileNotes}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── 6. Seating ──────────────────────────────────────────────────── */}
+      <section className="overflow-hidden rounded-2xl border border-border/40 shadow-sm">
+        <GuestSeatingCard
+          assignedTableRows={assignedTableRows}
+          totalCapacity={totalCapacity}
+          capacityPercent={capacityPercent}
+          partySize={booking.partySize}
+          seatingPreference={booking.seatingPreference ?? null}
+        />
+      </section>
+
+      {/* ── 7. Timeline & Delivery Logs ─────────────────────────────────── */}
+      <section className="flex flex-col gap-3 border-t border-border/30 pt-6">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setDeliveryOpen((prev) => !prev)}
+          className="h-auto w-full justify-between rounded-lg px-1 py-1 text-left hover:bg-muted/30"
+          aria-expanded={deliveryOpen}
+        >
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+            Timeline &amp; Delivery
+          </h3>
+          <ChevronDown
+            data-icon="inline-end"
+            className={cn(
+              'text-muted-foreground/70 transition-transform',
+              deliveryOpen && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </Button>
+        <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
+        {deliveryOpen ? (
+          <>
+            <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} enabled={deliveryOpen} />
+            <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} enabled={deliveryOpen} />
+          </>
+        ) : null}
+      </section>
     </div>
   );
 }

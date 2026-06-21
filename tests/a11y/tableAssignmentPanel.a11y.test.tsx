@@ -82,9 +82,8 @@ vi.mock('@src/components/features/dashboard/booking-details/hooks/useTableAssign
 
 describe('TableAssignmentPanel accessibility', () => {
   it('has no axe violations and exposes a single-select fit control', async () => {
-    const { TableAssignmentPanel } = await import(
-      '@src/components/features/dashboard/booking-details/components/TableAssignmentPanel'
-    );
+    const { TableAssignmentPanel } =
+      await import('@src/components/features/dashboard/booking-details/components/TableAssignmentPanel');
 
     const { container } = render(
       <main>

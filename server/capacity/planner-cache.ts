@@ -1,10 +1,13 @@
-import { env } from "@/lib/env";
+import {
+  getPlannerCacheTtlMs,
+  isPlannerCacheEnabled as isPlannerCachePolicyEnabled,
+} from '@/server/runtime-policy';
 
-import type { PlannerReasonCategory } from "./planner-reason";
-import type { PlannerStrategyContext } from "./planner-telemetry";
+import type { PlannerReasonCategory } from './planner-reason';
+import type { PlannerStrategyContext } from './planner-telemetry';
 
 export type PlannerCacheEntry = {
-  status: "success" | "failure";
+  status: 'success' | 'failure';
   reason: string | null;
   reasonCode: string | null;
   reasonCategory: PlannerReasonCategory;
@@ -21,32 +24,32 @@ type PlannerCacheKeyInput = {
   trigger?: string | null;
 };
 
-const DEFAULT_TTL_MS = env.featureFlags.planner.cacheTtlMs ?? 60_000;
+const DEFAULT_TTL_MS = getPlannerCacheTtlMs();
 const cache = new Map<string, PlannerCacheEntry>();
 
 export function isPlannerCacheEnabled(): boolean {
-  return env.featureFlags.planner.cacheEnabled ?? false;
+  return isPlannerCachePolicyEnabled();
 }
 
 export function buildPlannerCacheKey(input: PlannerCacheKeyInput): string {
   const adjacencyLabel =
     input.strategy.requireAdjacency === null
-      ? "auto"
+      ? 'auto'
       : input.strategy.requireAdjacency
-        ? "adjacent"
-        : "relaxed";
+        ? 'adjacent'
+        : 'relaxed';
   const maxTablesLabel =
-    typeof input.strategy.maxTables === "number" && !Number.isNaN(input.strategy.maxTables)
+    typeof input.strategy.maxTables === 'number' && !Number.isNaN(input.strategy.maxTables)
       ? input.strategy.maxTables
-      : "auto";
-  const restaurantComponent = input.restaurantId ?? "unknown_restaurant";
-  const dateComponent = input.bookingDate ?? "unknown_date";
-  const timeComponent = input.startTime ?? "unknown_time";
-  const bookingTypeComponent = input.bookingType ?? "unknown_booking_type";
-  const partyComponent = typeof input.partySize === "number" ? input.partySize : "auto_party";
-  const triggerComponent = input.trigger ?? "default";
+      : 'auto';
+  const restaurantComponent = input.restaurantId ?? 'unknown_restaurant';
+  const dateComponent = input.bookingDate ?? 'unknown_date';
+  const timeComponent = input.startTime ?? 'unknown_time';
+  const bookingTypeComponent = input.bookingType ?? 'unknown_booking_type';
+  const partyComponent = typeof input.partySize === 'number' ? input.partySize : 'auto_party';
+  const triggerComponent = input.trigger ?? 'default';
   return [
-    "plannerCache",
+    'plannerCache',
     restaurantComponent,
     dateComponent,
     timeComponent,
@@ -55,7 +58,7 @@ export function buildPlannerCacheKey(input: PlannerCacheKeyInput): string {
     adjacencyLabel,
     maxTablesLabel,
     triggerComponent,
-  ].join(":");
+  ].join(':');
 }
 
 export function getPlannerCacheEntry(key: string): PlannerCacheEntry | null {
@@ -70,7 +73,7 @@ export function getPlannerCacheEntry(key: string): PlannerCacheEntry | null {
 
 export function setPlannerCacheEntry(
   key: string,
-  entry: Omit<PlannerCacheEntry, "timestamp">,
+  entry: Omit<PlannerCacheEntry, 'timestamp'>,
 ): void {
   cache.set(key, { ...entry, timestamp: Date.now() });
 }

@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 
 import config from '@/config';
-import { env } from '@/lib/env';
 import {
   buildCalendarEvent,
   shouldAttachCalendarEventAttachment,
@@ -17,6 +16,8 @@ import {
   type RestaurantBookingEmailTemplateKey,
   type RestaurantEmailTemplateVariant,
 } from '@/lib/restaurants/email-templates';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl, safePublicHref } from '@/lib/security/safe-url';
+import { getTrustedAppOrigin, getTrustedSiteOrigin } from '@/lib/site-url';
 import { type VenueDetails } from '@/lib/venue';
 import {
   createEmailIdempotencyKey,
@@ -39,11 +40,16 @@ import {
   buildBookingTemplateTestIdempotencyParts,
   renderBookingEmailText,
 } from '@/server/emails/booking-template-support';
+import { type EmailCategory } from '@/server/emails/email-categories';
 import {
   hasRecentEmailDelivery,
   recordEmailDeliveryLog,
   type EmailDeliveryLogEntry,
 } from '@/server/emails/email-delivery-log';
+import {
+  resolveRestaurantReplyTo,
+  resolveRestaurantSenderName,
+} from '@/server/emails/sender-policy';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -64,11 +70,9 @@ import type { Database } from '@/types/supabase';
 
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 
-// Prefer the public site origin for guest-facing links; fall back to app URL if unset.
-const bookingSiteUrl = (env.raw.NEXT_PUBLIC_SITE_URL ?? env.raw.SITE_URL ?? env.app.url).replace(
-  /\/+$/,
-  '',
-);
+// Prefer the public root host for guest-facing booking links.
+const bookingSiteUrl = getTrustedSiteOrigin().replace(/\/+$/, '');
+const bookingAppUrl = getTrustedAppOrigin().replace(/\/+$/, '');
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
@@ -134,8 +138,8 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     email: restaurant.contact_email || '',
     policy: restaurant.booking_policy || '',
     logoUrl: restaurant.logo_url || null,
-    googleMapUrl: restaurant.google_map_url || null,
-    googleReviewUrl: restaurant.google_review_url || null,
+    googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
+    googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- email_templates pending type regeneration
     emailTemplates: normalizeRestaurantEmailTemplatesDocument((restaurant as any).email_templates),
   };
@@ -163,7 +167,8 @@ function resolveTemplateKey(params: {
   booking: BookingRecord;
   reminderVariant?: 'short' | 'standard';
 }): RestaurantBookingEmailTemplateKey | null {
-  const isPending = params.booking.status === 'pending' || params.booking.status === 'pending_allocation';
+  const isPending =
+    params.booking.status === 'pending' || params.booking.status === 'pending_allocation';
 
   switch (params.type) {
     case 'created':
@@ -213,10 +218,9 @@ function resolveTemplateVariant(params: {
   const effectiveTemplate = params.draftVariants?.length
     ? { variants: params.draftVariants, source: 'draft' as const }
     : getEffectiveTemplateVariants(params.templateKey, params.venue.emailTemplates);
-  const preferredVariant =
-    params.preferredVariantId
-      ? effectiveTemplate.variants.find((variant) => variant.id === params.preferredVariantId)
-      : null;
+  const preferredVariant = params.preferredVariantId
+    ? effectiveTemplate.variants.find((variant) => variant.id === params.preferredVariantId)
+    : null;
   const templateVariant =
     preferredVariant ??
     pickDeterministicTemplateVariant(
@@ -263,13 +267,10 @@ function buildCalendarPayload(
     venuePhone: venue.phone,
     status: booking.status === 'cancelled' ? 'cancelled' : 'confirmed',
     bookingType: booking.booking_type,
-    seatingPreference: booking.seating_preference,
     notes: booking.notes,
     manageUrl: buildBookingManageUrl(booking),
   };
 }
-
-
 
 type BookingSummary = {
   date: string;
@@ -334,7 +335,6 @@ function buildBookingTemplateTestIdempotencyKey(params: {
   });
 }
 
-
 // --- Template Logic ---
 
 type TemplateConfig = {
@@ -351,15 +351,14 @@ const ICONS = {
   review: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>`,
   cancel: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`,
   error: `<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`,
-}
+};
 
 function getDescription(
   type: string,
   isPending: boolean,
   status: BookingRecord['status'],
-  reminderVariant?: 'short' | 'standard'
+  reminderVariant?: 'short' | 'standard',
 ): TemplateConfig {
-
   // Logic to determine visual style
   if (type === 'reminder') {
     return reminderVariant === 'short'
@@ -386,7 +385,6 @@ function getDescription(
   return { color: COLORS.success, bgColor: COLORS.successBg, icon: ICONS.confirmed };
 }
 
-
 export function renderHtml({
   booking,
   venue,
@@ -401,7 +399,7 @@ export function renderHtml({
   ctaUrl,
   iconOverwrite,
   colorOverwrite,
-  emailType
+  emailType,
 }: {
   booking: BookingRecord;
   venue: VenueDetails;
@@ -427,25 +425,31 @@ export function renderHtml({
   const ui = {
     color: colorOverwrite || templateConfig.color,
     bg: templateConfig.bgColor,
-    icon: iconOverwrite || templateConfig.icon
+    icon: iconOverwrite || templateConfig.icon,
   };
 
   const manageUrl = buildBookingManageUrl(booking);
+  const safeCtaUrl = ctaUrl ? safePublicHref(ctaUrl, manageUrl) : manageUrl;
 
   // Schema.org Annotation
   const annotation: EmailAnnotation = {
     actionName: ctaLabel,
-    actionUrl: ctaUrl || manageUrl,
+    actionUrl: safeCtaUrl,
     reservation: {
       confirmationNumber: booking.reference || booking.id,
-      status: booking.status === 'cancelled' ? 'ReservationCancelled' : (isPending ? 'ReservationPending' : 'ReservationConfirmed'),
+      status:
+        booking.status === 'cancelled'
+          ? 'ReservationCancelled'
+          : isPending
+            ? 'ReservationPending'
+            : 'ReservationConfirmed',
       startTime: parseTimestamp(booking.start_at)?.toISOString() || new Date().toISOString(),
       partySize: booking.party_size,
       venue: {
         name: venue.name,
-        address: venue.address
-      }
-    }
+        address: venue.address,
+      },
+    },
   };
 
   // Build table-based content HTML for email client compatibility
@@ -513,25 +517,29 @@ export function renderHtml({
 
           <!-- Data Grid -->
           ${renderGridBox([
-    { label: 'Date', value: summary.date },
-    { label: 'Time', value: summary.startTime },
-    { label: 'Guests', value: summary.party },
-    { label: 'Reference', value: booking.reference ?? 'N/A' }
-  ])}
+            { label: 'Date', value: summary.date },
+            { label: 'Time', value: summary.startTime },
+            { label: 'Guests', value: summary.party },
+            { label: 'Reference', value: booking.reference ?? 'N/A' },
+          ])}
 
           <!-- Notes -->
           ${booking.notes ? renderNote('📝', booking.notes) : ''}
 
           <!-- CTA Button -->
-          ${ctaLabel && ctaUrl ? `
+          ${
+            ctaLabel && safeCtaUrl
+              ? `
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
             <tr>
               <td align="center" style="padding-bottom:8px;">
-                ${renderButton(ctaLabel, ctaUrl)}
+                ${renderButton(ctaLabel, safeCtaUrl)}
               </td>
             </tr>
           </table>
-          ` : ''}
+          `
+              : ''
+          }
 
           <!-- Venue Info -->
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
@@ -553,7 +561,7 @@ export function renderHtml({
     contentHtml,
     annotation,
     manageUrl,
-    helpUrl: `${bookingSiteUrl}/help`
+    helpUrl: `${bookingSiteUrl}/help`,
   });
 }
 
@@ -568,6 +576,31 @@ type BookingEmailType =
   | 'review_request'
   | 'reminder'
   | 'pending_attention';
+
+// Maps each booking email to its deliverability category. Only review requests are
+// optional (suppressible by a one-click unsubscribe); everything else is tied to an
+// active booking and is always delivered unless the address is hard-suppressed.
+function bookingEmailCategory(type: BookingEmailType): EmailCategory {
+  switch (type) {
+    case 'created':
+      return 'booking_confirmation';
+    case 'reminder':
+      return 'booking_reminder';
+    case 'review_request':
+      return 'review_request';
+    case 'pending_attention':
+      return 'operational';
+    case 'updated':
+    case 'cancelled':
+    case 'modification_pending':
+    case 'modification_confirmed':
+    case 'booking_rejected':
+    case 'restaurant_cancellation':
+      return 'booking_update';
+    default:
+      return 'booking_update';
+  }
+}
 
 async function dispatchEmail(
   type: BookingEmailType,
@@ -625,13 +658,17 @@ async function dispatchEmail(
   let ctaLabel = '';
   let ctaUrl = manageUrl;
   let toEmail = booking.customer_email;
-  let resolvedVariantMeta: { id: string; name: string; source: 'default' | 'custom' | 'draft' } | null = null;
+  let resolvedVariantMeta: {
+    id: string;
+    name: string;
+    source: 'default' | 'custom' | 'draft';
+  } | null = null;
 
   switch (type) {
     case 'created':
       break;
 
-    case 'updated':  // Fallthrough - 'updated' uses same template as 'modification_confirmed'
+    case 'updated': // Fallthrough - 'updated' uses same template as 'modification_confirmed'
     case 'cancelled':
       break;
 
@@ -659,7 +696,7 @@ async function dispatchEmail(
       subject = `${headline} - ${venue.name}`;
       preheader = intro;
       ctaLabel = 'Review Now';
-      ctaUrl = `${bookingSiteUrl}/dashboard/bookings/${booking.id}`;
+      ctaUrl = `${bookingAppUrl}/bookings?focus=${encodeURIComponent(booking.id)}`;
       toEmail = venue.email || config.email.supportEmail || '';
       break;
   }
@@ -747,7 +784,10 @@ async function dispatchEmail(
     }
   }
 
-  if (!skipRecentDeliveryCheck && (deliveryTemplateType === 'reminder_24h' || deliveryTemplateType === 'reminder_short')) {
+  if (
+    !skipRecentDeliveryCheck &&
+    (deliveryTemplateType === 'reminder_24h' || deliveryTemplateType === 'reminder_short')
+  ) {
     const withinMs =
       deliveryTemplateType === 'reminder_24h' ? 3 * 24 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000;
     const alreadySent = await hasRecentEmailDelivery({
@@ -773,7 +813,9 @@ async function dispatchEmail(
       html,
       text,
       attachments,
-      fromName: venue.name,
+      category: bookingEmailCategory(type),
+      replyTo: resolveRestaurantReplyTo(venue.email),
+      fromName: resolveRestaurantSenderName(venue.name),
       tags: [
         { name: 'email_type', value: deliveryEmailType },
         { name: 'template_type', value: deliveryTemplateType },
@@ -830,10 +872,14 @@ function resolveCtaUrlForTemplate(params: {
     case 'restaurant_cancellation':
       return params.restaurantBookingUrl;
     case 'review_request':
-      return params.venue.googleReviewUrl || params.venue.googleMapUrl || `${bookingSiteUrl}/reviews/${params.booking.id}`;
+      return (
+        safeGoogleReviewUrl(params.venue.googleReviewUrl) ||
+        safeGoogleMapsUrl(params.venue.googleMapUrl) ||
+        params.manageUrl
+      );
     case 'reminder_24h':
     case 'reminder_short':
-      return params.venue.googleMapUrl || params.manageUrl;
+      return safeGoogleMapsUrl(params.venue.googleMapUrl) || params.manageUrl;
     default:
       return params.manageUrl;
   }
@@ -1045,7 +1091,6 @@ export async function sendRestaurantBookingEmailTest(params: {
     preview,
   };
 }
-
 
 async function resendBookingEmailByDeliveryType(
   booking: BookingRecord,

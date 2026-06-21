@@ -1,59 +1,63 @@
 # Continuity Ledger
 
-Last updated: 2026-04-13T17:58:00Z
+Last updated: 2026-06-19T07:23:44Z
+
+## Current GBP directory architecture review
+
+- Task harness: `tasks/gbp-directory-architecture-review-20260619-0715/`.
+- Current verdict: GBP is not required for core Nabatable, but it is strategically useful for a future directory only as an authorised bootstrap, verification, and drift-signal layer.
+- Key architecture decision: do not render raw GBP/provider mirrors directly on public directory pages. Add a separate directory/public profile publication model with source rights, approval states, freshness, attribution metadata, and a public-safe read model.
+- Recommended product stance: merchant connects GBP -> Nabatable imports a private directory draft -> merchant/admin approves fields -> Nabatable publishes its own public profile. Dual-sync remains the advanced two-way Google management surface.
+- Explicit non-claims: no live Google OAuth, no production/staging Supabase readback, no deployed cron verification, and no app/browser UI verification were performed for this analysis-only slice.
 
 ## Goal (incl. success criteria)
 
-- Fix the reservation wizard restaurant-context regression for slug-based guest booking flows.
-- Success: slug-based bookings can build a draft and submit without relying on deprecated default-restaurant env values.
-- Success: the wizard continues hydrating `restaurantId` into state when only the restaurant slug is initially known.
-- Success: regression coverage proves the client contract matches the booking API boundary.
+- Execute the ground-up Nabatable UX/UI redesign (`Goal.md`): mobile-first, calm hospitality OS, preserving behavior, routes, backend contracts, permissions, and Supabase safety rules. Current phase: layout redesign before visual decoration (inventory → layout system → apply to shipped routes → verify at 375/768/1440).
+- Success per slice: design-system + layout-system rules hold, real-route browser proof at 375/768/1440, validations green, task folder current.
 
 ## Constraints/Assumptions
 
-- Follow root `AGENTS.md`, `reserve/AGENTS.md`, and repo task-artifact requirements.
-- Manual UI QA via Chrome DevTools MCP is required before closing because this touches the guest booking wizard.
-- The booking API contract (`restaurantId` or `restaurantSlug`) is the source of truth for client draft validation.
+- High-risk cross-surface work; one Radix Luma shadcn theme for ops and guest/public; `components/ui/*` is the single primitive root; `scripts/check-no-shadcn.mjs` must stay green.
+- `tailwind.config.js` is dead at runtime (Tailwind v4 via `@tailwindcss/postcss`, no `@config` anywhere); the live theme is `src/app/globals.css` `@theme inline` + `styles/design-system/*.css`.
+- Browser proof for authenticated ops routes uses the QA fixture runtime (cookie `__nabatable_qa_ops_auth=enabled` on `app.localhost:5180`, `QA_ENABLE_AUTH_FIXTURES=1 QA_USE_MOCKS=1`) plus Playwright page-level `/api/ops/**` mocks — server ops APIs 401 otherwise and the client redirects to signin.
 
 ## Key decisions
 
-- Fix the regression in the canonical wizard flow instead of restoring default-restaurant fallbacks.
-- Align `buildReservationDraft()` with the booking API boundary by allowing either restaurant id or slug.
-- Keep venue hydration running until `restaurantId` is present so downstream paths like timeout recovery still benefit from a concrete id.
+- Foundation slice (see `tasks/uxui-redesign-foundation-20260612-2054/`): token refinement over replacement; fixed rem type steps, no negative tracking; restrained radii; focus-visible rings on six primitives; `OpsMobileBottomNav` on <md; bookings/email-log StaleBoundary; landing calm pass.
+- **Layout system defined** in `tasks/layout-redesign-system-20260612-2202/layout-system.md` (binding rules: shells, headers, nav, width table, list/detail, form, table→card, state layouts) with full route-family inventory in `layout-inventory.md`.
+- Ops list pattern = card list at all widths (BookingsTable/CustomersTable already are). Real tables: ≤5 cols → CSS `md:` split; ≥6 cols → `useIsMobile(1024)` JS gate (keeps singular accessible names for jsdom suites). Email delivery log is the reference: attempt cards <lg (orphaned `OpsEmailDeliveryAttemptCard` wired up, retry parity via shared aria-label), sortable table ≥lg.
+- `useIsMobile` gained an optional `breakpoint` param (default 768; Sidebar unchanged).
+- Customers list adopted `StaleBoundary` + `getSwrUiState` (query exposed as `customersQuery` from `useOpsCustomersDataState`); toolbar/summary stay outside the boundary.
+- vitest alias added for `@/hooks/use-copy-to-clipboard` (src-located hook, same pattern as `useGlobalShortcuts`).
 
 ## State
 
-- Implementation and automated verification are complete for `tasks/fix-wizard-restaurant-context-20260413-1650/`.
-- Browser verification was attempted but blocked by missing Next.js env vars and a standalone reserve-app route error; blocker evidence is recorded in the task artifacts.
-
-## Done
-
-- Created `tasks/fix-wizard-restaurant-context-20260413-1650/` with research, plan, todo, verification, and artifact notes.
-- Updated `buildReservationDraft()` to accept either `restaurantId` or `restaurantSlug`, matching the booking API contract.
-- Tightened slug-based venue hydration so the wizard continues fetching venue data until `restaurantId` is present.
-- Added regression coverage for slug-only draft building and the both-identifiers-missing failure.
-- Ran focused Vitest, TypeScript, and ESLint verification successfully.
-- Attempted Chrome DevTools MCP verification through both `pnpm dev` and `pnpm reserve:dev`, and captured the blockers in task artifacts.
+- Foundation slice verified (see prior ledger entry / task folder).
+- Layout slice complete and verified in `tasks/layout-redesign-system-20260612-2202/`: typecheck, guard, targeted eslint/prettier, vitest (80 email + 16 customers tests), new e2e `tests/e2e/ops-layout-system.spec.ts` **8/8** (email log cards@375/768 + table@1440, customers stale boundary, dashboard 768 shell, bookings 1440, landing 3 widths; screenshots in `artifacts/`), regression `ops-mobile-redesign` + `ops-sidebar-active-state` + `ops-authenticated-app-host` **10/10**.
+- Sidebar active-state `opsHref` fix verified via `ops-sidebar-active-state.spec.ts` (was already in working tree).
+- All redesign work remains uncommitted in the working tree (foundation + layout slices).
 
 ## Now
 
-- Preparing the final summary for the user.
+- Layout slice handed off; goal deliverables 1–5 met for representative routes.
 
 ## Next
 
-- Re-run browser proof once the required env vars are available or the standalone reserve route error is resolved.
+- Settings conformance sweep against layout-system §7 (form grid, sticky action rows, remove shadow class shims).
+- Email queue tab table → responsive pattern (§8); analytics tab spot check.
+- Filter toolbar → Sheet escalation where >2 wrapped rows at 375px (email log filter stack, customers mobile header/filter stack are first candidates).
+- Guest portal spot checks at 768 (booking detail `xl:` sidebar stacking).
+- Carried: tracking-tight sweep; reserve token unification; dead `tailwind.config.js` removal; landing content authenticity (owner decision).
 
 ## Open questions (UNCONFIRMED if needed)
 
-- None.
+- None blocking.
 
 ## Working set (files/ids/commands)
 
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/tasks/fix-wizard-restaurant-context-20260413-1650/research.md
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/tasks/fix-wizard-restaurant-context-20260413-1650/plan.md
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/tasks/fix-wizard-restaurant-context-20260413-1650/todo.md
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/tasks/fix-wizard-restaurant-context-20260413-1650/verification.md
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/reserve/features/reservations/wizard/model/transformers.ts
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/reserve/features/reservations/wizard/hooks/useReservationWizard.ts
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/tests/reserve/buildReservationDraft.test.ts
-- /Users/amankumarshrestha/.codex/worktrees/377f/nabatableLP/src/app/api/bookings/route.ts
+- `tasks/layout-redesign-system-20260612-2202/**` (research, layout-inventory, layout-system, plan, verification, artifacts)
+- `src/components/features/email-delivery/components/{OpsEmailDeliveryTable,OpsEmailDeliveryAttemptCard}.tsx`
+- `src/components/features/customers/{OpsCustomersClient,useOpsCustomersDataState}.ts(x)`
+- `hooks/use-mobile.ts`, `vitest.config.ts`
+- `tests/e2e/ops-layout-system.spec.ts`
+- `QA_TARGET_ENV=local pnpm exec playwright test -c playwright.app.config.ts tests/e2e/ops-layout-system.spec.ts`

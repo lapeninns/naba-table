@@ -1,48 +1,73 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
+import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
+import { withRestaurantAuthorization } from '@/server/auth/guards';
 import { insertTable } from '@/server/ops/tables';
-import { validateCsrfToken } from '@/server/security/csrf';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const tableSchema = z.object({
-  tableNumber: z.string().trim().min(1),
-  capacity: z.number().int().min(1),
-  minPartySize: z.number().int().min(1).nullable().optional(),
-  maxPartySize: z.number().int().min(1).nullable().optional(),
-  zoneId: z.string().uuid().nullable().optional(),
-  category: z.enum(['dining', 'bar', 'lounge', 'patio', 'private']).optional(),
-  seatingType: z.enum(['standard', 'booth', 'high_top', 'sofa']).optional(),
-  mobility: z.enum(['fixed', 'movable']).optional(),
-  status: z.enum(['available', 'out_of_service', 'reserved']).optional(),
-});
+const MAX_ONBOARDING_TABLES = 50;
+const MAX_ONBOARDING_TABLE_WRITE_CONCURRENCY = 10;
+
+const tableSchema = z
+  .object({
+    tableNumber: z.string().trim().min(1).max(50),
+    capacity: z.number().int().min(1).max(20),
+    minPartySize: z.number().int().min(1).max(20).nullable().optional(),
+    maxPartySize: z.number().int().min(1).max(20).nullable().optional(),
+    zoneId: z.string().uuid().nullable().optional(),
+    category: z.enum(['dining', 'bar', 'lounge', 'patio', 'private']).optional(),
+    seatingType: z.enum(['standard', 'booth', 'high_top', 'sofa']).optional(),
+    mobility: z.enum(['fixed', 'movable']).optional(),
+    status: z.enum(['available', 'out_of_service', 'reserved']).optional(),
+  })
+  .superRefine((table, context) => {
+    if (
+      table.minPartySize !== null &&
+      table.minPartySize !== undefined &&
+      table.maxPartySize !== null &&
+      table.maxPartySize !== undefined &&
+      table.maxPartySize < table.minPartySize
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['maxPartySize'],
+        message: 'maxPartySize must be >= minPartySize',
+      });
+    }
+  });
 
 const requestSchema = z.object({
-  tables: z.array(tableSchema),
+  tables: z.array(tableSchema).max(MAX_ONBOARDING_TABLES),
 });
 
 export async function POST(req: NextRequest, context: RouteContext) {
-  if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
-  }
-
   const { id: restaurantId } = await context.params;
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    return NextResponse.json({ message: 'Unable to verify session' }, { status: 500 });
+  const authorization = await withRestaurantAuthorization(req, restaurantId, {
+    csrf: true,
+    roles: RESTAURANT_ADMIN_ROLES,
+  });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
-  if (!user) {
-    return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+  const rateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'onboarding:tables',
+    tenantId: restaurantId,
+    userId: authorization.user.id,
+    limit: 10,
+    windowMs: 60_000,
+    message: 'Too many onboarding table updates. Please try again in a moment.',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   let payload: unknown;
@@ -54,32 +79,89 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ message: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const tables = parsed.data.tables.map((table) => ({
+    ...table,
+    zoneId: table.zoneId ?? null,
+  }));
+  if (tables.some((table) => !table.zoneId)) {
+    return NextResponse.json(
+      { message: 'Each onboarding table must reference a zone' },
+      { status: 400 },
+    );
   }
 
   try {
     const client = getServiceSupabaseClient();
-    const created = await Promise.all(
-      parsed.data.tables.map((table) =>
-        insertTable(client, {
-          restaurant_id: restaurantId,
-          table_number: table.tableNumber,
-          capacity: table.capacity,
-          min_party_size: table.minPartySize || undefined,
-          max_party_size: table.maxPartySize || undefined,
-          zone_id: table.zoneId as string,
-          category: table.category ?? 'dining',
-          seating_type: table.seatingType ?? 'standard',
-          mobility: table.mobility ?? 'fixed',
-          status: table.status ?? 'available',
-
-        }),
+    const zoneIds = Array.from(
+      new Set(
+        tables.map((table) => table.zoneId).filter((zoneId): zoneId is string => Boolean(zoneId)),
       ),
     );
+
+    if (zoneIds.length > 0) {
+      const { data: zones, error: zoneError } = await authorization.supabase
+        .from('zones')
+        .select('id, restaurant_id')
+        .in('id', zoneIds);
+
+      if (zoneError) {
+        console.error('[onboarding][tables][POST] Zone ownership lookup failed', zoneError);
+        captureServerException(zoneError, {
+          distinctId: authorization.user.id,
+          groups: { restaurant: restaurantId },
+          properties: { restaurantId, source: 'api', kind: 'onboarding-tables' },
+        });
+        return NextResponse.json({ message: 'Unable to verify table zones' }, { status: 500 });
+      }
+
+      const validZoneIds = new Set(
+        (zones ?? []).filter((zone) => zone.restaurant_id === restaurantId).map((zone) => zone.id),
+      );
+      if (validZoneIds.size !== zoneIds.length) {
+        return NextResponse.json(
+          { message: 'One or more zones do not belong to this restaurant' },
+          { status: 400 },
+        );
+      }
+    }
+
+    const created = [];
+    for (let index = 0; index < tables.length; index += MAX_ONBOARDING_TABLE_WRITE_CONCURRENCY) {
+      const chunk = tables.slice(index, index + MAX_ONBOARDING_TABLE_WRITE_CONCURRENCY);
+      const chunkCreated = await Promise.all(
+        chunk.map((table) =>
+          insertTable(client, {
+            restaurant_id: restaurantId,
+            table_number: table.tableNumber,
+            capacity: table.capacity,
+            min_party_size: table.minPartySize || undefined,
+            max_party_size: table.maxPartySize || undefined,
+            zone_id: table.zoneId as string,
+            category: table.category ?? 'dining',
+            seating_type: table.seatingType ?? 'standard',
+            mobility: table.mobility ?? 'fixed',
+            status: table.status ?? 'available',
+          }),
+        ),
+      );
+      created.push(...chunkCreated);
+    }
     return NextResponse.json({ tables: created }, { status: 201 });
   } catch (creationError) {
     console.error('[onboarding][tables][POST]', creationError);
-    const message = creationError instanceof Error ? creationError.message : 'Unable to create tables';
+    captureServerException(creationError, {
+      distinctId: authorization.user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'api', kind: 'onboarding-tables' },
+    });
+    const message =
+      creationError instanceof Error ? creationError.message : 'Unable to create tables';
     return NextResponse.json({ message }, { status: 500 });
   }
 }

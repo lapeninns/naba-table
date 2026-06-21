@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { prepareUndoNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
 import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
 import {
   loadLifecycleRouteContext,
@@ -13,7 +15,6 @@ import {
 } from '../_shared/lifecycleRoute';
 
 import type { NextRequest } from 'next/server';
-
 
 const bodySchema = z
   .object({
@@ -27,6 +28,10 @@ type RouteParams = {
 };
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
+  return withCsrfProtectedMutation(req, () => postUndoNoShow(req, { params }));
+}
+
+async function postUndoNoShow(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
     return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
@@ -39,6 +44,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   const payload = parsedBody.data;
 
   const contextResult = await loadLifecycleRouteContext({
+    req,
     bookingId: id,
     logLabel: 'booking-undo-no-show',
   });
@@ -87,6 +93,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: validationError.message }, { status });
     }
     console.error('[ops][booking-undo-no-show] unexpected validation error', validationError);
+    captureServerException(validationError, {
+      distinctId: userId,
+      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
+      properties: { bookingId: booking.id, source: 'ops', kind: 'booking-undo-no-show' },
+    });
     return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 

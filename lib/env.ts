@@ -8,10 +8,35 @@ const DEFAULT_RESEND_FROM = `no-reply@${DEFAULT_RESEND_DOMAIN}`;
 let cachedEnv: Env | null = null;
 
 function parseEnv(): Env {
+  const hasTemplatePlaceholder = (value: string) => /\$\{[^}]+\}/.test(value);
+
+  const resolveVercelUrlTemplate = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed.includes('${VERCEL_URL}')) return trimmed;
+
+    const vercelUrl = process.env.VERCEL_URL?.trim();
+    if (!vercelUrl || hasTemplatePlaceholder(vercelUrl)) return null;
+
+    return trimmed.replaceAll('${VERCEL_URL}', vercelUrl);
+  };
+
+  const sanitizePublicUrlEnv = (key: 'NEXT_PUBLIC_APP_URL' | 'NEXT_PUBLIC_SITE_URL') => {
+    const value = process.env[key];
+    if (typeof value !== 'string') return;
+
+    const resolved = resolveVercelUrlTemplate(value);
+    if (resolved) {
+      process.env[key] = resolved;
+    } else {
+      delete process.env[key];
+    }
+  };
+
   const sanitizeUrlEnv = (key: 'BASE_URL' | 'SITE_URL') => {
     const value = process.env[key];
     if (typeof value === 'string') {
-      const normalized = value.trim();
+      const resolved = resolveVercelUrlTemplate(value);
+      const normalized = resolved?.trim() ?? '';
       if (
         normalized.length === 0 ||
         normalized === '/' ||
@@ -24,6 +49,8 @@ function parseEnv(): Env {
     }
   };
 
+  sanitizePublicUrlEnv('NEXT_PUBLIC_APP_URL');
+  sanitizePublicUrlEnv('NEXT_PUBLIC_SITE_URL');
   sanitizeUrlEnv('BASE_URL');
   sanitizeUrlEnv('SITE_URL');
 
@@ -174,149 +201,6 @@ export const env = {
     } as const;
   },
 
-  get featureFlags() {
-    const parsed = parseEnv();
-    const isProduction = parsed.NODE_ENV === 'production';
-    const allocatorKMax = Math.max(1, Math.min(parsed.FEATURE_ALLOCATOR_K_MAX ?? 3, 5));
-    const allocatorMergesDefault = parsed.FEATURE_ALLOCATOR_MERGES_ENABLED ?? !isProduction;
-    const combinationPlannerDefault = parsed.FEATURE_COMBINATION_PLANNER ?? allocatorMergesDefault;
-    const plannerTimePruningDefault = parsed.FEATURE_PLANNER_TIME_PRUNING_ENABLED ?? true;
-    const plannerCacheTtlMs = 60_000;
-    const adjacencyMinPartySize = null;
-    const adjacencyMode = 'connected' as const;
-    const manualAssignmentMaxSlack =
-      typeof parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK === 'number'
-        ? Math.max(0, Math.min(parsed.FEATURE_MANUAL_ASSIGNMENT_MAX_SLACK, 12))
-        : null;
-    const manualAssignmentSessionEnabled =
-      parsed.FEATURE_MANUAL_ASSIGNMENT_SESSION_ENABLED ?? false;
-    const manualAssignmentSnapshotValidation =
-      parsed.FEATURE_MANUAL_ASSIGNMENT_SNAPSHOT_VALIDATION !== false;
-    const selectorMaxPlansPerSlack =
-      typeof parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK === 'number'
-        ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_PLANS_PER_SLACK, 500))
-        : null;
-    const selectorMaxCombinationEvaluations =
-      typeof parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS === 'number'
-        ? Math.max(1, Math.min(parsed.FEATURE_SELECTOR_MAX_COMBINATION_EVALUATIONS, 5000))
-        : null;
-    const selectorEnumerationTimeoutMs =
-      typeof parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS === 'number'
-        ? Math.max(50, Math.min(parsed.FEATURE_SELECTOR_ENUMERATION_TIMEOUT_MS, 10_000))
-        : null;
-    // When we store adjacency edges both directions (A->B and B->A), we can query by table_a only.
-    // Default stays true for backwards compatibility unless explicitly overridden in env.
-    const adjacencyQueryUndirectedDefault = parsed.FEATURE_ADJACENCY_QUERY_UNDIRECTED ?? true;
-    const strictConflictsDefault =
-      typeof parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED === 'boolean'
-        ? parsed.FEATURE_HOLDS_STRICT_CONFLICTS_ENABLED
-        : parsed.APP_ENV === 'staging';
-    return {
-      guestLookupPolicy: parsed.FEATURE_GUEST_LOOKUP_POLICY ?? false,
-      opsGuardV2: parsed.FEATURE_OPS_GUARD_V2 ?? false,
-      bookingPastTimeBlocking: parsed.FEATURE_BOOKING_PAST_TIME_BLOCKING ?? false,
-      bookingPastTimeGraceMinutes: parsed.BOOKING_PAST_TIME_GRACE_MINUTES ?? 5,
-      pendingSelfServeGraceMinutes: Math.max(
-        0,
-        Math.min(parsed.NEXT_PUBLIC_BOOKING_PENDING_GRACE_MINUTES ?? 10, 60),
-      ),
-      bookingValidationUnified: parsed.FEATURE_BOOKING_VALIDATION_UNIFIED ?? false,
-      bookingLifecycleV2: parsed.FEATURE_OPS_BOOKING_LIFECYCLE_V2 ?? false,
-      allocationsDualWrite: parsed.FEATURE_ALLOCATIONS_DUAL_WRITE ?? false,
-      statusTriggers: parsed.FEATURE_STATUS_TRIGGERS ?? false,
-      editScheduleParity: parsed.FEATURE_EDIT_SCHEDULE_PARITY ?? true,
-      selectorScoring: parsed.FEATURE_SELECTOR_SCORING ?? true,
-      selectorLookahead: {
-        enabled: parsed.FEATURE_SELECTOR_LOOKAHEAD ?? true,
-        windowMinutes: Math.max(
-          5,
-          Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_WINDOW_MINUTES ?? 120, 480),
-        ),
-        penaltyWeight: Math.max(
-          1,
-          Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_PENALTY_WEIGHT ?? 500, 100_000),
-        ),
-        blockThreshold: Math.max(
-          0,
-          Math.min(parsed.FEATURE_SELECTOR_LOOKAHEAD_BLOCK_THRESHOLD ?? 0, 100_000),
-        ),
-      },
-      combinationPlanner: combinationPlannerDefault,
-      adjacencyValidation: parsed.FEATURE_ADJACENCY_VALIDATION ?? false,
-      opsMetrics: parsed.FEATURE_OPS_METRICS ?? false,
-      opsRejectionAnalytics: parsed.FEATURE_OPS_REJECTION_ANALYTICS ?? false,
-      realtimeFloorplan: parsed.NEXT_PUBLIC_FEATURE_REALTIME_FLOORPLAN ?? true,
-      planner: {
-        timePruningEnabled: plannerTimePruningDefault,
-        cacheEnabled: false,
-        cacheTtlMs: plannerCacheTtlMs,
-        debugProfiling: parsed.DEBUG_CAPACITY_PROFILING ?? false,
-      },
-      allocator: {
-        mergesEnabled: allocatorMergesDefault,
-        requireAdjacency: parsed.FEATURE_ALLOCATOR_REQUIRE_ADJACENCY ?? true,
-        kMax: allocatorKMax,
-        adjacencyMinPartySize,
-        adjacencyMode,
-        service: {
-          failHard: parsed.FEATURE_ALLOCATOR_SERVICE_FAIL_HARD ?? false,
-        },
-      },
-      manualAssignments: {
-        maxSlack: manualAssignmentMaxSlack,
-        sessionEnabled: manualAssignmentSessionEnabled,
-        snapshotValidation: manualAssignmentSnapshotValidation,
-      },
-      selector: {
-        maxPlansPerSlack: selectorMaxPlansPerSlack,
-        maxCombinationEvaluations: selectorMaxCombinationEvaluations,
-        enumerationTimeoutMs: selectorEnumerationTimeoutMs,
-      },
-      context: {
-        queryPaddingMinutes: Math.max(
-          0,
-          Math.min(parsed.FEATURE_CONTEXT_QUERY_PADDING_MINUTES ?? 60, 240),
-        ),
-      },
-      holds: {
-        enabled: parsed.FEATURE_HOLDS_ENABLED ?? true,
-        strictConflicts: strictConflictsDefault,
-        minTtlSeconds: 180,
-      },
-      adjacency: {
-        queryUndirected: adjacencyQueryUndirectedDefault,
-      },
-      // Booking auto-assignment
-      autoAssignOnBooking: parsed.FEATURE_AUTO_ASSIGN_ON_BOOKING ?? false,
-      inlineAutoAssignTimeoutMs: (() => {
-        const raw = parsed.FEATURE_INLINE_AUTO_ASSIGN_TIMEOUT_MS;
-        const fallback = 12_000;
-        if (typeof raw === 'number' && Number.isFinite(raw)) {
-          return Math.max(2_000, Math.min(raw, 20_000));
-        }
-        return fallback;
-      })(),
-      autoAssign: {
-        maxRetries: Math.max(0, Math.min(parsed.FEATURE_AUTO_ASSIGN_MAX_RETRIES ?? 3, 10)),
-        retryDelaysMs:
-          typeof parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS === 'string'
-            ? parsed.FEATURE_AUTO_ASSIGN_RETRY_DELAYS_MS
-            : undefined,
-        startCutoffMinutes: Math.max(
-          0,
-          Math.min(parsed.FEATURE_AUTO_ASSIGN_START_CUTOFF_MINUTES ?? 10, 240),
-        ),
-        createdEmailDeferMinutes: Math.max(
-          0,
-          Math.min(parsed.FEATURE_AUTO_ASSIGN_CREATED_EMAIL_DEFER_MINUTES ?? 5, 120),
-        ),
-      },
-      emailQueueEnabled: parsed.FEATURE_EMAIL_QUEUE_ENABLED ?? false,
-      policyRequoteEnabled: parsed.FEATURE_POLICY_REQUOTE_ENABLED ?? true,
-      dbStrictConstraints: parsed.FEATURE_DB_STRICT_CONSTRAINTS ?? false,
-    } as const;
-  },
-
   get strategic() {
     const parsed = parseEnv();
     const clamp = (
@@ -370,6 +254,28 @@ export const env = {
     } as const;
   },
 
+  get googleBusinessProfile() {
+    const parsed = parseEnv();
+    const clientId =
+      parsed.GOOGLE_BUSINESS_CLIENT_ID ?? parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_ID ?? null;
+    const clientSecret =
+      parsed.GOOGLE_BUSINESS_CLIENT_SECRET ?? parsed.GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET ?? null;
+    const redirectUri =
+      parsed.GOOGLE_BUSINESS_REDIRECT_URI ?? parsed.GOOGLE_BUSINESS_PROFILE_REDIRECT_URI ?? null;
+    const tokenEncryptionKey =
+      parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY ??
+      parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ??
+      null;
+    return {
+      clientId,
+      clientSecret,
+      redirectUri,
+      tokenEncryptionKey,
+      quotaProject: parsed.GOOGLE_CLOUD_QUOTA_PROJECT ?? null,
+      configured: Boolean(clientId && clientSecret && redirectUri && tokenEncryptionKey),
+    } as const;
+  },
+
   get misc() {
     const parsed = parseEnv();
     return {
@@ -405,6 +311,13 @@ export const env = {
       bookingShortLinksBaseUrl: parsed.BOOKING_SHORT_LINKS_BASE_URL ?? null,
       bookingShortLinksInternalUrl: parsed.BOOKING_SHORT_LINKS_INTERNAL_URL ?? null,
       bookingShortLinksInternalToken: parsed.BOOKING_SHORT_LINKS_INTERNAL_TOKEN ?? null,
+    } as const;
+  },
+
+  get dualSync() {
+    const parsed = parseEnv();
+    return {
+      failureWebhookUrl: parsed.DUAL_SYNC_FAILURE_WEBHOOK_URL ?? null,
     } as const;
   },
 } as const;

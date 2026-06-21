@@ -1,46 +1,44 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
+import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getBookingStatusSummary } from "@/server/ops/booking-lifecycle/summary";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
-import { fetchUserMemberships } from "@/server/team/access";
+import { daysBetweenInclusive, firstString, safeDate, stringArray } from '@/lib/api/query-params';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { getBookingStatusSummary } from '@/server/ops/booking-lifecycle/summary';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+import { fetchUserMemberships } from '@/server/team/access';
 
-import type { BookingStatus } from "@/server/ops/booking-lifecycle/stateMachine";
+import type { BookingStatus } from '@/server/ops/booking-lifecycle/stateMachine';
 
 const bookingStatusSchema = z.enum([
-  "pending",
-  "pending_allocation",
-  "confirmed",
-  "checked_in",
-  "completed",
-  "cancelled",
-  "no_show",
-  "PRIORITY_WAITLIST",
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'completed',
+  'cancelled',
+  'no_show',
+  'PRIORITY_WAITLIST',
 ]);
 
 const querySchema = z.object({
   restaurantId: z.string().uuid(),
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "from must be ISO-8601 date (YYYY-MM-DD)")
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "to must be ISO-8601 date (YYYY-MM-DD)")
-    .optional(),
-  statuses: z.string().optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'from must be ISO-8601 date (YYYY-MM-DD)'),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'to must be ISO-8601 date (YYYY-MM-DD)'),
+  statuses: z.array(bookingStatusSchema).max(8).optional(),
 });
 
 type QueryParams = z.infer<typeof querySchema>;
+const STATUS_SUMMARY_MAX_WINDOW_DAYS = 93;
 
 function parseQuery(request: NextRequest): QueryParams {
   const searchParams = request.nextUrl.searchParams;
   return querySchema.parse({
-    restaurantId: searchParams.get("restaurantId"),
-    from: searchParams.get("from") ?? undefined,
-    to: searchParams.get("to") ?? undefined,
-    statuses: searchParams.get("statuses") ?? undefined,
+    restaurantId: firstString(searchParams, 'restaurantId'),
+    from: safeDate(searchParams, 'from'),
+    to: safeDate(searchParams, 'to'),
+    statuses: stringArray(searchParams, 'statuses'),
   });
 }
 
@@ -50,23 +48,26 @@ export async function GET(request: NextRequest) {
     params = parseQuery(request);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid query parameters", details: error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid query parameters', details: error.flatten() },
+        { status: 400 },
+      );
     }
-    return NextResponse.json({ error: "Invalid query parameters" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 });
   }
 
-  const normalisedStatuses = params.statuses
-    ? params.statuses
-      .split(",")
-      .map((status) => status.trim())
-      .filter((status) => status.length > 0)
-    : [];
-
-  for (const status of normalisedStatuses) {
-    const result = bookingStatusSchema.safeParse(status);
-    if (!result.success) {
-      return NextResponse.json({ error: `Invalid status filter: ${status}` }, { status: 400 });
-    }
+  const windowDays = daysBetweenInclusive(params.from, params.to);
+  if (
+    !Number.isFinite(windowDays) ||
+    windowDays < 1 ||
+    windowDays > STATUS_SUMMARY_MAX_WINDOW_DAYS
+  ) {
+    return NextResponse.json(
+      {
+        error: `Status summary range must be between 1 and ${STATUS_SUMMARY_MAX_WINDOW_DAYS} days`,
+      },
+      { status: 400 },
+    );
   }
 
   const supabase = await getRouteHandlerSupabaseClient();
@@ -76,32 +77,54 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops][booking-status-summary] auth lookup failed", authError.message);
+    console.error('[ops][booking-status-summary] auth lookup failed', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   try {
     const memberships = await fetchUserMemberships(user.id, supabase);
-    const hasAccess = memberships.some((membership) => membership.restaurant_id === params.restaurantId);
+    const hasAccess = memberships.some(
+      (membership) => membership.restaurant_id === params.restaurantId,
+    );
     if (!hasAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   } catch (error) {
-    console.error("[ops][booking-status-summary] membership lookup failed", error);
-    return NextResponse.json({ error: "Unable to verify permissions" }, { status: 500 });
+    console.error('[ops][booking-status-summary] membership lookup failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-booking-status-summary' },
+    });
+    return NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 });
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request,
+    scope: 'ops-bookings:status-summary',
+    tenantId: params.restaurantId,
+    userId: user.id,
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {
     const summaryRows = await getBookingStatusSummary({
       restaurantId: params.restaurantId,
-      startDate: params.from ?? null,
-      endDate: params.to ?? null,
-      statuses: normalisedStatuses.length > 0 ? (normalisedStatuses as BookingStatus[]) : null,
+      startDate: params.from,
+      endDate: params.to,
+      statuses:
+        params.statuses && params.statuses.length > 0 ? (params.statuses as BookingStatus[]) : null,
     });
 
     const totals: Record<BookingStatus, number> = {
@@ -122,17 +145,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       restaurantId: params.restaurantId,
       range: {
-        from: params.from ?? null,
-        to: params.to ?? null,
+        from: params.from,
+        to: params.to,
       },
       filter: {
-        statuses: normalisedStatuses.length > 0 ? (normalisedStatuses as BookingStatus[]) : null,
+        statuses:
+          params.statuses && params.statuses.length > 0
+            ? (params.statuses as BookingStatus[])
+            : null,
       },
       totals,
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("[ops][booking-status-summary] failed to compute summary", error);
-    return NextResponse.json({ error: "Unable to compute booking status summary" }, { status: 500 });
+    console.error('[ops][booking-status-summary] failed to compute summary', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: params.restaurantId },
+      properties: {
+        restaurantId: params.restaurantId,
+        source: 'ops',
+        kind: 'ops-booking-status-summary',
+      },
+    });
+    return NextResponse.json(
+      { error: 'Unable to compute booking status summary' },
+      { status: 500 },
+    );
   }
 }

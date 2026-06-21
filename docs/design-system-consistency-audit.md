@@ -87,11 +87,10 @@ Guest and ops use **different card/section components** that guarantee visual di
 
 Guest overrides every Button to `rounded-full px-8`. Ops uses the default `rounded-md`. The Button component has no built-in "guest" variant — this is always done via className override, making it fragile.
 
-| Surface   | Button shape                      | Evidence                                                  |
-| --------- | --------------------------------- | --------------------------------------------------------- |
-| Guest     | `rounded-full px-8`               | `src/components/guest/ui/GuestPrimitives.tsx:379,419,424` |
-| Ops       | `rounded-md` (default)            | `components/ui/button.tsx:8` (base class)                 |
-| Marketing | `rounded-full` + shadow overrides | `components/marketing/Hero.tsx:29-40`                     |
+| Surface | Button shape           | Evidence                                                  |
+| ------- | ---------------------- | --------------------------------------------------------- |
+| Guest   | `rounded-full px-8`    | `src/components/guest/ui/GuestPrimitives.tsx:379,419,424` |
+| Ops     | `rounded-md` (default) | `components/ui/button.tsx:8` (base class)                 |
 
 ---
 
@@ -136,7 +135,6 @@ Ops dashboard has **60+ instances** of hardcoded Tailwind color classes scattere
 | File                                                                                   | Colors used                                |
 | -------------------------------------------------------------------------------------- | ------------------------------------------ |
 | `src/components/features/dashboard/booking-details/BookingDialog.tsx`                  | emerald, blue, rose, indigo, orange, slate |
-| `src/components/features/dashboard/TableFloorPlan.tsx`                                 | blue, emerald, amber, muted (mixed)        |
 | `src/components/features/dashboard/cards/OpsBookingCardActions.tsx`                    | emerald-600, rose-600, slate-700           |
 | `src/components/features/dashboard/HeatmapCalendar.tsx`                                | emerald-100 through emerald-600            |
 | `src/components/features/dashboard/ConnectionStatusBeacon.tsx`                         | emerald-500, amber-500, rose-500           |
@@ -147,7 +145,6 @@ Ops dashboard has **60+ instances** of hardcoded Tailwind color classes scattere
 | File                                          | Colors used                                                      |
 | --------------------------------------------- | ---------------------------------------------------------------- |
 | `src/components/guest/ui/GuestPrimitives.tsx` | slate-200/400/500/900, blue-50/600/700, green-50, red-50/100/600 |
-| `components/marketing/Hero.tsx`               | slate-50/900, green-500, rgba(59,130,246)                        |
 
 ---
 

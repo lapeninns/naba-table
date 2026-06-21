@@ -8,24 +8,25 @@ import type {
   OpsEmailDeliveryRange,
   OpsEmailDeliverySummaryResponse,
 } from '@/types/emailDelivery';
-import type {
-  OpsEmailQueueFeedResponse,
-  OpsEmailQueueJobStatus,
-} from '@/types/emailQueue';
+import type { OpsEmailQueueFeedResponse, OpsEmailQueueJobStatus } from '@/types/emailQueue';
 import type {
   OpsBookingHeatmap,
   OpsBookingListItem,
   OpsBookingsFilters,
   OpsBookingsPage,
   OpsBookingStatus,
-  OpsRejectionAnalytics,
   OpsServiceError,
   OpsStrategicSettings,
   OpsTodayBooking,
   OpsTodayBookingsSummary,
   OpsWalkInBookingPayload,
 } from '@/types/ops';
-import type { BookingSmsDeliveryResponse } from '@/types/smsDelivery';
+import type {
+  BookingSmsDeliveryResponse,
+  OpsSmsDeliveryFeedResponse,
+  OpsSmsDeliveryRange,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 import type { Tables } from '@/types/supabase';
 
 const OPS_BOOKINGS_BASE = '/api/ops/bookings';
@@ -42,13 +43,6 @@ type HeatmapParams = {
   restaurantId: string;
   startDate: string;
   endDate: string;
-};
-
-type RejectionAnalyticsParams = {
-  restaurantId: string;
-  from?: string | null;
-  to?: string | null;
-  bucket?: 'day' | 'hour';
 };
 
 type StrategicSettingsParams = {
@@ -386,6 +380,16 @@ export type ManualAssignmentContextWithSession = ManualAssignmentContext & {
 };
 
 // Simplified context for the direct assignment UI
+/**
+ * Consolidated dialog payload returned by GET /api/ops/bookings/:id/dialog.
+ * Used by `useOpsBookingDialogBundle` to seed both the booking-detail and
+ * assignment-context React Query caches in a single round-trip.
+ */
+export type OpsBookingDialogBundle = {
+  booking: OpsBookingListItem;
+  assignmentContext: AssignmentContext;
+};
+
 export type AssignmentContext = {
   booking: {
     id: string;
@@ -436,7 +440,6 @@ export type DisabledAssignmentsResponse = {
 export interface BookingService {
   getTodaySummary(params: SummaryParams): Promise<OpsTodayBookingsSummary>;
   getBookingHeatmap(params: HeatmapParams): Promise<OpsBookingHeatmap>;
-  getRejectionAnalytics(params: RejectionAnalyticsParams): Promise<OpsRejectionAnalytics>;
   getStrategicSettings(params: StrategicSettingsParams): Promise<OpsStrategicSettings>;
   updateStrategicSettings(input: StrategicSettingsUpdate): Promise<OpsStrategicSettings>;
   listBookings(filters: OpsBookingsFilters): Promise<OpsBookingsPage>;
@@ -457,6 +460,13 @@ export interface BookingService {
     bookingId: string,
     params?: { limit?: number },
   ): Promise<BookingSmsDeliveryResponse>;
+  getRestaurantSmsDeliveryFeed(params: {
+    restaurantId?: string;
+    range?: OpsSmsDeliveryRange;
+    page?: number;
+    pageSize?: number;
+    status?: SmsDeliveryStatus[];
+  }): Promise<OpsSmsDeliveryFeedResponse>;
   getRestaurantEmailDeliveryFeed(params: {
     restaurantId?: string;
     range?: OpsEmailDeliveryRange;
@@ -488,10 +498,7 @@ export interface BookingService {
     status?: OpsEmailQueueJobStatus;
     fixture?: string;
   }): Promise<OpsEmailQueueFeedResponse>;
-  retryEmailDelivery(input: {
-    deliveryLogId: string;
-    simulateError?: boolean;
-  }): Promise<{
+  retryEmailDelivery(input: { deliveryLogId: string; simulateError?: boolean }): Promise<{
     ok: true;
     deliveryLogEntry: unknown;
   }>;
@@ -501,8 +508,17 @@ export interface BookingService {
   unassignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
   autoQuoteTables(input: AutoQuoteInput): Promise<AutoQuoteResponse>;
   confirmHoldAssignment(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
-  getManualAssignmentContext(bookingId: string, options?: { preferSession?: boolean }): Promise<ManualAssignmentContextWithSession>;
+  getManualAssignmentContext(
+    bookingId: string,
+    options?: { preferSession?: boolean },
+  ): Promise<ManualAssignmentContextWithSession>;
   getAssignmentContext(bookingId: string): Promise<AssignmentContext>;
+  /**
+   * Consolidated dialog payload: returns the booking detail and the
+   * assignment-context in a single round-trip from the
+   * `GET /api/ops/bookings/:id/dialog` endpoint.
+   */
+  getDialogBundle(bookingId: string): Promise<OpsBookingDialogBundle>;
   assignTablesDirect(input: {
     bookingId: string;
     tableIds: string[];
@@ -529,7 +545,10 @@ export interface BookingService {
       slack: number;
     };
   }>;
-  unassignTablesDirect(input: { bookingId: string; tableIds: string[] }): Promise<{ success: true; removedCount: number }>;
+  unassignTablesDirect(input: {
+    bookingId: string;
+    tableIds: string[];
+  }): Promise<{ success: true; removedCount: number }>;
 }
 
 function toIsoParam(value: Date | string | null | undefined): string | undefined {
@@ -549,9 +568,11 @@ function buildSearch(filters: OpsBookingsFilters): string {
   if (filters.page) params.set('page', String(filters.page));
   if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
   if (filters.status && filters.status !== 'all') params.set('status', filters.status);
-  if (filters.statuses && filters.statuses.length > 0) params.set('statuses', filters.statuses.join(','));
+  if (filters.statuses && filters.statuses.length > 0)
+    params.set('statuses', filters.statuses.join(','));
   if (filters.sort) params.set('sort', filters.sort);
   if (filters.sortBy) params.set('sortBy', filters.sortBy);
+  if (filters.countStrategy) params.set('countStrategy', filters.countStrategy);
   const fromIso = toIsoParam(filters.from ?? undefined);
   if (fromIso) params.set('from', fromIso);
   const toIso = toIsoParam(filters.to ?? undefined);
@@ -589,7 +610,9 @@ function createIdempotencyKey(): string {
 
 async function fetchContextVersion(bookingId: string): Promise<string | null> {
   try {
-    const res = await fetchJson<ManualAssignmentContext>(`/api/ops/bookings/${bookingId}/manual-context`);
+    const res = await fetchJson<ManualAssignmentContext>(
+      `/api/ops/bookings/${bookingId}/manual-context`,
+    );
     return res?.contextVersion ?? null;
   } catch {
     return null;
@@ -601,26 +624,27 @@ export function createBrowserBookingService(): BookingService {
     async getTodaySummary({ restaurantId, date }) {
       const params = new URLSearchParams({ restaurantId });
       if (date) params.set('date', date);
-      return fetchJson<OpsTodayBookingsSummary>(`${OPS_DASHBOARD_BASE}/summary?${params.toString()}`);
+      return fetchJson<OpsTodayBookingsSummary>(
+        `${OPS_DASHBOARD_BASE}/summary?${params.toString()}`,
+      );
     },
     async getBookingHeatmap({ restaurantId, startDate, endDate }) {
       const params = new URLSearchParams({ restaurantId, startDate, endDate });
       return fetchJson<OpsBookingHeatmap>(`${OPS_DASHBOARD_BASE}/heatmap?${params.toString()}`);
     },
-    async getRejectionAnalytics({ restaurantId, from, to, bucket }) {
-      const params = new URLSearchParams({ restaurantId });
-      if (from) params.set('from', from);
-      if (to) params.set('to', to);
-      if (bucket) params.set('bucket', bucket);
-      return fetchJson<OpsRejectionAnalytics>(`${OPS_DASHBOARD_BASE}/rejections?${params.toString()}`);
-    },
     async getStrategicSettings({ restaurantId }) {
       const params = new URLSearchParams({ restaurantId });
-      return fetchJson<OpsStrategicSettings>(`${OPS_SETTINGS_BASE}/strategic-config?${params.toString()}`);
+      return fetchJson<OpsStrategicSettings>(
+        `${OPS_SETTINGS_BASE}/strategic-config?${params.toString()}`,
+      );
     },
     async updateStrategicSettings({ restaurantId: _restaurantId, weights: _weights }) {
-      console.warn('[bookingService] Strategic settings are read-only; update env values and redeploy.');
-      return Promise.reject(new Error('Strategic settings are read-only; update env values and redeploy.'));
+      console.warn(
+        '[bookingService] Strategic settings are read-only; update env values and redeploy.',
+      );
+      return Promise.reject(
+        new Error('Strategic settings are read-only; update env values and redeploy.'),
+      );
     },
     async getStatusSummary(params) {
       const query = buildStatusSummarySearch(params);
@@ -632,7 +656,9 @@ export function createBrowserBookingService(): BookingService {
     },
     async listDisabledAssignments({ restaurantId }) {
       const params = new URLSearchParams({ restaurantId });
-      return fetchJson<DisabledAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/disabled?${params.toString()}`);
+      return fetchJson<DisabledAssignmentsResponse>(
+        `${OPS_BOOKINGS_BASE}/disabled?${params.toString()}`,
+      );
     },
     async updateBooking({ id, ...body }) {
       return fetchJson<OpsBookingListItem>(`${OPS_BOOKINGS_BASE}/${id}`, {
@@ -740,10 +766,51 @@ export function createBrowserBookingService(): BookingService {
         throw error;
       }
     },
-    async getRestaurantEmailDeliveryFeed(params) {
-      const rawPage = typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
+    async getRestaurantSmsDeliveryFeed(params) {
+      const rawPage =
+        typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
       const rawPageSize =
-        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize) ? params.pageSize : 50;
+        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize)
+          ? params.pageSize
+          : 50;
+      const page = Math.max(1, Math.floor(rawPage));
+      const pageSize = Math.max(1, Math.min(200, Math.floor(rawPageSize)));
+      const range: OpsSmsDeliveryRange = params.range ?? '7d';
+
+      const search = new URLSearchParams();
+      if (params.restaurantId) search.set('restaurantId', params.restaurantId);
+      search.set('range', range);
+      search.set('page', String(page));
+      search.set('pageSize', String(pageSize));
+      if (params.status && params.status.length > 0) {
+        search.set('status', params.status.join(','));
+      }
+
+      const url = `/api/ops/sms-delivery?${search.toString()}`;
+      try {
+        return await fetchJson<OpsSmsDeliveryFeedResponse>(url);
+      } catch (error) {
+        if (error instanceof HttpError) {
+          const code =
+            error.status === 401 || error.status === 419
+              ? 'UNAUTHENTICATED'
+              : error.status === 403
+                ? 'FORBIDDEN'
+                : error.status === 503
+                  ? 'DELIVERY_LOG_UNAVAILABLE'
+                  : 'INTERNAL';
+          return { ok: false, code, error: error.message, message: error.message };
+        }
+        throw error;
+      }
+    },
+    async getRestaurantEmailDeliveryFeed(params) {
+      const rawPage =
+        typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
+      const rawPageSize =
+        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize)
+          ? params.pageSize
+          : 50;
 
       const page = Math.max(1, Math.floor(rawPage));
       const pageSize = Math.max(1, Math.min(200, Math.floor(rawPageSize)));
@@ -779,7 +846,7 @@ export function createBrowserBookingService(): BookingService {
                 ? 'FORBIDDEN'
                 : error.status === 418
                   ? 'FORCED_ERROR'
-                : error.status === 503
+                  : error.status === 503
                     ? 'DELIVERY_LOG_UNAVAILABLE'
                     : 'INTERNAL';
           return { ok: false, code, error: error.message, message: error.message };
@@ -830,7 +897,10 @@ export function createBrowserBookingService(): BookingService {
         const response = await fetch('/api/ops/email-delivery/retry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deliveryLogId, ...(simulateError ? { simulateError: true } : {}) }),
+          body: JSON.stringify({
+            deliveryLogId,
+            ...(simulateError ? { simulateError: true } : {}),
+          }),
           credentials: 'include',
         });
 
@@ -838,7 +908,10 @@ export function createBrowserBookingService(): BookingService {
         const parsed = text ? (JSON.parse(text) as unknown) : undefined;
 
         if (!response.ok) {
-          const errorBody = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : undefined;
+          const errorBody =
+            typeof parsed === 'object' && parsed !== null
+              ? (parsed as Record<string, unknown>)
+              : undefined;
           throw normalizeError({
             status: response.status,
             statusText: response.statusText,
@@ -846,10 +919,12 @@ export function createBrowserBookingService(): BookingService {
           });
         }
 
-        return (parsed as { ok: true; deliveryLogEntry: unknown }) ?? {
-          ok: true,
-          deliveryLogEntry: null,
-        };
+        return (
+          (parsed as { ok: true; deliveryLogEntry: unknown }) ?? {
+            ok: true,
+            deliveryLogEntry: null,
+          }
+        );
       } catch (error) {
         if (error instanceof HttpError) {
           throw error;
@@ -863,9 +938,12 @@ export function createBrowserBookingService(): BookingService {
       }
     },
     async getRestaurantEmailQueue(params) {
-      const rawPage = typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
+      const rawPage =
+        typeof params.page === 'number' && Number.isFinite(params.page) ? params.page : 1;
       const rawPageSize =
-        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize) ? params.pageSize : 25;
+        typeof params.pageSize === 'number' && Number.isFinite(params.pageSize)
+          ? params.pageSize
+          : 25;
 
       const page = Math.max(1, Math.floor(rawPage));
       const pageSize = Math.max(1, Math.min(100, Math.floor(rawPageSize)));
@@ -877,7 +955,9 @@ export function createBrowserBookingService(): BookingService {
       if (params.fixture) search.set('fixture', params.fixture.trim());
 
       try {
-        return await fetchJson<OpsEmailQueueFeedResponse>(`/api/ops/email-queue?${search.toString()}`);
+        return await fetchJson<OpsEmailQueueFeedResponse>(
+          `/api/ops/email-queue?${search.toString()}`,
+        );
       } catch (error) {
         if (error instanceof HttpError) {
           const code =
@@ -921,11 +1001,21 @@ export function createBrowserBookingService(): BookingService {
       });
     },
     async unassignTable({ bookingId, tableId }) {
-      return fetchJson<TableAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/tables/${tableId}`, {
-        method: 'DELETE',
-      });
+      return fetchJson<TableAssignmentsResponse>(
+        `${OPS_BOOKINGS_BASE}/${bookingId}/tables/${tableId}`,
+        {
+          method: 'DELETE',
+        },
+      );
     },
-    async autoQuoteTables({ bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds }) {
+    async autoQuoteTables({
+      bookingId,
+      zoneId,
+      maxTables,
+      requireAdjacency,
+      avoidTables,
+      holdTtlSeconds,
+    }) {
       const payload: Record<string, unknown> = { bookingId };
       if (zoneId) payload.zoneId = zoneId;
       if (typeof maxTables === 'number') payload.maxTables = maxTables;
@@ -939,9 +1029,15 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async confirmHoldAssignment({ holdId, bookingId, idempotencyKey, requireAdjacency, contextVersion }) {
+    async confirmHoldAssignment({
+      holdId,
+      bookingId,
+      idempotencyKey,
+      requireAdjacency,
+      contextVersion,
+    }) {
       if (!contextVersion) {
-        contextVersion = await fetchContextVersion(bookingId) ?? '';
+        contextVersion = (await fetchContextVersion(bookingId)) ?? '';
       }
       const payload: Record<string, unknown> = {
         holdId,
@@ -969,6 +1065,9 @@ export function createBrowserBookingService(): BookingService {
     },
     async getAssignmentContext(bookingId) {
       return fetchJson<AssignmentContext>(`/api/ops/bookings/${bookingId}/assignment-context`);
+    },
+    async getDialogBundle(bookingId) {
+      return fetchJson<OpsBookingDialogBundle>(`/api/ops/bookings/${bookingId}/dialog`);
     },
     async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
       return fetchJson<{
@@ -998,11 +1097,14 @@ export function createBrowserBookingService(): BookingService {
       });
     },
     async unassignTablesDirect({ bookingId, tableIds }) {
-      return fetchJson<{ success: true; removedCount: number }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableIds }),
-      });
+      return fetchJson<{ success: true; removedCount: number }>(
+        `/api/ops/bookings/${bookingId}/assign-tables`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tableIds }),
+        },
+      );
     },
   } satisfies BookingService;
 }
@@ -1018,10 +1120,6 @@ export class NotImplementedBookingService implements BookingService {
 
   getBookingHeatmap(): Promise<OpsBookingHeatmap> {
     this.error('getBookingHeatmap not implemented');
-  }
-
-  getRejectionAnalytics(): Promise<OpsRejectionAnalytics> {
-    this.error('getRejectionAnalytics not implemented');
   }
 
   getStrategicSettings(): Promise<OpsStrategicSettings> {
@@ -1080,6 +1178,10 @@ export class NotImplementedBookingService implements BookingService {
     this.error('getBookingSmsDeliveryLog not implemented');
   }
 
+  getRestaurantSmsDeliveryFeed(): Promise<OpsSmsDeliveryFeedResponse> {
+    this.error('getRestaurantSmsDeliveryFeed not implemented');
+  }
+
   getRestaurantEmailDeliveryFeed(): Promise<OpsEmailDeliveryFeedResponse> {
     this.error('getRestaurantEmailDeliveryFeed not implemented');
   }
@@ -1126,6 +1228,10 @@ export class NotImplementedBookingService implements BookingService {
 
   getAssignmentContext(): Promise<AssignmentContext> {
     this.error('getAssignmentContext not implemented');
+  }
+
+  getDialogBundle(): Promise<OpsBookingDialogBundle> {
+    this.error('getDialogBundle not implemented');
   }
 
   assignTablesDirect(): Promise<{

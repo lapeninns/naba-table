@@ -30,7 +30,8 @@ const imageRemotePatterns = imageDomains.map((hostname) => ({
 }));
 
 const aliasEntries = {
-  '@/app': './src/app',
+  // Do not map `@/app` -> `./src/app` here: Turbopack (Next 16) can mis-infer the workspace root as
+  // `src/app` and fail `next build`. Imports use `@/app/*` from tsconfig paths instead.
   '@/components/features': './src/components/features',
   '@/components': './components',
   '@/contexts': './src/contexts',
@@ -59,6 +60,7 @@ const webpackAliasMap = Object.fromEntries(
 
 const nextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: process.env.POSTHOG_SOURCEMAP_UPLOAD === 'true',
   serverExternalPackages: [],
   images: {
     remotePatterns: imageRemotePatterns,
@@ -103,7 +105,7 @@ const nextConfig = {
       // Legacy query param redirect for thank-you
       {
         source: '/thank-you',
-        has: [{ type: 'query', key: 'bookingId', value: '(?<bookingId>.*)' }],
+        has: [{ type: 'query', key: 'bookingId', value: '(?<bookingId>[^/]+)' }],
         destination: '/bookings/:bookingId/thank-you',
         permanent: true,
       },
@@ -116,9 +118,6 @@ const nextConfig = {
 
       { source: '/account/profile', destination: '/guest/profile', permanent: true },
       { source: '/profile/manage', destination: '/guest/profile', permanent: true },
-
-      // Invite (Preserve invite token flow, move to account/invite for now if that's where the page lives)
-      { source: '/invite/:token', destination: '/account/invite/:token', permanent: true },
 
       // --- Ops ---
       // --- Legal ---
@@ -142,10 +141,10 @@ const nextConfig = {
     return redirects;
   },
   turbopack: {
-    // Avoid accidental workspace-root inference when unrelated lockfiles exist outside this repo.
-    // Next.js expects an absolute path here; __dirname is the directory containing this config file.
-    root: __dirname,
-    resolveAlias: aliasEntries,
+    root: path.resolve(__dirname),
+    // Used by `next dev --turbo`. Production `pnpm run build` uses webpack (see package.json) because
+    // Next 16.1.x Turbopack can still fail with: inferred workspace root `src/app`, next/package.json not found.
+    resolveAlias: webpackAliasMap,
   },
   webpack: (config) => {
     config.resolve.alias = {

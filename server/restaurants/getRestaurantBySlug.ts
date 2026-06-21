@@ -1,4 +1,12 @@
-import { ensureLogoColumnOnRow, isLogoUrlColumnMissing, logLogoColumnFallback } from '@/server/restaurants/logo-url-compat';
+import { cache } from 'react';
+
+import { safeGoogleMapsUrl } from '@/lib/security/safe-url';
+import {
+  ensureLogoColumnOnRow,
+  isLogoUrlColumnMissing,
+  logLogoColumnFallback,
+} from '@/server/restaurants/logo-url-compat';
+import { getQaRestaurantFixtureBySlug } from '@/server/restaurants/qa-fixtures';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -19,10 +27,17 @@ export class GetRestaurantBySlugError extends Error {
   }
 }
 
-export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetail | null> {
+export const getRestaurantBySlug = cache(async function getRestaurantBySlug(
+  slug: string,
+): Promise<RestaurantDetail | null> {
   const normalized = slug.trim();
   if (!normalized) {
     return null;
+  }
+
+  const qaFixture = getQaRestaurantFixtureBySlug(normalized);
+  if (qaFixture) {
+    return qaFixture;
   }
 
   const supabase = getServiceSupabaseClient();
@@ -45,9 +60,12 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
     }
 
     if (error) {
-      throw new GetRestaurantBySlugError(`[restaurants] failed to load restaurant for slug ${normalized}`, {
-        cause: error,
-      });
+      throw new GetRestaurantBySlugError(
+        `[restaurants] failed to load restaurant for slug ${normalized}`,
+        {
+          cause: error,
+        },
+      );
     }
 
     const restaurant = ensureLogoColumnOnRow(data);
@@ -65,12 +83,13 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       bookingPolicy: restaurant.booking_policy ?? null,
       contactEmail: restaurant.contact_email ?? null,
       contactPhone: restaurant.contact_phone ?? null,
-      googleMapUrl: restaurant.google_map_url ?? null,
+      googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
       logoUrl: restaurant.logo_url ?? null,
       isActive: restaurant.is_active ?? true,
       reservationIntervalMinutes: restaurant.reservation_interval_minutes ?? null,
       reservationDefaultDurationMinutes: restaurant.reservation_default_duration_minutes ?? null,
-      reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes ?? null,
+      reservationLastSeatingBufferMinutes:
+        restaurant.reservation_last_seating_buffer_minutes ?? null,
       reservationLifecycleGraceMinutes: restaurant.reservation_lifecycle_grace_minutes ?? null,
       createdAt: restaurant.created_at ?? undefined,
       updatedAt: restaurant.updated_at ?? undefined,
@@ -85,4 +104,4 @@ export async function getRestaurantBySlug(slug: string): Promise<RestaurantDetai
       { cause: error },
     );
   }
-}
+});

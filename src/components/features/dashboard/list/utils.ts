@@ -18,6 +18,42 @@ const COMPLETED_STATUSES = new Set<OpsTodayBooking['status']>([
   'no_show',
 ]);
 
+const SEARCH_TOKEN_CACHE_LIMIT = 2_000;
+const searchTokenCache = new Map<string, { source: string; token: string }>();
+
+export function getBookingSearchToken(booking: OpsTodayBooking) {
+  if (booking.searchText) {
+    return booking.searchText;
+  }
+
+  const source = `${booking.customerName ?? ''} ${booking.reference ?? ''}`;
+  const cached = searchTokenCache.get(booking.id);
+  if (cached?.source === source) {
+    return cached.token;
+  }
+
+  const token = source.toLowerCase();
+  if (searchTokenCache.size >= SEARCH_TOKEN_CACHE_LIMIT) {
+    searchTokenCache.clear();
+  }
+  searchTokenCache.set(booking.id, { source, token });
+  return token;
+}
+
+export function filterBookingsBySearch(bookings: OpsTodayBooking[], normalizedSearch: string) {
+  if (!normalizedSearch) {
+    return bookings;
+  }
+
+  const result: OpsTodayBooking[] = [];
+  for (const booking of bookings) {
+    if (getBookingSearchToken(booking).includes(normalizedSearch)) {
+      result.push(booking);
+    }
+  }
+  return result;
+}
+
 function compareBookings(
   a: OpsTodayBooking,
   b: OpsTodayBooking,
@@ -27,8 +63,12 @@ function compareBookings(
   let comparison = 0;
 
   if (sortKey === 'time') {
-    const tA = a.sortTimeMs ?? (a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
-    const tB = b.sortTimeMs ?? (b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
+    const tA =
+      a.sortTimeMs ??
+      (a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
+    const tB =
+      b.sortTimeMs ??
+      (b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER);
     comparison = tA - tB;
   } else if (sortKey === 'party') {
     comparison = a.partySize - b.partySize;

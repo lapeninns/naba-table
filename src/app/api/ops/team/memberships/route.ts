@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
-import { fetchUserMemberships } from "@/server/team/access";
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+import { fetchUserMemberships } from '@/server/team/access';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const supabase = await getRouteHandlerSupabaseClient();
@@ -14,13 +15,16 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[team/memberships] auth error", authError.message);
+    console.error('[team/memberships] auth error', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   try {
@@ -37,7 +41,10 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error("[team/memberships] failed to load memberships", error);
-    return NextResponse.json({ error: "Unable to load memberships" }, { status: 500 });
+    console.error('[team/memberships] failed to load memberships', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-team-memberships' },
+    });
+    return NextResponse.json({ error: 'Unable to load memberships' }, { status: 500 });
   }
 }

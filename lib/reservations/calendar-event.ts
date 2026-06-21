@@ -16,7 +16,6 @@ export type ReservationCalendarPayload = {
   status?: "confirmed" | "cancelled" | "pending";
   sequence?: number;
   bookingType?: string | null | undefined;
-  seatingPreference?: string | null | undefined;
   notes?: string | null | undefined;
   manageUrl?: string | null | undefined;
 };
@@ -85,7 +84,6 @@ export function buildCalendarEvent(payload: ReservationCalendarPayload): string 
     `Reference: ${payload.reference ?? "N/A"}`,
     `Party size: ${payload.partySize ?? 1}`,
     cleanLine(payload.bookingType) ? `Booking type: ${payload.bookingType}` : null,
-    cleanLine(payload.seatingPreference) ? `Seating preference: ${payload.seatingPreference}` : null,
     cleanLine(payload.notes) ? `Notes: ${payload.notes}` : null,
     cleanLine(payload.manageUrl) ? `Manage booking: ${payload.manageUrl}` : null,
     cleanLine(payload.venuePhone) ? `Venue phone: ${payload.venuePhone}` : null,

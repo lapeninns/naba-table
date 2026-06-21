@@ -1,27 +1,22 @@
+import { profileNameSchema, profilePhoneSchema, profileResponseSchema } from '@/lib/profile/schema';
+import { normalizeEmail } from '@/server/customers';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import {
-  profileNameSchema,
-  profilePhoneSchema,
-  profileResponseSchema,
-} from "@/lib/profile/schema";
-import { normalizeEmail } from "@/server/customers";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import type { Database } from '@/types/supabase';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 
-import type { Database } from "@/types/supabase";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+export const PROFILE_COLUMNS = 'id,name,email,phone,image,created_at,updated_at' as const;
 
-export const PROFILE_COLUMNS = "id,name,email,phone,image,created_at,updated_at" as const;
-
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type ProfileRecord = Pick<
   ProfileRow,
-  "id" | "name" | "email" | "phone" | "image" | "created_at" | "updated_at"
+  'id' | 'name' | 'email' | 'phone' | 'image' | 'created_at' | 'updated_at'
 >;
 
-type ProfileInsert = Database["public"]["Tables"]["profiles"]["Insert"];
+type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 type CustomerContactRow = Pick<
-  Database["public"]["Tables"]["customers"]["Row"],
-  "full_name" | "phone" | "updated_at" | "created_at"
+  Database['public']['Tables']['customers']['Row'],
+  'full_name' | 'phone' | 'updated_at' | 'created_at' | 'auth_user_id' | 'user_profile_id'
 >;
 
 function toIsoString(value: string | null | undefined, fallback: () => string): string {
@@ -38,14 +33,16 @@ function toIsoString(value: string | null | undefined, fallback: () => string): 
 }
 
 export function normalizeProfileRow(row: ProfileRecord, fallbackEmail: string | null) {
-  const email = typeof row.email === "string" && row.email.length > 0 ? row.email : fallbackEmail;
+  const email = typeof row.email === 'string' && row.email.length > 0 ? row.email : fallbackEmail;
   if (!email) {
-    throw new Error("Profile row missing email value");
+    throw new Error('Profile row missing email value');
   }
 
-  const name = typeof row.name === "string" && row.name.trim().length > 0 ? row.name.trim() : null;
-  const phone = typeof row.phone === "string" && row.phone.trim().length > 0 ? row.phone.trim() : null;
-  const image = typeof row.image === "string" && row.image.trim().length > 0 ? row.image.trim() : null;
+  const name = typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : null;
+  const phone =
+    typeof row.phone === 'string' && row.phone.trim().length > 0 ? row.phone.trim() : null;
+  const image =
+    typeof row.image === 'string' && row.image.trim().length > 0 ? row.image.trim() : null;
   const createdAt = toIsoString(row.created_at, () => new Date().toISOString());
   const updatedAt = toIsoString(row.updated_at, () => createdAt);
 
@@ -61,7 +58,7 @@ export function normalizeProfileRow(row: ProfileRecord, fallbackEmail: string | 
 }
 
 function sanitizeName(value: string | null | undefined): string | null {
-  if (!value || typeof value !== "string") {
+  if (!value || typeof value !== 'string') {
     return null;
   }
   const trimmed = value.trim();
@@ -73,7 +70,7 @@ function sanitizeName(value: string | null | undefined): string | null {
 }
 
 function sanitizePhone(value: string | null | undefined): string | null {
-  if (!value || typeof value !== "string") {
+  if (!value || typeof value !== 'string') {
     return null;
   }
   const trimmed = value.trim();
@@ -87,20 +84,24 @@ function sanitizePhone(value: string | null | undefined): string | null {
   return parsed.data;
 }
 
-async function fetchLatestCustomerContact(email: string): Promise<CustomerContactRow | null> {
+async function fetchLatestCustomerContact(
+  email: string,
+  userId: string,
+): Promise<CustomerContactRow | null> {
   const service = getServiceSupabaseClient();
   const normalizedEmail = normalizeEmail(email);
 
   const { data, error } = await service
-    .from("customers")
-    .select("full_name,phone,updated_at,created_at")
-    .eq("email_normalized", normalizedEmail)
-    .order("updated_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false, nullsFirst: false })
+    .from('customers')
+    .select('full_name,phone,updated_at,created_at,auth_user_id,user_profile_id')
+    .eq('email_normalized', normalizedEmail)
+    .or(`auth_user_id.eq.${userId},user_profile_id.eq.${userId}`)
+    .order('updated_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
     .limit(1);
 
   if (error) {
-    console.error("[profile][hydrate] failed to fetch customer contact", { email, error });
+    console.error('[profile][hydrate] failed to fetch customer contact', { email, error });
     return null;
   }
 
@@ -117,7 +118,7 @@ async function hydrateProfileInsertFromCustomers(
     return next;
   }
 
-  const contact = await fetchLatestCustomerContact(next.email);
+  const contact = await fetchLatestCustomerContact(next.email, next.id);
   if (!contact) {
     return next;
   }
@@ -139,48 +140,60 @@ async function hydrateProfileInsertFromCustomers(
   return next;
 }
 
-async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & { id: string }> {
-  const email = typeof user.email === "string" && user.email.length > 0 ? user.email : null;
-
+function profileInsertFromUserMetadata(
+  user: User,
+): Pick<ProfileInsert, 'name' | 'phone' | 'image'> {
   const metadata = user.user_metadata ?? {};
   const rawName =
-    typeof metadata.full_name === "string" && metadata.full_name.trim().length > 0
+    typeof metadata.full_name === 'string' && metadata.full_name.trim().length > 0
       ? metadata.full_name
-      : typeof metadata.name === "string" && metadata.name.trim().length > 0
+      : typeof metadata.name === 'string' && metadata.name.trim().length > 0
         ? metadata.name
         : null;
 
   const rawPhone =
-    typeof metadata.phone_number === "string" && metadata.phone_number.trim().length > 0
+    typeof metadata.phone_number === 'string' && metadata.phone_number.trim().length > 0
       ? metadata.phone_number
       : null;
 
   const rawImage =
-    typeof metadata.avatar_url === "string" && metadata.avatar_url.trim().length > 0
+    typeof metadata.avatar_url === 'string' && metadata.avatar_url.trim().length > 0
       ? metadata.avatar_url
-      : typeof metadata.picture === "string" && metadata.picture.trim().length > 0
+      : typeof metadata.picture === 'string' && metadata.picture.trim().length > 0
         ? metadata.picture
         : null;
+
+  return {
+    name: sanitizeName(rawName),
+    phone: sanitizePhone(rawPhone),
+    image: rawImage,
+  };
+}
+
+async function resolveDefaultProfileInsert(user: User): Promise<ProfileInsert & { id: string }> {
+  const email = typeof user.email === 'string' && user.email.length > 0 ? user.email : null;
+
+  const metadataProfile = profileInsertFromUserMetadata(user);
 
   const base: ProfileInsert & { id: string } = {
     id: user.id,
     email,
-    name: rawName,
-    phone: rawPhone,
-    image: rawImage,
+    name: metadataProfile.name,
+    phone: metadataProfile.phone,
+    image: metadataProfile.image,
   };
 
   return await hydrateProfileInsertFromCustomers(base);
 }
 
 export async function ensureProfileRow(
-  client: SupabaseClient<Database, "public", any>,
+  client: SupabaseClient<Database>,
   user: User,
 ): Promise<ProfileRecord> {
   const { data, error } = await client
-    .from("profiles")
+    .from('profiles')
     .select(PROFILE_COLUMNS)
-    .eq("id", user.id)
+    .eq('id', user.id)
     .maybeSingle<ProfileRecord>();
 
   if (error) {
@@ -197,7 +210,7 @@ export async function ensureProfileRow(
     }
 
     const lookupEmail =
-      (typeof existing.email === "string" && existing.email.length > 0
+      (typeof existing.email === 'string' && existing.email.length > 0
         ? existing.email
         : user.email) ?? null;
 
@@ -222,21 +235,46 @@ export async function ensureProfileRow(
       updates.phone = hydrated.phone;
     }
 
+    const metadataProfile = profileInsertFromUserMetadata(user);
+    if (needsName && updates.name === undefined && metadataProfile.name) {
+      updates.name = metadataProfile.name;
+    }
+    if (needsPhone && updates.phone === undefined && metadataProfile.phone) {
+      updates.phone = metadataProfile.phone;
+    }
+
     if (Object.keys(updates).length === 0) {
       return existing;
     }
 
     updates.updated_at = new Date().toISOString();
 
-    const { data: patched, error: updateError } = await client
-      .from("profiles")
-      .update(updates)
-      .eq("id", existing.id)
+    let updateQuery = client.from('profiles').update(updates).eq('id', existing.id);
+
+    if (existing.updated_at) {
+      updateQuery = updateQuery.eq('updated_at', existing.updated_at);
+    } else {
+      updateQuery = updateQuery.is('updated_at', null);
+    }
+    if (updates.name !== undefined) {
+      updateQuery =
+        existing.name === null
+          ? updateQuery.is('name', null)
+          : updateQuery.eq('name', existing.name);
+    }
+    if (updates.phone !== undefined) {
+      updateQuery =
+        existing.phone === null
+          ? updateQuery.is('phone', null)
+          : updateQuery.eq('phone', existing.phone);
+    }
+
+    const { data: patched, error: updateError } = await updateQuery
       .select(PROFILE_COLUMNS)
-      .single<ProfileRecord>();
+      .maybeSingle<ProfileRecord>();
 
     if (updateError) {
-      console.error("[profile][hydrate] failed to update profile with customer contact", {
+      console.error('[profile][hydrate] failed to update profile with customer contact', {
         profileId: existing.id,
         error: updateError,
       });
@@ -249,8 +287,8 @@ export async function ensureProfileRow(
   const insertPayload = await resolveDefaultProfileInsert(user);
 
   const { data: inserted, error: insertError } = await client
-    .from("profiles")
-    .upsert(insertPayload, { onConflict: "id" })
+    .from('profiles')
+    .upsert(insertPayload, { onConflict: 'id' })
     .select(PROFILE_COLUMNS)
     .single<ProfileRecord>();
 
@@ -261,10 +299,7 @@ export async function ensureProfileRow(
   return inserted;
 }
 
-export async function getOrCreateProfile(
-  client: SupabaseClient<Database, "public", any>,
-  user: User,
-) {
+export async function getOrCreateProfile(client: SupabaseClient<Database>, user: User) {
   const row = await ensureProfileRow(client, user);
   return normalizeProfileRow(row, user.email ?? null);
 }

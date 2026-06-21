@@ -11,6 +11,7 @@ const upsertRestaurantEmailTemplateMock = vi.hoisted(() => vi.fn());
 const resetRestaurantEmailTemplateMock = vi.hoisted(() => vi.fn());
 const renderRestaurantBookingEmailPreviewMock = vi.hoisted(() => vi.fn());
 const sendRestaurantBookingEmailTestMock = vi.hoisted(() => vi.fn());
+const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/src/app/api/ops/restaurants/[id]/email-templates/_shared', () => ({
   buildTemplateDto: buildTemplateDtoMock,
@@ -31,8 +32,23 @@ vi.mock('@/server/emails/bookings', () => ({
   sendRestaurantBookingEmailTest: sendRestaurantBookingEmailTestMock,
 }));
 
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
+}));
+
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
+}));
+
+vi.mock('@/server/security/api-rate-limit', () => ({
+  requireApiRateLimit: requireApiRateLimitMock,
+}));
+
 import { GET as getTemplates } from '@/src/app/api/ops/restaurants/[id]/email-templates/route';
-import { PATCH as patchTemplate, DELETE as deleteTemplate } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/route';
+import {
+  PATCH as patchTemplate,
+  DELETE as deleteTemplate,
+} from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/route';
 import { POST as previewTemplate } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/preview/route';
 import { POST as testSendTemplate } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/test-send/route';
 
@@ -57,6 +73,9 @@ describe('restaurant email template routes', () => {
     resetRestaurantEmailTemplateMock.mockReset();
     renderRestaurantBookingEmailPreviewMock.mockReset();
     sendRestaurantBookingEmailTestMock.mockReset();
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
+    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     resolveTemplateKeyParamMock.mockResolvedValue('confirmation');
@@ -103,7 +122,10 @@ describe('restaurant email template routes', () => {
       },
     ]);
 
-    const response = await getTemplates(new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates'), buildRouteParams());
+    const response = await getTemplates(
+      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates'),
+      buildRouteParams(),
+    );
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -116,26 +138,29 @@ describe('restaurant email template routes', () => {
 
   it('rejects invalid template payloads before saving', async () => {
     const response = await patchTemplate(
-      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          variants: [
-            {
-              id: 'variant-1',
-              name: 'Only variant',
-              subject: 'Hello - {{venue}}',
-              preheader: 'World',
-              headline: 'Hello',
-              intro: 'World',
-              cue: '',
-              ask: '',
-              ctaLabel: 'Open',
-              isActive: false,
-              order: 0,
-            },
-          ],
-        }),
-      }),
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            variants: [
+              {
+                id: 'variant-1',
+                name: 'Only variant',
+                subject: 'Hello - {{venue}}',
+                preheader: 'World',
+                headline: 'Hello',
+                intro: 'World',
+                cue: '',
+                ask: '',
+                ctaLabel: 'Open',
+                isActive: false,
+                order: 0,
+              },
+            ],
+          }),
+        },
+      ),
       buildRouteParams(),
     );
 
@@ -161,26 +186,29 @@ describe('restaurant email template routes', () => {
     });
 
     const response = await patchTemplate(
-      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          variants: [
-            {
-              id: 'variant-1',
-              name: 'Only variant',
-              subject: 'Hello - {{venue}}',
-              preheader: 'World',
-              headline: 'Hello',
-              intro: 'World',
-              cue: '',
-              ask: '',
-              ctaLabel: 'Open',
-              isActive: true,
-              order: 0,
-            },
-          ],
-        }),
-      }),
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            variants: [
+              {
+                id: 'variant-1',
+                name: 'Only variant',
+                subject: 'Hello - {{venue}}',
+                preheader: 'World',
+                headline: 'Hello',
+                intro: 'World',
+                cue: '',
+                ask: '',
+                ctaLabel: 'Open',
+                isActive: true,
+                order: 0,
+              },
+            ],
+          }),
+        },
+      ),
       buildRouteParams(),
     );
     const payload = await response.json();
@@ -226,9 +254,12 @@ describe('restaurant email template routes', () => {
     });
 
     const response = await deleteTemplate(
-      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation', {
-        method: 'DELETE',
-      }),
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation',
+        {
+          method: 'DELETE',
+        },
+      ),
       buildRouteParams(),
     );
 
@@ -254,10 +285,13 @@ describe('restaurant email template routes', () => {
     });
 
     const response = await previewTemplate(
-      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/preview', {
-        method: 'POST',
-        body: JSON.stringify({ preferredVariantId: 'variant-1' }),
-      }),
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/preview',
+        {
+          method: 'POST',
+          body: JSON.stringify({ preferredVariantId: 'variant-1' }),
+        },
+      ),
       buildRouteParams(),
     );
     const payload = await response.json();
@@ -292,13 +326,16 @@ describe('restaurant email template routes', () => {
     });
 
     const response = await testSendTemplate(
-      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/test-send', {
-        method: 'POST',
-        body: JSON.stringify({
-          toEmail: 'preview@example.com',
-          preferredVariantId: 'variant-1',
-        }),
-      }),
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/test-send',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            toEmail: 'preview@example.com',
+            preferredVariantId: 'variant-1',
+          }),
+        },
+      ),
       buildRouteParams(),
     );
     const payload = await response.json();
@@ -318,26 +355,29 @@ describe('restaurant email template routes', () => {
 
   it('rejects unknown template variables before saving', async () => {
     const response = await patchTemplate(
-      new NextRequest('https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          variants: [
-            {
-              id: 'variant-1',
-              name: 'Only variant',
-              subject: 'Hello {{guestName}}',
-              preheader: 'World',
-              headline: 'Hello',
-              intro: 'World',
-              cue: '',
-              ask: '',
-              ctaLabel: 'Open',
-              isActive: true,
-              order: 0,
-            },
-          ],
-        }),
-      }),
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            variants: [
+              {
+                id: 'variant-1',
+                name: 'Only variant',
+                subject: 'Hello {{guestName}}',
+                preheader: 'World',
+                headline: 'Hello',
+                intro: 'World',
+                cue: '',
+                ask: '',
+                ctaLabel: 'Open',
+                isActive: true,
+                order: 0,
+              },
+            ],
+          }),
+        },
+      ),
       buildRouteParams(),
     );
 

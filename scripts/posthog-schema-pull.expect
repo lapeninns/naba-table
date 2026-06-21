@@ -1,0 +1,15 @@
+#!/usr/bin/env expect
+set timeout 120
+
+spawn pnpm exec posthog-cli exp schema pull --output lib/posthog/generated-events.ts
+
+expect {
+  "Which language would you like to download?" {
+    send "\r"
+    exp_continue
+  }
+  eof
+}
+
+catch wait result
+exit [lindex $result 3]

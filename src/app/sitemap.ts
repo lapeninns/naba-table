@@ -1,17 +1,22 @@
-import type { MetadataRoute } from "next";
+import type { MetadataRoute } from 'next';
 
 const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  process.env.SITE_URL ||
-  "https://shipfa.st";
+  process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://www.nabatable.com';
 
-const guestRoutes = ["/", "/contact", "/restaurants", "/auth/signin", "/guest/bookings", "/guest/thank-you"];
+const guestRoutes = [
+  '/',
+  '/contact',
+  '/restaurants',
+  '/auth/signin',
+  '/guest/dashboard',
+  '/guest/bookings',
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const normalizedBase = baseUrl.replace(/\/+$/, "");
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
   return guestRoutes.map((path) => ({
     url: `${normalizedBase}${path}`,
-    changeFrequency: path === "/" ? "weekly" : "monthly",
-    priority: path === "/" ? 1 : 0.4,
+    changeFrequency: path === '/' ? 'weekly' : 'monthly',
+    priority: path === '/' ? 1 : 0.4,
   }));
 }

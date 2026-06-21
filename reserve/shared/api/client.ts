@@ -7,6 +7,7 @@ export type ApiError = {
   code: string;
   message: string;
   details?: unknown;
+  body?: unknown;
   status?: number;
 };
 
@@ -104,6 +105,7 @@ async function request<TResponse>(
         code: parsed?.code ?? `${response.status}`,
         message: parsed?.message ?? parsed?.error ?? response.statusText ?? 'Request failed',
         details: parsed?.details,
+        body: parsed,
         status: response.status,
       };
       throw normalized;

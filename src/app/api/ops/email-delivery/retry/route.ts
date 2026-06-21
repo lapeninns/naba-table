@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
   GuardError,
   listUserRestaurantMemberships,
@@ -13,6 +14,8 @@ import {
   EmailDeliveryRetryError,
   retryEmailDeliveryLogEntry,
 } from '@/server/emails/email-delivery-log';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -80,9 +83,11 @@ function buildFixtureRetrySuccessEntry({
 }
 
 const bodySchema = z.object({
-  deliveryLogId: z.string().refine((value) => z.uuid().safeParse(value).success || value in RETRY_ACTION_FIXTURE_ENTRIES, {
-    message: 'Invalid delivery log id.',
-  }),
+  deliveryLogId: z
+    .string()
+    .refine((value) => z.uuid().safeParse(value).success || value in RETRY_ACTION_FIXTURE_ENTRIES, {
+      message: 'Invalid delivery log id.',
+    }),
   simulateError: z.boolean().optional(),
 });
 
@@ -99,10 +104,18 @@ function jsonError(status: number, code: string, message: string) {
 }
 
 function isDevOrTestFaultInjectionEnabled() {
-  return process.env.NODE_ENV !== 'production' || process.env.APP_ENV === 'development' || process.env.APP_ENV === 'test';
+  return (
+    process.env.NODE_ENV !== 'production' ||
+    process.env.APP_ENV === 'development' ||
+    process.env.APP_ENV === 'test'
+  );
 }
 
 export async function POST(request: NextRequest) {
+  return withCsrfProtectedMutation(request, () => postEmailDeliveryRetry(request));
+}
+
+async function postEmailDeliveryRetry(request: NextRequest) {
   let parsedBody: z.infer<typeof bodySchema>;
 
   try {
@@ -119,23 +132,50 @@ export async function POST(request: NextRequest) {
   try {
     const { supabase, user } = await requireSession();
 
+    const rateLimit = await requireApiRateLimit({
+      request,
+      scope: 'ops-email-delivery:retry',
+      userId: user.id,
+      parts: [parsedBody.deliveryLogId],
+      limit: 5,
+      windowMs: 60_000,
+      message: 'Too many email retry attempts. Please try again later.',
+    });
+    if (rateLimit) {
+      return rateLimit;
+    }
+
     if (parsedBody.simulateError && isDevOrTestFaultInjectionEnabled()) {
-      return jsonError(500, 'SIMULATED_RETRY_ERROR', 'Forced retry mutation error for dev/test validation.');
+      return jsonError(
+        500,
+        'SIMULATED_RETRY_ERROR',
+        'Forced retry mutation error for dev/test validation.',
+      );
     }
 
     const memberships = await listUserRestaurantMemberships(supabase, user.id);
     const fallbackRestaurantId =
-      memberships.find((membership) => typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0)
-        ?.restaurant_id ?? null;
+      memberships.find(
+        (membership) =>
+          typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0,
+      )?.restaurant_id ?? null;
 
-    const fixtureEntry =
-      isDevOrTestFaultInjectionEnabled() ? RETRY_ACTION_FIXTURE_ENTRIES[parsedBody.deliveryLogId] : undefined;
+    const fixtureEntry = isDevOrTestFaultInjectionEnabled()
+      ? RETRY_ACTION_FIXTURE_ENTRIES[parsedBody.deliveryLogId]
+      : undefined;
 
-    const resendBookingEmail = async (bookingId: string, emailType: string | null, templateType: string | null) => {
+    const resendBookingEmail = async (
+      bookingId: string,
+      emailType: string | null,
+      templateType: string | null,
+    ) => {
       if (fixtureEntry) {
         const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
         if (!fixtureRestaurantId) {
-          throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
+          throw new EmailDeliveryRetryError(
+            'MISSING_BOOKING',
+            'No restaurant access is available for this retry.',
+          );
         }
 
         await requireRestaurantMember({
@@ -155,7 +195,11 @@ export async function POST(request: NextRequest) {
       }
 
       const serviceSupabase = getServiceSupabaseClient();
-      const { data, error } = await serviceSupabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();
+      const { data, error } = await serviceSupabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .maybeSingle();
 
       if (error) {
         throw new Error(`Failed to load booking for retry (${error.code ?? 'unknown'}).`);
@@ -163,12 +207,18 @@ export async function POST(request: NextRequest) {
 
       const booking = (data ?? null) as BookingRecord | null;
       if (!booking) {
-        throw new EmailDeliveryRetryError('MISSING_BOOKING', 'The original booking could not be loaded for retry.');
+        throw new EmailDeliveryRetryError(
+          'MISSING_BOOKING',
+          'The original booking could not be loaded for retry.',
+        );
       }
 
       const restaurantId = booking.restaurant_id ?? fallbackRestaurantId;
       if (!restaurantId) {
-        throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
+        throw new EmailDeliveryRetryError(
+          'MISSING_BOOKING',
+          'No restaurant access is available for this retry.',
+        );
       }
 
       await requireRestaurantMember({
@@ -188,7 +238,10 @@ export async function POST(request: NextRequest) {
       ? await (async () => {
           const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
           if (!fixtureRestaurantId) {
-            throw new EmailDeliveryRetryError('MISSING_BOOKING', 'No restaurant access is available for this retry.');
+            throw new EmailDeliveryRetryError(
+              'MISSING_BOOKING',
+              'No restaurant access is available for this retry.',
+            );
           }
 
           await requireRestaurantMember({
@@ -233,11 +286,24 @@ export async function POST(request: NextRequest) {
     }
 
     if (error instanceof EmailDeliveryLogUnavailableError) {
-      return jsonError(503, 'DELIVERY_LOG_UNAVAILABLE', 'Delivery tracking is temporarily unavailable');
+      return jsonError(
+        503,
+        'DELIVERY_LOG_UNAVAILABLE',
+        'Delivery tracking is temporarily unavailable',
+      );
     }
 
     console.error('[ops/email-delivery/retry] unexpected error', {
       error: error instanceof Error ? error.message : String(error),
+    });
+
+    captureServerEvent('email_delivery_retry_failed', {
+      provider: 'resend',
+      source: 'ops',
+      reason: 'unexpected',
+    });
+    captureServerException(error, {
+      properties: { provider: 'resend', source: 'ops', path: '/api/ops/email-delivery/retry' },
     });
 
     return jsonError(500, 'INTERNAL', 'Internal error');

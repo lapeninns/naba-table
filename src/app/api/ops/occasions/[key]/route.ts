@@ -1,24 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
-import { countOccasionReferences, fetchOccasionByKey, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { withPlatformAdminAuthorization } from '@/server/auth/guards';
+import {
+  countOccasionReferences,
+  fetchOccasionByKey,
+  insertAudit,
+  toAdminOccasion,
+} from '@/server/occasions/admin';
+import { clearOccasionCatalogCache } from '@/server/occasions/catalog';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ key: string }> },
+) {
   const { key } = await params;
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error('[ops/occasions][PATCH] auth error', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
-  }
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const authorization = await withPlatformAdminAuthorization(request, { csrf: true });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   const body = await request.json().catch(() => null);
@@ -46,22 +46,33 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       update.short_label = body.shortLabel.trim();
     }
     if ('description' in body) {
-      update.description = typeof body.description === 'string' && body.description.trim().length > 0 ? body.description.trim() : null;
+      update.description =
+        typeof body.description === 'string' && body.description.trim().length > 0
+          ? body.description.trim()
+          : null;
     }
     if ('isActive' in body) {
       update.is_active = Boolean(body.isActive);
     }
-    if ('displayOrder' in body && typeof body.displayOrder === 'number' && Number.isFinite(body.displayOrder)) {
+    if (
+      'displayOrder' in body &&
+      typeof body.displayOrder === 'number' &&
+      Number.isFinite(body.displayOrder)
+    ) {
       update.display_order = body.displayOrder;
     }
-    if ('defaultDurationMinutes' in body && typeof body.defaultDurationMinutes === 'number' && Number.isFinite(body.defaultDurationMinutes)) {
+    if (
+      'defaultDurationMinutes' in body &&
+      typeof body.defaultDurationMinutes === 'number' &&
+      Number.isFinite(body.defaultDurationMinutes)
+    ) {
       update.default_duration_minutes = Math.max(1, Math.round(body.defaultDurationMinutes));
     }
     if ('availability' in body) {
       update.availability = Array.isArray(body.availability) ? body.availability : [];
     }
 
-    update.updated_by = user.id;
+    update.updated_by = authorization.user.id;
 
     const { data, error } = await serviceClient
       .from('booking_occasions')
@@ -79,32 +90,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       action: 'update',
       before_change: existing,
       after_change: data ?? null,
-      changed_by: user.id,
+      changed_by: authorization.user.id,
     });
 
+    clearOccasionCatalogCache();
     const occasion = data ? toAdminOccasion(data as Parameters<typeof toAdminOccasion>[0]) : null;
     return NextResponse.json({ occasion });
   } catch (error) {
     console.error('[ops/occasions][PATCH] failed', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-occasion' },
+    });
     return NextResponse.json({ error: 'Unable to update occasion' }, { status: 500 });
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ key: string }> }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ key: string }> },
+) {
   const { key } = await params;
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    console.error('[ops/occasions][DELETE] auth error', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
-  }
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const authorization = await withPlatformAdminAuthorization(request, { csrf: true });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   const serviceClient = getServiceSupabaseClient();
@@ -134,7 +142,11 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     const { data, error } = await serviceClient
       .from('booking_occasions')
-      .update({ deleted_at: new Date().toISOString(), is_active: false, updated_by: user.id })
+      .update({
+        deleted_at: new Date().toISOString(),
+        is_active: false,
+        updated_by: authorization.user.id,
+      })
       .eq('key', key)
       .select()
       .maybeSingle();
@@ -148,12 +160,17 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       action: 'delete',
       before_change: existing,
       after_change: data ?? null,
-      changed_by: user.id,
+      changed_by: authorization.user.id,
     });
 
+    clearOccasionCatalogCache();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[ops/occasions][DELETE] failed', error);
+    captureServerException(error, {
+      distinctId: authorization.user.id,
+      properties: { source: 'ops', kind: 'ops-occasion' },
+    });
     return NextResponse.json({ error: 'Unable to delete occasion' }, { status: 500 });
   }
 }

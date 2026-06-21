@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CopyButton } from '@/components/ui/copy-button';
 import { cn } from '@/lib/utils';
-import { CopyButton } from '@src/components/ui/copy-button';
 
 import type { OpsGuestRowViewModel } from './opsCustomersTypes';
 
@@ -34,7 +34,7 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <Avatar className="mt-0.5 h-9 w-9">
+          <Avatar className="mt-0.5 size-9">
             <AvatarFallback className="text-xs font-semibold text-foreground/80">
               {guest.initials}
             </AvatarFallback>
@@ -64,7 +64,7 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
                 variant="outline"
                 className={cn(
                   'border-dashed',
-                  guest.visitStatusLabel === 'Never visited' ? 'text-amber-700' : undefined,
+                  guest.visitStatusLabel === 'Never visited' ? 'text-primary' : undefined,
                 )}
               >
                 {guest.visitStatusLabel}
@@ -78,7 +78,7 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {guest.email ? (
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <Mail className="size-3.5 shrink-0" aria-hidden />
                     <span className="truncate" title={guest.email}>
                       {guest.email}
                     </span>
@@ -86,7 +86,7 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
                 ) : null}
                 {guest.phone ? (
                   <span className="flex min-w-0 items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <Phone className="size-3.5 shrink-0" aria-hidden />
                     <span className="truncate" title={guest.phone}>
                       {guest.phone}
                     </span>
@@ -105,14 +105,14 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
               size="icon"
               variant="outline"
               showToast
-              className="h-9 w-9"
+              className="size-9"
             />
           ) : null}
 
           {guest.emailHref ? (
-            <Button asChild type="button" size="icon" variant="outline" className="h-9 w-9">
+            <Button asChild type="button" size="icon" variant="outline" className="size-9">
               <a href={guest.emailHref} aria-label={guest.emailLabel} title="Email">
-                <Mail className="h-4 w-4" aria-hidden />
+                <Mail className="size-4" aria-hidden />
               </a>
             </Button>
           ) : null}
@@ -123,10 +123,10 @@ export function OpsGuestCard({ guest }: OpsGuestCardProps) {
               type="button"
               size="icon"
               variant="outline"
-              className="hidden h-9 w-9 sm:inline-flex"
+              className="hidden size-9 sm:inline-flex"
             >
               <a href={guest.telHref} aria-label={guest.callLabel} title="Call">
-                <Phone className="h-4 w-4" aria-hidden />
+                <Phone className="size-4" aria-hidden />
               </a>
             </Button>
           ) : null}

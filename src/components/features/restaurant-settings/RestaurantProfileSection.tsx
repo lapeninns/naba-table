@@ -1,43 +1,37 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import {
-  RestaurantDetailsForm,
-  type RestaurantDetailsFormValues,
-  COMMON_TIMEZONES,
-} from '@/components/ops/restaurants/RestaurantDetailsForm';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import {
   useOpsRestaurantDetails,
   useOpsUpdateRestaurantDetails,
 } from '@/hooks/ops/useOpsRestaurantDetails';
-import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
+import { opsHref } from '@/lib/url/opsHref';
 
-import { RestaurantLogoUploader } from './RestaurantLogoUploader';
-import { SettingsCard } from './shared/SettingsCard';
+import { openProfileWorkspaceCompare } from './gbp/openSettingsCompare';
+import { PROFILE_WORKSPACE_COMPARE_SECTION_KEYS } from './gbp/profileCompareSections';
+import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
+import { useGbpDriftSectionStatus, useGbpDriftStatus } from './GbpDriftProvider';
+import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
+import { ProfileLoadedView, ProfileShell } from './profile';
+import {
+  useProfileDraftState,
+  useProfileEditorAnalytics,
+  useProfileGbpDraftOverrides,
+  useProfileReadiness,
+  useProfileSectionNav,
+} from './profile/hooks';
+import {
+  SettingsCard,
+  SettingsSectionStates,
+  type RestaurantSettingsCommandRailItem,
+} from './shared';
 
-import type { UpdateRestaurantInput } from '@/app/api/ops/restaurants/schema';
-
-const EMPTY_VALUES: RestaurantDetailsFormValues = {
-  name: '',
-  slug: '',
-  timezone: COMMON_TIMEZONES[0],
-  contactEmail: null,
-  contactPhone: null,
-  address: null,
-  managerDailySummaryEnabled: false,
-  managerNotificationPhone: null,
-  googleMapUrl: null,
-  googleReviewUrl: null,
-  bookingPolicy: null,
-  reservationIntervalMinutes: DEFAULT_RESERVATION_INTERVAL_MINUTES,
-  reservationDefaultDurationMinutes: 90,
-  reservationLastSeatingBufferMinutes: 15,
-  reservationLifecycleGraceMinutes: 15,
-};
+const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
 
 type RestaurantProfileSectionProps = {
   restaurantId: string | null;
@@ -45,124 +39,204 @@ type RestaurantProfileSectionProps = {
 
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
+  const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
+  const { status: gbpStatus } = useGbpDriftStatus();
+  const gbpDrift = useOptionalGbpDrift();
+  const registerGbpDraftOverride = gbpDrift?.registerDraftOverride;
+  const clearGbpDraftOverrides = gbpDrift?.clearDraftOverrides;
+  const profileDriftStatus = useGbpDriftSectionStatus(PROFILE_WORKSPACE_COMPARE_SECTION_KEYS);
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
 
-  const initialValues = useMemo<RestaurantDetailsFormValues>(() => {
-    if (!data) {
-      return EMPTY_VALUES;
-    }
+  const {
+    dirtyState,
+    dirtySections,
+    dirtyFormSections,
+    formDirty,
+    initialValues,
+    previewValues,
+    previewLogoUrl,
+    setLogoPreviewUrl,
+    dirtyHandlers,
+    draftHandlers,
+    registerResetDraftHandler,
+    resetSectionDraft,
+  } = useProfileDraftState(data);
+  const { activeSectionId, activeSection, setActiveSectionId, buildRailItems } =
+    useProfileSectionNav();
 
-    return {
-      name: data.name,
-      slug: data.slug ?? '',
-      timezone: data.timezone ?? COMMON_TIMEZONES[0],
-      contactEmail: data.contactEmail,
-      contactPhone: data.contactPhone,
-      address: data.address,
-      managerDailySummaryEnabled: data.managerDailySummaryEnabled,
-      managerNotificationPhone: data.managerNotificationPhone,
-      googleMapUrl: data.googleMapUrl,
-      googleReviewUrl: data.googleReviewUrl,
-      bookingPolicy: data.bookingPolicy,
-      reservationIntervalMinutes: data.reservationIntervalMinutes,
-      reservationDefaultDurationMinutes: data.reservationDefaultDurationMinutes,
-      reservationLastSeatingBufferMinutes: data.reservationLastSeatingBufferMinutes,
-      reservationLifecycleGraceMinutes: data.reservationLifecycleGraceMinutes,
-    };
-  }, [data]);
+  useProfileGbpDraftOverrides({
+    previewValues,
+    registerGbpDraftOverride,
+    clearGbpDraftOverrides,
+  });
+  const {
+    readiness,
+    missingRequiredSectionIds,
+    readinessStageLabel,
+    nextReadinessItem,
+    handleFocusReadinessItem,
+  } = useProfileReadiness({
+    previewValues,
+    previewLogoUrl,
+    setActiveSectionId,
+  });
+  const { emitSaveAllClicked } = useProfileEditorAnalytics({
+    restaurantId,
+    data,
+    dirtySections,
+    formDirty,
+    readiness,
+  });
 
-  const derivedRestaurantName = data?.name ?? initialValues.name ?? 'Restaurant';
+  const derivedRestaurantName = previewValues.name.trim() || data?.name || 'Restaurant';
+  const profileVerification = useMemo(
+    () =>
+      deriveProfileVerification({
+        profile: data,
+        connection: gbpConnectionQuery.data,
+      }),
+    [data, gbpConnectionQuery.data],
+  );
+  const googleDifferenceCount = Object.values(profileVerification.fields).filter(
+    (field) => field.status === 'drifted',
+  ).length;
+  const hasGbpDriftContext = gbpStatus.kind !== 'no_profile' && gbpStatus.kind !== 'unknown';
+  const liveProfileReviewCount = gbpDrift
+    ? PROFILE_WORKSPACE_COMPARE_SECTION_KEYS.reduce(
+        (total, sectionKey) => total + gbpDrift.driftCountBySection[sectionKey],
+        0,
+      )
+    : 0;
+  const profileReviewCount = Math.max(
+    googleDifferenceCount,
+    profileDriftStatus.needsReviewCount,
+    liveProfileReviewCount,
+  );
+  const isGoogleLinked = gbpConnectionQuery.data?.status === 'linked' || gbpDrift?.isLinked;
+  const handleCompareProfileWithGoogle = useCallback(() => {
+    if (!gbpDrift) return;
+    openProfileWorkspaceCompare(gbpDrift.openCompare, profileReviewCount);
+  }, [gbpDrift, profileReviewCount]);
+  const googleStatusDetail =
+    hasGbpDriftContext && gbpStatus.kind === 'connected_with_review' && profileReviewCount > 0
+      ? 'Review profile and discovery drift in the Google workspace before importing or exporting.'
+      : gbpConnectionQuery.data?.status === 'linked'
+        ? googleDifferenceCount > 0
+          ? 'Review differences before importing so guest-facing details stay intentional.'
+          : 'Google fields match this profile snapshot.'
+        : hasGbpDriftContext && gbpStatus.kind === 'connected_outdated'
+          ? gbpStatus.detail
+          : 'Link Google only when you need import or side-by-side comparison.';
+  const handleSaveAllProfileForms = useCallback(() => {
+    emitSaveAllClicked(dirtyFormSections);
+    dirtyFormSections.forEach((section) => {
+      const form = document.getElementById(section.formId);
+      if (form instanceof HTMLFormElement) {
+        form.requestSubmit();
+      }
+    });
+  }, [dirtyFormSections, emitSaveAllClicked]);
+  const handleCancelActiveSection = useCallback(() => {
+    resetSectionDraft(activeSection.dirtyKey);
+  }, [activeSection.dirtyKey, resetSectionDraft]);
 
-  const handleSubmit = async (values: UpdateRestaurantInput) => {
-    try {
-      await updateMutation.mutateAsync({
-        name: values.name,
-        slug: values.slug,
-        timezone: values.timezone,
-        contactEmail: values.contactEmail ?? null,
-        contactPhone: values.contactPhone ?? null,
-        address: values.address ?? null,
-        managerDailySummaryEnabled: values.managerDailySummaryEnabled,
-        managerNotificationPhone: values.managerNotificationPhone ?? null,
-        googleMapUrl: values.googleMapUrl ?? null,
-        googleReviewUrl: values.googleReviewUrl ?? null,
-        bookingPolicy: values.bookingPolicy ?? null,
-        reservationIntervalMinutes: values.reservationIntervalMinutes,
-        reservationDefaultDurationMinutes: values.reservationDefaultDurationMinutes,
-        reservationLastSeatingBufferMinutes: values.reservationLastSeatingBufferMinutes,
-        reservationLifecycleGraceMinutes: values.reservationLifecycleGraceMinutes,
-      });
-    } catch (submitError) {
-      console.error('[restaurant-profile] update failed', submitError);
-    }
-  };
-
-  if (!restaurantId) {
-    return (
-      <SettingsCard
-        title="Restaurant Profile"
-        description="Select a restaurant to manage its profile details."
-      >
-        <p className="text-sm text-muted-foreground">
-          Choose a restaurant using the sidebar switcher to view and update its name, slug, contact
-          information, and booking policy.
-        </p>
-      </SettingsCard>
-    );
-  }
-
-  if (isLoading && !data) {
-    return (
-      <SettingsCard
-        title="Restaurant Profile"
-        description="Update core details, contact information, and booking policy."
-      >
-        <div className="space-y-4">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </SettingsCard>
-    );
-  }
-
-  if (error) {
-    return (
-      <SettingsCard
-        title="Restaurant Profile"
-        description="Update core details, contact information, and booking policy."
-      >
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load restaurant details</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-4">
-            <span>{error.message}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </SettingsCard>
-    );
-  }
+  const railItems: RestaurantSettingsCommandRailItem[] = useMemo(
+    () => buildRailItems({ dirtyState, missingRequiredSectionIds }),
+    [buildRailItems, dirtyState, missingRequiredSectionIds],
+  );
 
   return (
-    <SettingsCard
-      title="Restaurant Profile"
-      description="Update core restaurant details and contact information."
+    <SettingsSectionStates
+      restaurantId={restaurantId}
+      isLoading={isLoading && !data}
+      error={error}
+      noRestaurant={
+        <ProfileShell>
+          <SettingsCard
+            title="Select a restaurant"
+            description="Pick a restaurant from the sidebar switcher to manage what guests and staff see."
+          >
+            <p className="text-sm text-muted-foreground">
+              Choose a restaurant using the sidebar switcher to update its public details and team
+              alerts.
+            </p>
+          </SettingsCard>
+        </ProfileShell>
+      }
+      loading={
+        <ProfileShell>
+          <SettingsCard
+            title="Loading restaurant profile"
+            description="Loading the restaurant details staff use day to day."
+          >
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </SettingsCard>
+        </ProfileShell>
+      }
+      errorState={(loadError) => (
+        <ProfileShell>
+          <SettingsCard
+            title="Restaurant profile"
+            description="Update public details and team alerts."
+          >
+            <Alert variant="destructive">
+              <AlertTitle>Unable to load restaurant details</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>{loadError.message}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </SettingsCard>
+        </ProfileShell>
+      )}
     >
-      <div className="space-y-6">
-        <RestaurantLogoUploader
-          restaurantId={restaurantId}
+      {(activeRestaurantId) => (
+        <ProfileLoadedView
+          restaurantId={activeRestaurantId}
+          railItems={railItems}
+          activeSectionId={activeSectionId}
+          activeSection={activeSection}
+          dirtyState={dirtyState}
+          dirtyHandlers={dirtyHandlers}
+          draftHandlers={draftHandlers}
+          dirtyFormSections={dirtyFormSections}
+          missingRequiredSectionIds={missingRequiredSectionIds}
+          initialValues={initialValues}
           restaurantName={derivedRestaurantName}
-          logoUrl={data?.logoUrl ?? null}
+          profile={data}
           updateMutation={updateMutation}
           isLoading={isLoading && !data}
+          onLogoPreviewChange={setLogoPreviewUrl}
+          onResetDraftChange={registerResetDraftHandler}
+          gbpFieldVerifications={profileVerification.fields}
+          bookingSlug={previewValues.slug || null}
+          readinessScore={readiness.score}
+          readinessStageLabel={readinessStageLabel}
+          completedCount={readiness.completed.length}
+          totalCount={readiness.missing.length + readiness.completed.length}
+          requiredRemainingCount={readiness.missingRequired.length}
+          googleHint={isGoogleLinked ? null : googleStatusDetail}
+          googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
+          googleLinked={Boolean(isGoogleLinked)}
+          nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
+          nextActionDescription={
+            nextReadinessItem
+              ? 'Complete the next required item to make the booking link reliable for guests.'
+              : 'Required profile fields are complete. You can now polish discovery details.'
+          }
+          nextReadinessItemKey={nextReadinessItem?.key ?? null}
+          onFocusReadinessItem={handleFocusReadinessItem}
+          onSaveAll={handleSaveAllProfileForms}
+          onCancelActive={handleCancelActiveSection}
+          gbpDriftCount={profileReviewCount}
+          onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
         />
-        <RestaurantDetailsForm
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-          isSubmitting={updateMutation.isPending}
-        />
-      </div>
-    </SettingsCard>
+      )}
+    </SettingsSectionStates>
   );
 }

@@ -13,6 +13,11 @@ import {
   type CustomerServiceFactory,
 } from '@/services/ops/customers';
 import {
+  createMenuHierarchyService,
+  type MenuHierarchyService,
+  type MenuHierarchyServiceFactory,
+} from '@/services/ops/menu-hierarchy';
+import {
   createOccasionService,
   type OccasionService,
   type OccasionServiceFactory,
@@ -37,6 +42,7 @@ export type OpsServices = {
   customerService: CustomerService;
   tableInventoryService: TableInventoryService;
   occasionService: OccasionService;
+  menuHierarchyService: MenuHierarchyService;
   zoneService: ZoneService;
 };
 
@@ -47,6 +53,7 @@ type OpsServiceFactories = {
   customerService?: CustomerServiceFactory;
   tableInventoryService?: TableInventoryServiceFactory;
   occasionService?: OccasionServiceFactory;
+  menuHierarchyService?: MenuHierarchyServiceFactory;
   zoneService?: () => ZoneService;
 };
 
@@ -66,6 +73,7 @@ export function OpsServicesProvider({ factories, children }: OpsServicesProvider
       customerService: createCustomerService(factories?.customerService),
       tableInventoryService: createTableInventoryService(factories?.tableInventoryService),
       occasionService: createOccasionService(factories?.occasionService),
+      menuHierarchyService: createMenuHierarchyService(factories?.menuHierarchyService),
       zoneService: factories?.zoneService ? factories.zoneService() : new ZoneService(),
     }),
     [factories],
@@ -104,6 +112,10 @@ export function useTableInventoryService(): TableInventoryService {
 
 export function useOccasionService(): OccasionService {
   return useOpsServices().occasionService;
+}
+
+export function useMenuHierarchyService(): MenuHierarchyService {
+  return useOpsServices().menuHierarchyService;
 }
 
 export function useZoneService(): ZoneService {

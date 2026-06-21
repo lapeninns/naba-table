@@ -27,7 +27,7 @@ export const WizardOfflineBanner = forwardRef<HTMLDivElement, WizardOfflineBanne
       className="items-start"
     >
       <AlertIcon>
-        <WifiOff className="h-5 w-5" aria-hidden />
+        <WifiOff className="size-5" aria-hidden />
       </AlertIcon>
       <div className="flex flex-col gap-1">
         <AlertTitle>{title}</AlertTitle>

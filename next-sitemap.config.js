@@ -1,8 +1,10 @@
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://www.nabatable.com';
+
 module.exports = {
-  // REQUIRED: add your own domain name here (e.g. https://shipfa.st),
-  siteUrl: process.env.SITE_URL || "https://shipfa.st",
+  siteUrl,
   generateRobotsTxt: true,
   // use this to exclude routes from the sitemap (i.e. a user dashboard). By default, NextJS app router metadata files are excluded (https://nextjs.org/docs/app/api-reference/file-conventions/metadata)
   // `/dev/*` routes are dev-only harness pages guarded by server-side `notFound()` and should never be indexed.
-  exclude: ["/twitter-image.*", "/opengraph-image.*", "/icon.*", "/dev", "/dev/*", "/dev/**"],
+  exclude: ['/twitter-image.*', '/opengraph-image.*', '/icon.*', '/dev', '/dev/*', '/dev/**'],
 };

@@ -1,11 +1,15 @@
 'use client';
 
-import { keepPreviousData, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import {
   SUMMARY_INVALIDATION_DEBOUNCE_MS,
   SUMMARY_POLL_INTERVAL_MS,
@@ -20,6 +24,8 @@ import {
 
 import type { OpsDashboardData } from '@/types/ops';
 
+const DASHBOARD_FOCUS_REFETCH_MIN_AGE_MS = 60_000;
+
 export type UseOpsDashboardDataOptions = {
   restaurantId?: string | null;
   targetDate?: string | null;
@@ -32,7 +38,29 @@ export type UseOpsDashboardDataResult = UseQueryResult<OpsDashboardData> & {
   isPolling: boolean;
 };
 
-export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOpsDashboardDataResult {
+function normalizeDashboardData(data: OpsDashboardData): OpsDashboardData {
+  const bookings = data.bookings ?? [];
+  const meta = data.meta ?? {
+    date: data.date,
+    timezone: data.timezone,
+    restaurantId: data.restaurantId,
+  };
+
+  if (bookings === data.bookings && meta === data.meta) {
+    return data;
+  }
+
+  return {
+    ...data,
+    meta,
+    bookings,
+    totals: data.totals,
+  };
+}
+
+export function useOpsDashboardData(
+  options: UseOpsDashboardDataOptions,
+): UseOpsDashboardDataResult {
   const bookingService = useBookingService();
   const { status } = useSupabaseSession();
   const queryClient = useQueryClient();
@@ -42,7 +70,6 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
   const [isVisible, setIsVisible] = useState(true);
   const subscribedRef = useRef(false);
   const lastSummaryUpdatedAtRef = useRef<number | null>(null);
-  const realtimeFlag = isRealtimeFloorplanEnabled();
   const queryKey = useMemo(
     () =>
       restaurantId
@@ -66,7 +93,7 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  const realtimeEnabled = isEnabled && realtimeFlag;
+  const realtimeEnabled = isEnabled;
   const shouldPoll = isEnabled && isVisible && (!realtimeEnabled || !realtimeHealthy);
 
   const query = useQuery<OpsDashboardData>({
@@ -82,18 +109,14 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
     refetchInterval: shouldPoll ? SUMMARY_POLL_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
     refetchOnReconnect: isEnabled,
-    refetchOnWindowFocus: isEnabled,
+    refetchOnWindowFocus: (queryInstance) => {
+      if (!isEnabled || !isVisible) return false;
+      const updatedAt = queryInstance.state.dataUpdatedAt;
+      if (!updatedAt) return true;
+      return Date.now() - updatedAt >= DASHBOARD_FOCUS_REFETCH_MIN_AGE_MS;
+    },
     placeholderData: keepPreviousData,
-    select: (data) => ({
-      ...data,
-      meta: data.meta ?? {
-        date: data.date,
-        timezone: data.timezone,
-        restaurantId: data.restaurantId,
-      },
-      bookings: data.bookings ?? [],
-      totals: data.totals,
-    }),
+    select: normalizeDashboardData,
   });
   const { data, dataUpdatedAt, isFetching, refetch } = query;
 
@@ -131,7 +154,7 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
   }, [data, dataUpdatedAt]);
 
   useEffect(() => {
-    if (!isEnabled || !realtimeFlag || !realtimeHealthy || !isVisible) return;
+    if (!realtimeEnabled || !realtimeHealthy || !isVisible) return;
 
     const interval = setInterval(() => {
       const lastUpdatedAt = lastSummaryUpdatedAtRef.current;
@@ -143,10 +166,10 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
     }, SUMMARY_SAFETY_POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [isEnabled, isFetching, isVisible, realtimeFlag, realtimeHealthy, refetch]);
+  }, [isFetching, isVisible, realtimeEnabled, realtimeHealthy, refetch]);
 
   useEffect(() => {
-    if (!isEnabled || !restaurantId || !realtimeFlag) {
+    if (!realtimeEnabled || !restaurantId) {
       subscribedRef.current = false;
       setRealtimeHealthy(true);
       return;
@@ -269,7 +292,7 @@ export function useOpsDashboardData(options: UseOpsDashboardDataOptions): UseOps
     isEnabled,
     queryClient,
     queryKey,
-    realtimeFlag,
+    realtimeEnabled,
     restaurantId,
     targetDate,
   ]);

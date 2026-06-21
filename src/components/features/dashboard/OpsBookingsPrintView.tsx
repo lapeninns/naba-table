@@ -1,147 +1,40 @@
 'use client';
 
-import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
-import { formatDateReadable, formatTimeRange, getTodayInTimezone } from '@/lib/utils/datetime';
-import { sanitizeDateParam } from '@/utils/ops/dashboard';
+import { formatDateReadable } from '@/lib/utils/datetime';
 
-import { flattenTableAssignments } from './booking-details/utils';
-import {
-  getBookingFilterLabel,
-  matchesBookingFilter,
-  normalizeBookingFilter,
-} from './bookingFilters';
-import { type BookingFilter } from './BookingsFilterBar';
 import styles from './OpsBookingsPrintView.module.css';
-
-import type { OpsTodayBooking } from '@/types/ops';
-
-type BookingSortKey = 'time' | 'party' | 'name';
-type BookingSortDir = 'asc' | 'desc';
-
-type PrintParams = {
-  date?: string | string[];
-  filter?: string | string[];
-  search?: string | string[];
-  sortKey?: string | string[];
-  sortDir?: string | string[];
-};
+import {
+  buildOpsBookingsPrintTableRow,
+  buildOpsBookingsPrintViewState,
+  getOpsBookingsPrintNow,
+  parseOpsBookingsPrintParams,
+  shouldAllowPrintTableAssignments,
+  type OpsBookingsPrintParams,
+} from './opsBookingsPrintViewDomain';
 
 type OpsBookingsPrintViewProps = {
-  params: PrintParams;
+  params: OpsBookingsPrintParams;
 };
-
-const UPCOMING_STATUSES = new Set<OpsTodayBooking['status']>([
-  'confirmed',
-  'PRIORITY_WAITLIST',
-  'pending',
-  'pending_allocation',
-]);
-
-const COMPLETED_STATUSES = new Set<OpsTodayBooking['status']>([
-  'completed',
-  'cancelled',
-  'no_show',
-]);
-
-const SORT_KEYS: BookingSortKey[] = ['time', 'party', 'name'];
-const SORT_DIRS: BookingSortDir[] = ['asc', 'desc'];
-
-const pickFirst = (value?: string | string[]) => (Array.isArray(value) ? value[0] : value);
-
-const parseFilter = (value?: string | string[]): BookingFilter => {
-  return normalizeBookingFilter(pickFirst(value)) ?? 'all';
-};
-
-const parseSortKey = (value?: string | string[]): BookingSortKey => {
-  const raw = pickFirst(value);
-  if (raw && SORT_KEYS.includes(raw as BookingSortKey)) {
-    return raw as BookingSortKey;
-  }
-  return 'time';
-};
-
-const parseSortDir = (value?: string | string[]): BookingSortDir => {
-  const raw = pickFirst(value);
-  if (raw && SORT_DIRS.includes(raw as BookingSortDir)) {
-    return raw as BookingSortDir;
-  }
-  return 'asc';
-};
-
-function compareBookings(
-  a: OpsTodayBooking,
-  b: OpsTodayBooking,
-  sortKey: BookingSortKey,
-  sortDir: BookingSortDir,
-) {
-  let comparison = 0;
-
-  if (sortKey === 'time') {
-    const tA = a.startTime ? new Date(`1970-01-01T${a.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
-    const tB = b.startTime ? new Date(`1970-01-01T${b.startTime}`).getTime() : Number.MAX_SAFE_INTEGER;
-    comparison = tA - tB;
-  } else if (sortKey === 'party') {
-    comparison = a.partySize - b.partySize;
-  } else if (sortKey === 'name') {
-    comparison = a.customerName.localeCompare(b.customerName);
-  }
-
-  return sortDir === 'asc' ? comparison : -comparison;
-}
-
-function sortBookings(
-  bookings: OpsTodayBooking[],
-  sortKey: BookingSortKey,
-  sortDir: BookingSortDir,
-) {
-  return [...bookings].sort((a, b) => compareBookings(a, b, sortKey, sortDir));
-}
-
-function getStatusGroup(status: OpsTodayBooking['status']) {
-  if (status === 'checked_in') return 0;
-  if (UPCOMING_STATUSES.has(status)) return 1;
-  if (COMPLETED_STATUSES.has(status)) return 2;
-  return 1;
-}
-
-function sortBookingsGrouped(
-  bookings: OpsTodayBooking[],
-  sortKey: BookingSortKey,
-  sortDir: BookingSortDir,
-) {
-  return [...bookings].sort((a, b) => {
-    const groupA = getStatusGroup(a.status);
-    const groupB = getStatusGroup(b.status);
-    if (groupA !== groupB) {
-      return groupA - groupB;
-    }
-    return compareBookings(a, b, sortKey, sortDir);
-  });
-}
-
-function buildTableLabel(booking: OpsTodayBooking) {
-  const tables = flattenTableAssignments(booking.tableAssignments);
-  if (tables.length === 0) return 'Unassigned';
-  const numbers = tables.map((table) => table.tableNumber).filter(Boolean);
-  const unique = Array.from(new Set(numbers));
-  return unique.join(', ');
-}
 
 export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
   const membership = useOpsActiveMembership();
   const restaurantId = membership?.restaurantId ?? null;
   const restaurantName = membership?.restaurantName ?? 'Restaurant';
-  const parsedDate = sanitizeDateParam(pickFirst(params.date) ?? null);
-  const filter = parseFilter(params.filter);
-  const searchQuery = (pickFirst(params.search) ?? '').trim();
-  const sortKey = parseSortKey(params.sortKey);
-  const sortDir = parseSortDir(params.sortDir);
-  const targetDate = parsedDate ?? null;
+  const { filter, parsedDate, searchQuery, sortDir, sortKey, targetDate } =
+    parseOpsBookingsPrintParams(params);
 
   const summaryQuery = useOpsTodaySummary({ restaurantId, targetDate: parsedDate });
   const summary = summaryQuery.data ?? null;
@@ -165,55 +58,35 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
   }, [isSummaryReady, summary]);
 
   const allowTableAssignments = useMemo(() => {
-    if (!summary || !isSummaryReady) return true;
-    const today = getTodayInTimezone(summary.timezone);
-    return summary.date >= today;
+    return shouldAllowPrintTableAssignments(summary, isSummaryReady);
   }, [isSummaryReady, summary]);
 
-  const now = useMemo(
-    () => (summary ? DateTime.now().setZone(summary.timezone) : DateTime.now()),
-    [summary],
+  const now = useMemo(() => getOpsBookingsPrintNow(summary), [summary]);
+
+  const printViewState = useMemo(
+    () =>
+      summary && isSummaryReady
+        ? buildOpsBookingsPrintViewState({
+            allowTableAssignments,
+            filter,
+            now,
+            searchQuery,
+            sortDir,
+            sortKey,
+            summary,
+          })
+        : null,
+    [allowTableAssignments, filter, isSummaryReady, now, searchQuery, sortDir, sortKey, summary],
   );
-
-  const filteredBookings = useMemo(() => {
-    if (!summary || !isSummaryReady) return [];
-    let result = summary.bookings;
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((booking) =>
-        booking.customerName.toLowerCase().includes(q) ||
-        (booking.reference && booking.reference.toLowerCase().includes(q)),
-      );
-    }
-
-    if (filter === 'all') return result;
-
-    return result.filter((booking) =>
-      matchesBookingFilter({
-        booking,
-        filter,
-        summary,
-        now,
-        allowTableAssignments,
-        hasAssignmentHandlers: true,
-      }),
-    );
-  }, [allowTableAssignments, filter, isSummaryReady, now, searchQuery, summary]);
-
-  const sortedBookings = useMemo(() => {
-    if (filter === 'all') {
-      return sortBookingsGrouped(filteredBookings, sortKey, sortDir);
-    }
-    return sortBookings(filteredBookings, sortKey, sortDir);
-  }, [filter, filteredBookings, sortDir, sortKey]);
 
   if (!restaurantId) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="max-w-md space-y-2">
           <h1 className="text-lg font-semibold text-foreground">No restaurant access</h1>
-          <p className="text-sm text-muted-foreground">Sign in with an account that has ops access.</p>
+          <p className="text-sm text-muted-foreground">
+            Sign in with an account that has ops access.
+          </p>
         </div>
       </div>
     );
@@ -245,10 +118,11 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
     );
   }
 
-  const readableDate = formatDateReadable(summary.date, summary.timezone);
-  const filterLabel = getBookingFilterLabel(filter);
-  const sortLabel = sortKey === 'time' ? 'Time' : sortKey === 'party' ? 'Party size' : 'Guest name';
-  const sortDirLabel = sortDir === 'asc' ? 'Ascending' : 'Descending';
+  if (!printViewState) {
+    return null;
+  }
+
+  const { filterLabel, readableDate, sortDirLabel, sortedBookings, sortLabel } = printViewState;
 
   return (
     <div id="ops-print-root" className={styles.printRoot}>
@@ -261,7 +135,12 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
             </p>
           </div>
           <div className={`${styles.printControls} ${styles.headerActions}`}>
-            <Button variant="outline" size="sm" onClick={() => window.print()} aria-label="Print bookings">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              aria-label="Print bookings"
+            >
               Print
             </Button>
           </div>
@@ -285,37 +164,42 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
           </div>
         ) : (
           <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={`${styles.th} ${styles.nameCell}`}>Name</th>
-                  <th className={`${styles.th} ${styles.tableCell}`}>Table #</th>
-                  <th className={`${styles.th} ${styles.notesCell}`}>Notes</th>
-                  <th className={`${styles.th} ${styles.partyCell}`}>Party</th>
-                  <th className={`${styles.th} ${styles.timeCell}`}>Time</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className={styles.table}>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className={`${styles.th} ${styles.nameCell}`}>Name</TableHead>
+                  <TableHead className={`${styles.th} ${styles.tableCell}`}>Table #</TableHead>
+                  <TableHead className={`${styles.th} ${styles.notesCell}`}>Notes</TableHead>
+                  <TableHead className={`${styles.th} ${styles.partyCell}`}>Party</TableHead>
+                  <TableHead className={`${styles.th} ${styles.timeCell}`}>Time</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {sortedBookings.map((booking) => {
-                  const tableLabel = buildTableLabel(booking);
-                  const nameLabel = booking.customerName?.trim() || 'Walk-in Guest';
-                  const notesLabel = booking.notes?.trim() || '-';
-                  const timeLabel = formatTimeRange(booking.startTime, booking.endTime, summary.timezone);
+                  const row = buildOpsBookingsPrintTableRow(booking, summary.timezone);
 
                   return (
-                    <tr key={booking.id} className={styles.row}>
-                      <td className={`${styles.td} ${styles.nameCell}`}>{nameLabel}</td>
-                      <td className={`${styles.td} ${styles.tableCell}`}>{tableLabel}</td>
-                      <td className={`${styles.td} ${styles.notesCell}`}>
-                        <p className={styles.notesCopy}>{notesLabel}</p>
-                      </td>
-                      <td className={`${styles.td} ${styles.partyCell}`}>{booking.partySize}</td>
-                      <td className={`${styles.td} ${styles.timeCell}`}>{timeLabel}</td>
-                    </tr>
+                    <TableRow key={row.id} className={styles.row}>
+                      <TableCell className={`${styles.td} ${styles.nameCell}`}>
+                        {row.nameLabel}
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.tableCell}`}>
+                        {row.tableLabel}
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.notesCell}`}>
+                        <p className={styles.notesCopy}>{row.notesLabel}</p>
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.partyCell}`}>
+                        {row.partySize}
+                      </TableCell>
+                      <TableCell className={`${styles.td} ${styles.timeCell}`}>
+                        {row.timeLabel}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>

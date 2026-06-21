@@ -35,8 +35,8 @@ export function BookingStatCard({
         'flex items-center gap-4 rounded-2xl border shadow-sm transition-colors',
         variant === 'compact' ? 'p-3' : 'p-4',
         highlight
-          ? 'bg-amber-50/70 border-amber-200/70 hover:bg-amber-50'
-          : 'bg-white/80 border-stone-200/70 hover:bg-stone-50/70',
+          ? 'bg-primary/10 border-primary/30 hover:bg-primary/10'
+          : 'border-border bg-background/80 hover:bg-muted/40',
         className,
       )}
     >
@@ -44,18 +44,22 @@ export function BookingStatCard({
         className={cn(
           'h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ring-1 ring-inset',
           highlight
-            ? 'bg-amber-100/80 text-amber-700 ring-amber-200/70'
-            : 'bg-stone-100/80 text-stone-600 ring-stone-200/70',
+            ? 'bg-primary/10 text-primary ring-primary/30'
+            : 'bg-muted/80 text-muted-foreground ring-border',
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="size-5" />
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="text-[10px] font-semibold text-stone-500 uppercase tracking-[0.2em]">{label}</span>
-        <span className={cn('font-bold text-stone-900', variant === 'compact' ? 'text-lg' : 'text-xl')}>
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">
+          {label}
+        </span>
+        <span
+          className={cn('font-bold text-foreground', variant === 'compact' ? 'text-lg' : 'text-xl')}
+        >
           {value}
         </span>
-        {subtext ? <span className="text-xs text-stone-500">{subtext}</span> : null}
+        {subtext ? <span className="text-xs text-muted-foreground">{subtext}</span> : null}
       </div>
     </div>
   );

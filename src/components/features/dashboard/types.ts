@@ -15,6 +15,7 @@ export type DashboardListControls = {
   sortKey: BookingSortKey;
   sortDir: BookingSortDir;
   isRefetching?: boolean;
+  dataUpdatedAt?: number | null;
   onFilterChange: (filter: BookingFilter) => void;
   onSearchChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPrint: () => void;

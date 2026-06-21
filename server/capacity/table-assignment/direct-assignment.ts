@@ -12,15 +12,25 @@
  * - Fast and reliable
  */
 
-import { isTableAssignmentAllowed } from "@/lib/ops/table-assignment-policy";
-import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from "@/server/capacity/adjacency";
-import { getVenuePolicy, ServiceOverrunError, type TurnBandsByOption } from "@/server/capacity/policy";
-import { deriveTableRules } from "@/server/capacity/table-rules";
-import { getAllocatorAdjacencyMode } from "@/server/feature-flags";
-import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
+import { isTableAssignmentAllowed } from '@/lib/ops/table-assignment-policy';
+import {
+  evaluateAdjacency,
+  isAdjacencySatisfied,
+  summarizeAdjacencyStatus,
+} from '@/server/capacity/adjacency';
+import { AssignTablesRpcError } from '@/server/capacity/holds';
+import {
+  getVenuePolicy,
+  ServiceOverrunError,
+  type TurnBandsByOption,
+} from '@/server/capacity/policy';
+import { deriveTableRules } from '@/server/capacity/table-rules';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import { getAllocatorAdjacencyMode } from '@/server/runtime-policy';
 
-import { buildBusyMaps, extractConflictsForTables } from "./availability";
-import { computeBookingWindowWithFallback } from "./booking-window";
+import { assignTableToBooking } from './assignment';
+import { buildBusyMaps, extractConflictsForTables } from './availability';
+import { computeBookingWindowWithFallback } from './booking-window';
 import {
   ensureClient,
   loadBooking,
@@ -29,10 +39,11 @@ import {
   loadContextBookings,
   loadRestaurantTimezone,
   type DbClient,
-} from "./supabase";
-import { toIsoUtc, summarizeSelection } from "./utils";
+  type BookingRow,
+} from './supabase';
+import { toIsoUtc, summarizeSelection } from './utils';
 
-import type { Table, BookingWindow, ManualAssignmentConflict } from "./types";
+import type { Table, BookingWindow, ManualAssignmentConflict } from './types';
 
 // ============================================================================
 // Types
@@ -77,8 +88,70 @@ export class DirectAssignmentError extends Error {
     public readonly details?: Record<string, unknown>,
   ) {
     super(message);
-    this.name = "DirectAssignmentError";
+    this.name = 'DirectAssignmentError';
   }
+}
+
+type ExistingAssignmentRow = {
+  id: string | null;
+  booking_id: string | null;
+  table_id: string | null;
+  assigned_at: string | null;
+  assigned_by: string | null;
+};
+
+function mapAtomicAssignmentError(error: AssignTablesRpcError): DirectAssignmentError {
+  const normalizedCode = (error.code ?? 'ASSIGNMENT_FAILED').toUpperCase();
+  const status =
+    normalizedCode.includes('CONFLICT') ||
+    normalizedCode.includes('DUPLICATE') ||
+    normalizedCode === 'ALREADY_ASSIGNED'
+      ? 409
+      : normalizedCode.includes('VALIDATION')
+        ? 422
+        : normalizedCode.includes('NOT_FOUND')
+          ? 404
+          : 500;
+
+  return new DirectAssignmentError(error.message, normalizedCode, status, {
+    details: error.details,
+    hint: error.hint,
+  });
+}
+
+/**
+ * Re-reads assignment rows for the (booking_id, idempotency_key) pair.
+ *
+ * Used by the conflict-recovery path: the up-front idempotency check is a plain
+ * read with no DB unique constraint on (booking_id, idempotency_key), so two
+ * concurrent same-key requests can both pass it. Whichever loses the
+ * (booking_id, table_id) unique constraint at commit must still observe the
+ * idempotent result rather than a raw 409.
+ *
+ * Fails closed: if this lookup itself errors we throw, so the caller surfaces
+ * the original conflict instead of fabricating a success from a failed read.
+ */
+async function loadAssignmentsForIdempotencyKey(params: {
+  bookingId: string;
+  idempotencyKey: string;
+  supabase: DbClient;
+}): Promise<ExistingAssignmentRow[]> {
+  const { bookingId, idempotencyKey, supabase } = params;
+  const { data, error } = await supabase
+    .from('booking_table_assignments')
+    .select('id, booking_id, table_id, assigned_at, assigned_by')
+    .eq('booking_id', bookingId)
+    .eq('idempotency_key', idempotencyKey);
+
+  if (error) {
+    throw new DirectAssignmentError(
+      `Failed to verify idempotent assignment after conflict: ${error.message}`,
+      'ASSIGNMENT_SYNC_FAILED',
+      500,
+    );
+  }
+
+  return (data ?? []) as ExistingAssignmentRow[];
 }
 
 // ============================================================================
@@ -98,6 +171,140 @@ type ValidationResult = {
   conflicts: ManualAssignmentConflict[];
 };
 
+const PENDING_ASSIGNMENT_STATUSES = new Set(['pending', 'pending_allocation']);
+
+async function confirmPendingBookingAfterAssignment(params: {
+  booking: BookingRow;
+  tableIds: string[];
+  idempotencyKey: string;
+  assignedBy: string | null;
+  supabase: DbClient;
+}): Promise<BookingRow> {
+  const { booking, tableIds, idempotencyKey, assignedBy, supabase } = params;
+
+  if (!PENDING_ASSIGNMENT_STATUSES.has(String(booking.status))) {
+    return booking;
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase.rpc('apply_booking_state_transition', {
+    p_booking_id: booking.id,
+    p_status: 'confirmed',
+    p_checked_in_at: booking.checked_in_at ?? null,
+    p_checked_out_at: booking.checked_out_at ?? null,
+    p_updated_at: nowIso,
+    p_history_from: booking.status,
+    p_history_to: 'confirmed',
+    p_history_changed_by: assignedBy,
+    p_history_changed_at: nowIso,
+    p_history_reason: 'direct_table_assignment',
+    p_history_metadata: {
+      source: 'direct_assignment',
+      tableIds,
+      idempotencyKey,
+    },
+  });
+
+  if (error) {
+    throw new DirectAssignmentError(
+      `Tables were assigned but booking status could not be confirmed: ${error.message}`,
+      error.code ?? 'BOOKING_STATUS_TRANSITION_FAILED',
+      500,
+      { bookingId: booking.id, tableIds, hint: error.hint ?? null },
+    );
+  }
+
+  const transitioned = Array.isArray(data) ? data[0] : data;
+
+  return {
+    ...booking,
+    status: (transitioned?.status as BookingRow['status'] | undefined) ?? 'confirmed',
+    checked_in_at:
+      (transitioned?.checked_in_at as string | null | undefined) ?? booking.checked_in_at ?? null,
+    checked_out_at:
+      (transitioned?.checked_out_at as string | null | undefined) ?? booking.checked_out_at ?? null,
+    updated_at: (transitioned?.updated_at as string | undefined) ?? nowIso,
+  };
+}
+
+/**
+ * Builds the normalized idempotent success result from already-persisted
+ * assignment rows.
+ *
+ * Used both for the up-front idempotency hit and as the recovery path when a
+ * concurrent request with the SAME idempotency key wins the race and our commit
+ * loses on the (booking_id, table_id) unique constraint. In both cases the
+ * caller should observe the same already-assigned result rather than an error.
+ */
+async function buildIdempotentResultFromExisting(params: {
+  existingRows: ExistingAssignmentRow[];
+  bookingId: string;
+  tableIds: string[];
+  idempotencyKey: string;
+  assignedBy: string | null;
+  supabase: DbClient;
+}): Promise<DirectAssignmentResult> {
+  const { existingRows, bookingId, tableIds, idempotencyKey, assignedBy, supabase } = params;
+
+  // Idempotency is only sound when the key maps to the SAME table set. The key is
+  // a free-form client string, so the same key can arrive with a different set of
+  // tables. Returning the previously-persisted rows as "success" in that case
+  // emits an inconsistent body (old assignments, summary computed from the new
+  // tables) AND silently drops the requested assignment. Detect the mismatch and
+  // surface a 409 instead of fabricating success. (#2)
+  const requestedTableSet = new Set(tableIds);
+  const existingTableSet = new Set(
+    existingRows.map((row) => row.table_id).filter((id): id is string => Boolean(id)),
+  );
+  const sameTableSet =
+    requestedTableSet.size === existingTableSet.size &&
+    [...requestedTableSet].every((id) => existingTableSet.has(id));
+  if (!sameTableSet) {
+    throw new DirectAssignmentError(
+      'Idempotency key was already used for a different set of tables',
+      'IDEMPOTENCY_KEY_CONFLICT',
+      409,
+      {
+        requestedTableIds: [...requestedTableSet].sort(),
+        existingTableIds: [...existingTableSet].sort(),
+      },
+    );
+  }
+
+  const booking = await loadBooking(bookingId, supabase);
+  const transitionedBooking = await confirmPendingBookingAfterAssignment({
+    booking,
+    tableIds,
+    idempotencyKey,
+    assignedBy,
+    supabase,
+  });
+  const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
+  const summary = summarizeSelection(tables, booking.party_size);
+
+  return {
+    success: true,
+    assignments: existingRows.map((a) => ({
+      id: a.id!,
+      booking_id: a.booking_id!,
+      table_id: a.table_id!,
+      assigned_at: a.assigned_at!,
+      assigned_by: a.assigned_by ?? null,
+    })),
+    booking: {
+      id: transitionedBooking.id,
+      status: transitionedBooking.status,
+      party_size: transitionedBooking.party_size,
+    },
+    summary: {
+      tableCount: summary.tableCount,
+      totalCapacity: summary.totalCapacity,
+      partySize: summary.partySize,
+      slack: summary.slack,
+    },
+  };
+}
+
 // ============================================================================
 // Main Assignment Function
 // ============================================================================
@@ -115,70 +322,52 @@ type ValidationResult = {
  *
  * @throws DirectAssignmentError on validation failure or conflicts
  */
-export async function assignTablesDirectly(input: DirectAssignmentInput): Promise<DirectAssignmentResult> {
-  const {
-    bookingId,
-    tableIds,
-    idempotencyKey,
-    requireAdjacency: requireAdjacencyOverride,
-    assignedBy = null,
-    client,
-  } = input;
+export async function assignTablesDirectly(
+  input: DirectAssignmentInput,
+): Promise<DirectAssignmentResult> {
+  const { bookingId, tableIds, idempotencyKey, assignedBy = null, client } = input;
 
   // === STEP 1: Input Validation ===
-  if (!bookingId || typeof bookingId !== "string") {
-    throw new DirectAssignmentError("Invalid booking ID", "INVALID_INPUT", 400);
+  if (!bookingId || typeof bookingId !== 'string') {
+    throw new DirectAssignmentError('Invalid booking ID', 'INVALID_INPUT', 400);
   }
 
   if (!Array.isArray(tableIds) || tableIds.length === 0) {
-    throw new DirectAssignmentError("At least one table must be selected", "INVALID_INPUT", 400);
+    throw new DirectAssignmentError('At least one table must be selected', 'INVALID_INPUT', 400);
   }
 
-  if (!idempotencyKey || typeof idempotencyKey !== "string") {
-    throw new DirectAssignmentError("Idempotency key is required", "INVALID_INPUT", 400);
+  if (new Set(tableIds).size !== tableIds.length) {
+    throw new DirectAssignmentError('Duplicate table IDs are not allowed', 'INVALID_INPUT', 400);
+  }
+
+  if (!idempotencyKey || typeof idempotencyKey !== 'string') {
+    throw new DirectAssignmentError('Idempotency key is required', 'INVALID_INPUT', 400);
   }
 
   const supabase = ensureClient(client);
 
   // === STEP 2: Check Idempotency - Return existing assignments if already processed ===
   const { data: existingData, error: existingError } = await supabase
-    .from("booking_table_assignments")
-    .select("id, booking_id, table_id, assigned_at, assigned_by")
-    .eq("booking_id", bookingId)
-    .eq("idempotency_key", idempotencyKey);
+    .from('booking_table_assignments')
+    .select('id, booking_id, table_id, assigned_at, assigned_by')
+    .eq('booking_id', bookingId)
+    .eq('idempotency_key', idempotencyKey);
 
   if (existingError) {
-    console.error("[direct-assignment] Error checking idempotency:", existingError);
+    console.error('[direct-assignment] Error checking idempotency:', existingError);
     // Continue with assignment if we can't check (don't fail)
   }
 
   if (existingData && existingData.length > 0) {
     // Already processed - return existing result (idempotency)
-    const booking = await loadBooking(bookingId, supabase);
-    const tables = await loadTablesByIds(booking.restaurant_id, tableIds, supabase);
-    const summary = summarizeSelection(tables, booking.party_size);
-
-    return {
-      success: true,
-      assignments: existingData.map((a) => ({
-        id: a.id!,
-        booking_id: a.booking_id!,
-        table_id: a.table_id!,
-        assigned_at: a.assigned_at!,
-        assigned_by: a.assigned_by ?? null,
-      })),
-      booking: {
-        id: booking.id,
-        status: booking.status,
-        party_size: booking.party_size,
-      },
-      summary: {
-        tableCount: summary.tableCount,
-        totalCapacity: summary.totalCapacity,
-        partySize: summary.partySize,
-        slack: summary.slack,
-      },
-    };
+    return buildIdempotentResultFromExisting({
+      existingRows: existingData,
+      bookingId,
+      tableIds,
+      idempotencyKey,
+      assignedBy,
+      supabase,
+    });
   }
 
   // === STEP 3: Load Booking ===
@@ -189,7 +378,7 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone ??
-    "UTC";
+    'UTC';
 
   if (
     !isTableAssignmentAllowed({
@@ -199,8 +388,8 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     })
   ) {
     throw new DirectAssignmentError(
-      "Assignments are locked for past or completed bookings",
-      "ASSIGNMENT_LOCKED",
+      'Assignments are locked for past or completed bookings',
+      'ASSIGNMENT_LOCKED',
       409,
     );
   }
@@ -212,8 +401,8 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     const foundIds = tables.map((t) => t.id);
     const missingIds = tableIds.filter((id) => !foundIds.includes(id));
     throw new DirectAssignmentError(
-      `Tables not found: ${missingIds.join(", ")}`,
-      "TABLES_NOT_FOUND",
+      `Tables not found: ${missingIds.join(', ')}`,
+      'TABLES_NOT_FOUND',
       404,
       { missingTableIds: missingIds },
     );
@@ -239,18 +428,13 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     }));
   } catch (error) {
     if (error instanceof ServiceOverrunError) {
-      throw new DirectAssignmentError(
-        error.message,
-        "SERVICE_OVERRUN",
-        422,
-      );
+      throw new DirectAssignmentError(error.message, 'SERVICE_OVERRUN', 422);
     }
     throw error;
   }
 
   // === STEP 6: Run Validation ===
   // Hard invariant: merged assignments must satisfy adjacency; do not allow bypass.
-  void requireAdjacencyOverride;
   const validation = await validateSelection({
     bookingId,
     booking,
@@ -264,8 +448,8 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
   if (!validation.valid) {
     const firstError = validation.checks.find((c) => !c.passed);
     throw new DirectAssignmentError(
-      firstError?.message || "Validation failed",
-      firstError?.id.toUpperCase() || "VALIDATION_FAILED",
+      firstError?.message || 'Validation failed',
+      firstError?.id.toUpperCase() || 'VALIDATION_FAILED',
       422,
       {
         checks: validation.checks,
@@ -274,60 +458,82 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
     );
   }
 
-  // === STEP 7: Insert Assignments Atomically ===
-  const now = new Date().toISOString();
-  const startAt = toIsoUtc(window.block.start);
-  const endAt = toIsoUtc(window.block.end);
+  // === STEP 7: Commit through the atomic allocator path ===
+  try {
+    await assignTableToBooking(bookingId, tableIds, assignedBy, supabase, {
+      idempotencyKey,
+      requireAdjacency: true,
+      booking,
+    });
+  } catch (error) {
+    if (error instanceof AssignTablesRpcError) {
+      const mapped = mapAtomicAssignmentError(error);
 
-  const assignmentsToInsert = tableIds.map((tableId) => ({
-    booking_id: bookingId,
-    table_id: tableId,
-    assigned_at: now,
-    assigned_by: assignedBy,
-    idempotency_key: idempotencyKey,
-    start_at: startAt,
-    end_at: endAt,
-  }));
+      // TOCTOU recovery: the idempotency pre-check (STEP 2) is a plain read with
+      // no DB unique constraint, so a concurrent request with the SAME
+      // idempotency key can race past it and win the (booking_id, table_id)
+      // unique constraint, leaving us with a raw 409. If the same-key rows are
+      // now present, treat this as already-assigned and return the same
+      // idempotent result the loser would otherwise have gotten.
+      if (mapped.status === 409) {
+        const existingRows = await loadAssignmentsForIdempotencyKey({
+          bookingId,
+          idempotencyKey,
+          supabase,
+        });
+        if (existingRows.length > 0) {
+          return buildIdempotentResultFromExisting({
+            existingRows,
+            bookingId,
+            tableIds,
+            idempotencyKey,
+            assignedBy,
+            supabase,
+          });
+        }
+      }
 
-  const { data: insertedAssignments, error: insertError } = await supabase
-    .from("booking_table_assignments")
-    .insert(assignmentsToInsert)
-    .select("id, booking_id, table_id, assigned_at, assigned_by");
-
-  if (insertError) {
-    // Check if it's a uniqueness violation (already assigned)
-    if (insertError.code === "23505") {
-      throw new DirectAssignmentError(
-        "One or more tables are already assigned to this booking",
-        "ALREADY_ASSIGNED",
-        409,
-      );
+      throw mapped;
     }
+    throw error;
+  }
+
+  const transitionedBooking = await confirmPendingBookingAfterAssignment({
+    booking,
+    tableIds,
+    idempotencyKey,
+    assignedBy,
+    supabase,
+  });
+
+  const { data: assignedRows, error: assignmentLoadError } = await supabase
+    .from('booking_table_assignments')
+    .select('id, booking_id, table_id, assigned_at, assigned_by')
+    .eq('booking_id', bookingId)
+    .in('table_id', tableIds);
+
+  if (assignmentLoadError) {
     throw new DirectAssignmentError(
-      `Failed to create assignments: ${insertError.message}`,
-      "INSERT_FAILED",
+      `Failed to load created assignments: ${assignmentLoadError.message}`,
+      'ASSIGNMENT_SYNC_FAILED',
       500,
     );
   }
 
-  if (!insertedAssignments || insertedAssignments.length === 0) {
+  const insertedAssignments = assignedRows ?? [];
+  const assignedTableIds = new Set(insertedAssignments.map((assignment) => assignment.table_id));
+  const missingAssignmentIds = tableIds.filter((tableId) => !assignedTableIds.has(tableId));
+
+  if (insertedAssignments.length === 0 || missingAssignmentIds.length > 0) {
     throw new DirectAssignmentError(
-      "No assignments were created",
-      "INSERT_FAILED",
+      'Atomic assignment completed but assignment rows were not available',
+      'ASSIGNMENT_SYNC_FAILED',
       500,
+      { missingTableIds: missingAssignmentIds },
     );
   }
 
-  // === STEP 8: Update Booking Status (if needed) ===
-  // If booking was pending, move to confirmed
-  if (booking.status === "pending") {
-    await supabase
-      .from("bookings")
-      .update({ status: "confirmed", updated_at: now })
-      .eq("id", bookingId);
-  }
-
-  // === STEP 9: Return Success ===
+  // === STEP 8: Return Success ===
   const summary = summarizeSelection(tables, booking.party_size);
 
   return {
@@ -340,9 +546,9 @@ export async function assignTablesDirectly(input: DirectAssignmentInput): Promis
       assigned_by: a.assigned_by ?? null,
     })),
     booking: {
-      id: booking.id,
-      status: booking.status === "pending" ? "confirmed" : booking.status,
-      party_size: booking.party_size,
+      id: transitionedBooking.id,
+      status: transitionedBooking.status,
+      party_size: transitionedBooking.party_size,
     },
     summary: {
       tableCount: summary.tableCount,
@@ -372,24 +578,26 @@ async function validateSelection(params: {
   turnBandsByOption?: TurnBandsByOption | null;
   supabase: DbClient;
 }): Promise<ValidationResult> {
-  const { bookingId, booking, tables, window, restaurantTimezone, turnBandsByOption, supabase } = params;
+  const { bookingId, booking, tables, window, restaurantTimezone, turnBandsByOption, supabase } =
+    params;
   const checks: ValidationCheck[] = [];
   const summary = summarizeSelection(tables, booking.party_size);
 
   const unavailableTables = tables.filter((table) => {
-    const outOfService = typeof table.status === "string" && table.status.toLowerCase() === "out_of_service";
+    const outOfService =
+      typeof table.status === 'string' && table.status.toLowerCase() === 'out_of_service';
     return table.active === false || table.zoneActive === false || outOfService;
   });
 
   checks.push({
-    id: "inactive_table",
+    id: 'inactive_table',
     passed: unavailableTables.length === 0,
     message:
       unavailableTables.length === 0
-        ? "All selected tables are active"
+        ? 'All selected tables are active'
         : `Cannot assign to disabled or out-of-service tables: ${unavailableTables
-          .map((t) => t.tableNumber)
-          .join(", ")}`,
+            .map((t) => t.tableNumber)
+            .join(', ')}`,
     details: {
       tableIds: unavailableTables.map((t) => t.id),
       statuses: unavailableTables.map((t) => t.status ?? null),
@@ -403,15 +611,15 @@ async function validateSelection(params: {
   const singleZone = zones.size <= 1;
   const mergedZoneOk = tables.length <= 1 ? true : singleZone && Boolean(onlyZone);
   checks.push({
-    id: "zone",
+    id: 'zone',
     passed: mergedZoneOk,
     message: mergedZoneOk
       ? summary.zoneId
         ? `All tables in zone ${summary.zoneId}`
-        : "No zone specified"
+        : 'No zone specified'
       : tables.length > 1 && !onlyZone
-        ? "Merged assignments require all tables to belong to the same (non-empty) zone."
-        : `Tables are in different zones: ${Array.from(zones).join(", ")}`,
+        ? 'Merged assignments require all tables to belong to the same (non-empty) zone.'
+        : `Tables are in different zones: ${Array.from(zones).join(', ')}`,
     details: {
       zones: Array.from(zones),
       zoneId: summary.zoneId,
@@ -421,7 +629,7 @@ async function validateSelection(params: {
   // Check 2: Zone lock (if booking has assigned zone)
   if (booking.assigned_zone_id && summary.zoneId && booking.assigned_zone_id !== summary.zoneId) {
     checks.push({
-      id: "zone_locked",
+      id: 'zone_locked',
       passed: false,
       message: `Booking is locked to zone ${booking.assigned_zone_id}; selected tables are in zone ${summary.zoneId}`,
       details: {
@@ -439,11 +647,11 @@ async function validateSelection(params: {
     });
     const allMovable = nonMergeable.length === 0;
     checks.push({
-      id: "movable",
+      id: 'movable',
       passed: allMovable,
       message: allMovable
-        ? "All tables are movable (can be merged)"
-        : `Merged assignments require movable tables. Non-movable tables: ${nonMergeable.map((t) => t.tableNumber).join(", ")}`,
+        ? 'All tables are movable (can be merged)'
+        : `Merged assignments require movable tables. Non-movable tables: ${nonMergeable.map((t) => t.tableNumber).join(', ')}`,
       details: {
         allMovable,
         nonMovableTables: nonMergeable.map((t) => ({
@@ -458,7 +666,7 @@ async function validateSelection(params: {
   // Check 4: Capacity
   const capacityOk = summary.totalCapacity >= summary.partySize;
   checks.push({
-    id: "capacity",
+    id: 'capacity',
     passed: capacityOk,
     message: capacityOk
       ? `Selected tables have ${summary.totalCapacity} seats for party of ${summary.partySize}`
@@ -479,14 +687,14 @@ async function validateSelection(params: {
     const adjacencyOk = isAdjacencySatisfied(evaluation, adjacencyMode);
 
     const failureMessage =
-      adjacencyMode === "pairwise"
-        ? "Tables must be adjacent to every other selected table"
-        : adjacencyMode === "neighbors"
-          ? "Tables must share a common neighbor/hub to be merged"
-          : "Tables must remain connected when adjacency enforcement is enabled";
+      adjacencyMode === 'pairwise'
+        ? 'Tables must be adjacent to every other selected table'
+        : adjacencyMode === 'neighbors'
+          ? 'Tables must share a common neighbor/hub to be merged'
+          : 'Tables must remain connected when adjacency enforcement is enabled';
 
     checks.push({
-      id: "adjacency",
+      id: 'adjacency',
       passed: adjacencyOk,
       message: adjacencyOk
         ? `Tables satisfy ${summarizeAdjacencyStatus(evaluation, tables.length)} adjacency requirement`
@@ -518,14 +726,18 @@ async function validateSelection(params: {
     targetWindow: window,
   });
 
-  const conflicts = extractConflictsForTables(busyMaps, tables.map((t) => t.id), window);
+  const conflicts = extractConflictsForTables(
+    busyMaps,
+    tables.map((t) => t.id),
+    window,
+  );
 
   checks.push({
-    id: "conflicts",
+    id: 'conflicts',
     passed: conflicts.length === 0,
     message:
       conflicts.length === 0
-        ? "No time conflicts with other bookings"
+        ? 'No time conflicts with other bookings'
         : `${conflicts.length} table(s) have conflicting bookings at this time`,
     details: {
       conflictCount: conflicts.length,
@@ -554,7 +766,11 @@ export async function unassignTablesDirect(params: {
   const { bookingId, tableIds, client } = params;
 
   if (!bookingId || !Array.isArray(tableIds) || tableIds.length === 0) {
-    throw new DirectAssignmentError("Invalid input", "INVALID_INPUT", 400);
+    throw new DirectAssignmentError('Invalid input', 'INVALID_INPUT', 400);
+  }
+
+  if (new Set(tableIds).size !== tableIds.length) {
+    throw new DirectAssignmentError('Duplicate table IDs are not allowed', 'INVALID_INPUT', 400);
   }
 
   const supabase = ensureClient(client);
@@ -566,7 +782,7 @@ export async function unassignTablesDirect(params: {
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone ??
-    "UTC";
+    'UTC';
 
   if (
     !isTableAssignmentAllowed({
@@ -576,71 +792,48 @@ export async function unassignTablesDirect(params: {
     })
   ) {
     throw new DirectAssignmentError(
-      "Assignments are locked for past or completed bookings",
-      "ASSIGNMENT_LOCKED",
+      'Assignments are locked for past or completed bookings',
+      'ASSIGNMENT_LOCKED',
       409,
     );
   }
 
-  const { error, count } = await supabase
-    .from("booking_table_assignments")
-    .delete({ count: "exact" })
-    .eq("booking_id", bookingId)
-    .in("table_id", tableIds);
+  const rpc = supabase.rpc as unknown as (
+    fn: 'remove_booking_table_assignments_and_reopen_if_empty',
+    args: {
+      p_booking_id: string;
+      p_table_ids: string[];
+    },
+  ) => Promise<{ data: number | null; error: { message: string } | null }>;
+  const { data: removedCount, error } = await rpc(
+    'remove_booking_table_assignments_and_reopen_if_empty',
+    {
+      p_booking_id: bookingId,
+      p_table_ids: tableIds,
+    },
+  );
 
   if (error) {
     throw new DirectAssignmentError(
       `Failed to remove assignments: ${error.message}`,
-      "DELETE_FAILED",
+      'DELETE_FAILED',
       500,
     );
   }
 
-  // BUSINESS RULE: Check if all tables are now unassigned
-  // If so, revert booking status to 'pending'
-  const { data: remainingAssignments, error: checkError } = await supabase
-    .from("booking_table_assignments")
-    .select("id")
-    .eq("booking_id", bookingId)
-    .limit(1);
-
-  if (!checkError && remainingAssignments && remainingAssignments.length === 0) {
-    // No tables assigned - check if booking is 'confirmed' and revert to 'pending'
-    const { data: booking } = await supabase
-      .from("bookings")
-      .select("status")
-      .eq("id", bookingId)
-      .single();
-
-    if (booking?.status === "confirmed") {
-      await supabase
-        .from("bookings")
-        .update({
-          status: "pending",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", bookingId);
-
-      console.info("[direct-assignment] reverted to pending - all tables unassigned", {
-        bookingId,
-        removedTableIds: tableIds,
-      });
-    }
-  }
-
   return {
     success: true,
-    removedCount: count ?? 0,
+    removedCount: removedCount ?? 0,
   };
 }
 
 /**
  * Clean up orphaned table assignments for a booking.
- * 
+ *
  * Orphaned assignments occur when a table is deleted from the inventory
  * but the assignment record still exists. This function removes those
  * stale records.
- * 
+ *
  * @param bookingId - The booking to clean up
  * @param orphanedTableIds - Array of table IDs that no longer exist
  * @param client - Optional Supabase client
@@ -659,25 +852,25 @@ export async function cleanupOrphanedAssignments(params: {
   const supabase = ensureClient(client);
 
   const { error, count } = await supabase
-    .from("booking_table_assignments")
-    .delete({ count: "exact" })
-    .eq("booking_id", bookingId)
-    .in("table_id", orphanedTableIds);
+    .from('booking_table_assignments')
+    .delete({ count: 'exact' })
+    .eq('booking_id', bookingId)
+    .in('table_id', orphanedTableIds);
 
   if (error) {
-    console.error("[direct-assignment] failed to cleanup orphaned assignments", {
+    console.error('[direct-assignment] failed to cleanup orphaned assignments', {
       bookingId,
       orphanedTableIds,
       error,
     });
     throw new DirectAssignmentError(
       `Failed to cleanup orphaned assignments: ${error.message}`,
-      "CLEANUP_FAILED",
+      'CLEANUP_FAILED',
       500,
     );
   }
 
-  console.info("[direct-assignment] cleaned up orphaned assignments", {
+  console.info('[direct-assignment] cleaned up orphaned assignments', {
     bookingId,
     orphanedTableIds,
     removedCount: count ?? 0,

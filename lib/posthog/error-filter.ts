@@ -1,10 +1,12 @@
+import { stripUrlQueryAndHash } from '@/lib/security/url-redaction';
+
 type ExceptionListItem = {
   value?: unknown;
 };
 
 type PosthogEventLike = {
   event?: unknown;
-  properties?: {
+  properties?: Record<string, unknown> & {
     $exception_values?: unknown;
     $exception_list?: unknown;
   };
@@ -33,6 +35,19 @@ const POSTHOG_SUPPRESSION_DEBUG_WINDOW_KEY = '__srxPosthogSuppressionDebug';
 const POSTHOG_SUPPRESSION_RECENT_LIMIT = 20;
 const NOISY_INDEXED_DB_UPDATE_REJECTION_PATTERN =
   /Object Not Found Matching Id:\d+,\s*MethodName:update,\s*ParamCount:4/i;
+const URL_PROPERTY_KEYS = new Set([
+  '$current_url',
+  '$pathname',
+  '$prev_pageview_pathname',
+  '$prev_pageview_url',
+  '$referrer',
+  'current_url',
+  'pathname',
+  'url',
+  'path',
+  'referrer',
+  'redirectedFrom',
+]);
 
 function extractExceptionValues(event: PosthogEventLike): string[] {
   const values = event.properties?.$exception_values;
@@ -123,7 +138,9 @@ export function matchPosthogExceptionSuppression(
   }
 
   const values = extractExceptionValues(event);
-  const matchedValue = values.find((value) => NOISY_INDEXED_DB_UPDATE_REJECTION_PATTERN.test(value));
+  const matchedValue = values.find((value) =>
+    NOISY_INDEXED_DB_UPDATE_REJECTION_PATTERN.test(value),
+  );
   if (!matchedValue) {
     return null;
   }
@@ -138,6 +155,48 @@ export function matchPosthogExceptionSuppression(
  * Suppresses recurring non-actionable browser storage update rejections that
  * are noisy in production telemetry and not attributable to app business logic.
  */
-export function shouldSuppressPosthogExceptionEvent(event: PosthogEventLike | null | undefined): boolean {
+export function shouldSuppressPosthogExceptionEvent(
+  event: PosthogEventLike | null | undefined,
+): boolean {
   return matchPosthogExceptionSuppression(event) !== null;
+}
+
+export function filterPosthogEventBeforeSend<T extends PosthogEventLike>(
+  event: T | null | undefined,
+): T | null {
+  const suppressionMatch = matchPosthogExceptionSuppression(event);
+  if (!suppressionMatch) {
+    return sanitizePosthogEventUrls(event);
+  }
+
+  recordSuppressedPosthogException(suppressionMatch);
+  return null;
+}
+
+export function sanitizePosthogEventUrls<T extends PosthogEventLike>(
+  event: T | null | undefined,
+): T | null {
+  if (!event) {
+    return null;
+  }
+
+  if (!event.properties) {
+    return event;
+  }
+
+  let changed = false;
+  const properties = { ...event.properties };
+  for (const key of Object.keys(properties)) {
+    const value = properties[key];
+    if (typeof value !== 'string' || !URL_PROPERTY_KEYS.has(key)) {
+      continue;
+    }
+    const sanitized = stripUrlQueryAndHash(value);
+    if (sanitized !== value) {
+      properties[key] = sanitized;
+      changed = true;
+    }
+  }
+
+  return changed ? ({ ...event, properties } as T) : event;
 }

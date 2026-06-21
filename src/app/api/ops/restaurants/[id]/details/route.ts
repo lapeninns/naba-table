@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
+import {
+  PasswordConfirmationError,
+  verifyUserPasswordConfirmation,
+} from '@/server/auth/password-confirmation';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { syncRestaurantProfileWithGoogleBusinessProfile } from '@/server/google-business-profile/service';
 import {
   getRestaurantDetails,
   updateRestaurantDetails,
   type UpdateRestaurantDetailsInput,
 } from '@/server/restaurants/details';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -17,6 +25,28 @@ type RouteParams = {
     id: string | string[];
   }>;
 };
+
+function googleUrlField(
+  sanitizer: (value: string | null | undefined) => string | null,
+  message: string,
+) {
+  return z
+    .preprocess(
+      (value) => {
+        if (typeof value !== 'string') {
+          return value;
+        }
+        const trimmed = value.trim();
+        return trimmed ? (sanitizer(trimmed) ?? trimmed) : null;
+      },
+      z
+        .string()
+        .max(2048)
+        .refine((value) => sanitizer(value) === value, message)
+        .nullable(),
+    )
+    .optional();
+}
 
 const detailsSchema = z.object({
   name: z.string().min(1).max(120).optional(),
@@ -38,10 +68,25 @@ const detailsSchema = z.object({
     .optional(),
   email: z.string().email().nullable().optional(),
   address: z.string().max(240).nullable().optional(),
-  googleMapUrl: z.string().url().max(2048).nullable().optional(),
-  googleReviewUrl: z.string().url().max(2048).nullable().optional(),
+  businessDescription: z.string().max(4096).nullable().optional(),
+  googleMapUrl: googleUrlField(
+    safeGoogleMapsUrl,
+    'Google Map link must be an HTTPS Google Maps URL',
+  ),
+  googleReviewUrl: googleUrlField(
+    safeGoogleReviewUrl,
+    'Google review link must be an HTTPS Google review URL',
+  ),
   bookingPolicy: z.string().max(800).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
+});
+
+const syncSchema = z.object({
+  direction: z.enum(['pull_from_gbp', 'push_to_gbp']).optional(),
+  fields: z
+    .array(z.enum(['name', 'contactPhone', 'address', 'googleMapUrl', 'googleReviewUrl']))
+    .optional(),
+  password: z.string().trim().min(1, 'Enter your password to confirm this GBP action.'),
 });
 
 async function resolveRestaurantId(
@@ -55,7 +100,9 @@ async function resolveRestaurantId(
   return null;
 }
 
-async function ensureAuthorized(restaurantId: string): Promise<NextResponse | null> {
+async function ensureAuthorized(
+  restaurantId: string,
+): Promise<NextResponse | { userEmail: string | null }> {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -85,11 +132,24 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  return null;
+  return {
+    userEmail: user.email ?? null,
+  };
 }
 
 function handleUnexpectedError(error: unknown, context: string) {
   console.error(context, error);
+
+  if (!(error instanceof PasswordConfirmationError)) {
+    captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-details' } });
+  }
+
+  if (error instanceof PasswordConfirmationError) {
+    return NextResponse.json(
+      { message: error.message, code: error.code },
+      { status: error.status },
+    );
+  }
 
   if (error instanceof Error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -106,7 +166,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
   try {
     const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse) {
+    if (authResponse instanceof NextResponse) {
       return authResponse;
     }
 
@@ -123,24 +183,37 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
+  return withCsrfProtectedMutation(req, () => putRestaurantDetails(req, restaurantId));
+}
+
+async function putRestaurantDetails(req: NextRequest, restaurantId: string) {
   let payload: UpdateRestaurantDetailsInput;
   try {
     const json = await req.json();
     const parsed = detailsSchema.parse(json);
+    const hasField = (field: keyof typeof parsed) =>
+      Object.prototype.hasOwnProperty.call(parsed, field);
     payload = {
-      name: parsed.name,
-      slug: parsed.slug,
-      timezone: parsed.timezone,
-      capacity: parsed.capacity ?? null,
-      contactPhone: parsed.phone ?? null,
-      managerDailySummaryEnabled: parsed.managerDailySummaryEnabled,
-      managerNotificationPhone: parsed.managerNotificationPhone ?? null,
-      contactEmail: parsed.email ?? null,
-      address: parsed.address ?? null,
-      googleMapUrl: parsed.googleMapUrl ?? null,
-      googleReviewUrl: parsed.googleReviewUrl ?? null,
-      bookingPolicy: parsed.bookingPolicy ?? null,
-      logoUrl: parsed.logoUrl ?? null,
+      ...(hasField('name') ? { name: parsed.name } : {}),
+      ...(hasField('slug') ? { slug: parsed.slug } : {}),
+      ...(hasField('timezone') ? { timezone: parsed.timezone } : {}),
+      ...(hasField('capacity') ? { capacity: parsed.capacity ?? null } : {}),
+      ...(hasField('phone') ? { contactPhone: parsed.phone ?? null } : {}),
+      ...(hasField('managerDailySummaryEnabled')
+        ? { managerDailySummaryEnabled: parsed.managerDailySummaryEnabled }
+        : {}),
+      ...(hasField('managerNotificationPhone')
+        ? { managerNotificationPhone: parsed.managerNotificationPhone ?? null }
+        : {}),
+      ...(hasField('email') ? { contactEmail: parsed.email ?? null } : {}),
+      ...(hasField('address') ? { address: parsed.address ?? null } : {}),
+      ...(hasField('businessDescription')
+        ? { businessDescription: parsed.businessDescription ?? null }
+        : {}),
+      ...(hasField('googleMapUrl') ? { googleMapUrl: parsed.googleMapUrl ?? null } : {}),
+      ...(hasField('googleReviewUrl') ? { googleReviewUrl: parsed.googleReviewUrl ?? null } : {}),
+      ...(hasField('bookingPolicy') ? { bookingPolicy: parsed.bookingPolicy ?? null } : {}),
+      ...(hasField('logoUrl') ? { logoUrl: parsed.logoUrl ?? null } : {}),
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -154,7 +227,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   try {
     const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse) {
+    if (authResponse instanceof NextResponse) {
       return authResponse;
     }
 
@@ -162,5 +235,50 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json(details);
   } catch (error) {
     return handleUnexpectedError(error, '[ops][restaurants][details][PUT]');
+  }
+}
+
+export async function POST(req: NextRequest, { params }: RouteParams) {
+  const restaurantId = await resolveRestaurantId(params);
+  if (!restaurantId) {
+    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+  }
+
+  return withCsrfProtectedMutation(req, () => postRestaurantDetails(req, restaurantId));
+}
+
+async function postRestaurantDetails(req: NextRequest, restaurantId: string) {
+  let payload: z.infer<typeof syncSchema>;
+  try {
+    payload = syncSchema.parse(await req.json());
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid payload', details: error.flatten() },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  }
+
+  try {
+    const authResponse = await ensureAuthorized(restaurantId);
+    if (authResponse instanceof NextResponse) {
+      return authResponse;
+    }
+
+    await verifyUserPasswordConfirmation({
+      email: authResponse.userEmail,
+      password: payload.password,
+    });
+
+    const details = await syncRestaurantProfileWithGoogleBusinessProfile({
+      restaurantId,
+      direction: payload.direction,
+      fields: payload.fields,
+    });
+    return NextResponse.json(details);
+  } catch (error) {
+    return handleUnexpectedError(error, '[ops][restaurants][details][POST]');
   }
 }

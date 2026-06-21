@@ -22,3 +22,11 @@ export function validatePasswordStrength(password: string | undefined) {
   const message = result.error.issues[0]?.message ?? 'Password does not meet requirements';
   return { success: false as const, error: message };
 }
+
+export function validatePasswordForSignIn(password: string | undefined) {
+  if (typeof password !== 'string' || password.length === 0) {
+    return { success: false as const, error: 'Enter your password' };
+  }
+
+  return { success: true as const, value: password };
+}

@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
+  if (typeof error === 'string') return error;
   try {
     return JSON.stringify(error);
   } catch {
@@ -19,26 +21,52 @@ type LeadPayload = {
 };
 
 function isLeadPayload(value: unknown): value is LeadPayload {
-  return typeof value === "object" && value !== null && typeof (value as { email?: unknown }).email === "string";
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { email?: unknown }).email === 'string'
+  );
 }
 
 // This route is used to store the leads that are generated from the landing page.
 // The API call is initiated by <ButtonLead /> component
 export async function POST(req: NextRequest) {
+  const rateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'lead:create',
+    limit: 5,
+    windowMs: 60_000,
+    message: 'Too many lead requests. Please try again later.',
+  });
+  if (rateLimit) {
+    return rateLimit;
+  }
+
   const body = await req.json();
 
   if (!isLeadPayload(body)) {
-    return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    return NextResponse.json({ error: 'Email is required' }, { status: 400 });
   }
 
   try {
     const supabase = await getRouteHandlerSupabaseClient();
-    await supabase.from("leads").insert({ email: body.email });
+    const { error } = await supabase.from('leads').insert({ email: body.email });
+
+    if (error) {
+      console.error('[lead] Unable to store lead', {
+        code: error.code,
+        message: stringifyError(error),
+      });
+      return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
+    }
 
     return NextResponse.json({});
   } catch (error: unknown) {
     const message = stringifyError(error);
-    console.error(message);
-    return NextResponse.json({ error: message || "Unable to store lead" }, { status: 500 });
+    console.error('[lead] Unexpected lead storage failure', { message });
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'lead' },
+    });
+    return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
   }
 }

@@ -27,12 +27,6 @@ export type OpsPermissionSet = {
   canManageSettings: boolean;
 };
 
-export type OpsFeatureFlags = {
-  opsMetrics: boolean;
-  selectorScoring: boolean;
-  rejectionAnalytics: boolean;
-};
-
 export type OpsBookingStatus =
   | 'pending'
   | 'pending_allocation'
@@ -147,6 +141,7 @@ export type OpsBookingsFilters = {
   status?: OpsBookingStatus | 'all';
   sort?: 'asc' | 'desc';
   sortBy?: 'start_at' | 'created_at';
+  countStrategy?: 'exact' | 'window';
   from?: Date | string | null;
   to?: Date | string | null;
   query?: string | null;
@@ -269,10 +264,6 @@ export type OpsCustomersPage = {
   summary?: OpsCustomersSummary;
 };
 
-export type OpsRejectionBucket = 'day' | 'hour';
-
-export type OpsStrategicPenaltyKey = 'slack' | 'scarcity' | 'future_conflict' | 'structural' | 'unknown';
-
 export type TableTimelineServiceKey = 'lunch' | 'dinner' | 'other';
 
 export type TableTimelineSlot = {
@@ -296,12 +287,17 @@ export type TableTimelineBookingRef = {
   customerName: string | null;
   partySize: number;
   status: OpsBookingStatus;
+  /** Prep-buffered block window boundaries (used for segment layout). */
   startAt: string;
   endAt: string;
+  /** Customer-facing reservation (dining) window — preferred for finishing/overdue thresholds. */
+  diningStartAt?: string | null;
+  diningEndAt?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
   notes?: string | null;
   tableIds?: string[];
+  bookingType?: string | null;
 };
 
 export type TableTimelineHoldRef = {
@@ -372,59 +368,6 @@ export type TableTimelineResponse = {
     }>;
   } | null;
   tables: TableTimelineRow[];
-};
-
-export type OpsRejectionSeriesPoint = {
-  bucket: string;
-  hard: number;
-  strategic: number;
-};
-
-export type OpsRejectionTopReason = {
-  label: string;
-  count: number;
-};
-
-export type OpsRejectionTopPenalty = {
-  penalty: OpsStrategicPenaltyKey;
-  count: number;
-};
-
-export type OpsStrategicSample = {
-  bookingId: string | null;
-  createdAt: string;
-  skipReason: string | null;
-  dominantPenalty: OpsStrategicPenaltyKey;
-  penalties: {
-    slack: number;
-    scarcity: number;
-    futureConflict: number;
-  };
-  plannerConfig: Record<string, unknown> | null;
-};
-
-export type OpsRejectionAnalytics = {
-  restaurantId: string;
-  range: {
-    from: string;
-    to: string;
-    bucket: OpsRejectionBucket;
-  };
-  summary: {
-    total: number;
-    hard: {
-      count: number;
-      percent: number;
-      topReasons: OpsRejectionTopReason[];
-    };
-    strategic: {
-      count: number;
-      percent: number;
-      topPenalties: OpsRejectionTopPenalty[];
-    };
-  };
-  series: OpsRejectionSeriesPoint[];
-  strategicSamples: OpsStrategicSample[];
 };
 
 export type OpsStrategicSettingsSource = 'env' | 'db';

@@ -1,6 +1,12 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 import { z } from 'zod';
 
 import { fetchJson } from '@/lib/http/fetchJson';
@@ -13,7 +19,6 @@ import {
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-
 
 type InvitationStatusFilter = Parameters<typeof queryKeys.team.invitations>[1];
 
@@ -49,10 +54,10 @@ export function useTeamInvitations({
   });
 }
 
-type CreateInviteVariables = ReturnType<typeof invitationCreatePayloadSchema['parse']>;
+type CreateInviteVariables = ReturnType<(typeof invitationCreatePayloadSchema)['parse']>;
 
 export function useCreateTeamInvite(): UseMutationResult<
-  { invite: RestaurantInvite; token: string; inviteUrl: string },
+  { invite: RestaurantInvite },
   HttpError,
   CreateInviteVariables
 > {
@@ -76,8 +81,7 @@ export function useCreateTeamInvite(): UseMutationResult<
         queryKey: queryKeys.team.invitations(variables.restaurantId, 'pending'),
       });
     },
-    onError: (error) => {
-    },
+    onError: (error) => {},
   });
 }
 
@@ -86,15 +90,22 @@ type RevokeInviteVariables = {
   inviteId: string;
 };
 
-export function useRevokeTeamInvite(): UseMutationResult<RestaurantInvite, HttpError, RevokeInviteVariables> {
+export function useRevokeTeamInvite(): UseMutationResult<
+  RestaurantInvite,
+  HttpError,
+  RevokeInviteVariables
+> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ restaurantId, inviteId }) => {
       const search = new URLSearchParams({ restaurantId });
-      const data = await fetchJson<unknown>(`/api/ops/team/invitations/${inviteId}?${search.toString()}`, {
-        method: 'DELETE',
-      });
+      const data = await fetchJson<unknown>(
+        `/api/ops/team/invitations/${inviteId}?${search.toString()}`,
+        {
+          method: 'DELETE',
+        },
+      );
       const parsed = z
         .object({ invite: invitationListResponseSchema.shape.invites.element })
         .parse(data);
@@ -105,7 +116,6 @@ export function useRevokeTeamInvite(): UseMutationResult<RestaurantInvite, HttpE
         queryKey: queryKeys.team.invitations(variables.restaurantId, 'pending'),
       });
     },
-    onError: (error) => {
-    },
+    onError: (error) => {},
   });
 }

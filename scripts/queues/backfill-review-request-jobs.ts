@@ -4,6 +4,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+import {
+  assertProductionApiScriptSafety,
+  DEFAULT_PRODUCTION_PROJECT_REF,
+  normalizeSupabaseProjectRef,
+} from '../db/safety';
+import type { Database } from '../../types/supabase';
+
 const projectRoot = process.cwd();
 const envPath = process.env.ENV_PATH
   ? path.resolve(projectRoot, process.env.ENV_PATH)
@@ -12,6 +21,10 @@ const envPath = process.env.ENV_PATH
 if (fs.existsSync(envPath)) {
   loadEnv({ path: envPath, override: false });
 }
+
+const TARGET_RESTAURANT_ID =
+  (process.env.TARGET_RESTAURANT_ID ?? process.env.RESTAURANT_ID ?? '').trim() || null;
+const ALLOW_ALL_RESTAURANTS_BACKFILL = process.env.ALLOW_ALL_RESTAURANTS_BACKFILL === 'true';
 
 type Args = {
   hours: number;
@@ -62,6 +75,62 @@ function isValidEmail(value?: string | null): boolean {
   return Boolean(value && value.trim().length > 3 && value.includes('@'));
 }
 
+function resolveSupabaseApiUrl(): string {
+  const apiUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '').trim();
+  if (!apiUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL is required.');
+  }
+  return apiUrl;
+}
+
+function resolveTargetEnv(): string {
+  return (process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim() || '').toLowerCase();
+}
+
+function assertReviewQueueBackfillSafety(args: Args): void {
+  if (!args.apply) return;
+
+  if (TARGET_RESTAURANT_ID && ALLOW_ALL_RESTAURANTS_BACKFILL) {
+    throw new Error(
+      'Set either TARGET_RESTAURANT_ID/RESTAURANT_ID or ALLOW_ALL_RESTAURANTS_BACKFILL=true, not both.',
+    );
+  }
+
+  if (args.drain && TARGET_RESTAURANT_ID) {
+    throw new Error(
+      '--drain calls the global email cron endpoint and cannot be used with TARGET_RESTAURANT_ID/RESTAURANT_ID. Drain targeted jobs through the ops queue tooling instead.',
+    );
+  }
+
+  if (!TARGET_RESTAURANT_ID && !ALLOW_ALL_RESTAURANTS_BACKFILL) {
+    throw new Error(
+      'TARGET_RESTAURANT_ID or RESTAURANT_ID is required for review request queue apply mode. Set ALLOW_ALL_RESTAURANTS_BACKFILL=true only for an intentional all-restaurant run.',
+    );
+  }
+
+  if (
+    ALLOW_ALL_RESTAURANTS_BACKFILL &&
+    process.env.CONFIRM_REVIEW_EMAIL_GLOBAL_BACKFILL !== 'true'
+  ) {
+    throw new Error(
+      'CONFIRM_REVIEW_EMAIL_GLOBAL_BACKFILL=true is required for all-restaurant review request queue backfills.',
+    );
+  }
+
+  assertProductionApiScriptSafety({
+    apiUrl: resolveSupabaseApiUrl(),
+    expectedProjectRef: normalizeSupabaseProjectRef(
+      process.env.EXPECTED_PRODUCTION_PROJECT_REF ?? DEFAULT_PRODUCTION_PROJECT_REF,
+      'EXPECTED_PRODUCTION_PROJECT_REF',
+    ),
+    targetEnv: resolveTargetEnv(),
+    requireTargetEnv: true,
+    apply: true,
+    confirmation: process.env.CONFIRM_REVIEW_EMAIL_BACKFILL,
+    confirmationName: 'CONFIRM_REVIEW_EMAIL_BACKFILL',
+  });
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   if (size <= 0) return [items];
   const out: T[][] = [];
@@ -71,7 +140,65 @@ function chunk<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-async function drainCron(types: string, maxRuns = 30): Promise<{ runs: number; processed: number }> {
+function formatError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message?: unknown }).message);
+  }
+  return String(error);
+}
+
+function isMissingTableError(message: string, tableName: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes(tableName) && normalized.includes('could not find the table');
+}
+
+async function queryExistingReviewIntents(
+  supabase: SupabaseClient<Database>,
+  bookingIds: string[],
+): Promise<Set<string>> {
+  const existingBookingIds = new Set<string>();
+  if (bookingIds.length === 0) {
+    return existingBookingIds;
+  }
+
+  for (const batch of chunk(bookingIds, 100)) {
+    const dedupeKeys = batch.map((id) => `review_request:${id}`);
+    const { data: intentRows, error: intentError } = await supabase
+      .from('email_dispatch_intents')
+      .select('booking_id, dedupe_key')
+      .eq('email_type', 'review_request')
+      .in('dedupe_key', dedupeKeys)
+      .limit(1000);
+
+    if (intentError) {
+      throw intentError;
+    }
+
+    for (const row of (intentRows ?? []) as Array<{
+      booking_id: string | null;
+      dedupe_key: string | null;
+    }>) {
+      if (row.booking_id) {
+        existingBookingIds.add(row.booking_id);
+        continue;
+      }
+      const bookingIdFromKey = row.dedupe_key?.startsWith('review_request:')
+        ? row.dedupe_key.slice('review_request:'.length)
+        : null;
+      if (bookingIdFromKey) {
+        existingBookingIds.add(bookingIdFromKey);
+      }
+    }
+  }
+
+  return existingBookingIds;
+}
+
+async function drainCron(
+  types: string,
+  maxRuns = 30,
+): Promise<{ runs: number; processed: number }> {
   // Prefer the explicit cron origin (stable production alias) over app/site origins.
   const appOrigin = (process.env.CRON_ORIGIN ?? 'https://app.nabatable.com').replace(/\/+$/, '');
   const cronSecret = process.env.CRON_SECRET;
@@ -103,7 +230,9 @@ async function drainCron(types: string, maxRuns = 30): Promise<{ runs: number; p
     });
     const json = (await res.json().catch(() => null)) as unknown;
     const payload =
-      typeof json === 'object' && json !== null ? (json as CronResponse) : (null as CronResponse | null);
+      typeof json === 'object' && json !== null
+        ? (json as CronResponse)
+        : (null as CronResponse | null);
 
     if (!res.ok) {
       throw new Error(`cron drain failed (${res.status}): ${payload?.error ?? res.statusText}`);
@@ -125,6 +254,7 @@ async function drainCron(types: string, maxRuns = 30): Promise<{ runs: number; p
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+  assertReviewQueueBackfillSafety(args);
 
   const { getServiceSupabaseClient } = await import('@/server/supabase');
   const { enqueueEmailJob } = await import('@/server/queue/email');
@@ -134,13 +264,19 @@ async function main(): Promise<void> {
   const sinceIso = new Date(Date.now() - args.hours * 60 * 60 * 1000).toISOString();
 
   // Fetch recent completed bookings (avoid selecting large columns).
-  const { data: bookings, error: bookingError } = await supabase
+  let bookingQuery = supabase
     .from('bookings')
     .select('id, restaurant_id, status, updated_at, customer_email')
     .eq('status', 'completed')
     .gte('updated_at', sinceIso)
     .order('updated_at', { ascending: false })
     .limit(args.limit);
+
+  if (TARGET_RESTAURANT_ID) {
+    bookingQuery = bookingQuery.eq('restaurant_id', TARGET_RESTAURANT_ID);
+  }
+
+  const { data: bookings, error: bookingError } = await bookingQuery;
 
   if (bookingError) {
     throw new Error(`Failed to fetch bookings: ${bookingError.message}`);
@@ -181,31 +317,44 @@ async function main(): Promise<void> {
       }
     }
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : typeof error === 'object' && error !== null && 'message' in error
-          ? String((error as { message?: unknown }).message)
-          : String(error);
+    const message = formatError(error);
     // Some production environments may not have the delivery log table yet. This should not block
-    // operational backfills; we fall back to queue-level idempotency (jobId) only.
-    if (message.includes("email_delivery_log") && message.toLowerCase().includes("could not find the table")) {
+    // operational backfills when dispatch-intent dedupe remains available.
+    if (isMissingTableError(message, 'email_delivery_log')) {
       deliveryLogAvailable = false;
-      console.warn('[backfill-review] email_delivery_log table unavailable; skipping delivery-log dedupe', {
-        error: message,
-      });
+      console.warn(
+        '[backfill-review] email_delivery_log table unavailable; skipping delivery-log dedupe',
+        {
+          error: message,
+        },
+      );
     } else {
       throw new Error(`Failed to query email delivery log: ${message}`);
     }
   }
 
-  const toEnqueue = deliveryLogAvailable ? eligible.filter((b) => !sentBookingIds.has(b.id)) : eligible;
+  let existingIntentBookingIds = new Set<string>();
+  try {
+    existingIntentBookingIds = await queryExistingReviewIntents(supabase, bookingIds);
+  } catch (error) {
+    const message = formatError(error);
+    throw new Error(
+      `Failed to query email dispatch intents for dedupe; refusing to enqueue review requests: ${message}`,
+    );
+  }
+
+  const toEnqueue = eligible.filter(
+    (b) => !sentBookingIds.has(b.id) && !existingIntentBookingIds.has(b.id),
+  );
 
   console.log('[backfill-review] summary', {
     windowHours: args.hours,
+    restaurantTarget:
+      TARGET_RESTAURANT_ID ?? (ALLOW_ALL_RESTAURANTS_BACKFILL ? 'all' : 'all-dry-run'),
     fetchedCompleted: candidates.length,
     eligibleWithEmail: eligible.length,
     alreadySent: sentBookingIds.size,
+    existingDispatchIntents: existingIntentBookingIds.size,
     toEnqueue: toEnqueue.length,
     deliveryLogAvailable,
     apply: args.apply,

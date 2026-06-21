@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
 
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
+import {
+  getRestaurantBusinessDescription,
+  upsertRestaurantBusinessDescription,
+} from '@/server/restaurants/details';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
   logLogoColumnFallback,
 } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
 
@@ -67,7 +74,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
   const { id: restaurantId } = await context.params;
   let membershipRole: RestaurantDTO['role'] = 'viewer';
   try {
-    const membership = await requireMembershipForRestaurant({ userId: user.id, restaurantId });
+    const membership = await requireAdminMembership({ userId: user.id, restaurantId });
     membershipRole = (membership.role as RestaurantDTO['role']) ?? 'viewer';
   } catch (error) {
     const membershipErrorCode = getMembershipGuardErrorCode(error);
@@ -109,6 +116,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     const restaurantRow = ensureLogoColumnOnRow(data);
+    const businessDescription = await getRestaurantBusinessDescription(
+      restaurantId,
+      serviceSupabase,
+    );
     const restaurant: RestaurantDTO = {
       id: restaurantRow.id,
       name: restaurantRow.name,
@@ -119,10 +130,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
       contactEmail: restaurantRow.contact_email,
       contactPhone: restaurantRow.contact_phone,
       address: restaurantRow.address,
+      businessDescription,
       managerDailySummaryEnabled: restaurantRow.manager_daily_summary_enabled ?? false,
       managerNotificationPhone: restaurantRow.manager_notification_phone,
-      googleMapUrl: restaurantRow.google_map_url,
-      googleReviewUrl: restaurantRow.google_review_url,
+      googleMapUrl: safeGoogleMapsUrl(restaurantRow.google_map_url),
+      googleReviewUrl: safeGoogleReviewUrl(restaurantRow.google_review_url),
       bookingPolicy: restaurantRow.booking_policy,
       logoUrl: restaurantRow.logo_url,
       emailSendReminder24h: restaurantRow.email_send_reminder_24h ?? true,
@@ -151,6 +163,10 @@ export async function GET(req: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(req, () => patchRestaurant(req, context));
+}
+
+async function patchRestaurant(req: NextRequest, context: RouteContext) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -236,6 +252,14 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       },
       serviceSupabase,
     );
+    const businessDescription =
+      input.businessDescription !== undefined
+        ? await upsertRestaurantBusinessDescription(
+            restaurantId,
+            input.businessDescription,
+            serviceSupabase,
+          )
+        : await getRestaurantBusinessDescription(restaurantId, serviceSupabase);
 
     const response: RestaurantResponse = {
       restaurant: {
@@ -248,6 +272,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         contactEmail: restaurant.contactEmail,
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
+        businessDescription,
         managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
         managerNotificationPhone: restaurant.managerNotificationPhone,
         googleMapUrl: restaurant.googleMapUrl,
@@ -270,12 +295,26 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops/restaurants/[id]][PATCH] update failed', error);
+    captureRestaurantServerEvent('restaurant_profile_section_save_failed', {
+      restaurantId,
+      distinctId: user.id,
+      props: { section: 'restaurant', source: 'ops' },
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: restaurantId },
+      properties: { section: 'restaurant', source: 'ops', path: '/api/ops/restaurants/[id]' },
+    });
     const message = error instanceof Error ? error.message : 'Unable to update restaurant';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext) {
+  return withCsrfProtectedMutation(req, () => deleteRestaurantRoute(req, context));
+}
+
+async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -327,6 +366,11 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops/restaurants/[id]][DELETE] deletion failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: restaurantId },
+      properties: { source: 'ops', path: '/api/ops/restaurants/[id]' },
+    });
     const message = error instanceof Error ? error.message : 'Unable to delete restaurant';
     return NextResponse.json({ error: message }, { status: 500 });
   }

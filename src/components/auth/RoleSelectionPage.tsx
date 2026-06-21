@@ -1,12 +1,12 @@
 'use client';
 
-import { Users, Building2, ArrowRight } from 'lucide-react';
+import { ArrowRight, Building2, Search, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { GuestContent, GuestPageFrame, GuestPanel } from '@/components/guest/ui';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
 type Role = 'guest' | 'owner';
 
@@ -14,146 +14,17 @@ interface RoleSelectionPageProps {
   searchParams?: Record<string, string | string[] | undefined>;
 }
 
-interface RoleCardProps {
-  type: Role;
-  title: string;
-  description: string;
-  benefits: string[];
-  ctaText: string;
-  ctaHref: string;
-  icon: React.ReactNode;
-  isSelected?: boolean;
-  onClick?: () => void;
-}
-
-function RoleCard({
-  type,
-  title,
-  description,
-  benefits,
-  ctaText,
-  ctaHref,
-  icon,
-  isSelected = false,
-  onClick,
-}: RoleCardProps) {
-  const [isHovered, setIsHovered] = useState(false);
-
-  const cardContent = (
-    <Card
-      className={cn(
-        'relative h-full transition-all duration-300 ease-out',
-        'border-2',
-        isSelected
-          ? 'border-blue-600 ring-4 ring-blue-100'
-          : 'border-slate-200 hover:border-blue-300',
-        isHovered ? 'shadow-xl -translate-y-1' : 'shadow-md hover:shadow-lg',
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="p-8 h-full flex flex-col">
-        {/* Icon */}
-        <div
-          className="flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-gradient-to-br transition-all duration-300 ease-out"
-          style={{
-            background:
-              type === 'guest'
-                ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-                : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-          }}
-        >
-          <span
-            className={cn(
-              'transition-colors duration-300',
-              type === 'guest' ? 'text-blue-600' : 'text-amber-600',
-            )}
-            aria-hidden
-          >
-            {icon}
-          </span>
-        </div>
-
-        {/* Title & Description */}
-        <h2 className="text-2xl font-bold text-slate-900 mb-3">{title}</h2>
-        <p className="text-slate-600 mb-6 flex-1">{description}</p>
-
-        {/* Benefits */}
-        <ul className="space-y-3 mb-6" aria-label={`Benefits for ${type}`}>
-          {benefits.map((benefit, index) => (
-            <li key={index} className="flex items-start gap-3 text-sm text-slate-700">
-              <svg
-                className="w-5 h-5 flex-shrink-0 mt-0.5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-                aria-hidden
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414 1.414L8 12.586l7.293-7.293a1 1 0 011.414-1.414z"
-                  clipRule="evenodd"
-                  className={type === 'guest' ? 'text-blue-600' : 'text-amber-600'}
-                />
-              </svg>
-              <span>{benefit}</span>
-            </li>
-          ))}
-        </ul>
-
-        {/* CTA */}
-        <Button
-          asChild
-          size="lg"
-          className={cn(
-            'w-full group transition-all duration-300 ease-out',
-            type === 'guest'
-              ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
-              : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-200',
-          )}
-        >
-          {/* 
-            Use native anchor for 'owner' type to prevent RSC navigation glitch.
-            Cross-subdomain navigation (localhost -> app.localhost) fails with Next.js Link
-            because RSC fetch fails across subdomains, causing a white flash before fallback.
-          */}
-          {type === 'owner' ? (
-            <a href={ctaHref} onClick={onClick}>
-              {ctaText}
-              <ArrowRight
-                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
-                aria-hidden
-              />
-            </a>
-          ) : (
-            <Link href={ctaHref} onClick={onClick}>
-              {ctaText}
-              <ArrowRight
-                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
-                aria-hidden
-              />
-            </Link>
-          )}
-        </Button>
-      </div>
-    </Card>
-  );
-
-  return cardContent;
-}
-
 export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
   const [preferredRole, setPreferredRole] = useState<Role | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Helper to build URL with preserved search params
   const buildUrl = (base: string) => {
     if (!searchParams || Object.keys(searchParams).length === 0) return base;
     const params = new URLSearchParams();
     Object.entries(searchParams).forEach(([key, value]) => {
       if (Array.isArray(value)) {
-        value.forEach((v) => params.append(key, v));
+        value.forEach((entry) => params.append(key, entry));
       } else if (value !== undefined) {
-        params.append(key, value as string);
+        params.append(key, value);
       }
     });
     const queryString = params.toString();
@@ -161,113 +32,152 @@ export function RoleSelectionPage({ searchParams }: RoleSelectionPageProps) {
   };
 
   useEffect(() => {
-    // Load saved role preference from localStorage
     const savedRole = localStorage.getItem('preferred-role') as Role | null;
-    if (savedRole) {
-      // Parse if it's the JSON object format we set below, or string if legacy
-      try {
-        // handleRoleSelect sets it as JSON string with expiry
-        const parsed = JSON.parse(savedRole as string);
-        if (parsed && parsed.role) {
-          setPreferredRole(parsed.role);
-        }
-      } catch {
-        // Fallback for simple string if it exists
-        setPreferredRole(savedRole);
-      }
+    if (!savedRole) return;
+    try {
+      const parsed = JSON.parse(savedRole) as { role?: Role };
+      if (parsed?.role) setPreferredRole(parsed.role);
+    } catch {
+      setPreferredRole(savedRole);
     }
-    setIsLoaded(true);
   }, []);
 
-  const handleRoleSelect = (role: Role, _href: string) => {
-    // Save role preference to localStorage (30-day expiry)
+  const handleRoleSelect = (role: Role) => {
     const expiry = new Date();
     expiry.setDate(expiry.getDate() + 30);
-    const preference = {
-      role,
-      expires: expiry.toISOString(),
-    };
-    localStorage.setItem('preferred-role', JSON.stringify(preference));
+    localStorage.setItem(
+      'preferred-role',
+      JSON.stringify({
+        role,
+        expires: expiry.toISOString(),
+      }),
+    );
     setPreferredRole(role);
   };
 
-  const guestCard: RoleCardProps = {
-    type: 'guest',
-    title: 'For Guests',
-    description: 'Book tables at top restaurants and track your reservations in one place.',
-    benefits: [
-      'Browse curated restaurants',
-      'Instant table reservations',
-      'Track all bookings',
-      'Calendar-ready receipts',
-    ],
-    ctaText: 'Sign in as Guest',
-    ctaHref: buildUrl('/auth/signin'),
-    icon: <Users className="w-8 h-8" />,
-    isSelected: preferredRole === 'guest',
-    onClick: () => handleRoleSelect('guest', buildUrl('/auth/signin')),
-  };
-
-  const ownerCard: RoleCardProps = {
-    type: 'owner',
-    title: 'For Restaurant Owners',
-    description: 'Manage bookings, fill empty tables, and increase revenue with automation.',
-    benefits: [
-      'Automated confirmations',
-      'No-show prevention',
-      'Live availability',
-      'Analytics & insights',
-    ],
-    ctaText: 'Sign in as Owner',
-    ctaHref: buildUrl('/app/auth/signin'),
-    icon: <Building2 className="w-8 h-8" />,
-    isSelected: preferredRole === 'owner',
-    onClick: () => handleRoleSelect('owner', buildUrl('/app/auth/signin')),
-  };
-
   return (
-    <div className="w-full max-w-5xl animate-fade-up">
-      {/* Header */}
-      <div className="mb-10 text-center space-y-4">
-        <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight">
-          Choose your path
-        </h1>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          We help both guests and restaurants. Select the option that matches your needs.
-        </p>
-      </div>
+    <GuestPageFrame className="pb-10 sm:pb-12">
+      <section className="pg-hero-band relative isolate overflow-hidden border-b border-border/70 py-8 sm:py-10 lg:py-12">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-0 h-48 w-[30rem] -translate-x-1/2 rounded-full bg-primary/[0.07] blur-3xl"
+        />
 
-      {/* Role Cards */}
-      <div className="grid md:grid-cols-2 gap-6 lg:gap-8 mb-8">
-        {isLoaded && (
-          <>
-            <div className="motion-safe:reveal-up">
-              <RoleCard {...guestCard} />
+        <div className="pg-container-sm relative space-y-6">
+          <div className="pg-appear mx-auto max-w-2xl space-y-5 text-center">
+            <div className="flex justify-center">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="pg-chip bg-background/90 shadow-[var(--pg-shadow-xs)]">
+                  Sign in
+                </span>
+                <span className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Guest or owner
+                </span>
+              </div>
             </div>
-            <div className="motion-safe:reveal-up md:delay-100">
-              <RoleCard {...ownerCard} />
-            </div>
-          </>
-        )}
-      </div>
 
-      {/* Helper Text */}
-      <div className="text-center space-y-2">
-        <p className="text-sm text-slate-500">
-          Not sure which to choose?{' '}
-          <Link
-            href="/restaurants"
-            className="text-blue-600 hover:text-blue-700 font-medium underline-offset-4 hover:underline transition-colors"
+            <div className="space-y-3">
+              <h1 className="pg-hero-title mx-auto max-w-[14ch] text-foreground">
+                Choose how to continue.
+              </h1>
+              <p className="pg-lead mx-auto max-w-[48ch]">
+                Guests manage bookings. Restaurant teams open the operations workspace.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <GuestContent narrow className="space-y-4 py-6 sm:py-8">
+        <GuestPanel className="pg-appear grid gap-5 p-5 sm:p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+              <Users className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="pg-card-title">I am a guest</h2>
+                {preferredRole === 'guest' ? (
+                  <Badge variant="guest-chip-outline" className="pg-chip">
+                    Saved
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="pg-body text-sm">
+                Get a magic link for reservations, receipts, and profile details.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            asChild
+            variant="guest-primary"
+            size="guest-lg"
+            className="pg-action pg-focus-ring pg-touch w-full justify-between"
           >
-            Start as a guest
-          </Link>{' '}
-          to browse restaurants first.
-        </p>
-        <p className="text-xs text-slate-400">
-          Your preference is saved for 30 days to make your next visit faster.
-        </p>
-      </div>
-    </div>
+            <Link href={buildUrl('/auth/signin')} onClick={() => handleRoleSelect('guest')}>
+              Continue as guest
+              <ArrowRight aria-hidden data-icon="inline-end" />
+            </Link>
+          </Button>
+        </GuestPanel>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <GuestPanel className="grid gap-4 p-5">
+            <div className="flex items-start gap-4">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                <Building2 className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-foreground">I run a restaurant</h2>
+                  {preferredRole === 'owner' ? (
+                    <Badge variant="guest-chip-outline" className="pg-chip">
+                      Saved
+                    </Badge>
+                  ) : null}
+                </div>
+                <p className="pg-caption">Open bookings, tables, settings, and team tools.</p>
+              </div>
+            </div>
+            <Button
+              asChild
+              variant="guest-outline"
+              size="guest-lg"
+              className="pg-action pg-focus-ring pg-touch w-full justify-between"
+            >
+              <a href={buildUrl('/app/auth/signin')} onClick={() => handleRoleSelect('owner')}>
+                Owner sign-in
+                <ArrowRight aria-hidden data-icon="inline-end" />
+              </a>
+            </Button>
+          </GuestPanel>
+
+          <GuestPanel className="grid gap-4 p-5">
+            <div className="flex items-start gap-4">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
+                <Search className="size-4 text-primary" aria-hidden />
+              </span>
+              <div className="min-w-0 space-y-1.5">
+                <h2 className="text-base font-semibold text-foreground">Just browsing</h2>
+                <p className="pg-caption">Explore restaurants before signing in.</p>
+              </div>
+            </div>
+            <Button
+              asChild
+              variant="guest-outline"
+              size="guest-lg"
+              className="pg-action pg-focus-ring pg-touch w-full justify-between"
+            >
+              <Link href="/restaurants">
+                Browse restaurants
+                <ArrowRight aria-hidden data-icon="inline-end" />
+              </Link>
+            </Button>
+          </GuestPanel>
+        </div>
+      </GuestContent>
+    </GuestPageFrame>
   );
 }
 

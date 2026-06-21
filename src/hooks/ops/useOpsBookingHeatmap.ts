@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -52,7 +51,7 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
 
   // Realtime subscription for heatmap
   useEffect(() => {
-    if (!isEnabled || !restaurantId || !isRealtimeFloorplanEnabled()) {
+    if (!isEnabled || !restaurantId) {
       return;
     }
 
@@ -75,11 +74,7 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
       handleChange,
     );
 
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`[realtime] Heatmap subscribed for restaurant ${restaurantId}`);
-      }
-    });
+    channel.subscribe();
 
     return () => {
       channel.unsubscribe();

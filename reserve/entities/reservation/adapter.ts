@@ -1,6 +1,10 @@
+import { DateTime } from 'luxon';
 import { z } from 'zod';
 
-import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
+import {
+  resolveBookingTimezone,
+  toBookingUtcIso,
+} from '@reserve/shared/formatting/bookingDateTime';
 
 import {
   reservationListSchema,
@@ -20,7 +24,6 @@ const apiReservationSchema = z
     start_at: z.string().optional().nullable(),
     end_at: z.string().optional().nullable(),
     booking_type: z.string(),
-    seating_preference: z.string(),
     status: z.string(),
     party_size: z.number(),
     customer_name: z.string(),
@@ -75,6 +78,29 @@ const toIsoString = (
     toBookingUtcIso(date, '00:00', timezone) ??
     `${date}T00:00:00.000Z`
   );
+};
+
+const toEndIsoString = (
+  date: string,
+  startTime: string | null | undefined,
+  endTime: string | null | undefined,
+  timezone: string | null | undefined,
+): string | null => {
+  if (!endTime) {
+    return null;
+  }
+
+  const zone = resolveBookingTimezone(timezone);
+  const endLocal = DateTime.fromISO(`${date}T${endTime}`, { zone });
+  if (!endLocal.isValid) {
+    return toIsoString(date, endTime, timezone);
+  }
+
+  const startLocal = startTime ? DateTime.fromISO(`${date}T${startTime}`, { zone }) : null;
+  const resolvedEnd =
+    startLocal?.isValid && endLocal <= startLocal ? endLocal.plus({ days: 1 }) : endLocal;
+
+  return resolvedEnd.toUTC().toISO() ?? toIsoString(date, endTime, timezone);
 };
 
 const parseMetadata = (details: unknown): ReservationMetadata => {
@@ -161,14 +187,16 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
   const metadata = parseMetadata(input.details);
   const restaurantTimezone = extractRestaurantTimezone(input.restaurants);
   const startAt =
-    typeof input.start_at === 'string' && input.start_at.length > 0
-      ? input.start_at
-      : toIsoString(input.booking_date, input.start_time, restaurantTimezone);
+    input.booking_date && input.start_time
+      ? toIsoString(input.booking_date, input.start_time, restaurantTimezone)
+      : typeof input.start_at === 'string' && input.start_at.length > 0
+        ? input.start_at
+        : toIsoString(input.booking_date, input.start_time, restaurantTimezone);
   const endAtRaw =
-    typeof input.end_at === 'string' && input.end_at.length > 0
-      ? input.end_at
-      : input.end_time
-        ? toIsoString(input.booking_date, input.end_time, restaurantTimezone)
+    input.booking_date && input.end_time
+      ? toEndIsoString(input.booking_date, input.start_time, input.end_time, restaurantTimezone)
+      : typeof input.end_at === 'string' && input.end_at.length > 0
+        ? input.end_at
         : null;
 
   return {
@@ -183,7 +211,6 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     startAt,
     endAt: endAtRaw,
     bookingType: input.booking_type as BookingOption,
-    seatingPreference: input.seating_preference,
     status: input.status,
     partySize: input.party_size,
     customerName: input.customer_name,

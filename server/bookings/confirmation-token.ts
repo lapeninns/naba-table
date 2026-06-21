@@ -2,14 +2,27 @@ import { randomBytes } from 'crypto';
 
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import type { BookingRecord } from '@/server/bookings';
 import type { Tables } from '@/types/supabase';
+
+const CONFIRMATION_TOKEN_REGEX = /^[A-Za-z0-9_-]+$/;
+export const CONFIRMATION_TOKEN_BASE64URL_LENGTH = 43;
+export const LEGACY_CONFIRMATION_TOKEN_LENGTH = 64;
 
 /**
  * Generates a cryptographically secure confirmation token.
- * @returns Base64url-encoded token (64 characters, 32 bytes of entropy)
+ * @returns Base64url-encoded token (43 characters, 32 bytes of entropy)
  */
 export function generateConfirmationToken(): string {
   return randomBytes(32).toString('base64url');
+}
+
+export function isConfirmationTokenFormat(token: string): boolean {
+  return (
+    CONFIRMATION_TOKEN_REGEX.test(token) &&
+    (token.length === CONFIRMATION_TOKEN_BASE64URL_LENGTH ||
+      token.length === LEGACY_CONFIRMATION_TOKEN_LENGTH)
+  );
 }
 
 /**
@@ -21,6 +34,85 @@ export function computeTokenExpiry(hours = 1): string {
   const expiry = new Date();
   expiry.setHours(expiry.getHours() + hours);
   return expiry.toISOString();
+}
+
+export function getStoredBookingConfirmationTokenState(
+  booking: Pick<BookingRecord, 'confirmation_token'>,
+): {
+  confirmationToken: string | null;
+  confirmationTokenExpiresAt: string | null;
+} {
+  const expiresAt = (booking as { confirmation_token_expires_at?: unknown })
+    .confirmation_token_expires_at;
+
+  return {
+    confirmationToken: booking.confirmation_token ?? null,
+    confirmationTokenExpiresAt: typeof expiresAt === 'string' ? expiresAt : null,
+  };
+}
+
+export type BookingConfirmationTokenAttachment = {
+  bookingId: string;
+  confirmationToken: string;
+  confirmationTokenExpiresAt: string;
+};
+
+export function buildBookingConfirmationTokenAttachment({
+  bookingId,
+  confirmationToken,
+  confirmationTokenExpiresAt,
+  expiryHours = 24 * 30,
+}: {
+  bookingId: string;
+  confirmationToken: string | null;
+  confirmationTokenExpiresAt: string | null;
+  expiryHours?: number;
+}): BookingConfirmationTokenAttachment | null {
+  if (confirmationToken && confirmationTokenExpiresAt) {
+    return null;
+  }
+
+  return {
+    bookingId,
+    confirmationToken: confirmationToken ?? generateConfirmationToken(),
+    confirmationTokenExpiresAt: confirmationTokenExpiresAt ?? computeTokenExpiry(expiryHours),
+  };
+}
+
+export async function resolveBookingCreateConfirmationToken({
+  booking,
+  reusedExisting,
+  attachToken = attachTokenToBooking,
+}: {
+  booking: Pick<BookingRecord, 'id' | 'confirmation_token'> & {
+    confirmation_token_expires_at?: unknown;
+  };
+  reusedExisting: boolean;
+  attachToken?: typeof attachTokenToBooking;
+}): Promise<string | null> {
+  const storedState = getStoredBookingConfirmationTokenState(booking);
+
+  if (reusedExisting) {
+    return storedState.confirmationToken;
+  }
+
+  const tokenAttachment = buildBookingConfirmationTokenAttachment({
+    bookingId: booking.id,
+    confirmationToken: storedState.confirmationToken,
+    confirmationTokenExpiresAt: storedState.confirmationTokenExpiresAt,
+  });
+
+  if (!tokenAttachment) {
+    return storedState.confirmationToken;
+  }
+
+  await attachToken(
+    tokenAttachment.bookingId,
+    tokenAttachment.confirmationToken,
+    tokenAttachment.confirmationTokenExpiresAt,
+  );
+
+  return tokenAttachment.confirmationToken;
 }
 
 /**
@@ -39,7 +131,7 @@ export class TokenValidationError extends Error {
 /**
  * Validates a confirmation token and returns the associated booking.
  * Throws TokenValidationError if token is invalid, expired, or already used.
- * 
+ *
  * @param token Confirmation token to validate
  * @returns Booking record if valid
  * @throws TokenValidationError
@@ -84,26 +176,33 @@ export async function validateConfirmationToken(
 /**
  * Marks a confirmation token as used by setting the used_at timestamp.
  * This prevents token replay attacks.
- * 
+ *
  * @param token Confirmation token to mark as used
  */
 export async function markTokenUsed(token: string): Promise<void> {
   const supabase = getServiceSupabaseClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('bookings')
     .update({ confirmation_token_used_at: new Date().toISOString() })
-    .eq('confirmation_token', token);
+    .eq('confirmation_token', token)
+    .is('confirmation_token_used_at', null)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
     console.error('[confirmation-token] Failed to mark token as used', error);
     throw error;
   }
+
+  if (!data) {
+    throw new TokenValidationError('Token has already been used', 'TOKEN_USED');
+  }
 }
 
 /**
  * Updates a booking record with a confirmation token and expiry.
- * 
+ *
  * @param bookingId UUID of the booking
  * @param token Generated confirmation token
  * @param expiryTimestamp ISO-8601 expiry timestamp
@@ -151,7 +250,7 @@ export type PublicBookingConfirmation = {
 /**
  * Transforms a booking record into public confirmation data.
  * Removes sensitive fields like customer email/phone.
- * 
+ *
  * @param booking Full booking record from database
  * @param restaurantName Restaurant name (from join or lookup)
  * @returns Sanitized booking data safe for public display

@@ -1,0 +1,125 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { createLogger } from '@/lib/logger';
+
+describe('logger redaction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('redacts nested objects, arrays, and errors before serializing sensitive parent keys', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });
+
+    logger.info('auth callback failed', {
+      auth: {
+        token_hash: 'hash-secret',
+        callbackUrl: '/api/auth/callback?code=auth-code&access_token=access-secret',
+        errors: [new Error('access_token=error-secret')],
+      },
+      inviteTokens: ['invite-secret'],
+      customer: {
+        email: 'guest@example.com',
+        phone: '+441234567890',
+      },
+    });
+
+    const output = JSON.stringify(logSpy.mock.calls);
+    expect(output).not.toContain('hash-secret');
+    expect(output).not.toContain('auth-code');
+    expect(output).not.toContain('access-secret');
+    expect(output).not.toContain('error-secret');
+    expect(output).not.toContain('invite-secret');
+    expect(output).not.toContain('guest@example.com');
+    expect(output).not.toContain('+441234567890');
+  });
+
+  it('redacts query parameter values in URL-like strings', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });
+
+    logger.info('client error', {
+      path: '/bookings/recover?access_token=recovery-secret&code=auth-code',
+    });
+
+    const output = JSON.stringify(logSpy.mock.calls);
+    expect(output).not.toContain('recovery-secret');
+    expect(output).not.toContain('auth-code');
+    expect(output).toContain('redacted');
+  });
+
+  it('redacts secret route token path segments', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });
+
+    logger.info('invite link generated', {
+      url: '/invite/raw-invite-token-secret',
+      recovery: '/bookings/recover/session-recovery-token-secret?next=/bookings',
+    });
+
+    const output = JSON.stringify(logSpy.mock.calls);
+    expect(output).not.toContain('raw-invite-token-secret');
+    expect(output).not.toContain('session-recovery-token-secret');
+    expect(output).toContain('***redacted***');
+  });
+
+  it('redacts sensitive headers, tokens, emails, and phones inside free-form strings', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const logger = createLogger({}, { now: () => new Date('2026-05-05T12:00:00.000Z') });
+
+    logger.info('provider error', {
+      headers: {
+        'x-goog-api-key': 'structured-google-api-key',
+      },
+      message:
+        'Authorization: Bearer header-secret\nCookie: sid=cookie-secret\nX-Goog-Api-Key: google-api-key-secret\nemail guest@example.com phone +44 7700 900123 token=inline-secret',
+    });
+
+    const output = JSON.stringify(logSpy.mock.calls);
+    expect(output).not.toContain('structured-google-api-key');
+    expect(output).not.toContain('header-secret');
+    expect(output).not.toContain('cookie-secret');
+    expect(output).not.toContain('google-api-key-secret');
+    expect(output).not.toContain('guest@example.com');
+    expect(output).not.toContain('+44 7700 900123');
+    expect(output).not.toContain('inline-secret');
+    expect(output).toContain('[redacted-email]');
+    expect(output).toContain('[redacted-phone]');
+  });
+
+  it('emits sanitized structured logs to the configured OpenTelemetry logger', () => {
+    const logSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const emit = vi.fn();
+    const logger = createLogger(
+      { module: 'posthog-test' },
+      {
+        now: () => new Date('2026-05-05T12:00:00.000Z'),
+        otelLogger: {
+          enabled: () => true,
+          emit,
+        },
+      },
+    );
+
+    logger.error('client error report', {
+      path: '/bookings/recover?access_token=recovery-secret',
+      customer: { email: 'guest@example.com', phone: '+44 7700 900123' },
+    });
+
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    const emitted = emit.mock.calls[0]?.[0];
+    expect(emitted).toMatchObject({
+      body: 'client error report',
+      severityText: 'ERROR',
+      attributes: {
+        module: 'posthog-test',
+        level: 'error',
+      },
+    });
+    const serialized = JSON.stringify(emitted);
+    expect(serialized).not.toContain('recovery-secret');
+    expect(serialized).not.toContain('guest@example.com');
+    expect(serialized).not.toContain('+44 7700 900123');
+  });
+});

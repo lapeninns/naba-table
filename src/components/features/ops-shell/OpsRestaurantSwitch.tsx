@@ -13,7 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar';
 import { useOpsAccountSnapshot, useOpsSession } from '@/contexts/ops-session';
+import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { cn } from '@/lib/utils';
 import { debounce } from '@/utils/debounceThrottle';
 
@@ -61,8 +63,11 @@ type OpsRestaurantSwitchProps = {
 };
 
 export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
-  const { memberships, activeMembership, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
+  const { isMobile } = useSidebar();
+  const { memberships, activeMembership, activeRestaurantId, setActiveRestaurantId } =
+    useOpsSession();
   const account = useOpsAccountSnapshot();
+  const { confirmNavigation } = useOpsUnsavedChanges();
 
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,10 +81,10 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
     [],
   );
 
-  const initials = useMemo(() => computeInitials(activeMembership?.restaurantName ?? account.restaurantName), [
-    activeMembership?.restaurantName,
-    account.restaurantName,
-  ]);
+  const initials = useMemo(
+    () => computeInitials(activeMembership?.restaurantName ?? account.restaurantName),
+    [activeMembership?.restaurantName, account.restaurantName],
+  );
 
   const metaLine = useMemo(() => {
     const email = account.userEmail?.trim();
@@ -93,10 +98,9 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
     return role ?? 'Operations';
   }, [account.role, account.userEmail, activeMembership?.role]);
 
-  const restaurantName =
-    normalizeRestaurantName(
-      activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName,
-    );
+  const restaurantName = normalizeRestaurantName(
+    activeMembership?.restaurantName ?? account.restaurantName ?? memberships[0]?.restaurantName,
+  );
 
   const filteredMemberships = useMemo(() => {
     if (!debouncedSearch.trim()) {
@@ -110,6 +114,14 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
   }, [debouncedSearch, memberships]);
 
   const handleSelect = (restaurantId: string) => {
+    if (
+      restaurantId !== activeRestaurantId &&
+      !confirmNavigation(
+        'You have unsaved changes for the current restaurant. Switch restaurants and discard them?',
+      )
+    ) {
+      return;
+    }
     setActiveRestaurantId(restaurantId);
     setOpen(false);
     setSearchTerm('');
@@ -117,115 +129,122 @@ export function OpsRestaurantSwitch({ className }: OpsRestaurantSwitchProps) {
 
   if (memberships.length <= 1) {
     return (
-      <div
-        className={cn(
-          'flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 text-sidebar-foreground shadow-sm',
-          className,
-        )}
-      >
-        <span className="inline-flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
-          {initials}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold tracking-tight" title={restaurantName}>
-            {restaurantName}
-          </p>
-          <p className="truncate text-xs text-sidebar-foreground/70" title={metaLine ?? undefined}>
-            {metaLine}
-          </p>
-        </div>
-      </div>
+      <SidebarMenu className={className}>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" className="pointer-events-none opacity-100">
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+              {initials}
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold" title={restaurantName}>
+                {restaurantName}
+              </span>
+              <span className="truncate text-xs" title={metaLine ?? undefined}>
+                {metaLine}
+              </span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
     );
   }
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'flex w-full items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar p-3 text-left text-sidebar-foreground shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar touch-manipulation',
-            className,
-          )}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-        >
-          <span className="inline-flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
-            {initials}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight" title={restaurantName}>
-              {restaurantName}
-            </p>
-            <p className="truncate text-xs text-sidebar-foreground/70" title={metaLine ?? undefined}>
-              {metaLine}
-            </p>
-          </div>
-          <ChevronsUpDown className="size-4 shrink-0 text-sidebar-foreground/80" aria-hidden />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        side="bottom"
-        className="w-64 p-0"
-        sideOffset={8}
-        aria-label="Switch restaurant"
-        forceMount
-      >
-        <DropdownMenuLabel className="px-3 py-2 text-xs text-sidebar-foreground/70">Switch restaurant</DropdownMenuLabel>
-        <div className="flex items-center gap-2 px-3 pb-2">
-          <Search className="size-4 text-muted-foreground" aria-hidden />
-          <Input
-            type="search"
-            value={searchTerm}
-            onChange={(event) => {
-              const value = event.target.value;
-              setSearchTerm(value);
-              updateSearch(value);
-            }}
-            name="restaurant-search"
-            autoComplete="off"
-            placeholder="Search by name…"
-            className="h-8 border-0 bg-transparent px-0 text-sm text-foreground shadow-none focus-visible:ring-0"
-            aria-label="Search restaurants"
-          />
-        </div>
-        <DropdownMenuSeparator />
-        <div role="listbox" aria-activedescendant={activeRestaurantId ?? undefined} className="max-h-64 overflow-y-auto">
-          {filteredMemberships.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-muted-foreground">No matches. Try a different search.</div>
-          ) : (
-            filteredMemberships.map((membership) => {
-              const selected = membership.restaurantId === activeRestaurantId;
-              return (
-                <DropdownMenuItem
-                  key={membership.restaurantId}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    handleSelect(membership.restaurantId);
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-foreground focus:text-foreground"
-                  aria-selected={selected}
-                  data-active={selected ? '' : undefined}
-                  role="option"
-                  id={membership.restaurantId}
-                >
-                  <Check
-                    className={cn('size-4 shrink-0 text-sidebar-primary', selected ? 'opacity-100' : 'opacity-0')}
-                    aria-hidden
-                  />
-                  <span className="flex-1 truncate">
-                    {normalizeRestaurantName(membership.restaurantName)}
-                  </span>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {membership.role}
-                  </Badge>
-                </DropdownMenuItem>
-              );
-            })
-          )}
-        </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SidebarMenu className={className}>
+      <SidebarMenuItem>
+        <DropdownMenu open={open} onOpenChange={setOpen}>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              aria-haspopup="listbox"
+              aria-expanded={open}
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                {initials}
+              </div>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-semibold" title={restaurantName}>
+                  {restaurantName}
+                </span>
+                <span className="truncate text-xs" title={metaLine ?? undefined}>
+                  {metaLine}
+                </span>
+              </div>
+              <ChevronsUpDown className="ml-auto" aria-hidden />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-64 rounded-lg p-0"
+            align="start"
+            side={isMobile ? 'bottom' : 'right'}
+            sideOffset={4}
+            aria-label="Switch restaurant"
+            forceMount
+          >
+            <DropdownMenuLabel className="px-3 py-2 text-xs text-muted-foreground">
+              Switch restaurant
+            </DropdownMenuLabel>
+            <div className="flex items-center gap-2 px-3 pb-2">
+              <Search className="size-4 text-muted-foreground" aria-hidden />
+              <Input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSearchTerm(value);
+                  updateSearch(value);
+                }}
+                name="restaurant-search"
+                autoComplete="off"
+                placeholder="Search by name..."
+                className="h-8 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+                aria-label="Search restaurants"
+              />
+            </div>
+            <DropdownMenuSeparator />
+            <div
+              role="listbox"
+              aria-activedescendant={activeRestaurantId ?? undefined}
+              className="max-h-64 overflow-y-auto"
+            >
+              {filteredMemberships.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-muted-foreground">
+                  No matches. Try a different search.
+                </div>
+              ) : (
+                filteredMemberships.map((membership) => {
+                  const selected = membership.restaurantId === activeRestaurantId;
+                  return (
+                    <DropdownMenuItem
+                      key={membership.restaurantId}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        handleSelect(membership.restaurantId);
+                      }}
+                      className="gap-2 p-2"
+                      aria-selected={selected}
+                      role="option"
+                      id={membership.restaurantId}
+                    >
+                      <Check
+                        className={cn('size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+                        aria-hidden
+                      />
+                      <span className="flex-1 truncate">
+                        {normalizeRestaurantName(membership.restaurantName)}
+                      </span>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {membership.role}
+                      </Badge>
+                    </DropdownMenuItem>
+                  );
+                })
+              )}
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 }

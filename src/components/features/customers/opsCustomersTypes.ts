@@ -83,3 +83,23 @@ export type OpsCustomersExportFilters = Pick<
   CustomerListParams,
   'sortBy' | 'search' | 'marketingOptIn' | 'lastVisit' | 'minBookings'
 >;
+
+/**
+ * Build the normalized `CustomerListParams` shape that {@link useOpsCustomers}
+ * produces for the **default landing** filter state (no search, default sort).
+ *
+ * The shape MUST stay in sync with the `normalizedFilters` block inside
+ * `hooks/useOpsCustomers.ts` so that a sidebar prefetch produces the same
+ * `queryKeys.opsCustomers.list(params)` as the live hook does on first render.
+ */
+export function buildDefaultOpsCustomersListParams(restaurantId: string): CustomerListParams {
+  return {
+    restaurantId,
+    pageSize: INFINITE_PAGE_SIZE,
+    sort: DEFAULT_CUSTOMERS_FILTER_STATE.sort,
+    sortBy: DEFAULT_CUSTOMERS_FILTER_STATE.sortBy,
+    marketingOptIn: DEFAULT_CUSTOMERS_FILTER_STATE.marketingOptIn,
+    lastVisit: DEFAULT_CUSTOMERS_FILTER_STATE.lastVisit,
+    minBookings: DEFAULT_CUSTOMERS_FILTER_STATE.minBookings,
+  };
+}

@@ -72,10 +72,13 @@ type BookingMeta = {
   status: OpsBookingStatus;
   startAt: string;
   endAt: string;
+  diningStartAt: string | null;
+  diningEndAt: string | null;
   customerEmail: string | null;
   customerPhone: string | null;
   notes: string | null;
   tableIds: string[];
+  bookingType: string | null;
 };
 
 type BusyWindow = {
@@ -205,7 +208,7 @@ async function loadTimelineBookings(
 
   if (error) {
     console.error('[ops][tables][timeline] failed to load bookings', error.message);
-    return [];
+    throw new Error('Unable to load table timeline bookings');
   }
 
   return (data ?? []) as TimelineBookingRow[];
@@ -252,10 +255,13 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         status: normalizeOpsStatus(booking.status),
         startAt: window.block.start.toISO() ?? booking.start_at ?? '',
         endAt: window.block.end.toISO() ?? booking.end_at ?? '',
+        diningStartAt: window.dining.start.toISO() ?? booking.start_at ?? null,
+        diningEndAt: window.dining.end.toISO() ?? booking.end_at ?? null,
         customerEmail: booking.customer_email ?? null,
         customerPhone: booking.customer_phone ?? null,
         notes: booking.notes ?? null,
         tableIds,
+        bookingType: booking.booking_type ?? null,
       });
     } catch (error) {
       console.warn('[ops][tables][timeline] unable to compute booking window', {
@@ -278,7 +284,7 @@ async function loadHolds(
     return await loadActiveHoldsForDate(restaurantId, date, policy, supabase);
   } catch (error) {
     console.warn('[ops][tables][timeline] failed to load holds', error);
-    return [];
+    throw new Error('Unable to load table timeline holds');
   }
 }
 
@@ -339,8 +345,8 @@ function buildSlotMetadata(schedule: RestaurantSchedule, serviceFilter: 'lunch' 
     entry.slotCount += 1;
   }
 
-  let windowStart = slots.length > 0 ? DateTime.fromISO(slots[0]!.start) : null;
-  let windowEnd = slots.length > 0 ? DateTime.fromISO(slots[slots.length - 1]!.end) : null;
+  let windowStart: DateTime | null = slots.length > 0 ? DateTime.fromISO(slots[0]!.start) : null;
+  let windowEnd: DateTime | null = slots.length > 0 ? DateTime.fromISO(slots[slots.length - 1]!.end) : null;
 
   // If viewing all services, ensure the window covers the full operating hours
   // This prevents bookings from being visually truncated at the last seating time
@@ -519,6 +525,7 @@ function buildSegmentsFromBusyWindows({
           customerPhone: booking.customerPhone,
           notes: booking.notes,
           tableIds: booking.tableIds,
+          bookingType: booking.bookingType,
         }
         : null,
       hold: hold,

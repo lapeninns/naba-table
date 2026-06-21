@@ -1,26 +1,4 @@
-export type Theme =
-  | "light"
-  | "dark"
-  | "cupcake"
-  | "bumblebee"
-  | "emerald"
-  | "corporate"
-  | "synthwave"
-  | "retro"
-  | "cyberpunk"
-  | "valentine"
-  | "halloween"
-  | "garden"
-  | "forest"
-  | "aqua"
-  | "lofi"
-  | "pastel"
-  | "fantasy"
-  | "wireframe"
-  | "black"
-  | "luxury"
-  | "dracula"
-  | "";
+export type Theme = 'light' | 'dark' | '';
 
 export interface ConfigProps {
   appName: string;
@@ -41,6 +19,7 @@ export interface ConfigProps {
     fromSupport: string;
     supportEmail?: string;
     forwardRepliesTo?: string;
+    platformReplyTo: string;
   };
   colors: {
     theme: Theme;

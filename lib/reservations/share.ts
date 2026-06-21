@@ -22,8 +22,6 @@ export type ShareResult =
 const DEFAULT_SUCCESS_MESSAGE =
   "Calendar event downloaded. Check your downloads folder to import it.";
 
-const DEFAULT_SHARE_TITLE = "Reservation details";
-
 function normaliseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const parsed = new Date(value);

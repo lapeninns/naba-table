@@ -1,23 +1,23 @@
 /**
  * BookingDialogBody
  *
- * Extracted from BookingDialog to keep the dialog orchestrator under the repo LOC cap
- * while keeping a single canonical business-rules path in BookingDialog.
+ * Composition layer for the booking dialog body.
  */
 
 'use client';
 
-import { ChevronDown } from 'lucide-react';
-
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
+import {
+  BookingDialogEmptyState,
+  BookingDialogErrorState,
+  BookingDialogLoadingState,
+} from './BookingDialogBodyStates';
+import {
+  BookingDialogDesktopTableAssignmentSection,
+  BookingDialogMobileTableAssignmentSection,
+} from './BookingDialogTableAssignmentSection';
 import { GuestProfilePanel } from './GuestProfilePanel';
-import { TableAssignmentPanel } from './TableAssignmentPanel';
 
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '../types';
 import type { FlattenedTable } from '../utils';
@@ -52,6 +52,8 @@ export type BookingDialogBodyProps = {
 
   bookingStartTime?: string | null;
   bookingEndTime?: string | null;
+  tableAssignmentQueryEnabled?: boolean;
+  tableAssignmentRealtime?: boolean;
 };
 
 export function BookingDialogBody({
@@ -77,50 +79,25 @@ export function BookingDialogBody({
   onAssignmentComplete,
   bookingStartTime,
   bookingEndTime,
+  tableAssignmentQueryEnabled = true,
+  tableAssignmentRealtime = true,
 }: BookingDialogBodyProps) {
   if (isLoading) {
-    return (
-      <div className="space-y-4 p-4">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
+    return <BookingDialogLoadingState />;
   }
 
   if (errorMessage) {
-    return (
-      <div className="p-4">
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load booking</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
-            <span>{errorMessage}</span>
-            {onRetry ? (
-              <Button variant="outline" size="sm" onClick={onRetry}>
-                Retry
-              </Button>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
+    return <BookingDialogErrorState errorMessage={errorMessage} onRetry={onRetry} />;
   }
 
   if (!booking || !summary) {
-    return (
-      <div className="p-4">
-        <Alert>
-          <AlertTitle>No booking selected</AlertTitle>
-          <AlertDescription>Select a booking to view details.</AlertDescription>
-        </Alert>
-      </div>
-    );
+    return <BookingDialogEmptyState />;
   }
 
   if (isMobile) {
     return (
-      <ScrollArea className="h-full bg-slate-50/30">
-        <div className="flex flex-col gap-6 p-4 pb-20">
+      <ScrollArea className="h-full bg-muted/30">
+        <div className="flex flex-col gap-5 p-4 pb-20 sm:p-5">
           <GuestProfilePanel
             booking={booking}
             bookingDate={bookingDate}
@@ -130,79 +107,36 @@ export function BookingDialogBody({
             assignedTableRows={assignedTableRows}
             totalCapacity={totalCapacity}
             capacityPercent={capacityPercent}
-            enableDesktopTabs={false}
           />
 
-          <div ref={tablePanelRef} className="pt-4 border-t border-dashed border-slate-200">
-            <Collapsible
-              open={isTableAssignmentOpen}
-              onOpenChange={onTableAssignmentOpenChange}
-              className="space-y-3"
-            >
-              <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex w-full items-center justify-between p-0 hover:bg-transparent mb-4 h-auto hover:no-underline"
-                >
-                  <div className="text-left">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
-                        Table Assignment
-                      </h3>
-                      {needsAssignment && !isTableAssignmentOpen ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white motion-reduce:animate-none">
-                          <span className="h-1.5 w-1.5 rounded-full bg-white/90" aria-hidden />
-                          Action required
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-slate-500 font-normal">Manage seating and capacity.</p>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 text-slate-500 transition-transform duration-200',
-                      isTableAssignmentOpen && 'rotate-180',
-                    )}
-                  />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                {isTableAssignmentOpen && (
-                  <>
-                    {allowTableAssignments ? (
-                      <TableAssignmentPanel
-                        bookingId={booking.id}
-                        restaurantId={summary.restaurantId}
-                        partySize={booking.partySize}
-                        date={summary.date}
-                        currentAssignments={assignedTableRows.map((row) => row.id)}
-                        initialFocusRef={tableAssignmentPrimaryFocusRef}
-                        onAssignmentComplete={onAssignmentComplete}
-                        bookingStartTime={bookingStartTime}
-                        bookingEndTime={bookingEndTime}
-                      />
-                    ) : (
-                      <Alert>
-                        <AlertTitle>Table assignment disabled</AlertTitle>
-                        <AlertDescription>
-                          Assignments are locked for past or completed bookings.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
+          <BookingDialogMobileTableAssignmentSection
+            allowTableAssignments={allowTableAssignments}
+            assignedTableRows={assignedTableRows}
+            bookingEndTime={bookingEndTime}
+            bookingId={booking.id}
+            bookingStartTime={bookingStartTime}
+            date={summary.date}
+            enabled={isTableAssignmentOpen && tableAssignmentQueryEnabled}
+            initialFocusRef={tableAssignmentPrimaryFocusRef}
+            isOpen={isTableAssignmentOpen}
+            needsAssignment={needsAssignment}
+            onAssignmentComplete={onAssignmentComplete}
+            onOpenChange={onTableAssignmentOpenChange}
+            partySize={booking.partySize}
+            realtime={tableAssignmentRealtime}
+            restaurantId={summary.restaurantId}
+            tablePanelRef={tablePanelRef}
+          />
         </div>
       </ScrollArea>
     );
   }
 
   return (
-    <div className="grid h-full overflow-hidden grid-cols-1 lg:grid-cols-2">
-      <ScrollArea className="h-full border-b border-stone-200/70 lg:border-b-0 lg:border-r bg-gradient-to-b from-stone-50/80 via-white to-stone-50/60 overflow-x-hidden">
-        <div className="p-5 lg:p-6 space-y-5 overflow-x-hidden">
+    <div className="grid h-full grid-cols-1 overflow-hidden md:grid-cols-[minmax(300px,0.92fr)_minmax(0,1.08fr)] xl:grid-cols-[minmax(340px,0.9fr)_minmax(0,1.1fr)]">
+      {/* ── Left: Guest Profile ────────────────────────────────────────── */}
+      <ScrollArea className="h-full border-b border-border/30 bg-gradient-to-b from-muted/30 to-muted/10 md:border-b-0 md:border-r md:border-border/30">
+        <div className="p-5 sm:p-6 xl:p-8">
           <GuestProfilePanel
             booking={booking}
             bookingDate={bookingDate}
@@ -212,38 +146,27 @@ export function BookingDialogBody({
             assignedTableRows={assignedTableRows}
             totalCapacity={totalCapacity}
             capacityPercent={capacityPercent}
-            enableDesktopTabs={true}
           />
         </div>
       </ScrollArea>
-      <ScrollArea className="h-full overflow-x-hidden bg-white">
-        <div ref={tablePanelRef} className="p-4 lg:p-6 overflow-x-hidden h-full">
-          <div className="mb-4 lg:hidden">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              Table Assignment
-            </h3>
-          </div>
-          {allowTableAssignments ? (
-            <TableAssignmentPanel
-              bookingId={booking.id}
-              restaurantId={summary.restaurantId}
-              partySize={booking.partySize}
-              date={summary.date}
-              currentAssignments={assignedTableRows.map((row) => row.id)}
-              initialFocusRef={tableAssignmentPrimaryFocusRef}
-              onAssignmentComplete={onAssignmentComplete}
-              bookingStartTime={bookingStartTime}
-              bookingEndTime={bookingEndTime}
-            />
-          ) : (
-            <Alert>
-              <AlertTitle>Table assignment disabled</AlertTitle>
-              <AlertDescription>
-                Assignments are locked for past or completed bookings.
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
+
+      {/* ── Right: Table Assignment ───────────────────────────────────── */}
+      <ScrollArea className="h-full bg-background/60 backdrop-blur-sm">
+        <BookingDialogDesktopTableAssignmentSection
+          allowTableAssignments={allowTableAssignments}
+          assignedTableRows={assignedTableRows}
+          bookingEndTime={bookingEndTime}
+          bookingId={booking.id}
+          bookingStartTime={bookingStartTime}
+          date={summary.date}
+          initialFocusRef={tableAssignmentPrimaryFocusRef}
+          onAssignmentComplete={onAssignmentComplete}
+          partySize={booking.partySize}
+          queryEnabled={tableAssignmentQueryEnabled}
+          realtime={tableAssignmentRealtime}
+          restaurantId={summary.restaurantId}
+          tablePanelRef={tablePanelRef}
+        />
       </ScrollArea>
     </div>
   );

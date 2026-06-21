@@ -3,17 +3,14 @@
 import { MailCheck, MailWarning } from 'lucide-react';
 import { useMemo } from 'react';
 
-
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsBookingEmailDeliveryLog } from '@/hooks/ops/useOpsBookingEmailDeliveryLog';
 import { cn } from '@/lib/utils';
@@ -28,12 +25,65 @@ import type { EmailDeliveryGroup } from '@/src/lib/email-delivery/grouping';
 import type { EmailDeliveryStatus } from '@/types/emailDelivery';
 import type { CSSProperties, ReactElement } from 'react';
 
+export type EmailDeliveryPanelProps = {
+  bookingId: string;
+  timezone: string;
+  limit?: number;
+  enabled?: boolean;
+};
+
 function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
   const tone = getEmailDeliveryStatusBadgeTone(status);
   return (
-    <Badge variant={tone.variant} className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}>
+    <Badge
+      variant={tone.variant}
+      className={cn(
+        'h-5 rounded px-1.5 text-[9px] font-bold uppercase tracking-wider',
+        tone.className,
+      )}
+    >
       {EMAIL_DELIVERY_STATUS_LABELS[status] ?? status}
     </Badge>
+  );
+}
+
+function DeliveryStateCard({
+  title,
+  description,
+  tone = 'neutral',
+}: {
+  title: string;
+  description: string;
+  tone?: 'neutral' | 'danger';
+}) {
+  return (
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="space-y-3 p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            Email Observability
+          </div>
+          <MailWarning
+            className={cn(
+              'size-3',
+              tone === 'danger' ? 'text-destructive' : 'text-muted-foreground/50',
+            )}
+            aria-hidden
+          />
+        </div>
+        <div
+          className={cn(
+            'rounded border p-2.5',
+            tone === 'danger'
+              ? 'border-destructive/20 bg-destructive/5 text-destructive'
+              : 'border-border/40 bg-muted/20 text-muted-foreground',
+          )}
+        >
+          <div className="text-[10px] font-bold uppercase tracking-widest">{title}</div>
+          <div className="mt-1 text-xs leading-relaxed">{description}</div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -42,41 +92,33 @@ function GroupHeader({ group, timezone }: { group: EmailDeliveryGroup; timezone:
   const subject = group.subject ?? group.templateType ?? group.emailType ?? 'Email';
 
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5">
+    <div className="flex w-full items-center justify-between gap-3 overflow-hidden">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <StatusBadge status={group.currentStatus} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold text-slate-900 truncate" title={subject}>
+        <div
+          className="truncate text-[11px] font-bold tracking-tight text-foreground"
+          title={subject}
+        >
           {subject}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-          {group.variantName ? (
-            <Badge variant="secondary" className="h-5 rounded-full px-2 text-[10px]">
-              {group.variantName}
-            </Badge>
-          ) : null}
-          <span className="truncate" title={group.recipientEmail}>
-            {group.recipientEmail}
-          </span>
-          {when ? <span className="whitespace-nowrap">{when}</span> : null}
-        </div>
+      </div>
+      <div className="shrink-0 text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
+        {when}
       </div>
     </div>
   );
 }
 
-type EmailDeliveryPanelProps = {
-  bookingId: string;
-  timezone: string;
-  limit?: number;
-};
-
-export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDeliveryPanelProps) {
-  const query = useOpsBookingEmailDeliveryLog(bookingId, { limit });
+export function EmailDeliveryPanel({
+  bookingId,
+  timezone,
+  limit = 20,
+  enabled = true,
+}: EmailDeliveryPanelProps) {
+  const query = useOpsBookingEmailDeliveryLog(bookingId, { limit, enabled });
   const heavyPanelStyle = {
     contentVisibility: 'auto',
-    containIntrinsicSize: '1px 400px',
+    containIntrinsicSize: '1px 120px',
   } as CSSProperties;
   const wrapCard = (content: ReactElement) => <div style={heavyPanelStyle}>{content}</div>;
 
@@ -87,17 +129,12 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (query.isLoading) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Email Delivery
-            </div>
-            <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
-          </div>
+      <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+        <CardContent className="space-y-3 p-3">
+          <Skeleton className="h-4 w-24" />
           <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
           </div>
         </CardContent>
       </Card>,
@@ -106,121 +143,95 @@ export function EmailDeliveryPanel({ bookingId, timezone, limit = 50 }: EmailDel
 
   if (query.unavailable) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Email Delivery
-            </div>
-            <MailWarning className="h-4 w-4 text-amber-500" aria-hidden />
-          </div>
-          <Alert className="border-amber-200/70 bg-amber-50/60">
-            <AlertTitle>Delivery tracking unavailable</AlertTitle>
-            <AlertDescription>
-              This environment is not currently recording or exposing delivery events. Email sending can still work normally.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="Tracking unavailable"
+        description="This environment is not currently recording or exposing delivery events. Email sending can still work normally."
+      />,
     );
   }
 
   if (query.apiError) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Email Delivery
-            </div>
-            <MailWarning className="h-4 w-4 text-rose-500" aria-hidden />
-          </div>
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load delivery events</AlertTitle>
-            <AlertDescription>{query.apiError.error}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="Unable to load events"
+        description={query.apiError.error}
+        tone="danger"
+      />,
     );
   }
 
   if (query.error) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Email Delivery
-            </div>
-            <MailWarning className="h-4 w-4 text-rose-500" aria-hidden />
-          </div>
-          <Alert variant="destructive">
-            <AlertTitle>Unexpected error</AlertTitle>
-            <AlertDescription>{query.error.message}</AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="Unexpected delivery error"
+        description={query.error.message}
+        tone="danger"
+      />,
     );
   }
 
   if (groups.length === 0) {
     return wrapCard(
-      <Card className="border-slate-200/60 bg-white">
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Email Delivery
-            </div>
-            <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
-          </div>
-          <div className="text-sm text-slate-600">
-            No delivery events recorded for this booking yet.
-          </div>
-        </CardContent>
-      </Card>,
+      <DeliveryStateCard
+        title="No email events"
+        description="No delivery events have been recorded for this booking yet."
+      />,
     );
   }
 
   return wrapCard(
-    <Card className="border-slate-200/60 bg-white">
-      <CardContent className="p-3 space-y-3">
+    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
+      <CardContent className="space-y-3 p-3">
         <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Email Delivery
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+            Email Observability
           </div>
-          <MailCheck className="h-4 w-4 text-slate-400" aria-hidden />
+          <MailCheck className="size-3 text-muted-foreground/50" aria-hidden />
         </div>
-        <Separator />
-        <Accordion type="multiple" className="space-y-2">
+
+        <Accordion type="multiple" className="w-full space-y-1.5">
           {groups.map((group) => {
             const key = `${group.messageId}__${group.recipientEmail.toLowerCase()}`;
             return (
-              <AccordionItem key={key} value={key} className="border-none rounded-lg bg-slate-50/60">
-                <AccordionTrigger className="px-3 py-2 hover:no-underline">
+              <AccordionItem
+                key={key}
+                value={key}
+                className="rounded border border-border/40 bg-muted/5"
+              >
+                <AccordionTrigger className="px-2.5 py-2 hover:no-underline">
                   <GroupHeader group={group} timezone={timezone} />
                 </AccordionTrigger>
-                <AccordionContent className="px-3 pb-3">
-                  <div className="space-y-2">
-                    {group.events.map((event) => {
-                      const eventKey = `${event.id}`;
-                      const when =
-                        formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
-                      return (
-                        <div key={eventKey} className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={event.status} />
-                            <span className="text-xs text-slate-600">
-                              {when ?? 'Unknown time'}
-                            </span>
+                <AccordionContent className="px-2.5 pb-2.5">
+                  <div className="space-y-2 border-t border-border/40 pt-2">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                      Recipient: {group.recipientEmail}
+                    </div>
+                    <div className="space-y-1.5">
+                      {group.events.map((event) => {
+                        const eventKey = `${event.id}`;
+                        const when =
+                          formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ??
+                          event.occurredAt;
+                        return (
+                          <div key={eventKey} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <StatusBadge status={event.status} />
+                              <span className="text-[10px] font-medium text-muted-foreground/60">
+                                {when}
+                              </span>
+                            </div>
+                            {event.error && (
+                              <span
+                                className="truncate text-[10px] font-bold text-destructive/80 uppercase tracking-tighter"
+                                title={event.error}
+                              >
+                                {event.error}
+                              </span>
+                            )}
                           </div>
-                          {event.error ? (
-                            <span className="text-xs text-rose-700 truncate max-w-[50%]" title={event.error}>
-                              {event.error}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>

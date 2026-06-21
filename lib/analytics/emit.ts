@@ -1,7 +1,12 @@
 'use client';
 
+import { sanitizeAnalyticsProps, type AnalyticsJsonValue } from '@/lib/analytics/schema';
+import { stripUrlQueryAndHash } from '@/lib/security/url-redaction';
 import { getSupabaseBrowserClient } from '@/lib/supabase/browser';
-import { getSupabaseSessionSnapshot, subscribeToSupabaseSession } from '@/lib/supabase/session-store';
+import {
+  getSupabaseSessionSnapshot,
+  subscribeToSupabaseSession,
+} from '@/lib/supabase/session-store';
 
 const EVENT_ENDPOINT = '/api/v1/events';
 const STORAGE_KEY = 'srx.analytics.anonId';
@@ -9,14 +14,9 @@ const FLUSH_INTERVAL_MS = 5_000;
 const MAX_BATCH_SIZE = 10;
 const DEBUG_ENABLED = process.env.NODE_ENV !== 'production';
 const APP_VERSION =
-  process.env.NEXT_PUBLIC_APP_VERSION ??
-  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
-  'web-dev';
+  process.env.NEXT_PUBLIC_APP_VERSION ?? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? 'web-dev';
 
-type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
-
-export type AnalyticsEventProps = Record<string, JsonValue>;
+export type AnalyticsEventProps = Record<string, AnalyticsJsonValue>;
 
 export type AnalyticsUser = {
   anonId: string;
@@ -75,7 +75,7 @@ function clearFlushTimer(): void {
 function getRoute(): string {
   if (!isBrowser()) return 'server';
   try {
-    return window.location?.pathname ?? 'unknown';
+    return stripUrlQueryAndHash(window.location?.pathname ?? 'unknown');
   } catch (error) {
     if (DEBUG_ENABLED) {
       console.warn('[analytics] failed to read route', error);
@@ -94,7 +94,8 @@ function getAnonId(): string {
     if (stored) {
       return stored;
     }
-    const generated = window.crypto?.randomUUID?.() ?? `anon-${Math.random().toString(36).slice(2, 12)}`;
+    const generated =
+      window.crypto?.randomUUID?.() ?? `anon-${Math.random().toString(36).slice(2, 12)}`;
     window.localStorage.setItem(STORAGE_KEY, generated);
     return generated;
   } catch (error) {
@@ -164,35 +165,10 @@ async function resolveIdentity(): Promise<AnalyticsUser> {
   return identityPromise;
 }
 
-function sanitizeProps(input: Record<string, unknown> | undefined): AnalyticsEventProps {
-  const props: AnalyticsEventProps = {};
-  if (!input) return props;
-
-  for (const [key, value] of Object.entries(input)) {
-    if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
-      continue;
-    }
-    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      props[key] = value as JsonValue;
-      continue;
-    }
-    if (Array.isArray(value)) {
-      props[key] = value as JsonValue[];
-      continue;
-    }
-    try {
-      props[key] = JSON.parse(JSON.stringify(value));
-    } catch {
-      if (DEBUG_ENABLED) {
-        console.warn('[analytics] dropping unserializable prop', key);
-      }
-    }
-  }
-
-  return props;
-}
-
-async function buildEvent(name: string, payload?: Record<string, unknown>): Promise<AnalyticsEventPayload> {
+async function buildEvent(
+  name: string,
+  payload?: Record<string, unknown>,
+): Promise<AnalyticsEventPayload> {
   const user = await resolveIdentity();
   const context: AnalyticsContext = {
     route: getRoute(),
@@ -204,7 +180,7 @@ async function buildEvent(name: string, payload?: Record<string, unknown>): Prom
     ts: new Date().toISOString(),
     user,
     context,
-    props: sanitizeProps(payload),
+    props: sanitizeAnalyticsProps(payload) ?? {},
   };
 }
 
@@ -247,7 +223,6 @@ async function flushQueue(trigger: 'timer' | 'visibility' | 'manual'): Promise<v
   queue = [];
 
   if (DEBUG_ENABLED) {
-     
     console.debug('[analytics] flushing events', trigger, batch);
   }
 
@@ -286,7 +261,6 @@ export async function emit(eventName: string, payload?: Record<string, unknown>)
     const event = await buildEvent(eventName, payload);
 
     if (DEBUG_ENABLED) {
-       
       console.debug('[analytics]', eventName, event.props);
     }
 

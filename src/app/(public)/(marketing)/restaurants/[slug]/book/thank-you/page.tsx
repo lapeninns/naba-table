@@ -1,15 +1,38 @@
+import { notFound } from 'next/navigation';
+
 import { ReservationThankYouCard } from '@/components/restaurants/PublicSections';
+import { getGuestAuthState } from '@/guest/services/auth-state.server';
+import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 
 import type { Metadata } from 'next';
 
+type RouteParams = Promise<{ slug: string }>;
+
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Reservation Confirmed · Nab a Table',
-  description: 'Your table has been reserved.',
-};
+export async function generateMetadata({ params }: { params: RouteParams }): Promise<Metadata> {
+  const { slug } = await params;
+  const restaurant = await getRestaurantBySlug(slug);
 
-export default function ReservationThankYouPage() {
-  return <ReservationThankYouCard />;
+  return {
+    title: restaurant
+      ? `${restaurant.name} Reservation Request · Nab a Table`
+      : 'Reservation Request · Nab a Table',
+    description: restaurant
+      ? `Your table request for ${restaurant.name} has been received.`
+      : 'Your table request has been received.',
+  };
 }
 
+export default async function ReservationThankYouPage({ params }: { params: RouteParams }) {
+  const { slug } = await params;
+  const restaurant = await getRestaurantBySlug(slug);
+
+  if (!restaurant) {
+    notFound();
+  }
+
+  const { isAuthenticated } = await getGuestAuthState();
+
+  return <ReservationThankYouCard restaurant={restaurant} isAuthenticated={isAuthenticated} />;
+}

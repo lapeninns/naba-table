@@ -1,8 +1,7 @@
-import { env } from "@/lib/env";
-import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { getTrustedSiteOrigin } from '@/lib/site-url';
 
 export function buildInviteUrl(token: string): string {
-  const base = env.app.url ?? getCanonicalSiteUrl();
+  const base = getTrustedSiteOrigin();
   const url = new URL(`/invite/${token}`, base);
   return url.toString();
 }

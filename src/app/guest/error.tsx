@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { GuestContent, GuestPageFrame, GuestPanel } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 
 export default function GuestError({
@@ -14,23 +15,39 @@ export default function GuestError({
   console.error('[guest] render error', error);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-background px-4 py-16 text-center">
-      <div className="space-y-2">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Guest area</p>
-        <h1 className="heading-page">Something went wrong</h1>
-        <p className="text-body-warm">
-          We couldn’t load this page. Please retry or head back to your bookings.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <Button onClick={reset}>Retry</Button>
-        <Button asChild variant="outline">
-          <Link href="/guest/bookings">My bookings</Link>
-        </Button>
-      </div>
-      {process.env.NODE_ENV !== 'production' && error?.digest ? (
-        <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
-      ) : null}
-    </div>
+    <GuestPageFrame>
+      <GuestContent className="flex min-h-[70vh] items-center justify-center py-16">
+        <GuestPanel className="max-w-xl space-y-5 p-6 text-center sm:p-8">
+          <div className="space-y-2">
+            <p className="pg-kicker">Guest area</p>
+            <h1 className="pg-section-title">Something went wrong</h1>
+            <p className="pg-body">
+              We couldn’t load this page. Please retry or head back to your bookings.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              variant="guest-primary"
+              size="guest-lg"
+              className="pg-action pg-focus-ring pg-touch"
+              onClick={reset}
+            >
+              Retry
+            </Button>
+            <Button
+              asChild
+              variant="guest-outline"
+              size="guest-lg"
+              className="pg-action pg-focus-ring pg-touch"
+            >
+              <Link href="/guest/bookings">My bookings</Link>
+            </Button>
+          </div>
+          {process.env.NODE_ENV !== 'production' && error?.digest ? (
+            <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
+          ) : null}
+        </GuestPanel>
+      </GuestContent>
+    </GuestPageFrame>
   );
 }

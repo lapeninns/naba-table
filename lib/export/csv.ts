@@ -1,15 +1,26 @@
 export function escapeCSVField(value: unknown): string {
   if (value === null || value === undefined) {
-    return "";
+    return '';
   }
 
-  const stringValue = String(value);
+  const rawStringValue = String(value);
+  let firstMeaningful = 0;
+  while (
+    firstMeaningful < rawStringValue.length &&
+    rawStringValue.charCodeAt(firstMeaningful) <= 0x20
+  ) {
+    firstMeaningful += 1;
+  }
+  const firstMeaningfulChar = rawStringValue[firstMeaningful] ?? '';
+  const stringValue = ['=', '+', '-', '@'].includes(firstMeaningfulChar)
+    ? `'${rawStringValue}`
+    : rawStringValue;
 
   const needsQuoting =
-    stringValue.includes(",") ||
+    stringValue.includes(',') ||
     stringValue.includes('"') ||
-    stringValue.includes("\n") ||
-    stringValue.includes("\r");
+    stringValue.includes('\n') ||
+    stringValue.includes('\r');
 
   if (!needsQuoting) {
     return stringValue;
@@ -26,32 +37,32 @@ type CSVColumn<T> = {
 
 export function generateCSV<T>(data: T[], columns: CSVColumn<T>[]): string {
   const headers = columns.map((col) => escapeCSVField(col.header));
-  const headerRow = headers.join(",");
+  const headerRow = headers.join(',');
 
   const dataRows = data.map((row) => {
     const values = columns.map((col) => {
       const value = col.accessor(row);
       return escapeCSVField(value);
     });
-    return values.join(",");
+    return values.join(',');
   });
 
-  const csvContent = [headerRow, ...dataRows].join("\n");
+  const csvContent = [headerRow, ...dataRows].join('\n');
 
   return csvContent;
 }
 
 export function downloadCSV(csv: string, filename: string): void {
-  const BOM = "\uFEFF";
+  const BOM = '\uFEFF';
   const csvWithBOM = BOM + csv;
 
-  const blob = new Blob([csvWithBOM], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
 
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  link.style.display = "none";
+  link.style.display = 'none';
 
   document.body.appendChild(link);
   link.click();

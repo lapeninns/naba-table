@@ -1,0 +1,33 @@
+name: Shadcn primitives
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  primitives:
+    name: Primitive coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check shadcn primitive coverage
+        run: pnpm node scripts/check-no-shadcn.mjs --primitives-only

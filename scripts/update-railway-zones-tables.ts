@@ -1,51 +1,69 @@
-import { randomUUID } from "crypto";
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from 'crypto';
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { createClient } from "@supabase/supabase-js";
+import { Client } from 'pg';
+
+import { getPgSslConfig } from './db/pg-ssl';
+import { assertProductionScriptSafety } from './db/safety';
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const confirmProduction = process.env.CONFIRM_PRODUCTION === "true";
+const dbUrl =
+  process.env.SUPABASE_DB_URL?.trim() ||
+  process.env.DATABASE_URL?.trim() ||
+  process.env.DB_URL?.trim() ||
+  null;
+const confirmProduction = process.env.CONFIRM_PRODUCTION === 'true';
 const expectedProjectRef = process.env.EXPECTED_PROJECT_REF?.trim() || null;
-const restaurantSlug = process.env.RESTAURANT_SLUG?.trim() || "the-railway-pub";
+const restaurantSlug = process.env.RESTAURANT_SLUG?.trim() || 'the-railway-pub';
 
-if (!supabaseUrl || !serviceRoleKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.");
+if (!dbUrl) {
+  console.error('SUPABASE_DB_URL, DATABASE_URL, or DB_URL is required.');
+  process.exit(1);
+}
+const checkedDbUrl = dbUrl;
+
+if (!expectedProjectRef) {
+  console.error('EXPECTED_PROJECT_REF is required to modify production data.');
   process.exit(1);
 }
 
-if (!confirmProduction) {
-  console.error("CONFIRM_PRODUCTION=true is required to modify production data.");
+try {
+  assertProductionScriptSafety({
+    connectionString: dbUrl,
+    expectedProjectRef,
+    targetEnv: process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim() || '',
+    requireTargetEnv: true,
+    apply: true,
+    destructive: true,
+    requireRestaurant: true,
+    targetRestaurant: restaurantSlug,
+    confirmation: confirmProduction ? 'true' : undefined,
+    confirmationName: 'CONFIRM_PRODUCTION',
+    breakGlass: confirmProduction ? 'true' : undefined,
+    breakGlassName: 'CONFIRM_PRODUCTION',
+  });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
-
-if (expectedProjectRef && !supabaseUrl.includes(expectedProjectRef)) {
-  console.error(`Supabase URL does not match expected project ref (${expectedProjectRef}).`);
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
 
 type ZoneSpec = {
   zoneNumber: number;
   name: string;
   sortOrder: number;
   isPrivate: boolean;
-  mobility: "movable" | "fixed";
+  mobility: 'movable' | 'fixed';
   table4: number;
   table2: number;
   table7: number;
@@ -59,10 +77,10 @@ type TableSpec = {
   capacity: number;
   min_party_size: number;
   max_party_size: number;
-  category: "dining" | "private";
-  mobility: "movable" | "fixed";
-  seating_type: "standard";
-  status: "available";
+  category: 'dining' | 'private';
+  mobility: 'movable' | 'fixed';
+  seating_type: 'standard';
+  status: 'available';
   section: string;
   active: boolean;
   position: null;
@@ -85,211 +103,232 @@ type ServicePeriodSpec = {
   day_of_week: number;
   start_time: string;
   end_time: string;
-  booking_option: "dinner";
+  booking_option: 'dinner';
 };
 
 const ZONES: ZoneSpec[] = [
-  { zoneNumber: 1, name: "Main Zone 1", sortOrder: 1, isPrivate: false, mobility: "movable", table4: 3, table2: 0, table7: 0 },
-  { zoneNumber: 2, name: "Main Zone 2", sortOrder: 2, isPrivate: false, mobility: "movable", table4: 2, table2: 0, table7: 0 },
-  { zoneNumber: 3, name: "Main Zone 3", sortOrder: 3, isPrivate: false, mobility: "movable", table4: 2, table2: 0, table7: 0 },
-  { zoneNumber: 4, name: "Main Zone 4", sortOrder: 4, isPrivate: false, mobility: "movable", table4: 1, table2: 1, table7: 0 },
-  { zoneNumber: 5, name: "Main Zone 5", sortOrder: 5, isPrivate: false, mobility: "movable", table4: 2, table2: 1, table7: 0 },
-  { zoneNumber: 6, name: "Main Zone 6", sortOrder: 6, isPrivate: false, mobility: "fixed", table4: 2, table2: 1, table7: 0 },
-  { zoneNumber: 7, name: "Private Zone", sortOrder: 7, isPrivate: true, mobility: "fixed", table4: 0, table2: 0, table7: 1 },
+  {
+    zoneNumber: 1,
+    name: 'Main Zone 1',
+    sortOrder: 1,
+    isPrivate: false,
+    mobility: 'movable',
+    table4: 3,
+    table2: 0,
+    table7: 0,
+  },
+  {
+    zoneNumber: 2,
+    name: 'Main Zone 2',
+    sortOrder: 2,
+    isPrivate: false,
+    mobility: 'movable',
+    table4: 2,
+    table2: 0,
+    table7: 0,
+  },
+  {
+    zoneNumber: 3,
+    name: 'Main Zone 3',
+    sortOrder: 3,
+    isPrivate: false,
+    mobility: 'movable',
+    table4: 2,
+    table2: 0,
+    table7: 0,
+  },
+  {
+    zoneNumber: 4,
+    name: 'Main Zone 4',
+    sortOrder: 4,
+    isPrivate: false,
+    mobility: 'movable',
+    table4: 1,
+    table2: 1,
+    table7: 0,
+  },
+  {
+    zoneNumber: 5,
+    name: 'Main Zone 5',
+    sortOrder: 5,
+    isPrivate: false,
+    mobility: 'movable',
+    table4: 2,
+    table2: 1,
+    table7: 0,
+  },
+  {
+    zoneNumber: 6,
+    name: 'Main Zone 6',
+    sortOrder: 6,
+    isPrivate: false,
+    mobility: 'fixed',
+    table4: 2,
+    table2: 1,
+    table7: 0,
+  },
+  {
+    zoneNumber: 7,
+    name: 'Private Zone',
+    sortOrder: 7,
+    isPrivate: true,
+    mobility: 'fixed',
+    table4: 0,
+    table2: 0,
+    table7: 1,
+  },
 ];
 
 const WEEKLY_HOURS: Array<{ day: number; opens: string; closes: string }> = [
-  { day: 0, opens: "12:00:00", closes: "21:00:00" }, // Sunday
-  { day: 1, opens: "16:00:00", closes: "22:00:00" }, // Monday
-  { day: 2, opens: "16:00:00", closes: "22:00:00" }, // Tuesday
-  { day: 3, opens: "16:00:00", closes: "22:00:00" }, // Wednesday
-  { day: 4, opens: "16:00:00", closes: "22:00:00" }, // Thursday
-  { day: 5, opens: "15:00:00", closes: "22:00:00" }, // Friday
-  { day: 6, opens: "15:00:00", closes: "22:00:00" }, // Saturday
+  { day: 0, opens: '12:00:00', closes: '21:00:00' }, // Sunday
+  { day: 1, opens: '16:00:00', closes: '22:00:00' }, // Monday
+  { day: 2, opens: '16:00:00', closes: '22:00:00' }, // Tuesday
+  { day: 3, opens: '16:00:00', closes: '22:00:00' }, // Wednesday
+  { day: 4, opens: '16:00:00', closes: '22:00:00' }, // Thursday
+  { day: 5, opens: '15:00:00', closes: '22:00:00' }, // Friday
+  { day: 6, opens: '15:00:00', closes: '22:00:00' }, // Saturday
 ];
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
+function quoteIdent(value: string): string {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(value)) {
+    throw new Error(`Unsafe SQL identifier: ${value}`);
   }
-  return chunks;
+  return `"${value}"`;
 }
 
-async function resolveRestaurantId(): Promise<string> {
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select("id, slug")
-    .eq("slug", restaurantSlug)
-    .maybeSingle();
+async function tableExists(client: Client, table: string): Promise<boolean> {
+  const result = await client.query<{ exists: string | null }>('select to_regclass($1) as exists', [
+    `public.${table}`,
+  ]);
+  return Boolean(result.rows[0]?.exists);
+}
 
-  if (error) {
-    throw new Error(`Failed to resolve restaurant: ${error.message}`);
-  }
+async function resolveRestaurantId(client: Client): Promise<string> {
+  const result = await client.query<{ id: string }>(
+    'select id from public.restaurants where slug = $1 for update',
+    [restaurantSlug],
+  );
 
-  if (!data) {
+  if (!result.rows[0]?.id) {
     throw new Error(`Restaurant not found for slug: ${restaurantSlug}`);
   }
 
-  return data.id;
+  return result.rows[0].id;
 }
 
-async function deleteByIds(table: string, column: string, ids: string[]): Promise<void> {
+async function deleteByIds(
+  client: Client,
+  table: string,
+  column: string,
+  ids: string[],
+): Promise<void> {
   if (ids.length === 0) return;
-  for (const group of chunk(ids, 100)) {
-    const { error } = await supabase.from(table).delete().in(column, group);
-    if (error) {
-      if (shouldIgnoreMissingTable(error.message)) {
-        return;
-      }
-      throw new Error(`Failed to delete ${table}: ${error.message}`);
-    }
+  if (!(await tableExists(client, table))) {
+    return;
   }
+  await client.query(
+    `delete from public.${quoteIdent(table)} where ${quoteIdent(column)} = any($1::uuid[])`,
+    [ids],
+  );
 }
 
-async function deleteAdjacencies(tableIds: string[]): Promise<void> {
+async function deleteAdjacencies(client: Client, tableIds: string[]): Promise<void> {
   if (tableIds.length === 0) return;
-  for (const group of chunk(tableIds, 100)) {
-    const inList = group.join(",");
-    const { error } = await supabase
-      .from("table_adjacencies")
-      .delete()
-      .or(`table_a.in.(${inList}),table_b.in.(${inList})`);
-    if (error) {
-      if (shouldIgnoreMissingTable(error.message)) {
-        return;
-      }
-      throw new Error(`Failed to delete table_adjacencies: ${error.message}`);
-    }
+  if (!(await tableExists(client, 'table_adjacencies'))) {
+    return;
   }
+  await client.query(
+    'delete from public.table_adjacencies where table_a = any($1::uuid[]) or table_b = any($1::uuid[])',
+    [tableIds],
+  );
 }
 
-function shouldIgnoreMissingTable(message: string): boolean {
-  return /schema cache|does not exist/i.test(message);
+async function deleteByRestaurantId(
+  client: Client,
+  table: string,
+  restaurantId: string,
+): Promise<void> {
+  if (!(await tableExists(client, table))) {
+    return;
+  }
+  await client.query(`delete from public.${quoteIdent(table)} where restaurant_id = $1`, [
+    restaurantId,
+  ]);
 }
 
-async function clearExisting(restaurantId: string): Promise<void> {
-  const { data: tables, error: tablesError } = await supabase
-    .from("table_inventory")
-    .select("id")
-    .eq("restaurant_id", restaurantId);
+async function clearExisting(client: Client, restaurantId: string): Promise<void> {
+  const tables = await client.query<{ id: string }>(
+    'select id from public.table_inventory where restaurant_id = $1 for update',
+    [restaurantId],
+  );
+  const tableIds = tables.rows.map((row) => row.id);
 
-  if (tablesError) {
-    throw new Error(`Failed to load table_inventory: ${tablesError.message}`);
-  }
-
-  const tableIds = (tables ?? []).map((row) => row.id);
-
-  await deleteByIds("booking_table_assignments", "table_id", tableIds);
-  await deleteByIds("table_hold_members", "table_id", tableIds);
-  await deleteByIds("table_hold_windows", "table_id", tableIds);
-
-  const { error: holdsError } = await supabase
-    .from("table_holds")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (holdsError) {
-    if (!shouldIgnoreMissingTable(holdsError.message)) {
-      throw new Error(`Failed to delete table_holds: ${holdsError.message}`);
+  if (tableIds.length > 0) {
+    const assignedBookings = await client.query<{ booking_count: string }>(
+      `
+        select count(*)::text as booking_count
+        from public.booking_table_assignments bta
+        join public.bookings b on b.id = bta.booking_id
+        where bta.table_id = any($1::uuid[])
+          and coalesce(b.status::text, '') not in ('cancelled', 'no_show', 'completed')
+          and b.booking_date >= current_date
+      `,
+      [tableIds],
+    );
+    const bookingCount = Number.parseInt(assignedBookings.rows[0]?.booking_count ?? '0', 10);
+    if (bookingCount > 0) {
+      throw new Error(
+        `Refusing to replace Railway tables: ${bookingCount} active or future booking assignment(s) still reference existing tables.`,
+      );
     }
   }
 
-  const { error: softHoldsError } = await supabase
-    .from("table_soft_holds")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (softHoldsError) {
-    if (!shouldIgnoreMissingTable(softHoldsError.message)) {
-      throw new Error(`Failed to delete table_soft_holds: ${softHoldsError.message}`);
-    }
-  }
-
-  const { error: scarcityError } = await supabase
-    .from("table_scarcity_metrics")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (scarcityError) {
-    if (!shouldIgnoreMissingTable(scarcityError.message)) {
-      throw new Error(`Failed to delete table_scarcity_metrics: ${scarcityError.message}`);
-    }
-  }
-
-  await deleteAdjacencies(tableIds);
-
-  const { error: tablesDeleteError } = await supabase
-    .from("table_inventory")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (tablesDeleteError) {
-    throw new Error(`Failed to delete table_inventory: ${tablesDeleteError.message}`);
-  }
-
-  const { error: zonesDeleteError } = await supabase
-    .from("zones")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (zonesDeleteError) {
-    throw new Error(`Failed to delete zones: ${zonesDeleteError.message}`);
-  }
-
-  const { error: capacitiesDeleteError } = await supabase
-    .from("allowed_capacities")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (capacitiesDeleteError) {
-    throw new Error(`Failed to delete allowed_capacities: ${capacitiesDeleteError.message}`);
-  }
-
-  const { error: periodsDeleteError } = await supabase
-    .from("restaurant_service_periods")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (periodsDeleteError) {
-    throw new Error(`Failed to delete restaurant_service_periods: ${periodsDeleteError.message}`);
-  }
-
-  const { error: hoursDeleteError } = await supabase
-    .from("restaurant_operating_hours")
-    .delete()
-    .eq("restaurant_id", restaurantId);
-  if (hoursDeleteError) {
-    throw new Error(`Failed to delete restaurant_operating_hours: ${hoursDeleteError.message}`);
-  }
+  await deleteByIds(client, 'booking_table_assignments', 'table_id', tableIds);
+  await deleteByIds(client, 'table_hold_members', 'table_id', tableIds);
+  await deleteByIds(client, 'table_hold_windows', 'table_id', tableIds);
+  await deleteByRestaurantId(client, 'table_holds', restaurantId);
+  await deleteByRestaurantId(client, 'table_soft_holds', restaurantId);
+  await deleteByRestaurantId(client, 'table_scarcity_metrics', restaurantId);
+  await deleteAdjacencies(client, tableIds);
+  await deleteByRestaurantId(client, 'table_inventory', restaurantId);
+  await deleteByRestaurantId(client, 'zones', restaurantId);
+  await deleteByRestaurantId(client, 'allowed_capacities', restaurantId);
+  await deleteByRestaurantId(client, 'restaurant_service_periods', restaurantId);
+  await deleteByRestaurantId(client, 'restaurant_operating_hours', restaurantId);
 }
 
-async function insertAllowedCapacities(restaurantId: string): Promise<void> {
+async function insertAllowedCapacities(client: Client, restaurantId: string): Promise<void> {
   const payload = [2, 4, 7].map((capacity) => ({ restaurant_id: restaurantId, capacity }));
-  const { error } = await supabase.from("allowed_capacities").insert(payload);
-  if (error) {
-    throw new Error(`Failed to insert allowed_capacities: ${error.message}`);
+  for (const row of payload) {
+    await client.query(
+      'insert into public.allowed_capacities (restaurant_id, capacity) values ($1, $2)',
+      [row.restaurant_id, row.capacity],
+    );
   }
 }
 
-async function insertZones(restaurantId: string): Promise<Map<number, string>> {
+async function insertZones(client: Client, restaurantId: string): Promise<Map<number, string>> {
   const zoneIdMap = new Map<number, string>();
-  const payload = ZONES.map((zone) => {
+  for (const zone of ZONES) {
     const id = randomUUID();
     zoneIdMap.set(zone.zoneNumber, id);
-    return {
-      id,
-      restaurant_id: restaurantId,
-      name: zone.name,
-      sort_order: zone.sortOrder,
-      active: true,
-    };
-  });
-
-  const { error } = await supabase.from("zones").insert(payload);
-  if (error) {
-    throw new Error(`Failed to insert zones: ${error.message}`);
+    await client.query(
+      'insert into public.zones (id, restaurant_id, name, sort_order, active) values ($1, $2, $3, $4, $5)',
+      [id, restaurantId, zone.name, zone.sortOrder, true],
+    );
   }
 
   return zoneIdMap;
 }
 
-function makeTableNumber(zone: number, capacity: number, mobility: "movable" | "fixed", index: number): string {
-  const letter = mobility === "movable" ? "M" : "F";
-  return `Z${zone}-${capacity}${letter}-${index.toString().padStart(2, "0")}`;
+function makeTableNumber(
+  zone: number,
+  capacity: number,
+  mobility: 'movable' | 'fixed',
+  index: number,
+): string {
+  const letter = mobility === 'movable' ? 'M' : 'F';
+  return `Z${zone}-${capacity}${letter}-${index.toString().padStart(2, '0')}`;
 }
 
 function buildTables(restaurantId: string, zoneIds: Map<number, string>): TableSpec[] {
@@ -301,7 +340,7 @@ function buildTables(restaurantId: string, zoneIds: Map<number, string>): TableS
       throw new Error(`Missing zone id for zone ${zone.zoneNumber}`);
     }
 
-    const category = zone.isPrivate ? "private" : "dining";
+    const category = zone.isPrivate ? 'private' : 'dining';
     const section = zone.name;
 
     const addTables = (capacity: number, count: number) => {
@@ -316,8 +355,8 @@ function buildTables(restaurantId: string, zoneIds: Map<number, string>): TableS
           max_party_size: capacity,
           category,
           mobility: zone.mobility,
-          seating_type: "standard",
-          status: "available",
+          seating_type: 'standard',
+          status: 'available',
           section,
           active: true,
           position: null,
@@ -333,17 +372,35 @@ function buildTables(restaurantId: string, zoneIds: Map<number, string>): TableS
   return tables;
 }
 
-async function insertTables(tables: TableSpec[]): Promise<void> {
-  const chunks = chunk(tables, 100);
-  for (const group of chunks) {
-    const { error } = await supabase.from("table_inventory").insert(group);
-    if (error) {
-      throw new Error(`Failed to insert table_inventory: ${error.message}`);
-    }
+async function insertTables(client: Client, tables: TableSpec[]): Promise<void> {
+  for (const table of tables) {
+    await client.query(
+      [
+        'insert into public.table_inventory',
+        '(id, restaurant_id, zone_id, table_number, capacity, min_party_size, max_party_size, category, mobility, seating_type, status, section, active, position)',
+        'values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+      ].join(' '),
+      [
+        table.id,
+        table.restaurant_id,
+        table.zone_id,
+        table.table_number,
+        table.capacity,
+        table.min_party_size,
+        table.max_party_size,
+        table.category,
+        table.mobility,
+        table.seating_type,
+        table.status,
+        table.section,
+        table.active,
+        table.position,
+      ],
+    );
   }
 }
 
-async function insertOperatingHours(restaurantId: string): Promise<void> {
+async function insertOperatingHours(client: Client, restaurantId: string): Promise<void> {
   const payload: OperatingHourSpec[] = WEEKLY_HOURS.map((entry) => ({
     restaurant_id: restaurantId,
     day_of_week: entry.day,
@@ -354,39 +411,82 @@ async function insertOperatingHours(restaurantId: string): Promise<void> {
     notes: null,
   }));
 
-  const { error } = await supabase.from("restaurant_operating_hours").insert(payload);
-  if (error) {
-    throw new Error(`Failed to insert restaurant_operating_hours: ${error.message}`);
+  for (const row of payload) {
+    await client.query(
+      [
+        'insert into public.restaurant_operating_hours',
+        '(restaurant_id, day_of_week, opens_at, closes_at, is_closed, effective_date, notes)',
+        'values ($1, $2, $3, $4, $5, $6, $7)',
+      ].join(' '),
+      [
+        row.restaurant_id,
+        row.day_of_week,
+        row.opens_at,
+        row.closes_at,
+        row.is_closed,
+        row.effective_date,
+        row.notes,
+      ],
+    );
   }
 }
 
-async function insertServicePeriods(restaurantId: string): Promise<void> {
+async function insertServicePeriods(client: Client, restaurantId: string): Promise<void> {
   const payload: ServicePeriodSpec[] = WEEKLY_HOURS.map((entry) => ({
     id: randomUUID(),
     restaurant_id: restaurantId,
-    name: "Dinner",
+    name: 'Dinner',
     day_of_week: entry.day,
     start_time: entry.opens,
     end_time: entry.closes,
-    booking_option: "dinner",
+    booking_option: 'dinner',
   }));
 
-  const { error } = await supabase.from("restaurant_service_periods").insert(payload);
-  if (error) {
-    throw new Error(`Failed to insert restaurant_service_periods: ${error.message}`);
+  for (const row of payload) {
+    await client.query(
+      [
+        'insert into public.restaurant_service_periods',
+        '(id, restaurant_id, name, day_of_week, start_time, end_time, booking_option)',
+        'values ($1, $2, $3, $4, $5, $6, $7)',
+      ].join(' '),
+      [
+        row.id,
+        row.restaurant_id,
+        row.name,
+        row.day_of_week,
+        row.start_time,
+        row.end_time,
+        row.booking_option,
+      ],
+    );
   }
 }
 
 async function main(): Promise<void> {
-  const restaurantId = await resolveRestaurantId();
+  const client = new Client({
+    connectionString: checkedDbUrl,
+    ssl: getPgSslConfig(process.env),
+  });
+  await client.connect();
 
-  await clearExisting(restaurantId);
-  await insertAllowedCapacities(restaurantId);
-  const zoneIds = await insertZones(restaurantId);
-  const tables = buildTables(restaurantId, zoneIds);
-  await insertTables(tables);
-  await insertOperatingHours(restaurantId);
-  await insertServicePeriods(restaurantId);
+  let tables: TableSpec[] = [];
+  try {
+    await client.query('begin');
+    const restaurantId = await resolveRestaurantId(client);
+    await clearExisting(client, restaurantId);
+    await insertAllowedCapacities(client, restaurantId);
+    const zoneIds = await insertZones(client, restaurantId);
+    tables = buildTables(restaurantId, zoneIds);
+    await insertTables(client, tables);
+    await insertOperatingHours(client, restaurantId);
+    await insertServicePeriods(client, restaurantId);
+    await client.query('commit');
+  } catch (error) {
+    await client.query('rollback').catch(() => undefined);
+    throw error;
+  } finally {
+    await client.end();
+  }
 
   const summary = tables.reduce(
     (acc, table) => {
@@ -398,11 +498,14 @@ async function main(): Promise<void> {
     { total: 0, byCapacity: {} as Record<number, number>, byZone: {} as Record<string, number> },
   );
 
-  console.log("Update complete:");
+  console.log('Update complete:');
   console.log(summary);
 }
 
 void main().catch((error) => {
-  console.error("[update-railway-zones-tables] Failed:", error instanceof Error ? error.message : error);
+  console.error(
+    '[update-railway-zones-tables] Failed:',
+    error instanceof Error ? error.message : error,
+  );
   process.exit(1);
 });

@@ -309,6 +309,47 @@ export async function acquireSoftHolds(
 }
 
 /**
+ * Minimum spacing between opportunistic expired-member sweeps so a burst of
+ * releases does not repeatedly hammer the cleanup RPC.
+ */
+const SOFT_HOLD_OPPORTUNISTIC_SWEEP_INTERVAL_MS = 30_000;
+
+/** Timestamp of the last opportunistic sweep (module-local, best-effort). */
+let lastOpportunisticSweepAt = 0;
+
+/**
+ * Defensive, best-effort cleanup of expired soft-hold members.
+ *
+ * Soft-hold release is caller-driven, so an aborted session (the caller
+ * crashes, the request is cancelled, or release is simply never invoked) leaves
+ * rows lingering until their TTL. Because we cannot add a cron in this layer, we
+ * piggy-back an opportunistic sweep of *expired* members onto release calls.
+ * This only ever removes rows that are already past their TTL, so it can never
+ * release a still-valid lock owned by another session.
+ *
+ * This must never throw or alter the caller's release result; failures are
+ * swallowed (cleanupExpiredSoftHolds is already best-effort and logs on error).
+ */
+async function sweepExpiredSoftHoldsBestEffort(client?: DbClient): Promise<void> {
+  const now = Date.now();
+  if (now - lastOpportunisticSweepAt < SOFT_HOLD_OPPORTUNISTIC_SWEEP_INTERVAL_MS) {
+    return;
+  }
+  lastOpportunisticSweepAt = now;
+
+  try {
+    await cleanupExpiredSoftHolds({ client });
+  } catch (error) {
+    // cleanupExpiredSoftHolds already swallows its own errors; this guard is a
+    // belt-and-braces safeguard so the defensive sweep can never disturb the
+    // release path it is attached to.
+    console.warn('[soft-holds] opportunistic expired-member sweep failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
  * Releases soft-holds by session token.
  *
  * @param options - Release options
@@ -359,6 +400,11 @@ export async function releaseSoftHolds(options: ReleaseSoftHoldsOptions): Promis
       error,
     });
     return 0;
+  } finally {
+    // Defensive cleanup: reap any expired members left behind by aborted
+    // sessions that never reached their own release call. Best-effort and
+    // throttled; never affects the value returned above.
+    await sweepExpiredSoftHoldsBestEffort(client);
   }
 }
 

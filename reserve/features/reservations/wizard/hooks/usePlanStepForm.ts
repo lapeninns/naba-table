@@ -14,9 +14,15 @@ import {
   calendarMaskQueryKey,
   type CalendarMask,
 } from '@reserve/features/reservations/wizard/services/schedule';
+import {
+  toTimeSlotDescriptor,
+  type ReservationSchedule,
+} from '@reserve/features/reservations/wizard/services/timeSlots';
 import { isBookingOption } from '@reserve/shared/booking';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
+import { filterSelectableTimeSlots, isPastOrClosing } from '@reserve/shared/schedule/availability';
 import { toMinutes } from '@reserve/shared/time';
+import { isWeekend, toDateMidnight } from '@reserve/shared/time/date';
 
 import { useWizardActions, useWizardState } from '../context/WizardContext';
 import { planFormSchema, type PlanFormValues } from '../model/schemas';
@@ -35,7 +41,8 @@ const MONTH_KEY_FORMATTER = (value: Date) =>
 const toMonthStart = (value: Date) => new Date(value.getFullYear(), value.getMonth(), 1);
 
 const deriveUnavailableReason = (
-  nextSchedule: { isClosed: boolean; slots: { disabled: boolean }[] } | null,
+  nextSchedule: ReservationSchedule | null,
+  options?: { now?: Date },
 ): PlanStepUnavailableReason | null => {
   if (!nextSchedule) {
     return 'unknown';
@@ -43,8 +50,13 @@ const deriveUnavailableReason = (
   if (nextSchedule.isClosed) {
     return 'closed';
   }
-  const hasEnabledSlot = nextSchedule.slots.some((slot) => !slot.disabled);
-  return hasEnabledSlot ? null : 'no-slots';
+  const descriptors = nextSchedule.slots.map((slot) => toTimeSlotDescriptor(slot));
+  const selectableSlots = filterSelectableTimeSlots(descriptors, {
+    date: nextSchedule.date,
+    schedule: nextSchedule,
+    now: options?.now,
+  });
+  return selectableSlots.length > 0 ? null : 'no-slots';
 };
 
 export const buildMonthPrefetchTargets = (
@@ -83,6 +95,85 @@ const parseDateKey = (value: string | null | undefined): Date | null => {
   const next = new Date(year, month - 1, day);
   return Number.isNaN(next.getTime()) ? null : next;
 };
+
+export const PLAN_DATE_ADVISORY_COPY =
+  'Weekend and holiday hours can vary. Contact the venue directly if you need to confirm availability before you travel.';
+
+export function derivePlanDateAdvisory(
+  date: string | null | undefined,
+  overrideDates: Iterable<string> | null | undefined,
+  operatingHoursNote?: string | null,
+): string | null {
+  const trimmedNote = operatingHoursNote?.trim();
+  if (trimmedNote) {
+    return trimmedNote;
+  }
+
+  if (!date) {
+    return null;
+  }
+
+  let selectedDate: Date;
+  try {
+    selectedDate = toDateMidnight(date);
+  } catch {
+    return null;
+  }
+
+  const hasOverride = overrideDates ? new Set(Array.from(overrideDates)).has(date) : false;
+
+  if (!isWeekend(selectedDate) && !hasOverride) {
+    return null;
+  }
+
+  return PLAN_DATE_ADVISORY_COPY;
+}
+
+/**
+ * Snap a `HH:mm` value to the nearest enabled interval boundary.
+ *
+ * Rounds to the nearest interval (not down) so a manual entry such as 19:08 with
+ * a 15-minute interval resolves to 19:15 rather than silently dropping back to
+ * 19:00. The result is clamped to `latestSelectableMinutes` when provided so the
+ * snap can never land past the last selectable slot. Invalid input is returned
+ * unchanged.
+ */
+export function normalizeTimeToInterval(
+  value: string,
+  intervalMinutes: number | null,
+  latestSelectableMinutes: number | null,
+): string {
+  if (!value) {
+    return '';
+  }
+
+  const [hoursPart, minutesPart] = value.split(':');
+  const hours = Number.parseInt(hoursPart ?? '', 10);
+  const minutes = Number.parseInt(minutesPart ?? '', 10);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
+    return value;
+  }
+
+  if (!intervalMinutes || intervalMinutes <= 0) {
+    return value;
+  }
+
+  const totalMinutes = Math.max(0, hours * 60 + minutes);
+  const cappedMinutes =
+    typeof latestSelectableMinutes === 'number'
+      ? Math.min(totalMinutes, latestSelectableMinutes)
+      : totalMinutes;
+  let normalizedMinutes = Math.round(cappedMinutes / intervalMinutes) * intervalMinutes;
+  if (typeof latestSelectableMinutes === 'number' && normalizedMinutes > latestSelectableMinutes) {
+    // Rounding up can overshoot the final slot; step back to the previous boundary.
+    normalizedMinutes = Math.floor(cappedMinutes / intervalMinutes) * intervalMinutes;
+  }
+  const nextHours = Math.floor(normalizedMinutes / 60);
+  const nextMinutes = normalizedMinutes % 60;
+
+  return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
+}
 
 export const deriveMaskAvailability = (
   mask: CalendarMask,
@@ -132,6 +223,7 @@ type UnavailableDateTrackingArgs = {
 
 type UnavailableDateTrackingResult = {
   unavailableDates: Map<string, PlanStepUnavailableReason>;
+  overrideDates: Set<string>;
   prefetchVisibleMonth: (value: Date | null | undefined) => void;
   updateUnavailableDate: (dateKey: string, reason: PlanStepUnavailableReason | null) => void;
   normalizedMinDate: Date;
@@ -147,9 +239,12 @@ function useUnavailableDateTracking({
 }: UnavailableDateTrackingArgs): UnavailableDateTrackingResult {
   const queryClient = useQueryClient();
   const maskPrefetchedMonthsRef = useRef<Set<string>>(new Set());
+  const activeMaskSlugRef = useRef<string | null>(restaurantSlug?.trim() || null);
   const [unavailableDates, setUnavailableDates] = useState<Map<string, PlanStepUnavailableReason>>(
     () => new Map(),
   );
+  const unavailableDatesRef = useRef<Map<string, PlanStepUnavailableReason>>(new Map());
+  const [overrideDates, setOverrideDates] = useState<Set<string>>(() => new Set());
   const [loadingDates, setLoadingDates] = useState<Set<string>>(() => new Set());
 
   const normalizedMinDate = useMemo(() => {
@@ -172,6 +267,11 @@ function useUnavailableDateTracking({
 
   const updateUnavailableDate = useCallback(
     (dateKey: string, reason: PlanStepUnavailableReason | null) => {
+      const existingRefValue = unavailableDatesRef.current.get(dateKey) ?? null;
+      if (existingRefValue === reason) {
+        return;
+      }
+
       setUnavailableDates((prev) => {
         const existing = prev.get(dateKey) ?? null;
         if (existing === reason) {
@@ -183,6 +283,7 @@ function useUnavailableDateTracking({
         } else {
           nextMap.delete(dateKey);
         }
+        unavailableDatesRef.current = nextMap;
         return nextMap;
       });
     },
@@ -193,6 +294,23 @@ function useUnavailableDateTracking({
     (mask: CalendarMask) => {
       deriveMaskAvailability(mask, normalizedMinTimestamp).forEach((reason, isoKey) => {
         updateUnavailableDate(isoKey, reason);
+      });
+      setOverrideDates((prev) => {
+        const overrideDateKeys = mask.overrideDates ?? [];
+        if (overrideDateKeys.length === 0) {
+          return prev;
+        }
+
+        const next = new Set(prev);
+        let changed = false;
+        for (const dateKey of overrideDateKeys) {
+          if (next.has(dateKey)) {
+            continue;
+          }
+          next.add(dateKey);
+          changed = true;
+        }
+        return changed ? next : prev;
       });
     },
     [normalizedMinTimestamp, updateUnavailableDate],
@@ -222,10 +340,15 @@ function useUnavailableDateTracking({
           staleTime: 5 * 60_000,
         })
         .then((mask) => {
+          if (activeMaskSlugRef.current !== slug) {
+            return;
+          }
           applyCalendarMask(mask);
         })
         .catch((error) => {
-          maskPrefetchedMonthsRef.current.delete(monthKey);
+          if (activeMaskSlugRef.current === slug) {
+            maskPrefetchedMonthsRef.current.delete(monthKey);
+          }
           const isAbort =
             error instanceof DOMException
               ? error.name === 'AbortError'
@@ -299,9 +422,14 @@ function useUnavailableDateTracking({
   }, [date, normalizedMinDate, prefetchVisibleMonth]);
 
   useEffect(() => {
+    const nextSlug = restaurantSlug?.trim() || null;
+    activeMaskSlugRef.current = nextSlug;
     maskPrefetchedMonthsRef.current.clear();
     setLoadingDates(new Set());
-    setUnavailableDates(new Map());
+    const nextUnavailableDates = new Map<string, PlanStepUnavailableReason>();
+    unavailableDatesRef.current = nextUnavailableDates;
+    setUnavailableDates(nextUnavailableDates);
+    setOverrideDates(new Set());
   }, [restaurantSlug]);
 
   const currentUnavailabilityReason = useMemo<PlanStepUnavailableReason | null>(() => {
@@ -313,6 +441,7 @@ function useUnavailableDateTracking({
 
   return {
     unavailableDates,
+    overrideDates,
     prefetchVisibleMonth,
     updateUnavailableDate,
     normalizedMinDate,
@@ -352,7 +481,14 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
     selectedTime: time,
   });
 
-  const enabledSlots = useMemo(() => slots.filter((slot) => !slot.disabled), [slots]);
+  const selectableSlots = useMemo(() => {
+    if (!date || !schedule) {
+      return slots.filter((slot) => !slot.disabled);
+    }
+    return filterSelectableTimeSlots(slots, { date, schedule });
+  }, [date, schedule, slots]);
+
+  const enabledSlots = selectableSlots;
   const hasAvailableSlots = enabledSlots.length > 0;
   const intervalMinutes =
     typeof schedule?.intervalMinutes === 'number' && schedule.intervalMinutes > 0
@@ -365,7 +501,7 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
     }, null) ?? null;
 
   return {
-    slots,
+    slots: selectableSlots,
     inferBookingOption,
     schedule,
     isScheduleLoading,
@@ -389,6 +525,11 @@ export function usePlanStepForm({
   const contextActions = useWizardActions();
   const state = providedState ?? contextState;
   const actions = providedActions ?? contextActions;
+  if (!state || !actions) {
+    throw new Error(
+      'usePlanStepForm requires explicit state/actions props or a WizardProvider ancestor.',
+    );
+  }
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     mode: 'onChange',
@@ -405,6 +546,7 @@ export function usePlanStepForm({
 
   const {
     unavailableDates,
+    overrideDates,
     prefetchVisibleMonth,
     updateUnavailableDate,
     normalizedMinDate,
@@ -490,8 +632,17 @@ export function usePlanStepForm({
   });
 
   const debouncedPrefetch = useDebounce(prefetchVisibleMonth, 300);
+  const advisoryMessage = useMemo(
+    () => derivePlanDateAdvisory(state.details.date, overrideDates, schedule?.notes),
+    [overrideDates, schedule?.notes, state.details.date],
+  );
 
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
+  const detailsRef = useRef(state.details);
+
+  useEffect(() => {
+    detailsRef.current = state.details;
+  }, [state.details]);
 
   useEffect(() => {
     form.reset(
@@ -516,12 +667,12 @@ export function usePlanStepForm({
 
   const updateField = useCallback(
     <K extends keyof BookingDetails>(key: K, value: BookingDetails[K]) => {
-      if (state.details[key] === value) {
+      if (detailsRef.current[key] === value) {
         return;
       }
       actions.updateDetails(key, value);
     },
-    [actions, state.details],
+    [actions],
   );
 
   const fallbackTime = enabledSlots[0]?.value ?? '';
@@ -534,40 +685,24 @@ export function usePlanStepForm({
   }, [fallbackTime, form, state.details.time, updateField]);
 
   const normalizeToInterval = useCallback(
-    (value: string) => {
-      if (!value) {
-        return '';
-      }
-
-      const [hoursPart, minutesPart] = value.split(':');
-      const hours = Number.parseInt(hoursPart ?? '', 10);
-      const minutes = Number.parseInt(minutesPart ?? '', 10);
-
-      if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
-        return value;
-      }
-
-      if (!intervalMinutes || intervalMinutes <= 0) {
-        return value;
-      }
-
-      const totalMinutes = Math.max(0, hours * 60 + minutes);
-      const cappedMinutes =
-        typeof latestSelectableMinutes === 'number'
-          ? Math.min(totalMinutes, latestSelectableMinutes)
-          : totalMinutes;
-      const normalizedMinutes = Math.floor(cappedMinutes / intervalMinutes) * intervalMinutes;
-      const nextHours = Math.floor(normalizedMinutes / 60);
-      const nextMinutes = normalizedMinutes % 60;
-
-      return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
-    },
+    (value: string) => normalizeTimeToInterval(value, intervalMinutes, latestSelectableMinutes),
     [intervalMinutes, latestSelectableMinutes],
   );
 
   const submitForm = useCallback(
     (values: PlanFormValues) => {
       const normalizedTime = normalizeToInterval(values.time);
+      if (
+        values.date &&
+        schedule &&
+        isPastOrClosing({ date: values.date, time: normalizedTime, schedule })
+      ) {
+        form.setError('time', {
+          type: 'manual',
+          message: 'Please pick a time in the future.',
+        });
+        return;
+      }
       const bookingTypeValue = isBookingOption(values.bookingType)
         ? values.bookingType
         : (inferBookingOption(normalizedTime) ?? state.details.bookingType);
@@ -589,6 +724,7 @@ export function usePlanStepForm({
       form,
       inferBookingOption,
       normalizeToInterval,
+      schedule,
       state.details.bookingType,
       updateField,
     ],
@@ -633,6 +769,19 @@ export function usePlanStepForm({
         return;
       }
 
+      const selectedDate = form.getValues('date') || state.details.date;
+      if (
+        selectedDate &&
+        schedule &&
+        isPastOrClosing({ date: selectedDate, time: value, schedule })
+      ) {
+        form.setError('time', {
+          type: 'manual',
+          message: 'Please pick a time in the future.',
+        });
+        return;
+      }
+
       const normalized = normalizeToInterval(value);
       form.setValue('time', normalized, { shouldDirty: true, shouldValidate: true });
       updateField('time', normalized);
@@ -646,7 +795,16 @@ export function usePlanStepForm({
         booking_type: inferredService,
       });
     },
-    [form, hasAvailableSlots, inferBookingOption, normalizeToInterval, onTrack, updateField],
+    [
+      form,
+      hasAvailableSlots,
+      inferBookingOption,
+      normalizeToInterval,
+      onTrack,
+      schedule,
+      state.details.date,
+      updateField,
+    ],
   );
 
   const changeParty = useCallback(
@@ -785,6 +943,13 @@ export function usePlanStepForm({
     form.handleSubmit(submitForm, handleError)();
   }, [form, handleError, submitForm]);
 
+  const prefetchMonth = useCallback(
+    (month: Date) => {
+      debouncedPrefetch(month);
+    },
+    [debouncedPrefetch],
+  );
+
   const planStepActions = useMemo<StepAction[]>(
     () => [
       {
@@ -813,9 +978,7 @@ export function usePlanStepForm({
       selectTime,
       changeParty,
       commitNotes,
-      prefetchMonth: (month: Date) => {
-        debouncedPrefetch(month);
-      },
+      prefetchMonth,
     },
     minDate: normalizedMinDate,
     intervalMinutes,
@@ -826,6 +989,7 @@ export function usePlanStepForm({
     isScheduleFetching,
     schedule,
     currentUnavailabilityReason,
+    advisoryMessage,
     isSubmitting: form.formState.isSubmitting,
     isValid: form.formState.isValid,
     submitForm,

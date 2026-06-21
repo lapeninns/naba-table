@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { useOptionalBookingStateMachine } from '@/contexts/booking-state-machine';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { debounce } from '@/utils/debounceThrottle';
@@ -95,9 +94,8 @@ export function useBookingRealtime({
     }
   }, [bookingStateMachine, bookingStateMachine?.state]);
 
-  const realtimeEnabled = isRealtimeFloorplanEnabled();
   useEffect(() => {
-    if (!shouldEnable || !restaurantId || !realtimeEnabled) {
+    if (!shouldEnable || !restaurantId) {
       subscribedRef.current = false;
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
@@ -203,7 +201,7 @@ export function useBookingRealtime({
       }
       client.removeChannel(channel);
     };
-  }, [idsKey, normalizedIds, queryClient, realtimeEnabled, restaurantId, shouldEnable, targetDate]);
+  }, [idsKey, normalizedIds, queryClient, restaurantId, shouldEnable, targetDate]);
 
   useEffect(() => {
     if (!shouldEnable) return;

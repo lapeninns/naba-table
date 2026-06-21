@@ -1,54 +1,57 @@
-import config from "@/config";
+import config from '@/config';
+import { safePublicHref } from '@/lib/security/safe-url';
+import { safeJsonForHtmlScript } from '@/lib/security/script-json';
 
 // ============================================================================
 // NAB A TABLE EMAIL DESIGN SYSTEM
 // A UX-first email framework for hospitality interactions.
 // ============================================================================
 
-export const EMAIL_FONT_STACK = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+export const EMAIL_FONT_STACK =
+  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 export const COLORS = {
   // Brand
-  brand: "#111827",           // Dark Gray (Logo/Title)
-  text: "#4B5563",            // Cool Gray 600 (Body)
-  muted: "#9CA3AF",           // Cool Gray 400 (Footer)
+  brand: '#111827', // Dark Gray (Logo/Title)
+  text: '#4B5563', // Cool Gray 600 (Body)
+  muted: '#9CA3AF', // Cool Gray 400 (Footer)
 
   // Status Palette (Unified)
-  success: "#10b981",         // Emerald
-  successBg: "#ecfdf5",
+  success: '#10b981', // Emerald
+  successBg: '#ecfdf5',
 
-  pending: "#f59e0b",         // Amber
-  pendingBg: "#fffbeb",
+  pending: '#f59e0b', // Amber
+  pendingBg: '#fffbeb',
 
-  error: "#ef4444",           // Red
-  errorBg: "#fef2f2",
+  error: '#ef4444', // Red
+  errorBg: '#fef2f2',
 
-  info: "#3b82f6",            // Blue
-  infoBg: "#eff6ff",
+  info: '#3b82f6', // Blue
+  infoBg: '#eff6ff',
 
-  arrival: "#f97316",         // Orange
-  arrivalBg: "#fff7ed",
+  arrival: '#f97316', // Orange
+  arrivalBg: '#fff7ed',
 
-  review: "#8b5cf6",          // Violet
-  reviewBg: "#f5f3ff",
+  review: '#8b5cf6', // Violet
+  reviewBg: '#f5f3ff',
 
-  cancel: "#64748b",          // Slate
-  cancelBg: "#f8fafc",
+  cancel: '#64748b', // Slate
+  cancelBg: '#f8fafc',
 
   // Structure
-  bodyBg: "#F3F4F6",          // Cool Gray 100
-  cardBg: "#ffffff",
-  border: "#E5E7EB",
-  gridBg: "#F9FAFB",
+  bodyBg: '#F3F4F6', // Cool Gray 100
+  cardBg: '#ffffff',
+  border: '#E5E7EB',
+  gridBg: '#F9FAFB',
 };
 
 export function escapeHtml(value: string) {
   return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 /* --- Schema.org / Email Annotations --- */
@@ -58,7 +61,11 @@ export type EmailAnnotation = {
   actionUrl?: string;
   reservation?: {
     confirmationNumber: string;
-    status: 'ReservationConfirmed' | 'ReservationCancelled' | 'ReservationPending' | 'ReservationHold';
+    status:
+      | 'ReservationConfirmed'
+      | 'ReservationCancelled'
+      | 'ReservationPending'
+      | 'ReservationHold';
     startTime: string;
     partySize: number;
     venue: {
@@ -72,26 +79,29 @@ export function renderAnnotationScript(annotation: EmailAnnotation): string {
   if (!annotation.reservation) return '';
 
   const schema = {
-    "@context": "http://schema.org",
-    "@type": "FoodEstablishmentReservation",
-    "reservationNumber": annotation.reservation.confirmationNumber,
-    "reservationStatus": `http://schema.org/${annotation.reservation.status}`,
-    "underName": { "@type": "Person", "name": "Guest" },
-    "reservationFor": {
-      "@type": "FoodEstablishment",
-      "name": annotation.reservation.venue.name,
-      "address": { "@type": "PostalAddress", "streetAddress": annotation.reservation.venue.address }
+    '@context': 'http://schema.org',
+    '@type': 'FoodEstablishmentReservation',
+    reservationNumber: annotation.reservation.confirmationNumber,
+    reservationStatus: `http://schema.org/${annotation.reservation.status}`,
+    underName: { '@type': 'Person', name: 'Guest' },
+    reservationFor: {
+      '@type': 'FoodEstablishment',
+      name: annotation.reservation.venue.name,
+      address: { '@type': 'PostalAddress', streetAddress: annotation.reservation.venue.address },
     },
-    "startTime": annotation.reservation.startTime,
-    "partySize": annotation.reservation.partySize,
-    "potentialAction": annotation.actionName && annotation.actionUrl ? {
-      "@type": "ViewAction",
-      "target": annotation.actionUrl,
-      "name": annotation.actionName
-    } : undefined
+    startTime: annotation.reservation.startTime,
+    partySize: annotation.reservation.partySize,
+    potentialAction:
+      annotation.actionName && annotation.actionUrl
+        ? {
+            '@type': 'ViewAction',
+            target: safePublicHref(annotation.actionUrl, `https://${config.domainName}/`),
+            name: annotation.actionName,
+          }
+        : undefined,
   };
 
-  return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+  return `<script type="application/ld+json">${safeJsonForHtmlScript(schema)}</script>`;
 }
 
 /* --- Components --- */
@@ -155,7 +165,7 @@ export function renderGridBox(items: GridItem[]): string {
   `;
 }
 
-export function renderDivider(margin: string = "24px 0"): string {
+export function renderDivider(margin: string = '24px 0'): string {
   return `
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin:${margin};">
       <tr>
@@ -165,7 +175,12 @@ export function renderDivider(margin: string = "24px 0"): string {
   `;
 }
 
-export function renderNote(icon: string, text: string, bgColor: string = COLORS.pendingBg, textColor: string = "#92400E"): string {
+export function renderNote(
+  icon: string,
+  text: string,
+  bgColor: string = COLORS.pendingBg,
+  textColor: string = '#92400E',
+): string {
   return `
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:24px;">
       <tr>
@@ -196,10 +211,17 @@ export type EmailBaseOptions = {
 };
 
 export function renderEmailBase(options: EmailBaseOptions): string {
-  const { title, preheader = "", contentHtml, annotation, manageUrl = "#", helpUrl = "#" } = options;
+  const {
+    title,
+    preheader = '',
+    contentHtml,
+    annotation,
+    manageUrl = '#',
+    helpUrl = '#',
+  } = options;
   const safeTitle = escapeHtml(title);
   const safePreheader = escapeHtml(preheader);
-  const annotationScript = annotation ? renderAnnotationScript(annotation) : "";
+  const annotationScript = annotation ? renderAnnotationScript(annotation) : '';
 
   return `<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -271,7 +293,7 @@ export function renderEmailBase(options: EmailBaseOptions): string {
           <tr>
             <td align="center" style="padding:24px 20px;">
               <p style="margin:0 0 8px;font-family:${EMAIL_FONT_STACK};font-size:12px;color:${COLORS.muted};">
-                ${escapeHtml(config.appName ?? "Nab a Table")}
+                ${escapeHtml(config.appName ?? 'Nab a Table')}
               </p>
               <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:12px;">
                 <a href="${escapeHtml(helpUrl)}" style="color:${COLORS.text};text-decoration:underline;margin:0 8px;">Help</a>

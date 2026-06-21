@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
+import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
+import { withRestaurantAuthorization } from '@/server/auth/guards';
 import { updateOperatingHours } from '@/server/restaurants/operatingHours';
-import { validateCsrfToken } from '@/server/security/csrf';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
@@ -34,23 +36,13 @@ const requestSchema = z.object({
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
-  if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
-  }
-
   const { id: restaurantId } = await context.params;
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    return NextResponse.json({ message: 'Unable to verify session' }, { status: 500 });
-  }
-
-  if (!user) {
-    return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+  const authorization = await withRestaurantAuthorization(req, restaurantId, {
+    csrf: true,
+    roles: RESTAURANT_ADMIN_ROLES,
+  });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
   let payload: unknown;
@@ -62,7 +54,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ message: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
@@ -77,7 +72,13 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     return NextResponse.json({ operatingHours: snapshot });
   } catch (updateError) {
     console.error('[onboarding][hours][PATCH]', updateError);
-    const message = updateError instanceof Error ? updateError.message : 'Unable to save operating hours';
+    captureServerException(updateError, {
+      distinctId: authorization.user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'api', kind: 'onboarding-hours' },
+    });
+    const message =
+      updateError instanceof Error ? updateError.message : 'Unable to save operating hours';
     return NextResponse.json({ message }, { status: 500 });
   }
 }

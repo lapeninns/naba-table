@@ -3,8 +3,8 @@ import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-se
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Restaurant Profile · Nab a Table Ops',
-  description: 'Manage restaurant details, branding, and booking policy.',
+  title: 'Restaurant profile · Nab a Table Ops',
+  description: 'Brand, contact details, booking page URL, and team alerts.',
 };
 
 export default function RestaurantProfileSettingsPage() {

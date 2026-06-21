@@ -1,18 +1,25 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { RESTAURANT_ROLE_OPTIONS } from "@/lib/owner/auth/roles";
-import { ensureProfileRow } from "@/lib/profile/server";
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
-import { requireAdminMembership } from "@/server/team/access";
-import { createRestaurantInvite, listRestaurantInvites } from "@/server/team/invitations";
+import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
+import { ensureProfileRow } from '@/lib/profile/server';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+import { requireAdminMembership } from '@/server/team/access';
+import {
+  assertInvitableRole,
+  createRestaurantInvite,
+  listRestaurantInvites,
+} from '@/server/team/invitations';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
-const STATUS_FILTER_OPTIONS = ["pending", "accepted", "revoked", "expired", "all"] as const;
+const STATUS_FILTER_OPTIONS = ['pending', 'accepted', 'revoked', 'expired', 'all'] as const;
 type StatusFilter = (typeof STATUS_FILTER_OPTIONS)[number];
 
 const listSchema = z.object({
@@ -62,26 +69,32 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[team/invitations][GET] auth error", authError.message);
+    console.error('[team/invitations][GET] auth error', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const parsed = listSchema.safeParse({
-    restaurantId: request.nextUrl.searchParams.get("restaurantId"),
-    status: request.nextUrl.searchParams.get("status") ?? undefined,
+    restaurantId: request.nextUrl.searchParams.get('restaurantId'),
+    status: request.nextUrl.searchParams.get('status') ?? undefined,
   });
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid filters", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid filters', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const { restaurantId, status: statusFilter } = parsed.data;
-  const status: StatusFilter = statusFilter ?? "pending";
+  const status: StatusFilter = statusFilter ?? 'pending';
 
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
@@ -94,19 +107,31 @@ export async function GET(request: NextRequest) {
       invites: invites.map(serializeInvite),
     });
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error) {
+    if (error && typeof error === 'object' && 'code' in error) {
       const code = (error as { code?: string }).code;
-      if (code === "MEMBERSHIP_NOT_FOUND" || code === "MEMBERSHIP_ROLE_DENIED") {
-        return NextResponse.json({ error: "Not authorized to manage invitations" }, { status: 403 });
+      if (code === 'MEMBERSHIP_NOT_FOUND' || code === 'MEMBERSHIP_ROLE_DENIED') {
+        return NextResponse.json(
+          { error: 'Not authorized to manage invitations' },
+          { status: 403 },
+        );
       }
     }
 
-    console.error("[team/invitations][GET] failed", error);
-    return NextResponse.json({ error: "Unable to load invitations" }, { status: 500 });
+    console.error('[team/invitations][GET] failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-team-invitations' },
+    });
+    return NextResponse.json({ error: 'Unable to load invitations' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  return withCsrfProtectedMutation(request, () => postTeamInvitation(request));
+}
+
+async function postTeamInvitation(request: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -114,36 +139,73 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[team/invitations][POST] auth error", authError.message);
+    console.error('[team/invitations][POST] auth error', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid invitation payload", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid invitation payload', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const { restaurantId, email, role, expiresAt: requestedExpiry } = parsed.data;
+  const aggregateRateLimitResponse = await requireApiRateLimit({
+    request,
+    scope: 'ops.team_invitations.create.aggregate',
+    tenantId: restaurantId,
+    userId: user.id,
+    limit: 20,
+    windowMs: 10 * 60 * 1000,
+    message: 'Too many invitation attempts',
+  });
+  if (aggregateRateLimitResponse) {
+    return aggregateRateLimitResponse;
+  }
+
+  const recipientRateLimitResponse = await requireApiRateLimit({
+    request,
+    scope: 'ops.team_invitations.create',
+    tenantId: restaurantId,
+    userId: user.id,
+    parts: [email.toLowerCase()],
+    limit: 8,
+    windowMs: 10 * 60 * 1000,
+    message: 'Too many invitation attempts',
+  });
+  if (recipientRateLimitResponse) {
+    return recipientRateLimitResponse;
+  }
 
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
+    await assertInvitableRole({
+      actorUserId: user.id,
+      restaurantId,
+      invitedRole: role,
+    });
     const expiresAt = computeExpiry(requestedExpiry);
 
     await ensureProfileRow(supabase, user);
 
-    const { invite, token, inviteUrl } = await createRestaurantInvite({
+    const { invite } = await createRestaurantInvite({
       restaurantId,
       email,
       role,
@@ -155,26 +217,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         invite: serializeInvite(invite),
-        token,
-        inviteUrl,
       },
       { status: 201 },
     );
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error) {
+    if (error && typeof error === 'object' && 'code' in error) {
       const code = (error as { code?: string }).code;
-      if (code === "MEMBERSHIP_NOT_FOUND" || code === "MEMBERSHIP_ROLE_DENIED") {
-        return NextResponse.json({ error: "Not authorized to create invitations" }, { status: 403 });
+      if (code === 'MEMBERSHIP_NOT_FOUND' || code === 'MEMBERSHIP_ROLE_DENIED') {
+        return NextResponse.json(
+          { error: 'Not authorized to create invitations' },
+          { status: 403 },
+        );
       }
-      if (code === "INVITE_ALREADY_EXISTS") {
-        return NextResponse.json({ error: "An invitation for this email is already pending" }, { status: 409 });
+      if (code === 'INVITE_ALREADY_EXISTS') {
+        return NextResponse.json(
+          { error: 'An invitation for this email is already pending' },
+          { status: 409 },
+        );
       }
-      if (code === "INVALID_INVITE_ROLE") {
-        return NextResponse.json({ error: "Unsupported role" }, { status: 422 });
+      if (code === 'INVALID_INVITE_ROLE') {
+        return NextResponse.json({ error: 'Unsupported role' }, { status: 422 });
+      }
+      if (code === 'INVITE_ROLE_FORBIDDEN') {
+        return NextResponse.json({ error: 'Not authorized to invite this role' }, { status: 403 });
       }
     }
 
-    console.error("[team/invitations][POST] failed", error);
-    return NextResponse.json({ error: "Unable to create invitation" }, { status: 500 });
+    console.error('[team/invitations][POST] failed', error);
+    return NextResponse.json({ error: 'Unable to create invitation' }, { status: 500 });
   }
 }

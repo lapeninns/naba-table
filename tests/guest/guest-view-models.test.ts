@@ -98,7 +98,7 @@ describe('guest view models', () => {
       redirectTo: '/auth/signin',
       redirectedFrom: '/guest/bookings',
     });
-    expect(services.bookings.list).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
+    expect(services.bookings.list).toHaveBeenCalledWith({ page: 1, pageSize: 50 });
     expect(viewModel.initialTab).toBe('past');
   });
 

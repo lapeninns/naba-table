@@ -1,6 +1,4 @@
 'use client';
-
-import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -11,8 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreateRestaurant } from '@/hooks/ops/useCreateRestaurant';
 import { cn } from '@/lib/utils';
@@ -159,7 +165,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
     if (formData.googleMapUrl.trim()) {
       try {
         new URL(formData.googleMapUrl.trim());
-      } catch (error) {
+      } catch {
         newErrors.googleMapUrl = 'Enter a valid URL (e.g., https://maps.google.com/...)';
       }
     }
@@ -183,6 +189,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
       contactEmail: formData.contactEmail.trim() || null,
       contactPhone: formData.contactPhone.trim() || null,
       address: formData.address.trim() || null,
+      businessDescription: null,
       managerDailySummaryEnabled: false,
       managerNotificationPhone: null,
       googleMapUrl: formData.googleMapUrl.trim() || null,
@@ -194,7 +201,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
     try {
       await createMutation.mutateAsync(input);
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       // Error handling is done by the hook
     }
   };
@@ -209,7 +216,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormRoot onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="create-restaurant-name">
@@ -273,23 +280,30 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
               <Label htmlFor="create-restaurant-timezone">
                 Timezone <span className="text-destructive">*</span>
               </Label>
-              <select
-                id="create-restaurant-timezone"
+              <Select
                 value={formData.timezone}
-                onChange={(e) => handleChange('timezone', e.target.value)}
-                className={cn(
-                  'h-10 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                  errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
-                )}
-                aria-invalid={Boolean(errors.timezone)}
-                aria-describedby={errors.timezone ? 'create-restaurant-timezone-error' : undefined}
+                onValueChange={(value) => handleChange('timezone', value)}
               >
-                {COMMON_TIMEZONES.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="create-restaurant-timezone"
+                  className={cn(
+                    errors.timezone && 'border-destructive focus-visible:ring-destructive/60',
+                  )}
+                  aria-invalid={Boolean(errors.timezone)}
+                  aria-describedby={
+                    errors.timezone ? 'create-restaurant-timezone-error' : undefined
+                  }
+                >
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.timezone && (
                 <p
                   id="create-restaurant-timezone-error"
@@ -443,7 +457,7 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
               {createMutation.isPending ? 'Creating…' : 'Create Restaurant'}
             </Button>
           </div>
-        </form>
+        </FormRoot>
       </DialogContent>
     </Dialog>
   );

@@ -105,6 +105,23 @@ export default [
     },
   },
   {
+    files: ['src/app/app/**/*.{js,jsx,ts,tsx}', 'src/components/features/**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@radix-ui/*'],
+              message:
+                'Ops app and feature code must compose shadcn components from @/components/ui/* instead of importing Radix primitives directly.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['server/**/*.{js,ts,jsx,tsx}', 'tests/server/**/*.{js,ts,jsx,tsx}'],
     rules: {
       'no-restricted-properties': [

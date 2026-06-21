@@ -17,6 +17,7 @@ describe('normalizeReservationSchedulePayload', () => {
     expect(result.availableBookingOptions).toEqual([]);
     expect(result.slots).toEqual([]);
     expect(result.occasionCatalog).toEqual([]);
+    expect(result.notes).toBeNull();
     expect(result.window).toEqual({ opensAt: null, closesAt: null });
   });
 
@@ -25,6 +26,7 @@ describe('normalizeReservationSchedulePayload', () => {
       restaurantId: 'rest-1',
       date: '2026-03-16',
       timezone: 'Europe/London',
+      notes: '  Final kitchen orders at 20:30. ',
       slots: [
         null,
         {
@@ -40,6 +42,7 @@ describe('normalizeReservationSchedulePayload', () => {
     });
 
     expect(result.slots).toHaveLength(1);
+    expect(result.notes).toBe('Final kitchen orders at 20:30.');
     expect(result.slots[0]).toMatchObject({
       value: '18:00',
       display: '18:00',

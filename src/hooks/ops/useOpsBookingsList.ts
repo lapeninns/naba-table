@@ -1,10 +1,14 @@
 'use client';
 
-import { useInfiniteQuery, useQueryClient, type InfiniteData, type UseInfiniteQueryResult } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+} from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { debounce } from '@/utils/debounceThrottle';
@@ -30,9 +34,11 @@ function normalizeFilters(filters: OpsBookingsFilters) {
   if (filters.tableId) normalized.tableId = filters.tableId;
   if (filters.pageSize) normalized.pageSize = filters.pageSize;
   if (filters.status && filters.status !== 'all') normalized.status = filters.status;
-  if (filters.statuses && filters.statuses.length > 0) normalized.statuses = filters.statuses.join(',');
+  if (filters.statuses && filters.statuses.length > 0)
+    normalized.statuses = filters.statuses.join(',');
   if (filters.sort) normalized.sort = filters.sort;
   if (filters.sortBy) normalized.sortBy = filters.sortBy;
+  if (filters.countStrategy) normalized.countStrategy = filters.countStrategy;
 
   const fromIso = toIsoString(filters.from ?? undefined);
   if (fromIso) normalized.from = fromIso;
@@ -53,7 +59,6 @@ export function useOpsBookingsList(
   const queryClient = useQueryClient();
   const [realtimeHealthy, setRealtimeHealthy] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
-  const realtimeEnabled = isRealtimeFloorplanEnabled();
   const pollIntervalMs = 15_000;
 
   const normalizedFilters = useMemo(() => {
@@ -61,7 +66,9 @@ export function useOpsBookingsList(
     return normalizeFilters(filters);
   }, [filters]);
 
-  const queryKey = normalizedFilters ? queryKeys.opsBookings.list(normalizedFilters) : queryKeys.opsBookings.list();
+  const queryKey = normalizedFilters
+    ? queryKeys.opsBookings.list(normalizedFilters)
+    : queryKeys.opsBookings.list();
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -72,7 +79,7 @@ export function useOpsBookingsList(
   }, []);
 
   useEffect(() => {
-    if (!realtimeEnabled || !filters?.restaurantId) {
+    if (!filters?.restaurantId) {
       setRealtimeHealthy(true);
       return;
     }
@@ -111,10 +118,9 @@ export function useOpsBookingsList(
       channel.unsubscribe();
       client.removeChannel(channel);
     };
-  }, [filters?.restaurantId, queryClient, queryKey, realtimeEnabled]);
+  }, [filters?.restaurantId, queryClient, queryKey]);
 
-  const shouldPoll =
-    Boolean(filters?.restaurantId) && isVisible && (!realtimeEnabled || !realtimeHealthy);
+  const shouldPoll = Boolean(filters?.restaurantId) && isVisible && !realtimeHealthy;
 
   return useInfiniteQuery<OpsBookingsPage, HttpError>({
     queryKey,
@@ -125,6 +131,7 @@ export function useOpsBookingsList(
       const page = typeof pageParam === 'number' ? pageParam : 1;
       return bookingService.listBookings({
         ...filters,
+        countStrategy: filters.countStrategy ?? 'window',
         page,
         pageSize: filters.pageSize ?? 50,
       });

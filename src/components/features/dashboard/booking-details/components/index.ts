@@ -13,7 +13,11 @@
 export { ClickToCopy, type ClickToCopyProps } from './ClickToCopy';
 
 /** Contact information display row (phone/email) */
-export { ContactInfoRow, type ContactInfoRowProps, type ContactInfoRowAction } from './ContactInfoRow';
+export {
+  ContactInfoRow,
+  type ContactInfoRowProps,
+  type ContactInfoRowAction,
+} from './ContactInfoRow';
 
 /** Arrival countdown timer with pulsing indicator */
 export { ArrivalCountdown, type ArrivalCountdownProps } from './ArrivalCountdown';
@@ -32,6 +36,40 @@ export { GuestProfilePanel, type GuestProfilePanelProps } from './GuestProfilePa
 
 /** Dialog body (mobile/desktop) extracted to keep BookingDialog under LOC cap */
 export { BookingDialogBody, type BookingDialogBodyProps } from './BookingDialogBody';
+
+/** Dialog body state views */
+export {
+  BookingDialogEmptyState,
+  BookingDialogErrorState,
+  BookingDialogLoadingState,
+} from './BookingDialogBodyStates';
+
+/** Dialog table-assignment sections */
+export {
+  BookingDialogDesktopTableAssignmentSection,
+  BookingDialogMobileTableAssignmentSection,
+} from './BookingDialogTableAssignmentSection';
+
+/** Responsive Shadcn/Radix shell and surface layout for booking details */
+export {
+  BookingDialogLayout,
+  BookingDialogShell,
+  type BookingDialogLayoutProps,
+  type BookingDialogShellProps,
+} from './BookingDialogShell';
+
+/** Confirmation dialog for marking a booking as no-show */
+export {
+  BookingNoShowConfirmDialog,
+  type BookingNoShowConfirmDialogProps,
+} from './BookingNoShowConfirmDialog';
+
+/** Bottom action rail for lifecycle, copy, and destructive booking operations */
+export {
+  BookingDialogActionRail,
+  type BookingDialogActionRailProps,
+  type BookingDialogPrimaryAction,
+} from './BookingDialogActionRail';
 
 // =============================================================================
 // COMPOSITE COMPONENTS

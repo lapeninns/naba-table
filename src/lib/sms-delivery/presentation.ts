@@ -17,16 +17,20 @@ export function formatSmsDeliveryOccurredAt(iso: string | null, timezone: string
   return dt.toFormat('EEE, MMM d · HH:mm');
 }
 
-export function getSmsDeliveryStatusBadgeTone(
-  status: SmsDeliveryStatus,
-): { variant: 'outline' | 'destructive' | 'secondary'; className?: string } {
+export function getSmsDeliveryStatusBadgeTone(status: SmsDeliveryStatus): {
+  variant: 'outline' | 'destructive' | 'secondary';
+  className?: string;
+} {
   switch (status) {
     case 'delivered':
-      return { variant: 'outline', className: 'border-emerald-200 bg-emerald-50 text-emerald-800' };
+      return { variant: 'outline', className: 'border-primary/30 bg-primary/10 text-primary' };
     case 'queued':
-      return { variant: 'outline', className: 'border-amber-200 bg-amber-50 text-amber-800' };
+      return { variant: 'outline', className: 'border-border bg-muted/40 text-foreground' };
     case 'sent':
-      return { variant: 'outline', className: 'border-slate-200 bg-slate-50 text-slate-700' };
+      return {
+        variant: 'outline',
+        className: 'border-border bg-muted/40 text-muted-foreground',
+      };
     case 'undelivered':
     case 'failed':
       return { variant: 'destructive' };

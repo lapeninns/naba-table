@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 import { toHaveNoViolations } from 'vitest-axe/matchers';
 
-
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@src/types/ops';
 
 expect.extend({ toHaveNoViolations });
@@ -19,9 +18,8 @@ describe('BookingDialog accessibility', () => {
     const queryClient = createTestQueryClient();
     const QueryWrapper = createQueryWrapper(queryClient);
 
-    const { BookingDialog } = await import(
-      '@src/components/features/dashboard/booking-details/BookingDialog'
-    );
+    const { BookingDialog } =
+      await import('@src/components/features/dashboard/booking-details/BookingDialog');
 
     const booking: OpsTodayBooking = {
       id: 'booking-1',

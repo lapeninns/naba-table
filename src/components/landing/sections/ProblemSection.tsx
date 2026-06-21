@@ -1,55 +1,94 @@
 'use client';
 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Icon } from '../shared/Icons';
 
-const problems = [
+const SERVICE_LEAKS = [
+  'Guests book, then drift because nobody has time to chase every confirmation.',
+  'Tables get filled in the wrong order and the kitchen pressure builds quietly.',
+  'Managers start the shift without one clean view of demand, risk, and capacity.',
+] as const;
+
+const BLUEPRINT_FEATURES = [
   {
-    title: 'The £150 Friday Night Leak',
-    desc: "A single no-show on a Friday night isn't just annoying; it is £150+ burned that you can never get back.",
-    icon: 'close' as const,
+    title: 'Booking capture',
+    desc: 'Turn website visitors into confirmed diners with live availability and party-size rules that match how your pub really trades.',
+    icon: 'chart' as const,
   },
   {
-    title: 'The £45,000 Labour Trap',
-    desc: 'Paying a host to manually manage DMs and phone calls is most expensive administrative work you do.',
-    icon: 'user' as const,
+    title: 'No-show prompts',
+    desc: 'Send the right SMS and email prompts automatically, so the team is not chasing guests while service is already moving.',
+    icon: 'shield' as const,
   },
   {
-    title: 'The Sunday Roast Chaos',
-    desc: 'Holes appear in your book, kitchen gets slammed, and staff quit because service is unmanaged firefighting.',
+    title: 'Floor protection',
+    desc: 'Control turn times, table joins, and service pressure before the doors open, instead of fixing collisions at the host stand.',
     icon: 'lock' as const,
+  },
+  {
+    title: 'Manager visibility',
+    desc: 'Walk into the shift with one board for bookings, pressure points, reminders, and the actions that still need human judgement.',
+    icon: 'user' as const,
   },
 ];
 
 export function ProblemSection() {
   return (
-    <section id="problem" className="py-24 bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center max-w-3xl mx-auto mb-16 motion-safe:reveal-up">
-          <p className="text-xs font-bold uppercase tracking-widest text-red-500 mb-2">
-            The Pain is The Pitch
-          </p>
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">
-            The &quot;Old Way&quot; is Broken.
-          </h2>
-          <p className="text-lg text-slate-600">
-            Most operators accept these problems as &quot;part of business&quot;. They aren&apos;t.
-            They are leaks in your bucket.
-          </p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-8">
-          {problems.map((problem, index) => (
-            <div
-              key={problem.title}
-              className="group p-8 rounded-2xl bg-red-50/30 border border-red-100 transition-all duration-200 ease-out hover:bg-red-50 group-hover:-translate-y-2 group-hover:shadow-xl motion-safe:reveal-up"
-              style={{ transitionDelay: `${index * 100}ms` }}
-            >
-              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-6 transition-all duration-200 ease-out group-hover:bg-red-200 group-hover:text-red-700 group-hover:rotate-6 group-hover:scale-110">
-                <Icon name={problem.icon} className="w-6 h-6" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-3">{problem.title}</h3>
-              <p className="text-slate-600 text-sm leading-relaxed">{problem.desc}</p>
+    <section id="system" className="pg-section border-b border-border/70 bg-muted/30">
+      <div className="pg-container">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[5fr_7fr] lg:gap-8">
+          <div className="pg-panel flex flex-col gap-5 rounded-[var(--pg-radius-xl)] border-primary/15 bg-background/90 p-5 sm:p-6 md:p-7 motion-safe:reveal-up">
+            <p className="pg-kicker">The service leak Nabatable closes</p>
+            <h2 className="pg-section-title">Empty tables rarely start as empty tables.</h2>
+            <p className="pg-lead">
+              They start as missed confirmations, vague table rules, and managers forced to make
+              decisions without a clean view of the night ahead.
+            </p>
+            <div className="grid gap-3 pt-1">
+              {SERVICE_LEAKS.map((leak, index) => (
+                <div
+                  key={leak}
+                  className="flex gap-3 rounded-[var(--pg-radius-md)] border border-border/70 bg-muted/35 p-3"
+                >
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 font-[var(--pg-font-mono)] text-xs font-semibold text-primary">
+                    {index + 1}
+                  </span>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{leak}</p>
+                </div>
+              ))}
             </div>
-          ))}
+            <div className="rounded-[var(--pg-radius-md)] border border-primary/20 bg-primary/[0.06] p-4">
+              <p className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em] text-primary">
+                Nabatable installs the operating model before those leaks cost covers.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {BLUEPRINT_FEATURES.map((feature, index) => (
+              <Card
+                key={feature.title}
+                className="pg-card group overflow-hidden border-border/70 bg-background/96 motion-safe:reveal-up"
+              >
+                <CardHeader className="flex flex-col gap-3 space-y-0 p-5 sm:p-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] bg-primary/10 text-primary transition duration-200 ease-out group-hover:bg-primary group-hover:text-primary-foreground">
+                      <Icon name={feature.icon} className="size-5" />
+                    </div>
+                    <div className="font-[var(--pg-font-mono)] text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      0{index + 1}
+                    </div>
+                  </div>
+                  <CardTitle className="pg-card-title text-left">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="px-5 pb-5 pt-0 sm:px-6 sm:pb-6">
+                  <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
+                    {feature.desc}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     </section>

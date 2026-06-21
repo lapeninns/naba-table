@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 
-
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
@@ -17,6 +16,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public'>;
 type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
+type ReplacementRpcClient = DbClient & {
+  rpc(
+    fn: 'replace_restaurant_operating_hours',
+    args: { p_restaurant_id: string; p_rows: OperatingHoursInsert[] },
+  ): Promise<{ error: { message?: string } | null }>;
+};
 
 export type WeeklyOperatingHour = {
   dayOfWeek: number;
@@ -42,6 +47,7 @@ export type OperatingHourOverride = {
 export type OperatingHoursSnapshot = {
   restaurantId: string;
   timezone: string;
+  updatedAt: string | null;
   weekly: WeeklyOperatingHour[];
   overrides: OperatingHourOverride[];
 };
@@ -80,8 +86,8 @@ function ensureOpenBeforeClose(opensAt: string | null, closesAt: string | null, 
     throw new Error(`${context}: opensAt and closesAt must be provided when not closed`);
   }
 
-  if (opensAt >= closesAt) {
-    throw new Error(`${context}: closesAt must be after opensAt`);
+  if (opensAt === closesAt) {
+    throw new Error(`${context}: opensAt and closesAt must differ`);
   }
 }
 
@@ -100,10 +106,7 @@ function normalizeInterval(value: number | null | undefined, context: string): n
   return value;
 }
 
-function normalizeSlotTimes(
-  value: string[] | null | undefined,
-  context: string,
-): string[] | null {
+function normalizeSlotTimes(value: string[] | null | undefined, context: string): string[] | null {
   if (!value || value.length === 0) {
     return null;
   }
@@ -139,13 +142,23 @@ function normalizeSlotTimesFromDb(value: string[] | null | undefined): string[] 
 }
 
 function validateWeeklyEntry(entry: UpdateWeeklyOperatingHour): WeeklyOperatingHour {
-  if (!Number.isInteger(entry.dayOfWeek) || entry.dayOfWeek < 0 || entry.dayOfWeek >= DAYS_IN_WEEK) {
+  if (
+    !Number.isInteger(entry.dayOfWeek) ||
+    entry.dayOfWeek < 0 ||
+    entry.dayOfWeek >= DAYS_IN_WEEK
+  ) {
     throw new Error(`Weekly entry dayOfWeek must be between 0-6`);
   }
 
   const isClosed = entry.isClosed ?? false;
-  const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Weekly day ${entry.dayOfWeek} opensAt`);
-  const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Weekly day ${entry.dayOfWeek} closesAt`);
+  const opensAt = canonicalOptionalTime(
+    entry.opensAt ?? null,
+    `Weekly day ${entry.dayOfWeek} opensAt`,
+  );
+  const closesAt = canonicalOptionalTime(
+    entry.closesAt ?? null,
+    `Weekly day ${entry.dayOfWeek} closesAt`,
+  );
   const reservationIntervalMinutes = normalizeInterval(
     entry.reservationIntervalMinutes ?? null,
     `Weekly day ${entry.dayOfWeek} reservationIntervalMinutes`,
@@ -184,10 +197,25 @@ function validateOverride(entry: UpdateOperatingHourOverride): OperatingHourOver
   if (!DATE_REGEX.test(entry.effectiveDate)) {
     throw new Error(`Override effectiveDate must be YYYY-MM-DD`);
   }
+  const [year, month, day] = entry.effectiveDate.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error(`Override effectiveDate must be a real calendar date`);
+  }
 
   const isClosed = entry.isClosed ?? false;
-  const opensAt = canonicalOptionalTime(entry.opensAt ?? null, `Override ${entry.effectiveDate} opensAt`);
-  const closesAt = canonicalOptionalTime(entry.closesAt ?? null, `Override ${entry.effectiveDate} closesAt`);
+  const opensAt = canonicalOptionalTime(
+    entry.opensAt ?? null,
+    `Override ${entry.effectiveDate} opensAt`,
+  );
+  const closesAt = canonicalOptionalTime(
+    entry.closesAt ?? null,
+    `Override ${entry.effectiveDate} closesAt`,
+  );
   const reservationIntervalMinutes = normalizeInterval(
     entry.reservationIntervalMinutes ?? null,
     `Override ${entry.effectiveDate} reservationIntervalMinutes`,
@@ -241,30 +269,29 @@ export async function getOperatingHours(
   restaurantId: string,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<OperatingHoursSnapshot> {
-  const [{ data: restaurantRows, error: restaurantError }, { data: weeklyRows, error: weeklyError }, { data: overrideRows, error: overrideError }] =
-    await Promise.all([
-      client
-        .from('restaurants')
-        .select('id, timezone')
-        .eq('id', restaurantId)
-        .maybeSingle(),
-      client
-        .from('restaurant_operating_hours')
-        .select(
-          'id, day_of_week, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
-        )
-        .eq('restaurant_id', restaurantId)
-        .is('effective_date', null)
-        .order('day_of_week', { ascending: true }),
-      client
-        .from('restaurant_operating_hours')
-        .select(
-          'id, effective_date, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times',
-        )
-        .eq('restaurant_id', restaurantId)
-        .not('effective_date', 'is', null)
-        .order('effective_date', { ascending: true }),
-    ]);
+  const [
+    { data: restaurantRows, error: restaurantError },
+    { data: weeklyRows, error: weeklyError },
+    { data: overrideRows, error: overrideError },
+  ] = await Promise.all([
+    client.from('restaurants').select('id, timezone').eq('id', restaurantId).maybeSingle(),
+    client
+      .from('restaurant_operating_hours')
+      .select(
+        'id, day_of_week, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times, updated_at',
+      )
+      .eq('restaurant_id', restaurantId)
+      .is('effective_date', null)
+      .order('day_of_week', { ascending: true }),
+    client
+      .from('restaurant_operating_hours')
+      .select(
+        'id, effective_date, opens_at, closes_at, is_closed, notes, reservation_interval_minutes, reservation_slot_times, updated_at',
+      )
+      .eq('restaurant_id', restaurantId)
+      .not('effective_date', 'is', null)
+      .order('effective_date', { ascending: true }),
+  ]);
 
   if (restaurantError) {
     throw restaurantError;
@@ -303,9 +330,17 @@ export async function getOperatingHours(
     reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
   }));
 
+  const updatedAt =
+    [...(weeklyRows ?? []), ...(overrideRows ?? [])]
+      .map((row) => row.updated_at ?? null)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1) ?? null;
+
   return {
     restaurantId,
     timezone: restaurantRows.timezone,
+    updatedAt,
     weekly: buildDefaultWeeklySchedule(weekly),
     overrides,
   };
@@ -327,6 +362,19 @@ export async function updateOperatingHours(
   });
 
   const validatedOverrides = payload.overrides.map((entry) => validateOverride(entry));
+  const uniqueOverrideIds = new Set<string>();
+  const uniqueOverrideDates = new Set<string>();
+  validatedOverrides.forEach((entry) => {
+    if (uniqueOverrideIds.has(entry.id)) {
+      throw new Error(`Duplicate operating-hours override id ${entry.id}`);
+    }
+    uniqueOverrideIds.add(entry.id);
+
+    if (uniqueOverrideDates.has(entry.effectiveDate)) {
+      throw new Error(`Duplicate operating-hours override date ${entry.effectiveDate}`);
+    }
+    uniqueOverrideDates.add(entry.effectiveDate);
+  });
 
   const insertRows: OperatingHoursInsert[] = [
     ...validatedWeekly.map<OperatingHoursInsert>((entry) => ({
@@ -355,20 +403,16 @@ export async function updateOperatingHours(
     })),
   ];
 
-  const { error: deleteError } = await client
-    .from('restaurant_operating_hours')
-    .delete()
-    .eq('restaurant_id', restaurantId);
+  const { error: replaceError } = await (client as ReplacementRpcClient).rpc(
+    'replace_restaurant_operating_hours',
+    {
+      p_restaurant_id: restaurantId,
+      p_rows: insertRows,
+    },
+  );
 
-  if (deleteError) {
-    throw deleteError;
-  }
-
-  if (insertRows.length > 0) {
-    const { error: insertError } = await client.from('restaurant_operating_hours').insert(insertRows);
-    if (insertError) {
-      throw insertError;
-    }
+  if (replaceError) {
+    throw replaceError;
   }
 
   return getOperatingHours(restaurantId, client);

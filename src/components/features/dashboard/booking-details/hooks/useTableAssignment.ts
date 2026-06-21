@@ -6,17 +6,17 @@
 
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
-import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
-import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
+import { suggestAssignmentTables } from '../tableAssignmentSuggestionDomain';
 import { validateTableSelection } from '../utils';
+import { useTableAssignmentMutations } from './useTableAssignmentMutations';
+import { useTableAssignmentRealtimeRefetch } from './useTableAssignmentRealtimeRefetch';
 
 import type { UseTableAssignmentOptions, UseTableAssignmentReturn } from '../types';
 import type { AssignmentContext } from '@/services/ops/bookings';
@@ -28,8 +28,9 @@ export function useTableAssignment({
   date,
   currentAssignments = [],
   onAssignmentComplete,
+  enabled = true,
+  realtime = true,
 }: UseTableAssignmentOptions): UseTableAssignmentReturn {
-  const queryClient = useQueryClient();
   const bookingService = useBookingService();
 
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
@@ -43,75 +44,16 @@ export function useTableAssignment({
   } = useQuery<AssignmentContext, Error>({
     queryKey: queryKeys.opsBookings.assignmentContext(bookingId),
     queryFn: () => bookingService.getAssignmentContext(bookingId),
-    enabled: Boolean(bookingId),
+    enabled: Boolean(bookingId) && enabled,
     staleTime: 30_000,
   });
 
-  // Realtime subscription for assignment context updates
-  useEffect(() => {
-    const realtimeEnabled = isRealtimeFloorplanEnabled();
-    if (!bookingId || !restaurantId || !realtimeEnabled) {
-      return;
-    }
-
-    const client = getRealtimeSupabaseClient();
-    const channelName = `ops-table-assignment:${restaurantId}:${bookingId}`;
-    const channel = client.channel(channelName, {
-      config: {
-        broadcast: { self: false },
-      },
-    });
-
-    const handleChange = () => {
-      void refetch();
-    };
-
-    // Listen to allocations changes for this restaurant
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'allocations',
-        filter: `restaurant_id=eq.${restaurantId}`,
-      },
-      handleChange,
-    );
-
-    // Listen to table holds for this restaurant
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'table_holds',
-        filter: `restaurant_id=eq.${restaurantId}`,
-      },
-      handleChange,
-    );
-
-    // Listen to booking table assignments for this specific booking
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'booking_table_assignments',
-        filter: `booking_id=eq.${bookingId}`,
-      },
-      handleChange,
-    );
-
-    channel.subscribe();
-
-    return () => {
-      client.removeChannel(channel);
-    };
-  }, [bookingId, restaurantId, refetch]);
+  useTableAssignmentRealtimeRefetch({ bookingId, enabled, realtime, refetch, restaurantId });
 
   const tables = useMemo(() => context?.tables ?? [], [context?.tables]);
 
   const tableIdSet = useMemo(() => new Set(tables.map((table) => table.id)), [tables]);
+  const selectedTableIdSet = useMemo(() => new Set(selectedTables), [selectedTables]);
 
   useEffect(() => {
     if (previousBookingIdRef.current && previousBookingIdRef.current !== bookingId) {
@@ -139,8 +81,8 @@ export function useTableAssignment({
   );
 
   const selectedTableObjects = useMemo(
-    () => tables.filter((table) => selectedTables.includes(table.id)),
-    [selectedTables, tables],
+    () => tables.filter((table) => selectedTableIdSet.has(table.id)),
+    [selectedTableIdSet, tables],
   );
 
   const selectedCapacity = useMemo(
@@ -156,111 +98,10 @@ export function useTableAssignment({
     [assignedTableIds, tables],
   );
 
-  const suggestedTables = useMemo(() => {
-    // Step 1: Filter to only available, active, non-conflicted, non-assigned tables
-    const candidates = tables.filter(
-      (table) =>
-        table.active &&
-        table.status === 'available' &&
-        !conflictedTableIds.has(table.id) &&
-        !assignedTableIds.has(table.id),
-    );
-
-    if (candidates.length === 0) return [];
-
-    // Step 2: Compute scarcity scores (tables with rare capacities are more "valuable")
-    // Higher scarcity = rarer capacity = should be preserved for larger parties
-    const capacityCounts = new Map<number, number>();
-    for (const table of candidates) {
-      const cap = table.capacity ?? 0;
-      capacityCounts.set(cap, (capacityCounts.get(cap) ?? 0) + 1);
-    }
-    const totalTables = candidates.length;
-    const scarcityScores = new Map<string, number>();
-    for (const table of candidates) {
-      const cap = table.capacity ?? 0;
-      const count = capacityCounts.get(cap) ?? 1;
-      // Scarcity: 1/count normalized - rarer tables have higher scarcity
-      scarcityScores.set(table.id, count > 0 ? 1 / count : 0);
-    }
-
-    // Step 3: Score each table using algorithm-aligned scoring
-    type ScoredTable = {
-      table: (typeof candidates)[0];
-      score: number;
-      fit: 'exact' | 'comfort' | 'large' | 'undersized';
-      overage: number;
-      scarcity: number;
-    };
-
-    const scored: ScoredTable[] = [];
-
-    for (const table of candidates) {
-      const capacity = table.capacity ?? 0;
-      const minPartySize = table.minPartySize ?? 1;
-      const maxPartySize = table.maxPartySize ?? Infinity;
-
-      // Skip tables that violate min/max party size constraints
-      if (partySize < minPartySize) continue;
-      if (maxPartySize !== null && maxPartySize > 0 && partySize > maxPartySize) continue;
-
-      const overage = capacity - partySize;
-      const scarcity = scarcityScores.get(table.id) ?? 0;
-
-      // Determine fit category
-      let fit: ScoredTable['fit'];
-      if (overage === 0) {
-        fit = 'exact';
-      } else if (overage > 0 && overage <= 2) {
-        fit = 'comfort';
-      } else if (overage > 2) {
-        fit = 'large';
-      } else {
-        fit = 'undersized'; // capacity < partySize
-      }
-
-      // Skip undersized tables for single-table suggestions
-      if (fit === 'undersized') continue;
-
-      // Compute composite score (lower is better)
-      // Algorithm weights from selector.ts:
-      // - overage penalty: penalize wasted seats
-      // - scarcity penalty: penalize using rare tables when not needed
-      // - preference for exact fit
-      const OVERAGE_WEIGHT = 1.0;
-      const SCARCITY_WEIGHT = 0.5;
-      const EXACT_FIT_BONUS = -2.0; // negative = reward
-
-      let score = 0;
-      score += overage * OVERAGE_WEIGHT;
-      score += scarcity * SCARCITY_WEIGHT * (totalTables > 1 ? 1 : 0); // only apply scarcity if multiple tables
-      if (fit === 'exact') score += EXACT_FIT_BONUS;
-
-      scored.push({
-        table,
-        score,
-        fit,
-        overage,
-        scarcity,
-      });
-    }
-
-    // Step 4: Sort by score (ascending - lower is better)
-    // Tiebreakers: exact fit first, then lower overage, then table number for consistency
-    scored.sort((a, b) => {
-      if (a.score !== b.score) return a.score - b.score;
-      // Prefer exact fit
-      if (a.fit === 'exact' && b.fit !== 'exact') return -1;
-      if (b.fit === 'exact' && a.fit !== 'exact') return 1;
-      // Then lower overage
-      if (a.overage !== b.overage) return a.overage - b.overage;
-      // Then alphabetical table number for stable ordering
-      return (a.table.tableNumber ?? '').localeCompare(b.table.tableNumber ?? '');
-    });
-
-    // Step 5: Return top 8 suggestions
-    return scored.slice(0, 8).map((s) => s.table);
-  }, [assignedTableIds, conflictedTableIds, partySize, tables]);
+  const suggestedTables = useMemo(
+    () => suggestAssignmentTables({ assignedTableIds, conflictedTableIds, partySize, tables }),
+    [assignedTableIds, conflictedTableIds, partySize, tables],
+  );
 
   const validation = useMemo(
     () =>
@@ -273,77 +114,15 @@ export function useTableAssignment({
     [assignedTableIds.size, conflictedTableIds, partySize, selectedTableObjects],
   );
 
-  const assignMutation = useMutation({
-    mutationFn: async (tableIds: string[]) => {
-      return bookingService.assignTablesDirect({
-        bookingId,
-        tableIds,
-        idempotencyKey: generateIdempotencyKey(),
-        requireAdjacency: false,
-      });
-    },
-    onSuccess: () => {
-      setSelectedTables([]);
-      refetch();
-      queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
-        refetchType: 'active',
-      });
-      onAssignmentComplete?.();
-    },
-  });
-
-  const unassignMutation = useMutation({
-    mutationFn: async (tableIds: string[]) => {
-      return bookingService.unassignTablesDirect({ bookingId, tableIds });
-    },
-    onSuccess: () => {
-      refetch();
-      queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
-        refetchType: 'active',
-      });
-      onAssignmentComplete?.();
-    },
-  });
-
-  const autoAssignMutation = useMutation({
-    mutationFn: async () => {
-      // Step 1: Get auto-quote for optimal table selection
-      const quoteResult = await bookingService.autoQuoteTables({
-        bookingId,
-        requireAdjacency: false,
-      });
-
-      if (
-        !quoteResult.candidate ||
-        !quoteResult.candidate.tableIds ||
-        quoteResult.candidate.tableIds.length === 0
-      ) {
-        throw new Error(quoteResult.reason || 'No suitable tables found for this booking');
-      }
-
-      // Step 2: Directly assign the quoted tables
-      return bookingService.assignTablesDirect({
-        bookingId,
-        tableIds: quoteResult.candidate.tableIds,
-        idempotencyKey: generateIdempotencyKey(),
-        requireAdjacency: false,
-      });
-    },
-    onSuccess: () => {
-      setSelectedTables([]);
-      refetch();
-      queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
-        refetchType: 'active',
-      });
-      onAssignmentComplete?.();
-    },
-  });
+  const { assignMutation, autoAssignMutation, isPending, unassignMutation } =
+    useTableAssignmentMutations({
+      bookingId,
+      date,
+      onAssignmentComplete,
+      refetch,
+      resetSelectedTables: () => setSelectedTables([]),
+      restaurantId,
+    });
 
   const apply = useCallback(async () => {
     if (selectedTables.some((id) => !tableIdSet.has(id))) {
@@ -418,7 +197,6 @@ export function useTableAssignment({
     isAssigning: assignMutation.isPending,
     isUnassigning: unassignMutation.isPending,
     isAutoAssigning: autoAssignMutation.isPending,
-    isPending:
-      assignMutation.isPending || unassignMutation.isPending || autoAssignMutation.isPending,
+    isPending,
   };
 }

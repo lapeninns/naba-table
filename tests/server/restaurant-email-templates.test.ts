@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { renderAnnotationScript } from '@/server/emails/base';
 import {
   buildBookingTemplateTestIdempotencyParts,
   renderBookingEmailText,
 } from '@/server/emails/booking-template-support';
+import { renderRestaurantBookingEmailPreview } from '@/server/emails/bookings';
 import { upsertRestaurantEmailTemplate } from '@/server/restaurants/emailTemplates';
 
 import type { RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
@@ -141,7 +143,9 @@ function createRestaurantClientMock(params: {
 
           const withUpdatedAtFilter = {
             select: vi.fn(() => ({
-              maybeSingle: vi.fn(async () => params.updateRows.shift() ?? { data: null, error: null }),
+              maybeSingle: vi.fn(
+                async () => params.updateRows.shift() ?? { data: null, error: null },
+              ),
             })),
           };
 
@@ -219,6 +223,44 @@ describe('restaurant email template server behavior', () => {
     expect(text).not.toContain('Manage your booking:');
   });
 
+  it('escapes JSON-LD annotation data for script contexts', () => {
+    const html = renderAnnotationScript({
+      actionName: '</script><script>alert(1)</script>',
+      actionUrl: 'javascript:alert(1)',
+      reservation: {
+        confirmationNumber: 'ABC123',
+        status: 'ReservationConfirmed',
+        startTime: '2026-04-08T18:00:00.000Z',
+        partySize: 4,
+        venue: {
+          name: 'Demo Venue',
+          address: '</script><script>alert(1)</script>',
+        },
+      },
+    });
+
+    expect(html).not.toContain('</script><script>');
+    expect(html).toContain('\\u003c/script\\u003e\\u003cscript\\u003ealert(1)');
+    expect(html).toContain('https://nabatable.com/');
+    expect(html).not.toContain('javascript:alert(1)');
+  });
+
+  it('falls review-request CTAs back to the safe manage URL when stored venue URLs are unsafe', () => {
+    const preview = renderRestaurantBookingEmailPreview({
+      venue: createVenue({
+        googleMapUrl: 'data:text/html,<script>alert(1)</script>',
+        googleReviewUrl: 'javascript:alert(1)',
+      }),
+      templateKey: 'review_request',
+      draftVariants: [createVariant('review-draft', { ctaLabel: 'Leave a Review' })],
+      preferredVariantId: 'review-draft',
+    });
+
+    expect(preview.ctaUrl).toContain('/bookings/recover');
+    expect(preview.ctaUrl).not.toMatch(/^(javascript|data):/i);
+    expect(preview.html).not.toContain('href="javascript:alert(1)"');
+  });
+
   it('retries template upserts against the latest persisted document on conflict', async () => {
     const firstReadRow = createRestaurantRow({
       updated_at: '2026-04-02T12:00:00.000Z',
@@ -283,10 +325,7 @@ describe('restaurant email template server behavior', () => {
     );
 
     expect(capturedUpdatePayloads).toHaveLength(2);
-    expect(updateFilters).toEqual([
-      '2026-04-02T12:00:00.000Z',
-      '2026-04-02T12:00:01.000Z',
-    ]);
+    expect(updateFilters).toEqual(['2026-04-02T12:00:00.000Z', '2026-04-02T12:00:01.000Z']);
 
     const firstAttempt = capturedUpdatePayloads[0]?.email_templates as {
       templates: Record<string, { variants: RestaurantEmailTemplateVariant[] }>;

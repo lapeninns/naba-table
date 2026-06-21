@@ -1,15 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+import { buildFutureBookingDate } from './helpers/future-booking';
 
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const bookingReference = 'NB1234';
-const bookingDate = '2026-02-10';
+const futureBooking = buildFutureBookingDate();
+const bookingDate = futureBooking.isoDate;
 const bookingStartTime = '19:00';
 const bookingEndTime = '20:30';
-const bookingStartIso = '2026-02-10T19:00:00.000Z';
-const bookingEndIso = '2026-02-10T20:30:00.000Z';
+const bookingStartIso = futureBooking.startIsoUtc;
+const bookingEndIso = futureBooking.endIsoUtc;
 const restaurantTimezone = 'Europe/London';
+let createBookingMode: 'capacity' | 'success' = 'success';
 
 const bookingPayload = {
   id: bookingId,
@@ -38,12 +42,14 @@ const bookingPayload = {
 
 test.describe('reserve routes', () => {
   test.beforeEach(async ({ page }) => {
+    createBookingMode = 'success';
+
     await page.route('**/api/restaurants**', async (route) => {
       const url = new URL(route.request().url());
 
       if (url.pathname.endsWith('/calendar-mask')) {
-        const from = url.searchParams.get('from') ?? '2026-02-01';
-        const to = url.searchParams.get('to') ?? '2026-02-28';
+        const from = url.searchParams.get('from') ?? bookingDate;
+        const to = url.searchParams.get('to') ?? bookingDate;
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -75,8 +81,34 @@ test.describe('reserve routes', () => {
             availableBookingOptions: ['dinner'],
             slots: [
               {
+                value: '18:30',
+                display: '6:30 PM',
+                periodId: null,
+                periodName: 'Dinner',
+                bookingOption: 'dinner',
+                defaultBookingOption: 'dinner',
+                availability: {
+                  services: {},
+                  labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
+                },
+                disabled: false,
+              },
+              {
                 value: bookingStartTime,
                 display: '7:00 PM',
+                periodId: null,
+                periodName: 'Dinner',
+                bookingOption: 'dinner',
+                defaultBookingOption: 'dinner',
+                availability: {
+                  services: {},
+                  labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
+                },
+                disabled: false,
+              },
+              {
+                value: '20:00',
+                display: '8:00 PM',
                 periodId: null,
                 periodName: 'Dinner',
                 bookingOption: 'dinner',
@@ -168,6 +200,23 @@ test.describe('reserve routes', () => {
         return;
       }
 
+      if (createBookingMode === 'capacity') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'CAPACITY_EXCEEDED',
+            message: 'No tables are available at that time. Please choose another slot.',
+            alternatives: [
+              { time: '18:30', available: true, utilizationPercent: 72 },
+              { time: '20:00', available: true, utilizationPercent: 61 },
+            ],
+            retryable: false,
+          }),
+        });
+        return;
+      }
+
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -179,18 +228,90 @@ test.describe('reserve routes', () => {
     });
   });
 
+  async function chooseDefaultRestaurantSlot(page: Page) {
+    await page.goto(`/r/${restaurantSlug}`);
+
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByLabel('1 guest')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Increase guests' }).click();
+    await expect(page.getByLabel('2 guests')).toBeVisible();
+
+    const timeCombobox = page.getByRole('combobox', { name: 'Time' });
+
+    await timeCombobox.click();
+    await page.getByRole('option', { name: '7:00 PM' }).click();
+
+    await expect(timeCombobox).toContainText('7:00 PM');
+    await page.getByRole('button', { name: 'Continue' }).click();
+  }
+
   test('reserve root shows plan step', async ({ page }) => {
     await page.goto('/');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
   test('reserve new alias shows plan step', async ({ page }) => {
     await page.goto('/new');
-    await expect(
-      page.getByRole('heading', { name: 'When would you like to join us?' }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+  });
+
+  test('restaurant-scoped reserve flow updates party size and selected slot', async ({ page }) => {
+    await page.goto(`/r/${restaurantSlug}`);
+
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByLabel('1 guest')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Increase guests' }).click();
+
+    await expect(page.getByLabel('2 guests')).toBeVisible();
+
+    const timeCombobox = page.getByRole('combobox', { name: 'Time' });
+
+    await timeCombobox.click();
+    await page.getByRole('option', { name: '7:00 PM' }).click();
+
+    await expect(timeCombobox).toContainText('7:00 PM');
+  });
+
+  test('@p2 @browser @contract @local-only validates details and shows capacity alternatives before creating a reservation', async ({
+    page,
+  }) => {
+    createBookingMode = 'capacity';
+
+    await chooseDefaultRestaurantSlot(page);
+
+    await expect(page.getByRole('heading', { name: 'Tell us how to reach you' })).toBeVisible();
+
+    await page.getByLabel('Full name').fill('A');
+    await expect(page.getByText('Please enter at least two characters.')).toBeVisible();
+    await page.getByLabel('Full name').fill('Reserve Guest');
+
+    await page.getByLabel('Email address').fill('not-an-email');
+    await expect(page.getByText('Please enter a valid email address.')).toBeVisible();
+    await page.getByLabel('Email address').fill('reserve.guest@example.com');
+
+    await page.getByLabel('UK phone number').fill('12345');
+    await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
+    await page.getByLabel('UK phone number').fill('07123 456789');
+
+    await page.getByRole('button', { name: 'Review booking' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
+    await expect(page.getByText('Reserve Guest')).toBeVisible();
+    await expect(page.getByText('reserve.guest@example.com')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Confirm booking' }).click();
+
+    await expect(page.getByRole('alert')).toContainText(
+      'No tables are available at that time. Please choose another slot.',
+    );
+    await expect(page.getByText('Nearby availability')).toBeVisible();
+
+    await page.getByRole('button', { name: '18:30' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Time' })).toContainText('6:30 PM');
   });
 
   test('reserve reservation details stub renders id', async ({ page }) => {

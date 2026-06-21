@@ -3,8 +3,8 @@
 import { SparklesIcon } from 'lucide-react';
 import React from 'react';
 
-import { FormDescription, FormItem, FormLabel, FormMessage } from '@shared/ui/form';
-import { ToggleGroup, ToggleGroupItem } from '@shared/ui/toggle-group';
+import { FormDescription, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import type { ServiceAvailability } from '@reserve/features/reservations/wizard/services';
 import type { OccasionKey } from '@reserve/shared/occasions';
@@ -43,7 +43,7 @@ export function OccasionPicker({
   return (
     <FormItem className="space-y-3">
       <FormLabel className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
-        <SparklesIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <SparklesIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Occasion</span>
       </FormLabel>
       <ToggleGroup
@@ -64,7 +64,7 @@ export function OccasionPicker({
               value={option.key}
               aria-disabled={ariaDisabled}
               disabled={ariaDisabled}
-              className="h-12 text-sm font-medium transition-all duration-200 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-md hover:bg-primary/10 active:scale-95"
+              className="pg-action h-12 text-sm font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground hover:bg-primary/10 active:scale-95"
             >
               {option.label}
             </ToggleGroupItem>

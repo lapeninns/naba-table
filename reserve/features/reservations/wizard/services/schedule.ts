@@ -114,6 +114,7 @@ export function normalizeReservationSchedulePayload(payload: unknown): Reservati
     restaurantId: toStringOr(record?.restaurantId, ''),
     date: toStringOr(record?.date, ''),
     timezone: toStringOr(record?.timezone, 'UTC'),
+    notes: toNullableString(record?.notes)?.trim() || null,
     intervalMinutes: toPositiveNumberOr(record?.intervalMinutes, 30),
     defaultDurationMinutes,
     lastSeatingBufferMinutes: toPositiveNumberOr(
@@ -157,6 +158,7 @@ export type CalendarMask = {
   to: string;
   closedDaysOfWeek: number[];
   closedDates: string[];
+  overrideDates?: string[];
 };
 
 export const calendarMaskQueryKey = (

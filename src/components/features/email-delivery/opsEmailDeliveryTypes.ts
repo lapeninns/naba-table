@@ -8,6 +8,7 @@ export const OPS_EMAIL_DELIVERY_TABS = ['delivery-log', 'queue', 'analytics'] as
 
 export type OpsEmailDeliveryRefreshOption = (typeof OPS_EMAIL_DELIVERY_REFRESH_OPTIONS)[number];
 export type EmailDeliveryTab = (typeof OPS_EMAIL_DELIVERY_TABS)[number];
+export type OpsEmailDeliverySearchField = 'recipientEmail' | 'messageId' | 'bookingRef';
 
 export type OpsEmailDeliveryClientStateParams = {
   tab: EmailDeliveryTab;

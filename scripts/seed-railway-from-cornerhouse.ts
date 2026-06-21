@@ -1,39 +1,57 @@
-import { randomUUID } from "crypto";
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from 'crypto';
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../types/supabase";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  assertExactSupabaseApiProjectRef,
+  assertProductionApiScriptSafety,
+  assertStagingScriptSafety,
+} from './db/safety';
+import type { Database } from '../types/supabase';
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
 }
 
-const APPLY = process.argv.includes("--apply") || process.env.APPLY === "true";
-const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION === "true";
+const APPLY = process.argv.includes('--apply') || process.env.APPLY === 'true';
+const CONFIRM_PRODUCTION = process.env.CONFIRM_PRODUCTION === 'true';
+const CONFIRM_STAGING_WRITE = process.env.CONFIRM_STAGING_WRITE === 'true';
+const BREAK_GLASS_PRODUCTION = process.env.BREAK_GLASS_PRODUCTION === 'true';
+const CONFIRM_REPLACE_CONFIG = process.env.CONFIRM_REPLACE_CONFIG === 'true';
 const EXPECTED_PROJECT_REF = process.env.EXPECTED_PROJECT_REF?.trim() || null;
-const SOURCE_SLUG = (process.env.SOURCE_SLUG ?? "the-corner-house-pub-cambridge").trim();
-const TARGET_NAME = (process.env.TARGET_NAME ?? "The Railway Pub").trim();
+const SOURCE_SLUG = (process.env.SOURCE_SLUG ?? 'the-corner-house-pub-cambridge').trim();
+const TARGET_NAME = (process.env.TARGET_NAME ?? 'The Railway Pub').trim();
+const TARGET_SLUG = process.env.TARGET_SLUG?.trim() || null;
 const TARGET_RESTAURANT_ID = process.env.TARGET_RESTAURANT_ID?.trim() || null;
+const REPLACE_EXISTING_CONFIG = process.env.REPLACE_EXISTING_CONFIG === 'true';
 const OWNER_EMAIL = process.env.OWNER_EMAIL?.trim();
 const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
 const OWNER_USER_ID = process.env.OWNER_USER_ID?.trim();
+const COPY_SOURCE_OWNER = process.env.COPY_SOURCE_OWNER === 'true';
+const TARGET_CONTACT_EMAIL = process.env.TARGET_CONTACT_EMAIL?.trim();
+const TARGET_CONTACT_PHONE = process.env.TARGET_CONTACT_PHONE?.trim();
+const TARGET_ADDRESS = process.env.TARGET_ADDRESS?.trim();
+const TARGET_GOOGLE_MAP_URL = process.env.TARGET_GOOGLE_MAP_URL?.trim();
+const TARGET_GOOGLE_REVIEW_URL = process.env.TARGET_GOOGLE_REVIEW_URL?.trim();
+const TARGET_BOOKING_POLICY = process.env.TARGET_BOOKING_POLICY?.trim();
+const TARGET_LOGO_URL = process.env.TARGET_LOGO_URL?.trim();
 
 type TablesScope =
-  | "allowed_capacities"
-  | "restaurant_operating_hours"
-  | "restaurant_service_periods"
-  | "zones"
-  | "table_inventory"
-  | "table_adjacencies"
-  | "restaurant_capacity_rules";
+  | 'allowed_capacities'
+  | 'restaurant_operating_hours'
+  | 'restaurant_service_periods'
+  | 'zones'
+  | 'table_inventory'
+  | 'table_adjacencies'
+  | 'restaurant_capacity_rules';
 
 type CopySummary = {
   table: TablesScope;
@@ -44,28 +62,112 @@ type CopySummary = {
 function requireEnv(): void {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const targetEnv =
+    process.env.DB_TARGET_ENV?.trim().toLowerCase() ||
+    process.env.APP_ENV?.trim().toLowerCase() ||
+    '';
 
   if (!url || !key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment.");
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment.',
+    );
   }
 
   if (!SOURCE_SLUG) {
-    throw new Error("SOURCE_SLUG is required.");
+    throw new Error('SOURCE_SLUG is required.');
   }
 
   if (!TARGET_NAME) {
-    throw new Error("TARGET_NAME is required.");
+    throw new Error('TARGET_NAME is required.');
   }
 
-  if (APPLY && !CONFIRM_PRODUCTION) {
-    throw new Error("APPLY requested without CONFIRM_PRODUCTION=true. Refusing to write in production.");
+  if (!EXPECTED_PROJECT_REF) {
+    throw new Error('EXPECTED_PROJECT_REF is required before using the service-role key.');
   }
 
-  if (CONFIRM_PRODUCTION && EXPECTED_PROJECT_REF && !url?.includes(EXPECTED_PROJECT_REF)) {
-    throw new Error(
-      `Supabase URL does not match expected project ref (${EXPECTED_PROJECT_REF}). Aborting.`,
-    );
+  if (REPLACE_EXISTING_CONFIG) {
+    if (!APPLY) {
+      throw new Error('REPLACE_EXISTING_CONFIG=true requires APPLY=true.');
+    }
+    if (!TARGET_RESTAURANT_ID) {
+      throw new Error('REPLACE_EXISTING_CONFIG=true requires TARGET_RESTAURANT_ID.');
+    }
+    if (!CONFIRM_REPLACE_CONFIG) {
+      throw new Error('CONFIRM_REPLACE_CONFIG=true is required to replace target config rows.');
+    }
   }
+
+  if (!targetEnv) {
+    throw new Error('DB_TARGET_ENV or APP_ENV is required before using the service-role key.');
+  }
+
+  if (targetEnv === 'production') {
+    if (REPLACE_EXISTING_CONFIG && !BREAK_GLASS_PRODUCTION) {
+      throw new Error(
+        'BREAK_GLASS_PRODUCTION=true is required to replace existing config rows in production.',
+      );
+    }
+    assertProductionApiScriptSafety({
+      apiUrl: url,
+      expectedProjectRef: EXPECTED_PROJECT_REF,
+      targetEnv,
+      requireTargetEnv: true,
+      apply: APPLY,
+      confirmation: CONFIRM_PRODUCTION ? 'true' : undefined,
+    });
+    return;
+  }
+
+  if (targetEnv === 'staging') {
+    if (APPLY) {
+      assertStagingScriptSafety({
+        apiUrl: url,
+        expectedProjectRef: EXPECTED_PROJECT_REF,
+        targetEnv,
+        confirmation: CONFIRM_STAGING_WRITE ? 'true' : undefined,
+      });
+    } else {
+      assertExactSupabaseApiProjectRef(url, EXPECTED_PROJECT_REF);
+    }
+    return;
+  }
+
+  throw new Error(`Unsupported DB_TARGET_ENV/APP_ENV for restaurant seed: ${targetEnv}.`);
+}
+
+async function resolveSourceOwnerId(supabase: SupabaseClient<Database>): Promise<string> {
+  const { data: sourceRestaurant, error: sourceError } = await supabase
+    .from('restaurants')
+    .select('id')
+    .eq('slug', SOURCE_SLUG)
+    .maybeSingle();
+
+  if (sourceError) {
+    throw new Error(`Failed to resolve source restaurant ${SOURCE_SLUG}: ${sourceError.message}`);
+  }
+
+  if (!sourceRestaurant?.id) {
+    throw new Error(`Source restaurant not found for slug: ${SOURCE_SLUG}`);
+  }
+
+  const { data, error } = await supabase
+    .from('restaurant_memberships')
+    .select('user_id, role')
+    .eq('restaurant_id', sourceRestaurant.id)
+    .in('role', ['owner', 'manager'])
+    .order('role', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    throw new Error(`Failed to resolve source owner from ${SOURCE_SLUG}: ${error.message}`);
+  }
+
+  const ownerId = data?.[0]?.user_id;
+  if (!ownerId) {
+    throw new Error(`No owner or manager membership found for source restaurant: ${SOURCE_SLUG}`);
+  }
+
+  return ownerId;
 }
 
 async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<string> {
@@ -75,7 +177,7 @@ async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<strin
 
   if (OWNER_EMAIL) {
     if (!OWNER_PASSWORD) {
-      throw new Error("OWNER_PASSWORD is required to create the owner user.");
+      throw new Error('OWNER_PASSWORD is required to create the owner user.');
     }
 
     const { data, error } = await supabase.auth.admin.createUser({
@@ -85,10 +187,10 @@ async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<strin
     });
 
     if (error || !data.user?.id) {
-      const message = error?.message ?? "unknown error";
+      const message = error?.message ?? 'unknown error';
       if (/already|exists|duplicate/i.test(message)) {
         throw new Error(
-          "Owner email already exists. Provide OWNER_USER_ID to continue without listing users.",
+          'Owner email already exists. Provide OWNER_USER_ID to continue without listing users.',
         );
       }
       throw new Error(`Failed to create owner user: ${message}`);
@@ -97,15 +199,18 @@ async function resolveOwnerId(supabase: SupabaseClient<Database>): Promise<strin
     return data.user.id;
   }
 
-  throw new Error("Set OWNER_USER_ID or OWNER_EMAIL to assign the new restaurant owner.");
-}
+  if (COPY_SOURCE_OWNER) {
+    return resolveSourceOwnerId(supabase);
+  }
 
+  throw new Error('Set OWNER_USER_ID or OWNER_EMAIL to assign the new restaurant owner.');
+}
 
 async function loadSourceRestaurant(supabase: SupabaseClient<Database>) {
   const { data, error } = await supabase
-    .from("restaurants")
-    .select("*")
-    .eq("slug", SOURCE_SLUG)
+    .from('restaurants')
+    .select('*')
+    .eq('slug', SOURCE_SLUG)
     .maybeSingle();
 
   if (error) {
@@ -125,15 +230,85 @@ async function getRestaurantCount(
   restaurantId: string,
 ): Promise<number> {
   const { count, error } = await supabase
-    .from(table as keyof Database["public"]["Tables"])
-    .select("restaurant_id", { count: "exact", head: true })
-    .eq("restaurant_id", restaurantId);
+    .from(table as keyof Database['public']['Tables'])
+    .select('restaurant_id', { count: 'exact', head: true })
+    .eq('restaurant_id', restaurantId);
 
   if (error) {
     throw new Error(`Failed to count ${table}: ${error.message}`);
   }
 
   return count ?? 0;
+}
+
+async function replaceExistingConfig(
+  supabase: SupabaseClient<Database>,
+  targetId: string,
+): Promise<CopySummary[]> {
+  const { count: bookingCount, error: bookingError } = await supabase
+    .from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('restaurant_id', targetId);
+
+  if (bookingError) {
+    throw new Error(
+      `Failed to count target bookings before config replacement: ${bookingError.message}`,
+    );
+  }
+
+  if ((bookingCount ?? 0) > 0) {
+    throw new Error(
+      `Refusing to replace config for ${targetId}: ${bookingCount} booking(s) already exist.`,
+    );
+  }
+
+  const summary: CopySummary[] = [];
+  const { data: targetTables, error: tableLoadError } = await supabase
+    .from('table_inventory')
+    .select('id')
+    .eq('restaurant_id', targetId);
+
+  if (tableLoadError) {
+    throw new Error(
+      `Failed to load target tables before config replacement: ${tableLoadError.message}`,
+    );
+  }
+
+  const tableIds = (targetTables ?? []).map((row) => row.id);
+  if (tableIds.length > 0) {
+    const { count, error } = await supabase
+      .from('table_adjacencies')
+      .delete({ count: 'exact' })
+      .or(`table_a.in.(${tableIds.join(',')}),table_b.in.(${tableIds.join(',')})`);
+    if (error) {
+      throw new Error(`Failed to delete target table_adjacencies: ${error.message}`);
+    }
+    summary.push({ table: 'table_adjacencies', rows: count ?? 0 });
+  } else {
+    summary.push({ table: 'table_adjacencies', rows: 0 });
+  }
+
+  const targetTablesInDeleteOrder: TablesScope[] = [
+    'restaurant_capacity_rules',
+    'table_inventory',
+    'zones',
+    'restaurant_service_periods',
+    'restaurant_operating_hours',
+    'allowed_capacities',
+  ];
+
+  for (const table of targetTablesInDeleteOrder) {
+    const { count, error } = await supabase
+      .from(table as keyof Database['public']['Tables'])
+      .delete({ count: 'exact' })
+      .eq('restaurant_id', targetId);
+    if (error) {
+      throw new Error(`Failed to delete target ${table}: ${error.message}`);
+    }
+    summary.push({ table, rows: count ?? 0 });
+  }
+
+  return summary;
 }
 
 async function copyAllowedCapacities(
@@ -143,16 +318,16 @@ async function copyAllowedCapacities(
   apply: boolean,
 ): Promise<CopySummary> {
   if (apply) {
-    const existing = await getRestaurantCount(supabase, "allowed_capacities", targetId);
+    const existing = await getRestaurantCount(supabase, 'allowed_capacities', targetId);
     if (existing > 0) {
-      return { table: "allowed_capacities", rows: existing, skipped: true };
+      return { table: 'allowed_capacities', rows: existing, skipped: true };
     }
   }
 
   const { data, error } = await supabase
-    .from("allowed_capacities")
-    .select("capacity")
-    .eq("restaurant_id", sourceId);
+    .from('allowed_capacities')
+    .select('capacity')
+    .eq('restaurant_id', sourceId);
 
   if (error) {
     throw new Error(`Failed to load allowed_capacities: ${error.message}`);
@@ -164,13 +339,13 @@ async function copyAllowedCapacities(
   }));
 
   if (apply && payload.length > 0) {
-    const { error: insertError } = await supabase.from("allowed_capacities").insert(payload);
+    const { error: insertError } = await supabase.from('allowed_capacities').insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert allowed_capacities: ${insertError.message}`);
     }
   }
 
-  return { table: "allowed_capacities", rows: payload.length };
+  return { table: 'allowed_capacities', rows: payload.length };
 }
 
 async function copyOperatingHours(
@@ -180,16 +355,16 @@ async function copyOperatingHours(
   apply: boolean,
 ): Promise<CopySummary> {
   if (apply) {
-    const existing = await getRestaurantCount(supabase, "restaurant_operating_hours", targetId);
+    const existing = await getRestaurantCount(supabase, 'restaurant_operating_hours', targetId);
     if (existing > 0) {
-      return { table: "restaurant_operating_hours", rows: existing, skipped: true };
+      return { table: 'restaurant_operating_hours', rows: existing, skipped: true };
     }
   }
 
   const { data, error } = await supabase
-    .from("restaurant_operating_hours")
-    .select("*")
-    .eq("restaurant_id", sourceId);
+    .from('restaurant_operating_hours')
+    .select('*')
+    .eq('restaurant_id', sourceId);
 
   if (error) {
     throw new Error(`Failed to load restaurant_operating_hours: ${error.message}`);
@@ -207,13 +382,15 @@ async function copyOperatingHours(
   }));
 
   if (apply && payload.length > 0) {
-    const { error: insertError } = await supabase.from("restaurant_operating_hours").insert(payload);
+    const { error: insertError } = await supabase
+      .from('restaurant_operating_hours')
+      .insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert restaurant_operating_hours: ${insertError.message}`);
     }
   }
 
-  return { table: "restaurant_operating_hours", rows: payload.length };
+  return { table: 'restaurant_operating_hours', rows: payload.length };
 }
 
 async function copyServicePeriods(
@@ -223,9 +400,9 @@ async function copyServicePeriods(
   apply: boolean,
 ): Promise<{ summary: CopySummary; map: Map<string, string> }> {
   const { data: sourceRows, error } = await supabase
-    .from("restaurant_service_periods")
-    .select("*")
-    .eq("restaurant_id", sourceId);
+    .from('restaurant_service_periods')
+    .select('*')
+    .eq('restaurant_id', sourceId);
 
   if (error) {
     throw new Error(`Failed to load restaurant_service_periods: ${error.message}`);
@@ -234,12 +411,12 @@ async function copyServicePeriods(
   const source = sourceRows ?? [];
 
   if (apply) {
-    const existing = await getRestaurantCount(supabase, "restaurant_service_periods", targetId);
+    const existing = await getRestaurantCount(supabase, 'restaurant_service_periods', targetId);
     if (existing > 0) {
       const { data: targetRows, error: targetError } = await supabase
-        .from("restaurant_service_periods")
-        .select("id, name, day_of_week, start_time, end_time, booking_option")
-        .eq("restaurant_id", targetId);
+        .from('restaurant_service_periods')
+        .select('id, name, day_of_week, start_time, end_time, booking_option')
+        .eq('restaurant_id', targetId);
 
       if (targetError) {
         throw new Error(`Failed to load target service periods: ${targetError.message}`);
@@ -247,22 +424,24 @@ async function copyServicePeriods(
 
       const targetByKey = new Map<string, string>();
       for (const row of targetRows ?? []) {
-        const key = `${row.name}|${row.day_of_week ?? ""}|${row.start_time}|${row.end_time}|${row.booking_option}`;
+        const key = `${row.name}|${row.day_of_week ?? ''}|${row.start_time}|${row.end_time}|${row.booking_option}`;
         targetByKey.set(key, row.id);
       }
 
       const idMap = new Map<string, string>();
       for (const row of source) {
-        const key = `${row.name}|${row.day_of_week ?? ""}|${row.start_time}|${row.end_time}|${row.booking_option}`;
+        const key = `${row.name}|${row.day_of_week ?? ''}|${row.start_time}|${row.end_time}|${row.booking_option}`;
         const targetMatch = targetByKey.get(key);
         if (!targetMatch) {
-          throw new Error(`Missing service period match for "${row.name}" (${row.start_time}-${row.end_time})`);
+          throw new Error(
+            `Missing service period match for "${row.name}" (${row.start_time}-${row.end_time})`,
+          );
         }
         idMap.set(row.id, targetMatch);
       }
 
       return {
-        summary: { table: "restaurant_service_periods", rows: existing, skipped: true },
+        summary: { table: 'restaurant_service_periods', rows: existing, skipped: true },
         map: idMap,
       };
     }
@@ -284,13 +463,15 @@ async function copyServicePeriods(
   });
 
   if (apply && payload.length > 0) {
-    const { error: insertError } = await supabase.from("restaurant_service_periods").insert(payload);
+    const { error: insertError } = await supabase
+      .from('restaurant_service_periods')
+      .insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert restaurant_service_periods: ${insertError.message}`);
     }
   }
 
-  return { summary: { table: "restaurant_service_periods", rows: payload.length }, map: idMap };
+  return { summary: { table: 'restaurant_service_periods', rows: payload.length }, map: idMap };
 }
 
 async function copyZones(
@@ -300,9 +481,9 @@ async function copyZones(
   apply: boolean,
 ): Promise<{ summary: CopySummary; map: Map<string, string> }> {
   const { data: sourceRows, error } = await supabase
-    .from("zones")
-    .select("*")
-    .eq("restaurant_id", sourceId);
+    .from('zones')
+    .select('*')
+    .eq('restaurant_id', sourceId);
 
   if (error) {
     throw new Error(`Failed to load zones: ${error.message}`);
@@ -311,34 +492,34 @@ async function copyZones(
   const source = sourceRows ?? [];
 
   if (apply) {
-      const existing = await getRestaurantCount(supabase, "zones", targetId);
-      if (existing > 0) {
-        const { data: targetRows, error: targetError } = await supabase
-          .from("zones")
-          .select("id, name, sort_order")
-          .eq("restaurant_id", targetId);
+    const existing = await getRestaurantCount(supabase, 'zones', targetId);
+    if (existing > 0) {
+      const { data: targetRows, error: targetError } = await supabase
+        .from('zones')
+        .select('id, name, sort_order')
+        .eq('restaurant_id', targetId);
 
-        if (targetError) {
-          throw new Error(`Failed to load target zones: ${targetError.message}`);
-        }
-
-        const targetByKey = new Map<string, string>();
-        for (const row of targetRows ?? []) {
-          const key = `${row.name}|${row.sort_order ?? ""}`;
-          targetByKey.set(key, row.id);
-        }
-
-        const idMap = new Map<string, string>();
-        for (const row of source) {
-          const key = `${row.name}|${row.sort_order ?? ""}`;
-          const match = targetByKey.get(key);
-          if (!match) {
-            throw new Error(`Missing zone match for "${row.name}" (sort ${row.sort_order ?? "-"})`);
-          }
-          idMap.set(row.id, match);
+      if (targetError) {
+        throw new Error(`Failed to load target zones: ${targetError.message}`);
       }
 
-      return { summary: { table: "zones", rows: existing, skipped: true }, map: idMap };
+      const targetByKey = new Map<string, string>();
+      for (const row of targetRows ?? []) {
+        const key = `${row.name}|${row.sort_order ?? ''}`;
+        targetByKey.set(key, row.id);
+      }
+
+      const idMap = new Map<string, string>();
+      for (const row of source) {
+        const key = `${row.name}|${row.sort_order ?? ''}`;
+        const match = targetByKey.get(key);
+        if (!match) {
+          throw new Error(`Missing zone match for "${row.name}" (sort ${row.sort_order ?? '-'})`);
+        }
+        idMap.set(row.id, match);
+      }
+
+      return { summary: { table: 'zones', rows: existing, skipped: true }, map: idMap };
     }
   }
 
@@ -356,13 +537,13 @@ async function copyZones(
   });
 
   if (apply && payload.length > 0) {
-    const { error: insertError } = await supabase.from("zones").insert(payload);
+    const { error: insertError } = await supabase.from('zones').insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert zones: ${insertError.message}`);
     }
   }
 
-  return { summary: { table: "zones", rows: payload.length }, map: idMap };
+  return { summary: { table: 'zones', rows: payload.length }, map: idMap };
 }
 
 async function copyTables(
@@ -373,9 +554,9 @@ async function copyTables(
   apply: boolean,
 ): Promise<{ summary: CopySummary; map: Map<string, string> }> {
   const { data: sourceRows, error } = await supabase
-    .from("table_inventory")
-    .select("*")
-    .eq("restaurant_id", sourceId);
+    .from('table_inventory')
+    .select('*')
+    .eq('restaurant_id', sourceId);
 
   if (error) {
     throw new Error(`Failed to load table_inventory: ${error.message}`);
@@ -384,12 +565,12 @@ async function copyTables(
   const source = sourceRows ?? [];
 
   if (apply) {
-    const existing = await getRestaurantCount(supabase, "table_inventory", targetId);
+    const existing = await getRestaurantCount(supabase, 'table_inventory', targetId);
     if (existing > 0) {
       const { data: targetRows, error: targetError } = await supabase
-        .from("table_inventory")
-        .select("id, zone_id, table_number")
-        .eq("restaurant_id", targetId);
+        .from('table_inventory')
+        .select('id, zone_id, table_number')
+        .eq('restaurant_id', targetId);
 
       if (targetError) {
         throw new Error(`Failed to load target table_inventory: ${targetError.message}`);
@@ -415,7 +596,7 @@ async function copyTables(
         idMap.set(row.id, match);
       }
 
-      return { summary: { table: "table_inventory", rows: existing, skipped: true }, map: idMap };
+      return { summary: { table: 'table_inventory', rows: existing, skipped: true }, map: idMap };
     }
   }
 
@@ -449,13 +630,13 @@ async function copyTables(
   });
 
   if (apply && payload.length > 0) {
-    const { error: insertError } = await supabase.from("table_inventory").insert(payload);
+    const { error: insertError } = await supabase.from('table_inventory').insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert table_inventory: ${insertError.message}`);
     }
   }
 
-  return { summary: { table: "table_inventory", rows: payload.length }, map: idMap };
+  return { summary: { table: 'table_inventory', rows: payload.length }, map: idMap };
 }
 
 async function copyTableAdjacencies(
@@ -464,15 +645,15 @@ async function copyTableAdjacencies(
   apply: boolean,
 ): Promise<CopySummary> {
   if (tableMap.size === 0) {
-    return { table: "table_adjacencies", rows: 0 };
+    return { table: 'table_adjacencies', rows: 0 };
   }
 
   if (apply) {
     const targetIds = Array.from(tableMap.values());
-    const inList = targetIds.join(",");
+    const inList = targetIds.join(',');
     const { count, error } = await supabase
-      .from("table_adjacencies")
-      .select("table_a", { count: "exact", head: true })
+      .from('table_adjacencies')
+      .select('table_a', { count: 'exact', head: true })
       .or(`table_a.in.(${inList}),table_b.in.(${inList})`);
 
     if (error) {
@@ -480,15 +661,15 @@ async function copyTableAdjacencies(
     }
 
     if ((count ?? 0) > 0) {
-      return { table: "table_adjacencies", rows: count ?? 0, skipped: true };
+      return { table: 'table_adjacencies', rows: count ?? 0, skipped: true };
     }
   }
 
   const sourceIds = Array.from(tableMap.keys());
-  const sourceInList = sourceIds.join(",");
+  const sourceInList = sourceIds.join(',');
   const { data, error } = await supabase
-    .from("table_adjacencies")
-    .select("table_a, table_b")
+    .from('table_adjacencies')
+    .select('table_a, table_b')
     .or(`table_a.in.(${sourceInList}),table_b.in.(${sourceInList})`);
 
   if (error) {
@@ -510,13 +691,13 @@ async function copyTableAdjacencies(
     .filter((row): row is { table_a: string; table_b: string } => Boolean(row));
 
   if (apply && payload.length > 0) {
-    const { error: insertError } = await supabase.from("table_adjacencies").insert(payload);
+    const { error: insertError } = await supabase.from('table_adjacencies').insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert table_adjacencies: ${insertError.message}`);
     }
   }
 
-  return { table: "table_adjacencies", rows: payload.length };
+  return { table: 'table_adjacencies', rows: payload.length };
 }
 
 async function copyCapacityRules(
@@ -527,17 +708,17 @@ async function copyCapacityRules(
   apply: boolean,
 ): Promise<CopySummary> {
   if (apply) {
-    const existing = await getRestaurantCount(supabase, "restaurant_capacity_rules", targetId);
+    const existing = await getRestaurantCount(supabase, 'restaurant_capacity_rules', targetId);
     if (existing > 0) {
-      return { table: "restaurant_capacity_rules", rows: existing, skipped: true };
+      return { table: 'restaurant_capacity_rules', rows: existing, skipped: true };
     }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
-    .from("restaurant_capacity_rules")
-    .select("*")
-    .eq("restaurant_id", sourceId);
+    .from('restaurant_capacity_rules')
+    .select('*')
+    .eq('restaurant_id', sourceId);
 
   if (error) {
     throw new Error(`Failed to load restaurant_capacity_rules: ${error.message}`);
@@ -580,57 +761,67 @@ async function copyCapacityRules(
 
   if (apply && payload.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (supabase as any).from("restaurant_capacity_rules").insert(payload);
+    const { error: insertError } = await (supabase as any)
+      .from('restaurant_capacity_rules')
+      .insert(payload);
     if (insertError) {
       throw new Error(`Failed to insert restaurant_capacity_rules: ${insertError.message}`);
     }
   }
 
-  return { table: "restaurant_capacity_rules", rows: payload.length };
+  return { table: 'restaurant_capacity_rules', rows: payload.length };
 }
 
 async function main(): Promise<void> {
   requireEnv();
 
-  const [{ createRestaurant }, { createRestaurantSchema }, { getServiceSupabaseClient }] = await Promise.all([
-    import("../server/restaurants/create"),
-    import("../src/app/api/ops/restaurants/schema"),
-    import("../server/supabase"),
+  const [
+    { createRestaurant },
+    { createRestaurantSchema },
+    { getServiceSupabaseClient, resolveServiceRoleSupabaseUrl },
+  ] = await Promise.all([
+    import('../server/restaurants/create'),
+    import('../src/app/api/ops/restaurants/schema'),
+    import('../server/supabase'),
   ]);
+
+  assertExactSupabaseApiProjectRef(resolveServiceRoleSupabaseUrl(), EXPECTED_PROJECT_REF!);
 
   const supabase = getServiceSupabaseClient();
   const sourceRestaurant = await loadSourceRestaurant(supabase);
 
   const seedInput = {
     name: TARGET_NAME,
+    ...(TARGET_SLUG ? { slug: TARGET_SLUG } : {}),
     timezone: sourceRestaurant.timezone,
     capacity: sourceRestaurant.capacity,
-    contactEmail: sourceRestaurant.contact_email,
-    contactPhone: sourceRestaurant.contact_phone,
-    address: sourceRestaurant.address,
-    googleMapUrl: sourceRestaurant.google_map_url,
-    googleReviewUrl: sourceRestaurant.google_review_url,
-    bookingPolicy: sourceRestaurant.booking_policy,
-    logoUrl: sourceRestaurant.logo_url,
+    contactEmail: TARGET_CONTACT_EMAIL ?? sourceRestaurant.contact_email,
+    contactPhone: TARGET_CONTACT_PHONE ?? sourceRestaurant.contact_phone,
+    address: TARGET_ADDRESS ?? sourceRestaurant.address,
+    googleMapUrl: TARGET_GOOGLE_MAP_URL ?? sourceRestaurant.google_map_url,
+    googleReviewUrl: TARGET_GOOGLE_REVIEW_URL ?? sourceRestaurant.google_review_url,
+    bookingPolicy: TARGET_BOOKING_POLICY ?? sourceRestaurant.booking_policy,
+    logoUrl: TARGET_LOGO_URL ?? sourceRestaurant.logo_url,
     emailSendReminder24h: sourceRestaurant.email_send_reminder_24h,
     emailSendReminderShort: sourceRestaurant.email_send_reminder_short,
     emailSendReviewRequest: sourceRestaurant.email_send_review_request,
     reservationIntervalMinutes: sourceRestaurant.reservation_interval_minutes,
     reservationDefaultDurationMinutes: sourceRestaurant.reservation_default_duration_minutes,
-    reservationLastSeatingBufferMinutes: sourceRestaurant.reservation_last_seating_buffer_minutes ?? undefined,
+    reservationLastSeatingBufferMinutes:
+      sourceRestaurant.reservation_last_seating_buffer_minutes ?? undefined,
     reservationLifecycleGraceMinutes: sourceRestaurant.reservation_lifecycle_grace_minutes,
   };
 
   const validated = createRestaurantSchema.parse(seedInput);
   const restaurantId = APPLY ? undefined : randomUUID();
-  let ownerId = APPLY ? "unknown" : "dry-run";
+  let ownerId = APPLY ? 'unknown' : 'dry-run';
   let restaurant: { id: string; name: string; slug: string } | null = null;
 
   if (APPLY && TARGET_RESTAURANT_ID) {
     const { data: existing, error: existingError } = await supabase
-      .from("restaurants")
-      .select("id, name, slug")
-      .eq("id", TARGET_RESTAURANT_ID)
+      .from('restaurants')
+      .select('id, name, slug')
+      .eq('id', TARGET_RESTAURANT_ID)
       .maybeSingle();
 
     if (existingError) {
@@ -642,7 +833,7 @@ async function main(): Promise<void> {
     }
 
     restaurant = existing;
-    ownerId = "existing";
+    ownerId = 'existing';
   } else if (APPLY) {
     ownerId = await resolveOwnerId(supabase);
     restaurant = await createRestaurant(validated, ownerId, supabase);
@@ -650,42 +841,28 @@ async function main(): Promise<void> {
 
   const targetId = restaurant?.id ?? restaurantId!;
 
+  const replacementSummary =
+    APPLY && REPLACE_EXISTING_CONFIG ? await replaceExistingConfig(supabase, targetId) : [];
   const summary: CopySummary[] = [];
+  summary.push(...replacementSummary.map((item) => ({ ...item, skipped: false })));
   summary.push(await copyAllowedCapacities(supabase, sourceRestaurant.id, targetId, APPLY));
   summary.push(await copyOperatingHours(supabase, sourceRestaurant.id, targetId, APPLY));
 
-  const servicePeriods = await copyServicePeriods(
-    supabase,
-    sourceRestaurant.id,
-    targetId,
-    APPLY,
-  );
+  const servicePeriods = await copyServicePeriods(supabase, sourceRestaurant.id, targetId, APPLY);
   summary.push(servicePeriods.summary);
 
   const zones = await copyZones(supabase, sourceRestaurant.id, targetId, APPLY);
   summary.push(zones.summary);
 
-  const tables = await copyTables(
-    supabase,
-    sourceRestaurant.id,
-    targetId,
-    zones.map,
-    APPLY,
-  );
+  const tables = await copyTables(supabase, sourceRestaurant.id, targetId, zones.map, APPLY);
   summary.push(tables.summary);
 
   summary.push(await copyTableAdjacencies(supabase, tables.map, APPLY));
   summary.push(
-    await copyCapacityRules(
-      supabase,
-      sourceRestaurant.id,
-      targetId,
-      servicePeriods.map,
-      APPLY,
-    ),
+    await copyCapacityRules(supabase, sourceRestaurant.id, targetId, servicePeriods.map, APPLY),
   );
 
-  console.log("Seed summary:");
+  console.log('Seed summary:');
   console.table(
     summary.map((item) => ({
       table: item.table,
@@ -695,17 +872,20 @@ async function main(): Promise<void> {
     })),
   );
 
-  console.log("New restaurant:");
+  console.log('New restaurant:');
   console.log({
-    id: restaurant?.id ?? "(dry-run)",
+    id: restaurant?.id ?? '(dry-run)',
     name: restaurant?.name ?? TARGET_NAME,
-    slug: restaurant?.slug ?? "(auto-generated on apply)",
+    slug: restaurant?.slug ?? '(auto-generated on apply)',
     ownerId,
     sourceSlug: SOURCE_SLUG,
   });
 }
 
 void main().catch((error) => {
-  console.error("[seed-railway-from-cornerhouse] Failed:", error instanceof Error ? error.message : error);
+  console.error(
+    '[seed-railway-from-cornerhouse] Failed:',
+    error instanceof Error ? error.message : error,
+  );
   process.exit(1);
 });

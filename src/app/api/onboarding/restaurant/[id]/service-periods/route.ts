@@ -1,45 +1,55 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
+import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
+import { withRestaurantAuthorization } from '@/server/auth/guards';
 import { updateServicePeriods } from '@/server/restaurants/servicePeriods';
-import { validateCsrfToken } from '@/server/security/csrf';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+const MAX_ONBOARDING_SERVICE_PERIODS = 50;
+const MAX_ONBOARDING_SERVICE_PERIOD_NAME_LENGTH = 80;
+const MAX_ONBOARDING_BOOKING_OPTION_LENGTH = 32;
+
 const periodSchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().trim().min(1),
+  name: z.string().trim().min(1).max(MAX_ONBOARDING_SERVICE_PERIOD_NAME_LENGTH),
   dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
-  startTime: z.string().trim(),
-  endTime: z.string().trim(),
-  bookingOption: z.string().trim().min(1),
+  startTime: z.string().trim().max(8),
+  endTime: z.string().trim().max(8),
+  bookingOption: z.string().trim().min(1).max(MAX_ONBOARDING_BOOKING_OPTION_LENGTH),
 });
 
 const requestSchema = z.object({
-  servicePeriods: z.array(periodSchema),
+  servicePeriods: z.array(periodSchema).max(MAX_ONBOARDING_SERVICE_PERIODS),
 });
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
-  if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
-  }
-
   const { id: restaurantId } = await context.params;
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    return NextResponse.json({ message: 'Unable to verify session' }, { status: 500 });
+  const authorization = await withRestaurantAuthorization(req, restaurantId, {
+    csrf: true,
+    roles: RESTAURANT_ADMIN_ROLES,
+  });
+  if (!authorization.ok) {
+    return authorization.response;
   }
 
-  if (!user) {
-    return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+  const rateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'onboarding:service-periods',
+    tenantId: restaurantId,
+    userId: authorization.user.id,
+    limit: 10,
+    windowMs: 60_000,
+    message: 'Too many service-period updates. Please try again in a moment.',
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   let payload: unknown;
@@ -51,15 +61,28 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ message: 'Validation failed', details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { message: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   try {
-    const periods = await updateServicePeriods(restaurantId, parsed.data.servicePeriods, getServiceSupabaseClient());
+    const periods = await updateServicePeriods(
+      restaurantId,
+      parsed.data.servicePeriods,
+      getServiceSupabaseClient(),
+    );
     return NextResponse.json({ servicePeriods: periods });
   } catch (updateError) {
     console.error('[onboarding][service-periods][PATCH]', updateError);
-    const message = updateError instanceof Error ? updateError.message : 'Unable to save service periods';
+    captureServerException(updateError, {
+      distinctId: authorization.user.id,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'api', kind: 'onboarding-service-periods' },
+    });
+    const message =
+      updateError instanceof Error ? updateError.message : 'Unable to save service periods';
     return NextResponse.json({ message }, { status: 500 });
   }
 }

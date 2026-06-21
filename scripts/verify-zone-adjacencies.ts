@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 
+import { getPgSslConfig } from './db/pg-ssl';
+
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), '..');
 const envLocalPath = path.join(projectRoot, '.env.local');
@@ -58,11 +60,13 @@ type VerifyResult = {
     actualEdges: number;
     missingEdges: number;
     extraEdges: number;
+    crossRestaurantEdges: number;
   };
   zones: ZoneSummary[];
   samples: {
     missing: string[];
     extra: string[];
+    crossRestaurant: string[];
   };
 };
 
@@ -99,7 +103,7 @@ function buildExpectedEdgesByZone(eligibleByZone: Map<string, string[]>): Set<st
 }
 
 async function main(): Promise<void> {
-  const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString, ssl: getPgSslConfig() });
   await client.connect();
 
   try {
@@ -181,10 +185,13 @@ async function main(): Promise<void> {
 
     const actual = new Set<string>();
     const extras = new Set<string>();
+    const crossRestaurantEdges = new Set<string>();
     for (const row of adjacencyRes.rows) {
       if (!row.table_a || !row.table_b) continue;
-      // Only consider edges fully inside our filtered restaurant scope.
-      if (!tableIdSet.has(row.table_a) || !tableIdSet.has(row.table_b)) continue;
+      if (!tableIdSet.has(row.table_a) || !tableIdSet.has(row.table_b)) {
+        crossRestaurantEdges.add(`${row.table_a}|${row.table_b}`);
+        continue;
+      }
       if (row.table_a === row.table_b) {
         extras.add(`${row.table_a}|${row.table_b}`);
         continue;
@@ -253,13 +260,16 @@ async function main(): Promise<void> {
         actualEdges: actualWithinZonesTotal,
         missingEdges: missing.length,
         extraEdges: extras.size,
+        crossRestaurantEdges: crossRestaurantEdges.size,
       },
       zones: zoneSummaries,
       samples: {
         missing: missing.slice(0, 25),
         extra: Array.from(extras).slice(0, 25),
+        crossRestaurant: Array.from(crossRestaurantEdges).slice(0, 25),
       },
     };
+    result.ok = result.ok && crossRestaurantEdges.size === 0;
 
     const serialized = JSON.stringify(result, null, 2);
     if (OUT_PATH) {

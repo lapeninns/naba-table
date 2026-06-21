@@ -74,7 +74,7 @@ describe('twilio sms delivery', () => {
       apiKeySecret: 'secret',
       messagingServiceSid: 'MG123',
       to: '+449876543210',
-      body: 'Old Crown Girton: Today 10 bkgs, 140 covers. Lunch 4/52. Dinner 6/88.',
+      body: 'Old Crown Girton: Today 10 bkgs, 140 covers. Lunch 4/52. Dinner 6/88. app.nabatable.com',
     });
 
     expect(url).toBe('https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json');
@@ -86,7 +86,7 @@ describe('twilio sms delivery', () => {
     const params = new URLSearchParams(init.body as string);
     expect(params.get('To')).toBe('+449876543210');
     expect(params.get('Body')).toBe(
-      'Old Crown Girton: Today 10 bkgs, 140 covers. Lunch 4/52. Dinner 6/88.',
+      'Old Crown Girton: Today 10 bkgs, 140 covers. Lunch 4/52. Dinner 6/88. app.nabatable.com',
     );
     expect(params.get('MessagingServiceSid')).toBe('MG123');
   });
@@ -100,9 +100,11 @@ describe('twilio sms delivery', () => {
         messagingServiceSid: 'MG123',
         to: '+449876543210',
         body: 'hello',
-        fetchImpl: vi.fn().mockResolvedValue(
-          new Response(JSON.stringify({ message: 'slow down' }), { status: 429 }),
-        ),
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(
+            new Response(JSON.stringify({ message: 'slow down' }), { status: 429 }),
+          ),
       }),
     ).rejects.toBeInstanceOf(RetryableDispatchError);
 
@@ -114,9 +116,11 @@ describe('twilio sms delivery', () => {
         messagingServiceSid: 'MG123',
         to: '+449876543210',
         body: 'hello',
-        fetchImpl: vi.fn().mockResolvedValue(
-          new Response(JSON.stringify({ message: 'bad sender' }), { status: 400 }),
-        ),
+        fetchImpl: vi
+          .fn()
+          .mockResolvedValue(
+            new Response(JSON.stringify({ message: 'bad sender' }), { status: 400 }),
+          ),
       }),
     ).rejects.toBeInstanceOf(TerminalDispatchError);
   });
@@ -137,7 +141,7 @@ describe('daily summary queue consumer', () => {
         ],
       },
     },
-    message: 'Old Crown Girton: Today 2 bkgs, 6 covers. Lunch 1/2. Dinner 1/4.',
+    message: 'Old Crown Girton: Today 2 bkgs, 6 covers. Lunch 1/2. Dinner 1/4. app.nabatable.com',
   };
 
   it('marks successful sends and skips duplicates', async () => {
@@ -236,7 +240,7 @@ describe('daily summary queue consumer', () => {
         loadPreview: vi.fn().mockResolvedValue(preview),
         sendSms: vi.fn().mockResolvedValue({ messageSid: 'SM123' }),
       }),
-    ).rejects.toThrow('storage unavailable');
+    ).rejects.toBeInstanceOf(TerminalDispatchError);
 
     expect(postSendIdempotency.release).not.toHaveBeenCalled();
   });

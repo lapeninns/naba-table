@@ -1,57 +1,65 @@
-import { config as loadEnv } from "dotenv";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { config as loadEnv } from 'dotenv';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Tables } from "../types/supabase";
-import type { TransitionResult } from "../server/ops/booking-lifecycle/actions";
+import {
+  assertProductionApiScriptSafety,
+  DEFAULT_PRODUCTION_PROJECT_REF,
+  normalizeSupabaseProjectRef,
+} from './db/safety';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database, Tables } from '../types/supabase';
+import type { TransitionResult } from '../server/ops/booking-lifecycle/actions';
 
 const modulePath = fileURLToPath(import.meta.url);
-const projectRoot = path.resolve(path.dirname(modulePath), "..");
-const envLocalPath = path.join(projectRoot, ".env.local");
+const projectRoot = path.resolve(path.dirname(modulePath), '..');
+const envLocalPath = path.join(projectRoot, '.env.local');
 
 if (fs.existsSync(envLocalPath)) {
   loadEnv({ path: envLocalPath, override: false });
 }
 
-const APPLY = process.argv.includes("--apply") || process.env.APPLY === "true";
-const EMAIL_FILTER_RAW = process.env.EMAIL_FILTER ?? "amanshresthaaaaa@gmail.com";
+const APPLY = process.argv.includes('--apply') || process.env.APPLY === 'true';
+const EMAIL_FILTER_RAW = process.env.EMAIL_FILTER ?? 'amanshresthaaaaa@gmail.com';
 const EMAIL_FILTER = EMAIL_FILTER_RAW.trim();
 const EMAIL_FILTER_DISABLED =
-  EMAIL_FILTER.length === 0 || EMAIL_FILTER === "*" || EMAIL_FILTER.toLowerCase() === "all";
-const CUTOFF_DATE = (process.env.CUTOFF_DATE ?? "2026-01-19").trim();
-const CUTOFF_TIME = (process.env.CUTOFF_TIME ?? "18:00").trim();
+  EMAIL_FILTER.length === 0 || EMAIL_FILTER === '*' || EMAIL_FILTER.toLowerCase() === 'all';
+const CUTOFF_DATE = (process.env.CUTOFF_DATE ?? '2026-01-19').trim();
+const CUTOFF_TIME = (process.env.CUTOFF_TIME ?? '18:00').trim();
 const ACTOR_ID_OVERRIDE = process.env.ACTOR_ID?.trim() || null;
-const PAGE_SIZE = parseInt(process.env.PAGE_SIZE ?? "200", 10);
-const LIMIT = parseInt(process.env.LIMIT ?? "0", 10);
-const UPDATE_EMAIL_PREFS = process.env.UPDATE_EMAIL_PREFS !== "false";
+const PAGE_SIZE = parseInt(process.env.PAGE_SIZE ?? '200', 10);
+const LIMIT = parseInt(process.env.LIMIT ?? '0', 10);
+const TARGET_RESTAURANT_ID =
+  (process.env.TARGET_RESTAURANT_ID ?? process.env.RESTAURANT_ID ?? '').trim() || null;
+const ALLOW_ALL_RESTAURANTS_BACKFILL = process.env.ALLOW_ALL_RESTAURANTS_BACKFILL === 'true';
+const UPDATE_EMAIL_PREFS = process.env.UPDATE_EMAIL_PREFS === 'true';
 
-const TASK_DIR = path.join(projectRoot, "tasks", "review-email-backfill-20260119-1848");
-const ARTIFACT_DIR = path.join(TASK_DIR, "artifacts");
+const TASK_DIR = path.join(projectRoot, 'tasks', 'review-email-backfill-20260119-1848');
+const ARTIFACT_DIR = path.join(TASK_DIR, 'artifacts');
 
 type RestaurantRow = Pick<
-  Tables<"restaurants">,
-  "id" | "name" | "timezone" | "reservation_interval_minutes" | "email_send_review_request"
+  Tables<'restaurants'>,
+  'id' | 'name' | 'timezone' | 'reservation_interval_minutes' | 'email_send_review_request'
 >;
 
 type BookingRow = Pick<
-  Tables<"bookings">,
-  | "id"
-  | "restaurant_id"
-  | "status"
-  | "start_at"
-  | "end_at"
-  | "booking_date"
-  | "start_time"
-  | "end_time"
-  | "checked_in_at"
-  | "checked_out_at"
-  | "customer_email"
-  | "customer_name"
+  Tables<'bookings'>,
+  | 'id'
+  | 'restaurant_id'
+  | 'status'
+  | 'start_at'
+  | 'end_at'
+  | 'booking_date'
+  | 'start_time'
+  | 'end_time'
+  | 'checked_in_at'
+  | 'checked_out_at'
+  | 'customer_email'
+  | 'customer_name'
 >;
 
 type CandidateBooking = {
@@ -77,7 +85,7 @@ function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  if (typeof error === "object" && error !== null) {
+  if (typeof error === 'object' && error !== null) {
     try {
       return JSON.stringify(error);
     } catch {
@@ -94,15 +102,18 @@ async function resolveActorId(
   if (ACTOR_ID_OVERRIDE) return ACTOR_ID_OVERRIDE;
 
   const { data, error } = await supabase
-    .from("restaurant_memberships")
-    .select("user_id, created_at")
-    .eq("restaurant_id", restaurantId)
-    .order("created_at", { ascending: true })
+    .from('restaurant_memberships')
+    .select('user_id, created_at')
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    console.warn(`[actor-id] failed to resolve membership for restaurant ${restaurantId}`, error.message);
+    console.warn(
+      `[actor-id] failed to resolve membership for restaurant ${restaurantId}`,
+      error.message,
+    );
     return null;
   }
 
@@ -114,29 +125,81 @@ async function resolveActorId(
         return membershipUserId;
       }
     } catch (authError) {
-      console.warn(`[actor-id] failed to verify membership user for restaurant ${restaurantId}`, formatError(authError));
+      console.warn(
+        `[actor-id] failed to verify membership user for restaurant ${restaurantId}`,
+        formatError(authError),
+      );
     }
   }
 
-  try {
-    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1 });
-    const fallbackId = listData?.users?.[0]?.id ?? null;
-    if (!fallbackId) {
-      console.warn(`[actor-id] no auth users available for fallback on restaurant ${restaurantId}`);
-    }
-    return fallbackId;
-  } catch (authError) {
-    console.warn(`[actor-id] failed to resolve fallback auth user for restaurant ${restaurantId}`, formatError(authError));
-    return null;
-  }
+  console.warn(
+    `[actor-id] no verified restaurant membership user available for restaurant ${restaurantId}; set ACTOR_ID explicitly to use a reviewed actor.`,
+  );
+  return null;
 }
 
 function ensureArtifactsDir(): void {
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 }
 
+function resolveSupabaseApiUrl(): string {
+  const apiUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '').trim();
+  if (!apiUrl) {
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL is required.');
+  }
+  return apiUrl;
+}
+
+function resolveTargetEnv(): string {
+  return (process.env.DB_TARGET_ENV?.trim() || process.env.APP_ENV?.trim() || '').toLowerCase();
+}
+
+function assertReviewBackfillApplySafety(): void {
+  if (!APPLY) return;
+
+  if (TARGET_RESTAURANT_ID && ALLOW_ALL_RESTAURANTS_BACKFILL) {
+    throw new Error(
+      'Set either TARGET_RESTAURANT_ID/RESTAURANT_ID or ALLOW_ALL_RESTAURANTS_BACKFILL=true, not both.',
+    );
+  }
+
+  if (!TARGET_RESTAURANT_ID && !ALLOW_ALL_RESTAURANTS_BACKFILL) {
+    throw new Error(
+      'TARGET_RESTAURANT_ID or RESTAURANT_ID is required for review email apply mode. Set ALLOW_ALL_RESTAURANTS_BACKFILL=true only for an intentional all-restaurant run.',
+    );
+  }
+
+  if (
+    ALLOW_ALL_RESTAURANTS_BACKFILL &&
+    process.env.CONFIRM_REVIEW_EMAIL_GLOBAL_BACKFILL !== 'true'
+  ) {
+    throw new Error(
+      'CONFIRM_REVIEW_EMAIL_GLOBAL_BACKFILL=true is required for all-restaurant review email backfills.',
+    );
+  }
+
+  if (UPDATE_EMAIL_PREFS && process.env.CONFIRM_REVIEW_EMAIL_PREF_UPDATE !== 'true') {
+    throw new Error(
+      'CONFIRM_REVIEW_EMAIL_PREF_UPDATE=true is required before updating restaurant review-email preferences.',
+    );
+  }
+
+  assertProductionApiScriptSafety({
+    apiUrl: resolveSupabaseApiUrl(),
+    expectedProjectRef: normalizeSupabaseProjectRef(
+      process.env.EXPECTED_PRODUCTION_PROJECT_REF ?? DEFAULT_PRODUCTION_PROJECT_REF,
+      'EXPECTED_PRODUCTION_PROJECT_REF',
+    ),
+    targetEnv: resolveTargetEnv(),
+    requireTargetEnv: true,
+    apply: true,
+    confirmation: process.env.CONFIRM_REVIEW_EMAIL_BACKFILL,
+    confirmationName: 'CONFIRM_REVIEW_EMAIL_BACKFILL',
+  });
+}
+
 function normalizeTimezone(timezone?: string | null): string {
-  return timezone && timezone.trim().length > 0 ? timezone : "Europe/London";
+  return timezone && timezone.trim().length > 0 ? timezone : 'Europe/London';
 }
 
 function resolveLocalDateTime(
@@ -181,7 +244,12 @@ async function applyTransition(
   supabase: SupabaseClient<Database>,
   booking: BookingRow,
   transition: TransitionResult,
-): Promise<{ status: string; checkedInAt: string | null; checkedOutAt: string | null; updatedAt: string | null } | null> {
+): Promise<{
+  status: string;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+  updatedAt: string | null;
+} | null> {
   if (transition.skipUpdate) {
     return {
       status: transition.response.status,
@@ -193,21 +261,22 @@ async function applyTransition(
 
   const history = transition.history;
   if (!history) {
-    throw new Error("Missing history payload for transition");
+    throw new Error('Missing history payload for transition');
   }
 
-  const targetStatus = (transition.updates.status ?? booking.status) as Tables<"bookings">["status"];
+  const targetStatus = (transition.updates.status ??
+    booking.status) as Tables<'bookings'>['status'];
   const finalCheckedInAt =
     transition.updates.checked_in_at !== undefined
-      ? transition.updates.checked_in_at ?? null
-      : booking.checked_in_at ?? null;
+      ? (transition.updates.checked_in_at ?? null)
+      : (booking.checked_in_at ?? null);
   const finalCheckedOutAt =
     transition.updates.checked_out_at !== undefined
-      ? transition.updates.checked_out_at ?? null
-      : booking.checked_out_at ?? null;
+      ? (transition.updates.checked_out_at ?? null)
+      : (booking.checked_out_at ?? null);
   const finalUpdatedAt = transition.updates.updated_at ?? new Date().toISOString();
 
-  const { data, error } = await supabase.rpc("apply_booking_state_transition", {
+  const { data, error } = await supabase.rpc('apply_booking_state_transition', {
     p_booking_id: booking.id,
     p_status: targetStatus,
     p_checked_in_at: finalCheckedInAt,
@@ -217,7 +286,7 @@ async function applyTransition(
     p_history_to: history.to_status,
     p_history_changed_by: history.changed_by ?? null,
     p_history_changed_at: history.changed_at ?? finalUpdatedAt,
-    p_history_reason: history.reason ?? "status_change",
+    p_history_reason: history.reason ?? 'status_change',
     p_history_metadata: history.metadata ?? {},
   });
 
@@ -236,11 +305,18 @@ async function applyTransition(
 
 async function fetchRestaurants(
   supabase: SupabaseClient<Database>,
+  targetRestaurantId: string | null,
 ): Promise<RestaurantRow[]> {
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select("id, name, timezone, reservation_interval_minutes, email_send_review_request")
-    .order("name", { ascending: true });
+  let query = supabase
+    .from('restaurants')
+    .select('id, name, timezone, reservation_interval_minutes, email_send_review_request')
+    .order('name', { ascending: true });
+
+  if (targetRestaurantId) {
+    query = query.eq('id', targetRestaurantId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
@@ -260,30 +336,30 @@ async function fetchConfirmedBookings(
 
   while (true) {
     let query = supabase
-      .from("bookings")
+      .from('bookings')
       .select(
         [
-          "id",
-          "restaurant_id",
-          "status",
-          "start_at",
-          "end_at",
-          "booking_date",
-          "start_time",
-          "end_time",
-          "checked_in_at",
-          "checked_out_at",
-          "customer_email",
-          "customer_name",
-        ].join(","),
+          'id',
+          'restaurant_id',
+          'status',
+          'start_at',
+          'end_at',
+          'booking_date',
+          'start_time',
+          'end_time',
+          'checked_in_at',
+          'checked_out_at',
+          'customer_email',
+          'customer_name',
+        ].join(','),
       )
-      .eq("restaurant_id", restaurantId)
-      .eq("status", "confirmed")
-      .order("start_at", { ascending: true, nullsFirst: false })
+      .eq('restaurant_id', restaurantId)
+      .eq('status', 'confirmed')
+      .order('start_at', { ascending: true, nullsFirst: false })
       .range(offset, offset + pageSize - 1);
 
     if (!EMAIL_FILTER_DISABLED) {
-      query = query.ilike("customer_email", emailFilter);
+      query = query.ilike('customer_email', emailFilter);
     }
 
     const { data, error } = await query;
@@ -309,53 +385,43 @@ async function fetchConfirmedBookings(
 }
 
 async function main(): Promise<void> {
-  const { enqueueCheckOutSideEffects } = await import("../server/jobs/booking-side-effects");
-  const { prepareCheckInTransition, prepareCheckOutTransition } = await import(
-    "../server/ops/booking-lifecycle/actions",
-  );
-  const { BookingLifecycleError } = await import("../server/ops/booking-lifecycle/stateMachine");
-  const { getServiceSupabaseClient } = await import("../server/supabase");
+  const { enqueueCheckOutSideEffects } = await import('../server/jobs/booking-side-effects');
+  const { prepareCheckInTransition, prepareCheckOutTransition } =
+    await import('../server/ops/booking-lifecycle/actions');
+  const { BookingLifecycleError } = await import('../server/ops/booking-lifecycle/stateMachine');
+  const { getServiceSupabaseClient } = await import('../server/supabase');
 
   const NOW_UTC = DateTime.utc();
   ensureArtifactsDir();
+  assertReviewBackfillApplySafety();
 
   const supabase = getServiceSupabaseClient();
 
-  console.log("Backfill review emails");
-  console.log("Mode:", APPLY ? "APPLY" : "DRY_RUN");
-  console.log("Email filter:", EMAIL_FILTER_DISABLED ? "(disabled)" : EMAIL_FILTER);
-  console.log("Cutoff:", `${CUTOFF_DATE} ${CUTOFF_TIME} (per restaurant local time)`);
-  console.log("Now (UTC):", NOW_UTC.toISO());
+  console.log('Backfill review emails');
+  console.log('Mode:', APPLY ? 'APPLY' : 'DRY_RUN');
+  console.log(
+    'Restaurant target:',
+    TARGET_RESTAURANT_ID ?? (ALLOW_ALL_RESTAURANTS_BACKFILL ? '(all confirmed)' : '(all dry-run)'),
+  );
+  console.log('Email filter:', EMAIL_FILTER_DISABLED ? '(disabled)' : EMAIL_FILTER);
+  console.log('Cutoff:', `${CUTOFF_DATE} ${CUTOFF_TIME} (per restaurant local time)`);
+  console.log('Now (UTC):', NOW_UTC.toISO());
   if (ACTOR_ID_OVERRIDE) {
-    console.log("Actor ID override:", ACTOR_ID_OVERRIDE);
+    console.log('Actor ID override:', ACTOR_ID_OVERRIDE);
   } else {
-    console.log("Actor ID: using first restaurant membership user_id per restaurant");
+    console.log('Actor ID: using first restaurant membership user_id per restaurant');
   }
 
-  const restaurants = await fetchRestaurants(supabase);
+  const restaurants = await fetchRestaurants(supabase, TARGET_RESTAURANT_ID);
   console.log(`Restaurants loaded: ${restaurants.length}`);
-
-  const restaurantsToEnable = restaurants.filter((row) => row.email_send_review_request === false);
-  if (restaurantsToEnable.length > 0) {
-    console.log(`Restaurants with email_send_review_request=false: ${restaurantsToEnable.length}`);
-    if (APPLY && UPDATE_EMAIL_PREFS) {
-      const ids = restaurantsToEnable.map((row) => row.id);
-      const { error } = await supabase
-        .from("restaurants")
-        .update({ email_send_review_request: true })
-        .in("id", ids);
-      if (error) {
-        throw error;
-      }
-      console.log("Updated email_send_review_request to true for all flagged restaurants.");
-    } else {
-      console.log("Dry-run: no restaurant preference updates applied.");
-    }
+  if (TARGET_RESTAURANT_ID && restaurants.length === 0) {
+    throw new Error(`Target restaurant was not found: ${TARGET_RESTAURANT_ID}`);
   }
 
   const candidates: CandidateBooking[] = [];
   const applied: AppliedBooking[] = [];
   const errors: Array<{ bookingId?: string; restaurantId?: string; error: string }> = [];
+  const restaurantsNeedingPreferenceUpdate = new Map<string, string | null>();
 
   for (const restaurant of restaurants) {
     const timezone = normalizeTimezone(restaurant.timezone);
@@ -413,10 +479,13 @@ async function main(): Promise<void> {
         endAtUtc,
         cutoffUtc: cutoffUtc.toISO() ?? cutoffUtc.toString(),
         customerEmail: booking.customer_email ?? null,
-        status: booking.status ?? "unknown",
+        status: booking.status ?? 'unknown',
       };
 
       candidates.push(candidate);
+      if (restaurant.email_send_review_request === false) {
+        restaurantsNeedingPreferenceUpdate.set(restaurant.id, restaurant.name ?? null);
+      }
 
       if (!APPLY) {
         continue;
@@ -424,7 +493,7 @@ async function main(): Promise<void> {
 
       try {
         if (!startAtUtc) {
-          throw new Error("Missing start_at for check-in");
+          throw new Error('Missing start_at for check-in');
         }
 
         const checkIn = prepareCheckInTransition({
@@ -439,17 +508,17 @@ async function main(): Promise<void> {
           },
           actorId,
           performedAt: startAtUtc,
-          reason: "backfill-review-email",
+          reason: 'backfill-review-email',
         });
 
         const checkInResult = await applyTransition(supabase, booking, checkIn);
         if (!checkInResult) {
-          throw new Error("Check-in transition failed");
+          throw new Error('Check-in transition failed');
         }
 
         const bookingAfterCheckIn: BookingRow = {
           ...booking,
-          status: checkInResult.status as BookingRow["status"],
+          status: checkInResult.status as BookingRow['status'],
           checked_in_at: checkInResult.checkedInAt,
           checked_out_at: checkInResult.checkedOutAt,
         };
@@ -467,25 +536,27 @@ async function main(): Promise<void> {
           },
           actorId,
           performedAt: performedCheckOutAt,
-          reason: "backfill-review-email",
+          reason: 'backfill-review-email',
         });
 
         const checkOutResult = await applyTransition(supabase, bookingAfterCheckIn, checkOut);
         if (!checkOutResult) {
-          throw new Error("Check-out transition failed");
+          throw new Error('Check-out transition failed');
         }
 
         const { data: fullBooking, error } = await supabase
-          .from("bookings")
-          .select("*")
-          .eq("id", booking.id)
+          .from('bookings')
+          .select('*')
+          .eq('id', booking.id)
           .maybeSingle();
 
         if (error || !fullBooking) {
-          throw error ?? new Error("Unable to fetch updated booking");
+          throw error ?? new Error('Unable to fetch updated booking');
         }
 
-        await enqueueCheckOutSideEffects(fullBooking as Tables<"bookings">, restaurant.id, { supabase });
+        await enqueueCheckOutSideEffects(fullBooking as Tables<'bookings'>, restaurant.id, {
+          supabase,
+        });
 
         applied.push({
           ...candidate,
@@ -496,11 +567,15 @@ async function main(): Promise<void> {
         });
       } catch (error) {
         const message = formatError(error);
-        errors.push({ bookingId: booking.id, restaurantId: booking.restaurant_id ?? undefined, error: message });
+        errors.push({
+          bookingId: booking.id,
+          restaurantId: booking.restaurant_id ?? undefined,
+          error: message,
+        });
         if (error instanceof BookingLifecycleError) {
-          console.error("Failed to process booking", booking.id, `[lifecycle] ${message}`);
+          console.error('Failed to process booking', booking.id, `[lifecycle] ${message}`);
         } else {
-          console.error("Failed to process booking", booking.id, message);
+          console.error('Failed to process booking', booking.id, message);
         }
       }
     }
@@ -510,17 +585,42 @@ async function main(): Promise<void> {
     }
   }
 
-  const candidatePath = path.join(ARTIFACT_DIR, "candidates.json");
-  const appliedPath = path.join(ARTIFACT_DIR, "applied.json");
-  const errorsPath = path.join(ARTIFACT_DIR, "errors.json");
-  const summaryPath = path.join(ARTIFACT_DIR, "summary.json");
+  if (restaurantsNeedingPreferenceUpdate.size > 0) {
+    console.log(
+      `Selected candidate restaurants with email_send_review_request=false: ${restaurantsNeedingPreferenceUpdate.size}`,
+    );
+    if (APPLY && UPDATE_EMAIL_PREFS) {
+      const ids = [...restaurantsNeedingPreferenceUpdate.keys()];
+      const { error } = await supabase
+        .from('restaurants')
+        .update({ email_send_review_request: true })
+        .in('id', ids);
+      if (error) {
+        throw error;
+      }
+      console.log(
+        `Updated email_send_review_request for ${ids.length} selected candidate restaurants.`,
+      );
+    } else if (APPLY) {
+      console.log(
+        'Restaurant preference updates skipped. Set UPDATE_EMAIL_PREFS=true with CONFIRM_REVIEW_EMAIL_PREF_UPDATE=true to update selected candidate restaurants.',
+      );
+    } else {
+      console.log('Dry-run: no restaurant preference updates applied.');
+    }
+  }
+
+  const candidatePath = path.join(ARTIFACT_DIR, 'candidates.json');
+  const appliedPath = path.join(ARTIFACT_DIR, 'applied.json');
+  const errorsPath = path.join(ARTIFACT_DIR, 'errors.json');
+  const summaryPath = path.join(ARTIFACT_DIR, 'summary.json');
 
   fs.writeFileSync(candidatePath, JSON.stringify(candidates, null, 2));
   fs.writeFileSync(appliedPath, JSON.stringify(applied, null, 2));
   fs.writeFileSync(errorsPath, JSON.stringify(errors, null, 2));
 
   const summary = {
-    mode: APPLY ? "apply" : "dry-run",
+    mode: APPLY ? 'apply' : 'dry-run',
     emailFilter: EMAIL_FILTER,
     cutoffDate: CUTOFF_DATE,
     cutoffTime: CUTOFF_TIME,
@@ -533,14 +633,14 @@ async function main(): Promise<void> {
 
   fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
 
-  console.log("Done.");
+  console.log('Done.');
   console.log(`Candidates: ${candidates.length}`);
   console.log(`Applied: ${applied.length}`);
   console.log(`Errors: ${errors.length}`);
-  console.log("Artifacts:", candidatePath, appliedPath, errorsPath, summaryPath);
+  console.log('Artifacts:', candidatePath, appliedPath, errorsPath, summaryPath);
 }
 
 main().catch((error) => {
-  console.error("Backfill failed:", error instanceof Error ? error.message : String(error));
+  console.error('Backfill failed:', error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 });

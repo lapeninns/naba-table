@@ -1,12 +1,15 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { quoteTables } from "@/server/capacity/engine";
-import { HoldConflictError } from "@/server/capacity/holds";
-import { ServiceNotFoundError } from "@/server/capacity/policy";
-import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
+import { quoteTables } from '@/server/capacity/engine';
+import { HoldConflictError } from '@/server/capacity/holds';
+import { ServiceNotFoundError } from '@/server/capacity/policy';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
 const quotePayloadSchema = z.object({
   bookingId: z.string().uuid(),
@@ -18,6 +21,10 @@ const quotePayloadSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  return withCsrfProtectedMutation(req, () => postStaffAutoQuote(req));
+}
+
+async function postStaffAutoQuote(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
 
   const {
@@ -26,22 +33,26 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
   const parsed = quotePayloadSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request payload", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid request payload', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
-  const { bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds } = parsed.data;
+  const { bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds } =
+    parsed.data;
 
   const bookingLookup = await supabase
-    .from("bookings")
-    .select("id, restaurant_id")
-    .eq("id", bookingId)
+    .from('bookings')
+    .select('id, restaurant_id')
+    .eq('id', bookingId)
     .maybeSingle();
 
   if (bookingLookup.error) {
@@ -50,14 +61,14 @@ export async function POST(req: NextRequest) {
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow || !bookingRow.restaurant_id) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const membership = await supabase
-    .from("restaurant_memberships")
-    .select("role")
-    .eq("restaurant_id", bookingRow.restaurant_id)
-    .eq("user_id", user.id)
+    .from('restaurant_memberships')
+    .select('role')
+    .eq('restaurant_id', bookingRow.restaurant_id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (membership.error) {
@@ -65,7 +76,20 @@ export async function POST(req: NextRequest) {
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
+  const rateLimitResponse = await requireApiRateLimit({
+    request: req,
+    scope: 'staff:auto-quote',
+    tenantId: bookingRow.restaurant_id,
+    userId: user.id,
+    limit: 20,
+    windowMs: 60_000,
+    message: 'Too many auto-quote requests. Please try again in a moment.',
+  });
+  if (rateLimitResponse) {
+    return rateLimitResponse;
   }
 
   const serviceClient = getTenantServiceSupabaseClient(bookingRow.restaurant_id);
@@ -104,8 +128,8 @@ export async function POST(req: NextRequest) {
     if (!result.hold || !result.candidate) {
       return NextResponse.json(
         {
-          error: "Quote failed",
-          details: result.reason ?? "No candidate returned",
+          error: 'Quote failed',
+          details: result.reason ?? 'No candidate returned',
         },
         { status: 409 },
       );
@@ -133,7 +157,7 @@ export async function POST(req: NextRequest) {
     if (error instanceof HoldConflictError) {
       return NextResponse.json(
         {
-          error: "Hold conflict",
+          error: 'Hold conflict',
           holdId: error.holdId ?? null,
         },
         { status: 409 },
@@ -144,8 +168,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 422 });
     }
 
-    console.error("[staff/auto/quote] unexpected error", { error, bookingId });
-    const message = error instanceof Error ? error.message : "Unexpected error";
+    console.error('[staff/auto/quote] unexpected error', { error, bookingId });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: {
+        bookingId,
+        restaurantId: bookingRow.restaurant_id,
+        source: 'ops',
+        kind: 'staff-auto-quote',
+      },
+    });
+    const message = error instanceof Error ? error.message : 'Unexpected error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

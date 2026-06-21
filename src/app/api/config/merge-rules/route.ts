@@ -1,19 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { getRouteHandlerSupabaseClient } from "@/server/supabase";
+import { withOpsMutation } from '@/server/auth/guards';
+import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
-export async function GET() {
+import type { NextRequest } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  const authorization = await withOpsMutation(request);
+  if (!authorization.ok) {
+    return authorization.response;
+  }
+
   try {
     const supabase = await getRouteHandlerSupabaseClient();
     const { data, error } = await supabase
-      .from("merge_rules")
-      .select("id, from_a, from_b, to_capacity, enabled, require_same_zone, require_adjacency, cross_category_merge")
-      .order("from_a", { ascending: true })
-      .order("from_b", { ascending: true });
+      .from('merge_rules')
+      .select(
+        'id, from_a, from_b, to_capacity, enabled, require_same_zone, require_adjacency, cross_category_merge',
+      )
+      .order('from_a', { ascending: true })
+      .order('from_b', { ascending: true });
 
     if (error) {
-      console.error("[config/merge-rules][GET] Database error", { error });
-      return NextResponse.json({ error: "Failed to load merge rules" }, { status: 500 });
+      console.error('[config/merge-rules][GET] Database error', { error });
+      return NextResponse.json({ error: 'Failed to load merge rules' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -28,7 +39,10 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error("[config/merge-rules][GET] Unexpected error", { error });
-    return NextResponse.json({ error: "An unexpected error occurred" }, { status: 500 });
+    console.error('[config/merge-rules][GET] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'config-merge-rules' },
+    });
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }

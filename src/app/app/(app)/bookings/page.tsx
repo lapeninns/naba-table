@@ -1,49 +1,32 @@
-import { BookingErrorBoundary } from "@/components/features/booking-state-machine";
-import { OpsBookingsClient } from "@/components/features/bookings/OpsBookingsClient";
-import { BookingOfflineQueueProvider } from "@/contexts/booking-offline-queue";
-import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES, sanitizeTimeParam } from "@/utils/ops/bookings";
-import { sanitizeDateParam } from "@/utils/ops/dashboard";
+import { BookingErrorBoundary } from '@/components/features/booking-state-machine';
+import { OpsBookingsClient } from '@/components/features/bookings/OpsBookingsClient';
+import { BookingOfflineQueueProvider } from '@/contexts/booking-offline-queue';
+import { firstString, stringArray } from '@/lib/api/query-params';
+import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES, sanitizeTimeParam } from '@/utils/ops/bookings';
+import { sanitizeDateParam } from '@/utils/ops/dashboard';
 
-import type { OpsStatusFilter } from "@/hooks";
-import type { OpsBookingStatus } from "@/types/ops";
-import type { Metadata } from "next";
+import type { OpsStatusFilter } from '@/hooks';
+import type { OpsBookingStatus } from '@/types/ops';
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Manage bookings · Nab a Table Ops",
-  description: "Review and update upcoming reservations for your restaurant team.",
+  title: 'Manage bookings · Nab a Table Ops',
+  description: 'Review and update upcoming reservations for your restaurant team.',
 };
 
-type OpsBookingsSearchParams = {
-  restaurantId?: string;
-  filter?: string;
-  status?: string;
-  query?: string;
-  statuses?: string;
-  date?: string;
-  tableId?: string;
-  tableLabel?: string;
-  time?: string;
-  windowMode?: string;
-  windowMinutes?: string;
-};
+type OpsBookingsSearchParams = Record<string, string | string[] | undefined>;
 
-const VALID_FILTERS: OpsStatusFilter[] = [
-  "all",
-  "upcoming",
-  "past",
-  "cancelled",
-  "recent",
-];
+const VALID_FILTERS: OpsStatusFilter[] = ['all', 'upcoming', 'past', 'cancelled', 'recent'];
 
 const VALID_STATUSES: OpsBookingStatus[] = [
-  "pending",
-  "pending_allocation",
-  "confirmed",
-  "checked_in",
-  "PRIORITY_WAITLIST",
-  "completed",
-  "cancelled",
-  "no_show",
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'PRIORITY_WAITLIST',
+  'completed',
+  'cancelled',
+  'no_show',
 ];
 
 function parseStatusFilter(raw: string | undefined): OpsStatusFilter | null {
@@ -51,9 +34,7 @@ function parseStatusFilter(raw: string | undefined): OpsStatusFilter | null {
   return VALID_FILTERS.includes(raw as OpsStatusFilter) ? (raw as OpsStatusFilter) : null;
 }
 
-function parseStatuses(raw: string | undefined): OpsBookingStatus[] {
-  if (!raw) return [];
-  const parts = raw.split(",").map((value) => value.trim()).filter((value) => value.length > 0);
+function parseStatuses(parts: string[]): OpsBookingStatus[] {
   const valid = new Set<OpsBookingStatus>();
   parts.forEach((value) => {
     if (VALID_STATUSES.includes(value as OpsBookingStatus)) {
@@ -63,8 +44,8 @@ function parseStatuses(raw: string | undefined): OpsBookingStatus[] {
   return Array.from(valid);
 }
 
-function parseWindowMode(raw: string | undefined, fallback: "day" | "window"): "day" | "window" {
-  if (raw === "day" || raw === "window") return raw;
+function parseWindowMode(raw: string | undefined, fallback: 'day' | 'window'): 'day' | 'window' {
+  if (raw === 'day' || raw === 'window') return raw;
   return fallback;
 }
 
@@ -90,19 +71,25 @@ export default async function OpsBookingsPage({
 }) {
   const resolvedParams = (await searchParams) ?? {};
 
-  const initialFilter = parseStatusFilter(resolvedParams.filter ?? resolvedParams.status);
-  const initialRestaurantId = resolvedParams.restaurantId ?? null;
-  const rawQuery = resolvedParams.query?.trim() ?? "";
+  const initialFilter = parseStatusFilter(
+    firstString(resolvedParams, 'filter') ?? firstString(resolvedParams, 'status'),
+  );
+  const initialRestaurantId = firstString(resolvedParams, 'restaurantId') ?? null;
+  const rawQuery = firstString(resolvedParams, 'query')?.trim() ?? '';
   const initialQuery = rawQuery.length > 0 ? rawQuery : null;
-  const initialStatuses = parseStatuses(resolvedParams.statuses);
-  const initialDate = sanitizeDateParam(resolvedParams.date);
-  const initialTableId = parseTableId(resolvedParams.tableId);
-  const initialTableLabel = resolvedParams.tableLabel?.trim() || null;
-  const initialTime = sanitizeTimeParam(resolvedParams.time);
-  const fallbackMode = initialTableId && initialTime ? "window" : "day";
-  const initialWindowMode = parseWindowMode(resolvedParams.windowMode, fallbackMode);
+  const initialStatuses = parseStatuses(stringArray(resolvedParams, 'statuses'));
+  const initialDate = sanitizeDateParam(firstString(resolvedParams, 'date'));
+  const initialTableId = parseTableId(firstString(resolvedParams, 'tableId'));
+  const initialTableLabel = firstString(resolvedParams, 'tableLabel')?.trim() || null;
+  const initialTime = sanitizeTimeParam(firstString(resolvedParams, 'time'));
+  const fallbackMode = initialTableId && initialTime ? 'window' : 'day';
+  const initialWindowMode = parseWindowMode(
+    firstString(resolvedParams, 'windowMode'),
+    fallbackMode,
+  );
   const initialWindowMinutes =
-    parseWindowMinutes(resolvedParams.windowMinutes) ?? DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
+    parseWindowMinutes(firstString(resolvedParams, 'windowMinutes')) ??
+    DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES;
 
   return (
     <BookingErrorBoundary>

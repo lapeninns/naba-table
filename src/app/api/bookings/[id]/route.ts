@@ -6,6 +6,7 @@ import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/par
 import { isBookingType } from '@/lib/enums';
 import { env } from '@/lib/env';
 import { HttpError } from '@/lib/http/errors';
+import { captureServerEvent, captureServerException } from '@/lib/posthog/server';
 import { GuardError, listUserRestaurantMemberships, requireSession } from '@/server/auth/guards';
 import {
   createBookingValidationService,
@@ -16,7 +17,6 @@ import {
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   BOOKING_TYPES,
-  SEATING_OPTIONS,
   buildBookingAuditSnapshot,
   clearBookingTableAssignments,
   deriveEndTimeFromDuration,
@@ -27,6 +27,10 @@ import {
   updateBookingRecord,
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
+import {
+  buildBookingInstantFields,
+  buildBookingInstantFieldsFromLocalTimes,
+} from '@/server/bookings/instant-fields';
 import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
@@ -39,7 +43,7 @@ import {
   convertOptionalIsoToVenueDateTime,
   type VenueDateTime,
 } from '@/server/bookings/timezoneConversion';
-import { normalizeEmail, normalizePhone } from '@/server/customers';
+import { normalizeEmail } from '@/server/customers';
 import {
   enqueueBookingCancelledSideEffects,
   enqueueBookingUpdatedSideEffects,
@@ -47,6 +51,12 @@ import {
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
+import {
+  getBookingPastTimeGraceMinutes,
+  getPendingSelfServeGraceMinutes,
+  isUnifiedBookingValidationEnabled,
+} from '@/server/runtime-policy';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import {
   sessionRecoveryTokenMatchesBookingContact,
   validateSessionRecoveryAccessToken,
@@ -69,14 +79,22 @@ import type { Json, Tables } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
 
 const bookingTypeEnum = z.enum(BOOKING_TYPES);
+const explicitBooleanSchema = z.preprocess((value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return value;
+
+  const normalized = value.trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return value;
+}, z.boolean());
 
 const updateSchema = z.object({
   restaurantId: z.string().uuid().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
-  party: z.number().int().min(1),
+  party: z.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE),
   bookingType: bookingTypeEnum,
-  seating: z.enum(SEATING_OPTIONS),
   notes: z.string().max(500).optional().nullable(),
   name: z.string().min(2).max(120),
   email: z.string().email(),
@@ -87,7 +105,7 @@ const updateSchema = z.object({
     .refine((value) => isUKPhone(value), {
       message: 'Please enter a valid UK phone number.',
     }),
-  marketingOptIn: z.coerce.boolean().optional().default(false),
+  marketingOptIn: explicitBooleanSchema.optional().default(false),
 });
 
 // Dashboard update schema for minimal booking updates (used by EditBookingDialog)
@@ -110,10 +128,11 @@ function mapOperatingHoursReason(reason: OperatingHoursErrorReason): string {
   return OPERATING_HOURS_REASON_TO_CODE[reason] ?? 'OUTSIDE_HOURS';
 }
 
-const pendingSelfServeGraceMinutes = env.featureFlags.pendingSelfServeGraceMinutes ?? 10;
+const pendingSelfServeGraceMinutes = getPendingSelfServeGraceMinutes();
 const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) * 60_000;
-const pastTimeGraceMinutes = env.featureFlags.bookingPastTimeGraceMinutes ?? 5;
+const pastTimeGraceMinutes = getBookingPastTimeGraceMinutes();
 const guestSelfServeCutoffMinutes = 15;
+const bookingIdParamSchema = z.string().uuid();
 
 function respondWithPastBooking(error: PastBookingError) {
   return NextResponse.json(
@@ -180,6 +199,13 @@ function isBookingOwnedByUser(
     Boolean(normalizedUserEmail) && Boolean(bookingEmail) && normalizedUserEmail === bookingEmail;
   const authMatches = booking.auth_user_id ? booking.auth_user_id === userId : false;
   return emailMatches || authMatches;
+}
+
+function isBookingBoundToAuthenticatedUser(
+  booking: Pick<Tables<'bookings'>, 'auth_user_id'>,
+  userId: string,
+): boolean {
+  return Boolean(booking.auth_user_id) && booking.auth_user_id === userId;
 }
 
 function respondWithPendingLock() {
@@ -305,11 +331,18 @@ async function resolveBookingId(
   const { id } = result;
 
   if (typeof id === 'string') {
-    return id;
+    const parsed = bookingIdParamSchema.safeParse(id);
+    return parsed.success ? parsed.data : null;
   }
 
   if (Array.isArray(id)) {
-    return id[0] ?? null;
+    const first = id[0];
+    if (!first) {
+      return null;
+    }
+
+    const parsed = bookingIdParamSchema.safeParse(first);
+    return parsed.success ? parsed.data : null;
   }
 
   return null;
@@ -357,14 +390,83 @@ type DashboardActor = {
   email: string | null;
 };
 
+function toGuestBookingDTO(
+  booking: Tables<'bookings'>,
+  restaurant?: {
+    name?: string | null;
+    slug?: string | null;
+    timezone?: string | null;
+  } | null,
+) {
+  return {
+    id: booking.id,
+    restaurant_id: booking.restaurant_id,
+    booking_date: booking.booking_date,
+    start_time: booking.start_time,
+    end_time: booking.end_time,
+    start_at: booking.start_at,
+    end_at: booking.end_at,
+    reference: booking.reference,
+    party_size: booking.party_size,
+    booking_type: booking.booking_type,
+    seating_preference: booking.seating_preference,
+    status: booking.status,
+    customer_name: booking.customer_name,
+    customer_email: booking.customer_email,
+    customer_phone: booking.customer_phone,
+    notes: booking.notes,
+    marketing_opt_in: booking.marketing_opt_in,
+    client_request_id: booking.client_request_id,
+    idempotency_key: booking.idempotency_key,
+    pending_ref: booking.pending_ref,
+    details: booking.details,
+    created_at: booking.created_at,
+    updated_at: booking.updated_at,
+    restaurants: {
+      name: restaurant?.name ?? null,
+      slug: restaurant?.slug ?? null,
+      timezone: restaurant?.timezone ?? null,
+    },
+  };
+}
+
+function toPublicRecoveryBookingDTO(
+  booking: Tables<'bookings'>,
+  restaurant?: {
+    name?: string | null;
+    slug?: string | null;
+    timezone?: string | null;
+  } | null,
+) {
+  return {
+    ...toGuestBookingDTO(booking, restaurant),
+    customer_name: 'Guest',
+    customer_email: '',
+    customer_phone: '',
+    marketing_opt_in: false,
+    client_request_id: null,
+    idempotency_key: null,
+    pending_ref: null,
+    details: null,
+  };
+}
+
 async function handleDashboardUpdate(params: {
   bookingId: string;
   data: DashboardUpdateInput;
   existingBooking: Tables<'bookings'>;
   actor: DashboardActor;
   serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
+  enforceGuestSelfServiceLock?: boolean;
 }) {
-  const { bookingId, data, existingBooking, actor, serviceSupabase } = params;
+  const {
+    bookingId,
+    data,
+    existingBooking,
+    actor,
+    serviceSupabase,
+    enforceGuestSelfServiceLock = false,
+  } = params;
 
   if (isPendingBookingLocked(existingBooking)) {
     return respondWithPendingLock();
@@ -389,6 +491,17 @@ async function handleDashboardUpdate(params: {
       client: serviceSupabase,
     });
     const initialScheduleTimezone = initialSchedule.timezone ?? 'Europe/London';
+
+    if (enforceGuestSelfServiceLock) {
+      const guestLock = evaluateGuestModificationLock({
+        booking: existingBooking,
+        timezone: initialScheduleTimezone,
+      });
+      const lockedResponse = respondWithGuestModificationLock(guestLock);
+      if (lockedResponse) {
+        return lockedResponse;
+      }
+    }
 
     let startVenue: VenueDateTime;
     try {
@@ -514,7 +627,9 @@ async function handleDashboardUpdate(params: {
     const fallbackDuration =
       existingDurationMinutes && existingDurationMinutes > 0
         ? existingDurationMinutes
-        : (computedDuration > 0 ? computedDuration : (env.reserve.defaultDurationMinutes ?? 90));
+        : computedDuration > 0
+          ? computedDuration
+          : (env.reserve.defaultDurationMinutes ?? 90);
 
     let durationMinutes: number;
     let endDateTime = normalizedStartDateTime;
@@ -545,6 +660,10 @@ async function handleDashboardUpdate(params: {
 
     const endTime = endDateTime.set({ second: 0, millisecond: 0 }).toFormat('HH:mm');
     const resolvedScheduleTz = schedule.timezone ?? scheduleTimezone;
+    const instantFields = buildBookingInstantFields({
+      startDateTime: normalizedStartDateTime,
+      endDateTime: endDateTime.set({ second: 0, millisecond: 0 }),
+    });
     const requiresTableRealignment =
       bookingDate !== (existingBooking.booking_date ?? '') ||
       startTime !== (existingBooking.start_time ?? '') ||
@@ -555,7 +674,7 @@ async function handleDashboardUpdate(params: {
       ? existingBookingTypeRaw
       : undefined;
 
-    const useUnifiedValidation = env.featureFlags.bookingValidationUnified;
+    const useUnifiedValidation = isUnifiedBookingValidationEnabled();
     let updated: Tables<'bookings'>;
 
     if (useUnifiedValidation) {
@@ -625,23 +744,39 @@ async function handleDashboardUpdate(params: {
           booking_date: bookingDate,
           start_time: startTime,
           end_time: endTime,
+          ...instantFields,
           party_size: data.partySize,
           notes: normalizedNotes,
         },
       });
     } else {
-      updated = await updateBookingRecord(serviceSupabase, bookingId, {
-        booking_date: bookingDate,
-        start_time: startTime,
-        end_time: endTime,
-        party_size: data.partySize,
-        notes: normalizedNotes,
-        booking_type: normalizedBookingType,
-        seating_preference: existingBooking.seating_preference,
-        customer_name: existingBooking.customer_name,
-        customer_email: existingBooking.customer_email,
-        customer_phone: existingBooking.customer_phone,
-        marketing_opt_in: existingBooking.marketing_opt_in,
+      updated = await updateBookingRecord(
+        serviceSupabase,
+        bookingId,
+        {
+          booking_date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          ...instantFields,
+          party_size: data.partySize,
+          notes: normalizedNotes,
+          booking_type: normalizedBookingType,
+          seating_preference: existingBooking.seating_preference,
+          customer_name: existingBooking.customer_name,
+          customer_email: existingBooking.customer_email,
+          customer_phone: existingBooking.customer_phone,
+          marketing_opt_in: existingBooking.marketing_opt_in,
+        },
+        { restaurantId },
+      );
+    }
+
+    if (
+      useUnifiedValidation &&
+      (updated.start_at !== instantFields.start_at || updated.end_at !== instantFields.end_at)
+    ) {
+      updated = await updateBookingRecord(serviceSupabase, bookingId, instantFields, {
+        restaurantId,
       });
     }
 
@@ -688,11 +823,21 @@ async function handleDashboardUpdate(params: {
       id: updated.id,
       restaurantName: 'Unknown',
       partySize: updated.party_size,
-      startIso: updated.start_at,
-      endIso: updated.end_at,
+      startIso: instantFields.start_at,
+      endIso: instantFields.end_at,
       status: updated.status as 'pending' | 'pending_allocation' | 'confirmed' | 'cancelled',
       notes: updated.notes,
       reservationIntervalMinutes: responseIntervalMinutes,
+      booking: toGuestBookingDTO(
+        {
+          ...updated,
+          start_at: instantFields.start_at,
+          end_at: instantFields.end_at,
+        },
+        {
+          timezone: resolvedScheduleTz,
+        },
+      ),
     };
 
     const responseInit = useUnifiedValidation
@@ -702,8 +847,17 @@ async function handleDashboardUpdate(params: {
     return NextResponse.json(bookingDTO, responseInit);
   } catch (error: unknown) {
     console.error('[bookings][PUT:dashboard]', stringifyError(error));
+    captureServerEvent('booking_modify_failed', {
+      bookingId,
+      source: 'api',
+      method: 'guest',
+      reason: 'unexpected',
+    });
+    captureServerException(error, {
+      properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+    });
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to update booking', code: 'UNKNOWN' },
+      { error: 'Unable to update booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }
@@ -714,7 +868,6 @@ function respondWithGuardError(error: GuardError) {
     {
       error: error.message,
       code: error.code,
-      details: error.details ?? null,
     },
     { status: error.status },
   );
@@ -750,6 +903,7 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
         existingBooking: bookingRecord,
         actor,
         serviceSupabase: getServiceSupabaseClient(),
+        enforceGuestSelfServiceLock: true,
       });
     }
   }
@@ -797,6 +951,7 @@ async function processDashboardUpdate(bookingId: string, data: DashboardUpdateIn
       existingBooking: bookingRecord,
       actor,
       serviceSupabase,
+      enforceGuestSelfServiceLock: true,
     });
   }
 
@@ -864,11 +1019,24 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
     }
 
+    const rateLimit = await requireApiRateLimit({
+      request: req,
+      scope: 'bookings:recovery-lookup',
+      tenantId: result.payload.restaurantId,
+      limit: 20,
+      windowMs: 60_000,
+      message: 'Too many booking lookup requests. Please try again later.',
+    });
+    if (rateLimit) {
+      return rateLimit;
+    }
+
     const serviceSupabase = getServiceSupabaseClient();
     const { data: existing, error } = await serviceSupabase
       .from('bookings')
       .select('*')
       .eq('id', bookingId)
+      .eq('restaurant_id', result.payload.restaurantId)
       .maybeSingle();
 
     if (error) {
@@ -902,8 +1070,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       })
     ) {
       return NextResponse.json(
-        { error: 'You do not have permission to view this booking', code: 'FORBIDDEN' },
-        { status: 403 },
+        { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+        { status: 404 },
       );
     }
 
@@ -920,16 +1088,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({
-      booking: {
-        ...bookingRecord,
-        restaurants: {
-          name: restaurant?.name ?? null,
-          slug: restaurant?.slug ?? null,
-          timezone: restaurant?.timezone ?? null,
-        },
-      },
-    });
+    return NextResponse.json({ booking: toPublicRecoveryBookingDTO(bookingRecord, restaurant) });
   }
 
   // Require authentication to view booking details (default path)
@@ -947,6 +1106,18 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   const normalizedUserEmail = normalizeEmail(user.email);
+
+  const authenticatedRateLimit = await requireApiRateLimit({
+    request: req,
+    scope: 'bookings:authenticated-lookup',
+    userId: user.id,
+    limit: 60,
+    windowMs: 60_000,
+    message: 'Too many booking lookup requests. Please try again later.',
+  });
+  if (authenticatedRateLimit) {
+    return authenticatedRateLimit;
+  }
 
   try {
     // Use service client to bypass RLS and check ownership manually
@@ -1036,21 +1207,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({
-      booking: {
-        ...data,
-        restaurants: {
-          name: restaurant.name ?? null,
-          slug: restaurant.slug ?? null,
-          timezone: restaurant.timezone ?? null,
-        },
-      },
+      booking: toGuestBookingDTO(data as Tables<'bookings'>, restaurant),
     });
   } catch (error: unknown) {
     console.error('[bookings][GET:id]', stringifyError(error));
-    return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to load booking', code: 'UNKNOWN' },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'Unable to load booking', code: 'UNKNOWN' }, { status: 500 });
   }
 }
 
@@ -1075,6 +1236,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   }
 
   const body = (payload ?? {}) as Record<string, unknown>;
+
+  captureServerEvent('booking_modify_started', {
+    bookingId,
+    source: 'api',
+    method: 'guest',
+  });
 
   // Try dashboard format first (minimal update from EditBookingDialog)
   const dashboardParsed = dashboardUpdateSchema.safeParse(body);
@@ -1102,6 +1269,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
+        .eq('restaurant_id', result.payload.restaurantId)
         .maybeSingle();
 
       if (error) {
@@ -1135,8 +1303,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         })
       ) {
         return NextResponse.json(
-          { error: 'You do not have permission to modify this booking', code: 'FORBIDDEN' },
-          { status: 403 },
+          { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+          { status: 404 },
         );
       }
 
@@ -1151,6 +1319,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
           email: bookingRecord.customer_email ?? (tokenEmail || null),
         },
         serviceSupabase,
+        enforceGuestSelfServiceLock: true,
       });
     }
 
@@ -1181,13 +1350,50 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   const data = parsed.data;
   const tenantSupabase = await getRouteHandlerSupabaseClient();
   const serviceSupabase = getServiceSupabaseClient();
+  const secret = recoveryToken ? env.security.sessionRecoveryAccessTokenSecret : null;
+  const recoveryResult =
+    recoveryToken && secret ? validateSessionRecoveryAccessToken(recoveryToken, { secret }) : null;
+
+  if (recoveryToken && !secret) {
+    return NextResponse.json(
+      { error: 'Session recovery token not configured', code: 'ACCESS_TOKEN_NOT_CONFIGURED' },
+      { status: 503 },
+    );
+  }
+
+  if (recoveryToken && recoveryResult && !recoveryResult.ok) {
+    const code =
+      recoveryResult.reason === 'expired' ? 'ACCESS_TOKEN_EXPIRED' : 'INVALID_ACCESS_TOKEN';
+    const status = recoveryResult.reason === 'expired' ? 410 : 401;
+    return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = recoveryResult?.ok
+    ? { data: { user: null }, error: null }
+    : await tenantSupabase.auth.getUser();
+
+  if (authError) {
+    console.error('[bookings][PUT:id] auth resolution failed', authError.message);
+  }
+
+  if (!recoveryResult?.ok && !user) {
+    return NextResponse.json(
+      { error: 'Authentication required', code: 'UNAUTHENTICATED' },
+      { status: 401 },
+    );
+  }
 
   try {
-    const { data: existing, error } = await tenantSupabase
-      .from('bookings')
-      .select('*')
-      .eq('id', bookingId)
-      .maybeSingle();
+    let lookup = serviceSupabase.from('bookings').select('*').eq('id', bookingId);
+
+    if (recoveryResult?.ok) {
+      lookup = lookup.eq('restaurant_id', recoveryResult.payload.restaurantId);
+    }
+
+    const { data: existing, error } = await lookup.maybeSingle();
 
     if (error) {
       throw error;
@@ -1202,6 +1408,46 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    if (
+      data.restaurantId &&
+      existingBooking.restaurant_id &&
+      data.restaurantId !== existingBooking.restaurant_id
+    ) {
+      return NextResponse.json(
+        {
+          error: 'You cannot move this reservation to another restaurant',
+          code: 'RESTAURANT_LOCKED',
+        },
+        { status: 403 },
+      );
+    }
+
+    if (recoveryResult?.ok) {
+      if (
+        !sessionRecoveryTokenMatchesBookingContact({
+          payload: recoveryResult.payload,
+          booking: {
+            restaurantId: existingBooking.restaurant_id,
+            email: existingBooking.customer_email,
+            phone: existingBooking.customer_phone,
+          },
+        })
+      ) {
+        return NextResponse.json(
+          { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+          { status: 404 },
+        );
+      }
+    } else if (user) {
+      const normalizedUserEmail = user.email ? normalizeEmail(user.email) : null;
+      if (!isBookingOwnedByUser(existingBooking, user.id, normalizedUserEmail)) {
+        return NextResponse.json(
+          { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
+          { status: 404 },
+        );
+      }
+    }
+
     if (existingBooking.status === 'cancelled') {
       return respondWithCancelledBookingLock();
     }
@@ -1210,36 +1456,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       return respondWithPendingLock();
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await tenantSupabase.auth.getUser();
-
-    if (authError) {
-      console.error('[bookings][PUT:id] auth resolution failed', authError.message);
-    }
-
     const normalizedEmail = normalizeEmail(data.email);
     const normalizedPhone = data.phone.trim();
-    const comparablePhone = normalizePhone(data.phone);
-    const existingComparableEmail = normalizeEmail(existingBooking.customer_email);
-    const existingComparablePhone = existingBooking.customer_phone
-      ? normalizePhone(existingBooking.customer_phone)
-      : '';
-
-    if (
-      existingComparableEmail !== normalizedEmail ||
-      existingComparablePhone !== comparablePhone
-    ) {
-      return NextResponse.json(
-        { error: 'You can only update your own reservation', code: 'FORBIDDEN' },
-        { status: 403 },
-      );
-    }
-
-    const restaurantId = await requireRestaurantContext(
-      data.restaurantId ?? existingBooking.restaurant_id,
-    );
+    const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
     const normalizedBookingType = data.bookingType ?? inferMealTypeFromTime(data.time);
 
     let startTime = data.time;
@@ -1288,6 +1507,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       client: serviceSupabase,
     });
     const endTime = deriveEndTimeFromDuration(startTime, durationMinutes);
+    const instantFields = buildBookingInstantFieldsFromLocalTimes({
+      bookingDate: data.date,
+      startTime,
+      endTime,
+      timezone: schedule.timezone ?? 'Europe/London',
+    });
 
     try {
       assertBookingNotInPast(schedule.timezone ?? 'Europe/London', data.date, startTime, {
@@ -1317,8 +1542,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       existingBooking.booking_date !== data.date ||
       existingBooking.start_time !== startTime ||
       existingBooking.end_time !== endTime ||
-      existingBooking.party_size !== data.party ||
-      existingBooking.seating_preference !== data.seating;
+      existingBooking.party_size !== data.party;
 
     const updated: Tables<'bookings'> = requiresTableRealignment
       ? await beginBookingModificationFlow({
@@ -1331,9 +1555,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             booking_date: data.date,
             start_time: startTime,
             end_time: endTime,
+            ...instantFields,
             party_size: data.party,
             booking_type: normalizedBookingType,
-            seating_preference: data.seating,
+            seating_preference: existingBooking.seating_preference,
             customer_name: data.name,
             customer_email: normalizedEmail,
             customer_phone: normalizedPhone,
@@ -1341,20 +1566,26 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
           },
         })
-      : await updateBookingRecord(serviceSupabase, bookingId, {
-          restaurant_id: restaurantId,
-          booking_date: data.date,
-          start_time: startTime,
-          end_time: endTime,
-          party_size: data.party,
-          booking_type: normalizedBookingType,
-          seating_preference: data.seating,
-          customer_name: data.name,
-          customer_email: normalizedEmail,
-          customer_phone: normalizedPhone,
-          notes: data.notes ?? null,
-          marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
-        });
+      : await updateBookingRecord(
+          serviceSupabase,
+          bookingId,
+          {
+            restaurant_id: restaurantId,
+            booking_date: data.date,
+            start_time: startTime,
+            end_time: endTime,
+            ...instantFields,
+            party_size: data.party,
+            booking_type: normalizedBookingType,
+            seating_preference: existingBooking.seating_preference,
+            customer_name: data.name,
+            customer_email: normalizedEmail,
+            customer_phone: normalizedPhone,
+            notes: data.notes ?? null,
+            marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+          },
+          { restaurantId },
+        );
 
     const auditMetadata = {
       restaurant_id: restaurantId,
@@ -1362,7 +1593,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     } as Json;
 
     const actorIdentity =
-      user?.email ?? user?.id ?? data.email ?? existingBooking.customer_email ?? null;
+      user?.email ??
+      user?.id ??
+      (recoveryResult?.ok ? 'session-recovery' : null) ??
+      existingBooking.customer_email ??
+      null;
 
     await logAuditEvent(serviceSupabase, {
       action: 'booking.updated',
@@ -1372,12 +1607,6 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       actor: actorIdentity,
     });
 
-    const bookings = await fetchBookingsForContact(
-      tenantSupabase,
-      restaurantId,
-      data.email,
-      data.phone,
-    );
     try {
       await enqueueBookingUpdatedSideEffects(
         {
@@ -1395,9 +1624,17 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       console.error('[bookings][PUT:id][side-effects]', stringifyError(jobError));
     }
 
-    return NextResponse.json({ booking: updated, bookings });
+    return NextResponse.json({ booking: toGuestBookingDTO(updated) });
   } catch (error: unknown) {
     console.error('[bookings][PUT:id]', stringifyError(error));
+    captureServerEvent('booking_modify_failed', {
+      bookingId,
+      source: 'api',
+      method: 'guest',
+      ...(error instanceof HttpError
+        ? { code: error.code, status: error.status }
+        : { reason: 'unexpected' }),
+    });
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message, code: error.code, details: error.details ?? null },
@@ -1405,8 +1642,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    captureServerException(error, {
+      properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+    });
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to update booking', code: 'UNKNOWN' },
+      { error: 'Unable to update booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }
@@ -1421,6 +1661,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       { status: 400 },
     );
   }
+
+  captureServerEvent('booking_cancel_started', {
+    bookingId,
+    source: 'api',
+    method: 'guest',
+  });
 
   const recoveryToken = extractSessionRecoveryAccessToken(req);
   if (recoveryToken) {
@@ -1447,6 +1693,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
+        .eq('restaurant_id', result.payload.restaurantId)
         .maybeSingle();
 
       if (error) {
@@ -1483,10 +1730,24 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
 
       const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
+      if (existingBooking.status === 'cancelled') {
+        return NextResponse.json({ id: bookingId, status: 'cancelled' });
+      }
+
       const schedule = await getRestaurantSchedule(restaurantId, {
         date: existingBooking.booking_date ?? undefined,
         client: serviceSupabase,
       });
+
+      const cancellationLock = evaluateGuestModificationLock({
+        booking: existingBooking,
+        timezone: schedule.timezone ?? 'Europe/London',
+      });
+
+      const cancellationLockedResponse = respondWithGuestModificationLock(cancellationLock);
+      if (cancellationLockedResponse) {
+        return cancellationLockedResponse;
+      }
 
       const startParts = resolveBookingStart(existingBooking, schedule.timezone ?? 'Europe/London');
       if (startParts) {
@@ -1520,7 +1781,13 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         }
       }
 
-      const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
+      const cancellation = await softCancelBooking(serviceSupabase, bookingId, {
+        restaurantId,
+      });
+      const cancelledRecord = cancellation.booking;
+      if (!cancellation.cancelled) {
+        return NextResponse.json({ id: bookingId, status: cancelledRecord.status ?? 'cancelled' });
+      }
       await clearBookingTableAssignments(serviceSupabase, bookingId);
 
       const cancellationMetadata = {
@@ -1561,6 +1828,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         const record = error as { code?: string; message?: string };
 
         if (record.code === '42501') {
+          captureServerEvent('booking_cancel_failed', {
+            bookingId,
+            source: 'api',
+            method: 'guest',
+            reason: 'cutoff_passed',
+          });
           return NextResponse.json(
             {
               error: 'This booking can no longer be cancelled online. Please contact the venue.',
@@ -1571,8 +1844,17 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         }
       }
 
+      captureServerEvent('booking_cancel_failed', {
+        bookingId,
+        source: 'api',
+        method: 'guest',
+        reason: 'unexpected',
+      });
+      captureServerException(error, {
+        properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+      });
       return NextResponse.json(
-        { error: stringifyError(error) || 'Unable to cancel booking', code: 'UNKNOWN' },
+        { error: 'Unable to cancel booking', code: 'UNKNOWN' },
         { status: 500 },
       );
     }
@@ -1616,8 +1898,8 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     const normalizedEmail = normalizeEmail(userEmail);
 
-    // Verify the booking belongs to the authenticated user
-    if (normalizeEmail(existingBooking.customer_email) !== normalizedEmail) {
+    // Authenticated cancellation requires a booking-bound user id. Guest bookings use sr_access.
+    if (!isBookingBoundToAuthenticatedUser(existingBooking, user.id)) {
       return NextResponse.json(
         { error: 'You can only cancel your own reservation', code: 'FORBIDDEN' },
         { status: 403 },
@@ -1629,6 +1911,10 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     const restaurantId = await requireRestaurantContext(existingBooking.restaurant_id);
+    if (existingBooking.status === 'cancelled') {
+      return NextResponse.json({ id: bookingId, status: 'cancelled', bookings: [] });
+    }
+
     const schedule = await getRestaurantSchedule(restaurantId, {
       date: existingBooking.booking_date ?? undefined,
       client: serviceSupabase,
@@ -1676,7 +1962,25 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const cancelledRecord = await softCancelBooking(serviceSupabase, bookingId);
+    const cancellation = await softCancelBooking(serviceSupabase, bookingId, {
+      restaurantId,
+    });
+    const cancelledRecord = cancellation.booking;
+    if (!cancellation.cancelled) {
+      const bookings = await fetchBookingsForContact(
+        tenantSupabase,
+        restaurantId,
+        userEmail,
+        existingBooking.customer_phone,
+      );
+      return NextResponse.json({
+        id: bookingId,
+        status: cancelledRecord.status ?? 'cancelled',
+        bookings: bookings.map((booking) =>
+          toPublicRecoveryBookingDTO(booking as Tables<'bookings'>),
+        ),
+      });
+    }
     await clearBookingTableAssignments(serviceSupabase, bookingId);
 
     const cancellationMetadata = {
@@ -1699,6 +2003,9 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       userEmail,
       existingBooking.customer_phone,
     );
+    const safeBookings = bookings.map((booking) =>
+      toPublicRecoveryBookingDTO(booking as Tables<'bookings'>),
+    );
     try {
       await enqueueBookingCancelledSideEffects(
         {
@@ -1716,7 +2023,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       id: bookingId,
       status: cancelledRecord.status ?? 'cancelled',
-      bookings,
+      bookings: safeBookings,
     });
   } catch (error: unknown) {
     console.error('[bookings][DELETE:id]', stringifyError(error));
@@ -1725,6 +2032,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       const record = error as { code?: string; message?: string };
 
       if (record.code === '42501') {
+        captureServerEvent('booking_cancel_failed', {
+          bookingId,
+          source: 'api',
+          method: 'guest',
+          reason: 'cutoff_passed',
+        });
         return NextResponse.json(
           {
             error: 'This booking can no longer be cancelled online. Please contact the venue.',
@@ -1735,8 +2048,18 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    captureServerEvent('booking_cancel_failed', {
+      bookingId,
+      source: 'api',
+      method: 'guest',
+      reason: 'unexpected',
+    });
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { bookingId, source: 'api', path: '/api/bookings/[id]' },
+    });
     return NextResponse.json(
-      { error: stringifyError(error) || 'Unable to cancel booking', code: 'UNKNOWN' },
+      { error: 'Unable to cancel booking', code: 'UNKNOWN' },
       { status: 500 },
     );
   }

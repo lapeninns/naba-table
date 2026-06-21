@@ -1,22 +1,22 @@
 import { redirect } from 'next/navigation';
 
 import { LandingPage } from '@/components/landing/LandingPage';
-import { MarketingLayout } from '@/components/layouts/MarketingLayout';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 
 import type { Metadata } from 'next';
 
-const BRAND_NAME = 'Nab a Table';
-const PRIMARY_REGION = 'Cambridgeshire, Norfolk and Bedfordshire';
+const BRAND_NAME = 'Nabatable';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: `${BRAND_NAME} - Reserve your table in 30 seconds`,
-  description: `Pick your time and party size, add a note, and get an instant confirmation at top restaurants across ${PRIMARY_REGION}. Free to book; no phone calls.`,
+  title: `${BRAND_NAME} — The 'Packed House' Pub System | Fill Tables & Eradicate No-Shows`,
+  description:
+    'Stop chasing bookings and losing money to empty seats. Nabatable is the only all-in-one system that automates reservations, eliminates seating chaos, and guarantees calmer, more profitable services for food-led UK pubs.',
   openGraph: {
-    title: `${BRAND_NAME} - Reserve your table in 30 seconds`,
-    description: `Instant confirmations, live availability, and clear hold windows for every booking across ${PRIMARY_REGION}.`,
+    title: `${BRAND_NAME} — Fill Your Tables & Eradicate No-Shows Without Lifting A Finger`,
+    description:
+      'The all-in-one reservations and capacity growth system for modern food-led UK pubs. Automated reminders, smart floor planning, and white-glove setup included.',
     type: 'website',
   },
   twitter: {
@@ -39,9 +39,5 @@ export default async function Home() {
     redirect('/guest/dashboard');
   }
 
-  return (
-    <MarketingLayout showNavbar={false} showFooter={false}>
-      <LandingPage isAuthenticated={isAuthenticated} />
-    </MarketingLayout>
-  );
+  return <LandingPage isAuthenticated={isAuthenticated} />;
 }

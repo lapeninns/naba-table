@@ -1,0 +1,47 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: Dev
+      - heading "Restaurant" [level=1] [ref=e7]
+      - generic [ref=e8]: Dev harness for the restaurant settings shell, subnav, and sections.
+      - generic [ref=e10]:
+        - generic [ref=e11]: Editing
+        - generic [ref=e12]: Dev Restaurant (Ops Harness)
+        - generic [ref=e13]: Use the sidebar restaurant switcher to change restaurants.
+    - navigation "Restaurant settings" [ref=e14]:
+      - generic [ref=e15]:
+        - link "Restaurant Profile Name, branding, contact details, booking policy, reminders." [ref=e16] [cursor=pointer]:
+          - /url: /app/settings/restaurant/profile
+          - generic [ref=e17]: Restaurant Profile
+          - generic [ref=e18]: Name, branding, contact details, booking policy, reminders.
+        - link "Google Business Profile Connect Google, link a location, and prepare business info sync." [ref=e19] [cursor=pointer]:
+          - /url: /app/settings/restaurant/google-business-profile
+          - generic [ref=e20]: Google Business Profile
+          - generic [ref=e21]: Connect Google, link a location, and prepare business info sync.
+        - link "Availability & Occasions Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place." [ref=e22] [cursor=pointer]:
+          - /url: /app/settings/restaurant/availability
+          - generic [ref=e23]: Availability & Occasions
+          - generic [ref=e24]: Weekly hours, overrides, meal windows, occasions, and dining-duration bands in one place.
+        - link "Menu Manage menu items, modifiers, and imports." [ref=e25] [cursor=pointer]:
+          - /url: /app/settings/restaurant/menu
+          - generic [ref=e26]: Menu
+          - generic [ref=e27]: Manage menu items, modifiers, and imports.
+        - link "Tables Manage table inventory, zones, and capacity." [ref=e28] [cursor=pointer]:
+          - /url: /app/settings/restaurant/tables
+          - generic [ref=e29]: Tables
+          - generic [ref=e30]: Manage table inventory, zones, and capacity.
+        - link "Team Invite and manage restaurant staff access." [ref=e31] [cursor=pointer]:
+          - /url: /app/settings/restaurant/team
+          - generic [ref=e32]: Team
+          - generic [ref=e33]: Invite and manage restaurant staff access.
+    - generic [ref=e35]:
+      - paragraph [ref=e36]: View selector is local to this harness; the left subnav is rendered for responsive layout verification but links to authenticated routes.
+      - generic [ref=e37]:
+        - generic [ref=e38]: Select a restaurant settings view
+        - combobox "Select a restaurant settings view" [ref=e39]:
+          - generic: Google Business Profile
+          - img
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e51] [cursor=pointer]:
+    - img [ref=e52]
+  - alert [ref=e55]

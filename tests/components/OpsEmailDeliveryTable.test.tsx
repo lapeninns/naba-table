@@ -1,13 +1,15 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/components/OpsEmailDeliveryTable';
 import { buildOpsEmailDeliveryTableRows } from '@/components/features/email-delivery/opsEmailDeliverySelectors';
 
 import type { OpsEmailDeliveryAttemptDTO } from '@/types/emailDelivery';
 
-function makeAttempt(overrides: Partial<OpsEmailDeliveryAttemptDTO> = {}): OpsEmailDeliveryAttemptDTO {
+function makeAttempt(
+  overrides: Partial<OpsEmailDeliveryAttemptDTO> = {},
+): OpsEmailDeliveryAttemptDTO {
   return {
     messageId: 'msg-test-1',
     recipientEmail: 'alex@example.com',
@@ -160,6 +162,32 @@ function getRecipientOrder() {
 }
 
 describe('OpsEmailDeliveryTable', () => {
+  beforeEach(() => {
+    // vitest.config sets mockReset:true, which wipes the global matchMedia mock
+    // implementation before each test (so it returns undefined). The table reads
+    // useIsMobileState(1024) and now holds a skeleton until the breakpoint is
+    // measured, so restore a working matchMedia and a desktop-width viewport
+    // (>= the lg breakpoint) for the effect to resolve to the table variant.
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1280,
+    });
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  });
+
   it('renders table with correct column headers', () => {
     render(
       <OpsEmailDeliveryTable
@@ -310,7 +338,6 @@ describe('OpsEmailDeliveryTable', () => {
     expect(errorTexts.length).toBeGreaterThanOrEqual(1);
   });
 
-
   it('shows an open booking link and copies the message id from expanded rows', async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -332,7 +359,10 @@ describe('OpsEmailDeliveryTable', () => {
     await user.click(rows[1]!);
 
     const openBookingLink = screen.getByRole('link', { name: /open booking/i });
-    expect(openBookingLink).toHaveAttribute('href', '/app/bookings?restaurantId=rest-1&focus=booking-1');
+    expect(openBookingLink).toHaveAttribute(
+      'href',
+      '/app/bookings?restaurantId=rest-1&focus=booking-1',
+    );
 
     await user.click(screen.getByRole('button', { name: /copy message id/i }));
 
@@ -388,12 +418,7 @@ describe('OpsEmailDeliveryTable', () => {
 
   it('renders an empty table shell when no results', () => {
     render(
-      <OpsEmailDeliveryTable
-        rows={[]}
-        timezone="UTC"
-        restaurantId="rest-1"
-        isLoading={false}
-      />,
+      <OpsEmailDeliveryTable rows={[]} timezone="UTC" restaurantId="rest-1" isLoading={false} />,
     );
 
     expect(screen.getByRole('table')).toBeInTheDocument();
@@ -403,12 +428,7 @@ describe('OpsEmailDeliveryTable', () => {
 
   it('shows loading skeleton while data fetches', () => {
     render(
-      <OpsEmailDeliveryTable
-        rows={[]}
-        timezone="UTC"
-        restaurantId="rest-1"
-        isLoading={true}
-      />,
+      <OpsEmailDeliveryTable rows={[]} timezone="UTC" restaurantId="rest-1" isLoading={true} />,
     );
 
     expect(screen.getByLabelText('Loading email delivery attempts')).toBeInTheDocument();
@@ -432,10 +452,18 @@ describe('OpsEmailDeliveryTable', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /retry email for sam@example.com/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry email for bounce@example.com/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /retry email for alex@example.com/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /retry email for jane@example.com/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /retry email for sam@example.com/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /retry email for bounce@example.com/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /retry email for alex@example.com/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /retry email for jane@example.com/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('opens a retry confirmation dialog with delivery details', async () => {
@@ -455,7 +483,9 @@ describe('OpsEmailDeliveryTable', () => {
     expect(screen.getByText('Retry email delivery?')).toBeInTheDocument();
     expect(screen.getAllByText('sam@example.com').length).toBeGreaterThan(0);
     expect(screen.getAllByText('review_request').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Warning: retrying will create a new delivery attempt/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Warning: retrying will create a new delivery attempt/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirm retry/i })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));

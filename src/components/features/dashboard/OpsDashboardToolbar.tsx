@@ -49,7 +49,7 @@ export function OpsDashboardToolbar({
           <Button
             variant="outline"
             size="icon"
-            className="h-10 w-10 shrink-0 bg-card touch-manipulation"
+            className="size-9 shrink-0 bg-card touch-manipulation"
             aria-label="Filter bookings"
             aria-controls="ops-bookings-filter-bar"
             onClick={() => {
@@ -58,16 +58,16 @@ export function OpsDashboardToolbar({
                 ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
             }}
           >
-            <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
+            <Filter className="size-4 text-muted-foreground" aria-hidden />
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="h-10 gap-2 bg-card px-3 text-sm"
+            className="h-9 gap-2 bg-card px-3 text-sm"
             onClick={onPrint}
             aria-label="Print bookings"
           >
-            <Printer className="h-4 w-4" aria-hidden />
+            <Printer className="size-4" aria-hidden />
             <span className="hidden sm:inline">Print</span>
           </Button>
         </>
@@ -75,7 +75,7 @@ export function OpsDashboardToolbar({
       search={
         <div className="relative flex-1 md:w-64 md:flex-none">
           <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
           <Input
@@ -87,7 +87,7 @@ export function OpsDashboardToolbar({
             value={searchQuery}
             onChange={onSearchChange}
             autoComplete="off"
-            className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation"
+            className="h-9 w-full rounded border border-border bg-background pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/30 touch-manipulation"
           />
         </div>
       }

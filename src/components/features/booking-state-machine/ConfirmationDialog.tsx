@@ -1,6 +1,14 @@
-"use client";
+'use client';
 
-import { cloneElement, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  useCallback,
+  useMemo,
+  useState,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 import {
   AlertDialog,
@@ -12,12 +20,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 
 export type TriggerProps = {
   onClick?: (event?: unknown) => void;
   disabled?: boolean;
-  "aria-disabled"?: boolean;
+  'aria-disabled'?: boolean;
 };
 
 type ConfirmationDialogProps = {
@@ -38,8 +46,8 @@ export function ConfirmationDialog({
   trigger,
   title,
   description,
-  confirmLabel = "Confirm",
-  cancelLabel = "Cancel",
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   pending = false,
   onConfirm,
   onOpenChange,
@@ -50,11 +58,17 @@ export function ConfirmationDialog({
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const closeDialog = useCallback(() => {
+    setOpen(false);
+    onOpenChange?.(false);
+    onAfterClose?.();
+  }, [onAfterClose, onOpenChange]);
+
   const resolvedTrigger = useMemo(() => {
     const originalOnClick = trigger.props.onClick;
     return cloneElement(trigger, {
       onClick: (event?: unknown) => {
-        if (typeof originalOnClick === "function") {
+        if (typeof originalOnClick === 'function') {
           originalOnClick(event);
         }
         if (!disabled) {
@@ -62,13 +76,14 @@ export function ConfirmationDialog({
           onOpenChange?.(true);
         }
       },
-      "aria-disabled": trigger.props["aria-disabled"] ?? disabled,
+      'aria-disabled': trigger.props['aria-disabled'] ?? disabled,
       disabled: trigger.props.disabled ?? disabled,
     });
   }, [trigger, disabled, onOpenChange]);
 
   const handleOpenChange = (next: boolean) => {
     if (disabled) return;
+    if (!next && isSubmitting) return;
     setOpen(next);
     onOpenChange?.(next);
     if (!next) {
@@ -76,14 +91,15 @@ export function ConfirmationDialog({
     }
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
     if (pending || isSubmitting) return;
     try {
       setIsSubmitting(true);
       await onConfirm();
-      setOpen(false);
-      onOpenChange?.(false);
-      onAfterClose?.();
+      closeDialog();
+    } catch {
+      // Keep destructive confirmations open when the caller's mutation fails.
     } finally {
       setIsSubmitting(false);
     }

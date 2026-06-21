@@ -1,12 +1,17 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getBookingsHeatmap } from "@/server/ops/bookings";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { requireMembershipForRestaurant } from "@/server/team/access";
+import { daysBetweenInclusive, firstString, safeDate } from '@/lib/api/query-params';
+import { getBookingsHeatmap } from '@/server/ops/bookings';
+import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  buildDashboardAccessErrorResponse,
+  requireDashboardAccess,
+} from '@/src/app/api/ops/dashboard/_shared';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
 const heatmapQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -15,10 +20,15 @@ const heatmapQuerySchema = z.object({
 });
 
 type HeatmapQuery = z.infer<typeof heatmapQuerySchema>;
+const HEATMAP_MAX_WINDOW_DAYS = 93;
 
 function parseQuery(request: NextRequest): HeatmapQuery | null {
-  const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const result = heatmapQuerySchema.safeParse(entries);
+  const params = request.nextUrl.searchParams;
+  const result = heatmapQuerySchema.safeParse({
+    restaurantId: firstString(params, 'restaurantId'),
+    startDate: safeDate(params, 'startDate'),
+    endDate: safeDate(params, 'endDate'),
+  });
   if (!result.success) {
     return null;
   }
@@ -28,30 +38,32 @@ function parseQuery(request: NextRequest): HeatmapQuery | null {
 export async function GET(request: NextRequest) {
   const query = parseQuery(request);
   if (!query) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
-  }
-
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) {
-    console.error("[ops/dashboard][heatmap] failed to resolve auth", error.message);
-    const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
   }
 
   try {
-    await requireMembershipForRestaurant({ userId: user.id, restaurantId: query.restaurantId });
-  } catch (membershipError) {
-    console.error("[ops/dashboard][heatmap] membership validation failed", membershipError);
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    await requireDashboardAccess(query.restaurantId);
+  } catch (error) {
+    return buildDashboardAccessErrorResponse('heatmap', error);
+  }
+
+  const windowDays = daysBetweenInclusive(query.startDate, query.endDate);
+  if (!Number.isFinite(windowDays) || windowDays < 1 || windowDays > HEATMAP_MAX_WINDOW_DAYS) {
+    return NextResponse.json(
+      { error: `Heatmap range must be between 1 and ${HEATMAP_MAX_WINDOW_DAYS} days` },
+      { status: 400 },
+    );
+  }
+
+  const rateLimit = await requireApiRateLimit({
+    request,
+    scope: 'ops-dashboard:heatmap',
+    tenantId: query.restaurantId,
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (rateLimit) {
+    return rateLimit;
   }
 
   try {
@@ -63,7 +75,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(heatmap);
   } catch (heatmapError) {
-    console.error("[ops/dashboard][heatmap] failed to load heatmap", heatmapError);
-    return NextResponse.json({ error: "Unable to load heatmap" }, { status: 500 });
+    console.error('[ops/dashboard][heatmap] failed to load heatmap', heatmapError);
+    captureServerException(heatmapError, {
+      groups: { restaurant: query.restaurantId },
+      properties: {
+        restaurantId: query.restaurantId,
+        source: 'ops',
+        kind: 'ops-dashboard-heatmap',
+      },
+    });
+    return NextResponse.json({ error: 'Unable to load heatmap' }, { status: 500 });
   }
 }

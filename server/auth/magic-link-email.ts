@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash } from 'node:crypto';
 
-import config from "@/config";
-import { env } from "@/lib/env";
-import { createEmailIdempotencyKey, sendEmail } from "@/libs/resend";
+import config from '@/config';
+import { normalizeTrustedMagicLinkRedirect } from '@/lib/auth/redirects';
+import { env } from '@/lib/env';
+import { createEmailIdempotencyKey, sendEmail } from '@/libs/resend';
 import {
   COLORS,
   EMAIL_FONT_STACK,
@@ -10,10 +11,14 @@ import {
   renderButton,
   renderDivider,
   renderEmailBase,
-} from "@/server/emails/base";
-import { getServiceSupabaseClient } from "@/server/supabase";
+} from '@/server/emails/base';
+import {
+  resolvePlatformAppSenderName,
+  resolvePlatformReplyTo,
+} from '@/server/emails/sender-policy';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-type MagicLinkIntent = "signin" | "signup";
+type MagicLinkIntent = 'signin' | 'signup';
 type MagicLinkMetadata = Record<string, string | number | boolean | null>;
 
 export type SendAuthMagicLinkParams = {
@@ -24,21 +29,24 @@ export type SendAuthMagicLinkParams = {
 };
 
 type MagicLinkDeliveryReason =
-  | "generate_link_failed"
-  | "invalid_link_payload"
-  | "email_delivery_failed";
+  | 'generate_link_failed'
+  | 'invalid_redirect'
+  | 'invalid_link_payload'
+  | 'email_delivery_failed';
 
 type MagicLinkGenerateResult = {
   properties?: {
     action_link?: unknown;
+    hashed_token?: unknown;
     verification_type?: unknown;
   } | null;
 };
 
-const MAGIC_LINK_FAILURE_MESSAGE = "We couldn't send a magic link right now. Please try again shortly.";
+const MAGIC_LINK_FAILURE_MESSAGE =
+  "We couldn't send a magic link right now. Please try again shortly.";
 
 function normalizeHttpStatus(status: number | undefined, fallback: number): number {
-  if (typeof status !== "number" || !Number.isFinite(status)) {
+  if (typeof status !== 'number' || !Number.isFinite(status)) {
     return fallback;
   }
   const parsed = Math.trunc(status);
@@ -55,26 +63,33 @@ function asErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function extractActionLink(data: MagicLinkGenerateResult | null): string {
-  const actionLink = data?.properties?.action_link;
-  if (typeof actionLink !== "string" || actionLink.trim().length === 0) {
+function extractTokenHash(data: MagicLinkGenerateResult | null): string {
+  const tokenHash = data?.properties?.hashed_token;
+  if (typeof tokenHash !== 'string' || tokenHash.trim().length === 0) {
     throw new MagicLinkDeliveryError(
-      "Supabase generateLink response did not include a usable action link.",
+      'Supabase generateLink response did not include a usable token hash.',
       500,
-      "invalid_link_payload",
+      'invalid_link_payload',
     );
   }
 
   const verificationType = data?.properties?.verification_type;
-  if (typeof verificationType === "string" && verificationType.toLowerCase() !== "magiclink") {
+  if (typeof verificationType === 'string' && verificationType.toLowerCase() !== 'magiclink') {
     throw new MagicLinkDeliveryError(
       `Unexpected verification type from Supabase generateLink: ${verificationType}`,
       500,
-      "invalid_link_payload",
+      'invalid_link_payload',
     );
   }
 
-  return actionLink;
+  return tokenHash;
+}
+
+function buildCallbackMagicLink(emailRedirectTo: string, tokenHash: string): string {
+  const magicLink = new URL(emailRedirectTo);
+  magicLink.searchParams.set('token_hash', tokenHash);
+  magicLink.searchParams.set('type', 'magiclink');
+  return magicLink.toString();
 }
 
 function buildMagicLinkContent(params: {
@@ -84,16 +99,18 @@ function buildMagicLinkContent(params: {
   helpUrl: string;
 }) {
   const { magicLink, intent, loginUrl, helpUrl } = params;
-  const isSignup = intent === "signup";
-  const appName = config.appName ?? "Nab a Table";
-  const actionLabel = isSignup ? "Complete sign up" : "Sign in now";
-  const title = isSignup ? `Complete your ${appName} sign up` : `Your ${appName} magic sign-in link`;
+  const isSignup = intent === 'signup';
+  const appName = config.appName ?? 'Nab a Table';
+  const actionLabel = isSignup ? 'Complete sign up' : 'Sign in now';
+  const title = isSignup
+    ? `Complete your ${appName} sign up`
+    : `Your ${appName} magic sign-in link`;
   const preheader = isSignup
-    ? "Use this one-time secure link to finish creating your account."
-    : "Use this one-time secure link to sign in instantly.";
+    ? 'Use this one-time secure link to finish creating your account.'
+    : 'Use this one-time secure link to sign in instantly.';
   const bodyCopy = isSignup
-    ? "Tap the button below to finish creating your account. This link is one-time and expires shortly."
-    : "Tap the button below to sign in. This link is one-time and expires shortly.";
+    ? 'Tap the button below to finish creating your account. This link is one-time and expires shortly.'
+    : 'Tap the button below to sign in. This link is one-time and expires shortly.';
 
   const contentHtml = `
     <div style="text-align:center;">
@@ -108,7 +125,7 @@ function buildMagicLinkContent(params: {
           <strong>Security:</strong> This link is one-time use and expires shortly.
         </p>
         <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:14px;color:${COLORS.text};">
-          <strong>Destination:</strong> ${isSignup ? "Complete your account setup" : "Return to your account"}
+          <strong>Destination:</strong> ${isSignup ? 'Complete your account setup' : 'Return to your account'}
         </p>
       </div>
       ${renderButton(actionLabel, magicLink)}
@@ -141,7 +158,7 @@ function buildMagicLinkContent(params: {
     `${actionLabel}: ${magicLink}`,
     ``,
     `If you did not request this email, you can ignore it.`,
-  ].join("\n");
+  ].join('\n');
 
   return {
     subject: title,
@@ -156,13 +173,13 @@ function buildMagicLinkIdempotencyKey(params: {
   actionLink: string;
   redirectTo: string;
 }) {
-  const digest = createHash("sha256")
-    .update([params.email, params.intent, params.actionLink, params.redirectTo].join("|"))
-    .digest("hex")
+  const digest = createHash('sha256')
+    .update([params.email, params.intent, params.actionLink, params.redirectTo].join('|'))
+    .digest('hex')
     .slice(0, 16);
 
   return createEmailIdempotencyKey({
-    scope: "auth-magic-link",
+    scope: 'auth-magic-link',
     parts: [params.email, params.intent, digest],
   });
 }
@@ -173,7 +190,7 @@ export class MagicLinkDeliveryError extends Error {
 
   constructor(message: string, status: number, reason: MagicLinkDeliveryReason) {
     super(message);
-    this.name = "MagicLinkDeliveryError";
+    this.name = 'MagicLinkDeliveryError';
     this.status = normalizeHttpStatus(status, 500);
     this.reason = reason;
   }
@@ -193,30 +210,46 @@ export function getMagicLinkFailure(error: unknown, fallbackMessage: string) {
 
 export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promise<void> {
   const { email, emailRedirectTo, intent, data } = params;
+  const trustedEmailRedirectTo = normalizeTrustedMagicLinkRedirect(
+    emailRedirectTo,
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost',
+  );
+
+  if (!trustedEmailRedirectTo) {
+    throw new MagicLinkDeliveryError(
+      'Magic link callback URL is not an approved authentication origin.',
+      400,
+      'invalid_redirect',
+    );
+  }
+
   const serviceSupabase = getServiceSupabaseClient();
-  const options = data ? { redirectTo: emailRedirectTo, data } : { redirectTo: emailRedirectTo };
+  const options = data
+    ? { redirectTo: trustedEmailRedirectTo, data }
+    : { redirectTo: trustedEmailRedirectTo };
 
   const { data: generatedLink, error } = await serviceSupabase.auth.admin.generateLink({
-    type: "magiclink",
+    type: 'magiclink',
     email,
     options,
   });
 
   if (error) {
     throw new MagicLinkDeliveryError(
-      error.message ?? "Supabase failed to generate a magic link.",
+      error.message ?? 'Supabase failed to generate a magic link.',
       normalizeHttpStatus(error.status, 400),
-      "generate_link_failed",
+      'generate_link_failed',
     );
   }
 
-  const actionLink = extractActionLink(generatedLink as MagicLinkGenerateResult | null);
+  const tokenHash = extractTokenHash(generatedLink as MagicLinkGenerateResult | null);
+  const magicLink = buildCallbackMagicLink(trustedEmailRedirectTo, tokenHash);
 
   const loginUrl = new URL(config.auth.loginUrl, env.app.url).toString();
   const supportEmail = config.email.supportEmail?.trim();
   const helpUrl = supportEmail ? `mailto:${supportEmail}` : loginUrl;
   const message = buildMagicLinkContent({
-    magicLink: actionLink,
+    magicLink,
     intent,
     loginUrl,
     helpUrl,
@@ -228,23 +261,25 @@ export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promis
       subject: message.subject,
       html: message.html,
       text: message.text,
-      fromName: config.appName,
+      category: 'auth',
+      replyTo: resolvePlatformReplyTo(),
+      fromName: resolvePlatformAppSenderName(),
       tags: [
-        { name: "email_type", value: "auth_magic_link" },
-        { name: "template_type", value: intent },
+        { name: 'email_type', value: 'auth_magic_link' },
+        { name: 'template_type', value: intent },
       ],
       idempotencyKey: buildMagicLinkIdempotencyKey({
         email,
         intent,
-        actionLink,
-        redirectTo: emailRedirectTo,
+        actionLink: magicLink,
+        redirectTo: trustedEmailRedirectTo,
       }),
     });
   } catch (error) {
     throw new MagicLinkDeliveryError(
       `Resend delivery failed: ${asErrorMessage(error)}`,
       500,
-      "email_delivery_failed",
+      'email_delivery_failed',
     );
   }
 }

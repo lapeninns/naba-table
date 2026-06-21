@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { inferMealTypeFromTime } from '@/server/bookings';
 import { getVenuePolicy, type ServiceKey, type TurnBand } from '@/server/capacity/policy';
@@ -11,6 +12,7 @@ import {
   type TurnBandInput,
   type TurnBandsPayload,
 } from '@/server/restaurants/turnBands';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
@@ -63,7 +65,10 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -86,6 +91,7 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
 
 function handleUnexpectedError(error: unknown, context: string) {
   console.error(context, error);
+  captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-turn-bands' } });
 
   if (error instanceof Error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -155,6 +161,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 }
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
+  return withCsrfProtectedMutation(req, () => putTurnBands(req, { params }));
+}
+
+async function putTurnBands(req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
@@ -166,7 +176,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     payload = payloadSchema.parse(json ?? {}) as TurnBandsPayload;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid payload', details: error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid payload', details: error.flatten() },
+        { status: 400 },
+      );
     }
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }

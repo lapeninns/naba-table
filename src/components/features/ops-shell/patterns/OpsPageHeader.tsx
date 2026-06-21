@@ -1,10 +1,8 @@
 'use client';
 
-import { forwardRef } from 'react';
-
 import { cn } from '@/lib/utils';
 
-import type { ElementType, ReactNode } from 'react';
+import type { ElementType, ReactNode, Ref } from 'react';
 
 export type OpsPageHeaderProps = {
   eyebrow?: ReactNode;
@@ -14,37 +12,36 @@ export type OpsPageHeaderProps = {
   primaryAction?: ReactNode;
   secondaryActions?: ReactNode;
   headingLevel?: 'h1' | 'h2' | 'h3';
+  headerRef?: Ref<HTMLElement>;
   className?: string;
   titleClassName?: string;
 };
 
 const headingStyles: Record<NonNullable<OpsPageHeaderProps['headingLevel']>, string> = {
-  h1: 'text-2xl font-bold tracking-tight text-foreground sm:text-3xl',
-  h2: 'text-xl font-semibold tracking-tight text-foreground sm:text-2xl',
-  h3: 'text-lg font-semibold tracking-tight text-foreground',
+  h1: 'text-2xl font-semibold text-foreground sm:text-3xl',
+  h2: 'text-xl font-semibold text-foreground sm:text-2xl',
+  h3: 'text-lg font-semibold text-foreground',
 };
 
-export const OpsPageHeader = forwardRef<HTMLElement, OpsPageHeaderProps>(function OpsPageHeader(
-  {
-    eyebrow,
-    title,
-    subtitle,
-    meta,
-    primaryAction,
-    secondaryActions,
-    headingLevel = 'h1',
-    className,
-    titleClassName,
-  },
-  ref,
-) {
+export function OpsPageHeader({
+  eyebrow,
+  title,
+  subtitle,
+  meta,
+  primaryAction,
+  secondaryActions,
+  headingLevel = 'h1',
+  headerRef,
+  className,
+  titleClassName,
+}: OpsPageHeaderProps) {
   const Heading = headingLevel as ElementType;
   return (
     <header
-      ref={ref}
+      ref={headerRef}
       className={cn('flex flex-col gap-4 md:flex-row md:items-end md:justify-between', className)}
     >
-      <div className="space-y-1">
+      <div className="flex flex-col gap-1">
         {eyebrow ? (
           <div className="text-xs uppercase tracking-wide text-muted-foreground">{eyebrow}</div>
         ) : null}
@@ -69,6 +66,4 @@ export const OpsPageHeader = forwardRef<HTMLElement, OpsPageHeaderProps>(functio
       ) : null}
     </header>
   );
-});
-
-OpsPageHeader.displayName = 'OpsPageHeader';
+}

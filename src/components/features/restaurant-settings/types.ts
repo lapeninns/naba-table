@@ -2,10 +2,11 @@ import type { OccasionKey } from '@reserve/shared/occasions';
 
 export type RestaurantSettingsView =
   | 'profile'
-  | 'operating-hours'
-  | 'occasions'
-  | 'service-periods'
-  | 'turn-durations'
+  | 'discovery'
+  | 'google-business-profile'
+  | 'availability'
+  | 'menu'
+  | 'tables'
   | 'team';
 
 export type WeeklyRow = {
@@ -40,7 +41,12 @@ export type ServicePeriodRow = {
 
 export type WeeklyErrors = Record<
   number,
-  { opensAt?: string; closesAt?: string; reservationIntervalMinutes?: string; reservationSlotTimes?: string }
+  {
+    opensAt?: string;
+    closesAt?: string;
+    reservationIntervalMinutes?: string;
+    reservationSlotTimes?: string;
+  }
 >;
 export type OverrideErrors = Array<{
   effectiveDate?: string;
@@ -56,7 +62,15 @@ export type ServicePeriodErrors = Array<{
   bookingOption?: string;
 }>;
 
-export const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+export const DAYS_OF_WEEK = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
 
 export const DAY_OPTIONS: Array<{ value: number | null; label: string }> = [
   { value: null, label: 'All days' },

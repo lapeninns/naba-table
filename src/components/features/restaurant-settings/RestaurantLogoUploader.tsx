@@ -5,56 +5,40 @@ import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useOpsRestaurantLogoUpload } from '@/hooks/ops/useOpsRestaurantLogoUpload';
+import { track } from '@/lib/analytics';
+import { emit } from '@/lib/analytics/emit';
 import { cn } from '@/lib/utils';
+
+import {
+  extractLogoInitials,
+  LOGO_ALLOWED_MIME_TYPES,
+  type LogoAnalyticsEvent,
+  validateLogoFile,
+} from './restaurantLogoModel';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
 import type { UseMutationResult } from '@tanstack/react-query';
 
-const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
-
 type RestaurantLogoUploaderProps = {
   restaurantId: string | null;
   restaurantName: string;
   logoUrl: string | null;
-  updateMutation: UseMutationResult<RestaurantProfile, HttpError | Error, Partial<RestaurantProfile>>;
+  updateMutation: UseMutationResult<
+    RestaurantProfile,
+    HttpError | Error,
+    Partial<RestaurantProfile>
+  >;
   isLoading?: boolean;
+  onPreviewChange?: (previewUrl: string | null | undefined) => void;
 };
 
-type ValidationError = {
-  code: 'FILE_TOO_LARGE' | 'UNSUPPORTED_FILE';
-  message: string;
-};
-
-function validateFile(file: File): ValidationError | null {
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    return {
-      code: 'FILE_TOO_LARGE',
-      message: 'Images must be 2 MB or smaller.',
-    };
-  }
-
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    return {
-      code: 'UNSUPPORTED_FILE',
-      message: 'Supported formats: JPEG, PNG, WEBP, SVG.',
-    };
-  }
-
-  return null;
-}
-
-function extractInitials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((segment) => segment.charAt(0).toUpperCase())
-    .join('')
-    .padEnd(2, '•');
+function emitLogoAnalytics(eventName: LogoAnalyticsEvent, props: Record<string, unknown>) {
+  track(eventName, props);
+  void emit(eventName, props);
 }
 
 export function RestaurantLogoUploader({
@@ -63,6 +47,7 @@ export function RestaurantLogoUploader({
   logoUrl,
   updateMutation,
   isLoading = false,
+  onPreviewChange,
 }: RestaurantLogoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadMutation = useOpsRestaurantLogoUpload(restaurantId);
@@ -78,7 +63,10 @@ export function RestaurantLogoUploader({
     };
   }, [localPreview]);
 
-  const initials = useMemo(() => extractInitials(restaurantName || 'Restaurant'), [restaurantName]);
+  const initials = useMemo(
+    () => extractLogoInitials(restaurantName || 'Restaurant'),
+    [restaurantName],
+  );
   const busy = uploadMutation.isPending || updateMutation.isPending;
   const controlsDisabled = busy || !restaurantId || isLoading;
 
@@ -94,24 +82,44 @@ export function RestaurantLogoUploader({
       return;
     }
 
-    const validation = validateFile(file);
+    const validation = validateLogoFile(file);
     if (validation) {
+      emitLogoAnalytics('restaurant_profile_logo_validation_error', {
+        restaurant_id: restaurantId,
+        code: validation.code,
+        size: file.size,
+        type: file.type,
+      });
       setErrorMessage(validation.message);
       resetFileInput();
       return;
     }
 
     setErrorMessage(null);
+    const uploadStartedAt = Date.now();
     const nextPreview = URL.createObjectURL(file);
     setLocalPreview(nextPreview);
+    onPreviewChange?.(nextPreview);
 
     try {
       const uploaded = await uploadMutation.mutateAsync(file);
       await updateMutation.mutateAsync({ logoUrl: uploaded.url });
+      onPreviewChange?.(uploaded.url);
+      emitLogoAnalytics('restaurant_profile_logo_saved', {
+        restaurant_id: restaurantId,
+        action: 'upload',
+        elapsed_ms: Math.max(0, Date.now() - uploadStartedAt),
+      });
     } catch (error) {
       console.error('[restaurant-logo] upload failed', error);
       const message = error instanceof Error ? error.message : 'Failed to upload logo';
       setErrorMessage(message);
+      onPreviewChange?.(undefined);
+      emitLogoAnalytics('restaurant_profile_logo_save_failed', {
+        restaurant_id: restaurantId,
+        action: 'upload',
+        code: error instanceof Error ? error.name : 'unknown',
+      });
     } finally {
       setLocalPreview(null);
       resetFileInput();
@@ -123,19 +131,36 @@ export function RestaurantLogoUploader({
       return;
     }
     setErrorMessage(null);
+    onPreviewChange?.(null);
+    const removeStartedAt = Date.now();
     try {
       await updateMutation.mutateAsync({ logoUrl: null });
+      emitLogoAnalytics('restaurant_profile_logo_saved', {
+        restaurant_id: restaurantId,
+        action: 'remove',
+        elapsed_ms: Math.max(0, Date.now() - removeStartedAt),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove logo';
       setErrorMessage(message);
+      onPreviewChange?.(undefined);
+      emitLogoAnalytics('restaurant_profile_logo_save_failed', {
+        restaurant_id: restaurantId,
+        action: 'remove',
+        code: error instanceof Error ? error.name : 'unknown',
+      });
     }
   };
 
   return (
-    <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+    <div
+      id="restaurant-logo-uploader"
+      tabIndex={-1}
+      className="rounded-lg border border-border/70 bg-muted/20 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <div className="relative h-20 w-20 overflow-hidden rounded-md border border-border bg-background">
+          <div className="relative size-20 overflow-hidden rounded-md border border-border bg-background">
             {displayUrl ? (
               <Image
                 src={displayUrl}
@@ -153,16 +178,18 @@ export function RestaurantLogoUploader({
             )}
             {(busy || isLoading) && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Loader2 className="size-6 animate-spin text-primary" />
               </div>
             )}
           </div>
           <div>
-            <Label className="text-sm font-medium text-foreground">Email branding</Label>
+            <Label className="text-sm font-medium text-foreground">Restaurant logo</Label>
             <p className="text-sm text-muted-foreground">
-              Guests will see this logo inside booking emails and other notifications.
+              Shown on the guest booking page and in booking emails.
             </p>
-            <p className="text-xs text-muted-foreground">Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.</p>
+            <p className="text-xs text-muted-foreground">
+              Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.
+            </p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
@@ -173,7 +200,11 @@ export function RestaurantLogoUploader({
               disabled={controlsDisabled}
               onClick={() => fileInputRef.current?.click()}
             >
-              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              {busy ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 size-4" />
+              )}
               {logoUrl ? 'Replace logo' : 'Upload logo'}
             </Button>
             <Button
@@ -182,13 +213,13 @@ export function RestaurantLogoUploader({
               disabled={controlsDisabled || !logoUrl}
               onClick={handleRemoveLogo}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Remove
+              <Trash2 className="mr-2 size-4" /> Remove
             </Button>
           </div>
-          <input
+          <Input
             ref={fileInputRef}
             type="file"
-            accept={ALLOWED_MIME_TYPES.join(',')}
+            accept={LOGO_ALLOWED_MIME_TYPES.join(',')}
             className="sr-only"
             onChange={handleFileChange}
             aria-label="Upload restaurant logo"
@@ -199,7 +230,10 @@ export function RestaurantLogoUploader({
             aria-live={errorMessage ? 'assertive' : 'polite'}
             className={cn('text-xs text-muted-foreground', errorMessage && 'text-destructive')}
           >
-            {errorMessage ?? (restaurantId ? 'Images are cropped to square automatically.' : 'Select a restaurant to upload a logo.')}
+            {errorMessage ??
+              (restaurantId
+                ? 'Images are cropped to square automatically.'
+                : 'Select a restaurant to upload a logo.')}
           </p>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
@@ -14,7 +15,11 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
+type BusinessDetailsRow = Database['public']['Tables']['restaurant_business_details']['Row'];
 type DbClient = SupabaseClient<Database>;
+
+const CORE_SOURCE = 'nabatable';
+const CORE_MANAGED_BY = 'nabatable';
 
 export type RestaurantDetails = {
   restaurantId: string;
@@ -25,22 +30,25 @@ export type RestaurantDetails = {
   contactEmail: string | null;
   contactPhone: string | null;
   address: string | null;
+  businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
   bookingPolicy: string | null;
   logoUrl: string | null;
+  updatedAt: string | null;
 };
 
 export type UpdateRestaurantDetailsInput = {
   name?: string;
   slug?: string;
-  timezone: string;
+  timezone?: string;
   capacity?: number | null;
   contactEmail?: string | null;
   contactPhone?: string | null;
   address?: string | null;
+  businessDescription?: string | null;
   managerDailySummaryEnabled?: boolean;
   managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
@@ -59,59 +67,135 @@ function sanitizeString(value: string | null | undefined): string | null {
 
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-type NormalizedDetailsInput = {
-  name: string;
-  slug: string;
-  timezone: string;
-  capacity: number | null;
-  contactEmail: string | null;
-  contactPhone: string | null;
-  address: string | null;
-  managerDailySummaryEnabled: boolean;
-  managerNotificationPhone: string | null;
-  googleMapUrl: string | null;
-  googleReviewUrl: string | null;
-  bookingPolicy: string | null;
-  logoUrl: string | null;
-};
-
-function validateDetailsInput(input: NormalizedDetailsInput): NormalizedDetailsInput {
-  const timezone = assertValidTimezone(input.timezone);
-
-  const name = input.name.trim();
+function validateName(value: string | undefined): string {
+  const name = value?.trim() ?? '';
   if (!name) {
     throw new Error('Name is required');
   }
+  return name;
+}
 
-  const slug = input.slug.trim();
+function validateSlug(value: string | undefined): string {
+  const slug = value?.trim() ?? '';
   if (!slug) {
     throw new Error('Slug is required');
   }
   if (!SLUG_PATTERN.test(slug)) {
     throw new Error('Slug must contain only lowercase letters, numbers, and hyphens');
   }
+  return slug;
+}
 
+function validateCapacity(value: number | null | undefined): number | null {
   const capacity =
-    input.capacity === null ? null : Number.isFinite(input.capacity) ? input.capacity : null;
+    value === null || value === undefined ? null : Number.isFinite(value) ? value : null;
   if (capacity !== null && capacity < 0) {
     throw new Error('Capacity must be a positive number');
   }
+  return capacity;
+}
 
-  return {
-    name,
-    slug,
-    timezone,
-    capacity,
-    contactEmail: sanitizeString(input.contactEmail),
-    contactPhone: sanitizeString(input.contactPhone),
-    address: sanitizeString(input.address),
-    managerDailySummaryEnabled: input.managerDailySummaryEnabled ?? false,
-    managerNotificationPhone: sanitizeString(input.managerNotificationPhone),
-    googleMapUrl: sanitizeString(input.googleMapUrl),
-    googleReviewUrl: sanitizeString(input.googleReviewUrl),
-    bookingPolicy: sanitizeString(input.bookingPolicy),
-    logoUrl: sanitizeString(input.logoUrl),
-  };
+function hasInput<K extends keyof UpdateRestaurantDetailsInput>(
+  input: UpdateRestaurantDetailsInput,
+  key: K,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined;
+}
+
+function buildRestaurantDetailsUpdatePayload(
+  input: UpdateRestaurantDetailsInput,
+): UpdateRestaurantInput {
+  const payload: UpdateRestaurantInput = {};
+
+  if (hasInput(input, 'name')) {
+    payload.name = validateName(input.name);
+  }
+  if (hasInput(input, 'slug')) {
+    payload.slug = validateSlug(input.slug);
+  }
+  if (hasInput(input, 'timezone')) {
+    payload.timezone = assertValidTimezone(input.timezone);
+  }
+  if (hasInput(input, 'capacity')) {
+    payload.capacity = validateCapacity(input.capacity);
+  }
+  if (hasInput(input, 'contactEmail')) {
+    payload.contactEmail = sanitizeString(input.contactEmail);
+  }
+  if (hasInput(input, 'contactPhone')) {
+    payload.contactPhone = sanitizeString(input.contactPhone);
+  }
+  if (hasInput(input, 'address')) {
+    payload.address = sanitizeString(input.address);
+  }
+  if (hasInput(input, 'managerDailySummaryEnabled')) {
+    payload.managerDailySummaryEnabled = input.managerDailySummaryEnabled ?? false;
+  }
+  if (hasInput(input, 'managerNotificationPhone')) {
+    payload.managerNotificationPhone = sanitizeString(input.managerNotificationPhone);
+  }
+  if (hasInput(input, 'googleMapUrl')) {
+    payload.googleMapUrl = safeGoogleMapsUrl(input.googleMapUrl);
+  }
+  if (hasInput(input, 'googleReviewUrl')) {
+    payload.googleReviewUrl = safeGoogleReviewUrl(input.googleReviewUrl);
+  }
+  if (hasInput(input, 'bookingPolicy')) {
+    payload.bookingPolicy = sanitizeString(input.bookingPolicy);
+  }
+  if (hasInput(input, 'logoUrl')) {
+    payload.logoUrl = sanitizeString(input.logoUrl);
+  }
+
+  return payload;
+}
+
+export async function getRestaurantBusinessDescription(
+  restaurantId: string,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('restaurant_business_details')
+    .select('description')
+    .eq('restaurant_id', restaurantId)
+    .eq('source', CORE_SOURCE)
+    .eq('managed_by', CORE_MANAGED_BY)
+    .maybeSingle<Pick<BusinessDetailsRow, 'description'>>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.description ?? null;
+}
+
+export async function upsertRestaurantBusinessDescription(
+  restaurantId: string,
+  description: string | null | undefined,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<string | null> {
+  const normalizedDescription = sanitizeString(description);
+  const { error } = await client.from('restaurant_business_details').upsert(
+    {
+      restaurant_id: restaurantId,
+      description: normalizedDescription,
+      source: CORE_SOURCE,
+      managed_by: CORE_MANAGED_BY,
+      last_manual_override_at: new Date().toISOString(),
+      change_origin: 'owner',
+      changed_via: 'ops_restaurant_profile',
+      change_reason: 'Owner/admin restaurant profile update.',
+    },
+    {
+      onConflict: 'restaurant_id,source,managed_by',
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizedDescription;
 }
 
 export async function getRestaurantDetails(
@@ -142,6 +226,7 @@ export async function getRestaurantDetails(
   }
 
   const restaurant = ensureLogoColumnOnRow(data);
+  const businessDescription = await getRestaurantBusinessDescription(restaurantId, client);
   return {
     restaurantId: restaurant.id,
     name: restaurant.name,
@@ -151,12 +236,14 @@ export async function getRestaurantDetails(
     contactEmail: restaurant.contact_email,
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
+    businessDescription,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
     managerNotificationPhone: restaurant.manager_notification_phone,
-    googleMapUrl: restaurant.google_map_url,
-    googleReviewUrl: restaurant.google_review_url,
+    googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
+    googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),
     bookingPolicy: restaurant.booking_policy,
     logoUrl: restaurant.logo_url,
+    updatedAt: restaurant.updated_at ?? null,
   };
 }
 
@@ -165,41 +252,28 @@ export async function updateRestaurantDetails(
   input: UpdateRestaurantDetailsInput,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<RestaurantDetails> {
-  const current = await getRestaurantDetails(restaurantId, client);
-  const merged: NormalizedDetailsInput = {
-    name: input.name ?? current.name,
-    slug: input.slug ?? current.slug,
-    timezone: input.timezone ?? current.timezone,
-    capacity: input.capacity ?? current.capacity,
-    contactEmail: input.contactEmail ?? current.contactEmail,
-    contactPhone: input.contactPhone ?? current.contactPhone,
-    address: input.address ?? current.address,
-    managerDailySummaryEnabled:
-      input.managerDailySummaryEnabled ?? current.managerDailySummaryEnabled,
-    managerNotificationPhone: input.managerNotificationPhone ?? current.managerNotificationPhone,
-    googleMapUrl: input.googleMapUrl ?? current.googleMapUrl,
-    googleReviewUrl: input.googleReviewUrl ?? current.googleReviewUrl,
-    bookingPolicy: input.bookingPolicy ?? current.bookingPolicy,
-    logoUrl: input.logoUrl ?? current.logoUrl,
-  };
+  const payload = buildRestaurantDetailsUpdatePayload(input);
+  const hasBusinessDescriptionInput = hasInput(input, 'businessDescription');
 
-  const validated = validateDetailsInput(merged);
-  const payload: UpdateRestaurantInput = {
-    name: validated.name,
-    slug: validated.slug,
-    timezone: validated.timezone,
-    capacity: validated.capacity,
-    contactEmail: validated.contactEmail,
-    contactPhone: validated.contactPhone,
-    address: validated.address,
-    managerDailySummaryEnabled: validated.managerDailySummaryEnabled,
-    managerNotificationPhone: validated.managerNotificationPhone,
-    bookingPolicy: validated.bookingPolicy,
-    logoUrl: validated.logoUrl,
-    ...(validated.googleMapUrl !== null ? { googleMapUrl: validated.googleMapUrl } : {}),
-    ...(validated.googleReviewUrl !== null ? { googleReviewUrl: validated.googleReviewUrl } : {}),
-  };
+  if (Object.keys(payload).length === 0) {
+    if (hasBusinessDescriptionInput) {
+      await upsertRestaurantBusinessDescription(
+        restaurantId,
+        sanitizeString(input.businessDescription),
+        client,
+      );
+    }
+    return getRestaurantDetails(restaurantId, client);
+  }
+
   const updated = await updateRestaurant(restaurantId, payload, client);
+  const businessDescription = hasBusinessDescriptionInput
+    ? await upsertRestaurantBusinessDescription(
+        restaurantId,
+        sanitizeString(input.businessDescription),
+        client,
+      )
+    : await getRestaurantBusinessDescription(restaurantId, client);
 
   return {
     restaurantId: updated.id,
@@ -210,11 +284,13 @@ export async function updateRestaurantDetails(
     contactEmail: updated.contactEmail,
     contactPhone: updated.contactPhone,
     address: updated.address,
+    businessDescription,
     managerDailySummaryEnabled: updated.managerDailySummaryEnabled,
     managerNotificationPhone: updated.managerNotificationPhone,
     googleMapUrl: updated.googleMapUrl,
     googleReviewUrl: updated.googleReviewUrl,
     bookingPolicy: updated.bookingPolicy,
     logoUrl: updated.logoUrl,
+    updatedAt: updated.updatedAt ?? null,
   };
 }

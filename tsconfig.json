@@ -16,10 +16,6 @@
     "noImplicitAny": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/components/ui/calendar": [
-        "./src/components/ui/calendar.tsx",
-        "./components/ui/calendar.tsx"
-      ],
       "@/app/*": ["./src/app/*"],
       "@/components/features": ["./src/components/features/index.ts"],
       "@/components/features/*": ["./src/components/features/*"],
@@ -71,6 +67,12 @@
     "**/*.test.tsx",
     "**/__tests__/**/*",
     ".next/dev/types/routes.d.ts",
+    "tasks/**/*",
+    ".deepsec/**/*",
+    "backups/**/*",
+    "analysis/**/*",
+    ".vercel/**/*",
+    "cloudflare/**/.wrangler/**/*",
     "test-results/**/*"
   ]
 }

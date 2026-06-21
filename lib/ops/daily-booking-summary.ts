@@ -138,5 +138,7 @@ export function formatDailyBookingSummaryMessage(
     );
   }
 
+  sentences.push('app.nabatable.com');
+
   return sentences.join(' ');
 }

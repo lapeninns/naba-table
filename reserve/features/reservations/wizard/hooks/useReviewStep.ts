@@ -25,7 +25,18 @@ export function useReviewStep({
   const contextState = useWizardState();
   const contextActions = useWizardActions();
   const state = providedState ?? contextState;
-  const actions = providedActions ?? contextActions;
+  if (!state) {
+    throw new Error(
+      'useReviewStep requires an explicit state prop or a WizardProvider ancestor.',
+    );
+  }
+  const actions = useMemo(
+    () => ({
+      ...(contextActions ?? {}),
+      ...(providedActions ?? {}),
+    }),
+    [contextActions, providedActions],
+  );
   const details = state.details;
   const { analytics } = useWizardDependencies();
 
@@ -66,6 +77,16 @@ export function useReviewStep({
     onConfirm();
   }, [onConfirm]);
 
+  const handleAlternativeSelect = useCallback(
+    (time: string) => {
+      actions.updateDetails('time', time);
+      actions.setError(null);
+      actions.setSubmissionError(null);
+      actions.goToStep(1);
+    },
+    [actions],
+  );
+
   useEffect(() => {
     onActionsChange([
       {
@@ -94,7 +115,9 @@ export function useReviewStep({
     summary,
     isSubmitting: state.submitting,
     error: state.error,
+    submissionError: state.submissionError,
     handleEdit,
     handleConfirm,
+    handleAlternativeSelect,
   };
 }

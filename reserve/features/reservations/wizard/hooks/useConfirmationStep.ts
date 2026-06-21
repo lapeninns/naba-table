@@ -1,5 +1,6 @@
 'use client';
 
+import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { downloadCalendarEvent, shareReservationDetails } from '@/lib/reservations/share';
@@ -23,7 +24,7 @@ import type {
 } from '../ui/steps/confirmation-step/types';
 import type { Dispatch, SetStateAction } from 'react';
 
-const buildReservationWindow = (state: State) => {
+export const buildReservationWindow = (state: State) => {
   const booking = state.lastConfirmed;
   const date = booking?.booking_date ?? state.details.date ?? '';
 
@@ -44,12 +45,22 @@ const buildReservationWindow = (state: State) => {
     return null;
   }
 
-  const iso = `${date}T${normalizedTime}:00`;
-  const start = new Date(iso);
+  const timezone =
+    state.details.restaurantTimezone?.trim() ||
+    reservationConfigResult.config.timezone ||
+    DEFAULT_VENUE.timezone ||
+    'UTC';
+  const startDateTime = DateTime.fromISO(`${date}T${normalizedTime}:00`, {
+    zone: timezone,
+  });
 
-  if (Number.isNaN(start.getTime())) {
+  if (!startDateTime.isValid) {
     if (process.env.NODE_ENV !== 'production') {
-      console.error('[confirmation-step] Unable to parse reservation start date.', { iso });
+      console.error('[confirmation-step] Unable to parse reservation start date.', {
+        date,
+        normalizedTime,
+        timezone,
+      });
     }
     return null;
   }
@@ -65,7 +76,9 @@ const buildReservationWindow = (state: State) => {
     return null;
   }
 
-  const end = new Date(start.getTime() + safeDuration * 60 * 1000);
+  const endDateTime = startDateTime.plus({ minutes: safeDuration });
+  const start = startDateTime.toUTC().toJSDate();
+  const end = endDateTime.toUTC().toJSDate();
 
   if (Number.isNaN(end.getTime())) {
     if (process.env.NODE_ENV !== 'production') {
@@ -86,6 +99,7 @@ const buildReservationWindow = (state: State) => {
 
 export function useConfirmationStep({
   state: providedState,
+  mode = 'customer',
   onNewBooking,
   onClose,
   onActionsChange,
@@ -93,6 +107,11 @@ export function useConfirmationStep({
   const { errorReporter } = useWizardDependencies();
   const contextState = useWizardState();
   const state = providedState ?? contextState;
+  if (!state) {
+    throw new Error(
+      'useConfirmationStep requires an explicit state prop or a WizardProvider ancestor.',
+    );
+  }
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
   const booking = state.lastConfirmed;
@@ -274,20 +293,45 @@ export function useConfirmationStep({
   }, [onNewBooking]);
 
   useEffect(() => {
-    const actions: StepAction[] = [];
-    actions.push({
-      id: 'confirmation-new',
-      label: 'Start a new booking',
-      ariaLabel: 'Start a new booking',
-      variant: 'default',
-      icon: 'Plus',
-      onClick: handleNewBooking,
-      disabled: isLoading,
-      role: 'primary',
-    });
+    const actions: StepAction[] =
+      mode === 'ops'
+        ? [
+            {
+              id: 'confirmation-return',
+              label: 'Back to bookings',
+              ariaLabel: 'Back to bookings',
+              variant: 'default',
+              icon: 'ChevronLeft',
+              onClick: handleClose,
+              disabled: isLoading,
+              role: 'primary',
+            },
+            {
+              id: 'confirmation-new',
+              label: 'Start a new booking',
+              ariaLabel: 'Start a new booking',
+              variant: 'outline',
+              icon: 'Plus',
+              onClick: handleNewBooking,
+              disabled: isLoading,
+              role: 'secondary',
+            },
+          ]
+        : [
+            {
+              id: 'confirmation-new',
+              label: 'Start a new booking',
+              ariaLabel: 'Start a new booking',
+              variant: 'default',
+              icon: 'Plus',
+              onClick: handleNewBooking,
+              disabled: isLoading,
+              role: 'primary',
+            },
+          ];
 
     onActionsChange(actions);
-  }, [handleNewBooking, isLoading, onActionsChange]);
+  }, [handleClose, handleNewBooking, isLoading, mode, onActionsChange]);
 
   return {
     booking,

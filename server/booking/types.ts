@@ -1,24 +1,24 @@
-import type { BookingType } from "@/lib/enums";
+import type { BookingType } from '@/lib/enums';
 import type {
   BookingRecord as CapacityBookingRecord,
   BookingResult as CapacityBookingResult,
   BookingErrorCode as CapacityErrorCode,
-} from "@/server/capacity";
-import type { RestaurantSchedule } from "@/server/restaurants/schedule";
-import type { Json } from "@/types/supabase";
+} from '@/server/capacity';
+import type { RestaurantSchedule } from '@/server/restaurants/schedule';
+import type { Json } from '@/types/supabase';
 
 export type BookingErrorCode =
-  | "PAST_TIME"
-  | "CLOSED_DATE"
-  | "OUTSIDE_HOURS"
-  | "SERVICE_PERIOD"
-  | "CAPACITY_EXCEEDED"
-  | "INVALID_DURATION"
-  | "LEAD_TIME"
-  | "MISSING_OVERRIDE"
-  | "UNKNOWN";
+  | 'PAST_TIME'
+  | 'CLOSED_DATE'
+  | 'OUTSIDE_HOURS'
+  | 'SERVICE_PERIOD'
+  | 'CAPACITY_EXCEEDED'
+  | 'INVALID_DURATION'
+  | 'LEAD_TIME'
+  | 'MISSING_OVERRIDE'
+  | 'UNKNOWN';
 
-export type BookingErrorSeverity = "error" | "warning";
+export type BookingErrorSeverity = 'error' | 'warning';
 
 export interface BookingError {
   code: BookingErrorCode;
@@ -60,7 +60,10 @@ export interface BookingInput {
   details?: Json | null;
 }
 
-export interface BookingPatchInput extends Omit<BookingInput, "start" | "durationMinutes" | "serviceId" | "restaurantId"> {
+export interface BookingPatchInput extends Omit<
+  BookingInput,
+  'start' | 'durationMinutes' | 'serviceId' | 'restaurantId'
+> {
   start?: string;
   durationMinutes?: number;
   serviceId?: string;
@@ -74,6 +77,7 @@ export interface OverrideRequest {
 export interface ValidationContext {
   actorId: string;
   actorRoles: string[];
+  authenticatedCustomerUserId?: string | null;
   actorCapabilities?: string[];
   tz: string;
   flags: {
@@ -178,18 +182,18 @@ export interface Logger {
 
 export function mapCapacityErrorCode(code: CapacityErrorCode | undefined): BookingErrorCode {
   switch (code) {
-    case "CAPACITY_EXCEEDED":
-    case "BOOKING_CONFLICT":
-      return "CAPACITY_EXCEEDED";
-    case "BOOKING_OUTSIDE_OPERATING_HOURS":
-    case "OPERATING_HOURS_CLOSED":
-      return "OUTSIDE_HOURS";
-    case "PAST_TIME_BLOCKED":
-      return "PAST_TIME";
-    case "INVALID_PARAMS":
-      return "UNKNOWN";
-    case "INTERNAL_ERROR":
+    case 'CAPACITY_EXCEEDED':
+    case 'BOOKING_CONFLICT':
+      return 'CAPACITY_EXCEEDED';
+    case 'BOOKING_OUTSIDE_OPERATING_HOURS':
+    case 'OPERATING_HOURS_CLOSED':
+      return 'OUTSIDE_HOURS';
+    case 'PAST_TIME_BLOCKED':
+      return 'PAST_TIME';
+    case 'INVALID_PARAMS':
+      return 'UNKNOWN';
+    case 'INTERNAL_ERROR':
     default:
-      return "UNKNOWN";
+      return 'UNKNOWN';
   }
 }

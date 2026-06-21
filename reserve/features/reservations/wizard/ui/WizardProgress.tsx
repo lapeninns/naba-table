@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@shared/lib/cn';
-import { Progress } from '@shared/ui/progress';
 
 export interface WizardStepMeta {
   id: number;
@@ -70,6 +70,7 @@ export function WizardProgress({
           <Progress
             value={progressValue}
             className="h-1.5 flex-1 rounded-full bg-muted"
+            aria-label="Booking progress"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progressValue)}

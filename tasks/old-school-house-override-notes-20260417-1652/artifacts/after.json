@@ -1,0 +1,164 @@
+{
+  "restaurant": {
+    "id": "a120da71-ba6d-446f-a33a-2e78787abcb0",
+    "name": "The Old School House",
+    "slug": "the-old-school-house",
+    "timezone": "Europe/London"
+  },
+  "rows": [
+    {
+      "id": "5cad356f-2350-47e2-aa7d-aefbdddbb7f9",
+      "day_of_week": 0,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "21:00:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "7d8e7bed-8bda-42fa-b484-2851cd35bf2e",
+      "day_of_week": 1,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "60199a6d-6111-4160-8f9b-7b979e8e7f74",
+      "day_of_week": 2,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "e58052ac-31df-4716-b33b-9c8a6681d90c",
+      "day_of_week": 3,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "07f2a238-b52e-4ba7-995b-7b3290410e72",
+      "day_of_week": 4,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "b32d3650-d27f-4fa9-a9e9-16e5c7ba0b00",
+      "day_of_week": 5,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "23:59:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "006e3119-0991-461b-824a-80cac7aca81a",
+      "day_of_week": 6,
+      "effective_date": null,
+      "opens_at": "12:00:00",
+      "closes_at": "23:59:00",
+      "is_closed": false,
+      "notes": null,
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "f1614ede-2bf3-48cd-86a4-cf11e65292ec",
+      "day_of_week": null,
+      "effective_date": "2026-04-17",
+      "opens_at": "12:00:00",
+      "closes_at": "23:59:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "33b24a06-031f-43e7-af4e-a62f5292dba2",
+      "day_of_week": null,
+      "effective_date": "2026-04-18",
+      "opens_at": "12:00:00",
+      "closes_at": "23:59:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "60a33624-93dc-44eb-90e3-78fdf868bc19",
+      "day_of_week": null,
+      "effective_date": "2026-04-19",
+      "opens_at": "12:00:00",
+      "closes_at": "21:00:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "1d290fb6-763c-422b-91f8-0bc7b4306b77",
+      "day_of_week": null,
+      "effective_date": "2026-04-20",
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "1fb51dc2-a550-4c28-a7b7-c3c33d598715",
+      "day_of_week": null,
+      "effective_date": "2026-04-21",
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "9832e56a-f8d3-4cd6-8292-624dc122b26f",
+      "day_of_week": null,
+      "effective_date": "2026-04-22",
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    },
+    {
+      "id": "b3c0debf-e479-44d2-8999-bb8b50b73bce",
+      "day_of_week": null,
+      "effective_date": "2026-04-23",
+      "opens_at": "12:00:00",
+      "closes_at": "23:00:00",
+      "is_closed": false,
+      "notes": "Open for drinks only for now. Food service is paused while the kitchen offer gets ready.",
+      "reservation_interval_minutes": null,
+      "reservation_slot_times": null
+    }
+  ]
+}

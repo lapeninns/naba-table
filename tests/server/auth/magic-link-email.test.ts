@@ -1,7 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const generateLink = vi.hoisted(() => vi.fn());
 const sendEmail = vi.hoisted(() => vi.fn());
+const originalRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+
+vi.mock('server-only', () => ({}));
 
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: () => ({
@@ -15,6 +18,8 @@ vi.mock('@/server/supabase', () => ({
 
 vi.mock('@/libs/resend', () => ({
   sendEmail,
+  createEmailIdempotencyKey: ({ scope, parts }: { scope: string; parts: unknown[] }) =>
+    `${scope}:${parts.join(':')}`,
 }));
 
 vi.mock('@/lib/env', () => ({
@@ -33,6 +38,7 @@ vi.mock('@/config', () => ({
     },
     email: {
       supportEmail: 'support@nabatable.com',
+      platformReplyTo: 'auth-replies@nabatable.com',
     },
   },
 }));
@@ -43,6 +49,15 @@ describe('sendAuthMagicLink', () => {
   beforeEach(() => {
     generateLink.mockReset();
     sendEmail.mockReset();
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'nabatable.com';
+  });
+
+  afterEach(() => {
+    if (typeof originalRootDomain === 'string') {
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN = originalRootDomain;
+    } else {
+      delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    }
   });
 
   it('generates a magic link and sends it via resend', async () => {
@@ -50,6 +65,7 @@ describe('sendAuthMagicLink', () => {
       data: {
         properties: {
           action_link: 'https://supabase.example/auth/v1/verify?token_hash=abc&type=magiclink',
+          hashed_token: 'abc',
           verification_type: 'magiclink',
         },
       },
@@ -75,6 +91,14 @@ describe('sendAuthMagicLink', () => {
     expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'guest@example.com',
+        replyTo: 'auth-replies@nabatable.com',
+        fromName: 'Nab a Table',
+        html: expect.stringContaining(
+          'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fguest&amp;token_hash=abc&amp;type=magiclink',
+        ),
+        text: expect.stringContaining(
+          'https://www.nabatable.com/api/auth/callback?redirectedFrom=%2Fguest&token_hash=abc&type=magiclink',
+        ),
       }),
     );
   });
@@ -100,6 +124,40 @@ describe('sendAuthMagicLink', () => {
       reason: 'generate_link_failed',
     });
 
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('rejects untrusted callback origins before generating token-bearing links', async () => {
+    await expect(
+      sendAuthMagicLink({
+        email: 'guest@example.com',
+        emailRedirectTo: 'https://evil-nabatable.com/api/auth/callback',
+        intent: 'signin',
+      }),
+    ).rejects.toMatchObject({
+      name: 'MagicLinkDeliveryError',
+      status: 400,
+      reason: 'invalid_redirect',
+    });
+
+    expect(generateLink).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-HTTPS production callback origins', async () => {
+    await expect(
+      sendAuthMagicLink({
+        email: 'guest@example.com',
+        emailRedirectTo: 'http://www.nabatable.com/api/auth/callback',
+        intent: 'signin',
+      }),
+    ).rejects.toMatchObject({
+      name: 'MagicLinkDeliveryError',
+      status: 400,
+      reason: 'invalid_redirect',
+    });
+
+    expect(generateLink).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
   });
 

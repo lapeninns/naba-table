@@ -1,113 +1,142 @@
-import { CalendarCheck, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, KeyRound, ReceiptText, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 
+import {
+  GuestContent,
+  GuestInsetCard,
+  GuestPageFrame,
+  GuestPanel,
+  GuestPrimaryButton,
+  GuestSecondaryButton,
+} from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { getGuestBookingsLandingContent } from '@/guest/routes/auth-aware-content';
+import { getGuestAuthState } from '@/guest/services/auth-state.server';
 
+import type { LucideIcon } from 'lucide-react';
 import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Bookings · Nab a Table',
-  description: 'Browse restaurants to book a table, or sign in to manage your bookings.',
+  title: 'Book a table · Nab a Table',
+  description: 'Choose a restaurant and start a new booking, or sign in to view existing bookings.',
 };
 
-const primaryActionClass =
-  'min-h-[44px] w-full rounded-full btn-tactile focus-ring touch-feedback sm:min-h-[48px] sm:w-auto';
+export const dynamic = 'force-dynamic';
 
-const secondaryActionClass =
-  'min-h-[44px] w-full rounded-full btn-tactile focus-ring touch-feedback sm:min-h-[48px] sm:w-auto';
+export default async function BookingsLandingPage() {
+  const { isAuthenticated } = await getGuestAuthState();
+  const content = getGuestBookingsLandingContent(isAuthenticated);
 
-function BookingHubActionCard({
-  icon: Icon,
-  title,
-  description,
-  actions,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  actions: ReactNode;
-}) {
   return (
-    <Card className="h-full rounded-3xl border border-border/60 bg-background/95 p-6 shadow-sm sm:p-8">
-      <div className="flex h-full flex-col gap-5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
+    <GuestPageFrame className="pb-12 sm:pb-16">
+      <GuestContent className="space-y-6 py-7 sm:space-y-7 sm:py-10">
+        <header className="grid gap-4 border-b border-border/70 pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div className="min-w-0 space-y-2">
+            <p className="pg-kicker">Book a table</p>
+            <h1 className="font-[var(--pg-font-display)] text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+              Start a new booking
+            </h1>
+            <p className="pg-body max-w-[58ch]">{content.headerDescription}</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <GuestPrimaryButton href="/restaurants">Book a table</GuestPrimaryButton>
+            <GuestSecondaryButton href={content.secondaryAction.href}>
+              {content.secondaryAction.label}
+            </GuestSecondaryButton>
+          </div>
+        </header>
+
+        <div className="grid gap-4 lg:grid-cols-[7fr_5fr] lg:items-start">
+          <PrimaryBookingPanel
+            icon={UtensilsCrossed}
+            kicker="New booking"
+            title="Choose a restaurant"
+            description="Browse available restaurants, pick a date and time, then confirm your table."
+            actionHref="/restaurants"
+            actionLabel="Browse restaurants"
+            featured
+          />
+          <PrimaryBookingPanel
+            icon={CalendarCheck}
+            kicker="Existing booking"
+            title={content.existingTitle}
+            description={content.existingDescription}
+            actionHref={content.existingAction.href}
+            actionLabel={content.existingAction.label}
+          />
         </div>
 
-        <div className="space-y-2">
-          <h2 className="heading-subsection">{title}</h2>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-
-        <div className="mt-auto flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
-          {actions}
-        </div>
-      </div>
-    </Card>
+        <GuestPanel className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[5fr_7fr] lg:items-center">
+          <div className="space-y-2">
+            <p className="pg-kicker">Have a message link?</p>
+            <h2 className="pg-card-title">Open it from your email or SMS</h2>
+            <p className="pg-body max-w-[58ch] text-sm">{content.messageLinkDescription}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <GuestInsetCard
+              icon={KeyRound}
+              value="Magic link"
+              detail="No password needed."
+              className="p-4"
+            />
+            <GuestInsetCard
+              icon={CalendarCheck}
+              value="Upcoming"
+              detail="Live bookings first."
+              className="p-4"
+            />
+            <GuestInsetCard
+              icon={ReceiptText}
+              value="Receipts"
+              detail="Past visits saved."
+              className="p-4"
+            />
+          </div>
+        </GuestPanel>
+      </GuestContent>
+    </GuestPageFrame>
   );
 }
 
-export default function BookingsLandingPage() {
+function PrimaryBookingPanel({
+  icon: Icon,
+  kicker,
+  title,
+  description,
+  actionHref,
+  actionLabel,
+  featured = false,
+}: {
+  icon: LucideIcon;
+  kicker: string;
+  title: string;
+  description: string;
+  actionHref: string;
+  actionLabel: string;
+  featured?: boolean;
+}) {
   return (
-    <div className="min-h-screen bg-surface-warm pb-16 sm:pb-20">
-      {/* Hero Section */}
-      <section className="border-b border-border/50 bg-gradient-hero">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-10 sm:gap-8 sm:px-8 sm:py-16 lg:px-10 lg:py-20">
-          <div className="animate-fade-in-up space-y-3 sm:space-y-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-subtle">Bookings</p>
-            <h1 className="heading-hero">Your Reservations</h1>
-            <p className="text-body-warm max-w-2xl">
-              Book a new table or manage existing reservations.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Cards */}
-      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-12 lg:px-10">
-        <section
-          className="stagger-container grid gap-4 sm:grid-cols-2 sm:gap-6"
-          aria-label="Booking actions"
-        >
-          <div className="animate-fade-in-up">
-            <BookingHubActionCard
-              icon={UtensilsCrossed}
-              title="Book a table"
-              description="Find a restaurant, pick a date and time, and confirm your reservation."
-              actions={
-                <Button asChild size="lg" className={primaryActionClass}>
-                  <Link href="/restaurants">Browse restaurants</Link>
-                </Button>
-              }
-            />
-          </div>
-
-          <div className="animate-fade-in-up">
-            <BookingHubActionCard
-              icon={CalendarCheck}
-              title="Manage bookings"
-              description="Sign in to see your upcoming and past bookings, or make changes where available."
-              actions={
-                <>
-                  <Button asChild size="lg" className={primaryActionClass}>
-                    <Link href="/guest/bookings">View my bookings</Link>
-                  </Button>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="outline"
-                    className={secondaryActionClass}
-                  >
-                    <Link href="/auth/signin?redirectedFrom=/bookings">Sign in</Link>
-                  </Button>
-                </>
-              }
-            />
-          </div>
-        </section>
+    <GuestPanel className="flex h-full flex-col gap-5 p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon className="size-5" aria-hidden />
+        </span>
+        <span className="pg-chip">{kicker}</span>
       </div>
-    </div>
+      <div className="space-y-2">
+        <h2 className="pg-card-title">{title}</h2>
+        <p className="pg-body max-w-[52ch] text-sm">{description}</p>
+      </div>
+      <div className="mt-auto">
+        <Button
+          asChild
+          variant={featured ? 'guest-primary' : 'guest-outline'}
+          size="guest-lg"
+          className="pg-action pg-focus-ring pg-touch w-full sm:w-auto"
+        >
+          <Link href={actionHref}>{actionLabel}</Link>
+        </Button>
+      </div>
+    </GuestPanel>
   );
 }

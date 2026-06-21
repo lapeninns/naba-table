@@ -1,0 +1,21 @@
+# [BUG] Combination planner prunes valid smaller-table candidates
+
+**File:** [`server/capacity/selector.ts`](https://github.com/lapeninns/nabatable/blob/codex/Menu/blob/codex/server/capacity/selector.ts#L600-L883) (lines 600, 881, 882, 883)
+**Project:** nabatableLP
+**Severity:** BUG • **Confidence:** high • **Slug:** `other-logic-bug`
+
+## Owners
+
+**Suggested assignee:** `aman.shrestha@mail.bcu.ac.uk` _(via last-committer)_
+
+## Finding
+
+enumerateCombinationPlans sorts candidates by descending capacity, but the DFS loop breaks when the current candidate would exceed maxAllowedCapacity. Because later candidates are smaller, they may still fit where the current larger table does not. This can incorrectly skip valid combinations and return no suitable table plan even when one exists.
+
+## Recommendation
+
+Replace the break with continue for over-capacity candidates, and add a regression test where a larger candidate exceeds the capacity cap but a later smaller candidate forms a valid combination.
+
+## Recent committers (`git log`)
+
+- amanshresthaa <aman.shrestha@mail.bcu.ac.uk> (2026-02-16)

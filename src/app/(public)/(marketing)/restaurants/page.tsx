@@ -1,18 +1,24 @@
 import {
-    RestaurantsGridSection,
-    RestaurantsHeroSection,
+  RestaurantsGridSection,
+  RestaurantsHeroSection,
 } from '@/components/restaurants/PublicSections';
 import { listRestaurants } from '@/server/restaurants/listRestaurants';
 
-export const dynamic = 'force-dynamic';
+type SearchParams = Promise<{ q?: string | string[] }>;
 
-export default async function RestaurantsPage() {
-    const restaurants = await listRestaurants();
+function normalizeQuery(value?: string | string[]) {
+  return Array.isArray(value) ? (value[0]?.trim() ?? '') : (value?.trim() ?? '');
+}
 
-    return (
-        <>
-            <RestaurantsHeroSection totalRestaurants={restaurants.length} />
-            <RestaurantsGridSection restaurants={restaurants} />
-        </>
-    );
+export default async function RestaurantsPage({ searchParams }: { searchParams?: SearchParams }) {
+  const params = searchParams ? await searchParams : {};
+  const searchQuery = normalizeQuery(params.q);
+  const restaurants = await listRestaurants(searchQuery ? { search: searchQuery } : {});
+
+  return (
+    <main className="guest-theme pg-page">
+      <RestaurantsHeroSection totalRestaurants={restaurants.length} searchQuery={searchQuery} />
+      <RestaurantsGridSection restaurants={restaurants} searchQuery={searchQuery} />
+    </main>
+  );
 }

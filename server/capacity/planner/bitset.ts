@@ -32,6 +32,35 @@ function toSlotIndex(date: Dateish, round: "floor" | "ceil" = "floor"): number {
   return round === "floor" ? Math.floor(quotient) : Math.ceil(quotient);
 }
 
+/**
+ * Computes the half-open slot range [startSlot, endSlot) covered by a window.
+ *
+ * The start floors and the end ceils, so a window that touches a slot only
+ * partially still occupies that whole slot. A window that ends exactly on a slot
+ * boundary stops before the next slot, so it never collides with a truly
+ * non-overlapping window that starts on that same boundary.
+ *
+ * Boundary guard: a window with positive duration must always cover at least one
+ * slot. When upstream millisecond suppression collapses both endpoints into the
+ * same slot (e.g. start/end snapped to the boundary), `floor(start)` can equal
+ * `ceil(end)`, yielding an empty range. Left unguarded, `markWindow` would mark
+ * ZERO slots and `isWindowFree` would report a truly-busy table as free, causing
+ * a double-booking at the boundary. We force `endSlot` one past `startSlot` in
+ * that case so the slot containing the start is always covered. Both `markWindow`
+ * and `isWindowFree` derive their range from this helper, keeping marking and the
+ * freeness check aligned. A zero-duration window keeps its empty range and marks
+ * nothing, preserving existing behavior.
+ */
+function toSlotRange(start: Dateish, end: Dateish): { startSlot: number; endSlot: number } {
+  const startSlot = toSlotIndex(start, "floor");
+  let endSlot = toSlotIndex(end, "ceil");
+  const positiveDuration = toDateTime(end).toMillis() > toDateTime(start).toMillis();
+  if (positiveDuration && endSlot <= startSlot) {
+    endSlot = startSlot + 1;
+  }
+  return { startSlot, endSlot };
+}
+
 export function createAvailabilityBitset(
   windows?: Array<{ start: Dateish; end: Dateish }>,
 ): AvailabilityBitset {
@@ -45,16 +74,14 @@ export function createAvailabilityBitset(
 }
 
 export function markWindow(bitset: AvailabilityBitset, start: Dateish, end: Dateish): void {
-  const startSlot = toSlotIndex(start, "floor");
-  const endSlot = toSlotIndex(end, "ceil");
+  const { startSlot, endSlot } = toSlotRange(start, end);
   for (let slot = startSlot; slot < endSlot; slot += 1) {
     bitset.occupied.add(slot);
   }
 }
 
 export function isWindowFree(bitset: AvailabilityBitset, start: Dateish, end: Dateish): boolean {
-  const startSlot = toSlotIndex(start, "floor");
-  const endSlot = toSlotIndex(end, "ceil");
+  const { startSlot, endSlot } = toSlotRange(start, end);
   for (let slot = startSlot; slot < endSlot; slot += 1) {
     if (bitset.occupied.has(slot)) {
       return false;

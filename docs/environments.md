@@ -18,12 +18,14 @@
   - SMTP password: use the generated secret from Resend; inject only in Supabase dashboard (not committed).
 - In Supabase: go to **Settings → Email** and paste the above values; confirm the integration from the Supabase dashboard as prompted.
 - App-side Resend usage remains via `RESEND_API_KEY` + `RESEND_FROM` in `.env.example`; keep `RESEND_FROM` aligned with the verified sender domain (`no-reply@notifications.nabatable.com`) for API-based emails, including auth magic links.
+- Platform-owned transactional emails use `PLATFORM_REPLY_TO_EMAIL` for Reply-To headers and fall back to `info@lapeninns.com` when unset; restaurant booking emails use the venue contact email when present and otherwise use the same platform fallback.
 
 ## Guardrails
 
 - Env validation (`pnpm validate:env`) fails when:
   - `APP_ENV=production` but `NODE_ENV` is not `production`.
   - Non‑prod env uses production Supabase or booking API values matching `PRODUCTION_*` vars.
+  - Production targets are missing `NEXT_PUBLIC_POSTHOG_KEY` or `NEXT_PUBLIC_POSTHOG_HOST`.
 - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
 
 ## Staging quick start

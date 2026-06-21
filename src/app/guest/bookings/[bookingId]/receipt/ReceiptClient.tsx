@@ -1,19 +1,32 @@
 'use client';
 
-import { Calendar, CalendarPlus, Clock, Download, Mail, Share2, Users } from 'lucide-react';
-import Link from 'next/link';
+import {
+  Calendar,
+  CalendarPlus,
+  Clock,
+  Download,
+  Mail,
+  ReceiptText,
+  Share2,
+  User,
+  Users,
+} from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
 import {
-  ActionButtonRow,
-  BookingDetailShell,
-  BookingSummaryCard,
-  DetailStatCard,
-  InlineAlert,
-  InfoPanel,
-  SecondaryButton,
-  SummaryActions,
-} from '@/components/features/booking/ui/BookingComponents';
+  GuestContent,
+  GuestDetailList,
+  GuestError,
+  GuestHero,
+  GuestInsetCard,
+  GuestMetricCard,
+  GuestPageFrame,
+  GuestPanel,
+  GuestPrimaryButton,
+  GuestReferenceStrip,
+  GuestSecondaryButton,
+  GuestStatus,
+} from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { emit } from '@/lib/analytics/emit';
@@ -27,17 +40,21 @@ import { parseBookingDateTime } from '@reserve/shared/formatting/bookingDateTime
 import { DEFAULT_VENUE } from '@shared/config/venue';
 
 const formatDateFull = (iso: string | null | undefined, timezone?: string | null) => {
-  if (!iso) return '—';
+  if (!iso) return 'Date pending';
   const parsed = parseBookingDateTime(iso, timezone)?.toJSDate();
-  if (!parsed) return '—';
-  return formatReservationDateFromDate(parsed, { timezone: timezone ?? undefined }) || '—';
+  if (!parsed) return 'Date pending';
+  return (
+    formatReservationDateFromDate(parsed, { timezone: timezone ?? undefined }) || 'Date pending'
+  );
 };
 
 const formatTime = (iso: string | null | undefined, timezone?: string | null) => {
-  if (!iso) return '—';
+  if (!iso) return 'Time pending';
   const parsed = parseBookingDateTime(iso, timezone)?.toJSDate();
-  if (!parsed) return '—';
-  return formatReservationTimeFromDate(parsed, { timezone: timezone ?? undefined }) || '—';
+  if (!parsed) return 'Time pending';
+  return (
+    formatReservationTimeFromDate(parsed, { timezone: timezone ?? undefined }) || 'Time pending'
+  );
 };
 
 type ReceiptClientProps = {
@@ -98,7 +115,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
     const endDate =
       parseBookingDateTime(reservation.endAt ?? null, venue.timezone)?.toJSDate() ??
       new Date(startDate.getTime() + 90 * 60000);
-    const formatGCalDate = (d: Date) => d.toISOString().replace(/-|:|\.\d{3}/g, '');
+    const formatGCalDate = (date: Date) => date.toISOString().replace(/-|:|\.\d{3}/g, '');
     const url = new URL('https://www.google.com/calendar/render');
     url.searchParams.set('action', 'TEMPLATE');
     url.searchParams.set('text', `Reservation at ${venue.name}`);
@@ -112,144 +129,230 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
 
   const statusTone = useMemo(() => {
     if (!reservation) return { label: 'Loading', tone: 'info' as const };
-    if (['confirmed', 'completed', 'checked_in'].includes(reservation.status))
+    if (['confirmed', 'completed', 'checked_in'].includes(reservation.status)) {
       return { label: 'Confirmed', tone: 'success' as const };
-    if (['pending', 'pending_allocation'].includes(reservation.status))
-      return { label: 'Pending Confirmation', tone: 'warning' as const };
+    }
+    if (['pending', 'pending_allocation'].includes(reservation.status)) {
+      return { label: 'Pending confirmation', tone: 'warning' as const };
+    }
     if (reservation.status === 'cancelled') return { label: 'Cancelled', tone: 'danger' as const };
-    return { label: reservation.status, tone: 'default' as const };
+    return { label: reservation.status, tone: 'info' as const };
   }, [reservation]);
 
-  if (isLoading && !reservation) {
-    return (
-      <BookingDetailShell>
-        <div className="space-y-6">
-          <Skeleton className="h-12 w-64" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </BookingDetailShell>
-    );
-  }
+  if (isLoading && !reservation) return <ReceiptLoadingState />;
 
   if (isError || !reservation) {
     return (
-      <BookingDetailShell>
-        <InlineAlert tone="danger">
-          We couldn&apos;t load your receipt. Please try the link again.
-        </InlineAlert>
-        <div className="pt-4">
-          <Button asChild className="rounded-full btn-tactile focus-ring touch-feedback">
-            <Link href="/guest/bookings">View my bookings</Link>
-          </Button>
-        </div>
-      </BookingDetailShell>
+      <GuestPageFrame>
+        <GuestContent narrow>
+          <GuestError
+            title="Receipt unavailable"
+            description="We couldn't load your receipt. Please try the link again."
+            redirectHref="/guest/bookings"
+            redirectLabel="View my bookings"
+          />
+        </GuestContent>
+      </GuestPageFrame>
     );
   }
 
-  const statCards = (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6 lg:gap-8">
-      <DetailStatCard
-        icon={Calendar}
-        label="Date"
-        value={formatDateFull(reservation.startAt, venue.timezone)}
-      />
-      <DetailStatCard
-        icon={Clock}
-        label="Time"
-        value={formatTime(reservation.startAt, venue.timezone)}
-        subtext={venue.timezone}
-      />
-      <DetailStatCard
-        icon={Users}
-        label="Party"
-        value={`${reservation.partySize}`}
-        subtext={reservation.partySize === 1 ? 'Guest' : 'Guests'}
-      />
-    </div>
-  );
-
-  const guestInfo = (
-    <InfoPanel
-      title="Guest"
-      rows={[
-        { icon: Mail, label: 'Primary guest', value: reservation.customerName },
-        ...(reservation.customerEmail
-          ? [{ icon: Mail, label: 'Email', value: reservation.customerEmail }]
-          : []),
-      ]}
-    />
-  );
+  const reference = reservation.reference ?? reservation.id.slice(0, 8).toUpperCase();
+  const dateLabel = formatDateFull(reservation.startAt, venue.timezone);
+  const timeLabel = formatTime(reservation.startAt, venue.timezone);
 
   return (
-    <BookingDetailShell>
-      <BookingSummaryCard
+    <GuestPageFrame>
+      <GuestHero
+        eyebrow="Booking receipt"
         title={venue.name}
         description={
           reservation.status === 'cancelled'
-            ? 'This reservation has been cancelled.'
-            : 'Save this receipt for easier check-in when you arrive.'
+            ? 'This reservation has been cancelled. Keep this receipt for your records.'
+            : 'Your confirmation, arrival details, and shareable reference are ready.'
         }
-        reference={reservation.reference ?? reservation.id.slice(0, 8).toUpperCase()}
-        status={{ icon: Calendar, label: statusTone.label, tone: statusTone.tone }}
         actions={
-          <SummaryActions>
-            <SecondaryButton onClick={handleAddToCalendar}>
-              <CalendarPlus className="mr-2 h-4 w-4" />
-              Calendar
-            </SecondaryButton>
-            <SecondaryButton onClick={handleDownload}>
-              <Download className="mr-2 h-4 w-4" />
-              PDF
-            </SecondaryButton>
-            <SecondaryButton onClick={handleShare}>
-              <Share2 className="mr-2 h-4 w-4" />
+          <>
+            <Button
+              type="button"
+              size="guest-lg"
+              variant="guest-primary"
+              className="pg-action pg-focus-ring pg-touch"
+              onClick={handleDownload}
+            >
+              <Download className="size-4" aria-hidden />
+              Download PDF
+            </Button>
+            <Button
+              type="button"
+              size="guest-lg"
+              variant="guest-outline"
+              className="pg-action pg-focus-ring pg-touch"
+              onClick={handleShare}
+            >
+              <Share2 className="size-4" aria-hidden />
               Share
-            </SecondaryButton>
-          </SummaryActions>
+            </Button>
+          </>
         }
+        aside={
+          <div className="grid grid-cols-2 gap-3">
+            <GuestMetricCard icon={Calendar} label="Date" value={dateLabel} />
+            <GuestMetricCard icon={Clock} label="Time" value={timeLabel} detail={venue.timezone} />
+            <GuestMetricCard icon={Users} label="Party" value={reservation.partySize} />
+            <GuestMetricCard icon={ReceiptText} label="Status" value={statusTone.label} />
+          </div>
+        }
+        compact
       />
 
-      {statCards}
-      {guestInfo}
+      <GuestContent>
+        <GuestReferenceStrip label="Reservation reference" value={reference}>
+          <Button
+            type="button"
+            variant="guest-outline"
+            size="guest-sm"
+            className="pg-action pg-focus-ring pg-touch"
+            onClick={handleAddToCalendar}
+          >
+            <CalendarPlus className="size-4" aria-hidden />
+            Add calendar
+          </Button>
+        </GuestReferenceStrip>
 
-      <ActionButtonRow>
-        <SecondaryButton onClick={handleAddToCalendar}>
-          <CalendarPlus className="mr-2 h-4 w-4" />
-          Calendar
-        </SecondaryButton>
-        <SecondaryButton onClick={handleDownload}>
-          <Download className="mr-2 h-4 w-4" />
-          PDF
-        </SecondaryButton>
-        <SecondaryButton onClick={handleShare}>
-          <Share2 className="mr-2 h-4 w-4" />
-          Share
-        </SecondaryButton>
-      </ActionButtonRow>
+        <div className="grid gap-6 lg:grid-cols-[7fr_5fr] lg:gap-8">
+          <GuestPanel className="space-y-5 p-5 sm:p-6">
+            <div className="space-y-2">
+              <p className="pg-kicker">Arrival summary</p>
+              <h2 className="pg-section-title">Show this at check-in</h2>
+              <p className="pg-body">
+                Restaurants can use the reference above to find your booking quickly. Keep the
+                receipt open or download a PDF for offline access.
+              </p>
+            </div>
+            <GuestStatus
+              title={statusTone.label}
+              description={
+                reservation.status === 'cancelled'
+                  ? 'No further action is needed for this cancelled reservation.'
+                  : 'Your reservation details are synced with the restaurant.'
+              }
+              tone={statusTone.tone}
+            />
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MiniReceiptCard icon={Calendar} label="Date" value={dateLabel} />
+              <MiniReceiptCard icon={Clock} label="Time" value={timeLabel} />
+              <MiniReceiptCard
+                icon={Users}
+                label="Guests"
+                value={`${reservation.partySize} ${reservation.partySize === 1 ? 'guest' : 'guests'}`}
+              />
+            </div>
+          </GuestPanel>
 
-      <InlineAlert tone="info">
-        <div className="flex items-center gap-2">
-          <Mail className="h-4 w-4" />
-          <p className="text-[length:var(--font-size-sm)]">
-            A confirmation email has been sent to your inbox.
-          </p>
+          <GuestDetailList
+            title="Guest details"
+            items={[
+              { icon: User, label: 'Primary guest', value: reservation.customerName },
+              ...(reservation.customerEmail
+                ? [{ icon: Mail, label: 'Email', value: reservation.customerEmail }]
+                : []),
+            ]}
+          />
         </div>
-      </InlineAlert>
 
-      {!hasSession ? (
-        <InlineAlert tone="info">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-semibold">Sign in to manage bookings faster.</span>
-            <Link
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Button
+            type="button"
+            variant="guest-outline"
+            size="guest-sm"
+            className="pg-action pg-focus-ring pg-touch"
+            onClick={handleAddToCalendar}
+          >
+            <CalendarPlus className="size-4" aria-hidden />
+            Calendar
+          </Button>
+          <Button
+            type="button"
+            variant="guest-outline"
+            size="guest-sm"
+            className="pg-action pg-focus-ring pg-touch"
+            onClick={handleDownload}
+          >
+            <Download className="size-4" aria-hidden />
+            PDF
+          </Button>
+          <Button
+            type="button"
+            variant="guest-outline"
+            size="guest-sm"
+            className="pg-action pg-focus-ring pg-touch"
+            onClick={handleShare}
+          >
+            <Share2 className="size-4" aria-hidden />
+            Share
+          </Button>
+        </div>
+
+        {!hasSession ? (
+          <GuestPanel className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Want faster access next time?</p>
+              <p className="pg-caption">
+                Sign in to keep receipts and manage bookings in one place.
+              </p>
+            </div>
+            <GuestSecondaryButton
               href={`/auth/signin?redirectedFrom=/guest/bookings/${reservationId}`}
-              className="font-semibold text-blue-700 underline focus-ring touch-feedback"
             >
-              Sign in →
-            </Link>
+              Sign in
+            </GuestSecondaryButton>
+          </GuestPanel>
+        ) : (
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <GuestPrimaryButton href={`/guest/bookings/${reservationId}`}>
+              Manage booking
+            </GuestPrimaryButton>
+            <GuestSecondaryButton href="/guest/bookings">Back to bookings</GuestSecondaryButton>
           </div>
-        </InlineAlert>
-      ) : null}
-    </BookingDetailShell>
+        )}
+      </GuestContent>
+    </GuestPageFrame>
   );
+}
+
+function ReceiptLoadingState() {
+  return (
+    <GuestPageFrame>
+      <section className="pg-hero-band pg-section-tight">
+        <div className="pg-container grid gap-8 lg:grid-cols-[7fr_5fr]">
+          <div className="space-y-4">
+            <Skeleton className="h-5 w-40 rounded-full" />
+            <Skeleton className="h-12 w-full max-w-xl rounded-xl" />
+            <Skeleton className="h-5 w-full max-w-2xl rounded-lg" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[0, 1, 2, 3].map((item) => (
+              <Skeleton key={item} className="h-28 rounded-[var(--pg-radius-md)]" />
+            ))}
+          </div>
+        </div>
+      </section>
+      <GuestContent>
+        <Skeleton className="h-16 rounded-[var(--pg-radius-md)]" />
+        <Skeleton className="h-72 rounded-[var(--pg-radius-md)]" />
+      </GuestContent>
+    </GuestPageFrame>
+  );
+}
+
+function MiniReceiptCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  value: string;
+}) {
+  return <GuestInsetCard icon={Icon} label={label} value={value} />;
 }

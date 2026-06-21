@@ -1,11 +1,13 @@
 'use client';
 
-import { Clock, MapPin } from 'lucide-react';
-
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import {
+  AllTablesConflictBadge,
+  AllTablesEmptyState,
+  AllTablesInventoryHeader,
+  AllTablesInventoryShell,
+} from './AllTablesInventoryChrome';
 import { TableCardGrid } from './TableCardGrid';
 import { VirtualizedAllTablesSection } from './VirtualizedAllTablesSection';
 
@@ -76,45 +78,32 @@ export function AllTablesSection({
   }
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span className="text-sm font-semibold text-foreground">All tables</span>
-        </div>
-        <span className="text-xs text-muted-foreground">{totalCount} tables</span>
-      </div>
+    <AllTablesInventoryShell>
+      <AllTablesInventoryHeader className="flex-wrap gap-2" totalCount={totalCount} />
 
       {totalCount === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            No tables match the current filters. Try widening the fit or availability filters.
-          </CardContent>
-        </Card>
+        <AllTablesEmptyState />
       ) : (
-        <ScrollArea className="h-[320px] pr-2">
+        <ScrollArea className="h-[480px] pr-2 sm:h-[520px]">
           <div className="space-y-4">
             {Array.from(groupedTables.entries()).map(([section, sectionTables]) => {
               const conflictedInZone = sectionTables.filter((t) => conflictedTableIds.has(t.id));
               return (
                 <div key={section} className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
                         {section}
                       </span>
-                      <span className="text-xs text-muted-foreground">({sectionTables.length})</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({sectionTables.length})
+                      </span>
                     </div>
-                    {conflictedInZone.length > 0 ? (
-                      <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800">
-                        <Clock className="h-3 w-3" aria-hidden />
-                        {conflictedInZone.length} conflict{conflictedInZone.length > 1 ? 's' : ''}
-                      </Badge>
-                    ) : null}
+                    <AllTablesConflictBadge count={conflictedInZone.length} />
                   </div>
 
                   <TableCardGrid
-                    className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3"
+                    className="grid-cols-1 sm:grid-cols-2"
                     tables={sectionTables}
                     partySize={partySize}
                     selectedTableIds={selectedTableIds}
@@ -137,7 +126,7 @@ export function AllTablesSection({
           </div>
         </ScrollArea>
       )}
-    </section>
+    </AllTablesInventoryShell>
   );
 }
 

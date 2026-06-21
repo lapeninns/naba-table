@@ -1,16 +1,40 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Copy, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 
+import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
+import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormRoot,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useOpsCreateTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
-import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
+
+import {
+  TEAM_INVITE_ROLE_OPTIONS,
+  teamInviteFormSchema,
+  type TeamInviteFormValues,
+} from './teamInviteModel';
 
 import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { TeamInvite } from '@/services/ops/team';
@@ -19,31 +43,24 @@ type TeamInviteFormProps = {
   restaurantId: string;
 };
 
-const formSchema = z.object({
-  email: z.string().trim().min(1, 'Enter an email address').email('Enter a valid email'),
-  role: z.enum(RESTAURANT_ROLE_OPTIONS),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
 type LastInvite = {
   invite: TeamInvite;
-  inviteUrl: string;
 };
 
 export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
   const createInvite = useOpsCreateTeamInvite();
   const [lastInvite, setLastInvite] = useState<LastInvite | null>(null);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<TeamInviteFormValues>({
+    resolver: zodResolver(teamInviteFormSchema),
+    mode: 'onChange',
     defaultValues: {
       email: '',
       role: 'host',
     },
   });
 
-  const onSubmit = async (values: FormValues) => {
+  const onSubmit = async (values: TeamInviteFormValues) => {
     try {
       const result = await createInvite.mutateAsync({
         restaurantId,
@@ -57,29 +74,30 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
     }
   };
 
-  const handleCopyInvite = async () => {
-    if (!lastInvite?.inviteUrl || typeof navigator === 'undefined') return;
-    try {
-      await navigator.clipboard.writeText(lastInvite.inviteUrl);
-    } catch {
-      // ignore copy failure
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Invite a team member</h2>
-        <p className="text-sm text-muted-foreground">
-          Owners and managers can invite additional teammates to manage reservations and guest communication.
-        </p>
-      </div>
+    <SettingsCard
+      title="Invite a team member"
+      description="Owners and managers can invite teammates to manage reservations and guest communication."
+      contentClassName="flex flex-col gap-4"
+    >
+      {createInvite.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Invitation was not sent</AlertTitle>
+          <AlertDescription>{createInvite.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <Form {...form}>
-        <form
+        <FormRoot
           onSubmit={form.handleSubmit(onSubmit)}
           className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] md:items-end"
         >
+          <div className="md:col-span-3">
+            <p className="text-sm font-semibold text-foreground">Who to invite</p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Send access to one teammate at a time.
+            </p>
+          </div>
           <FormField
             control={form.control}
             name="email"
@@ -100,61 +118,77 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
             )}
           />
 
+          <div className="md:col-span-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">Access scope</p>
+              <Badge variant="outline">Restaurant only</Badge>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Role controls this restaurant&apos;s bookings, guest communication, and settings
+              access.
+            </p>
+          </div>
+
           <FormField
             control={form.control}
             name="role"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Role</FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm focus:border-border focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  >
-                    <option value="manager">Manager</option>
-                    <option value="host">Host</option>
-                    <option value="server">Server</option>
-                  </select>
-                </FormControl>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectGroup>
+                      {TEAM_INVITE_ROLE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Hosts can manage bookings and guest communication. Use manager access only for
+                  trusted staff who should manage settings.
+                </p>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <Button type="submit" className="w-full md:w-auto" disabled={createInvite.isPending}>
+          <Button
+            type="submit"
+            className="w-full md:w-auto"
+            disabled={createInvite.isPending || !form.formState.isValid}
+          >
             {createInvite.isPending ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              <>
+                <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
                 Sending
-              </span>
+              </>
             ) : (
               'Send invite'
             )}
           </Button>
-        </form>
+          <p className="text-xs leading-5 text-muted-foreground md:col-span-3">
+            {formatSaveScopeMessage('team')}
+          </p>
+        </FormRoot>
       </Form>
 
       {lastInvite ? (
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-medium text-foreground">Invitation link ready</p>
-              <p className="text-xs text-muted-foreground">
-                Share this link directly with {lastInvite.invite.email}. It expires on {new Date(lastInvite.invite.expiresAt).toLocaleString()}.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="max-w-[320px] truncate rounded bg-background px-3 py-2 text-xs text-muted-foreground shadow-inner">
-                {lastInvite.inviteUrl}
-              </code>
-              <Button type="button" variant="outline" size="sm" onClick={handleCopyInvite}>
-                <Copy className="mr-2 h-4 w-4" aria-hidden />
-                Copy
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Alert variant="success">
+          <AlertTitle>Invitation sent</AlertTitle>
+          <AlertDescription>
+            The invitation email was sent to {lastInvite.invite.email}. It expires on{' '}
+            {new Date(lastInvite.invite.expiresAt).toLocaleString()}.
+          </AlertDescription>
+        </Alert>
       ) : null}
-    </div>
+    </SettingsCard>
   );
 }

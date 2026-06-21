@@ -41,10 +41,45 @@ function getFormatter(
   return formatter;
 }
 
+function getDateOnlyFormatter(
+  cacheKey: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = `${cacheKey}:date-only-utc`;
+  const existing = formatterCache.get(key);
+  if (existing) return existing;
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'UTC',
+    ...options,
+  });
+  formatterCache.set(key, formatter);
+  return formatter;
+}
+
 const toDateString = (value: string | ReservationDate | null | undefined): string | null => {
   if (!value) return null;
   return typeof value === 'string' ? value : String(value);
 };
+
+function parseDateOnlyUtc(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
 
 export function formatBookingLabel(option: BookingOption): string {
   if (BASE_LABELS[option]) {
@@ -58,22 +93,20 @@ export function formatBookingLabel(option: BookingOption): string {
 
 export function formatReservationDate(
   value: string | ReservationDate | null | undefined,
-  options?: FormattingOptions,
+  _options?: FormattingOptions,
 ): string {
   const date = toDateString(value);
   if (!date) return '';
   try {
-    const formatter = getFormatter(
-      'reservation-date',
-      {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      },
-      options?.timezone,
-    );
-    const parts = formatter.formatToParts(new Date(`${date}T00:00:00Z`));
+    const dateOnly = parseDateOnlyUtc(date);
+    if (!dateOnly) return '';
+    const formatter = getDateOnlyFormatter('reservation-date', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const parts = formatter.formatToParts(dateOnly);
     const weekday = parts.find((part) => part.type === 'weekday')?.value ?? '';
     const day = parts.find((part) => part.type === 'day')?.value ?? '';
     const month = parts.find((part) => part.type === 'month')?.value ?? '';
@@ -90,22 +123,20 @@ export function formatReservationDate(
 
 export function formatReservationDateShort(
   value: string | ReservationDate | null | undefined,
-  options?: FormattingOptions,
+  _options?: FormattingOptions,
 ): string {
   const date = toDateString(value);
   if (!date) return '';
   try {
-    const formatter = getFormatter(
-      'reservation-date-short',
-      {
-        weekday: 'short',
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric',
-      },
-      options?.timezone,
-    );
-    return formatter.format(new Date(`${date}T00:00:00Z`));
+    const dateOnly = parseDateOnlyUtc(date);
+    if (!dateOnly) return '';
+    const formatter = getDateOnlyFormatter('reservation-date-short', {
+      weekday: 'short',
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+    return formatter.format(dateOnly);
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[formatReservationDateShort] failed to format date', { value, error });
@@ -227,21 +258,19 @@ export function formatReservationDateFromDate(date: Date, options?: FormattingOp
 
 export function formatReservationSummaryDate(
   value: string | ReservationDate | null | undefined,
-  options?: FormattingOptions,
+  _options?: FormattingOptions,
 ): string {
   const date = toDateString(value);
   if (!date) return '';
   try {
-    const formatter = getFormatter(
-      'reservation-summary-date',
-      {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric',
-      },
-      options?.timezone,
-    );
-    const parts = formatter.formatToParts(new Date(`${date}T00:00:00Z`));
+    const dateOnly = parseDateOnlyUtc(date);
+    if (!dateOnly) return '';
+    const formatter = getDateOnlyFormatter('reservation-summary-date', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    });
+    const parts = formatter.formatToParts(dateOnly);
     const month = parts.find((part) => part.type === 'month')?.value ?? '';
     const day = parts.find((part) => part.type === 'day')?.value ?? '';
     const year = parts.find((part) => part.type === 'year')?.value ?? '';

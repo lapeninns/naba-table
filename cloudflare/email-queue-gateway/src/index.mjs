@@ -1,34 +1,10 @@
 import { DurableObject } from 'cloudflare:workers';
+import { json, readJson, routeGatewayRequest, withCorsHeaders } from './gateway-router.mjs';
 
 const DEFAULT_MAX_JOBS = 25;
 const MAX_SCAN = 200;
 const JOB_HISTORY_LIMIT = 10;
 const JOB_HISTORY_LIMIT_ALL = 'all';
-
-function json(data, init = {}) {
-  const headers = new Headers(init.headers);
-  headers.set('content-type', 'application/json; charset=utf-8');
-  return new Response(JSON.stringify(data), {
-    ...init,
-    headers,
-  });
-}
-
-function getBearerToken(request) {
-  const header = request.headers.get('authorization');
-  if (!header || !header.startsWith('Bearer ')) {
-    return null;
-  }
-  return header.slice('Bearer '.length).trim() || null;
-}
-
-function withCorsHeaders(response) {
-  const next = new Response(response.body, response);
-  next.headers.set('access-control-allow-origin', '*');
-  next.headers.set('access-control-allow-headers', 'authorization, content-type');
-  next.headers.set('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
-  return next;
-}
 
 function scheduleKey(scheduledAt, jobId) {
   return `schedule:${String(scheduledAt).padStart(15, '0')}:${jobId}`;
@@ -87,22 +63,6 @@ function toJobSummary(job) {
     scheduledFor: typeof job.payload?.scheduledFor === 'string' ? job.payload.scheduledFor : null,
     status: job.status ?? null,
   };
-}
-
-async function readJson(request) {
-  try {
-    return await request.json();
-  } catch {
-    return null;
-  }
-}
-
-function cloneRequest(request, body) {
-  return new Request(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: body === undefined ? request.body : JSON.stringify(body),
-  });
 }
 
 export class EmailQueueState extends DurableObject {
@@ -177,7 +137,12 @@ export class EmailQueueState extends DurableObject {
         ? Math.floor(body.attempts)
         : 5;
 
-    if (!jobId || !payload || typeof payload.bookingId !== 'string' || typeof payload.type !== 'string') {
+    if (
+      !jobId ||
+      !payload ||
+      typeof payload.bookingId !== 'string' ||
+      typeof payload.type !== 'string'
+    ) {
       return json({ error: 'Missing required job payload fields' }, { status: 400 });
     }
 
@@ -597,52 +562,6 @@ export class CapacityVersionState extends DurableObject {
 
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') {
-      return withCorsHeaders(new Response(null, { status: 204 }));
-    }
-
-    const url = new URL(request.url);
-    if (url.pathname === '/health') {
-      return withCorsHeaders(json({ ok: true, service: 'email-queue-gateway' }));
-    }
-
-    const token = getBearerToken(request);
-    if (!env.GATEWAY_TOKEN || token !== env.GATEWAY_TOKEN) {
-      return withCorsHeaders(json({ error: 'Unauthorized' }, { status: 401 }));
-    }
-
-    if (
-      url.pathname === '/messages' ||
-      url.pathname.startsWith('/messages/') ||
-      url.pathname === '/status' ||
-      url.pathname === '/drain'
-    ) {
-      const id = env.EMAIL_QUEUE_STATE.idFromName('primary');
-      const stub = env.EMAIL_QUEUE_STATE.get(id);
-      return stub.fetch(request);
-    }
-
-    if (url.pathname === '/rate-limit/consume' && request.method === 'POST') {
-      const body = await readJson(request);
-      const identifier = typeof body?.identifier === 'string' ? body.identifier : '';
-      if (!identifier) {
-        return withCorsHeaders(json({ error: 'Invalid rate limit payload' }, { status: 400 }));
-      }
-
-      const id = env.RATE_LIMIT_STATE.idFromName(identifier);
-      const stub = env.RATE_LIMIT_STATE.get(id);
-      return stub.fetch(cloneRequest(request, body));
-    }
-
-    if (
-      (url.pathname === '/capacity/versions/bump' || url.pathname === '/capacity/versions/read') &&
-      request.method === 'POST'
-    ) {
-      const id = env.CAPACITY_VERSION_STATE.idFromName('primary');
-      const stub = env.CAPACITY_VERSION_STATE.get(id);
-      return stub.fetch(request);
-    }
-
-    return withCorsHeaders(json({ error: 'Not found' }, { status: 404 }));
+    return routeGatewayRequest(request, env);
   },
 };

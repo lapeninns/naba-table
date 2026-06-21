@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { buildOperationsHub } from '@/server/ops/operations-hub';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -42,7 +43,10 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error('[ops/operations-hub] failed to resolve auth', error.message);
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -68,6 +72,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload);
   } catch (hubError) {
     console.error('[ops/operations-hub] failed to build payload', hubError);
+    captureServerException(hubError, {
+      distinctId: user.id,
+      groups: { restaurant: query.restaurantId },
+      properties: { restaurantId: query.restaurantId, source: 'ops', kind: 'operations-hub' },
+    });
     return NextResponse.json({ error: 'Unable to load operations hub' }, { status: 500 });
   }
 }

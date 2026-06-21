@@ -85,10 +85,7 @@ export function useOpsEmailDeliveryDataState(params: {
     [attempts, params.timezone],
   );
 
-  const rowByKey = useMemo(
-    () => new Map(rows.map((row) => [row.attemptKey, row])),
-    [rows],
-  );
+  const rowByKey = useMemo(() => new Map(rows.map((row) => [row.attemptKey, row])), [rows]);
 
   const statusCounts = useMemo(
     () =>

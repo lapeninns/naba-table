@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState, type ComponentProps } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
@@ -18,10 +19,10 @@ import type { OpsBookingHeatmap, OpsTodayBookingsSummary } from '@/types/ops';
 
 const HEATMAP_CLASSES: Record<HeatIntensity, string> = {
   none: '',
-  faint: 'bg-emerald-100/70 text-emerald-900 hover:bg-emerald-100/90',
-  low: 'bg-emerald-200/70 text-emerald-950 hover:bg-emerald-200/90',
-  medium: 'bg-emerald-400/80 text-white hover:bg-emerald-400/90',
-  high: 'bg-emerald-600/80 text-white hover:bg-emerald-600/90',
+  faint: 'bg-primary/10 text-primary hover:bg-primary/10',
+  low: 'bg-primary/10 text-primary hover:bg-primary/10',
+  medium: 'bg-primary/10 text-primary hover:bg-primary/10',
+  high: 'bg-primary/10 text-primary hover:bg-primary/10',
 };
 
 type HeatIntensity = 'none' | 'faint' | 'low' | 'medium' | 'high';
@@ -69,47 +70,54 @@ export function HeatmapCalendar({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           aria-busy={showLoading}
           className={cn(
-            'px-2 text-xs font-medium text-foreground transition-colors hover:text-primary whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:text-sm',
+            'h-auto whitespace-nowrap px-2 text-xs font-medium text-foreground hover:text-primary sm:text-sm',
             showLoading && 'opacity-70',
           )}
         >
           <span className="sm:hidden">{shortLabel}</span>
-          <span className="hidden sm:inline">{formatDateReadable(selectedDate, summary.timezone)}</span>
-        </button>
+          <span className="hidden sm:inline">
+            {formatDateReadable(selectedDate, summary.timezone)}
+          </span>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="center" className="p-0 w-auto">
         {/* Navigation header inside popover */}
         {onShiftDate && (
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 onShiftDate(-1);
                 handleOpenChange(false);
               }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:active:scale-100"
+              className="text-muted-foreground hover:text-foreground active:scale-95 motion-reduce:active:scale-100"
               aria-label="Previous day"
             >
-              <ChevronLeft className="h-4 w-4" aria-hidden />
-            </button>
+              <ChevronLeft aria-hidden />
+            </Button>
             <span className="text-sm font-medium text-foreground">
               {formatDateReadable(selectedDate, summary.timezone)}
             </span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 onShiftDate(1);
                 handleOpenChange(false);
               }}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 motion-reduce:active:scale-100"
+              className="text-muted-foreground hover:text-foreground active:scale-95 motion-reduce:active:scale-100"
               aria-label="Next day"
             >
-              <ChevronRight className="h-4 w-4" aria-hidden />
-            </button>
+              <ChevronRight aria-hidden />
+            </Button>
           </div>
         )}
 

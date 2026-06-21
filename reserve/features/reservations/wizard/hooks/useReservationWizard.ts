@@ -6,9 +6,10 @@ import { useGuestPreferences } from '@/hooks/useGuestPreferences';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
-import { mapErrorToMessage } from '@reserve/shared/error';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
+import { extractBookingSubmissionError, mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
-import { BOOKING_TYPES_UI, SEATING_PREFERENCES_UI } from '@shared/config/booking';
+import { BOOKING_TYPES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
 
 import { useRememberedContacts } from './useRememberedContacts';
@@ -34,7 +35,14 @@ import type {
 const EMPTY_ACTIONS: StepAction[] = [];
 
 const DEFAULT_BOOKING_OPTION = BOOKING_TYPES_UI[0];
-const DEFAULT_SEATING_OPTION = SEATING_PREFERENCES_UI[0];
+
+// Controlled vocabulary for the `step` analytics prop (privacy-safe enum).
+const RESERVE_STEP_NAMES = {
+  1: 'plan',
+  2: 'details',
+  3: 'review',
+  4: 'confirmation',
+} as const;
 
 const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   return (
@@ -42,12 +50,18 @@ const hasMeaningfulDraft = (details: BookingDetails): boolean => {
     Boolean(details.notes?.trim()?.length) ||
     details.party > 1 ||
     details.bookingType !== DEFAULT_BOOKING_OPTION ||
-    details.seating !== DEFAULT_SEATING_OPTION ||
     Boolean(details.name.trim().length) ||
     Boolean(details.email.trim().length) ||
     Boolean(details.phone.trim().length)
   );
 };
+
+// Path prefixes a caller-supplied `returnPath` is allowed to target. Even though
+// sanitizeLocalRedirectPath already guarantees a same-origin local path, this keeps
+// the "safe" in buildSafeReturnPath meaningful: a returnPath is only honored when it
+// lands on a known booking-flow surface (public restaurant pages, the ops dashboard,
+// or guest booking management). Anything else is treated as untrusted and discarded.
+const SAFE_RETURN_PATH_PREFIXES = ['/restaurants', '/app', '/guest'] as const;
 
 export const buildSafeReturnPath = (params: {
   returnPath?: string;
@@ -55,24 +69,25 @@ export const buildSafeReturnPath = (params: {
   bookingReference?: string | null;
   restaurantSlug?: string | null;
 }): string => {
-  const { returnPath, bookingId, bookingReference, restaurantSlug } = params;
-  if (returnPath) return returnPath;
+  const { returnPath, bookingId, restaurantSlug } = params;
 
-  if (bookingId) {
-    if (bookingReference) {
-      const url = new URL(`/bookings/${bookingId}/thank-you`, 'https://placeholder.local');
-      url.searchParams.set('token', bookingReference);
-      return `${url.pathname}${url.search}`;
-    }
-    // Without a token, avoid the auth-gated receipt redirect
-    return '/guest/thank-you';
-  }
+  // Derived, server-trusted default used both when no returnPath is supplied and as the
+  // fallback when a supplied returnPath fails validation.
+  const fallback = bookingId
+    ? `/guest/bookings/${bookingId}`
+    : restaurantSlug
+      ? `/restaurants/${restaurantSlug}`
+      : '/';
 
-  if (restaurantSlug) {
-    return `/restaurants/${restaurantSlug}`;
-  }
-
-  return '/';
+  // `returnPath` is part of the public wizard API and flows to navigator.replace
+  // (window.location.replace), so it must never be trusted verbatim. sanitizeLocalRedirectPath
+  // rejects protocol-relative (`//`), backslash/`%5c`-smuggled, and absolute http(s) targets
+  // — and, via the allowlist, anything outside the booking flow — returning the derived
+  // fallback on any failure. Empty/undefined returnPath also resolves to the fallback.
+  return sanitizeLocalRedirectPath(returnPath, {
+    fallback,
+    allowedPrefixes: SAFE_RETURN_PATH_PREFIXES,
+  });
 };
 
 const OFFLINE_ALERT_MESSAGE = 'You’re offline—reconnect to confirm. Your edits are saved locally.';
@@ -109,7 +124,7 @@ const TIMEOUT_RECOVERY_DELAY_MS = 2_000;
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
   mode: BookingWizardMode = 'customer',
-  options?: { returnPath?: string },
+  options?: { returnPath?: string; redirectOnSuccess?: boolean },
 ) {
   const { state, actions } = useWizardStore(initialDetails);
   const draftHydratedRef = useRef(false);
@@ -122,9 +137,10 @@ export function useReservationWizard(
   const isOnline = useOnlineStatus();
   const { preferences, savePreferences } = useGuestPreferences();
   const returnPath = options?.returnPath;
+  const redirectOnSuccess = options?.redirectOnSuccess === true;
   // Build safe return path - user is closing the confirmation (thank you) step
   // The wizard step 4 IS the thank you experience, so we redirect to:
-  // - Explicit returnPath if provided
+  // - Explicit returnPath when supplied and it passes buildSafeReturnPath validation
   // - Thank-you with token when booking confirmed
   // - Restaurant page if we know the slug
   // - Home page as final fallback
@@ -174,6 +190,75 @@ export function useReservationWizard(
     const provided = initialDetails?.restaurantSlug?.trim();
     return provided && provided.length > 0 ? provided : null;
   }, [initialDetails?.restaurantSlug]);
+
+  useEffect(() => {
+    const nextMetadata: Partial<BookingDetails> = {};
+
+    if (
+      typeof initialDetails?.restaurantId === 'string' &&
+      initialDetails.restaurantId.length > 0 &&
+      initialDetails.restaurantId !== state.details.restaurantId
+    ) {
+      nextMetadata.restaurantId = initialDetails.restaurantId;
+    }
+
+    if (
+      typeof initialDetails?.restaurantSlug === 'string' &&
+      initialDetails.restaurantSlug.length > 0 &&
+      initialDetails.restaurantSlug !== state.details.restaurantSlug
+    ) {
+      nextMetadata.restaurantSlug = initialDetails.restaurantSlug;
+    }
+
+    if (
+      typeof initialDetails?.restaurantName === 'string' &&
+      initialDetails.restaurantName.length > 0 &&
+      initialDetails.restaurantName !== state.details.restaurantName
+    ) {
+      nextMetadata.restaurantName = initialDetails.restaurantName;
+    }
+
+    if (
+      typeof initialDetails?.restaurantAddress === 'string' &&
+      initialDetails.restaurantAddress !== state.details.restaurantAddress
+    ) {
+      nextMetadata.restaurantAddress = initialDetails.restaurantAddress;
+    }
+
+    if (
+      typeof initialDetails?.restaurantTimezone === 'string' &&
+      initialDetails.restaurantTimezone !== state.details.restaurantTimezone
+    ) {
+      nextMetadata.restaurantTimezone = initialDetails.restaurantTimezone;
+    }
+
+    if (
+      typeof initialDetails?.reservationDurationMinutes === 'number' &&
+      Number.isFinite(initialDetails.reservationDurationMinutes) &&
+      initialDetails.reservationDurationMinutes > 0 &&
+      initialDetails.reservationDurationMinutes !== state.details.reservationDurationMinutes
+    ) {
+      nextMetadata.reservationDurationMinutes = initialDetails.reservationDurationMinutes;
+    }
+
+    if (Object.keys(nextMetadata).length > 0) {
+      actions.hydrateDetails(nextMetadata);
+    }
+  }, [
+    actions,
+    initialDetails?.reservationDurationMinutes,
+    initialDetails?.restaurantAddress,
+    initialDetails?.restaurantId,
+    initialDetails?.restaurantName,
+    initialDetails?.restaurantSlug,
+    initialDetails?.restaurantTimezone,
+    state.details.reservationDurationMinutes,
+    state.details.restaurantAddress,
+    state.details.restaurantId,
+    state.details.restaurantName,
+    state.details.restaurantSlug,
+    state.details.restaurantTimezone,
+  ]);
 
   // Persist preferences when party/time change
   useEffect(() => {
@@ -291,6 +376,14 @@ export function useReservationWizard(
     }
   }, [haptics, state.step]);
 
+  const trackedStepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (trackedStepRef.current === state.step) return;
+    trackedStepRef.current = state.step;
+    const stepName = RESERVE_STEP_NAMES[state.step as keyof typeof RESERVE_STEP_NAMES] ?? 'unknown';
+    analytics.track('reserve_step_viewed', { step: stepName });
+  }, [analytics, state.step]);
+
   const previousVisibilityRef = useRef(stickyVisible);
   useEffect(() => {
     if (stickyVisible && !previousVisibilityRef.current) {
@@ -391,6 +484,7 @@ export function useReservationWizard(
         'error' in result ? result.error : null,
         'Unable to process booking',
       );
+      actions.setSubmissionError(null);
       actions.setError(message);
       return;
     }
@@ -400,9 +494,7 @@ export function useReservationWizard(
 
     actions.clearError();
     setPlanAlert(null);
-    actions.setLoading(true);
     actions.setSubmitting(true);
-    actions.goToStep(4);
 
     try {
       const submission = await mutation.mutateAsync({
@@ -426,11 +518,16 @@ export function useReservationWizard(
         context: mode,
         recovered: false,
       });
+
+      if (mode === 'ops' && redirectOnSuccess) {
+        navigator.replace(safeReturnPath);
+      }
     } catch (error) {
       if (isRequestAbortedError(error)) {
         actions.setLoading(false);
         actions.setSubmitting(false);
         actions.goToStep(originStep);
+        actions.setSubmissionError(null);
         setPlanAlert(null);
         return;
       }
@@ -475,6 +572,7 @@ export function useReservationWizard(
         actions.setLoading(false);
         actions.setSubmitting(false);
         actions.goToStep(originStep);
+        actions.setSubmissionError(null);
         actions.setError(
           'We could not confirm the booking in time. Please check your email before trying again.',
         );
@@ -497,16 +595,18 @@ export function useReservationWizard(
           bookingId: state.editingId ?? undefined,
         });
       }
-      const fallbackMessage = mapErrorToMessage(error, 'Unable to process booking');
-      const message = isPastBooking ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : fallbackMessage;
+      const submissionError = extractBookingSubmissionError(error, 'Unable to process booking');
+      const message = isPastBooking ? BOOKING_IN_PAST_CUSTOMER_MESSAGE : submissionError.message;
       actions.setLoading(false);
       actions.setSubmitting(false);
       if (isPastBooking) {
         actions.goToStep(1);
         setPlanAlert(message);
+        actions.setSubmissionError(null);
         actions.setError(null);
       } else {
         actions.goToStep(originStep);
+        actions.setSubmissionError(submissionError);
         actions.setError(message);
         setPlanAlert(null);
       }
@@ -518,6 +618,9 @@ export function useReservationWizard(
     isOnline,
     mode,
     mutation,
+    navigator,
+    redirectOnSuccess,
+    safeReturnPath,
     state.details,
     state.editingId,
     state.loading,
@@ -541,22 +644,9 @@ export function useReservationWizard(
   }, [actions]);
 
   const handleClose = useCallback(() => {
-    if (mode === 'ops') {
-      if (typeof window !== 'undefined') {
-        window.location.assign('/app');
-      } else {
-        navigator.push('/app');
-      }
-      setPlanAlert(null);
-      return;
-    }
-    if (typeof window !== 'undefined') {
-      window.location.assign(safeReturnPath);
-    } else {
-      navigator.push(safeReturnPath);
-    }
+    navigator.replace(safeReturnPath);
     setPlanAlert(null);
-  }, [mode, navigator, safeReturnPath]);
+  }, [navigator, safeReturnPath]);
 
   return {
     state,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 
 import type { NextRequest } from 'next/server';
@@ -22,10 +23,7 @@ const shouldSetCookieDomain = (hostname: string, rootDomain: string): boolean =>
 };
 
 function sanitizeNextPath(value: string | null): string {
-  if (!value) return '/';
-  if (!value.startsWith('/')) return '/';
-  if (value.startsWith('//')) return '/';
-  return value;
+  return sanitizeLocalRedirectPath(value, { fallback: '/' });
 }
 
 /**
@@ -40,9 +38,16 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.get('access_token') ??
     req.nextUrl.searchParams.get('accessToken') ??
     null;
+  const legacyToken = req.nextUrl.searchParams.get('token');
 
   const nextPath = sanitizeNextPath(req.nextUrl.searchParams.get('next'));
   const redirectTarget = new URL(nextPath, req.nextUrl.origin);
+
+  if (!accessToken && legacyToken) {
+    const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);
+    errorUrl.searchParams.set('code', 'LEGACY_TOKEN_DEPRECATED');
+    return NextResponse.redirect(errorUrl, { status: 302 });
+  }
 
   if (!accessToken) {
     const errorUrl = new URL('/bookings/recover/error', req.nextUrl.origin);

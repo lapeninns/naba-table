@@ -4,13 +4,11 @@ import { endOfDay } from 'date-fns';
 import { CalendarIcon, ChevronDownIcon, ClockIcon } from 'lucide-react';
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 
-import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
-import { cn } from '@shared/lib/cn';
-import { Button } from '@shared/ui/button';
-import { Calendar } from '@shared/ui/calendar';
-import { Input } from '@shared/ui/input';
-import { Label } from '@shared/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@shared/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -20,7 +18,9 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from '@shared/ui/select';
+} from '@/components/ui/select';
+import { formatDateForInput, formatReservationDateShort } from '@reserve/shared/formatting/booking';
+import { cn } from '@shared/lib/cn';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 
@@ -69,6 +69,7 @@ export function Calendar24Date({
   const finalId = idPrefix ?? baseId;
   const dateButtonId = `${finalId}-date`;
   const dateLabelId = `${finalId}-date-label`;
+  const dateValueId = `${finalId}-date-value`;
   const dateDescriptionId = `${finalId}-date-description`;
   const dateErrorId = date.error ? `${finalId}-date-error` : undefined;
 
@@ -133,13 +134,13 @@ export function Calendar24Date({
 
   return (
     <div className="flex flex-col gap-3">
-      <Label
+      <div
         id={dateLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
-        <CalendarIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <CalendarIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Date</span>
-      </Label>
+      </div>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -153,13 +154,15 @@ export function Calendar24Date({
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-invalid={Boolean(date.error)}
-            aria-labelledby={dateLabelId}
+            aria-labelledby={`${dateLabelId} ${dateValueId}`}
             aria-describedby={
               [dateDescriptionId, dateErrorId].filter(Boolean).join(' ') || undefined
             }
           >
-            <span className="truncate">{label}</span>
-            <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+            <span id={dateValueId} className="truncate">
+              {label}
+            </span>
+            <ChevronDownIcon className="size-4 shrink-0 opacity-50" aria-hidden />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto overflow-hidden p-0" align="start">
@@ -255,7 +258,6 @@ export function Calendar24Time({
 
   const showSuggestions = hasHydrated && !isTimeDisabled && enabledSuggestions.length > 0;
   const inputValue = time.value ?? '';
-  const selectValue = inputValue ? inputValue : undefined;
   const resolvedUnavailableMessage =
     unavailableMessage ?? 'No available times for the selected date.';
 
@@ -267,27 +269,28 @@ export function Calendar24Time({
       )}
     >
       <Label
+        htmlFor={timeInputId}
         id={timeLabelId}
         className="flex items-center gap-1.5 px-1 text-sm font-semibold sm:text-base"
       >
-        <ClockIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <ClockIcon className="size-4 text-muted-foreground" aria-hidden="true" />
         <span>Time</span>
       </Label>
       <div className="flex flex-col gap-2">
         <div className="relative">
           {showSuggestions ? (
             <Select
-              name="time"
-              value={selectValue}
-              onValueChange={(val) => time.onChange(val, { commit: true })}
+              name="reservation-time"
+              value={inputValue}
+              onValueChange={(next) => time.onChange(next, { commit: true })}
               disabled={isTimeDisabled || isTimeLoading}
             >
               <SelectTrigger
                 id={timeInputId}
                 className={cn(
-                  'h-12 w-full text-base font-normal bg-background',
+                  'h-12 w-full rounded-[var(--pg-radius-md)] border-border bg-background px-4 text-base font-semibold text-foreground shadow-[var(--pg-shadow-soft)] hover:bg-muted/40 focus:ring-ring/25',
                   !inputValue && 'text-muted-foreground',
-                  time.error && 'border-destructive focus:ring-destructive',
+                  time.error && 'border-destructive focus-visible:ring-destructive',
                 )}
                 aria-invalid={Boolean(time.error)}
                 aria-labelledby={timeLabelId}
@@ -298,52 +301,36 @@ export function Calendar24Time({
                 <SelectValue placeholder="--:--" />
               </SelectTrigger>
               <SelectContent
-                className="max-h-[20rem] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]"
+                className="pg-panel max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] rounded-[var(--pg-radius-lg)] border-border p-1 shadow-[var(--pg-shadow-floating)]"
                 position="popper"
+                sideOffset={8}
               >
-                {[...groupedSuggestions.entries()].map(([label, slots], index) => {
-                  // Determine icon based on label keywords
-                  const lowerLabel = label.toLowerCase();
-                  let icon = '🕒'; // Default clock
-                  if (lowerLabel.includes('lunch')) icon = '☀️';
-                  else if (lowerLabel.includes('dinner')) icon = '🌙';
-                  else if (lowerLabel.includes('breakfast') || lowerLabel.includes('brunch'))
-                    icon = '🍳';
-                  else if (lowerLabel.includes('happy')) icon = '🍸';
-                  else if (lowerLabel.includes('morning')) icon = '🌅';
-                  else if (lowerLabel.includes('afternoon')) icon = '🌤️';
-                  else if (lowerLabel.includes('evening')) icon = '🌆';
-
-                  return (
-                    <React.Fragment key={label}>
-                      {index > 0 && <SelectSeparator />}
-                      <SelectGroup>
-                        <SelectLabel className="flex items-center gap-2 pl-8 text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">
-                          <span className="text-base leading-none">{icon}</span>
-                          {label}
-                        </SelectLabel>
-                        {slots.map((slot) => (
-                          <SelectItem
-                            key={slot.value}
-                            value={slot.value}
-                            className="pl-8 data-[state=checked]:bg-primary/10 data-[state=checked]:text-primary"
-                          >
-                            <span className="font-medium font-mono tracking-tight">
-                              {slot.display}
-                            </span>
-                            {/* Optional: Add slight dimming to unselected items for better hierarchy? No, keep clean. */}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </React.Fragment>
-                  );
-                })}
+                {[...groupedSuggestions.entries()].map(([label, slots], index) => (
+                  <React.Fragment key={label}>
+                    {index > 0 ? <SelectSeparator className="my-1 bg-border/70" /> : null}
+                    <SelectGroup>
+                      <SelectLabel className="px-3 py-2 font-[var(--pg-font-mono)] text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                        {label}
+                      </SelectLabel>
+                      {slots.map((slot) => (
+                        <SelectItem
+                          key={slot.value}
+                          value={slot.value}
+                          className="my-0.5 rounded-[var(--pg-radius-sm)] py-2.5 pl-8 pr-3 font-[var(--pg-font-mono)] text-sm font-semibold focus:bg-muted focus:text-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
+                        >
+                          {slot.display}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </React.Fragment>
+                ))}
               </SelectContent>
             </Select>
           ) : (
             <>
               <Input
                 id={timeInputId}
+                name="reservation-time"
                 type="time"
                 value={isTimeDisabled && unavailableMessage ? '' : inputValue}
                 step={timeStepSeconds}
@@ -363,13 +350,14 @@ export function Calendar24Time({
                   time.onChange(event.target.value, { commit: true });
                 }}
                 aria-invalid={Boolean(time.error)}
+                aria-label="Time"
                 aria-labelledby={timeLabelId}
                 aria-describedby={
                   [timeDescriptionId, timeErrorId].filter(Boolean).join(' ') || undefined
                 }
                 placeholder="--:--"
                 className={cn(
-                  'h-12 bg-background text-base font-normal appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
+                  'h-12 appearance-none bg-background text-base font-normal [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none',
                   !inputValue ? 'text-foreground' : undefined,
                   time.error && 'border-destructive focus-visible:ring-destructive',
                 )}
@@ -395,11 +383,11 @@ export function Calendar24Time({
           ) : null}
         </div>
 
-        {!showSuggestions && (
+        {!showSuggestions ? (
           <p className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]" aria-live="polite">
             {resolvedUnavailableMessage}
           </p>
-        )}
+        ) : null}
       </div>
       <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground sm:text-[0.8rem]">
         {TIME_DESCRIPTION}

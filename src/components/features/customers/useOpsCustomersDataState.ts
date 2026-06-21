@@ -7,12 +7,7 @@ import { useOpsCustomers } from '@/hooks/useOpsCustomers';
 import { buildOpsGuestRowViewModels } from './opsCustomersSelectors';
 import { INFINITE_PAGE_SIZE, type OpsCustomersExportFilters } from './opsCustomersTypes';
 
-import type {
-  LastVisitFilter,
-  MarketingFilter,
-  SortBy,
-  SortDirection,
-} from './opsCustomersTypes';
+import type { LastVisitFilter, MarketingFilter, SortBy, SortDirection } from './opsCustomersTypes';
 
 type UseOpsCustomersDataStateArgs = {
   activeRestaurantId: string | null;
@@ -50,16 +45,9 @@ export function useOpsCustomersDataState({
       lastVisit,
       minBookings,
     };
-  }, [
-    activeRestaurantId,
-    lastVisit,
-    marketingOptIn,
-    minBookings,
-    normalizedSearch,
-    sort,
-    sortBy,
-  ]);
+  }, [activeRestaurantId, lastVisit, marketingOptIn, minBookings, normalizedSearch, sort, sortBy]);
 
+  const customersQuery = useOpsCustomers(filters);
   const {
     data,
     error,
@@ -69,7 +57,7 @@ export function useOpsCustomersDataState({
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useOpsCustomers(filters);
+  } = customersQuery;
 
   const customerPages = useMemo(() => data?.pages ?? [], [data?.pages]);
   const guestRows = useMemo(
@@ -100,6 +88,7 @@ export function useOpsCustomersDataState({
   }, [fetchNextPage, hasNextPage, isFetchingNextPage, isOnline]);
 
   return {
+    customersQuery,
     error,
     isLoading,
     guestRows,

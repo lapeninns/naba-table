@@ -1,28 +1,34 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from 'node:crypto';
 
+import {
+  canInviteRestaurantRole,
+  isRestaurantRole,
+  type RestaurantRole,
+} from '@/lib/owner/auth/roles';
+import { normalizeEmail } from '@/server/customers';
+import { sendTeamInviteEmail } from '@/server/emails/invitations';
+import { getServiceSupabaseClient } from '@/server/supabase';
+import {
+  invalidateUserMembershipsCache,
+  requireMembershipForRestaurant,
+} from '@/server/team/access';
 
-import { isRestaurantRole, type RestaurantRole } from "@/lib/owner/auth/roles";
-import { buildInviteUrl } from "@/lib/owner/team/invite-links";
-import { normalizeEmail } from "@/server/customers";
-import { sendTeamInviteEmail } from "@/server/emails/invitations";
-import { getServiceSupabaseClient } from "@/server/supabase";
+import type { Database, Tables } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, Tables } from "@/types/supabase";
-import type { SupabaseClient } from "@supabase/supabase-js";
+type DbClient = SupabaseClient<Database>;
 
-type DbClient = SupabaseClient<Database, "public", any>;
-
-export type RestaurantInvite = Tables<"restaurant_invites">;
+export type RestaurantInvite = Tables<'restaurant_invites'>;
 
 const INVITE_SELECT =
-  "id,restaurant_id,email,email_normalized,role,token_hash,status,expires_at,invited_by,accepted_at,revoked_at,created_at,updated_at";
+  'id,restaurant_id,email,email_normalized,role,token_hash,status,expires_at,invited_by,accepted_at,revoked_at,created_at,updated_at';
 
-export type InviteStatus = RestaurantInvite["status"];
+export type InviteStatus = RestaurantInvite['status'];
 
-export const INVITE_STATUS_PENDING: InviteStatus = "pending";
-export const INVITE_STATUS_ACCEPTED: InviteStatus = "accepted";
-export const INVITE_STATUS_REVOKED: InviteStatus = "revoked";
-export const INVITE_STATUS_EXPIRED: InviteStatus = "expired";
+export const INVITE_STATUS_PENDING: InviteStatus = 'pending';
+export const INVITE_STATUS_ACCEPTED: InviteStatus = 'accepted';
+export const INVITE_STATUS_REVOKED: InviteStatus = 'revoked';
+export const INVITE_STATUS_EXPIRED: InviteStatus = 'expired';
 
 export type CreateInviteParams = {
   restaurantId: string;
@@ -35,14 +41,12 @@ export type CreateInviteParams = {
 
 export type CreateInviteResult = {
   invite: RestaurantInvite;
-  token: string;
-  inviteUrl: string;
 };
 
 export type ListInvitesParams = {
   restaurantId: string;
   authClient: DbClient;
-  status?: InviteStatus | "all";
+  status?: InviteStatus | 'all';
 };
 
 export type RevokeInviteParams = {
@@ -56,8 +60,15 @@ export type AcceptInviteParams = {
   authClient: DbClient;
 };
 
+export type AcceptInviteForUserParams = {
+  invite: RestaurantInvite;
+  userId: string;
+  userEmail: string;
+  client?: DbClient;
+};
+
 export function generateInviteToken(bytes = 24): { token: string; hash: string } {
-  const raw = randomBytes(bytes).toString("base64url");
+  const raw = randomBytes(bytes).toString('base64url');
   return {
     token: raw,
     hash: hashInviteToken(raw),
@@ -65,15 +76,17 @@ export function generateInviteToken(bytes = 24): { token: string; hash: string }
 }
 
 export function hashInviteToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
+  return createHash('sha256').update(token).digest('hex');
 }
 
-export async function createRestaurantInvite(params: CreateInviteParams): Promise<CreateInviteResult> {
+export async function createRestaurantInvite(
+  params: CreateInviteParams,
+): Promise<CreateInviteResult> {
   const { restaurantId, email, role, invitedBy, expiresAt, authClient } = params;
 
   if (!isRestaurantRole(role)) {
-    throw Object.assign(new Error("Unsupported role for invitation"), {
-      code: "INVALID_INVITE_ROLE" as const,
+    throw Object.assign(new Error('Unsupported role for invitation'), {
+      code: 'INVALID_INVITE_ROLE' as const,
     });
   }
 
@@ -81,7 +94,7 @@ export async function createRestaurantInvite(params: CreateInviteParams): Promis
   const { token, hash } = generateInviteToken();
 
   const { data, error } = await authClient
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .insert({
       restaurant_id: restaurantId,
       email: normalizedEmail,
@@ -95,9 +108,9 @@ export async function createRestaurantInvite(params: CreateInviteParams): Promis
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      throw Object.assign(new Error("An invitation for this email already exists"), {
-        code: "INVITE_ALREADY_EXISTS" as const,
+    if (error.code === '23505') {
+      throw Object.assign(new Error('An invitation for this email already exists'), {
+        code: 'INVITE_ALREADY_EXISTS' as const,
       });
     }
 
@@ -111,7 +124,7 @@ export async function createRestaurantInvite(params: CreateInviteParams): Promis
     token,
   });
 
-  return { invite, token, inviteUrl: buildInviteUrl(token) };
+  return { invite };
 }
 
 export async function resolveInviteContext(invite: RestaurantInvite): Promise<{
@@ -120,14 +133,14 @@ export async function resolveInviteContext(invite: RestaurantInvite): Promise<{
 }> {
   const service = getServiceSupabaseClient();
   const [{ data: restaurant }, { data: inviter }] = await Promise.all([
-    service.from("restaurants").select("name").eq("id", invite.restaurant_id).maybeSingle(),
+    service.from('restaurants').select('name').eq('id', invite.restaurant_id).maybeSingle(),
     invite.invited_by
-      ? service.from("profiles").select("name").eq("id", invite.invited_by).maybeSingle()
+      ? service.from('profiles').select('name').eq('id', invite.invited_by).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
   return {
-    restaurantName: restaurant?.name ?? "Restaurant",
+    restaurantName: restaurant?.name ?? 'Restaurant',
     inviterName: inviter?.name ?? null,
   };
 }
@@ -138,30 +151,32 @@ export async function expireRestaurantInvites(
 ): Promise<void> {
   const nowIso = new Date().toISOString();
   const { error } = await authClient
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .update({ status: INVITE_STATUS_EXPIRED })
-    .eq("restaurant_id", restaurantId)
-    .eq("status", INVITE_STATUS_PENDING)
-    .lt("expires_at", nowIso);
+    .eq('restaurant_id', restaurantId)
+    .eq('status', INVITE_STATUS_PENDING)
+    .lt('expires_at', nowIso);
 
-  if (error && error.code !== "42501") {
+  if (error && error.code !== '42501') {
     throw error;
   }
 }
 
-export async function listRestaurantInvites(params: ListInvitesParams): Promise<RestaurantInvite[]> {
+export async function listRestaurantInvites(
+  params: ListInvitesParams,
+): Promise<RestaurantInvite[]> {
   const { restaurantId, authClient, status = INVITE_STATUS_PENDING } = params;
 
   await expireRestaurantInvites(restaurantId, authClient);
 
   let query = authClient
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .select(INVITE_SELECT)
-    .eq("restaurant_id", restaurantId)
-    .order("created_at", { ascending: false });
+    .eq('restaurant_id', restaurantId)
+    .order('created_at', { ascending: false });
 
-  if (status !== "all") {
-    query = query.eq("status", status);
+  if (status !== 'all') {
+    query = query.eq('status', status);
   }
 
   const { data, error } = await query;
@@ -177,12 +192,15 @@ export function inviteHasExpired(invite: RestaurantInvite): boolean {
   return new Date(invite.expires_at).getTime() < Date.now();
 }
 
-export async function markInviteExpired(inviteId: string, client: DbClient = getServiceSupabaseClient()) {
+export async function markInviteExpired(
+  inviteId: string,
+  client: DbClient = getServiceSupabaseClient(),
+) {
   const { data, error } = await client
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .update({ status: INVITE_STATUS_EXPIRED })
-    .eq("id", inviteId)
-    .eq("status", INVITE_STATUS_PENDING)
+    .eq('id', inviteId)
+    .eq('status', INVITE_STATUS_PENDING)
     .select(INVITE_SELECT)
     .single();
 
@@ -193,38 +211,45 @@ export async function markInviteExpired(inviteId: string, client: DbClient = get
   return data as RestaurantInvite;
 }
 
-export async function revokeRestaurantInvite(params: RevokeInviteParams): Promise<RestaurantInvite> {
+export async function revokeRestaurantInvite(
+  params: RevokeInviteParams,
+): Promise<RestaurantInvite> {
   const { inviteId, restaurantId, authClient } = params;
 
   const { data, error } = await authClient
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .update({
       status: INVITE_STATUS_REVOKED,
       revoked_at: new Date().toISOString(),
     })
-    .eq("id", inviteId)
-    .eq("restaurant_id", restaurantId)
-    .eq("status", INVITE_STATUS_PENDING)
+    .eq('id', inviteId)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', INVITE_STATUS_PENDING)
     .select(INVITE_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw error;
   }
 
   if (!data) {
-    throw Object.assign(new Error("Invite not found"), { code: "INVITE_NOT_FOUND" as const });
+    throw Object.assign(new Error('Invite not found or already processed'), {
+      code: 'INVITE_NOT_FOUND' as const,
+    });
   }
 
   return data as RestaurantInvite;
 }
 
-export async function findInviteByToken(token: string, client: DbClient = getServiceSupabaseClient()) {
+export async function findInviteByToken(
+  token: string,
+  client: DbClient = getServiceSupabaseClient(),
+) {
   const hash = hashInviteToken(token);
   const { data, error } = await client
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .select(INVITE_SELECT)
-    .eq("token_hash", hash)
+    .eq('token_hash', hash)
     .maybeSingle();
 
   if (error) {
@@ -234,13 +259,16 @@ export async function findInviteByToken(token: string, client: DbClient = getSer
   return (data ?? null) as RestaurantInvite | null;
 }
 
-export async function markInviteAccepted(inviteId: string, client: DbClient = getServiceSupabaseClient()) {
+export async function markInviteAccepted(
+  inviteId: string,
+  client: DbClient = getServiceSupabaseClient(),
+) {
   const now = new Date().toISOString();
   const { data, error } = await client
-    .from("restaurant_invites")
+    .from('restaurant_invites')
     .update({ status: INVITE_STATUS_ACCEPTED, accepted_at: now })
-    .eq("id", inviteId)
-    .eq("status", INVITE_STATUS_PENDING)
+    .eq('id', inviteId)
+    .eq('status', INVITE_STATUS_PENDING)
     .select(INVITE_SELECT)
     .single();
 
@@ -249,10 +277,112 @@ export async function markInviteAccepted(inviteId: string, client: DbClient = ge
   }
 
   if (!data) {
-    throw Object.assign(new Error("Invite not found or already processed"), {
-      code: "INVITE_NOT_FOUND" as const,
+    throw Object.assign(new Error('Invite not found or already processed'), {
+      code: 'INVITE_NOT_FOUND' as const,
     });
   }
 
   return data as RestaurantInvite;
+}
+
+export async function assertInvitableRole(params: {
+  actorUserId: string;
+  restaurantId: string;
+  invitedRole: RestaurantRole;
+  client?: DbClient;
+}): Promise<void> {
+  const { actorUserId, restaurantId, invitedRole, client = getServiceSupabaseClient() } = params;
+  const actorMembership = await requireMembershipForRestaurant({
+    userId: actorUserId,
+    restaurantId,
+    client,
+  });
+  const actorRole = actorMembership.role as RestaurantRole;
+
+  if (!isRestaurantRole(actorRole) || !canInviteRestaurantRole(actorRole, invitedRole)) {
+    throw Object.assign(new Error('Actor cannot invite this role'), {
+      code: 'INVITE_ROLE_FORBIDDEN' as const,
+      actorRole,
+      invitedRole,
+    });
+  }
+}
+
+export async function assertInviteRoleStillAllowed(
+  invite: RestaurantInvite,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<void> {
+  if (!isRestaurantRole(invite.role)) {
+    throw Object.assign(new Error('Unsupported role for invitation'), {
+      code: 'INVALID_INVITE_ROLE' as const,
+    });
+  }
+
+  if (!invite.invited_by) {
+    throw Object.assign(new Error('Invite has no inviter to validate'), {
+      code: 'INVITE_ROLE_FORBIDDEN' as const,
+    });
+  }
+
+  await assertInvitableRole({
+    actorUserId: invite.invited_by,
+    restaurantId: invite.restaurant_id,
+    invitedRole: invite.role,
+    client,
+  });
+}
+
+export async function acceptInviteForAuthenticatedUser(
+  params: AcceptInviteForUserParams,
+): Promise<RestaurantInvite> {
+  const { invite, userId, userEmail, client = getServiceSupabaseClient() } = params;
+  const normalizedSessionEmail = normalizeEmail(userEmail);
+  const normalizedInviteEmail = normalizeEmail(invite.email);
+
+  if (normalizedSessionEmail !== normalizedInviteEmail) {
+    throw Object.assign(new Error('Authenticated email does not match invitation'), {
+      code: 'INVITE_EMAIL_MISMATCH' as const,
+    });
+  }
+
+  await assertInviteRoleStillAllowed(invite, client);
+
+  const rpcClient = client as SupabaseClient<Database> & {
+    rpc: (
+      fn: 'accept_restaurant_invite',
+      args: {
+        p_invite_id: string;
+        p_user_id: string;
+        p_restaurant_id: string;
+        p_role: string;
+      },
+    ) => Promise<{
+      data: RestaurantInvite | null;
+      error: { code?: string; message?: string } | null;
+    }>;
+  };
+  const { data, error } = await rpcClient.rpc('accept_restaurant_invite', {
+    p_invite_id: invite.id,
+    p_user_id: userId,
+    p_restaurant_id: invite.restaurant_id,
+    p_role: invite.role,
+  });
+
+  if (error) {
+    if (error.code === 'P0001') {
+      throw Object.assign(new Error('Invite not found or already processed'), {
+        code: 'INVITE_NOT_FOUND' as const,
+      });
+    }
+    throw error;
+  }
+
+  if (!data) {
+    throw Object.assign(new Error('Invite not found or already processed'), {
+      code: 'INVITE_NOT_FOUND' as const,
+    });
+  }
+
+  invalidateUserMembershipsCache(userId);
+  return data;
 }

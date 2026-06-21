@@ -1,18 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapSupabaseAuthError } from "@/server/auth/supabase-auth-errors";
-import { getCustomersWithHistory } from "@/server/ops/customers";
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from "@/server/supabase";
-import { fetchUserMemberships } from "@/server/team/access";
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { getCustomersWithHistory } from '@/server/ops/customers';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { fetchUserMemberships } from '@/server/team/access';
 
 import {
   parseOpsCustomersQuery,
   type CustomerDTO,
   type OpsCustomersResponse,
   type OpsCustomersSummaryDTO,
-} from "./schema";
+} from './schema';
 
-import type { NextRequest} from "next/server";
+import type { NextRequest } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
@@ -22,31 +23,34 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error("[ops/customers][GET] failed to resolve auth", authError.message);
+    console.error('[ops/customers][GET] failed to resolve auth', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
   }
 
   const rawParams = {
-    restaurantId: req.nextUrl.searchParams.get("restaurantId") ?? undefined,
-    page: req.nextUrl.searchParams.get("page") ?? undefined,
-    pageSize: req.nextUrl.searchParams.get("pageSize") ?? undefined,
-    sort: req.nextUrl.searchParams.get("sort") ?? undefined,
-    sortBy: req.nextUrl.searchParams.get("sortBy") ?? undefined,
-    search: req.nextUrl.searchParams.get("search") ?? undefined,
-    marketingOptIn: req.nextUrl.searchParams.get("marketingOptIn") ?? undefined,
-    lastVisit: req.nextUrl.searchParams.get("lastVisit") ?? undefined,
-    minBookings: req.nextUrl.searchParams.get("minBookings") ?? undefined,
+    restaurantId: req.nextUrl.searchParams.get('restaurantId') ?? undefined,
+    page: req.nextUrl.searchParams.get('page') ?? undefined,
+    pageSize: req.nextUrl.searchParams.get('pageSize') ?? undefined,
+    sort: req.nextUrl.searchParams.get('sort') ?? undefined,
+    sortBy: req.nextUrl.searchParams.get('sortBy') ?? undefined,
+    search: req.nextUrl.searchParams.get('search') ?? undefined,
+    marketingOptIn: req.nextUrl.searchParams.get('marketingOptIn') ?? undefined,
+    lastVisit: req.nextUrl.searchParams.get('lastVisit') ?? undefined,
+    minBookings: req.nextUrl.searchParams.get('minBookings') ?? undefined,
   };
 
   const parsed = parseOpsCustomersQuery(rawParams);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid query", details: parsed.error.flatten() },
+      { error: 'Invalid query', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -57,8 +61,12 @@ export async function GET(req: NextRequest) {
   try {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (error) {
-    console.error("[ops/customers][GET] membership lookup failed", error);
-    return NextResponse.json({ error: "Unable to verify memberships" }, { status: 500 });
+    console.error('[ops/customers][GET] membership lookup failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-customers' },
+    });
+    return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
   }
 
   if (memberships.length === 0) {
@@ -76,14 +84,14 @@ export async function GET(req: NextRequest) {
 
   const membershipIds = memberships
     .map((membership) => membership.restaurant_id)
-    .filter((id): id is string => typeof id === "string" && id.length > 0);
+    .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
   let targetRestaurantId = params.restaurantId;
 
   if (targetRestaurantId) {
     const allowed = membershipIds.includes(targetRestaurantId);
     if (!allowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   } else {
     targetRestaurantId = membershipIds[0] ?? null;
@@ -158,7 +166,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("[ops/customers][GET] query failed", error);
-    return NextResponse.json({ error: "Unable to fetch guests" }, { status: 500 });
+    console.error('[ops/customers][GET] query failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: targetRestaurantId },
+      properties: { restaurantId: targetRestaurantId, source: 'ops', kind: 'ops-customers' },
+    });
+    return NextResponse.json({ error: 'Unable to fetch guests' }, { status: 500 });
   }
 }

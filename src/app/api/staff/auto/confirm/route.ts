@@ -1,12 +1,14 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { mapAssignTablesErrorToHttp } from "@/app/api/staff/_utils/assign-tables-error";
-import { confirmHold } from "@/server/capacity/engine";
-import { AssignTablesRpcError, HoldNotFoundError } from "@/server/capacity/holds";
-import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from "@/server/supabase";
+import { mapAssignTablesErrorToHttp } from '@/app/api/staff/_utils/assign-tables-error';
+import { confirmHold } from '@/server/capacity/engine';
+import { AssignTablesRpcError, HoldNotFoundError } from '@/server/capacity/holds';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
+import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
-import type { NextRequest } from "next/server";
+import type { NextRequest } from 'next/server';
 
 const confirmPayloadSchema = z.object({
   holdId: z.string().uuid(),
@@ -16,6 +18,10 @@ const confirmPayloadSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  return withCsrfProtectedMutation(req, () => postStaffAutoConfirm(req));
+}
+
+async function postStaffAutoConfirm(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
 
   const {
@@ -24,22 +30,25 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
   const parsed = confirmPayloadSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request payload", details: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid request payload', details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
 
   const { holdId, bookingId, idempotencyKey, requireAdjacency } = parsed.data;
 
   const holdLookup = await supabase
-    .from("table_holds")
-    .select("id, restaurant_id")
-    .eq("id", holdId)
+    .from('table_holds')
+    .select('id, restaurant_id')
+    .eq('id', holdId)
     .maybeSingle();
 
   if (holdLookup.error) {
@@ -48,14 +57,14 @@ export async function POST(req: NextRequest) {
 
   const holdRow = holdLookup.data;
   if (!holdRow || !holdRow.restaurant_id) {
-    return NextResponse.json({ error: "Hold not found" }, { status: 404 });
+    return NextResponse.json({ error: 'Hold not found' }, { status: 404 });
   }
 
   const membership = await supabase
-    .from("restaurant_memberships")
-    .select("role")
-    .eq("restaurant_id", holdRow.restaurant_id)
-    .eq("user_id", user.id)
+    .from('restaurant_memberships')
+    .select('role')
+    .eq('restaurant_id', holdRow.restaurant_id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (membership.error) {
@@ -63,7 +72,27 @@ export async function POST(req: NextRequest) {
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+  }
+
+  const bookingLookup = await supabase
+    .from('bookings')
+    .select('id')
+    .eq('id', bookingId)
+    .eq('restaurant_id', holdRow.restaurant_id)
+    .maybeSingle();
+
+  if (bookingLookup.error) {
+    console.error('[staff/auto/confirm] booking tenant check failed', {
+      error: bookingLookup.error.message,
+      holdId,
+      bookingId,
+    });
+    return NextResponse.json({ error: 'Unable to confirm hold' }, { status: 500 });
+  }
+
+  if (!bookingLookup.data) {
+    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
   }
 
   const serviceClient = getTenantServiceSupabaseClient(holdRow.restaurant_id);
@@ -81,16 +110,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ holdId, bookingId, assignments });
   } catch (error) {
     if (error instanceof HoldNotFoundError) {
-      return NextResponse.json({ error: "Hold not found" }, { status: 404 });
+      return NextResponse.json({ error: 'Hold not found' }, { status: 404 });
     }
 
     if (error instanceof AssignTablesRpcError) {
+      if ((error.code ?? '').toUpperCase() === 'HOLD_RESTAURANT_MISMATCH') {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      }
+
       const { status, payload } = mapAssignTablesErrorToHttp(error);
       return NextResponse.json(payload, { status });
     }
 
-    console.error("[staff/auto/confirm] unexpected error", { error, holdId, bookingId });
-    const message = error instanceof Error ? error.message : "Unexpected error";
+    console.error('[staff/auto/confirm] unexpected error', { error, holdId, bookingId });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: holdRow.restaurant_id },
+      properties: {
+        bookingId,
+        restaurantId: holdRow.restaurant_id,
+        source: 'ops',
+        kind: 'staff-auto-confirm',
+      },
+    });
+    const message = error instanceof Error ? error.message : 'Unexpected error';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -12,63 +12,55 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+vi.mock('@/guest/services/auth-state.server', () => ({
+  getGuestAuthState: vi.fn(async () => ({ isAuthenticated: false })),
+}));
 
 describe('public bookings page', () => {
-  it('keeps the hub copy, card descriptions, and canonical booking entry links', () => {
-    const { container } = render(<BookingsLandingPage />);
+  it('keeps the hub copy, card descriptions, and canonical booking entry links', async () => {
+    const { container } = render(await BookingsLandingPage());
 
-    expect(screen.getByText('Bookings')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Your Reservations' })).toBeInTheDocument();
+    expect(screen.getAllByText('Book a table').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Start a new booking' })).toBeInTheDocument();
     expect(
-      screen.getByText('Book a new table or manage existing reservations.'),
-    ).toBeInTheDocument();
-
-    const bookingActions = screen.getByRole('region', { name: 'Booking actions' });
-
-    expect(within(bookingActions).getByRole('heading', { name: 'Book a table' })).toBeInTheDocument();
-    expect(
-      within(bookingActions).getByText(
-        'Find a restaurant, pick a date and time, and confirm your reservation.',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(bookingActions).getByRole('heading', { name: 'Manage bookings' }),
-    ).toBeInTheDocument();
-    expect(
-      within(bookingActions).getByText(
-        'Sign in to see your upcoming and past bookings, or make changes where available.',
+      screen.getByText(
+        'Choose a restaurant, pick a time, and confirm your table. Already booked? Sign in with your reservation email to view bookings and receipts.',
       ),
     ).toBeInTheDocument();
 
+    expect(screen.getByRole('heading', { name: 'Choose a restaurant' })).toBeInTheDocument();
     expect(
-      within(bookingActions).getByRole('link', { name: 'Browse restaurants' }),
-    ).toHaveAttribute('href', '/restaurants');
-    expect(within(bookingActions).getByRole('link', { name: 'View my bookings' })).toHaveAttribute(
+      screen.getByText(
+        'Browse available restaurants, pick a date and time, then confirm your table.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'View existing bookings' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Use your reservation email to see upcoming bookings, past visits, and receipts.',
+      ),
+    ).toBeInTheDocument();
+
+    expect(screen.getByRole('link', { name: 'Browse restaurants' })).toHaveAttribute(
       'href',
-      '/guest/bookings',
+      '/restaurants',
     );
-    expect(within(bookingActions).getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Sign in to view bookings' })).toHaveAttribute(
       'href',
-      '/auth/signin?redirectedFrom=/bookings',
+      '/auth/signin?redirectedFrom=/guest/bookings',
     );
     expect(container.querySelector('main')).not.toBeInTheDocument();
   });
 
-  it('keeps the action cards mobile-first while restoring the small-screen split layout', () => {
-    render(<BookingsLandingPage />);
+  it('keeps the action cards mobile-first while restoring the responsive split layout', async () => {
+    render(await BookingsLandingPage());
 
-    const bookingActions = screen.getByRole('region', { name: 'Booking actions' });
-    const browseRestaurants = within(bookingActions).getByRole('link', {
-      name: 'Browse restaurants',
-    });
-    const viewMyBookings = within(bookingActions).getByRole('link', {
-      name: 'View my bookings',
-    });
-    const signIn = within(bookingActions).getByRole('link', { name: 'Sign in' });
+    const panels = screen.getByRole('heading', { name: 'Choose a restaurant' }).closest('.grid');
+    const browseRestaurants = screen.getByRole('link', { name: 'Browse restaurants' });
+    const signIn = screen.getByRole('link', { name: 'Sign in to view bookings' });
 
-    expect(bookingActions).toHaveClass('sm:grid-cols-2');
-    expect(browseRestaurants).toHaveClass('w-full', 'min-h-[44px]', 'sm:w-auto');
-    expect(viewMyBookings).toHaveClass('w-full', 'min-h-[44px]', 'sm:w-auto');
-    expect(signIn).toHaveClass('w-full', 'min-h-[44px]', 'sm:w-auto');
+    expect(panels).toHaveClass('lg:grid-cols-[7fr_5fr]');
+    expect(browseRestaurants).toHaveClass('w-full', 'h-11', 'sm:w-auto');
+    expect(signIn).toHaveClass('w-full', 'h-11', 'sm:w-auto');
   });
 });

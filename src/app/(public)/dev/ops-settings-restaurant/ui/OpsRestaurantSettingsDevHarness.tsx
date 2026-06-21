@@ -21,10 +21,10 @@ import type { RestaurantSettingsView } from '@/components/features/restaurant-se
 
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
-  { value: 'operating-hours', label: 'Operating hours' },
-  { value: 'service-periods', label: 'Service periods' },
-  { value: 'turn-durations', label: 'Turn durations' },
-  { value: 'occasions', label: 'Occasions' },
+  { value: 'google-business-profile', label: 'Google Business Profile' },
+  { value: 'availability', label: 'Availability & booking types' },
+  { value: 'menu', label: 'Menu' },
+  { value: 'tables', label: 'Tables' },
   { value: 'team', label: 'Team' },
 ];
 
@@ -41,8 +41,8 @@ export function OpsRestaurantSettingsDevHarness() {
       >
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            View selector is local to this harness; the left subnav is rendered for responsive layout
-            verification but links to authenticated routes.
+            View selector is local to this harness; the left subnav is rendered for responsive
+            layout verification but links to authenticated routes.
           </p>
           <div className="w-full space-y-2 sm:w-[260px]">
             <Label htmlFor="ops-restaurant-settings-view" className="sr-only">

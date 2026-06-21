@@ -15,6 +15,8 @@ export type AvailabilityCheckParams = {
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
   partySize: number;
+  durationMinutes?: number;
+  bookingOption?: string | null;
   seatingPreference?: string;
 };
 
@@ -41,6 +43,7 @@ export type CapacityMetadata = {
   utilizationPercent: number;
   maxParties?: number | null;
   bookedParties?: number;
+  availableParties?: number;
 };
 
 // =====================================================
@@ -52,6 +55,8 @@ export type AlternativeSlotParams = {
   date: string;
   partySize: number;
   preferredTime: string;
+  durationMinutes?: number;
+  bookingOption?: string | null;
   maxAlternatives?: number; // Default: 5
   searchWindowMinutes?: number; // Default: 120 (±2 hours)
 };

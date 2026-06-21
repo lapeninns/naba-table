@@ -1,25 +1,20 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { isEmailQueueEnabled } from '@/server/feature-flags';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { getEmailQueueStatus } from '@/server/queue/email';
+import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const CRON_SECRET = process.env.CRON_SECRET;
+const JOB_NAME = 'admin.queue-status';
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const hasValidBearerToken = CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`;
+  return requireCronAuthAndRun(request, JOB_NAME, async () => getQueueStatus(request));
+}
 
-  if (!CRON_SECRET) {
-    return NextResponse.json({ error: 'Not configured' }, { status: 503 });
-  }
-
-  if (!hasValidBearerToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+async function getQueueStatus(request: Request) {
   if (!isEmailQueueEnabled()) {
     return NextResponse.json({
       status: 'disabled',
@@ -48,6 +43,9 @@ export async function GET(request: Request) {
     return NextResponse.json(snapshot);
   } catch (error) {
     console.error('[admin][queue-status] error:', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'admin-queue-status' },
+    });
     return NextResponse.json(
       {
         status: 'error',

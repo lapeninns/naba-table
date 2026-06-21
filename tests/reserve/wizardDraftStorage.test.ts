@@ -22,7 +22,6 @@ function makeDetails(overrides: Partial<BookingDetails> = {}): BookingDetails {
     time: '19:00',
     party: 2,
     bookingType: 'dinner',
-    seating: 'indoor',
     notes: 'Window seat if possible',
     name: 'Test Guest',
     email: 'guest@example.com',

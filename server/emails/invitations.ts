@@ -1,7 +1,6 @@
 import { format } from "date-fns";
 import { createHash } from "node:crypto";
 
-import config from "@/config";
 import { buildInviteUrl } from "@/lib/owner/team/invite-links";
 import {
   createEmailIdempotencyKey,
@@ -17,6 +16,10 @@ import {
   EMAIL_FONT_STACK,
 } from "@/server/emails/base";
 import { recordEmailDeliveryLog } from "@/server/emails/email-delivery-log";
+import {
+  resolvePlatformReplyTo,
+  resolvePlatformSupportSenderName,
+} from "@/server/emails/sender-policy";
 import { resolveInviteContext } from "@/server/team/invitations";
 
 import type { RestaurantInvite } from "@/server/team/invitations";
@@ -106,7 +109,9 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
       subject,
       html,
       text,
-      fromName: `${config.appName} Support`,
+      category: 'team_invitation',
+      replyTo: resolvePlatformReplyTo(),
+      fromName: resolvePlatformSupportSenderName(),
       tags: [
         { name: "email_type", value: "team_invite" },
         { name: "template_type", value: "team_invite" },
