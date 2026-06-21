@@ -261,6 +261,7 @@ export async function sendAuthMagicLink(params: SendAuthMagicLinkParams): Promis
       subject: message.subject,
       html: message.html,
       text: message.text,
+      category: 'auth',
       replyTo: resolvePlatformReplyTo(),
       fromName: resolvePlatformAppSenderName(),
       tags: [

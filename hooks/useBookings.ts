@@ -161,5 +161,8 @@ export function useBookings(
     placeholderData: keepPreviousData,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
+    // Bookings carry customer PII (name/email/phone/notes); keep them out of
+    // the at-rest localStorage query cache (see lib/query/persist.ts).
+    meta: { persist: false },
   });
 }

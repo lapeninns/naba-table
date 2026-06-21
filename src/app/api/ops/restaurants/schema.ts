@@ -41,6 +41,19 @@ function hasUnsafeControlCharacter(value: string): boolean {
   return false;
 }
 
+// triage-042: restaurant name is a single-line field whose value flows into the email From
+// display name. Reject ALL control characters (incl. TAB/CR/LF, which the shared
+// hasUnsafeControlCharacter intentionally allows for multi-line template bodies).
+function hasLineBreakOrControlCharacter(value: string): boolean {
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code <= 31 || code === 127) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function normalizeNullableSafeUrl(
   value: unknown,
   sanitizer: (value: string | null | undefined) => string | null,
@@ -104,7 +117,13 @@ export const listRestaurantsQuerySchema = z.object({
 export type ListRestaurantsQuery = z.infer<typeof listRestaurantsQuerySchema>;
 
 export const createRestaurantSchema = z.object({
-  name: z.string().trim().min(1, 'Restaurant name is required'),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Restaurant name is required')
+    .refine((value) => !hasLineBreakOrControlCharacter(value), {
+      message: 'Restaurant name cannot contain line breaks or control characters',
+    }),
   slug: z
     .string()
     .trim()
@@ -175,7 +194,14 @@ export const createRestaurantSchema = z.object({
 export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
 
 export const updateRestaurantSchema = z.object({
-  name: z.string().trim().min(1, 'Restaurant name is required').optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Restaurant name is required')
+    .refine((value) => !hasLineBreakOrControlCharacter(value), {
+      message: 'Restaurant name cannot contain line breaks or control characters',
+    })
+    .optional(),
   slug: z
     .string()
     .trim()

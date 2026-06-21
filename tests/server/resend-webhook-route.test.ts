@@ -5,6 +5,7 @@ const recordEmailDeliveryLogMock = vi.hoisted(() => vi.fn());
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 const resendVerifyMock = vi.hoisted(() => vi.fn());
 const suppressProfilesByEmailMock = vi.hoisted(() => vi.fn());
+const addEmailToSuppressionListMock = vi.hoisted(() => vi.fn());
 
 vi.mock('resend', () => ({
   Resend: vi.fn(function ResendMock() {
@@ -23,6 +24,10 @@ vi.mock('@/server/emails/email-delivery-log', () => ({
 
 vi.mock('@/server/emails/recipient-suppression', () => ({
   suppressProfilesByEmail: suppressProfilesByEmailMock,
+}));
+
+vi.mock('@/server/emails/email-suppression-list', () => ({
+  addEmailToSuppressionList: addEmailToSuppressionListMock,
 }));
 
 vi.mock('@/server/observability', () => ({
@@ -60,6 +65,8 @@ describe('resend webhook route', () => {
       matchedProfiles: 1,
       updatedProfiles: 1,
     });
+    addEmailToSuppressionListMock.mockReset();
+    addEmailToSuppressionListMock.mockResolvedValue({ suppressed: true });
   });
 
   it('rejects missing verification headers before reading the body', async () => {
