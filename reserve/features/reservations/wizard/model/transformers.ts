@@ -31,13 +31,14 @@ export const buildReservationDraft = (
   mode: BookingWizardMode = 'customer',
 ): DraftResult => {
   const normalizedRestaurantId = details.restaurantId?.trim();
-  if (!normalizedRestaurantId) {
+  const normalizedRestaurantSlug = details.restaurantSlug?.trim().toLowerCase() || undefined;
+
+  if (!normalizedRestaurantId && !normalizedRestaurantSlug) {
     return {
       ok: false,
       error: 'We could not determine which restaurant to book. Please refresh and try again.',
     };
   }
-  const normalizedRestaurantSlug = details.restaurantSlug?.trim().toLowerCase();
   const normalizedTime = normalizeTime(details.time);
 
   if (!normalizedTime) {
@@ -53,8 +54,8 @@ export const buildReservationDraft = (
   return {
     ok: true,
     draft: {
-      restaurantId: normalizedRestaurantId,
-      restaurantSlug: normalizedRestaurantSlug ?? undefined,
+      restaurantId: normalizedRestaurantId || undefined,
+      restaurantSlug: normalizedRestaurantSlug,
       date: details.date,
       time: normalizedTime,
       party: Math.max(1, details.party),
