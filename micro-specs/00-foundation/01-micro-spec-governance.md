@@ -14,7 +14,7 @@ implementation_surfaces:
 related_docs:
   - micro-specs/README.md
   - micro-specs/GLOBAL_CONTEXT.md
-  - Instructions_MircroSpecsCreation.md
+  - Instructions_MicroSpecsCreation.md
   - Instructions_tdd.md
 related_tests:
   - tests/micro-specs/check-micro-specs.test.ts
@@ -27,7 +27,7 @@ approved_exceptions: []
 # Micro-Spec Governance Validator
 
 > This spec is also the **canonical worked example**. New specs copy its metadata block and
-> the six section headings below (order fixed by `Instructions_MircroSpecsCreation.md`).
+> the six section headings below (order fixed by `Instructions_MicroSpecsCreation.md`).
 
 ## 1. Exact Goal and User-Visible Outcomes
 

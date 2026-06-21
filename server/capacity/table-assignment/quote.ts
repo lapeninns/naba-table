@@ -838,6 +838,10 @@ export async function quoteTablesForBooking(
       alternates.push(candidateSummary);
     }
 
+    // Track a hold created in this iteration so any throw after creation releases
+    // it instead of leaking it until TTL (e.g. an inline abort landing mid-quote,
+    // or post-insert validation/telemetry throwing). (#4)
+    let pendingHoldId: string | null = null;
     try {
       const summary = summarizeSelection(plan.tables, booking.party_size);
       const zoneForHold = summary.zoneId ?? plan.tables[0]?.zoneId;
@@ -874,6 +878,16 @@ export async function quoteTablesForBooking(
         },
         client: supabase,
       });
+      pendingHoldId = hold.id;
+
+      // If the caller aborted while we were creating the hold (e.g. the inline 4s
+      // timeout fired mid-quote), stop now. The catch below releases pendingHoldId
+      // so the hold can't linger until its TTL. (#4)
+      if (signal?.aborted) {
+        const abortError = new Error('Planner aborted after hold creation');
+        abortError.name = 'AbortError';
+        throw abortError;
+      }
 
       if (isHoldStrictConflictsEnabled()) {
         try {
@@ -1021,8 +1035,24 @@ export async function quoteTablesForBooking(
           capacityOverflowFallback: capacityOverflowFallbackUsed,
         },
       };
+      pendingHoldId = null;
       return attachPlannerStats(successResult, collectPlannerStats());
     } catch (error) {
+      // Any failure after the hold was created must release it or it leaks until
+      // TTL. createTableHold's own failures leave pendingHoldId null. (#4)
+      if (pendingHoldId) {
+        try {
+          await releaseTableHold({ holdId: pendingHoldId, client: supabase });
+        } catch (releaseError) {
+          console.error('[capacity.quote] failed to release hold after quote error', {
+            holdId: pendingHoldId,
+            bookingId,
+            restaurantId: booking.restaurant_id,
+            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+          });
+        }
+        pendingHoldId = null;
+      }
       if (error instanceof HoldConflictError) {
         const refreshedConflicts = await findHoldConflicts({
           restaurantId: booking.restaurant_id,

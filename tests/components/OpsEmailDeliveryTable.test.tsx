@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OpsEmailDeliveryTable } from '@/components/features/email-delivery/components/OpsEmailDeliveryTable';
 import { buildOpsEmailDeliveryTableRows } from '@/components/features/email-delivery/opsEmailDeliverySelectors';
@@ -162,6 +162,32 @@ function getRecipientOrder() {
 }
 
 describe('OpsEmailDeliveryTable', () => {
+  beforeEach(() => {
+    // vitest.config sets mockReset:true, which wipes the global matchMedia mock
+    // implementation before each test (so it returns undefined). The table reads
+    // useIsMobileState(1024) and now holds a skeleton until the breakpoint is
+    // measured, so restore a working matchMedia and a desktop-width viewport
+    // (>= the lg breakpoint) for the effect to resolve to the table variant.
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1280,
+    });
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  });
+
   it('renders table with correct column headers', () => {
     render(
       <OpsEmailDeliveryTable

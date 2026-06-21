@@ -12,7 +12,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobileState } from '@/hooks/use-mobile';
 
 import { OpsEmailDeliveryAttemptCard } from './OpsEmailDeliveryAttemptCard';
 import { OpsEmailDeliveryRetryDialog } from './OpsEmailDeliveryRetryDialog';
@@ -49,8 +49,10 @@ export function OpsEmailDeliveryTable({
 }: OpsEmailDeliveryTableProps) {
   // ≥6 columns do not fit beside the sidebar below lg; render the attempt-card
   // list there instead (layout-system §8). JS gate keeps a single variant in the
-  // DOM so accessible names stay unambiguous.
-  const isBelowLg = useIsMobile(1024);
+  // DOM so accessible names stay unambiguous. Use the raw (boolean | undefined)
+  // state so we can hold a skeleton until the breakpoint is measured rather than
+  // flashing the desktop table on phones. (#7)
+  const isBelowLg = useIsMobileState(1024);
   const [sortState, setSortState] = useState<OpsEmailDeliverySortState>(
     DEFAULT_OPS_EMAIL_DELIVERY_SORT_STATE,
   );
@@ -68,6 +70,13 @@ export function OpsEmailDeliveryTable({
     () => sortOpsEmailDeliveryTableRows({ rows, sortState }),
     [rows, sortState],
   );
+
+  // Breakpoint not yet measured on the client (SSR / first paint): hold the
+  // card-list skeleton instead of guessing the desktop table, so phones never
+  // flash a 6-column table before the effect runs. (#7)
+  if (isBelowLg === undefined) {
+    return <OpsEmailDeliveryCardListSkeleton />;
+  }
 
   if (isLoading && rows.length === 0) {
     if (isBelowLg) {

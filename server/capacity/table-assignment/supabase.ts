@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 
 import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
+import { HOLD_EXPIRY_SKEW_MS } from '@/server/capacity/hold-expiry';
 import { releaseTableHold } from '@/server/capacity/holds';
 import { getContextQueryPaddingMinutes, isAdjacencyQueryUndirected } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -63,7 +64,8 @@ export function ensureClient(client?: DbClient): DbClient {
 // small skew window so near-boundary holds are treated as STILL ACTIVE
 // (fail-safe toward NOT releasing/ignoring a hold). The proper fix is to
 // filter against the DB clock via an RPC; see needsCoordination.
-const HOLD_EXPIRY_SKEW_MS = 5_000;
+// HOLD_EXPIRY_SKEW_MS is imported from ../hold-expiry so the conflict/active-hold
+// detectors in holds.ts share the exact same pad.
 
 /**
  * Returns the ISO timestamp used as the exclusive lower bound for

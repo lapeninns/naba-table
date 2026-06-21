@@ -22,6 +22,10 @@ export type ManualValidationConflictContext = {
   holds: TableHold[];
   conflicts: ManualAssignmentConflict[];
   holdConflicts: HoldConflictInfo[];
+  // False when a hold/conflict lookup could not be completed (DB error). Callers
+  // pass this to buildManualChecks so detection is treated as unverified/blocking
+  // rather than "no conflicts". (#8)
+  holdLookupOk: boolean;
 };
 
 export function buildManualWindowQuery(window: BookingWindow): ManualWindowQuery {
@@ -163,11 +167,22 @@ export async function loadManualValidationConflictContext({
     restaurantId,
     window,
   });
-  const holds = await listManualActiveHoldsForBooking({
-    bookingId,
-    client,
-    enabled: holdsEnabled,
-  });
+  // Hold lookups fail CLOSED: if either throws we degrade gracefully here and let
+  // buildManualChecks block on `holdLookupOk: false` (an "unable to verify holds"
+  // error) rather than letting the raw error abort the whole validation. The
+  // lookups still log before throwing, so observability is preserved. (#8)
+  let holdLookupOk = true;
+  let holds: TableHold[] = [];
+  try {
+    holds = await listManualActiveHoldsForBooking({
+      bookingId,
+      client,
+      enabled: holdsEnabled,
+    });
+  } catch {
+    holdLookupOk = false;
+  }
+
   const conflicts = buildManualAssignmentConflicts({
     bookings: contextBookings,
     excludeHoldId,
@@ -177,18 +192,25 @@ export async function loadManualValidationConflictContext({
     targetBookingId: bookingId,
     window,
   });
-  const holdConflicts = await findManualHoldConflicts({
-    client,
-    excludeHoldId,
-    restaurantId,
-    tableIds,
-    window,
-  });
+
+  let holdConflicts: HoldConflictInfo[] = [];
+  try {
+    holdConflicts = await findManualHoldConflicts({
+      client,
+      excludeHoldId,
+      restaurantId,
+      tableIds,
+      window,
+    });
+  } catch {
+    holdLookupOk = false;
+  }
 
   return {
     contextBookings,
     holds,
     conflicts,
     holdConflicts,
+    holdLookupOk,
   };
 }

@@ -512,8 +512,11 @@
   --font-serif: var(--pg-font-display);
   --font-mono: var(--pg-font-mono);
 
-  /* Restrained radius scale: controls ≤ 8px, cards ≤ 12px, containers ≤ 16px.
-     Keep in sync with styles/design-system/public-guest.tokens.css. */
+  /* Restrained radius scale. The sm–xl steps mirror
+     styles/design-system/public-guest.tokens.css (controls ≤ 8px, cards ≤ 12px,
+     containers ≤ 16px) and must stay in sync with it. The 2xl–4xl steps are
+     app-only Tailwind extensions for larger ops containers and have no
+     public-guest counterpart by design. */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.625rem;

