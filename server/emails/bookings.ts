@@ -40,6 +40,7 @@ import {
   buildBookingTemplateTestIdempotencyParts,
   renderBookingEmailText,
 } from '@/server/emails/booking-template-support';
+import { type EmailCategory } from '@/server/emails/email-categories';
 import {
   hasRecentEmailDelivery,
   recordEmailDeliveryLog,
@@ -576,6 +577,31 @@ type BookingEmailType =
   | 'reminder'
   | 'pending_attention';
 
+// Maps each booking email to its deliverability category. Only review requests are
+// optional (suppressible by a one-click unsubscribe); everything else is tied to an
+// active booking and is always delivered unless the address is hard-suppressed.
+function bookingEmailCategory(type: BookingEmailType): EmailCategory {
+  switch (type) {
+    case 'created':
+      return 'booking_confirmation';
+    case 'reminder':
+      return 'booking_reminder';
+    case 'review_request':
+      return 'review_request';
+    case 'pending_attention':
+      return 'operational';
+    case 'updated':
+    case 'cancelled':
+    case 'modification_pending':
+    case 'modification_confirmed':
+    case 'booking_rejected':
+    case 'restaurant_cancellation':
+      return 'booking_update';
+    default:
+      return 'booking_update';
+  }
+}
+
 async function dispatchEmail(
   type: BookingEmailType,
   booking: BookingRecord,
@@ -787,6 +813,7 @@ async function dispatchEmail(
       html,
       text,
       attachments,
+      category: bookingEmailCategory(type),
       replyTo: resolveRestaurantReplyTo(venue.email),
       fromName: resolveRestaurantSenderName(venue.name),
       tags: [

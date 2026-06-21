@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = join(
   process.cwd(),
-  'supabase/migrations/20260621120000_harden_assignment_rpc_privileges.sql',
+  'supabase/migrations/20260621120001_harden_assignment_rpc_privileges.sql',
 );
 const migration = readFileSync(migrationPath, 'utf8');
 const compactMigration = migration.replace(/\s+/g, ' ');
