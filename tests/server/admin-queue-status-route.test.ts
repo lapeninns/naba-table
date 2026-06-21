@@ -8,7 +8,7 @@ vi.mock('@/server/security/cron-auth', () => ({
   requireCronAuthAndRun: requireCronAuthAndRunMock,
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   isEmailQueueEnabled: vi.fn(() => true),
 }));
 

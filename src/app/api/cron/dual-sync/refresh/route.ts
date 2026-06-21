@@ -11,8 +11,10 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
-import { isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/flag';
+import { isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/runtime-controls';
 import { runScheduledRefreshForAllTenants } from '@/server/dual-sync/scheduling';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -35,6 +37,7 @@ function isTruthyFlag(value: string | null): boolean {
 }
 
 export async function GET(request: Request) {
+  await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     if (!isDualSyncScheduledRefreshEnabled()) {
       return NextResponse.json(
@@ -62,6 +65,14 @@ export async function GET(request: Request) {
         jobName: auth.jobName,
         runId: auth.runId,
         error,
+      });
+      captureServerException(error, {
+        properties: {
+          jobName: auth.jobName,
+          runId: auth.runId,
+          source: 'cron',
+          kind: 'dual-sync-refresh',
+        },
       });
       return NextResponse.json({ error: 'Dual-sync refresh cron failed.' }, { status: 500 });
     }

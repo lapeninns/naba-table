@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
   PasswordConfirmationError,
@@ -138,6 +139,10 @@ async function ensureAuthorized(
 
 function handleUnexpectedError(error: unknown, context: string) {
   console.error(context, error);
+
+  if (!(error instanceof PasswordConfirmationError)) {
+    captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-details' } });
+  }
 
   if (error instanceof PasswordConfirmationError) {
     return NextResponse.json(

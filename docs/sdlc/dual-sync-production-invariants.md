@@ -169,3 +169,7 @@ Applies to every path that imports Google Business Profile data into Nabatable C
 - This document does not approve production migration or live Google writes.
 - This document does not replace task harness evidence.
 - This document does not allow harness-only UI proof when shipped-route proof is required.
+
+## Extension Guidance
+
+New GBP field families, write groups, and FoodMenus behavior must follow `docs/sdlc/gbp-dual-sync-extension-guide.md` before implementation.

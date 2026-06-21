@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import { fetchAllOccasions, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
@@ -16,6 +17,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ occasions });
   } catch (error) {
     console.error('[ops/occasions][GET] failed to load occasions', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-occasions' },
+    });
     return NextResponse.json({ error: 'Unable to load occasions' }, { status: 500 });
   }
 }
@@ -133,6 +137,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ occasion });
   } catch (error) {
     console.error('[ops/occasions][POST] failed to create occasion', error);
+    captureServerException(error, {
+      distinctId: authorization.user.id,
+      properties: { source: 'ops', kind: 'ops-occasions' },
+    });
     return NextResponse.json({ error: 'Unable to create occasion' }, { status: 500 });
   }
 }

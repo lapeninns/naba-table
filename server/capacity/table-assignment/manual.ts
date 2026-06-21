@@ -6,7 +6,7 @@ import {
   isHoldStrictConflictsEnabled,
   isAllocatorAdjacencyRequired,
   isAdjacencyQueryUndirected,
-} from '@/server/feature-flags';
+} from '@/server/runtime-policy';
 
 import { resolveRequireAdjacency } from './availability';
 import { DEFAULT_HOLD_TTL_SECONDS } from './constants';
@@ -111,7 +111,7 @@ export async function evaluateManualSelection(
     });
 
     const adjacency = await loadAdjacency(booking.restaurant_id, tableIds, supabase);
-    const { conflicts, holdConflicts } = await loadManualValidationConflictContext({
+    const { conflicts, holdConflicts, holdLookupOk } = await loadManualValidationConflictContext({
       bookingDate: booking.booking_date ?? null,
       bookingId,
       client: supabase,
@@ -139,6 +139,7 @@ export async function evaluateManualSelection(
       conflicts,
       holdConflicts,
       slackBudget,
+      holdLookupOk,
     });
 
     const ok = checks.every((check) => check.status !== 'error');

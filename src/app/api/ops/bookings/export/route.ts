@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { firstString, safeDate } from '@/lib/api/query-params';
 import { generateCSV } from '@/lib/export/csv';
@@ -87,6 +88,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (membershipError) {
     console.error('[ops/bookings/export][GET] membership validation failed', membershipError);
+    captureServerException(membershipError, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-bookings-export' },
+    });
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -154,6 +159,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (summaryError) {
     console.error('[ops/bookings/export][GET] failed to build export', summaryError);
+    captureServerException(summaryError, {
+      distinctId: user.id,
+      groups: query.restaurantId ? { restaurant: query.restaurantId } : undefined,
+      properties: { restaurantId: query.restaurantId, source: 'ops', kind: 'ops-bookings-export' },
+    });
     return NextResponse.json({ error: 'Unable to export bookings' }, { status: 500 });
   }
 }

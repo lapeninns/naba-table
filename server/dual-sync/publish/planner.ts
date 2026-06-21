@@ -8,9 +8,9 @@
  * review.
  */
 
-import { getDualSyncDecisionDisabledReason } from '../flag';
 import { hashCanonicalJson } from '../hashing';
 import { findFieldConfig, resolveFieldCapability } from '../registry';
+import { getDualSyncDecisionDisabledReason } from '../runtime-controls';
 import { valueForField } from './orchestrator-domain';
 import { validatePublishDecisionPins } from './pinning';
 import {
@@ -49,7 +49,7 @@ export async function buildPublishPlan(
     coreSnapshotHash,
     gbpSnapshotHash,
     registry,
-    runtimeFlags,
+    runtimeControls,
     control,
   } = await readPublishPlannerRuntime({
     client,
@@ -191,21 +191,21 @@ export async function buildPublishPlan(
       continue;
     }
 
-    const flagDisabledReason = getDualSyncDecisionDisabledReason(
+    const controlDisabledReason = getDualSyncDecisionDisabledReason(
       {
         action: decision.action,
         sectionKey: config.sectionKey,
         riskLevel: config.policy.riskLevel,
         requiresManualReview: config.policy.requiresManualReview,
       },
-      runtimeFlags,
+      runtimeControls,
     );
-    if (flagDisabledReason) {
+    if (controlDisabledReason) {
       rejected.push({
         fieldKey: decision.fieldKey,
         sectionKey: decision.sectionKey,
         action: decision.action,
-        failure: plannerFailure(flagDisabledReason, 'UNSUPPORTED_FIELD'),
+        failure: plannerFailure(controlDisabledReason, 'UNSUPPORTED_FIELD'),
       });
       continue;
     }

@@ -1,6 +1,15 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import {
   OPS_ACTIVE_RESTAURANT_STORAGE_KEY,
@@ -9,13 +18,7 @@ import {
 } from '@/lib/ops/session';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 
-import type {
-  OpsAccountSnapshot,
-  OpsFeatureFlags,
-  OpsMembership,
-  OpsPermissionSet,
-  OpsUser,
-} from '@/types/ops';
+import type { OpsAccountSnapshot, OpsMembership, OpsPermissionSet, OpsUser } from '@/types/ops';
 
 export type OpsSessionContextValue = {
   user: OpsUser | null;
@@ -24,7 +27,6 @@ export type OpsSessionContextValue = {
   activeMembership: OpsMembership | null;
   accountSnapshot: OpsAccountSnapshot;
   permissions: OpsPermissionSet;
-  featureFlags: OpsFeatureFlags;
   setActiveRestaurantId: (restaurantId: string | null) => void;
   resetRestaurantSelection: () => void;
 };
@@ -67,37 +69,28 @@ export type OpsSessionProviderProps = {
   user: OpsUser | null;
   memberships: OpsMembership[];
   initialRestaurantId?: string | null;
-  featureFlags?: OpsFeatureFlags;
   children: ReactNode;
-};
-
-const DEFAULT_FEATURE_FLAGS: OpsFeatureFlags = {
-  opsMetrics: false,
-  selectorScoring: false,
-  rejectionAnalytics: false,
 };
 
 export function OpsSessionProvider({
   user,
   memberships,
   initialRestaurantId = null,
-  featureFlags = DEFAULT_FEATURE_FLAGS,
   children,
 }: OpsSessionProviderProps) {
   const membershipRestaurantIds = useMemo(
     () => memberships.map((membership) => membership.restaurantId),
     [memberships],
   );
-  const membershipIds = useMemo(
-    () => new Set(membershipRestaurantIds),
-    [membershipRestaurantIds],
-  );
+  const membershipIds = useMemo(() => new Set(membershipRestaurantIds), [membershipRestaurantIds]);
   const fallbackRestaurantId = useMemo(() => {
     return resolvePreferredOpsRestaurantId(membershipRestaurantIds, initialRestaurantId);
   }, [initialRestaurantId, membershipRestaurantIds]);
 
   const initialisedRef = useRef(false);
-  const [activeRestaurantId, setActiveRestaurantIdState] = useState<string | null>(fallbackRestaurantId);
+  const [activeRestaurantId, setActiveRestaurantIdState] = useState<string | null>(
+    fallbackRestaurantId,
+  );
 
   useEffect(() => {
     if (initialisedRef.current) {
@@ -108,10 +101,7 @@ export function OpsSessionProvider({
     const nextRestaurantId =
       activeRestaurantId && membershipIds.has(activeRestaurantId)
         ? activeRestaurantId
-        : resolvePreferredOpsRestaurantId(
-            membershipRestaurantIds,
-            stored ?? fallbackRestaurantId,
-          );
+        : resolvePreferredOpsRestaurantId(membershipRestaurantIds, stored ?? fallbackRestaurantId);
 
     if (nextRestaurantId !== activeRestaurantId) {
       setActiveRestaurantIdState(nextRestaurantId);
@@ -206,7 +196,10 @@ export function OpsSessionProvider({
         return;
       }
       if (!membershipIds.has(restaurantId)) {
-        console.warn('[ops-session] attempted to select restaurant without membership', restaurantId);
+        console.warn(
+          '[ops-session] attempted to select restaurant without membership',
+          restaurantId,
+        );
         return;
       }
       setActiveRestaurantIdState(restaurantId);
@@ -218,15 +211,6 @@ export function OpsSessionProvider({
     setActiveRestaurantIdState(fallbackRestaurantId ?? null);
   }, [fallbackRestaurantId]);
 
-  const resolvedFeatureFlags = useMemo<OpsFeatureFlags>(
-    () => ({
-      opsMetrics: featureFlags.opsMetrics ?? false,
-      selectorScoring: featureFlags.selectorScoring ?? false,
-      rejectionAnalytics: featureFlags.rejectionAnalytics ?? false,
-    }),
-    [featureFlags.opsMetrics, featureFlags.selectorScoring, featureFlags.rejectionAnalytics],
-  );
-
   const value = useMemo<OpsSessionContextValue>(
     () => ({
       user,
@@ -235,7 +219,6 @@ export function OpsSessionProvider({
       activeMembership,
       accountSnapshot,
       permissions,
-      featureFlags: resolvedFeatureFlags,
       setActiveRestaurantId,
       resetRestaurantSelection,
     }),
@@ -246,7 +229,6 @@ export function OpsSessionProvider({
       activeMembership,
       accountSnapshot,
       permissions,
-      resolvedFeatureFlags,
       setActiveRestaurantId,
       resetRestaurantSelection,
     ],
@@ -271,11 +253,6 @@ export function useOpsActiveMembership(): OpsMembership | null {
 export function useOpsAccountSnapshot(): OpsAccountSnapshot {
   const context = useOpsSession();
   return context.accountSnapshot;
-}
-
-export function useOpsFeatureFlags(): OpsFeatureFlags {
-  const context = useOpsSession();
-  return context.featureFlags;
 }
 
 export function useOpsActiveRestaurantId(): string | null {

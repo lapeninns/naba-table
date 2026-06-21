@@ -1,10 +1,30 @@
-import { getVenuePolicy, getSelectorScoringConfig } from "@/server/capacity/policy";
-import { buildScoredTablePlans } from "@/server/capacity/selector";
-import { buildBusyMaps, filterAvailableTables, resolveRequireAdjacency, type TableFilterDiagnostics, type TimeFilterStats } from "@/server/capacity/table-assignment/availability";
-import { computeBookingWindowWithFallback } from "@/server/capacity/table-assignment/booking-window";
-import { ensureClient, loadActiveHoldsForDate, loadAdjacency, loadContextBookings, loadRestaurantTimezone, loadTablesForRestaurant, type DbClient } from "@/server/capacity/table-assignment/supabase";
-import { getAllocatorKMax, getSelectorPlannerLimits, isCombinationPlannerEnabled, isHoldsEnabled, isPlannerTimePruningEnabled } from "@/server/feature-flags";
-import { getRestaurantTurnBands } from "@/server/restaurants/turnBands";
+import { getVenuePolicy, getSelectorScoringConfig } from '@/server/capacity/policy';
+import { buildScoredTablePlans } from '@/server/capacity/selector';
+import {
+  buildBusyMaps,
+  filterAvailableTables,
+  resolveRequireAdjacency,
+  type TableFilterDiagnostics,
+  type TimeFilterStats,
+} from '@/server/capacity/table-assignment/availability';
+import { computeBookingWindowWithFallback } from '@/server/capacity/table-assignment/booking-window';
+import {
+  ensureClient,
+  loadActiveHoldsForDate,
+  loadAdjacency,
+  loadContextBookings,
+  loadRestaurantTimezone,
+  loadTablesForRestaurant,
+  type DbClient,
+} from '@/server/capacity/table-assignment/supabase';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import {
+  getAllocatorKMax,
+  getSelectorPlannerLimits,
+  isCombinationPlannerEnabled,
+  isHoldsEnabled,
+  isPlannerTimePruningEnabled,
+} from '@/server/runtime-policy';
 
 type SeatabilityCheckParams = {
   restaurantId: string;
@@ -12,6 +32,19 @@ type SeatabilityCheckParams = {
   time: string;
   partySize: number;
   bookingOption?: string | null;
+};
+
+/**
+ * Restaurant/date-constant resources a caller can load ONCE and pass in so that
+ * repeated per-candidate checks (e.g. findAlternativeSlots) do not re-query them
+ * for every slot. Any field left undefined is loaded normally. (#5)
+ */
+export type SeatabilityPreloadedContext = {
+  restaurantTimezone?: string | null;
+  turnBandsByOption?: Awaited<ReturnType<typeof getRestaurantTurnBands>>;
+  holdsForDay?: Awaited<ReturnType<typeof loadActiveHoldsForDate>>;
+  tables?: Awaited<ReturnType<typeof loadTablesForRestaurant>>;
+  adjacency?: Awaited<ReturnType<typeof loadAdjacency>>;
 };
 
 export type SeatabilityCheckResult = {
@@ -31,7 +64,7 @@ export type SeatabilityCheckResult = {
   };
 };
 
-function buildSuccessResult(params: SeatabilityCheckResult["metadata"]): SeatabilityCheckResult {
+function buildSuccessResult(params: SeatabilityCheckResult['metadata']): SeatabilityCheckResult {
   return {
     seatable: true,
     metadata: params,
@@ -45,12 +78,37 @@ function computeCapacity(tables: Array<{ capacity: number | null | undefined }>)
 export async function checkRequestSeatability(
   params: SeatabilityCheckParams,
   client?: DbClient,
+  preloaded?: SeatabilityPreloadedContext,
 ): Promise<SeatabilityCheckResult> {
   const supabase = ensureClient(client);
+  // Timezone must FAIL CLOSED on a load/query error: swallowing a thrown error to
+  // null lets getVenuePolicy silently default to Europe/London, evaluating (e.g.) a
+  // Sydney venue ~10-11h off and producing wrong-timezone availability. A legitimately
+  // ABSENT timezone (loader resolves null with no error) must STILL fall back to the
+  // default, so we only rethrow on a thrown error — not on a resolved null. (#9)
+  const timezonePromise =
+    preloaded?.restaurantTimezone !== undefined
+      ? Promise.resolve(preloaded.restaurantTimezone)
+      : loadRestaurantTimezone(params.restaurantId, supabase).catch((error) => {
+          console.error('[capacity.seatability] timezone load failed; failing closed', error);
+          throw error;
+        });
+  const turnBandsPromise =
+    preloaded?.turnBandsByOption !== undefined
+      ? Promise.resolve(preloaded.turnBandsByOption)
+      : getRestaurantTurnBands(params.restaurantId, supabase).catch((error) => {
+          // Turn-bands remain best-effort (empty default) but log the failure. (#9)
+          console.warn('[capacity.seatability] turn-band load failed; using empty bands', error);
+          return {};
+        });
+  const tablesPromise =
+    preloaded?.tables !== undefined
+      ? Promise.resolve(preloaded.tables)
+      : loadTablesForRestaurant(params.restaurantId, supabase);
   const [restaurantTimezone, turnBandsByOption, tables] = await Promise.all([
-    loadRestaurantTimezone(params.restaurantId, supabase).catch(() => null),
-    getRestaurantTurnBands(params.restaurantId, supabase).catch(() => ({})),
-    loadTablesForRestaurant(params.restaurantId, supabase),
+    timezonePromise,
+    turnBandsPromise,
+    tablesPromise,
   ]);
 
   if (tables.length === 0) {
@@ -77,37 +135,40 @@ export async function checkRequestSeatability(
     bookingOption: params.bookingOption ?? null,
     policy,
     serviceHint:
-      params.bookingOption === "lunch" || params.bookingOption === "dinner"
+      params.bookingOption === 'lunch' || params.bookingOption === 'dinner'
         ? params.bookingOption
         : null,
   });
 
+  const holdsPromise =
+    preloaded?.holdsForDay !== undefined
+      ? Promise.resolve(preloaded.holdsForDay)
+      : isHoldsEnabled()
+        ? loadActiveHoldsForDate(params.restaurantId, params.date, policy, supabase).catch(() => [])
+        : Promise.resolve([]);
+  const adjacencyPromise =
+    preloaded?.adjacency !== undefined
+      ? Promise.resolve(preloaded.adjacency)
+      : loadAdjacency(
+          params.restaurantId,
+          tables.map((table) => table.id),
+          supabase,
+        );
   const [adjacency, contextBookings, holdsForDay] = await Promise.all([
-    loadAdjacency(
-      params.restaurantId,
-      tables.map((table) => table.id),
-      supabase,
-    ),
-    loadContextBookings(
-      params.restaurantId,
-      params.date,
-      supabase,
-      {
-        startIso: window.block.start.toUTC().toISO() ?? "",
-        endIso: window.block.end.toUTC().toISO() ?? "",
-      },
-    ),
-    isHoldsEnabled()
-      ? loadActiveHoldsForDate(params.restaurantId, params.date, policy, supabase).catch(() => [])
-      : Promise.resolve([]),
+    adjacencyPromise,
+    loadContextBookings(params.restaurantId, params.date, supabase, {
+      startIso: window.block.start.toUTC().toISO() ?? '',
+      endIso: window.block.end.toUTC().toISO() ?? '',
+    }),
+    holdsPromise,
   ]);
 
   const totalVenueCapacity = computeCapacity(tables);
   if (params.partySize > totalVenueCapacity) {
     return {
       seatable: false,
-      reason: "Insufficient global capacity",
-      plannerReason: "Insufficient global capacity",
+      reason: 'Insufficient global capacity',
+      plannerReason: 'Insufficient global capacity',
       metadata: {
         usedFallback,
         fallbackService,
@@ -124,7 +185,7 @@ export async function checkRequestSeatability(
   let timePruningStats: TimeFilterStats | null = null;
   const busyForPlanner = timePruningEnabled
     ? buildBusyMaps({
-        targetBookingId: "__availability_precheck__",
+        targetBookingId: '__availability_precheck__',
         bookings: contextBookings,
         holds: holdsForDay,
         policy,
@@ -145,7 +206,7 @@ export async function checkRequestSeatability(
       busyForPlanner && timePruningEnabled
         ? {
             busy: busyForPlanner,
-            mode: "strict" as const,
+            mode: 'strict' as const,
             captureStats: (stats: TimeFilterStats) => {
               timePruningStats = stats;
             },
@@ -182,8 +243,8 @@ export async function checkRequestSeatability(
   if (filtered.length === 0) {
     return {
       seatable: false,
-      reason: "No tables available for requested window",
-      plannerReason: "No tables available for requested window",
+      reason: 'No tables available for requested window',
+      plannerReason: 'No tables available for requested window',
       metadata: {
         usedFallback,
         fallbackService,
@@ -201,8 +262,8 @@ export async function checkRequestSeatability(
   if (filteredCapacity < params.partySize) {
     return {
       seatable: false,
-      reason: "Insufficient filtered capacity",
-      plannerReason: "Insufficient filtered capacity",
+      reason: 'Insufficient filtered capacity',
+      plannerReason: 'Insufficient filtered capacity',
       metadata: {
         usedFallback,
         fallbackService,
@@ -248,8 +309,10 @@ export async function checkRequestSeatability(
 
   return {
     seatable: plans.plans.length > 0,
-    reason: plans.plans.length > 0 ? undefined : plans.fallbackReason ?? "No suitable tables available",
-    plannerReason: plans.plans.length > 0 ? undefined : plans.fallbackReason ?? "No suitable tables available",
+    reason:
+      plans.plans.length > 0 ? undefined : (plans.fallbackReason ?? 'No suitable tables available'),
+    plannerReason:
+      plans.plans.length > 0 ? undefined : (plans.fallbackReason ?? 'No suitable tables available'),
     metadata: {
       usedFallback,
       fallbackService,

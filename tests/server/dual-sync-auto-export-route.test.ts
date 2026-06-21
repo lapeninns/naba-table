@@ -15,7 +15,7 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
   resolveRestaurantId: resolveRestaurantIdMock,
 }));
 
-vi.mock('@/server/dual-sync/flag', () => ({
+vi.mock('@/server/dual-sync/runtime-controls', () => ({
   isDualSyncAutoCandidatesEnabled: isDualSyncAutoCandidatesEnabledMock,
 }));
 
@@ -127,7 +127,7 @@ describe('dual-sync auto-export route', () => {
     expect(runAutoExportForRestaurantMock).not.toHaveBeenCalled();
   });
 
-  it('blocks auto-candidate export when the rollout flag is disabled', async () => {
+  it('blocks auto-candidate export when the runtime control is disabled', async () => {
     isDualSyncAutoCandidatesEnabledMock.mockReturnValue(false);
 
     const response = await POST(

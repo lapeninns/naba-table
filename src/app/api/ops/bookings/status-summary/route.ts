@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { daysBetweenInclusive, firstString, safeDate, stringArray } from '@/lib/api/query-params';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -98,6 +99,10 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('[ops][booking-status-summary] membership lookup failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-booking-status-summary' },
+    });
     return NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 });
   }
 
@@ -154,6 +159,15 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[ops][booking-status-summary] failed to compute summary', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: params.restaurantId },
+      properties: {
+        restaurantId: params.restaurantId,
+        source: 'ops',
+        kind: 'ops-booking-status-summary',
+      },
+    });
     return NextResponse.json(
       { error: 'Unable to compute booking status summary' },
       { status: 500 },

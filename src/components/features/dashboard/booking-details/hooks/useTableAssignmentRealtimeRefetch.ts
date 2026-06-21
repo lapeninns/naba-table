@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
 const ASSIGNMENT_REALTIME_REFETCH_DEBOUNCE_MS = 250;
@@ -23,8 +22,7 @@ export function useTableAssignmentRealtimeRefetch({
 }) {
   // Skipped when a parent hook already owns a consolidated channel for the same tables.
   useEffect(() => {
-    const realtimeFlag = isRealtimeFloorplanEnabled();
-    if (!bookingId || !restaurantId || !realtimeFlag || !enabled || !realtime) {
+    if (!bookingId || !restaurantId || !enabled || !realtime) {
       return;
     }
 

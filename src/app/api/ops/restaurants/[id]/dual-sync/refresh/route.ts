@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -95,6 +96,11 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
       );
     }
     const message = error instanceof Error ? error.message : 'Refresh failed';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-refresh' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_REFRESH_ERROR');
   }
 }

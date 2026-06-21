@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getTableAvailabilityTimeline } from '@/server/ops/table-timeline';
@@ -45,7 +46,10 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error('[ops/tables/timeline] failed to resolve auth', error.message);
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return NextResponse.json(
+      { error: mapped.message, code: mapped.code },
+      { status: mapped.status },
+    );
   }
 
   if (!user) {
@@ -65,13 +69,20 @@ export async function GET(request: NextRequest) {
       date: query.date,
       zoneId: query.zoneId,
       service: query.service,
-      includeSummary: query.includeSummary ? query.includeSummary !== '0' && query.includeSummary !== 'false' : true,
+      includeSummary: query.includeSummary
+        ? query.includeSummary !== '0' && query.includeSummary !== 'false'
+        : true,
       client: supabase,
     });
 
     return NextResponse.json(timeline);
   } catch (timelineError) {
     console.error('[ops/tables/timeline] failed to build timeline', timelineError);
+    captureServerException(timelineError, {
+      distinctId: user.id,
+      groups: { restaurant: query.restaurantId },
+      properties: { restaurantId: query.restaurantId, source: 'ops', kind: 'ops-tables-timeline' },
+    });
     return NextResponse.json({ error: 'Unable to load table timeline' }, { status: 500 });
   }
 }

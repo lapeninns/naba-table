@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -109,6 +110,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('[ops/restaurants][GET] query failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-restaurants' },
+    });
     return NextResponse.json({ error: 'Unable to fetch restaurants' }, { status: 500 });
   }
 }
@@ -219,6 +224,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
     console.error('[ops/restaurants][POST] creation failed', error);
+    captureServerException(error, {
+      distinctId: authorization.user.id,
+      properties: { source: 'ops', kind: 'ops-restaurants' },
+    });
     const message = error instanceof Error ? error.message : 'Unable to create restaurant';
     return NextResponse.json({ error: message }, { status: 500 });
   }

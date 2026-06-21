@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   previewRestaurantEmailTemplateSchema,
@@ -96,6 +97,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('[ops][restaurants][email-templates][preview] failed', error);
+    captureServerException(error, {
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'ops-email-template-preview' },
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to render preview' },
       { status: 500 },

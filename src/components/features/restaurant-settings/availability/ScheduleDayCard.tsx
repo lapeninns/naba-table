@@ -84,7 +84,7 @@ export function AvailabilityScheduleDayCard({
           'absolute left-0 top-0 bottom-0 w-1 transition-all duration-300',
           isClosed
             ? 'bg-muted-foreground/20'
-            : 'bg-gradient-to-b from-indigo-500 to-indigo-600 shadow-[2px_0_10px_rgba(99,102,241,0.3)]',
+            : 'bg-gradient-to-b from-primary to-primary/85 shadow-[2px_0_10px_rgba(99,102,241,0.3)]',
         )}
       />
 

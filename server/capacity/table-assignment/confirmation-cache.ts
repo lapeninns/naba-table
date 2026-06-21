@@ -36,6 +36,14 @@ export async function loadCachedConfirmationResult(
   }
 
   const cachedKey = confirmation.idempotency_key;
+  // Idempotency guard: only serve a cached confirmation when its key matches the
+  // request key. When the request omits a key, do NOT serve a row that was keyed
+  // with a different non-null key (treat as a cache miss) so confirmations with
+  // distinct keys never share assignments.
+  const requestKey = idempotencyKey ?? null;
+  if ((cachedKey ?? null) !== requestKey) {
+    return null;
+  }
   const assignmentsQuery = applyAbortSignal(
     supabase
       .from('booking_table_assignments')

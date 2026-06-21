@@ -87,7 +87,7 @@ describe('readPublishPlannerRuntime', () => {
     expect(runtime.registry.some((field) => field.fieldKey === 'profile.businessDescription')).toBe(
       true,
     );
-    expect(runtime.runtimeFlags.exportEnabled).toBe(false);
+    expect(runtime.runtimeControls.exportEnabled).toBe(false);
     expect(runtime.control.syncPaused).toBe(false);
   });
 });

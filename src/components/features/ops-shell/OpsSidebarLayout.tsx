@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 
 // import { OpsOfflineIndicator } from './OpsOfflineIndicator';
+import { OpsMobileBottomNav } from './OpsMobileBottomNav';
 import { OpsSidebarPanel } from './OpsSidebarPanel';
 
 type OpsSidebarLayoutProps = {
@@ -66,10 +67,11 @@ export function OpsSidebarLayout({
         <div
           id="ops-content"
           tabIndex={-1}
-          className="flex min-w-0 flex-1 flex-col overflow-x-hidden"
+          className="flex min-w-0 flex-1 flex-col overflow-x-hidden pb-[calc(env(safe-area-inset-bottom,0px)+4rem)] md:pb-0"
         >
           {children}
         </div>
+        <OpsMobileBottomNav />
       </SidebarInset>
     </SidebarProvider>
   );

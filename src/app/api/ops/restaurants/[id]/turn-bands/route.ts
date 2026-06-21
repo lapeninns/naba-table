@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { inferMealTypeFromTime } from '@/server/bookings';
 import { getVenuePolicy, type ServiceKey, type TurnBand } from '@/server/capacity/policy';
@@ -90,6 +91,7 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
 
 function handleUnexpectedError(error: unknown, context: string) {
   console.error(context, error);
+  captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-turn-bands' } });
 
   if (error instanceof Error) {
     return NextResponse.json({ error: error.message }, { status: 400 });

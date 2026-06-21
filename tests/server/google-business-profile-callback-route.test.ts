@@ -91,6 +91,33 @@ describe('google business profile callback route', () => {
     expect(response.headers.get('location')).toBe(
       'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+was+cancelled+or+denied.',
     );
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(authGetUserMock).not.toHaveBeenCalled();
+    expect(completeGoogleBusinessProfileAuthorizationMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects incomplete callbacks before session or OAuth completion', async () => {
+    const response = await GET(
+      new NextRequest(
+        'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state',
+        {
+          headers: {
+            cookie: 'sr-gbp-oauth-state=test-state',
+          },
+        },
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('gbp=error');
+    expect(response.headers.get('location')).toContain(
+      'Google+authorization+response+was+incomplete',
+    );
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(authGetUserMock).not.toHaveBeenCalled();
+    expect(completeGoogleBusinessProfileAuthorizationMock).not.toHaveBeenCalled();
   });
 
   it('rejects callbacks without the initiating browser state cookie before completing OAuth', async () => {
@@ -103,6 +130,30 @@ describe('google business profile callback route', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('gbp=error');
     expect(response.headers.get('location')).toContain('could+not+be+verified');
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(authGetUserMock).not.toHaveBeenCalled();
+    expect(completeGoogleBusinessProfileAuthorizationMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects callbacks with a mismatched browser state cookie before completing OAuth', async () => {
+    const response = await GET(
+      new NextRequest(
+        'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
+        {
+          headers: {
+            cookie: 'sr-gbp-oauth-state=other-state',
+          },
+        },
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('gbp=error');
+    expect(response.headers.get('location')).toContain('could+not+be+verified');
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(authGetUserMock).not.toHaveBeenCalled();
     expect(completeGoogleBusinessProfileAuthorizationMock).not.toHaveBeenCalled();
   });
 
@@ -127,6 +178,56 @@ describe('google business profile callback route', () => {
     expect(response.headers.get('location')).toContain('gbp=error');
     expect(response.headers.get('location')).toContain('Sign+in+to+Nabatable');
     expect(completeGoogleBusinessProfileAuthorizationMock).not.toHaveBeenCalled();
+  });
+
+  it('redirects safely and clears state when OAuth completion rejects the stored state', async () => {
+    completeGoogleBusinessProfileAuthorizationMock.mockRejectedValue(
+      new Error('Google authorization state expired or belongs to a different restaurant.'),
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
+        {
+          headers: {
+            cookie: 'sr-gbp-oauth-state=test-state',
+          },
+        },
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+state+expired+or+belongs+to+a+different+restaurant.',
+    );
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+  });
+
+  it('redirects safely and clears state when Google returns an invalid grant', async () => {
+    completeGoogleBusinessProfileAuthorizationMock.mockRejectedValue(
+      new Error(
+        'Google authorization has expired or been revoked. Please reconnect Google Business Profile.',
+      ),
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
+        {
+          headers: {
+            cookie: 'sr-gbp-oauth-state=test-state',
+          },
+        },
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+has+expired+or+been+revoked.+Please+reconnect+Google+Business+Profile.',
+    );
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
   });
 
   it('binds legacy per-restaurant callbacks to the route restaurant before completing OAuth', async () => {
@@ -158,5 +259,31 @@ describe('google business profile callback route', () => {
       requestedByUserId: 'user-1',
       expectedRestaurantId: 'rest-1',
     });
+  });
+
+  it('rejects legacy callbacks when the completed state belongs to another restaurant', async () => {
+    completeGoogleBusinessProfileAuthorizationMock.mockResolvedValue({
+      restaurantId: 'rest-2',
+      returnPath:
+        'https://preview.nabatable.example/app/settings/restaurant/google-business-profile',
+    });
+
+    const response = await legacyGET(
+      new NextRequest(
+        'https://preview.nabatable.example/api/ops/restaurants/rest-1/google-business/callback?state=test-state&code=test-code',
+        {
+          headers: {
+            cookie: 'sr-gbp-oauth-state=test-state',
+          },
+        },
+      ),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('gbp=error');
+    expect(response.headers.get('location')).toContain('did+not+match+this+restaurant');
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
   });
 });

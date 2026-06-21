@@ -35,8 +35,8 @@ export async function listRestaurants(
       'capacity',
       'address',
       'booking_policy',
-      'contact_email',
-      'contact_phone',
+      // triage-039: contact_email / contact_phone are owner/manager contact PII and are
+      // intentionally NOT selected for the public, unauthenticated restaurant list.
       'google_map_url',
       'logo_url',
       'is_active',
@@ -99,8 +99,7 @@ export async function listRestaurants(
       capacity: row.capacity,
       address: row.address,
       bookingPolicy: row.booking_policy,
-      contactEmail: row.contact_email,
-      contactPhone: row.contact_phone,
+      // triage-039: do not expose contact PII on the public list (see column projection above).
       googleMapUrl: row.google_map_url,
       logoUrl: row.logo_url,
       isActive: row.is_active,

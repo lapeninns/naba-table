@@ -4,6 +4,7 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import { captureServerException } from '@/lib/posthog/server';
 import { isGoogleBusinessProfileError } from '@/server/google-business-profile/errors';
 
 import type { NextRequest } from 'next/server';
@@ -36,6 +37,13 @@ export function googleBusinessErrorResponse(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : fallback;
   const status = isGoogleBusinessProfileError(error) ? error.status : 500;
   const code = isGoogleBusinessProfileError(error) ? error.code : 'GBP_ERROR';
+
+  // Capture only genuine server faults; typed GBP errors are expected outcomes.
+  if (!isGoogleBusinessProfileError(error)) {
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'google-business', status },
+    });
+  }
 
   return NextResponse.json({ message, error: message, code }, { status });
 }

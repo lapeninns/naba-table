@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { captureServerException } from '@/lib/posthog/server';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
@@ -92,6 +93,12 @@ async function ensureAuthorized(
 
 function handleUnexpectedError(error: unknown, context: string) {
   console.error(context, error);
+
+  if (!(error instanceof PasswordConfirmationError)) {
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'restaurant-service-periods' },
+    });
+  }
 
   if (error instanceof PasswordConfirmationError) {
     return NextResponse.json(

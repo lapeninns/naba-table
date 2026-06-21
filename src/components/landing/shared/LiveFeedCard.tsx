@@ -29,11 +29,7 @@ const FLOOR_ZONES = [
   { name: 'Snug', tables: ['T8', 'T9'], load: 'clear' },
 ] as const;
 
-interface LiveFeedCardProps {
-  reduceMotion: boolean;
-}
-
-export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
+export function LiveFeedCard() {
   return (
     <Card
       variant="compact"
@@ -42,10 +38,7 @@ export function LiveFeedCard({ reduceMotion }: LiveFeedCardProps) {
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border/70 bg-muted/35 p-4 sm:p-5 md:p-6">
         <div className="flex min-w-0 items-center gap-2">
           <div className="relative flex size-2 shrink-0">
-            {reduceMotion ? null : (
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/40 opacity-75" />
-            )}
-            <span className="relative inline-flex size-2 animate-pulse rounded-full bg-primary" />
+            <span className="relative inline-flex size-2 rounded-full bg-primary" />
           </div>
           <span className="truncate text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Tonight&apos;s service board

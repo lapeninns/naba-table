@@ -1,4 +1,4 @@
-import type { OpsFeatureFlags, OpsMembership, OpsUser } from '@/types/ops';
+import type { OpsMembership, OpsUser } from '@/types/ops';
 
 export const QA_OPS_AUTH_COOKIE_NAME = '__nabatable_qa_ops_auth';
 export const QA_OPS_AUTH_COOKIE_VALUE = 'enabled';
@@ -14,7 +14,6 @@ export type QaOpsAuthFixtureInput = {
 };
 
 export type QaOpsAuthFixture = {
-  featureFlags: OpsFeatureFlags;
   initialRestaurantId: string;
   memberships: OpsMembership[];
   user: OpsUser;
@@ -77,10 +76,5 @@ export function getQaOpsAuthFixture(input: QaOpsAuthFixtureInput): QaOpsAuthFixt
       },
     ],
     initialRestaurantId: QA_OPS_RESTAURANT_ID,
-    featureFlags: {
-      opsMetrics: true,
-      selectorScoring: true,
-      rejectionAnalytics: true,
-    },
   };
 }

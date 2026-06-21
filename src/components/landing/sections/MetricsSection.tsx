@@ -26,7 +26,7 @@ export function MetricsSection({ reduceMotion }: MetricsSectionProps) {
   return (
     <section id="metrics" className="pg-section border-b border-border/70 bg-background">
       <div className="pg-container">
-        <div className="grid grid-cols-1 gap-4 rounded-[var(--pg-radius-xl)] border border-primary/15 bg-[linear-gradient(180deg,hsl(var(--muted)/0.72),hsl(var(--background)))] p-4 sm:gap-5 sm:p-6 lg:grid-cols-[5fr_3.5fr_3.5fr] lg:p-7">
+        <div className="grid grid-cols-1 gap-4 rounded-[var(--pg-radius-xl)] border border-primary/15 bg-muted/40 p-4 sm:gap-5 sm:p-6 lg:grid-cols-[5fr_3.5fr_3.5fr] lg:p-7">
           <div className="flex flex-col justify-center gap-3 rounded-[var(--pg-radius-lg)] bg-background/85 p-4 sm:gap-4 sm:p-5">
             <h2 className="pg-section-title">The point is fewer exposed moments.</h2>
             <p className="pg-lead">

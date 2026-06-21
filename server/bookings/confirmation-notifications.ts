@@ -15,6 +15,26 @@ type ConfirmationNotificationClaimError = {
   message?: string | null;
 };
 
+export class BookingConfirmationNotificationClaimError extends Error {
+  readonly channel: ConfirmationNotificationChannel;
+  readonly code: string | null;
+
+  constructor(params: {
+    channel: ConfirmationNotificationChannel;
+    code?: string | null;
+    message?: string | null;
+  }) {
+    super(
+      `Booking confirmation notification claim failed for ${params.channel}: ${
+        params.message ?? params.code ?? 'unknown Supabase error'
+      }`,
+    );
+    this.name = 'BookingConfirmationNotificationClaimError';
+    this.channel = params.channel;
+    this.code = params.code ?? null;
+  }
+}
+
 type ConfirmationNotificationClaimClient = {
   from: (table: 'booking_confirmation_notification_claims') => {
     insert: (row: {
@@ -68,7 +88,11 @@ async function claimFirstConfirmationNotification(params: {
     channel: params.channel,
     code: error.code ?? null,
   });
-  return false;
+  throw new BookingConfirmationNotificationClaimError({
+    channel: params.channel,
+    code: error.code,
+    message: error.message,
+  });
 }
 
 async function releaseFirstConfirmationNotificationClaim(params: {

@@ -1044,6 +1044,7 @@ export interface RestaurantService {
   ): Promise<GoogleBusinessProfileConnection>;
   disconnectGoogleBusinessProfileConnection(
     restaurantId: string,
+    payload: GoogleBusinessProfileProtectedActionPayload,
   ): Promise<GoogleBusinessProfileConnection>;
 }
 
@@ -1550,11 +1551,16 @@ export function createBrowserRestaurantService(): RestaurantService {
       );
     },
 
-    async disconnectGoogleBusinessProfileConnection(restaurantId: string) {
+    async disconnectGoogleBusinessProfileConnection(
+      restaurantId: string,
+      payload: GoogleBusinessProfileProtectedActionPayload,
+    ) {
       return fetchJson<GoogleBusinessProfileConnection>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
         {
           method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         },
       );
     },

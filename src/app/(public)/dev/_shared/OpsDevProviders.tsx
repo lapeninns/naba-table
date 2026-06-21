@@ -6,9 +6,9 @@ import { useMemo, type ReactNode } from 'react';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 
-import { DEV_FEATURE_FLAGS, DEV_MEMBERSHIPS, DEV_RESTAURANT_ID, DEV_USER } from '../_mocks/devSession';
+import { DEV_MEMBERSHIPS, DEV_RESTAURANT_ID, DEV_USER } from '../_mocks/devSession';
 
-import type { OpsFeatureFlags, OpsMembership, OpsUser } from '@/types/ops';
+import type { OpsMembership, OpsUser } from '@/types/ops';
 
 type OpsDevProvidersProps = {
   children: ReactNode;
@@ -16,7 +16,6 @@ type OpsDevProvidersProps = {
   user?: OpsUser | null;
   memberships?: OpsMembership[];
   initialRestaurantId?: string | null;
-  featureFlags?: OpsFeatureFlags;
 };
 
 export function OpsDevProviders({
@@ -25,7 +24,6 @@ export function OpsDevProviders({
   user = DEV_USER,
   memberships = DEV_MEMBERSHIPS,
   initialRestaurantId = DEV_RESTAURANT_ID,
-  featureFlags = DEV_FEATURE_FLAGS,
 }: OpsDevProvidersProps) {
   const queryClient = useMemo(
     () =>
@@ -44,7 +42,6 @@ export function OpsDevProviders({
           user={user}
           memberships={memberships}
           initialRestaurantId={initialRestaurantId}
-          featureFlags={featureFlags}
         >
           {children}
         </OpsSessionProvider>
@@ -52,4 +49,3 @@ export function OpsDevProviders({
     </QueryClientProvider>
   );
 }
-

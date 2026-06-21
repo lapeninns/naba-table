@@ -2,13 +2,16 @@
 import { NextResponse } from 'next/server';
 import { Resend, type WebhookEvent } from 'resend';
 
+import { captureServerException } from '@/lib/posthog/server';
 import {
   recordEmailDeliveryLog,
   findLatestEmailDeliveryByMessageId,
   type EmailDeliveryStatus,
 } from '@/server/emails/email-delivery-log';
+import { addEmailToSuppressionList } from '@/server/emails/email-suppression-list';
 import { suppressProfilesByEmail } from '@/server/emails/recipient-suppression';
 import { recordObservabilityEvent } from '@/server/observability';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import type { NextRequest } from 'next/server';
 
@@ -84,6 +87,7 @@ async function readBodyWithLimit(req: NextRequest, maxBytes: number): Promise<st
 }
 
 export async function POST(req: NextRequest) {
+  await flushPosthogLogsAfterResponse();
   // 1. --- Webhook Security ---
   const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (!resendWebhookSecret) {
@@ -177,7 +181,16 @@ export async function POST(req: NextRequest) {
       case 'email.bounced':
       case 'email.complained':
       case 'email.complaint': {
-        const result = await suppressProfilesByEmail(primaryRecipient);
+        // Suppress in both stores: the profile-bound flag (registered users) and the
+        // email-keyed list (honours every recipient, incl. guests without an account).
+        const suppressionReason = event.type === 'email.bounced' ? 'bounce' : 'complaint';
+        const [result] = await Promise.all([
+          suppressProfilesByEmail(primaryRecipient),
+          addEmailToSuppressionList(primaryRecipient, suppressionReason, {
+            via: 'resend-webhook',
+            eventType: event.type,
+          }),
+        ]);
 
         if (result.updatedProfiles > 0) {
           await recordObservabilityEvent({
@@ -219,6 +232,9 @@ export async function POST(req: NextRequest) {
       context: {
         error: errorMessage,
       },
+    });
+    captureServerException(error, {
+      properties: { provider: 'resend', source: 'webhook', path: '/api/webhook/resend' },
     });
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

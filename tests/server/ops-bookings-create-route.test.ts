@@ -1,14 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const envMock = vi.hoisted(() => ({
-  featureFlags: {
-    bookingPastTimeBlocking: false,
-    bookingPastTimeGraceMinutes: 5,
-    bookingValidationUnified: false,
-    inlineAutoAssignTimeoutMs: 4000,
-  },
-}));
 const getUserMock = vi.hoisted(() => vi.fn());
 const requireMembershipForRestaurantMock = vi.hoisted(() => vi.fn());
 const fetchUserMembershipsMock = vi.hoisted(() => vi.fn());
@@ -35,7 +27,7 @@ const fromMock = vi.hoisted(() => {
   return vi.fn(() => chain);
 });
 
-vi.mock('@/lib/env', () => ({ env: envMock }));
+vi.mock('@/lib/env', () => ({ env: {} }));
 
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: vi.fn(async () => ({
@@ -88,8 +80,11 @@ vi.mock('@/server/booking/http', () => ({
   withValidationHeaders: vi.fn((options) => options),
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
+  getBookingPastTimeGraceMinutes: vi.fn(() => 5),
+  getInlineAutoAssignTimeoutMs: vi.fn(() => 4_000),
   isAutoAssignOnBookingEnabled: vi.fn(() => false),
+  isBookingPastTimeBlockingEnabled: vi.fn(() => false),
 }));
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
@@ -172,9 +167,7 @@ describe('POST /api/ops/bookings', () => {
     insertBookingRecordMock.mockReset();
   });
 
-  it('uses capacity-enforced creation even when the legacy feature flag is false', async () => {
-    envMock.featureFlags.bookingValidationUnified = false;
-
+  it('uses capacity-enforced creation', async () => {
     const response = await POST(
       new NextRequest('https://app.nabatable.com/api/ops/bookings', {
         method: 'POST',

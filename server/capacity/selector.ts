@@ -1,5 +1,5 @@
 import { logger } from '@/lib/logger';
-import { getAllocatorAdjacencyMode, type AdjacencyMode } from '@/server/feature-flags';
+import { getAllocatorAdjacencyMode, type AdjacencyMode } from '@/server/runtime-policy';
 
 import { evaluateAdjacency, isAdjacencySatisfied, summarizeAdjacencyStatus } from './adjacency';
 
@@ -214,9 +214,14 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
   const adjacencyMode = getAllocatorAdjacencyMode();
 
   const maxAllowedCapacity = partySize + Math.max(maxOverage, 0);
-  const effectiveCapacityCap = allowCapacityOverflow
-    ? Number.POSITIVE_INFINITY
-    : maxAllowedCapacity;
+  // The overflow fallback relaxes the per-table minimum-capacity/strictness pass so a
+  // larger-than-ideal table (or combination) can still seat the party, but it must NOT
+  // relax the policy.maxOverage ceiling: seating a party beyond partySize + maxOverage is
+  // never acceptable. Previously this was Number.POSITIVE_INFINITY, which disabled the
+  // overage guard entirely (see overage checks at the per-table loop and the combination
+  // enumerator) and allowed over-policy auto-seatings. Keep the cap bounded by maxOverage
+  // in both passes so the fallback fails closed (returns not-seatable) instead.
+  const effectiveCapacityCap = maxAllowedCapacity;
   const combinationCap = Math.max(1, Math.min(kMax ?? config.maxTables ?? 1, tables.length || 1));
   const perSlackLimit = Math.max(1, maxPlansPerSlack ?? DEFAULT_MAX_PLANS_PER_SLACK);
   const combinationEvaluationLimit = Math.max(
@@ -299,6 +304,9 @@ export function buildScoredTablePlans(options: BuildCandidatesOptions): BuildCan
       singleTableCandidates: singleTableCandidates.length,
       enableCombinations,
       combinationCap,
+      allowCapacityOverflow,
+      effectiveCapacityCap,
+      maxAllowedCapacity,
     });
   }
 
@@ -568,6 +576,16 @@ function buildTableKey(tables: Table[]): string {
     .join('+');
 }
 
+// Two tables may be merged only when they belong to the same joinable zone group.
+// Tables sharing a non-null zone join; zoneless tables (null/undefined zoneId) form
+// their own joinable group and may merge with each other. Mixing two DIFFERENT
+// non-null zones — or a non-null zone with a zoneless table — is never joinable.
+// `null === null` makes the comparison handle the all-zoneless case directly; we
+// normalize `undefined` to `null` so both absent-zone representations collapse together.
+function zonesJoinable(a: string | null | undefined, b: string | null | undefined): boolean {
+  return (a ?? null) === (b ?? null);
+}
+
 type CombinationPlannerArgs = {
   candidates: Table[];
   partySize: number;
@@ -691,10 +709,6 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
     if (remainingSlots <= 0) {
       return 0;
     }
-    // Hard invariant: merged plans require a non-null zone; a null base zone cannot merge.
-    if (!baseZoneId) {
-      return 0;
-    }
     const capacities: number[] = [];
     for (const id of candidateIds) {
       if (selectionIds.has(id)) {
@@ -704,7 +718,10 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
       if (!table) {
         continue;
       }
-      if (!table.zoneId || table.zoneId !== baseZoneId) {
+      // Only count tables in the same joinable zone group as the base (zoneless
+      // tables join other zoneless tables; see zonesJoinable). The upper bound must
+      // mirror the per-candidate zone guard in the DFS or pruning would diverge.
+      if (!zonesJoinable(table.zoneId, baseZoneId)) {
         continue;
       }
       capacities.push(table.capacity ?? 0);
@@ -900,8 +917,10 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
         }
 
         if (selection.length > 0) {
-          // Hard invariant: merged plans require same non-null zone.
-          if (!baseZoneId || !candidate.zoneId || candidate.zoneId !== baseZoneId) {
+          // Merged plans must stay within one joinable zone group: same non-null zone,
+          // or all-zoneless. Forbid mixing two different non-null zones (and mixing a
+          // zoned table with a zoneless one). See zonesJoinable.
+          if (!zonesJoinable(candidate.zoneId, baseZoneId)) {
             incrementCounter(diagnostics.skipped, 'zone');
             continue;
           }
@@ -919,7 +938,10 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
           continue;
         }
 
-        const nextZoneId = baseZoneId ?? candidate.zoneId ?? null;
+        // The joinable zone group is fixed by the seed: any candidate reaching this
+        // point already satisfies zonesJoinable(candidate.zoneId, baseZoneId), so the
+        // base zone (including the zoneless group, represented as null) is preserved.
+        const nextZoneId = baseZoneId;
         const nextSelection = [...selection, candidate];
         const nextSelectionIds = new Set(selectionIds);
         nextSelectionIds.add(candidate.id);
@@ -949,11 +971,9 @@ function enumerateCombinationPlans(args: CombinationPlannerArgs): RankedTablePla
   const seedLoop = applySeedLimit ? seedOrder.slice(0, maxSeeds) : seedOrder;
   for (let i = 0; i < seedLoop.length && !stopSearch; i += 1) {
     const base = seedLoop[i];
-    // Hard invariant: merged plans require a non-null zone. Skip seeds that can never merge.
-    if (!base.zoneId) {
-      incrementCounter(diagnostics.skipped, 'zone');
-      continue;
-    }
+    // A zoneless table is allowed to seed a combination: it forms its own joinable
+    // group and may merge with other zoneless tables (see zonesJoinable). The
+    // per-candidate zone guard inside the DFS still forbids mixing zone groups.
     const baseIndex = candidateIndexById.get(base.id);
     if (baseIndex === undefined) {
       continue;

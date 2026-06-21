@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "qa-fixture-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-lc",
+        "QA_ENABLE_AUTH_FIXTURES=1 QA_TARGET_ENV=local QA_USE_MOCKS=1 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54999 NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key SUPABASE_SERVICE_ROLE_KEY=test-service-role SESSION_RECOVERY_ACCESS_TOKEN_SECRET=test-session-recovery-secret NEXT_PUBLIC_SITE_URL=http://localhost:5180 NEXT_PUBLIC_APP_URL=http://localhost:5180 NEXT_DEV_PORT=5180 NEXT_DEV_HOST=127.0.0.1 PORT=5180 pnpm dev"
+      ],
+      "port": 5180,
+      "autoPort": false
+    }
+  ]
+}

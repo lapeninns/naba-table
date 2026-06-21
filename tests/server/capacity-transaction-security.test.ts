@@ -10,7 +10,7 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   isAllocatorServiceFailHard: vi.fn(() => true),
 }));
 

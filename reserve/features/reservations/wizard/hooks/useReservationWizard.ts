@@ -6,6 +6,7 @@ import { useGuestPreferences } from '@/hooks/useGuestPreferences';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
+import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { extractBookingSubmissionError, mapErrorToMessage } from '@reserve/shared/error';
 import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { BOOKING_TYPES_UI } from '@shared/config/booking';
@@ -35,6 +36,14 @@ const EMPTY_ACTIONS: StepAction[] = [];
 
 const DEFAULT_BOOKING_OPTION = BOOKING_TYPES_UI[0];
 
+// Controlled vocabulary for the `step` analytics prop (privacy-safe enum).
+const RESERVE_STEP_NAMES = {
+  1: 'plan',
+  2: 'details',
+  3: 'review',
+  4: 'confirmation',
+} as const;
+
 const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   return (
     Boolean(details.time?.trim()?.length) ||
@@ -47,6 +56,13 @@ const hasMeaningfulDraft = (details: BookingDetails): boolean => {
   );
 };
 
+// Path prefixes a caller-supplied `returnPath` is allowed to target. Even though
+// sanitizeLocalRedirectPath already guarantees a same-origin local path, this keeps
+// the "safe" in buildSafeReturnPath meaningful: a returnPath is only honored when it
+// lands on a known booking-flow surface (public restaurant pages, the ops dashboard,
+// or guest booking management). Anything else is treated as untrusted and discarded.
+const SAFE_RETURN_PATH_PREFIXES = ['/restaurants', '/app', '/guest'] as const;
+
 export const buildSafeReturnPath = (params: {
   returnPath?: string;
   bookingId?: string | null;
@@ -54,17 +70,24 @@ export const buildSafeReturnPath = (params: {
   restaurantSlug?: string | null;
 }): string => {
   const { returnPath, bookingId, restaurantSlug } = params;
-  if (returnPath) return returnPath;
 
-  if (bookingId) {
-    return `/guest/bookings/${bookingId}`;
-  }
+  // Derived, server-trusted default used both when no returnPath is supplied and as the
+  // fallback when a supplied returnPath fails validation.
+  const fallback = bookingId
+    ? `/guest/bookings/${bookingId}`
+    : restaurantSlug
+      ? `/restaurants/${restaurantSlug}`
+      : '/';
 
-  if (restaurantSlug) {
-    return `/restaurants/${restaurantSlug}`;
-  }
-
-  return '/';
+  // `returnPath` is part of the public wizard API and flows to navigator.replace
+  // (window.location.replace), so it must never be trusted verbatim. sanitizeLocalRedirectPath
+  // rejects protocol-relative (`//`), backslash/`%5c`-smuggled, and absolute http(s) targets
+  // — and, via the allowlist, anything outside the booking flow — returning the derived
+  // fallback on any failure. Empty/undefined returnPath also resolves to the fallback.
+  return sanitizeLocalRedirectPath(returnPath, {
+    fallback,
+    allowedPrefixes: SAFE_RETURN_PATH_PREFIXES,
+  });
 };
 
 const OFFLINE_ALERT_MESSAGE = 'You’re offline—reconnect to confirm. Your edits are saved locally.';
@@ -117,7 +140,7 @@ export function useReservationWizard(
   const redirectOnSuccess = options?.redirectOnSuccess === true;
   // Build safe return path - user is closing the confirmation (thank you) step
   // The wizard step 4 IS the thank you experience, so we redirect to:
-  // - Explicit returnPath if provided
+  // - Explicit returnPath when supplied and it passes buildSafeReturnPath validation
   // - Thank-you with token when booking confirmed
   // - Restaurant page if we know the slug
   // - Home page as final fallback
@@ -350,6 +373,14 @@ export function useReservationWizard(
       previousStepRef.current = state.step;
     }
   }, [haptics, state.step]);
+
+  const trackedStepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (trackedStepRef.current === state.step) return;
+    trackedStepRef.current = state.step;
+    const stepName = RESERVE_STEP_NAMES[state.step as keyof typeof RESERVE_STEP_NAMES] ?? 'unknown';
+    analytics.track('reserve_step_viewed', { step: stepName });
+  }, [analytics, state.step]);
 
   const previousVisibilityRef = useRef(stickyVisible);
   useEffect(() => {

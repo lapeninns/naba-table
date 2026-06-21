@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   GuardError,
@@ -288,6 +289,9 @@ export async function GET(request: NextRequest) {
 
     console.error('[ops/email-queue] unexpected error', {
       error: error instanceof Error ? error.message : String(error),
+    });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-email-queue' },
     });
     return jsonError(500, { code: 'INTERNAL', error: 'Internal error' });
   }

@@ -286,12 +286,37 @@ describe('dual-sync publish route', () => {
     const response = await POST(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish', {
         method: 'POST',
-        body: JSON.stringify({ decisions: [] }),
+        body: 'not-json',
       }),
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
     expect(response.status).toBe(403);
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(assertDualSyncRestaurantNotPausedMock).not.toHaveBeenCalled();
+    expect(enqueueDualSyncJobMock).not.toHaveBeenCalled();
+    expect(defaultDualSyncPortsMock).not.toHaveBeenCalled();
+    expect(createDurableDualSyncGoogleEditThrottleMock).not.toHaveBeenCalled();
+    expect(runPublishMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves restaurant access checks before parsing or queuing', async () => {
+    ensureRestaurantAdminAccessMock.mockResolvedValue(
+      NextResponse.json({ message: 'Forbidden', error: 'Forbidden' }, { status: 403 }),
+    );
+
+    const response = await POST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/dual-sync/publish?queue=1', {
+        method: 'POST',
+        body: 'not-json',
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(403);
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(assertDualSyncRestaurantNotPausedMock).not.toHaveBeenCalled();
+    expect(enqueueDualSyncJobMock).not.toHaveBeenCalled();
     expect(runPublishMock).not.toHaveBeenCalled();
   });
 });

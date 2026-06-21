@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { buildAuthCallbackUrl, parseHostname } from '@/lib/auth/redirects';
 import { validatePasswordStrength } from '@/lib/security/passwordPolicy';
@@ -188,6 +189,9 @@ export async function POST(req: NextRequest) {
     console.error('[Auth/signup] Magic link delivery failed', {
       status: isMagicLinkDeliveryError(error) ? error.status : undefined,
       error: error instanceof Error ? error.message : String(error),
+    });
+    captureServerException(error, {
+      properties: { source: 'auth', kind: 'signup' },
     });
 
     const failure = getMagicLinkFailure(

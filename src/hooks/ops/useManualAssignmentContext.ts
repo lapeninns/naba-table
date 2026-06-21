@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -23,27 +22,27 @@ export function useManualAssignmentContext({
   targetDate,
   enabled = true,
 }: UseManualAssignmentContextOptions) {
-  const manualSessionEnabled = process.env.NEXT_PUBLIC_FEATURE_MANUAL_SESSION_ENABLED === 'true';
   const bookingService = useBookingService();
   const shouldEnable = enabled && Boolean(bookingId);
 
   const query = useQuery<ManualAssignmentContextWithSession>({
-    queryKey: bookingId ? queryKeys.manualAssign.context(bookingId) : ['manualAssign', 'context', 'none'],
+    queryKey: bookingId
+      ? queryKeys.manualAssign.context(bookingId)
+      : ['manualAssign', 'context', 'none'],
     queryFn: async () => {
       if (!bookingId) {
         throw new Error('manual assignment context requires bookingId');
       }
-      return bookingService.getManualAssignmentContext(bookingId, { preferSession: manualSessionEnabled });
+      return bookingService.getManualAssignmentContext(bookingId, { preferSession: true });
     },
     enabled: shouldEnable,
     staleTime: 5_000,
     refetchOnWindowFocus: false,
-    refetchInterval: shouldEnable && !isRealtimeFloorplanEnabled() ? 10_000 : false,
+    refetchInterval: false,
   });
 
   useEffect(() => {
-    const realtimeEnabled = isRealtimeFloorplanEnabled();
-    if (!shouldEnable || !bookingId || !restaurantId || !realtimeEnabled) {
+    if (!shouldEnable || !bookingId || !restaurantId) {
       return;
     }
 

@@ -25,9 +25,14 @@ export function useReviewStep({
   const contextState = useWizardState();
   const contextActions = useWizardActions();
   const state = providedState ?? contextState;
+  if (!state) {
+    throw new Error(
+      'useReviewStep requires an explicit state prop or a WizardProvider ancestor.',
+    );
+  }
   const actions = useMemo(
     () => ({
-      ...contextActions,
+      ...(contextActions ?? {}),
       ...(providedActions ?? {}),
     }),
     [contextActions, providedActions],

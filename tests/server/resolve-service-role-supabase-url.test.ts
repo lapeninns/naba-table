@@ -24,36 +24,31 @@ describe('resolveServiceRoleSupabaseUrl', () => {
   });
 
   afterEach(() => {
-    delete process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA;
     delete process.env.SUPABASE_READ_REPLICA_URL;
     delete process.env.VERCEL_ENV;
     process.env.APP_ENV = 'test';
     resetEnvCache();
   });
 
-  it('uses the primary URL when the replica flag is off', () => {
-    process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA = 'false';
-    process.env.SUPABASE_READ_REPLICA_URL = `https://replica.${TEST_PRIMARY_SUPABASE_REF}.supabase.co`;
+  it('uses the primary URL when no replica URL is configured', () => {
+    delete process.env.SUPABASE_READ_REPLICA_URL;
     resetEnvCache();
     expect(resolveServiceRoleSupabaseUrl()).toBe(process.env.NEXT_PUBLIC_SUPABASE_URL);
   });
 
   it('uses the replica URL on staging when it is pinned to the same project', () => {
-    process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA = 'true';
     process.env.SUPABASE_READ_REPLICA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
     resetEnvCache();
     expect(resolveServiceRoleSupabaseUrl()).toBe(process.env.NEXT_PUBLIC_SUPABASE_URL);
   });
 
   it('rejects alternate service URLs for a different Supabase project', () => {
-    process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA = 'true';
     process.env.SUPABASE_READ_REPLICA_URL = `https://${TEST_ALT_SUPABASE_REF}.supabase.co`;
     resetEnvCache();
     expect(() => resolveServiceRoleSupabaseUrl()).toThrow(/same Supabase project/);
   });
 
   it('rejects non-Supabase alternate service URLs', () => {
-    process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA = 'true';
     process.env.SUPABASE_READ_REPLICA_URL = 'https://attacker.example';
     resetEnvCache();
     expect(() => resolveServiceRoleSupabaseUrl()).toThrow(/exact Supabase project API host/);
@@ -61,7 +56,6 @@ describe('resolveServiceRoleSupabaseUrl', () => {
 
   it('ignores the replica when VERCEL_ENV is production', () => {
     process.env.VERCEL_ENV = 'production';
-    process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA = 'true';
     process.env.SUPABASE_READ_REPLICA_URL = `https://replica.${TEST_PRIMARY_SUPABASE_REF}.supabase.co`;
     resetEnvCache();
     expect(resolveServiceRoleSupabaseUrl()).toBe(process.env.NEXT_PUBLIC_SUPABASE_URL);
@@ -76,7 +70,6 @@ describe('resolveOpsEnvBanner', () => {
   });
 
   afterEach(() => {
-    delete process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA;
     delete process.env.SUPABASE_READ_REPLICA_URL;
     delete process.env.VERCEL_ENV;
     delete process.env.OPS_ENV_BANNER;
@@ -91,7 +84,6 @@ describe('resolveOpsEnvBanner', () => {
   });
 
   it('does not show the replica notice when the service URL is pinned to the primary project', () => {
-    process.env.FEATURE_SERVICE_CLIENT_USE_READ_REPLICA = 'true';
     process.env.SUPABASE_READ_REPLICA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
     resetEnvCache();
     expect(resolveOpsEnvBanner()).toBeNull();

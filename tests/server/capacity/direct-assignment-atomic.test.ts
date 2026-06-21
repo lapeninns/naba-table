@@ -30,7 +30,7 @@ vi.mock('@/lib/ops/table-assignment-policy', () => ({
   isTableAssignmentAllowed: vi.fn(() => true),
 }));
 
-vi.mock('@/server/feature-flags', () => ({
+vi.mock('@/server/runtime-policy', () => ({
   getAllocatorAdjacencyMode: vi.fn(() => 'connected'),
 }));
 

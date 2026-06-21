@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { randomUUID, createHash } from 'node:crypto';
 import { ZodError } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { profileUpdateSchema, type ProfileUpdatePayload } from '@/lib/profile/schema';
 import { normalizeProfileRow, ensureProfileRow } from '@/lib/profile/server';
@@ -88,6 +89,9 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ profile });
   } catch (error) {
     console.error('[profile][get] unexpected', error);
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'profile' },
+    });
     return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t load your profile. Please try again.');
   }
 }

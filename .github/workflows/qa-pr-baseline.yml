@@ -1,6 +1,7 @@
 name: QA PR baseline
 
 on:
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,11 +16,12 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       QA_TARGET_ENV: ci-ephemeral
+      RESEND_API_KEY: test-resend-api-key
       SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -28,7 +30,7 @@ jobs:
         run: corepack enable
 
       - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 20
           cache: pnpm

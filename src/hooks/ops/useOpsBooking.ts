@@ -4,7 +4,6 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-q
 import { useEffect, useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
-import { isRealtimeFloorplanEnabled } from '@/lib/feature-flags/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
@@ -42,7 +41,7 @@ export function useOpsBooking(
   // `useOpsBookingDialogBundle` (which subscribes on a single consolidated
   // channel) should pass `realtime: false` to avoid duplicate subscriptions.
   useEffect(() => {
-    if (!isEnabled || !realtimeEnabled || !bookingId || !isRealtimeFloorplanEnabled()) {
+    if (!isEnabled || !realtimeEnabled || !bookingId) {
       return;
     }
 

@@ -2,15 +2,11 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const envMock = vi.hoisted(() => ({
-  featureFlags: {
-    bookingPastTimeBlocking: false,
-    bookingPastTimeGraceMinutes: 5,
-    bookingValidationUnified: false,
-    autoAssignOnBooking: false,
-    inlineAutoAssignTimeoutMs: 4000,
-    guestLookupPolicy: false,
-  },
   security: {},
+}));
+const policyState = vi.hoisted(() => ({
+  bookingPastTimeBlocking: false,
+  bookingValidationUnified: false,
 }));
 
 const maybeSingleMock = vi.hoisted(() => vi.fn());
@@ -64,6 +60,15 @@ function createQueryBuilder() {
 
 vi.mock('@/lib/env', () => ({
   env: envMock,
+}));
+
+vi.mock('@/server/runtime-policy', () => ({
+  getBookingPastTimeGraceMinutes: vi.fn(() => 5),
+  getInlineAutoAssignTimeoutMs: vi.fn(() => 4_000),
+  isAutoAssignOnBookingEnabled: vi.fn(() => false),
+  isBookingPastTimeBlockingEnabled: vi.fn(() => policyState.bookingPastTimeBlocking),
+  isGuestLookupPolicyEnabled: vi.fn(() => false),
+  isUnifiedBookingValidationEnabled: vi.fn(() => policyState.bookingValidationUnified),
 }));
 
 vi.mock('@/server/supabase', () => ({
@@ -257,7 +262,8 @@ function buildRequest(overrides: Record<string, unknown> = {}) {
 
 describe('public POST /api/bookings capacity handling', () => {
   beforeEach(() => {
-    envMock.featureFlags.bookingValidationUnified = false;
+    policyState.bookingPastTimeBlocking = false;
+    policyState.bookingValidationUnified = false;
 
     maybeSingleMock.mockReset();
     maybeSingleMock.mockResolvedValue({ data: null, error: null });
@@ -404,7 +410,7 @@ describe('public POST /api/bookings capacity handling', () => {
   });
 
   it('returns past-time block response and records observability', async () => {
-    envMock.featureFlags.bookingPastTimeBlocking = true;
+    policyState.bookingPastTimeBlocking = true;
     const details = {
       bookingTime: '2026-05-23T12:00:00 GMT+1',
       serverTime: '2026-05-23T13:00:00 GMT+1',
@@ -614,7 +620,7 @@ describe('public POST /api/bookings capacity handling', () => {
   });
 
   it('adds alternatives to unified validation capacity failures', async () => {
-    envMock.featureFlags.bookingValidationUnified = true;
+    policyState.bookingValidationUnified = true;
     checkSlotAvailabilityMock.mockResolvedValue({
       available: true,
       metadata: {

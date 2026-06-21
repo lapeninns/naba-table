@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -45,6 +46,11 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     });
   } catch (error) {
     console.error('[ops][gbp][food-menus][import-review][list] failed', error);
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review-list' },
+    });
     const message =
       error instanceof Error ? error.message : 'Unable to list Google FoodMenus import reviews.';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -98,6 +104,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
   } catch (error) {
     console.error('[ops][gbp][food-menus][import-review] failed', error);
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review' },
+    });
     const message =
       error instanceof Error ? error.message : 'Unable to prepare Google FoodMenus import review.';
     return NextResponse.json({ error: message }, { status: 500 });

@@ -1,20 +1,24 @@
-import { isAllocatorV2Enabled, isAllocatorV2ShadowMode, isAllocatorV2ForceLegacy } from "@/server/feature-flags";
+import {
+  isAllocatorV2Enabled,
+  isAllocatorV2ShadowMode,
+  isAllocatorV2ForceLegacy,
+} from '@/server/runtime-policy';
 
 import {
   AssignmentConflictError,
   AssignmentRepositoryError,
   AssignmentValidationError,
-} from "./errors";
-import { NoopAssignmentRepository } from "./supabase-repository";
+} from './errors';
+import { NoopAssignmentRepository } from './supabase-repository';
 
-import type { AssignmentRepository } from "./repository";
+import type { AssignmentRepository } from './repository';
 import type {
   AssignmentCommitRequest,
   AssignmentCommitResponse,
   AssignmentContext,
   AssignmentPlan,
   AssignmentSource,
-} from "./types";
+} from './types';
 
 export type CommitPlanOptions = {
   source: AssignmentSource;
@@ -40,11 +44,15 @@ export class AssignmentOrchestrator {
     const shadowMode = options.shadow ?? isAllocatorV2ShadowMode();
 
     if (isAllocatorV2ForceLegacy() && !shadowMode) {
-      throw new AssignmentRepositoryError("Allocator v2 force-legacy mode is active; cannot commit plan.");
+      throw new AssignmentRepositoryError(
+        'Allocator v2 force-legacy mode is active; cannot commit plan.',
+      );
     }
 
     if (allocatorDisabled && !shadowMode) {
-      throw new AssignmentRepositoryError("Allocator v2 is disabled. Enable shadow or commit mode before invoking orchestrator.");
+      throw new AssignmentRepositoryError(
+        'Allocator v2 is disabled. Enable shadow or commit mode before invoking orchestrator.',
+      );
     }
 
     const request: AssignmentCommitRequest = {
@@ -58,7 +66,8 @@ export class AssignmentOrchestrator {
       requireAdjacency: options.requireAdjacency,
     };
 
-    const targetRepository = shadowMode && allocatorDisabled ? this.shadowRepository : this.repository;
+    const targetRepository =
+      shadowMode && allocatorDisabled ? this.shadowRepository : this.repository;
 
     try {
       return await targetRepository.commitAssignment(request);
@@ -66,7 +75,7 @@ export class AssignmentOrchestrator {
       if (error instanceof AssignmentConflictError || error instanceof AssignmentValidationError) {
         throw error;
       }
-      throw new AssignmentRepositoryError("Allocator v2 repository failure", error);
+      throw new AssignmentRepositoryError('Allocator v2 repository failure', error);
     }
   }
 }

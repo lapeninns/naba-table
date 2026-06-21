@@ -16,7 +16,7 @@ import { valueForField } from '@/server/dual-sync/publish/orchestrator-domain';
 import { preparePublishDecisions } from '@/server/dual-sync/publish/orchestrator-prepare-decisions';
 import { buildRegistry, findFieldConfig } from '@/server/dual-sync/registry';
 
-import type { DualSyncRuntimeFlags } from '@/server/dual-sync/flag';
+import type { DualSyncRuntimeControls } from '@/server/dual-sync/runtime-controls';
 import type { DualSyncPublishDecision } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
 import type { DualSyncPublishOperation } from '@/server/dual-sync/types';
@@ -25,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
 
-const runtimeFlags: DualSyncRuntimeFlags = {
+const runtimeControls: DualSyncRuntimeControls = {
   importEnabled: true,
   exportEnabled: true,
   autoCandidatesEnabled: true,
@@ -149,7 +149,7 @@ function makeInput(
       ['export_to_google:profile:location.profile', 'group-profile'],
       ['import_from_google:profile:core.profile', 'group-core-profile'],
     ]),
-    runtimeFlags,
+    runtimeControls,
     actorUserId: 'user-1',
     ...overrides,
   };
@@ -247,10 +247,10 @@ describe('preparePublishDecisions', () => {
     });
   });
 
-  it('blocks export decisions when export runtime flags are disabled', async () => {
+  it('blocks export decisions when export runtime controls are disabled', async () => {
     const result = await preparePublishDecisions(
       makeInput({
-        runtimeFlags: { ...runtimeFlags, exportEnabled: false },
+        runtimeControls: { ...runtimeControls, exportEnabled: false },
       }),
     );
 

@@ -13,6 +13,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -63,6 +64,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ restaurantId, ...detail }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load publish job detail';
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'dual-sync-publish-job' },
+    });
     return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_JOB_ERROR');
   }
 }

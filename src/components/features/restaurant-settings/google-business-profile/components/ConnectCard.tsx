@@ -28,25 +28,25 @@ const INTEGRATION_STEPS = [
     title: '1. Secure Auth',
     description: 'Link your verified Google Business Profile account securely in seconds.',
     icon: ShieldCheck,
-    glow: 'rgba(99,102,241,0.04)',
-    border: 'border-indigo-500/10',
-    iconColor: 'text-indigo-500',
+    glow: 'hsl(var(--primary) / 0.04)',
+    border: 'border-primary/10',
+    iconColor: 'text-primary',
   },
   {
     title: '2. Listing Match',
     description: 'Select and link this restaurant to its exact Google Map listing.',
     icon: Store,
-    glow: 'rgba(245,158,11,0.04)',
-    border: 'border-amber-500/10',
-    iconColor: 'text-amber-500',
+    glow: 'hsl(var(--warning) / 0.04)',
+    border: 'border-warning/10',
+    iconColor: 'text-warning',
   },
   {
     title: '3. Sync Review',
     description: 'Review structural differences before committing changes.',
     icon: RefreshCw,
-    glow: 'rgba(16,185,129,0.04)',
-    border: 'border-emerald-500/10',
-    iconColor: 'text-emerald-500',
+    glow: 'hsl(var(--success) / 0.04)',
+    border: 'border-success/10',
+    iconColor: 'text-success',
   },
 ];
 
@@ -91,7 +91,7 @@ export function ConnectCard({
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1.5">
             <CardTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
-              <Sparkles className="size-5 text-indigo-500 animate-pulse" aria-hidden />
+              <Sparkles className="size-5 text-primary animate-pulse" aria-hidden />
               Google Business Profile Sync
             </CardTitle>
             <CardDescription className="text-sm text-muted-foreground max-w-xl">
@@ -100,8 +100,8 @@ export function ConnectCard({
             </CardDescription>
           </div>
 
-          <div className="hidden sm:flex items-center justify-center p-3 rounded-full bg-indigo-500/5 border border-indigo-500/10">
-            <Store className="size-6 text-indigo-500" />
+          <div className="hidden sm:flex items-center justify-center p-3 rounded-full bg-primary/5 border border-primary/10">
+            <Store className="size-6 text-primary" />
           </div>
         </div>
       </CardHeader>
@@ -148,11 +148,11 @@ export function ConnectCard({
         {/* Dynamic configuration status messages */}
         <div className="space-y-3">
           {!isConfigured ? (
-            <Alert className="border-amber-500/10 bg-amber-500/[0.02] backdrop-blur-sm">
+            <Alert className="border-warning/10 bg-warning/[0.02] backdrop-blur-sm">
               <div className="flex gap-2">
-                <Lock className="size-4 text-amber-500 mt-0.5 shrink-0" />
+                <Lock className="size-4 text-warning mt-0.5 shrink-0" />
                 <div>
-                  <AlertTitle className="text-sm font-semibold tracking-tight text-amber-500">
+                  <AlertTitle className="text-sm font-semibold tracking-tight text-warning">
                     Integration Credentials Locked
                   </AlertTitle>
                   <AlertDescription className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -166,11 +166,11 @@ export function ConnectCard({
           ) : null}
 
           {isPendingAuth ? (
-            <Alert className="border-indigo-500/10 bg-indigo-500/[0.02] backdrop-blur-sm">
+            <Alert className="border-primary/10 bg-primary/[0.02] backdrop-blur-sm">
               <div className="flex gap-2">
-                <Sparkles className="size-4 text-indigo-500 mt-0.5 shrink-0" />
+                <Sparkles className="size-4 text-primary mt-0.5 shrink-0" />
                 <div>
-                  <AlertTitle className="text-sm font-semibold tracking-tight text-indigo-500">
+                  <AlertTitle className="text-sm font-semibold tracking-tight text-primary">
                     Authorization Handshake In Progress
                   </AlertTitle>
                   <AlertDescription className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -209,7 +209,7 @@ export function ConnectCard({
             size="lg"
             onClick={onConnect}
             disabled={!isConfigured || isConnecting}
-            className="w-full sm:w-auto relative overflow-hidden bg-indigo-600 hover:bg-indigo-500 text-white font-medium tracking-tight shadow-md shadow-indigo-600/10 transition-all duration-200 active:scale-95"
+            className="w-full sm:w-auto relative overflow-hidden font-medium tracking-tight shadow-md shadow-primary/10 transition-all duration-200 active:scale-95"
           >
             {isConnecting ? (
               <span className="flex items-center gap-2">

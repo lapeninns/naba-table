@@ -16,7 +16,6 @@ export type OpsPageShellProps = {
 };
 
 const variantClasses: Record<OpsPageShellVariant, string> = {
-  // List/table/detail-management pages: bookings, customers, dashboard, rejections, delivery.
   standard: 'mx-auto w-full max-w-[1200px] px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
   // Split-pane/editor-style experiences.
   immersive: 'h-[calc(100vh-3.5rem)] w-full min-w-0 overflow-hidden',

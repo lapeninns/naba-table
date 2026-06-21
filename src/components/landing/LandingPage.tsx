@@ -38,7 +38,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
       <Navbar isAuthenticated={isAuthenticated} />
 
       <main id="main-content" className="flex-1">
-        <HeroSection reduceMotion={reduceMotion} />
+        <HeroSection />
 
         <LazySection>
           <ProblemSection />

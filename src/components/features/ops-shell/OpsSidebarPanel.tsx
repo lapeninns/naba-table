@@ -16,6 +16,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { useOpsSession } from '@/contexts/ops-session';
+import { opsHref } from '@/lib/url/opsHref';
 
 import { filterOpsNavigationSections } from './navigation';
 import { OpsRestaurantSwitch } from './OpsRestaurantSwitch';
@@ -28,14 +29,15 @@ import type { OpsNavigationSection } from './navigation';
 
 export function OpsSidebarPanel() {
   const pathname = usePathname();
-  const { featureFlags, permissions } = useOpsSession();
+  // App-host URLs drop the /app prefix; nav items match internal /app/* paths.
+  const internalPathname = pathname ? opsHref(pathname) : null;
+  const { permissions } = useOpsSession();
 
   const sections = useMemo<OpsNavigationSection[]>(() => {
     return filterOpsNavigationSections({
-      featureFlags,
       canViewAdminItems: permissions.canManageSettings,
     });
-  }, [featureFlags, permissions.canManageSettings]);
+  }, [permissions.canManageSettings]);
 
   return (
     <Sidebar collapsible="icon">
@@ -51,10 +53,10 @@ export function OpsSidebarPanel() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {!pathname ? (
+        {!internalPathname ? (
           <OpsSidebarSkeleton />
         ) : (
-          <OpsSidebarNav sections={sections} pathname={pathname} />
+          <OpsSidebarNav sections={sections} pathname={internalPathname} />
         )}
       </SidebarContent>
       <SidebarFooterSlot>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -63,6 +64,9 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     const message = stringifyError(error);
     console.error('[lead] Unexpected lead storage failure', { message });
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'lead' },
+    });
     return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
   }
 }

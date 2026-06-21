@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getStrategicConfigSnapshot } from '@/server/capacity/strategic-config';
 import { clearStrategicCaches } from '@/server/capacity/strategic-maintenance';
-import { isOpsRejectionAnalyticsEnabled } from '@/server/feature-flags';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
 
@@ -44,10 +44,6 @@ function formatResponse(params: {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isOpsRejectionAnalyticsEnabled()) {
-    return NextResponse.json({ error: 'Strategic configuration is disabled' }, { status: 404 });
-  }
-
   const query = getQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
   );
@@ -97,15 +93,14 @@ export async function GET(request: NextRequest) {
     );
   } catch (settingsError) {
     console.error('[ops/settings][strategic-config][GET] failed to load config', settingsError);
+    captureServerException(settingsError, {
+      properties: { source: 'ops', kind: 'ops-strategic-config' },
+    });
     return NextResponse.json({ error: 'Unable to load strategic settings' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  if (!isOpsRejectionAnalyticsEnabled()) {
-    return NextResponse.json({ error: 'Strategic configuration is disabled' }, { status: 404 });
-  }
-
   const payload = payloadSchema.safeParse(await request.json().catch(() => null));
   if (!payload.success) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });

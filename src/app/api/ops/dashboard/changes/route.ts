@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { getTodayBookingChanges } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -73,6 +74,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(changesData);
   } catch (changesError) {
     console.error('[ops/dashboard][changes] failed to load booking changes', changesError);
+    captureServerException(changesError, {
+      groups: { restaurant: query.restaurantId },
+      properties: {
+        restaurantId: query.restaurantId,
+        source: 'ops',
+        kind: 'ops-dashboard-changes',
+      },
+    });
     return NextResponse.json({ error: 'Unable to load booking changes' }, { status: 500 });
   }
 }

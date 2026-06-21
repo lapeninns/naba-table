@@ -101,27 +101,33 @@ export function useGoogleBusinessProfileSectionState({
     setDisconnectDialogOpen(true);
   }, []);
 
-  const handleConfirmDisconnect = useCallback(() => {
-    if (disconnectMutation.isPending) {
-      return;
-    }
-    disconnectMutation.mutate(undefined, {
-      onSuccess: () => {
-        setSelectedLocationValue('');
-        setDisconnectDialogOpen(false);
-        setPersistentError(null);
-        toast.success('Google Business Profile disconnected.');
-      },
-      onError: (error) => {
-        setPersistentError({
-          kind: 'disconnect',
-          title: 'Disconnect failed',
-          message: error.message,
-        });
-        toast.error(error.message);
-      },
-    });
-  }, [disconnectMutation]);
+  const handleConfirmDisconnect = useCallback(
+    (password: string) => {
+      if (disconnectMutation.isPending) {
+        return;
+      }
+      disconnectMutation.mutate(
+        { password },
+        {
+          onSuccess: () => {
+            setSelectedLocationValue('');
+            setDisconnectDialogOpen(false);
+            setPersistentError(null);
+            toast.success('Google Business Profile disconnected.');
+          },
+          onError: (error) => {
+            setPersistentError({
+              kind: 'disconnect',
+              title: 'Disconnect failed',
+              message: error.message,
+            });
+            toast.error(error.message);
+          },
+        },
+      );
+    },
+    [disconnectMutation],
+  );
 
   const handleLinkLocation = useCallback(() => {
     if (!selectedLocation) {

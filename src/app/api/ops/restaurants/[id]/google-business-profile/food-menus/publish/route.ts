@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -116,6 +117,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     }
 
     console.error('[ops][gbp][food-menus][publish] failed', error);
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-publish' },
+    });
     const message = error instanceof Error ? error.message : 'Unable to publish Google FoodMenus.';
     return NextResponse.json({ error: message }, { status: 500 });
   }

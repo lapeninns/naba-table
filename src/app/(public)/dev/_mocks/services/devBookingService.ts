@@ -157,8 +157,6 @@ export class DevBookingService implements BookingService {
 
   getTodaySummary = this.unimplemented<BookingService['getTodaySummary']>('getTodaySummary');
   getBookingHeatmap = this.unimplemented<BookingService['getBookingHeatmap']>('getBookingHeatmap');
-  getRejectionAnalytics =
-    this.unimplemented<BookingService['getRejectionAnalytics']>('getRejectionAnalytics');
   getStrategicSettings =
     this.unimplemented<BookingService['getStrategicSettings']>('getStrategicSettings');
   updateStrategicSettings =

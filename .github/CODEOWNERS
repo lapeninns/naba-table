@@ -1,0 +1,30 @@
+# Repository owner for all changes.
+* @lapeninns
+
+# Governance and delivery controls.
+.github/** @lapeninns
+AGENTS.md @lapeninns
+docs/sdlc/** @lapeninns
+.agents/** @lapeninns
+
+# Security, auth, API, and data-boundary code.
+config/** @lapeninns
+lib/auth/** @lapeninns
+lib/security/** @lapeninns
+lib/api/** @lapeninns
+server/** @lapeninns
+src/app/api/** @lapeninns
+src/app/**/route.ts @lapeninns
+src/app/**/middleware.ts @lapeninns
+src/proxy.ts @lapeninns
+supabase/migrations/** @lapeninns
+
+# Deployment and automation.
+scripts/security/** @lapeninns
+scripts/db/** @lapeninns
+scripts/qa/** @lapeninns
+scripts/cloudflare/** @lapeninns
+cloudflare/** @lapeninns
+vercel.json @lapeninns
+package.json @lapeninns
+pnpm-lock.yaml @lapeninns

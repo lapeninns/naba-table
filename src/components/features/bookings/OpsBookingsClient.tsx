@@ -19,7 +19,9 @@ import { useOpsBookingsState } from '@/components/features/bookings/useOpsBookin
 import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Button } from '@/components/ui/button';
+import { StaleBoundary } from '@/components/ui/stale-boundary';
 import { BookingStateMachineProvider } from '@/contexts/booking-state-machine';
+import { getSwrUiState } from '@/lib/query/swrUiState';
 
 import type { OpsBookingsClientStateParams } from './opsBookingsTypes';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
@@ -66,6 +68,8 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
     activeMembershipRestaurantName: activeMembership?.restaurantName,
   });
   const bookingsQuery = dataState.bookingsQuery;
+  // Param-change stale state (filters/search/date) per docs/sdlc/react-query-swr-ux.md.
+  const swr = getSwrUiState(bookingsQuery);
 
   return (
     <BookingStateMachineProvider initialBookings={initialSnapshots}>
@@ -95,44 +99,47 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
         <section className="space-y-3">
           <OpsBookingsTableFilterBanner queryState={queryState} />
 
-          <BookingsTable
-            rows={rows}
-            total={dataState.bookingsTotal}
-            statusFilter={queryState.statusFilter as StatusFilter}
-            isLoading={bookingsQuery.isLoading}
-            isFetching={bookingsQuery.isFetching && !bookingsQuery.isFetchingNextPage}
-            error={bookingsQuery.error ?? null}
-            searchTerm={queryState.search}
-            onSearchChange={queryState.handleSearchInput}
-            onStatusFilterChange={queryState.handleStatusFilterSelect}
-            onLoadMore={() => {
-              if (!state.isOnline) {
-                return;
-              }
-              if (bookingsQuery.hasNextPage && !bookingsQuery.isFetchingNextPage) {
-                void bookingsQuery.fetchNextPage();
-              }
-            }}
-            hasNextPage={bookingsQuery.hasNextPage ?? false}
-            isFetchingNextPage={bookingsQuery.isFetchingNextPage ?? false}
-            onRetry={() => bookingsQuery.refetch()}
-            onDetails={handleDetailsById}
-            onEdit={handleEditById}
-            onCancel={handleCancelById}
-            variant="ops"
-            statusOptions={OPS_STATUS_TABS}
-            opsBasePath={queryState.opsBasePath}
-            opsActionMode="full"
-            opsLifecycle={{
-              onCheckIn: lifecycle.onCheckIn,
-              onCheckOut: lifecycle.onCheckOut,
-              onMarkNoShow: lifecycle.onMarkNoShow,
-              onUndoNoShow: lifecycle.onUndoNoShow,
-            }}
-            showHeaderTitle={false}
-            hideHeader
-            timezone={restaurantTimezone || 'UTC'}
-          />
+          {/* Toolbar and filter banner stay outside; only the list body dims. */}
+          <StaleBoundary isStale={swr.isPlaceholderStale}>
+            <BookingsTable
+              rows={rows}
+              total={dataState.bookingsTotal}
+              statusFilter={queryState.statusFilter as StatusFilter}
+              isLoading={bookingsQuery.isLoading}
+              isFetching={bookingsQuery.isFetching && !bookingsQuery.isFetchingNextPage}
+              error={bookingsQuery.error ?? null}
+              searchTerm={queryState.search}
+              onSearchChange={queryState.handleSearchInput}
+              onStatusFilterChange={queryState.handleStatusFilterSelect}
+              onLoadMore={() => {
+                if (!state.isOnline) {
+                  return;
+                }
+                if (bookingsQuery.hasNextPage && !bookingsQuery.isFetchingNextPage) {
+                  void bookingsQuery.fetchNextPage();
+                }
+              }}
+              hasNextPage={bookingsQuery.hasNextPage ?? false}
+              isFetchingNextPage={bookingsQuery.isFetchingNextPage ?? false}
+              onRetry={() => bookingsQuery.refetch()}
+              onDetails={handleDetailsById}
+              onEdit={handleEditById}
+              onCancel={handleCancelById}
+              variant="ops"
+              statusOptions={OPS_STATUS_TABS}
+              opsBasePath={queryState.opsBasePath}
+              opsActionMode="full"
+              opsLifecycle={{
+                onCheckIn: lifecycle.onCheckIn,
+                onCheckOut: lifecycle.onCheckOut,
+                onMarkNoShow: lifecycle.onMarkNoShow,
+                onUndoNoShow: lifecycle.onUndoNoShow,
+              }}
+              showHeaderTitle={false}
+              hideHeader
+              timezone={restaurantTimezone || 'UTC'}
+            />
+          </StaleBoundary>
         </section>
 
         <BookingDetailsDialogWrapper

@@ -43,6 +43,12 @@
       "untagged": 6
     },
     {
+      "file": "tests/components/attributesPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/components/auth/GuestSignInForm.test.tsx",
       "tagged": 0,
       "testTitles": 2,
@@ -61,10 +67,64 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/availabilityOccasionsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/availabilityScheduleDraftDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/availabilityScheduleManagerPersistence.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/availabilitySchedulePayloadDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/availabilityScheduleTimeValidation.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
       "file": "tests/components/AvailabilitySettingsComponents.test.tsx",
       "tagged": 0,
       "testTitles": 15,
       "untagged": 15
+    },
+    {
+      "file": "tests/components/BookingActionButton.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/bookingActionButtonDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/components/bookingAssignmentDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/bookingDialogDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/components/BookingListClient.test.tsx",
@@ -73,22 +133,52 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/bookingListDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
       "file": "tests/components/BookingOfflineQueue.test.tsx",
       "tagged": 0,
       "testTitles": 1,
       "untagged": 1
     },
     {
-      "file": "tests/components/businessContextModel.test.ts",
+      "file": "tests/components/businessContextEditorActions.test.ts",
       "tagged": 0,
       "testTitles": 5,
       "untagged": 5
+    },
+    {
+      "file": "tests/components/businessContextEditorWorkflow.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/businessContextModel.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/components/businessDetailsPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/components/ButtonAndBadge.test.tsx",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
+    },
+    {
+      "file": "tests/components/categoriesPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/components/ConfirmationDialog.test.tsx",
@@ -103,6 +193,24 @@
       "untagged": 3
     },
     {
+      "file": "tests/components/customersTableDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/discoveryPanelsFrameDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/discoveryStatusLine.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
       "file": "tests/components/dual-sync-freshness.test.ts",
       "tagged": 0,
       "testTitles": 13,
@@ -111,8 +219,20 @@
     {
       "file": "tests/components/dual-sync-heatmap.test.ts",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/components/dualSyncBulkActionBarDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/dualSyncDirectionDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/components/DualSyncFieldRow.test.tsx",
@@ -121,16 +241,70 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/dualSyncFieldRowDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/dualSyncFieldValuePreviewDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/dualSyncFormattingDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/dualSyncLazyPanelsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/dualSyncOperationalHealthDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/components/DualSyncOperationalHealthPanel.test.tsx",
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
     },
     {
+      "file": "tests/components/dualSyncOperationsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/dualSyncPendingCandidatesDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
       "file": "tests/components/DualSyncPendingCandidatesPanel.test.tsx",
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/components/dualSyncPublishJobDetailDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/dualSyncPublishJobsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/components/DualSyncPublishJobsPanel.test.tsx",
@@ -145,10 +319,34 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/dualSyncPublishPreviewDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/dualSyncPublishRequestDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/components/DualSyncPublishResultDialog.test.tsx",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/dualSyncPublishResultDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/dualSyncQueueJobsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/components/DualSyncQueueJobsPanel.test.tsx",
@@ -157,16 +355,88 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/dualSyncReconnectActionDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/dualSyncReviewAccordionDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/dualSyncShellActionDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/dualSyncShellDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/dualSyncShellHeaderDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/dualSyncShellHeaderProgressDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/components/DualSyncShellPublishFlow.test.tsx",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
     },
     {
+      "file": "tests/components/DualSyncShellReadyContent.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/dualSyncWorkspaceDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/components/dualSyncWorkspaceQueryDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/dualSyncWorkspaceReviewModelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/emailTemplatesEditorDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/components/EmailTemplatesPreviewPane.test.tsx",
       "tagged": 0,
       "testTitles": 1,
       "untagged": 1
+    },
+    {
+      "file": "tests/components/features/bookings/opsBookingsQueryDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/components/features/bookings/opsBookingsSelectors.test.ts",
@@ -183,8 +453,32 @@
     {
       "file": "tests/components/features/customers/opsCustomersSelectors.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliveryAnalyticsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliveryAttemptCardDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliveryFilterDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliveryQueryDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/components/features/email-delivery/opsEmailDeliverySelectors.test.ts",
@@ -193,10 +487,58 @@
       "untagged": 3
     },
     {
+      "file": "tests/components/features/email-delivery/opsEmailDeliveryStateDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliverySummaryMetricsDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailDeliveryTableDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/features/email-delivery/opsEmailQueuePanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/components/features/ops-shell/useOpsRoutePrefetch.test.tsx",
       "tagged": 0,
       "testTitles": 1,
       "untagged": 1
+    },
+    {
+      "file": "tests/components/floor-plan/joins.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/floor-plan/layout.test.ts",
+      "tagged": 0,
+      "testTitles": 13,
+      "untagged": 13
+    },
+    {
+      "file": "tests/components/floor-plan/serviceState.test.ts",
+      "tagged": 0,
+      "testTitles": 22,
+      "untagged": 22
+    },
+    {
+      "file": "tests/components/floor-plan/timeSelection.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/components/GbpCompareDialog.test.tsx",
@@ -205,16 +547,28 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/gbpDriftDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/components/GbpDriftProvider.test.ts",
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
     },
     {
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
       "file": "tests/components/GbpDriftStatus.test.ts",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/components/GbpOmnichannelDriftProvider.test.tsx",
@@ -229,7 +583,25 @@
       "untagged": 19
     },
     {
+      "file": "tests/components/googleBusinessProfileSectionStateDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/components/googleBusinessProfileVerification.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/googleBusinessProfileVerificationComparators.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/guestProfilePanelDomain.test.ts",
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
@@ -253,6 +625,18 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/linksPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/menuHierarchyItemDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/components/OnboardingContextPersistence.test.tsx",
       "tagged": 0,
       "testTitles": 2,
@@ -271,16 +655,28 @@
       "untagged": 6
     },
     {
+      "file": "tests/components/opsBookingCardActionPolicy.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/components/OpsBookingCardActions.noShow.test.tsx",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/components/OpsBookingCardViewModel.test.ts",
       "tagged": 0,
       "testTitles": 7,
       "untagged": 7
+    },
+    {
+      "file": "tests/components/opsBookingsPrintViewDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/components/OpsBookingsSearchInput.test.tsx",
@@ -339,8 +735,8 @@
     {
       "file": "tests/components/OpsEmailDeliverySummaryMetrics.test.tsx",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/components/OpsEmailDeliveryTable.test.tsx",
@@ -363,14 +759,20 @@
     {
       "file": "tests/components/opsNavigation.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/components/OpsShell.test.tsx",
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
+    },
+    {
+      "file": "tests/components/opsSmsDeliveryDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/components/ProfileStatusBar.test.tsx",
@@ -391,6 +793,18 @@
       "untagged": 4
     },
     {
+      "file": "tests/components/reservationDetailDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/restaurant-setup-cards.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/components/RestaurantBusinessContextSection.test.tsx",
       "tagged": 0,
       "testTitles": 9,
@@ -409,6 +823,12 @@
       "untagged": 3
     },
     {
+      "file": "tests/components/restaurantProfileModel.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/components/RestaurantProfileSection.test.tsx",
       "tagged": 0,
       "testTitles": 10,
@@ -423,11 +843,53 @@
     {
       "file": "tests/components/RestaurantSettingsShell.test.tsx",
       "tagged": 0,
+      "testTitles": 12,
+      "untagged": 12
+    },
+    {
+      "file": "tests/components/RestaurantSetupOverview.test.tsx",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/restaurantSetupOverviewDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/scheduleAwareTimestampPicker-disabled-dates.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/scheduleAwareTimestampPickerDomain.test.ts",
+      "tagged": 0,
       "testTitles": 11,
       "untagged": 11
     },
     {
-      "file": "tests/components/RestaurantSetupOverview.test.tsx",
+      "file": "tests/components/scheduleDayCardDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/serviceAreasPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/serviceItemsPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/serviceWindowsCardDomain.test.ts",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
@@ -445,6 +907,24 @@
       "untagged": 1
     },
     {
+      "file": "tests/components/tableAssignmentPanelDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/tableAssignmentSuggestionDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/tableAssignmentVirtualizationDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/components/TableCardGrid.keyboard.test.tsx",
       "tagged": 0,
       "testTitles": 2,
@@ -453,14 +933,104 @@
     {
       "file": "tests/components/TableInventoryClient.test.tsx",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/components/tableInventoryDomain.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/components/TeamSettingsComponents.test.tsx",
       "tagged": 0,
       "testTitles": 10,
       "untagged": 10
+    },
+    {
+      "file": "tests/components/useAvailabilityScheduleDraft.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncConfirmPublishAction.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncControlAction.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/useDualSyncLazyPanelsController.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncPublishActions.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/useDualSyncPublishPreviewAction.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncPublishPreviewDialogState.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/useDualSyncReconnectAction.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/components/useDualSyncShellController.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncShellHeaderProps.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncStateSyncActions.test.tsx",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/components/useDualSyncWorkspaceAccordionState.test.tsx",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/components/useDualSyncWorkspaceDecisionState.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/components/useDualSyncWorkspaceReviewState.test.tsx",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/components/useOpsDashboardBookingActions.test.tsx",
@@ -481,6 +1051,12 @@
       "untagged": 2
     },
     {
+      "file": "tests/components/WizardNavigation-resize-observer.test.tsx",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/components/workspace-progress.test.ts",
       "tagged": 0,
       "testTitles": 3,
@@ -489,14 +1065,20 @@
     {
       "file": "tests/config/env-schema-target.test.ts",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/config/link-config.test.ts",
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/config/metadata-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/config/observability-config.test.ts",
@@ -515,6 +1097,12 @@
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
+    },
+    {
+      "file": "tests/e2e/guest-booking-instant-sync.spec.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/e2e/guest-booking-manage.spec.ts",
@@ -589,9 +1177,15 @@
       "untagged": 0
     },
     {
+      "file": "tests/e2e/ops-booking-dialog-action-rail.spec.ts",
+      "tagged": 1,
+      "testTitles": 1,
+      "untagged": 0
+    },
+    {
       "file": "tests/e2e/ops-capacity-tables.spec.ts",
-      "tagged": 3,
-      "testTitles": 3,
+      "tagged": 4,
+      "testTitles": 4,
       "untagged": 0
     },
     {
@@ -608,8 +1202,8 @@
     },
     {
       "file": "tests/e2e/ops-gbp-dual-sync.spec.ts",
-      "tagged": 1,
-      "testTitles": 1,
+      "tagged": 5,
+      "testTitles": 5,
       "untagged": 0
     },
     {
@@ -619,16 +1213,34 @@
       "untagged": 2
     },
     {
+      "file": "tests/e2e/ops-layout-system.spec.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/e2e/ops-mobile-redesign.spec.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/e2e/ops-restaurant-settings-command-center.spec.ts",
+      "tagged": 6,
+      "testTitles": 6,
+      "untagged": 0
+    },
+    {
+      "file": "tests/e2e/ops-settings-team.spec.ts",
       "tagged": 4,
       "testTitles": 4,
       "untagged": 0
     },
     {
-      "file": "tests/e2e/ops-settings-team.spec.ts",
-      "tagged": 3,
-      "testTitles": 3,
-      "untagged": 0
+      "file": "tests/e2e/ops-sidebar-active-state.spec.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/e2e/ui-visual-routes.spec.ts",
@@ -645,14 +1257,14 @@
     {
       "file": "tests/guest/booking-derivations.test.ts",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/guest/booking-return-paths.test.ts",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/guest/bookingDateTime.test.ts",
@@ -723,11 +1335,17 @@
     {
       "file": "tests/guest/reservationAdapter.test.ts",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/hooks/fetchBookingsByContact.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/hooks/piiQueriesNonPersistent.test.tsx",
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
@@ -765,8 +1383,8 @@
     {
       "file": "tests/hooks/useUpdateBooking.test.tsx",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/hooks/useUpdateRestaurant.test.tsx",
@@ -777,8 +1395,8 @@
     {
       "file": "tests/lib/analytics-schema.test.ts",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/lib/analytics.test.ts",
@@ -837,8 +1455,8 @@
     {
       "file": "tests/lib/logger-redaction.test.ts",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/lib/opsCustomersConstants.test.ts",
@@ -867,8 +1485,8 @@
     {
       "file": "tests/lib/posthog/error-filter.test.ts",
       "tagged": 0,
-      "testTitles": 8,
-      "untagged": 8
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/lib/posthog/pageview.test.ts",
@@ -877,10 +1495,16 @@
       "untagged": 4
     },
     {
+      "file": "tests/lib/posthog/server.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
       "file": "tests/lib/profile-server.test.ts",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/lib/query-params.test.ts",
@@ -895,6 +1519,12 @@
       "untagged": 2
     },
     {
+      "file": "tests/lib/resend-sanitize-display-name.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/lib/restaurant-email-templates.test.ts",
       "tagged": 0,
       "testTitles": 5,
@@ -903,8 +1533,14 @@
     {
       "file": "tests/lib/restaurant-settings-heading.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/lib/restaurant-setup-rules.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/lib/safe-local-path.test.ts",
@@ -965,6 +1601,12 @@
       "tagged": 0,
       "testTitles": 9,
       "untagged": 9
+    },
+    {
+      "file": "tests/micro-specs/check-micro-specs.test.ts",
+      "tagged": 0,
+      "testTitles": 30,
+      "untagged": 30
     },
     {
       "file": "tests/ops/buildOpsBookingsFilters.test.ts",
@@ -1029,8 +1671,8 @@
     {
       "file": "tests/qa/environment-remote-target.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/qa/environment.test.ts",
@@ -1107,8 +1749,8 @@
     {
       "file": "tests/qa/redaction-tags.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/qa/reserve-app-command.test.ts",
@@ -1171,6 +1813,12 @@
       "untagged": 3
     },
     {
+      "file": "tests/reserve/confirmation-step-timezone.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/reserve/contactValidation.test.ts",
       "tagged": 0,
       "testTitles": 2,
@@ -1201,6 +1849,18 @@
       "untagged": 5
     },
     {
+      "file": "tests/reserve/plan-step-calendar-mask-source.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/reserve/plan-step-normalize-interval.test.tsx",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
       "file": "tests/reserve/reservation-config.test.ts",
       "tagged": 0,
       "testTitles": 1,
@@ -1225,6 +1885,12 @@
       "untagged": 2
     },
     {
+      "file": "tests/reserve/shared/schedule/availability.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/reserve/timeoutRecovery.test.ts",
       "tagged": 0,
       "testTitles": 1,
@@ -1237,16 +1903,28 @@
       "untagged": 2
     },
     {
+      "file": "tests/reserve/wizard-context-optional.test.tsx",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/reserve/wizardDraftStorage.test.ts",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
     },
     {
+      "file": "tests/reserve/wizardDraftStoragePii.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/scripts/db-safety.test.ts",
       "tagged": 0,
-      "testTitles": 27,
-      "untagged": 27
+      "testTitles": 33,
+      "untagged": 33
     },
     {
       "file": "tests/scripts/destructive-script-atomicity.test.ts",
@@ -1263,8 +1941,8 @@
     {
       "file": "tests/scripts/perf-script-safety.test.ts",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/scripts/restaurant-config-script-integrity.test.ts",
@@ -1327,9 +2005,15 @@
       "untagged": 2
     },
     {
-      "file": "tests/server/auth/callback-route-security.test.ts",
+      "file": "tests/server/admin-queue-status-route.test.ts",
       "tagged": 0,
-      "testTitles": 5,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/auth/callback-route-security.test.ts",
+      "tagged": 1,
+      "testTitles": 6,
       "untagged": 5
     },
     {
@@ -1339,7 +2023,19 @@
       "untagged": 5
     },
     {
+      "file": "tests/server/auth/ops-guards.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/server/auth/password-confirmation.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/auth/qa-bypass-route-security.test.ts",
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
@@ -1365,8 +2061,8 @@
     {
       "file": "tests/server/auth/signup-onboarding-route.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/server/availability-route-query-params.test.ts",
@@ -1375,10 +2071,232 @@
       "untagged": 2
     },
     {
+      "file": "tests/server/booking-api-error.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/booking-auto-assign-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 15,
+      "untagged": 15
+    },
+    {
+      "file": "tests/server/booking-capacity-failure-response.test.ts",
+      "tagged": 0,
+      "testTitles": 17,
+      "untagged": 17
+    },
+    {
+      "file": "tests/server/booking-create-completion.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/booking-create-customer-context.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/booking-create-entry-gate.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/booking-create-failure-response.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/booking-create-finalization.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-create-observability-events.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/booking-create-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 16,
+      "untagged": 16
+    },
+    {
+      "file": "tests/server/booking-create-persistence.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/booking-create-precommit-context.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/booking-create-request-context.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-create-request-payload.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/booking-create-response.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/booking-create-schedule-gate.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/booking-create-schedule-selection.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/booking-create-success-response.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/booking-created-side-effects-payload.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-guest-lookup-access.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/booking-guest-lookup-bookings.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/booking-guest-lookup-observability.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-guest-lookup-policy.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-guest-lookup-response.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-history.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/booking-legacy-capacity-create.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/booking-lifecycle-actions.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/booking-lifecycle-persistence.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/booking-operating-hours-response.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/booking-past-time-response.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/booking-rate-limit-response.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/booking-recovery.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-request-validation.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-response-cookies.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/booking-restaurant-resolution.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/booking-route-support.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
       "file": "tests/server/booking-sms-delivery-route.test.ts",
       "tagged": 0,
       "testTitles": 1,
       "untagged": 1
+    },
+    {
+      "file": "tests/server/booking-unified-validation-create.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/booking-validation-security.test.ts",
@@ -1387,10 +2305,28 @@
       "untagged": 3
     },
     {
+      "file": "tests/server/booking-zod-validation-error.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/server/bookings-confirm-route.test.ts",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 14,
+      "untagged": 14
+    },
+    {
+      "file": "tests/server/bookings-get-response.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/bookings-idempotency.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/server/bookings-modification-flow.test.ts",
@@ -1399,10 +2335,16 @@
       "untagged": 2
     },
     {
+      "file": "tests/server/bookings-post-response.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/server/bookings-profile-consistency.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/bookings-recover-route-security.test.ts",
@@ -1425,8 +2367,14 @@
     {
       "file": "tests/server/bookings/confirmation-notifications.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/bookings/fix-inline-timeout-hold-release.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/server/bookings/manage-url.test.ts",
@@ -1461,6 +2409,12 @@
     {
       "file": "tests/server/calendar-mask-route.test.ts",
       "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity-transaction-security.test.ts",
+      "tagged": 0,
       "testTitles": 1,
       "untagged": 1
     },
@@ -1469,6 +2423,12 @@
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/assignment-rpc-privileges-security.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/capacity/availability-status-policy.test.ts",
@@ -1483,6 +2443,18 @@
       "untagged": 2
     },
     {
+      "file": "tests/server/capacity/busy-map-stored-end-at.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/confirmation-cache.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/server/capacity/demand-profiles.test.ts",
       "tagged": 0,
       "testTitles": 2,
@@ -1491,8 +2463,212 @@
     {
       "file": "tests/server/capacity/direct-assignment-atomic.test.ts",
       "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/fix-adjacency-configurable.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/fix-allocations-overlap-hard.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/capacity/fix-alternative-slots-n-plus-1.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/fix-bitset-slot-boundary.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/capacity/fix-booking-window-dst-springforward.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/fix-booking-window-observable-fallback.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/fix-busy-map-null-temporal.test.ts",
+      "tagged": 0,
       "testTitles": 1,
       "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/fix-capacity-context-status.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/fix-confirm-hold-expiry-and-state.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/fix-confirm-transition-compensation.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/capacity/fix-direct-assignment-idempotent-conflict.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/fix-hold-expiry-skew-holds.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/fix-hold-expiry-skew.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/fix-hold-lookup-failclosed.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/fix-hold-release-sweep.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/fix-inline-timeout-late-success.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/fix-list-active-holds-failclosed.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/fix-lookahead-fair-budget.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/fix-manual-hold-lookup-failclosed.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/fix-manual-slack-clamp.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/capacity/fix-overflow-max-overage.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/fix-policy-retry-orphan-hold.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/fix-soft-holds-orphan-cleanup.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/fix-timezone-load-failclosed.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/fix-zoneless-merge.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/capacity/legacy-table-availability-null-times.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/capacity/manual-assignment-context-holds.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/manual-booking-context.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/manual-conflict-context.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/manual-selection-preconditions.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/capacity/manual-soft-holds.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/capacity/manual-table-assignment-checks.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/manual-table-assignment-context-version.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/capacity/manual-table-assignment-hold-payload.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/capacity/planner-cache-key.test.ts",
@@ -1505,6 +2681,12 @@
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
+    },
+    {
+      "file": "tests/server/capacity/planner-stress.test.ts",
+      "tagged": 0,
+      "testTitles": 13,
+      "untagged": 13
     },
     {
       "file": "tests/server/capacity/policy-retry.test.ts",
@@ -1539,14 +2721,14 @@
     {
       "file": "tests/server/capacity/table-assignment-guards.test.ts",
       "tagged": 0,
-      "testTitles": 9,
-      "untagged": 9
+      "testTitles": 10,
+      "untagged": 10
     },
     {
       "file": "tests/server/capacity/table-assignment-unassign.test.ts",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/server/client-error-route.test.ts",
@@ -1555,10 +2737,28 @@
       "untagged": 5
     },
     {
+      "file": "tests/server/config-merge-rules-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/confirmation-token-atomic.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
       "file": "tests/server/cron-routes-auth.test.ts",
       "tagged": 0,
-      "testTitles": 11,
-      "untagged": 11
+      "testTitles": 12,
+      "untagged": 12
+    },
+    {
+      "file": "tests/server/csrf-event-throttle.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/csrf-protected-mutations.test.ts",
@@ -1569,8 +2769,8 @@
     {
       "file": "tests/server/customers.test.ts",
       "tagged": 0,
-      "testTitles": 11,
-      "untagged": 11
+      "testTitles": 12,
+      "untagged": 12
     },
     {
       "file": "tests/server/data-retention-security-source.test.ts",
@@ -1581,8 +2781,8 @@
     {
       "file": "tests/server/deepsec-final-controls-source.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/server/delivery-reconciler.test.ts",
@@ -1613,6 +2813,18 @@
       "tagged": 0,
       "testTitles": 15,
       "untagged": 15
+    },
+    {
+      "file": "tests/server/dual-sync-business-context-export-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/dual-sync-business-context-import-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/server/dual-sync-business-context-import-ports.test.ts",
@@ -1649,12 +2861,6 @@
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
-    },
-    {
-      "file": "tests/server/dual-sync-flags.test.ts",
-      "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
     },
     {
       "file": "tests/server/dual-sync-food-menus-publish-port.test.ts",
@@ -1701,8 +2907,8 @@
     {
       "file": "tests/server/dual-sync-locks.test.ts",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/dual-sync-metrics-route.test.ts",
@@ -1747,6 +2953,18 @@
       "untagged": 5
     },
     {
+      "file": "tests/server/dual-sync-profile-export-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/dual-sync-profile-import-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
       "file": "tests/server/dual-sync-profile-import-port.test.ts",
       "tagged": 0,
       "testTitles": 7,
@@ -1757,6 +2975,12 @@
       "tagged": 0,
       "testTitles": 6,
       "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-publish-default-ports.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/dual-sync-publish-job-detail.test.ts",
@@ -1771,16 +2995,106 @@
       "untagged": 7
     },
     {
+      "file": "tests/server/dual-sync-publish-operations-mappers.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-batch-export.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-batch-initialization.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-execute-operations.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-finalize.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-preflight.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-prepare-decisions-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-prepare-decisions.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-runtime-context.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/dual-sync-publish-orchestrator-snapshot-pins.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
       "tagged": 0,
       "testTitles": 25,
       "untagged": 25
     },
     {
+      "file": "tests/server/dual-sync-publish-planner-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/dual-sync-publish-planner-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/server/dual-sync-publish-planner.test.ts",
       "tagged": 0,
-      "testTitles": 7,
-      "untagged": 7
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/server/dual-sync-publish-preflight.test.ts",
@@ -1797,8 +3111,8 @@
     {
       "file": "tests/server/dual-sync-publish-route.test.ts",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/server/dual-sync-queue-job-retry-route.test.ts",
@@ -1815,8 +3129,8 @@
     {
       "file": "tests/server/dual-sync-queue-jobs.test.ts",
       "tagged": 0,
-      "testTitles": 7,
-      "untagged": 7
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/server/dual-sync-queue-worker.test.ts",
@@ -1849,10 +3163,22 @@
       "untagged": 7
     },
     {
+      "file": "tests/server/dual-sync-runtime-controls.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
       "file": "tests/server/dual-sync-scheduled-refresh.test.ts",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
+    },
+    {
+      "file": "tests/server/dual-sync-service-periods-export-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/dual-sync-service-periods-import-port.test.ts",
@@ -1885,10 +3211,22 @@
       "untagged": 8
     },
     {
-      "file": "tests/server/email-delivery-log-attempts.test.ts",
+      "file": "tests/server/email-categories.test.ts",
       "tagged": 0,
       "testTitles": 2,
       "untagged": 2
+    },
+    {
+      "file": "tests/server/email-category-suppression.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/email-delivery-log-attempts.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/email-delivery-retry-route.test.ts",
@@ -1909,6 +3247,24 @@
       "untagged": 3
     },
     {
+      "file": "tests/server/email-suppression-list.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/email-unsubscribe-route.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/emails/bookings-pending-attention-link.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/server/emails/bookings-reply-to.test.ts",
       "tagged": 0,
       "testTitles": 2,
@@ -1917,8 +3273,8 @@
     {
       "file": "tests/server/emails/invitations.test.ts",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/emails/sender-policy.test.ts",
@@ -1927,10 +3283,142 @@
       "untagged": 4
     },
     {
-      "file": "tests/server/feature-flags.test.ts",
+      "file": "tests/server/google-business-profile-business-info-attribute-normalization.test.ts",
       "tagged": 0,
       "testTitles": 3,
       "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-attributes.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-categories.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-contact.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-details.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-hours.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-rows.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-service-areas.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-canonical-service-items.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-field-sync-status.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-label-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-normalization-core.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-place-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-read-model-mappers.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-read-model-verification.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-read-model.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-read-persistence.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-schedule-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-service-item-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-status-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-sync-orchestration.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-business-info-sync-persistence.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/google-business-profile-business-info.test.ts",
@@ -1941,8 +3429,8 @@
     {
       "file": "tests/server/google-business-profile-callback-route.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 10,
+      "untagged": 10
     },
     {
       "file": "tests/server/google-business-profile-client.test.ts",
@@ -1951,10 +3439,58 @@
       "untagged": 9
     },
     {
+      "file": "tests/server/google-business-profile-core-normalization-service-periods.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/server/google-business-profile-core-normalization.test.ts",
       "tagged": 0,
       "testTitles": 5,
       "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-core-sync-operating-hours.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-core-sync-profile.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-core-sync-service-periods.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-canonical-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-canonical-normalization.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-canonical-patches.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-canonical-projection.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/google-business-profile-food-menus-context.test.ts",
@@ -1963,22 +3499,94 @@
       "untagged": 2
     },
     {
-      "file": "tests/server/google-business-profile-food-menus-routes.test.ts",
-      "tagged": 0,
-      "testTitles": 15,
-      "untagged": 15
-    },
-    {
-      "file": "tests/server/google-business-profile-food-menus-storage.test.ts",
+      "file": "tests/server/google-business-profile-food-menus-import-decision-domain.test.ts",
       "tagged": 0,
       "testTitles": 7,
       "untagged": 7
     },
     {
+      "file": "tests/server/google-business-profile-food-menus-import-mapping.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-import-review-storage.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-import-review.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-local-projection.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-modifier-import.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-publish-attempt-storage.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-routes.test.ts",
+      "tagged": 0,
+      "testTitles": 17,
+      "untagged": 17
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-serialization.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-storage-mappers.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-storage-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-storage.test.ts",
+      "tagged": 0,
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-sync-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/google-business-profile-food-menus-sync-identities.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
       "file": "tests/server/google-business-profile-food-menus-sync.test.ts",
       "tagged": 0,
-      "testTitles": 18,
-      "untagged": 18
+      "testTitles": 19,
+      "untagged": 19
     },
     {
       "file": "tests/server/google-business-profile-food-menus.test.ts",
@@ -1993,6 +3601,108 @@
       "untagged": 4
     },
     {
+      "file": "tests/server/google-business-profile-service-access-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-service-authorization-flow.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-service-authorization-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-service-business-details-status-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-service-business-details-status.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-service-business-info-sync-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-service-business-info-sync-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-service-connection-context.test.ts",
+      "tagged": 0,
+      "testTitles": 13,
+      "untagged": 13
+    },
+    {
+      "file": "tests/server/google-business-profile-service-connection-lifecycle-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-service-connection-lifecycle-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-service-connection-state-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-service-core-sync-runtime.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-service-credential-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-service-food-menus-context.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-service-oauth-state.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
+      "file": "tests/server/google-business-profile-service-repository.test.ts",
+      "tagged": 0,
+      "testTitles": 13,
+      "untagged": 13
+    },
+    {
+      "file": "tests/server/google-business-profile-service-sync-planning.test.ts",
+      "tagged": 0,
+      "testTitles": 10,
+      "untagged": 10
+    },
+    {
       "file": "tests/server/google-business-profile-service.test.ts",
       "tagged": 0,
       "testTitles": 2,
@@ -2003,6 +3713,132 @@
       "tagged": 0,
       "testTitles": 10,
       "untagged": 10
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-business-context-comparison.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-business-context-payload.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-draft-lifecycle.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-draft-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-draft-sections.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-draft-selection.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-draft-state.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-field-decisions.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-google-update-masks.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-mappers.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-preflight-context.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-preflight-service.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-profile-cleanup.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-publish-direction.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-publish-execution.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-publish-lifecycle-domain.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-publish-lifecycle.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-publish-preflight.test.ts",
+      "tagged": 0,
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-push-errors.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-repository.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-rollback-payloads.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/google-business-profile-workflow-rollback.test.ts",
@@ -2017,10 +3853,28 @@
       "untagged": 17
     },
     {
+      "file": "tests/server/google-business-profile-workflow-serialization.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/google-business-profile-workflow-status-validation.test.ts",
+      "tagged": 0,
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
       "file": "tests/server/google-business-profile-workflow.test.ts",
       "tagged": 0,
       "testTitles": 20,
       "untagged": 20
+    },
+    {
+      "file": "tests/server/guest-booking-dto.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/server/guest-bookings-list-route.test.ts",
@@ -2033,6 +3887,12 @@
       "tagged": 5,
       "testTitles": 5,
       "untagged": 0
+    },
+    {
+      "file": "tests/server/image-upload-svg-rejection-route.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/inline-auto-assign.test.ts",
@@ -2049,11 +3909,17 @@
     {
       "file": "tests/server/jobs/auto-complete-bookings.test.ts",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/server/jobs/booking-side-effects.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/jobs/fix-pre-attempt-status-recheck.test.ts",
       "tagged": 0,
       "testTitles": 4,
       "untagged": 4
@@ -2065,16 +3931,64 @@
       "untagged": 3
     },
     {
+      "file": "tests/server/list-restaurants-public-projection.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/list-unsubscribe-headers.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
       "file": "tests/server/menu-hierarchy-routes.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/server/menu-hierarchy-types.test.ts",
       "tagged": 0,
-      "testTitles": 7,
-      "untagged": 7
+      "testTitles": 8,
+      "untagged": 8
+    },
+    {
+      "file": "tests/server/my-bookings-auth-response.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/my-bookings-dto.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/my-bookings-page.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/my-bookings-query.test.ts",
+      "tagged": 0,
+      "testTitles": 6,
+      "untagged": 6
+    },
+    {
+      "file": "tests/server/my-bookings-response.test.ts",
+      "tagged": 0,
+      "testTitles": 4,
+      "untagged": 4
+    },
+    {
+      "file": "tests/server/occasion-catalog-cache-poisoning.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/onboarding-restaurant-route-security.test.ts",
@@ -2085,8 +3999,14 @@
     {
       "file": "tests/server/ops-booking-checkout-route.test.ts",
       "tagged": 0,
-      "testTitles": 1,
-      "untagged": 1
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-booking-history-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/ops-booking-lifecycle-route-context.test.ts",
@@ -2103,8 +4023,14 @@
     {
       "file": "tests/server/ops-booking-route.test.ts",
       "tagged": 0,
-      "testTitles": 2,
-      "untagged": 2
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/ops-booking-schema.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/server/ops-booking-table-assignment-route.test.ts",
@@ -2155,6 +4081,24 @@
       "untagged": 3
     },
     {
+      "file": "tests/server/ops-occasions-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/ops-page-search-params.test.tsx",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/ops-restaurant-profile-route-security.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/server/ops-restaurants-route-security.test.ts",
       "tagged": 0,
       "testTitles": 3,
@@ -2174,8 +4118,8 @@
     },
     {
       "file": "tests/server/ops-tables-timeline-route.test.ts",
-      "tagged": 4,
-      "testTitles": 4,
+      "tagged": 5,
+      "testTitles": 5,
       "untagged": 0
     },
     {
@@ -2199,19 +4143,19 @@
     {
       "file": "tests/server/proxy-google-business-callback.test.ts",
       "tagged": 0,
-      "testTitles": 7,
-      "untagged": 7
+      "testTitles": 9,
+      "untagged": 9
     },
     {
       "file": "tests/server/public-booking-delete-route.test.ts",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/public-booking-manage-token.test.ts",
-      "tagged": 4,
-      "testTitles": 4,
+      "tagged": 6,
+      "testTitles": 6,
       "untagged": 0
     },
     {
@@ -2223,14 +4167,20 @@
     {
       "file": "tests/server/public-booking-update-route.test.ts",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 4,
+      "untagged": 4
     },
     {
       "file": "tests/server/public-bookings-route.test.ts",
       "tagged": 0,
-      "testTitles": 6,
-      "untagged": 6
+      "testTitles": 11,
+      "untagged": 11
+    },
+    {
+      "file": "tests/server/public-schedule-route.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/server/qa-restaurant-fixtures.test.ts",
@@ -2247,14 +4197,20 @@
     {
       "file": "tests/server/resend-webhook-route.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/server/resolve-service-role-supabase-url.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 7,
+      "untagged": 7
+    },
+    {
+      "file": "tests/server/restaurant-business-context-csrf-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
     },
     {
       "file": "tests/server/restaurant-business-context-routes.test.ts",
@@ -2295,20 +4251,26 @@
     {
       "file": "tests/server/restaurant-google-business-profile-routes.test.ts",
       "tagged": 0,
-      "testTitles": 9,
-      "untagged": 9
+      "testTitles": 15,
+      "untagged": 15
     },
     {
       "file": "tests/server/restaurant-google-business-v1-routes.test.ts",
       "tagged": 0,
-      "testTitles": 11,
-      "untagged": 11
+      "testTitles": 19,
+      "untagged": 19
+    },
+    {
+      "file": "tests/server/restaurant-name-control-chars-schema.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
     },
     {
       "file": "tests/server/restaurant-schedule-replacements.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/restaurant-schedule-routes.test.ts",
@@ -2325,8 +4287,8 @@
     {
       "file": "tests/server/restaurant-settings-layout-security.test.tsx",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 5,
+      "untagged": 5
     },
     {
       "file": "tests/server/restaurant-visibility.test.ts",
@@ -2367,20 +4329,32 @@
     {
       "file": "tests/server/security-request.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 9,
+      "untagged": 9
+    },
+    {
+      "file": "tests/server/security/rate-limit.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/security/session-recovery-access-token.test.ts",
       "tagged": 0,
-      "testTitles": 5,
-      "untagged": 5
+      "testTitles": 6,
+      "untagged": 6
     },
     {
       "file": "tests/server/security/turnstile.test.ts",
       "tagged": 0,
-      "testTitles": 3,
-      "untagged": 3
+      "testTitles": 5,
+      "untagged": 5
+    },
+    {
+      "file": "tests/server/service-only-rpc-privileges.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
     },
     {
       "file": "tests/server/sms-delivery-route.test.ts",
@@ -2413,6 +4387,30 @@
       "untagged": 5
     },
     {
+      "file": "tests/server/staff-auto-confirm-route.test.ts",
+      "tagged": 0,
+      "testTitles": 2,
+      "untagged": 2
+    },
+    {
+      "file": "tests/server/staff-auto-quote-route.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
+      "file": "tests/server/stale-state-source-regressions.test.ts",
+      "tagged": 0,
+      "testTitles": 3,
+      "untagged": 3
+    },
+    {
+      "file": "tests/server/supabase-tenant-cache.test.ts",
+      "tagged": 0,
+      "testTitles": 1,
+      "untagged": 1
+    },
+    {
       "file": "tests/server/team-access-cache.test.ts",
       "tagged": 0,
       "testTitles": 1,
@@ -2421,14 +4419,14 @@
     {
       "file": "tests/server/team-invitations-security.test.ts",
       "tagged": 0,
-      "testTitles": 10,
-      "untagged": 10
+      "testTitles": 14,
+      "untagged": 14
     },
     {
       "file": "tests/server/tenant-authorization-sprint2.test.ts",
       "tagged": 0,
-      "testTitles": 4,
-      "untagged": 4
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/server/turn-bands.test.ts",
@@ -2441,6 +4439,12 @@
       "tagged": 0,
       "testTitles": 11,
       "untagged": 11
+    },
+    {
+      "file": "tests/server/unsubscribe-token.test.ts",
+      "tagged": 0,
+      "testTitles": 7,
+      "untagged": 7
     },
     {
       "file": "tests/services/menu-hierarchy-service.test.ts",
@@ -2492,13 +4496,15 @@
     }
   ],
   "schemaVersion": 1,
-  "scanRoots": ["tests"],
+  "scanRoots": [
+    "tests"
+  ],
   "totals": {
-    "files": 415,
-    "tagged": 78,
-    "testTitles": 1762,
+    "files": 749,
+    "tagged": 91,
+    "testTitles": 3343,
     "unknownTags": 0,
-    "untagged": 1684
+    "untagged": 3252
   },
   "unknownTags": []
 }

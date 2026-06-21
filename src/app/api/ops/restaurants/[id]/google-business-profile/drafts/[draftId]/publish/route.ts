@@ -7,6 +7,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
+import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
@@ -114,26 +115,38 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
+  captureRestaurantServerEvent('gbp_publish_started', {
+    restaurantId,
+    distinctId: access.userId,
+    props: { draftId, source: 'ops' },
+  });
+
   try {
     await verifyUserPasswordConfirmation({
       email: access.userEmail,
       password: payload.password,
     });
 
-    return NextResponse.json(
-      await publishGoogleBusinessProfileWorkflowDraft({
-        restaurantId,
-        draftId,
-        actorUserId: access.userId,
-        publishJobId: payload.publishJobId,
-        publishPlanId: payload.publishPlanId,
-        idempotencyKey: payload.idempotencyKey,
-        selectedApprovals: payload.selectedApprovals,
-        decisions: payload.decisions as GoogleBusinessProfileFieldDecisionInput[] | undefined,
-        directionIntent: payload.directionIntent,
-        pushToGoogle: payload.pushToGoogle,
-      }),
-    );
+    const published = await publishGoogleBusinessProfileWorkflowDraft({
+      restaurantId,
+      draftId,
+      actorUserId: access.userId,
+      publishJobId: payload.publishJobId,
+      publishPlanId: payload.publishPlanId,
+      idempotencyKey: payload.idempotencyKey,
+      selectedApprovals: payload.selectedApprovals,
+      decisions: payload.decisions as GoogleBusinessProfileFieldDecisionInput[] | undefined,
+      directionIntent: payload.directionIntent,
+      pushToGoogle: payload.pushToGoogle,
+    });
+
+    captureRestaurantServerEvent('gbp_publish_completed', {
+      restaurantId,
+      distinctId: access.userId,
+      props: { draftId, source: 'ops' },
+    });
+
+    return NextResponse.json(published);
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
       return NextResponse.json(
@@ -142,9 +155,26 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
 
+    const status = getPublishErrorStatus(error);
+    captureRestaurantServerEvent('gbp_publish_failed', {
+      restaurantId,
+      distinctId: access.userId,
+      props: { draftId, source: 'ops', status },
+    });
+    captureServerException(error, {
+      distinctId: access.userId,
+      groups: { restaurant: restaurantId },
+      properties: {
+        draftId,
+        source: 'ops',
+        status,
+        path: '/api/ops/restaurants/[id]/google-business-profile/drafts/[draftId]/publish',
+      },
+    });
+
     return googleBusinessProfileWorkflowErrorResponse(error, {
       fallbackMessage: 'Unable to publish Google Business Profile review draft.',
-      status: getPublishErrorStatus(error),
+      status,
     });
   }
 }

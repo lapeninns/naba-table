@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon';
 
 import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
+import { HOLD_EXPIRY_SKEW_MS } from '@/server/capacity/hold-expiry';
 import { releaseTableHold } from '@/server/capacity/holds';
-import { getContextQueryPaddingMinutes, isAdjacencyQueryUndirected } from '@/server/feature-flags';
+import { getContextQueryPaddingMinutes, isAdjacencyQueryUndirected } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { ManualSelectionInputError, type DbClient, type Table, type BookingWindow } from './types';
@@ -53,6 +54,27 @@ export type BookingAssignmentRow = {
 
 export function ensureClient(client?: DbClient): DbClient {
   return client ?? getServiceSupabaseClient();
+}
+
+// Active-hold reads compare `expires_at` against the application wall-clock,
+// whereas soft-hold acquisition/cleanup compare against the database `now()`.
+// Clock skew between the app server and Postgres can therefore cause a hold
+// that the DB still considers active to be treated as expired by these reads
+// (a fail-OPEN result that risks double-booking). Pad the lower bound by a
+// small skew window so near-boundary holds are treated as STILL ACTIVE
+// (fail-safe toward NOT releasing/ignoring a hold). The proper fix is to
+// filter against the DB clock via an RPC; see needsCoordination.
+// HOLD_EXPIRY_SKEW_MS is imported from ../hold-expiry so the conflict/active-hold
+// detectors in holds.ts share the exact same pad.
+
+/**
+ * Returns the ISO timestamp used as the exclusive lower bound for
+ * `expires_at` filters. We subtract a small skew allowance from the supplied
+ * (or current) instant so that holds expiring within the skew window are still
+ * returned as active.
+ */
+export function holdExpiryLowerBoundIso(now: DateTime = DateTime.now()): string {
+  return toIsoUtc(now.minus({ milliseconds: HOLD_EXPIRY_SKEW_MS }));
 }
 
 export function applyAbortSignal<T extends { abortSignal?: (signal: AbortSignal) => T }>(
@@ -502,7 +524,9 @@ export async function fetchHoldsForWindow(
     .from('table_holds')
     .select('*, table_hold_members(table_id)')
     .eq('restaurant_id', restaurantId)
-    .gt('expires_at', new Date().toISOString())
+    // Skew-padded lower bound (see holdExpiryLowerBoundIso): keep near-boundary
+    // holds active so app/DB clock skew never drops a still-live hold.
+    .gt('expires_at', holdExpiryLowerBoundIso())
     .lt('start_at', toIsoUtc(window.block.end))
     .gt('end_at', toIsoUtc(window.block.start));
 
@@ -559,14 +583,17 @@ export async function loadActiveHoldsForDate(
 
   const dayStart = toIsoUtc(day.startOf('day'));
   const dayEnd = toIsoUtc(day.plus({ days: 1 }).startOf('day'));
-  const now = toIsoUtc(DateTime.now());
+  // Skew-padded lower bound: holds expiring within HOLD_EXPIRY_SKEW_MS of the
+  // app clock are still treated as active so a clock-skew gap with the DB never
+  // makes us drop a hold that is still live (fail-safe toward NOT releasing).
+  const expiresAfter = holdExpiryLowerBoundIso();
 
   const holdsQuery = applyAbortSignal(
     client
       .from('table_holds')
       .select('*, table_hold_members(table_id)')
       .eq('restaurant_id', restaurantId)
-      .gt('expires_at', now)
+      .gt('expires_at', expiresAfter)
       .lt('start_at', dayEnd)
       .gt('end_at', dayStart),
     signal,

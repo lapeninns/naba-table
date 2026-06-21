@@ -2,8 +2,8 @@ import { createHash, randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
-import { env } from '@/lib/env';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
@@ -21,7 +21,12 @@ import {
 } from '@/server/bookings';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
-import { isAutoAssignOnBookingEnabled } from '@/server/feature-flags';
+import {
+  getBookingPastTimeGraceMinutes,
+  getInlineAutoAssignTimeoutMs,
+  isAutoAssignOnBookingEnabled,
+  isBookingPastTimeBlockingEnabled,
+} from '@/server/runtime-policy';
 import {
   enqueueBookingCreatedSideEffects,
   safeBookingPayload,
@@ -449,6 +454,10 @@ export async function GET(req: NextRequest) {
     memberships = await timing.measure('memberships', fetchUserMemberships(user.id, supabase));
   } catch (error) {
     console.error('[ops/bookings][GET] membership lookup failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-bookings' },
+    });
     return timing.json({ error: 'Unable to verify memberships' }, { status: 500 });
   }
 
@@ -568,6 +577,11 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error('[ops/bookings][GET] query failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: targetRestaurantId },
+      properties: { restaurantId: targetRestaurantId, source: 'ops', kind: 'ops-bookings' },
+    });
     return timing.json({ error: 'Unable to fetch bookings' }, { status: 500 });
   }
 
@@ -883,8 +897,8 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     actorCapabilities,
     tz: schedule.timezone,
     flags: {
-      bookingPastTimeBlocking: env.featureFlags.bookingPastTimeBlocking ?? false,
-      bookingPastTimeGraceMinutes: env.featureFlags.bookingPastTimeGraceMinutes ?? 5,
+      bookingPastTimeBlocking: isBookingPastTimeBlockingEnabled(),
+      bookingPastTimeGraceMinutes: getBookingPastTimeGraceMinutes(),
       unified: true,
     },
     metadata: {
@@ -909,7 +923,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     // Run auto-assign BEFORE sending emails (if enabled and not a duplicate)
     if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
       const { runInlineAutoAssign } = await import('@/services/inline-auto-assign');
-      const inlineTimeoutMs = env.featureFlags.inlineAutoAssignTimeoutMs ?? 4000;
+      const inlineTimeoutMs = getInlineAutoAssignTimeoutMs();
 
       try {
         const updatedBooking = await runInlineAutoAssign({
@@ -1028,6 +1042,11 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     }
 
     console.error('[ops/bookings][POST][unified] unexpected', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: payload.restaurantId },
+      properties: { restaurantId: payload.restaurantId, source: 'ops', kind: 'ops-bookings' },
+    });
     return NextResponse.json({ error: 'Unable to create booking' }, { status: 500 });
   }
 }

@@ -75,7 +75,7 @@ export function Footer() {
             © 2026 Nabatable Inc.
           </p>
           <div className="order-1 flex items-center gap-2 sm:order-2">
-            <div className="size-2 animate-pulse rounded-full bg-primary" />
+            <div className="size-2 rounded-full bg-primary" />
             <span className="text-xs font-mono uppercase text-primary">System operational</span>
           </div>
         </div>

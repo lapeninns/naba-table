@@ -13,6 +13,7 @@ export default defineConfig({
       'server-only': path.resolve(rootDir, 'tests/stubs/server-only.ts'),
       // Keep vitest resolution aligned with tsconfig "paths" for this hook (implementation lives in src/).
       '@/hooks/useGlobalShortcuts': path.resolve(rootDir, 'src/hooks/useGlobalShortcuts.ts'),
+      '@/hooks/use-copy-to-clipboard': path.resolve(rootDir, 'src/hooks/use-copy-to-clipboard.ts'),
       // Contexts live under src/ (no root-level contexts/ directory).
       '@/contexts': path.resolve(rootDir, 'src/contexts'),
       // Ops/service layer lives under src/.

@@ -46,8 +46,7 @@ Start with the file closest to the behavior being changed, then follow imports t
 
 ## Key source files
 
-| File                             | Purpose               |
-| -------------------------------- | --------------------- |
-| `lib/env.ts`                     | Parsed env and flags. |
-| `config/env.schema.ts`           | Schema.               |
-| `scripts/feature-flags/audit.ts` | Audit.                |
+| File                   | Purpose               |
+| ---------------------- | --------------------- |
+| `lib/env.ts`           | Parsed env and flags. |
+| `config/env.schema.ts` | Schema.               |

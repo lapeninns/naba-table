@@ -28,6 +28,7 @@ const linkSchema = z.object({
 const syncSchema = z.object({
   password: z.string().trim().min(1, 'Enter your password to confirm this GBP action.'),
 });
+const disconnectSchema = syncSchema;
 
 type RouteContext = {
   params: Promise<{ id: string | string[] }>;
@@ -170,21 +171,46 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
     return errorResponse('Missing restaurant id', 400);
   }
 
-  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', _req);
+  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
     return access;
   }
 
+  let payload: z.infer<typeof disconnectSchema>;
   try {
+    payload = disconnectSchema.parse(await req.json());
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
+        { status: 400 },
+      );
+    }
+    return errorResponse('Invalid payload', 400);
+  }
+
+  try {
+    await verifyUserPasswordConfirmation({
+      email: access.userEmail,
+      password: payload.password,
+    });
+
     const state = await disconnectGoogleBusinessProfileConnection(restaurantId);
     return NextResponse.json(state);
   } catch (error) {
+    if (error instanceof PasswordConfirmationError) {
+      return NextResponse.json(
+        { message: error.message, error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
+
     const message =
       error instanceof Error ? error.message : 'Unable to disconnect Google Business Profile.';
     return errorResponse(message, 500);

@@ -1059,8 +1059,13 @@ describe('OpsEmailDeliveryClient', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
     expect(link.closest('[data-active="true"]')).not.toBeNull();
 
-    const bookingsLink = screen.getByRole('link', { name: /^bookings$/i });
-    expect(bookingsLink.closest('[data-active="true"]')).toBeNull();
+    // "Bookings" appears in both the sidebar and the mobile bottom nav;
+    // neither instance should be marked active on this page.
+    const bookingsLinks = screen.getAllByRole('link', { name: /^bookings$/i });
+    for (const bookingsLink of bookingsLinks) {
+      expect(bookingsLink.closest('[data-active="true"]')).toBeNull();
+      expect(bookingsLink).not.toHaveAttribute('aria-current', 'page');
+    }
 
     const emptyState = await screen.findByText('No email deliveries found');
     expect(

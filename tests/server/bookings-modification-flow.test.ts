@@ -10,12 +10,8 @@ const sendBookingModificationConfirmedEmailMock = vi.hoisted(() => vi.fn());
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 const autoAssignAndConfirmIfPossibleMock = vi.hoisted(() => vi.fn());
 
-vi.mock('@/lib/env', () => ({
-  env: {
-    featureFlags: {
-      inlineAutoAssignTimeoutMs: 10,
-    },
-  },
+vi.mock('@/server/runtime-policy', () => ({
+  getInlineAutoAssignTimeoutMs: vi.fn(() => 10),
 }));
 
 vi.mock('@/server/bookings', () => ({
@@ -158,7 +154,7 @@ describe('beginBookingModificationFlow inline assignment timeout', () => {
       expect.objectContaining({ id: 'booking-1', status: 'pending' }),
     );
     expect(autoAssignAndConfirmIfPossibleMock).toHaveBeenCalledWith('booking-1', {
-      bypassFeatureFlag: true,
+      forceRun: true,
       reason: 'modification',
       emailVariant: 'modified',
     });

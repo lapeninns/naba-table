@@ -388,11 +388,8 @@ export async function POST(req: NextRequest) {
  * - Alternative search (on failure): ~200-400ms
  * - Total: 200-300ms for success path, 400-600ms for failure path
  * 
- * Feature Flag:
- * To enable gradually, wrap capacity check in feature flag:
- * 
- * if (env.featureFlags.enableCapacityEnforcement) {
- *   const availabilityCheck = await checkSlotAvailability(...);
- *   if (!availabilityCheck.available) { ... }
- * }
+ * Rollout note:
+ * Capacity enforcement is now the default booking path. If this draft is revived,
+ * keep the current buildBookingsPostHttpResponse behavior instead of adding a
+ * runtime gate.
  */

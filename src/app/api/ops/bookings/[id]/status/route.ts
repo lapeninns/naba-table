@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { clearBookingTableAssignments } from '@/server/bookings';
 import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
@@ -125,6 +126,10 @@ async function patchBookingStatus(
     }
   } catch (error) {
     console.error('[ops][booking-status] membership lookup failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { bookingId: id, source: 'ops', kind: 'ops-booking-status' },
+    });
     return withStatusDeprecation(
       NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 }),
     );
@@ -304,6 +309,16 @@ async function patchBookingStatus(
           bookingId: bookingRow.id,
           error: clearError instanceof Error ? clearError.message : clearError,
         });
+        captureServerException(clearError, {
+          distinctId: user.id,
+          groups: { restaurant: bookingRow.restaurant_id },
+          properties: {
+            bookingId: bookingRow.id,
+            restaurantId: bookingRow.restaurant_id,
+            source: 'ops',
+            kind: 'ops-booking-status',
+          },
+        });
         return withStatusDeprecation(
           NextResponse.json(
             { error: 'Booking was updated but table assignments could not be released' },
@@ -348,6 +363,16 @@ async function patchBookingStatus(
       );
     }
     console.error('[ops][booking-status] unexpected validation error', validationError);
+    captureServerException(validationError, {
+      distinctId: user.id,
+      groups: bookingRow?.restaurant_id ? { restaurant: bookingRow.restaurant_id } : undefined,
+      properties: {
+        bookingId: id,
+        restaurantId: bookingRow?.restaurant_id,
+        source: 'ops',
+        kind: 'ops-booking-status',
+      },
+    });
     return withStatusDeprecation(
       NextResponse.json({ error: 'Unable to update booking' }, { status: 500 }),
     );

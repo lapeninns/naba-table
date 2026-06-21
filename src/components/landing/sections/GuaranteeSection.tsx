@@ -9,7 +9,7 @@ export function GuaranteeSection() {
   return (
     <section id="guarantee" className="pg-section border-b border-border/70 bg-background">
       <div className="pg-container">
-        <Card className="pg-panel overflow-hidden border-primary/15 bg-[linear-gradient(180deg,hsl(var(--muted)/0.7),hsl(var(--background)))] motion-safe:reveal-up">
+        <Card className="pg-panel overflow-hidden border-primary/15 bg-card motion-safe:reveal-up">
           <CardHeader className="flex flex-col items-center gap-3 space-y-0 border-b border-border/60 p-5 text-center sm:p-8 md:p-10">
             <Badge variant="guest-chip" className="pg-chip">
               Risk Reversal

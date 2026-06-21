@@ -1,6 +1,5 @@
 import { DateTime } from 'luxon';
 
-import { env } from '@/lib/env';
 import {
   resolveDemandMultiplier,
   type DemandMultiplierResult,
@@ -36,6 +35,7 @@ import {
   type SelectorDecisionEvent,
 } from '@/server/capacity/telemetry';
 import { computePayloadChecksum, hashPolicyVersion } from '@/server/capacity/v2';
+import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import {
   getAllocatorKMax as getAllocatorCombinationLimit,
   getAllocatorAdjacencyMinPartySize,
@@ -53,8 +53,8 @@ import {
   isSelectorScoringEnabled,
   isAllocatorServiceFailHard,
   isOpsMetricsEnabled,
-} from '@/server/feature-flags';
-import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+  shouldEmitCapacityPlannerStats,
+} from '@/server/runtime-policy';
 import { getTenantServiceSupabaseClient } from '@/server/supabase';
 
 import {
@@ -111,7 +111,7 @@ export function computeQuoteHoldExpiresAt(
   return now.toUTC().plus({ seconds: clampQuoteHoldTtlSeconds(ttlSeconds) });
 }
 
-function buildSelectorFeatureFlagsTelemetry(): {
+function buildSelectorPolicyTelemetry(): {
   selectorScoring: boolean;
   opsMetrics: boolean;
   plannerTimePruning: boolean;
@@ -138,7 +138,7 @@ function composePlannerConfig(params: {
   requireAdjacency: boolean;
   adjacencyRequiredGlobally: boolean;
   adjacencyMinPartySize: number | null;
-  featureFlags: ReturnType<typeof buildSelectorFeatureFlagsTelemetry>;
+  policy: ReturnType<typeof buildSelectorPolicyTelemetry>;
   serviceFallback: {
     usedFallback: boolean;
     fallbackService: ServiceKey | null;
@@ -171,14 +171,14 @@ function composePlannerConfig(params: {
       adjacencyCost: scoringConfig.weights.adjacencyCost,
       scarcity: scoringConfig.weights.scarcity,
     },
-    featureFlags: {
-      plannerTimePruning: params.featureFlags.plannerTimePruning,
-      adjacencyUndirected: params.featureFlags.adjacencyUndirected,
-      holdsStrictConflicts: params.featureFlags.holdsStrictConflicts,
-      allocatorFailHard: params.featureFlags.allocatorFailHard,
-      selectorScoring: params.featureFlags.selectorScoring,
-      opsMetrics: params.featureFlags.opsMetrics,
-      selectorLookahead: params.featureFlags.selectorLookahead,
+    policy: {
+      plannerTimePruning: params.policy.plannerTimePruning,
+      adjacencyUndirected: params.policy.adjacencyUndirected,
+      holdsStrictConflicts: params.policy.holdsStrictConflicts,
+      allocatorFailHard: params.policy.allocatorFailHard,
+      selectorScoring: params.policy.selectorScoring,
+      opsMetrics: params.policy.opsMetrics,
+      selectorLookahead: params.policy.selectorLookahead,
     },
     serviceFallback: {
       used: params.serviceFallback.usedFallback,
@@ -361,7 +361,7 @@ export async function quoteTablesForBooking(
     bookingOption: booking.booking_type ?? null,
     policy,
   });
-  const shouldEmitPlannerStats = env.featureFlags.planner.debugProfiling ?? false;
+  const shouldEmitPlannerStats = shouldEmitCapacityPlannerStats();
   const attachPlannerStats = (result: QuoteTablesResult, stats?: QuotePlannerStats | null) => {
     const shouldAttachStats = Boolean(stats) && (shouldEmitPlannerStats || !result.hold);
     if (shouldAttachStats && stats) {
@@ -470,6 +470,19 @@ export async function quoteTablesForBooking(
   await strategicConfigPromise;
   const combinationEnabled = isCombinationPlannerEnabled();
   const totalVenueCapacity = tables.reduce((sum, table) => sum + (table.capacity ?? 0), 0);
+  if (!Number.isFinite(booking.party_size) || booking.party_size <= 0) {
+    // A zero/negative/NaN party size slips past the capacity guard below and corrupts
+    // downstream overage/slack math; reject it explicitly rather than masking it as
+    // "No tables available". (gap #12)
+    await demandMultiplierPromise.catch(() => null);
+    return buildFailureResult('Invalid party size', {
+      totalTables: tables.length,
+      filteredTables: 0,
+      combinationEnabled,
+      demandMultiplier: 0,
+      plannerDurationMs: roundMilliseconds(highResNow() - operationStart),
+    });
+  }
   if (booking.party_size > totalVenueCapacity) {
     await demandMultiplierPromise.catch(() => null);
     return buildFailureResult('Insufficient global capacity', {
@@ -696,12 +709,16 @@ export async function quoteTablesForBooking(
     combinationLimit,
     selectorLimits,
     scoringConfig,
+    // Plan future bookings under the SAME adjacency policy as the current booking,
+    // otherwise a staff opt-out (requireAdjacency=false) here drifts against the
+    // runtime default in lookahead. (gap #7)
+    requireAdjacencyOverride: requireAdjacencyUsed,
   });
   plans.diagnostics.lookahead = lookaheadDiagnostics;
   const plannerDurationMs = highResNow() - plannerStart;
   const adjacencyRequiredGlobally = adjacency.size > 0 && isAllocatorAdjacencyRequired();
   const adjacencyMinPartySize = getAllocatorAdjacencyMinPartySize();
-  const featureFlags = buildSelectorFeatureFlagsTelemetry();
+  const policyTelemetry = buildSelectorPolicyTelemetry();
   const plannerConfigTelemetry = composePlannerConfig({
     diagnostics: plans.diagnostics,
     scoringConfig,
@@ -709,7 +726,7 @@ export async function quoteTablesForBooking(
     requireAdjacency: requireAdjacencyUsed,
     adjacencyRequiredGlobally,
     adjacencyMinPartySize: adjacencyMinPartySize ?? null,
-    featureFlags,
+    policy: policyTelemetry,
     serviceFallback: {
       usedFallback: bookingWindowUsedFallback,
       fallbackService: bookingWindowFallbackService,
@@ -821,6 +838,10 @@ export async function quoteTablesForBooking(
       alternates.push(candidateSummary);
     }
 
+    // Track a hold created in this iteration so any throw after creation releases
+    // it instead of leaking it until TTL (e.g. an inline abort landing mid-quote,
+    // or post-insert validation/telemetry throwing). (#4)
+    let pendingHoldId: string | null = null;
     try {
       const summary = summarizeSelection(plan.tables, booking.party_size);
       const zoneForHold = summary.zoneId ?? plan.tables[0]?.zoneId;
@@ -830,7 +851,7 @@ export async function quoteTablesForBooking(
       const snapshot = buildSelectionSnapshot({
         planTables: plan.tables,
         adjacency,
-        adjacencyUndirected: featureFlags.adjacencyUndirected,
+        adjacencyUndirected: policyTelemetry.adjacencyUndirected,
         fallbackZoneId: zoneForHold,
       });
 
@@ -857,6 +878,16 @@ export async function quoteTablesForBooking(
         },
         client: supabase,
       });
+      pendingHoldId = hold.id;
+
+      // If the caller aborted while we were creating the hold (e.g. the inline 4s
+      // timeout fired mid-quote), stop now. The catch below releases pendingHoldId
+      // so the hold can't linger until its TTL. (#4)
+      if (signal?.aborted) {
+        const abortError = new Error('Planner aborted after hold creation');
+        abortError.name = 'AbortError';
+        throw abortError;
+      }
 
       if (isHoldStrictConflictsEnabled()) {
         try {
@@ -979,7 +1010,7 @@ export async function quoteTablesForBooking(
         candidates: [candidateSummary, ...alternates],
         selected: candidateSummary,
         durationMs: roundMilliseconds(totalDurationMs),
-        featureFlags,
+        policy: policyTelemetry,
         timing: buildTiming({
           totalMs: totalDurationMs,
           plannerMs: plannerDurationMs,
@@ -1004,8 +1035,24 @@ export async function quoteTablesForBooking(
           capacityOverflowFallback: capacityOverflowFallbackUsed,
         },
       };
+      pendingHoldId = null;
       return attachPlannerStats(successResult, collectPlannerStats());
     } catch (error) {
+      // Any failure after the hold was created must release it or it leaks until
+      // TTL. createTableHold's own failures leave pendingHoldId null. (#4)
+      if (pendingHoldId) {
+        try {
+          await releaseTableHold({ holdId: pendingHoldId, client: supabase });
+        } catch (releaseError) {
+          console.error('[capacity.quote] failed to release hold after quote error', {
+            holdId: pendingHoldId,
+            bookingId,
+            restaurantId: booking.restaurant_id,
+            error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+          });
+        }
+        pendingHoldId = null;
+      }
       if (error instanceof HoldConflictError) {
         const refreshedConflicts = await findHoldConflicts({
           restaurantId: booking.restaurant_id,

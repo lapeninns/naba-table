@@ -104,6 +104,17 @@ const googleBusinessProfileConnection = {
   businessInfo: emptyBusinessInfo,
 };
 
+const availableLocation = {
+  accountName: 'accounts/2',
+  accountId: '2',
+  accountDisplayName: 'QA Google Group',
+  locationName: 'locations/2',
+  locationId: '2',
+  title: 'QA GBP Restaurant - Cambridge',
+  addressText: '2 QA Street, Cambridge',
+  placeId: 'places/qa-cambridge',
+};
+
 const dualSyncField = {
   fieldKey: 'profile.phone',
   sectionKey: 'profile',
@@ -215,9 +226,19 @@ async function waitForSettled(page: Page) {
   await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 }
 
-async function installGbpApiMocks(page: Page) {
+type GbpApiMockOptions = {
+  connection?: typeof googleBusinessProfileConnection;
+  locations?: (typeof availableLocation)[];
+  dualSync?: typeof dualSyncState;
+};
+
+async function installGbpApiMocks(page: Page, options: GbpApiMockOptions = {}) {
+  const connection = options.connection ?? googleBusinessProfileConnection;
+  const locations = options.locations ?? [];
+  const state = options.dualSync ?? dualSyncState;
   let previewRequests = 0;
   let publishRequests = 0;
+  const disconnectRequests: unknown[] = [];
 
   await page.route('**/api/ops/**', async (route) => {
     const url = new URL(route.request().url());
@@ -239,17 +260,33 @@ async function installGbpApiMocks(page: Page) {
     }
 
     if (pathname === `/api/ops/restaurants/${restaurantId}/google-business-profile`) {
-      await route.fulfill({ json: googleBusinessProfileConnection });
+      if (route.request().method() === 'DELETE') {
+        disconnectRequests.push(route.request().postDataJSON());
+        await route.fulfill({
+          json: {
+            ...connection,
+            status: 'unlinked',
+            externalAccountId: null,
+            externalAccountName: null,
+            externalLocationId: null,
+            externalLocationName: null,
+            externalLocationTitle: null,
+          },
+        });
+        return;
+      }
+
+      await route.fulfill({ json: connection });
       return;
     }
 
     if (pathname === `/api/ops/restaurants/${restaurantId}/google-business/locations`) {
-      await route.fulfill({ json: { locations: [] } });
+      await route.fulfill({ json: { locations } });
       return;
     }
 
     if (pathname === `/api/ops/restaurants/${restaurantId}/dual-sync/state`) {
-      await route.fulfill({ json: dualSyncState });
+      await route.fulfill({ json: state });
       return;
     }
 
@@ -274,6 +311,7 @@ async function installGbpApiMocks(page: Page) {
   return {
     getPreviewRequests: () => previewRequests,
     getPublishRequests: () => publishRequests,
+    getDisconnectRequests: () => disconnectRequests,
   };
 }
 
@@ -306,6 +344,12 @@ test.describe('ops GBP dual-sync shipped route', () => {
       /app\.localhost:\d+\/settings\/restaurant\/google-business-profile/,
     );
     await expect(page.locator('main').getByText('Google command center')).toBeVisible();
+    await expect(
+      page.getByTestId('gbp-overview-card').getByText('Linked', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('gbp-overview-card').getByText('Location mapped', { exact: true }),
+    ).toBeVisible();
     await expect(page.locator('main').getByText('Review changes below')).toBeVisible();
     await expect(page.locator('main').getByText('Google workflow')).toBeVisible();
     await expect(
@@ -329,5 +373,133 @@ test.describe('ops GBP dual-sync shipped route', () => {
       path: testInfo.outputPath('ops-gbp-dual-sync-preview-desktop.png'),
       fullPage: true,
     });
+  });
+
+  test('google business profile route shows disconnected and unconfigured states @p1 @browser @contract @external-mock @local-only', async ({
+    page,
+  }) => {
+    await installGbpApiMocks(page, {
+      connection: {
+        ...googleBusinessProfileConnection,
+        isConfigured: false,
+        status: 'unlinked',
+        connectedGoogleEmail: null,
+        connectedGoogleName: null,
+        externalAccountId: null,
+        externalAccountName: null,
+        externalLocationId: null,
+        externalLocationName: null,
+        externalLocationTitle: null,
+        externalPlaceId: null,
+        availableLocations: [],
+      },
+    });
+
+    await page.goto('/settings/restaurant/google-business-profile', {
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForSettled(page);
+
+    await expect(
+      page.getByTestId('gbp-overview-card').getByText('Not connected', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('gbp-overview-card').getByText('No location mapped', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator('main').getByText('Google Business Profile credentials are not configured'),
+    ).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('button', { name: 'Connect Google Business Profile' }),
+    ).toBeDisabled();
+  });
+
+  test('google business profile route shows connect state without publish controls @p1 @browser @contract @external-mock @local-only', async ({
+    page,
+  }) => {
+    await installGbpApiMocks(page, {
+      connection: {
+        ...googleBusinessProfileConnection,
+        status: 'unlinked',
+        connectedGoogleEmail: null,
+        connectedGoogleName: null,
+        externalAccountId: null,
+        externalAccountName: null,
+        externalLocationId: null,
+        externalLocationName: null,
+        externalLocationTitle: null,
+        externalPlaceId: null,
+        availableLocations: [],
+      },
+    });
+
+    await page.goto('/settings/restaurant/google-business-profile', {
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForSettled(page);
+
+    await expect(
+      page.getByTestId('gbp-overview-card').getByText('Not connected', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator('main').getByRole('button', { name: 'Connect Google Business Profile' }),
+    ).toBeEnabled();
+  });
+
+  test('google business profile route shows the location picker before linking @p1 @browser @contract @external-mock @local-only', async ({
+    page,
+  }) => {
+    await installGbpApiMocks(page, {
+      connection: {
+        ...googleBusinessProfileConnection,
+        status: 'authorized',
+        externalAccountId: null,
+        externalAccountName: null,
+        externalLocationId: null,
+        externalLocationName: null,
+        externalLocationTitle: null,
+        externalPlaceId: null,
+        availableLocations: [],
+      },
+      locations: [availableLocation],
+    });
+
+    await page.goto('/settings/restaurant/google-business-profile', {
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForSettled(page);
+
+    await expect(
+      page.getByTestId('gbp-overview-card').getByText('Choose location', { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.locator('main').getByText('Available locations')).toBeVisible();
+    await expect(
+      page.locator('main').getByText('QA GBP Restaurant - Cambridge').first(),
+    ).toBeVisible();
+    await expect(page.locator('main').getByText('2 QA Street, Cambridge')).toBeVisible();
+    await expect(page.locator('main').getByRole('button', { name: 'Link location' })).toBeVisible();
+  });
+
+  test('google business profile disconnect requires password on the shipped route @p1 @browser @contract @external-mock @local-only', async ({
+    page,
+  }) => {
+    const requests = await installGbpApiMocks(page);
+
+    await page.goto('/settings/restaurant/google-business-profile', {
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForSettled(page);
+
+    await page.locator('main').getByTestId('gbp-disconnect-button').click();
+    const dialog = page.getByTestId('gbp-disconnect-dialog');
+
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Disconnect$/ })).toBeDisabled();
+
+    await dialog.getByLabel(/confirm with your password/i).fill('secret-password');
+    await dialog.getByRole('button', { name: /^Disconnect$/ }).click();
+
+    await expect(dialog).toBeHidden();
+    expect(requests.getDisconnectRequests()).toEqual([{ password: 'secret-password' }]);
   });
 });

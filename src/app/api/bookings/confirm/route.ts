@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import {
   validateConfirmationToken,
@@ -118,6 +119,9 @@ export async function GET(req: NextRequest) {
 
     // Handle unexpected errors
     console.error('[bookings/confirm] Unexpected error', error);
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'booking-confirm' },
+    });
 
     return NextResponse.json(
       {

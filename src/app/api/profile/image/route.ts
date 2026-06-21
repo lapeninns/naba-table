@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -8,7 +9,7 @@ import type { NextRequest } from 'next/server';
 
 const BUCKET_ID = 'profile-avatars';
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 function jsonError(status: number, code: string, message: string, details?: unknown) {
   return NextResponse.json({ code, message, details }, { status });
@@ -91,7 +92,7 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
     }
 
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      return jsonError(400, 'UNSUPPORTED_FILE', 'Supported formats: JPEG, PNG, WEBP, SVG');
+      return jsonError(400, 'UNSUPPORTED_FILE', 'Supported formats: JPEG, PNG, WEBP');
     }
 
     const service = await ensureBucketExists();
@@ -129,6 +130,9 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     console.error('[profile][avatar][post] unexpected', error);
+    captureServerException(error, {
+      properties: { source: 'api', kind: 'profile-image' },
+    });
     return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t upload your image. Please try again.');
   }
 }

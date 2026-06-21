@@ -12,7 +12,9 @@ import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageSh
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { StaleBoundary } from '@/components/ui/stale-boundary';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { getSwrUiState } from '@/lib/query/swrUiState';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { CustomersTable } from './CustomersTable';
@@ -66,6 +68,7 @@ export function OpsCustomersClient({
   }, [activeRestaurantId, defaultRestaurantId, setActiveRestaurantId]);
 
   const {
+    customersQuery,
     error,
     isLoading,
     guestRows,
@@ -91,6 +94,8 @@ export function OpsCustomersClient({
 
   const currentRestaurantName =
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'Restaurant';
+  // Param-change stale state (filters/search/sort) per docs/sdlc/react-query-swr-ux.md.
+  const swr = getSwrUiState(customersQuery);
 
   if (memberships.length === 0) {
     return (
@@ -206,15 +211,18 @@ export function OpsCustomersClient({
       ) : null}
 
       <section className="space-y-3">
-        <CustomersTable
-          rows={guestRows}
-          isLoading={isLoading}
-          hasActiveFilters={hasActiveFilters}
-          onLoadMore={handleLoadMore}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          focusCustomerId={focusCustomer}
-        />
+        {/* Toolbar and summary stay outside; only the guest list dims. */}
+        <StaleBoundary isStale={swr.isPlaceholderStale}>
+          <CustomersTable
+            rows={guestRows}
+            isLoading={isLoading}
+            hasActiveFilters={hasActiveFilters}
+            onLoadMore={handleLoadMore}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            focusCustomerId={focusCustomer}
+          />
+        </StaleBoundary>
       </section>
     </OpsPageShell>
   );

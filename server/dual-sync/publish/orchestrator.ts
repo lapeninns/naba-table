@@ -117,7 +117,7 @@ async function runPublishUnlocked(
     registry,
     fieldPolicyVersion,
     decisionHash,
-    runtimeFlags,
+    runtimeControls,
   } = await preparePublishRuntimeContext({
     client,
     input,
@@ -175,7 +175,7 @@ async function runPublishUnlocked(
     coreSnapshot,
     gbpSnapshot,
     registry,
-    runtimeFlags,
+    runtimeControls,
     ports,
     exportPreflight,
     googleEditThrottle: options.googleEditThrottle,

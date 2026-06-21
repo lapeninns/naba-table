@@ -1,7 +1,7 @@
 import { assertDualSyncRestaurantNotPaused } from '../controls';
-import { getDualSyncRuntimeFlags, type DualSyncRuntimeFlags } from '../flag';
 import { refreshFromGoogleWithoutLock } from '../refresh/service';
 import { buildRegistry, type DualSyncFieldConfig } from '../registry';
+import { getDualSyncRuntimeControls, type DualSyncRuntimeControls } from '../runtime-controls';
 import { buildDecisionHash } from './orchestrator-domain';
 import { ensureActiveFieldPolicyVersion } from '../registry/field-policy-versions';
 import { readGoogleSnapshot } from '../snapshots/google';
@@ -36,7 +36,7 @@ interface PreparePublishRuntimeContextResult {
   readonly registry: ReadonlyArray<DualSyncFieldConfig>;
   readonly fieldPolicyVersion: DualSyncFieldPolicyVersion;
   readonly decisionHash: string;
-  readonly runtimeFlags: DualSyncRuntimeFlags;
+  readonly runtimeControls: DualSyncRuntimeControls;
 }
 
 export async function preparePublishRuntimeContext(
@@ -83,6 +83,6 @@ export async function preparePublishRuntimeContext(
     registry,
     fieldPolicyVersion,
     decisionHash: buildDecisionHash(input.input, fieldPolicyVersion.policyHash),
-    runtimeFlags: getDualSyncRuntimeFlags({ restaurantId }),
+    runtimeControls: getDualSyncRuntimeControls({ restaurantId }),
   };
 }

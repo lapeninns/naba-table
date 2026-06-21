@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { firstString } from '@/lib/api/query-params';
 import { generateCSV } from '@/lib/export/csv';
@@ -108,6 +109,10 @@ export async function GET(req: NextRequest) {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (error) {
     console.error('[ops/customers/export][GET] membership lookup failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      properties: { source: 'ops', kind: 'ops-customers-export' },
+    });
     return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
   }
 
@@ -157,6 +162,11 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error('[ops/customers/export][GET] query failed', error);
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: targetRestaurantId },
+      properties: { restaurantId: targetRestaurantId, source: 'ops', kind: 'ops-customers-export' },
+    });
     return NextResponse.json({ error: 'Unable to export guests' }, { status: 500 });
   }
 

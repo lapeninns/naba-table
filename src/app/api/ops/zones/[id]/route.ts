@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { deleteZone, updateZone } from '@/server/ops/zones';
@@ -110,6 +111,11 @@ async function patchZone(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ zone: updated });
     } catch (error) {
       console.error('[ops/zones][PATCH] Update error', { error, zoneId: id });
+      captureServerException(error, {
+        distinctId: user.id,
+        groups: { restaurant: zone.restaurant_id },
+        properties: { restaurantId: zone.restaurant_id, source: 'ops', kind: 'ops-zone' },
+      });
       return NextResponse.json(
         { error: 'Failed to update zone', message: 'Failed to update zone' },
         { status: 500 },
@@ -117,6 +123,9 @@ async function patchZone(req: NextRequest, context: RouteContext) {
     }
   } catch (error) {
     console.error('[ops/zones][PATCH] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-zone' },
+    });
     return NextResponse.json(
       { error: 'An unexpected error occurred', message: 'An unexpected error occurred' },
       { status: 500 },
@@ -199,6 +208,11 @@ async function deleteZoneRoute(_req: NextRequest, context: RouteContext) {
       }
 
       console.error('[ops/zones][DELETE] Delete error', { error, zoneId: id });
+      captureServerException(error, {
+        distinctId: user.id,
+        groups: { restaurant: zone.restaurant_id },
+        properties: { restaurantId: zone.restaurant_id, source: 'ops', kind: 'ops-zone' },
+      });
       return NextResponse.json(
         { error: 'Failed to delete zone', message: 'Failed to delete zone' },
         { status: 500 },
@@ -206,6 +220,9 @@ async function deleteZoneRoute(_req: NextRequest, context: RouteContext) {
     }
   } catch (error) {
     console.error('[ops/zones][DELETE] Unexpected error', { error });
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-zone' },
+    });
     return NextResponse.json(
       { error: 'An unexpected error occurred', message: 'An unexpected error occurred' },
       { status: 500 },

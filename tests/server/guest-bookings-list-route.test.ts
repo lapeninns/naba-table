@@ -8,14 +8,6 @@ const fromMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
-    featureFlags: {
-      bookingPastTimeBlocking: false,
-      bookingPastTimeGraceMinutes: 5,
-      bookingValidationUnified: false,
-      autoAssignOnBooking: false,
-      inlineAutoAssignTimeoutMs: 4000,
-      guestLookupPolicy: false,
-    },
     reserve: {
       defaultDurationMinutes: 90,
     },

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { captureServerException } from '@/lib/posthog/server';
 
 import { quoteTables } from '@/server/capacity/engine';
 import { HoldConflictError } from '@/server/capacity/holds';
@@ -168,6 +169,16 @@ async function postStaffAutoQuote(req: NextRequest) {
     }
 
     console.error('[staff/auto/quote] unexpected error', { error, bookingId });
+    captureServerException(error, {
+      distinctId: user.id,
+      groups: { restaurant: bookingRow.restaurant_id },
+      properties: {
+        bookingId,
+        restaurantId: bookingRow.restaurant_id,
+        source: 'ops',
+        kind: 'staff-auto-quote',
+      },
+    });
     const message = error instanceof Error ? error.message : 'Unexpected error';
     return NextResponse.json({ error: message }, { status: 500 });
   }

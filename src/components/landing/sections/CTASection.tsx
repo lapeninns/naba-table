@@ -15,10 +15,8 @@ import {
 export function CTASection() {
   return (
     <section className="pg-section relative overflow-hidden border-b border-border/70 bg-background">
-      <div className="pointer-events-none absolute inset-0 bg-primary/[0.04] pattern-grid-lg" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,hsl(var(--primary)/0.12),transparent)]" />
       <div className="pg-container-sm relative z-10">
-        <Card className="pg-panel overflow-hidden border-primary/20 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.8))] shadow-[var(--pg-shadow-nav)] motion-safe:reveal-up">
+        <Card className="pg-panel overflow-hidden border-primary/20 bg-card shadow-[var(--pg-shadow-nav)] motion-safe:reveal-up">
           <CardHeader className="flex flex-col gap-2 space-y-0 border-b border-border/60 p-5 text-center sm:gap-3 sm:p-8 md:gap-4 md:p-10 lg:gap-5">
             <CardTitle className="pg-section-title">
               Ready to see what your next service could look like?

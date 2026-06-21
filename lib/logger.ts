@@ -1,3 +1,5 @@
+import { logs, SeverityNumber, type Logger as OtelLogger } from '@opentelemetry/api-logs';
+
 import { redactUrlQuery } from '@/lib/security/url-redaction';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -39,10 +41,18 @@ const LOG_METHOD: Record<LogLevel, (message?: unknown, ...optionalParams: unknow
   error: (message, ...optionalParams) => console.error(message, ...optionalParams),
 };
 
+const OTEL_SEVERITY: Record<LogLevel, SeverityNumber> = {
+  debug: SeverityNumber.DEBUG,
+  info: SeverityNumber.INFO,
+  warn: SeverityNumber.WARN,
+  error: SeverityNumber.ERROR,
+};
+
 export interface LoggerOptions {
   level?: LogLevel;
   redactKeys?: string[];
   now?: () => Date;
+  otelLogger?: OtelLogger | null;
 }
 
 export interface StructuredLogger {
@@ -179,6 +189,43 @@ function sanitizeMetadata(
   return sanitized;
 }
 
+function toOtelAttributes(
+  payload: Record<string, unknown>,
+): Record<string, string | number | boolean> {
+  const attributes: Record<string, string | number | boolean> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (key === 'message') continue;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      attributes[key] = value;
+      continue;
+    }
+    if (value === null || value === undefined) continue;
+    attributes[key] = JSON.stringify(value);
+  }
+
+  return attributes;
+}
+
+function emitOtelLog(
+  level: LogLevel,
+  payload: Record<string, unknown>,
+  otelLogger: OtelLogger | null | undefined,
+): void {
+  if (otelLogger === null) return;
+
+  const resolvedLogger = otelLogger ?? logs.getLogger('nabatable-server');
+  if (!resolvedLogger.enabled({ severityNumber: OTEL_SEVERITY[level] })) return;
+
+  resolvedLogger.emit({
+    body: typeof payload.message === 'string' ? payload.message : 'nabatable log',
+    severityNumber: OTEL_SEVERITY[level],
+    severityText: level.toUpperCase(),
+    attributes: toOtelAttributes(payload),
+    timestamp: Date.now(),
+  });
+}
+
 function createEmitter(level: LogLevel, options: LoggerOptions) {
   const minimumLevel = LEVEL_PRIORITY[options.level ?? toLogLevel(process.env.LOG_LEVEL)];
   const now = options.now ?? (() => new Date());
@@ -197,6 +244,7 @@ function createEmitter(level: LogLevel, options: LoggerOptions) {
 
     try {
       LOG_METHOD[level](JSON.stringify(structured));
+      emitOtelLog(level, structured, options.otelLogger);
     } catch (error) {
       LOG_METHOD.error('logger serialization failed', { error, structured });
     }
