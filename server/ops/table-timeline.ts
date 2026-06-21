@@ -76,6 +76,7 @@ type BookingMeta = {
   customerPhone: string | null;
   notes: string | null;
   tableIds: string[];
+  bookingType: string | null;
 };
 
 type BusyWindow = {
@@ -256,6 +257,7 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         customerPhone: booking.customer_phone ?? null,
         notes: booking.notes ?? null,
         tableIds,
+        bookingType: booking.booking_type ?? null,
       });
     } catch (error) {
       console.warn('[ops][tables][timeline] unable to compute booking window', {
@@ -519,6 +521,7 @@ function buildSegmentsFromBusyWindows({
           customerPhone: booking.customerPhone,
           notes: booking.notes,
           tableIds: booking.tableIds,
+          bookingType: booking.bookingType,
         }
         : null,
       hold: hold,

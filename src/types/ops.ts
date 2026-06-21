@@ -293,6 +293,7 @@ export type TableTimelineBookingRef = {
   customerPhone?: string | null;
   notes?: string | null;
   tableIds?: string[];
+  bookingType?: string | null;
 };
 
 export type TableTimelineHoldRef = {

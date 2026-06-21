@@ -35,7 +35,7 @@ describe('PR baseline changed-path selector', () => {
   });
 
   it('selects shadcn and Luma guards for UI changes', () => {
-    const selected = idsFor(['src/components/features/dashboard/TableFloorPlan.tsx']);
+    const selected = idsFor(['src/components/features/dashboard/OpsDashboardClient.tsx']);
 
     expect(selected).toContain('ui:shadcn-guard');
     expect(selected).toContain('ui:luma-guard');
