@@ -27,6 +27,11 @@ export function useDetailsStepForm({
   const contextActions = useWizardActions();
   const state = providedState ?? contextState;
   const actions = providedActions ?? contextActions;
+  if (!state || !actions) {
+    throw new Error(
+      'useDetailsStepForm requires explicit state/actions props or a WizardProvider ancestor.',
+    );
+  }
   const schema = useMemo(() => createDetailsFormSchema(mode), [mode]);
   const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
     resolver: zodResolver(schema),

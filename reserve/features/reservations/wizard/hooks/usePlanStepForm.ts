@@ -129,6 +129,52 @@ export function derivePlanDateAdvisory(
   return PLAN_DATE_ADVISORY_COPY;
 }
 
+/**
+ * Snap a `HH:mm` value to the nearest enabled interval boundary.
+ *
+ * Rounds to the nearest interval (not down) so a manual entry such as 19:08 with
+ * a 15-minute interval resolves to 19:15 rather than silently dropping back to
+ * 19:00. The result is clamped to `latestSelectableMinutes` when provided so the
+ * snap can never land past the last selectable slot. Invalid input is returned
+ * unchanged.
+ */
+export function normalizeTimeToInterval(
+  value: string,
+  intervalMinutes: number | null,
+  latestSelectableMinutes: number | null,
+): string {
+  if (!value) {
+    return '';
+  }
+
+  const [hoursPart, minutesPart] = value.split(':');
+  const hours = Number.parseInt(hoursPart ?? '', 10);
+  const minutes = Number.parseInt(minutesPart ?? '', 10);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
+    return value;
+  }
+
+  if (!intervalMinutes || intervalMinutes <= 0) {
+    return value;
+  }
+
+  const totalMinutes = Math.max(0, hours * 60 + minutes);
+  const cappedMinutes =
+    typeof latestSelectableMinutes === 'number'
+      ? Math.min(totalMinutes, latestSelectableMinutes)
+      : totalMinutes;
+  let normalizedMinutes = Math.round(cappedMinutes / intervalMinutes) * intervalMinutes;
+  if (typeof latestSelectableMinutes === 'number' && normalizedMinutes > latestSelectableMinutes) {
+    // Rounding up can overshoot the final slot; step back to the previous boundary.
+    normalizedMinutes = Math.floor(cappedMinutes / intervalMinutes) * intervalMinutes;
+  }
+  const nextHours = Math.floor(normalizedMinutes / 60);
+  const nextMinutes = normalizedMinutes % 60;
+
+  return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
+}
+
 export const deriveMaskAvailability = (
   mask: CalendarMask,
   normalizedMinTimestamp: number,
@@ -479,6 +525,11 @@ export function usePlanStepForm({
   const contextActions = useWizardActions();
   const state = providedState ?? contextState;
   const actions = providedActions ?? contextActions;
+  if (!state || !actions) {
+    throw new Error(
+      'usePlanStepForm requires explicit state/actions props or a WizardProvider ancestor.',
+    );
+  }
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     mode: 'onChange',
@@ -634,40 +685,7 @@ export function usePlanStepForm({
   }, [fallbackTime, form, state.details.time, updateField]);
 
   const normalizeToInterval = useCallback(
-    (value: string) => {
-      if (!value) {
-        return '';
-      }
-
-      const [hoursPart, minutesPart] = value.split(':');
-      const hours = Number.parseInt(hoursPart ?? '', 10);
-      const minutes = Number.parseInt(minutesPart ?? '', 10);
-
-      if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0) {
-        return value;
-      }
-
-      if (!intervalMinutes || intervalMinutes <= 0) {
-        return value;
-      }
-
-      const totalMinutes = Math.max(0, hours * 60 + minutes);
-      const cappedMinutes =
-        typeof latestSelectableMinutes === 'number'
-          ? Math.min(totalMinutes, latestSelectableMinutes)
-          : totalMinutes;
-      // triage-096: snap to the NEAREST interval rather than always flooring, but never past
-      // the last selectable slot (fall back to floor when rounding up would overshoot the cap).
-      const roundedMinutes = Math.round(cappedMinutes / intervalMinutes) * intervalMinutes;
-      const normalizedMinutes =
-        typeof latestSelectableMinutes === 'number' && roundedMinutes > latestSelectableMinutes
-          ? Math.floor(cappedMinutes / intervalMinutes) * intervalMinutes
-          : roundedMinutes;
-      const nextHours = Math.floor(normalizedMinutes / 60);
-      const nextMinutes = normalizedMinutes % 60;
-
-      return `${nextHours.toString().padStart(2, '0')}:${nextMinutes.toString().padStart(2, '0')}`;
-    },
+    (value: string) => normalizeTimeToInterval(value, intervalMinutes, latestSelectableMinutes),
     [intervalMinutes, latestSelectableMinutes],
   );
 
