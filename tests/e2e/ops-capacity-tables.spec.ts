@@ -286,10 +286,11 @@ test.describe('ops capacity and table shipped routes', () => {
     });
   });
 
-  test('legacy floor-plan routes redirect to the authenticated dashboard @p1 @browser @smoke @local-only', async ({
+  test('legacy seating routes redirect to the authenticated dashboard @p1 @browser @smoke @local-only', async ({
     page,
   }) => {
-    for (const legacyRoute of ['/floor-plan', '/seating/floor-plan']) {
+    // Note: /floor-plan now renders the live service-view floor plan (no longer a redirect).
+    for (const legacyRoute of ['/seating', '/seating/floor-plan']) {
       await page.goto(legacyRoute, { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 

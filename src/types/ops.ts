@@ -287,12 +287,17 @@ export type TableTimelineBookingRef = {
   customerName: string | null;
   partySize: number;
   status: OpsBookingStatus;
+  /** Prep-buffered block window boundaries (used for segment layout). */
   startAt: string;
   endAt: string;
+  /** Customer-facing reservation (dining) window — preferred for finishing/overdue thresholds. */
+  diningStartAt?: string | null;
+  diningEndAt?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;
   notes?: string | null;
   tableIds?: string[];
+  bookingType?: string | null;
 };
 
 export type TableTimelineHoldRef = {

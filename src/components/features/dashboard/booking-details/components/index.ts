@@ -71,24 +71,6 @@ export {
   type BookingDialogPrimaryAction,
 } from './BookingDialogActionRail';
 
-/** Assigned-table summary panel for the booking assignment tab */
-export {
-  BookingAssignmentAssignedTablesPanel,
-  type BookingAssignmentAssignedTablesPanelProps,
-} from './BookingAssignmentAssignedTablesPanel';
-
-/** Floor-plan selection panel for the booking assignment tab */
-export {
-  BookingAssignmentFloorPlanPanel,
-  type BookingAssignmentFloorPlanPanelProps,
-} from './BookingAssignmentFloorPlanPanel';
-
-/** Confirmation dialog for removing a booking assignment table */
-export {
-  BookingAssignmentUnassignDialog,
-  type BookingAssignmentUnassignDialogProps,
-} from './BookingAssignmentUnassignDialog';
-
 // =============================================================================
 // COMPOSITE COMPONENTS
 // =============================================================================
