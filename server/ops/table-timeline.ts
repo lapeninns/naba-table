@@ -339,8 +339,8 @@ function buildSlotMetadata(schedule: RestaurantSchedule, serviceFilter: 'lunch' 
     entry.slotCount += 1;
   }
 
-  let windowStart = slots.length > 0 ? DateTime.fromISO(slots[0]!.start) : null;
-  let windowEnd = slots.length > 0 ? DateTime.fromISO(slots[slots.length - 1]!.end) : null;
+  let windowStart: DateTime | null = slots.length > 0 ? DateTime.fromISO(slots[0]!.start) : null;
+  let windowEnd: DateTime | null = slots.length > 0 ? DateTime.fromISO(slots[slots.length - 1]!.end) : null;
 
   // If viewing all services, ensure the window covers the full operating hours
   // This prevents bookings from being visually truncated at the last seating time
