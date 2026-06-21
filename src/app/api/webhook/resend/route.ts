@@ -8,6 +8,7 @@ import {
   findLatestEmailDeliveryByMessageId,
   type EmailDeliveryStatus,
 } from '@/server/emails/email-delivery-log';
+import { addEmailToSuppressionList } from '@/server/emails/email-suppression-list';
 import { suppressProfilesByEmail } from '@/server/emails/recipient-suppression';
 import { recordObservabilityEvent } from '@/server/observability';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
@@ -180,7 +181,16 @@ export async function POST(req: NextRequest) {
       case 'email.bounced':
       case 'email.complained':
       case 'email.complaint': {
-        const result = await suppressProfilesByEmail(primaryRecipient);
+        // Suppress in both stores: the profile-bound flag (registered users) and the
+        // email-keyed list (honours every recipient, incl. guests without an account).
+        const suppressionReason = event.type === 'email.bounced' ? 'bounce' : 'complaint';
+        const [result] = await Promise.all([
+          suppressProfilesByEmail(primaryRecipient),
+          addEmailToSuppressionList(primaryRecipient, suppressionReason, {
+            via: 'resend-webhook',
+            eventType: event.type,
+          }),
+        ]);
 
         if (result.updatedProfiles > 0) {
           await recordObservabilityEvent({

@@ -109,6 +109,7 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
       subject,
       html,
       text,
+      category: 'team_invitation',
       replyTo: resolvePlatformReplyTo(),
       fromName: resolvePlatformSupportSenderName(),
       tags: [
