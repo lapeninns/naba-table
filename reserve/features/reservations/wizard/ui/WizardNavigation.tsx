@@ -69,6 +69,12 @@ function useHeightObserver(
     // Initial measurement
     updateHeight();
 
+    // triage-099: ResizeObserver is unavailable in some legacy/SSR environments; the initial
+    // measurement above already reported the height, so skip observation rather than throwing.
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
     // Observe for size changes (content, font loading, etc.)
     const observer = new ResizeObserver(updateHeight);
     observer.observe(node);

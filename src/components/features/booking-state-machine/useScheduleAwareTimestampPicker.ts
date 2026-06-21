@@ -303,7 +303,8 @@ export function useScheduleAwareTimestampPicker({
     (date: Date) => {
       const key = formatDateForInput(date);
       const reason = unavailableDates.get(key);
-      return reason === 'closed';
+      // triage-093: disable fully-booked ('no-slots') days too, not just closed days.
+      return reason === 'closed' || reason === 'no-slots';
     },
     [unavailableDates],
   );

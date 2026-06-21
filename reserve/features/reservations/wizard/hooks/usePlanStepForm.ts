@@ -656,7 +656,13 @@ export function usePlanStepForm({
         typeof latestSelectableMinutes === 'number'
           ? Math.min(totalMinutes, latestSelectableMinutes)
           : totalMinutes;
-      const normalizedMinutes = Math.floor(cappedMinutes / intervalMinutes) * intervalMinutes;
+      // triage-096: snap to the NEAREST interval rather than always flooring, but never past
+      // the last selectable slot (fall back to floor when rounding up would overshoot the cap).
+      const roundedMinutes = Math.round(cappedMinutes / intervalMinutes) * intervalMinutes;
+      const normalizedMinutes =
+        typeof latestSelectableMinutes === 'number' && roundedMinutes > latestSelectableMinutes
+          ? Math.floor(cappedMinutes / intervalMinutes) * intervalMinutes
+          : roundedMinutes;
       const nextHours = Math.floor(normalizedMinutes / 60);
       const nextMinutes = normalizedMinutes % 60;
 
