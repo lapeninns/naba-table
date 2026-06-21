@@ -7,7 +7,6 @@
     "src/app/api/health/route.ts",
     "src/app/api/ops/dashboard/changes/route.ts",
     "src/app/api/ops/dashboard/heatmap/route.ts",
-    "src/app/api/ops/dashboard/rejections/route.ts",
     "src/app/api/ops/dashboard/summary/route.ts"
   ]
 }
