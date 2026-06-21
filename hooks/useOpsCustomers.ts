@@ -55,5 +55,8 @@ export function useOpsCustomers(filters: CustomerFilters | null) {
     staleTime: 60_000,
     getNextPageParam: (lastPage) =>
       lastPage.pageInfo.hasNext ? lastPage.pageInfo.page + 1 : undefined,
+    // Customer records carry PII; keep them out of the at-rest localStorage
+    // query cache (see lib/query/persist.ts).
+    meta: { persist: false },
   });
 }

@@ -210,6 +210,31 @@ export type SendEmailResult = {
   messageId: string;
 };
 
+/**
+ * Sanitize a From-header display name (triage-042). Strips C0 control characters and DEL
+ * (including CR/LF/TAB so a forged name cannot inject extra headers or smuggle a second
+ * address), removes angle-bracketed/at-sign fragments that could append a fake address into
+ * the From header, collapses whitespace, and caps length. Returns undefined when nothing
+ * usable remains so the caller falls back to the bare configured address.
+ */
+export function sanitizeDisplayName(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  let stripped = "";
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code <= 31 || code === 127) continue;
+    stripped += char;
+  }
+  const cleaned = stripped
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[<>@]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 128)
+    .trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -242,8 +267,9 @@ export async function sendEmail({
     throw new Error("Resend is not configured. Set RESEND_API_KEY/RESEND_FROM or enable RESEND_USE_MOCK.");
   }
 
-  // Format the from address with custom name if provided
-  const fromAddress = fromName ? `${fromName} <${baseFromAddress}>` : baseFromAddress;
+  // Format the from address with a sanitized custom display name if provided (triage-042).
+  const safeFromName = sanitizeDisplayName(fromName);
+  const fromAddress = safeFromName ? `${safeFromName} <${baseFromAddress}>` : baseFromAddress;
 
   const replyToResolution = resolveReplyToAddress({
     requested: replyTo,
