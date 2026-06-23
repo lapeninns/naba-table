@@ -64,10 +64,10 @@ pnpm qa:public-booking                                       # domain QA (api + 
 
 Single Next.js 16 App Router app (React 19, TypeScript strict, Tailwind 4) serving **two shipped surfaces from one codebase**, split by host in [src/proxy.ts](src/proxy.ts). The proxy enforces the host split, `/app/*` transport, cross-host redirects, the CSRF cookie, and shared security headers — **any change to it is high risk** (GLOBAL_CONTEXT §2).
 
-| Surface          | Host        | Where it lives                                                                                                                      |
-| ---------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Ops**          | `app.` host | `src/app/app/**` — dashboard, bookings, seating, floor-plan, customers, email/SMS-delivery, settings; ops APIs `src/app/api/ops/**` |
-| **Guest/public** | root host   | `src/app/(public)/**` (marketing + public booking flow) and `src/app/guest/**` (signed-link booking management)                     |
+| Surface          | Host        | Where it lives                                                                                                          |
+| ---------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Ops**          | `app.` host | `src/app/app/**` — dashboard, bookings, seating, customers, email/SMS-delivery, settings; ops APIs `src/app/api/ops/**` |
+| **Guest/public** | root host   | `src/app/(public)/**` (marketing + public booking flow) and `src/app/guest/**` (signed-link booking management)         |
 
 Shared domain code lives in `server/**` (bookings, capacity, emails, sms, Supabase access) and `lib/**` (clients, security, query, utils); the schema is `supabase/migrations/**`. Harness routes (`/dev/**`, `src/app/app/dev/**`, `__dev/**`) are supplemental and never count as shipped-route proof.
 

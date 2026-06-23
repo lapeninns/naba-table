@@ -11,7 +11,6 @@ const OPS_REDIRECT_PREFIXES = [
   '/settings',
   '/management',
   '/seating',
-  '/floor-plan',
 ] as const;
 
 const GUEST_REDIRECT_PREFIXES = ['/guest', '/bookings', '/restaurants'] as const;
