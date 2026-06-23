@@ -65,7 +65,7 @@ describe('normalizePositions', () => {
 });
 
 describe('buildLayout', () => {
-  it('uses stored positions when ≥2 tables are placed', () => {
+  it('uses stored positions, without seeding, when every table is placed', () => {
     const tables = [
       makeTable({ id: 'a', position: { x: 0, y: 0 } }),
       makeTable({ id: 'b', position: { x: 100, y: 100 } }),
@@ -75,11 +75,47 @@ describe('buildLayout', () => {
     expect(layout.positions.size).toBe(2);
   });
 
-  it('seeds a grid when fewer than 2 tables are placed', () => {
+  it('seeds a grid when no tables are placed yet', () => {
     const tables = [makeTable({ id: 'a' }), makeTable({ id: 'b' }), makeTable({ id: 'c' })];
     const layout = buildLayout(tables);
     expect(layout.seeded).toBe(true);
     expect(layout.positions.size).toBe(3);
+  });
+
+  it('merges stored positions with seeded ones so the whole inventory renders', () => {
+    // The real-world bug: two tables saved → the rest must NOT vanish.
+    const tables = [
+      makeTable({ id: 'a', position: { x: 300, y: 200 } }),
+      makeTable({ id: 'b', position: { x: 500, y: 400 } }),
+      makeTable({ id: 'c', position: null }),
+      makeTable({ id: 'd', position: null }),
+    ];
+    const layout = buildLayout(tables);
+    // Every table reaches the canvas, not just the two placed ones.
+    expect(layout.positions.size).toBe(4);
+    expect(['a', 'b', 'c', 'd'].every((id) => layout.raw.has(id))).toBe(true);
+    // Placed tables keep their exact stored coordinates…
+    expect(layout.raw.get('a')).toEqual({ x: 300, y: 200, rotation: 0 });
+    expect(layout.raw.get('b')).toEqual({ x: 500, y: 400, rotation: 0 });
+    // …while the unplaced ones get a grid fallback, so the layout is flagged seeded.
+    expect(layout.seeded).toBe(true);
+  });
+
+  it('keeps a seeded fallback slot stable as neighbours get placed', () => {
+    // Seeding the full set (not just unplaced tables) means c's grid slot is the
+    // same whether or not b has been placed — no re-packing on each save.
+    const base = [
+      makeTable({ id: 'a', position: { x: 300, y: 200 } }),
+      makeTable({ id: 'b', position: null }),
+      makeTable({ id: 'c', position: null }),
+    ];
+    const before = buildLayout(base);
+    const after = buildLayout([
+      base[0],
+      makeTable({ id: 'b', position: { x: 500, y: 400 } }),
+      base[2],
+    ]);
+    expect(after.raw.get('c')).toEqual(before.raw.get('c'));
   });
 
   it('applies drag overrides on top of the base coordinates', () => {

@@ -4,6 +4,19 @@ import type { FloorPlanTable, NormalizedPosition, RawPosition, TableGeom } from 
 export const VIRTUAL_WIDTH = 1000;
 export const VIRTUAL_HEIGHT = 700;
 
+/**
+ * Seed-grid spacing (virtual units), shared by the seeder and the projector so the
+ * de-overlap sizing in computeProjectDims tracks the exact grid the seeder lays down.
+ */
+export const SEED_COL_GAP = VIRTUAL_WIDTH / 5; // cols=4 → VIRTUAL_WIDTH/(cols+1) = 200
+export const SEED_ROW_GAP = 110;
+/**
+ * Largest table footprint (the private-room geom, see {@link tableGeom}) — the worst
+ * case the projection must keep row/column spacing clear of so tiles never overlap.
+ */
+export const MAX_TABLE_W = 110;
+export const MAX_TABLE_H = 82;
+
 /** Safely read a stored position record ({x,y,rotation?}) → RawPosition | null. */
 export function readRawPosition(
   position: Record<string, unknown> | null | undefined,
@@ -11,11 +24,17 @@ export function readRawPosition(
   if (!position || typeof position !== 'object') return null;
   const x = (position as { x?: unknown }).x;
   const y = (position as { y?: unknown }).y;
-  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) {
+  if (
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y)
+  ) {
     return null;
   }
   const rawRotation = (position as { rotation?: unknown }).rotation;
-  const rotation = typeof rawRotation === 'number' && Number.isFinite(rawRotation) ? rawRotation : 0;
+  const rotation =
+    typeof rawRotation === 'number' && Number.isFinite(rawRotation) ? rawRotation : 0;
   return { x, y, rotation };
 }
 
@@ -40,8 +59,8 @@ export function seedRawPositions(tables: FloorPlanTable[]): Map<string, RawPosit
 
   const result = new Map<string, RawPosition>();
   const cols = 4;
-  const colGap = VIRTUAL_WIDTH / (cols + 1);
-  const rowGap = 110;
+  const colGap = SEED_COL_GAP;
+  const rowGap = SEED_ROW_GAP;
   let row = 0;
   for (const zoneTables of byZone.values()) {
     let col = 0;
@@ -116,13 +135,20 @@ export type FloorPlanLayout = {
   raw: Map<string, RawPosition>;
   /** Bounding box of the raw coordinates — used to invert drops back to raw space. */
   bounds: LayoutBounds;
-  /** True when positions were auto-seeded (venue has not placed tables). */
+  /** True when at least one table fell back to an auto-seeded grid slot (venue hasn't placed every table yet). */
   seeded: boolean;
 };
 
 /**
- * Build the render layout: prefer drag overrides, then stored positions; if fewer
- * than two tables have real positions, seed a grid so the room isn't empty.
+ * Build the render layout. Every table gets a coordinate so the whole inventory
+ * always renders: stored positions win where present, and any table still
+ * missing one falls back to the auto-seeded grid (in the same virtual coordinate
+ * space, so stored and seeded tables sit at comparable scale). Drag overrides
+ * sit on top of both. `seeded` reports whether any table used a grid fallback.
+ *
+ * The grid is seeded for the *full* table set (not just the unplaced ones) so a
+ * table's fallback slot stays put as the venue places its neighbours one by one,
+ * rather than re-packing on every save.
  */
 export function buildLayout(
   tables: FloorPlanTable[],
@@ -134,10 +160,14 @@ export function buildLayout(
     if (raw) stored.set(table.id, raw);
   }
 
-  const seeded = stored.size < 2;
-  const base = seeded ? seedRawPositions(tables) : stored;
+  const seeded = stored.size < tables.length;
+  const seededPositions = seeded ? seedRawPositions(tables) : null;
 
-  const raw = new Map(base);
+  const raw = new Map<string, RawPosition>();
+  for (const table of tables) {
+    const pos = stored.get(table.id) ?? seededPositions?.get(table.id);
+    if (pos) raw.set(table.id, pos);
+  }
   if (overrides) {
     for (const [id, pos] of overrides) raw.set(id, pos);
   }

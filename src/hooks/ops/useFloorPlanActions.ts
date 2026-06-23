@@ -72,11 +72,38 @@ export function useFloorPlanActions({ restaurantId, date }: UseFloorPlanActionsO
     [bookingService, invalidateTimeline],
   );
 
+  // Combine: add table(s) to a booking's party (merge group) so they read as joined.
+  const joinTables = useCallback(
+    (bookingId: string, tableIds: string[]) => {
+      if (tableIds.length === 0) return;
+      bookingService
+        .assignTablesDirect({
+          bookingId,
+          tableIds,
+          idempotencyKey:
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `join-${bookingId}-${tableIds.join('-')}`,
+          requireAdjacency: false,
+        })
+        .then(() => {
+          invalidateTimeline();
+          toast.success('Tables combined.');
+        })
+        .catch((error: unknown) => {
+          console.error('[floor-plan] join failed', error);
+          toast.error('Could not combine the tables. Please try again.');
+        });
+    },
+    [bookingService, invalidateTimeline],
+  );
+
   return {
     seatParty,
     clearTable,
     markNoShowParty,
     splitTable,
+    joinTables,
     isSeating: checkIn.isPending,
     isClearing: checkOut.isPending,
   };

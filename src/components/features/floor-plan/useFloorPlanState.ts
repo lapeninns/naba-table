@@ -10,14 +10,13 @@ import { useTableLayoutMutation } from '@/hooks/ops/useTableLayoutMutation';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
-import { computeJoinBoxes, computeJoinGroups, computeJoinLinks } from './domain/joins';
+import { computeJoinGroups } from './domain/joins';
 import { buildLayout, percentToRaw } from './domain/layout';
 import { resolveTableState } from './domain/serviceState';
 import { toMs } from './domain/timeSelection';
 import { SERVICE_STATE_META, SERVICE_STATE_ORDER } from './domain/types';
 import { computeZones } from './domain/zones';
 
-import type { JoinBox, JoinLink } from './domain/joins';
 import type {
   FloorPlanTable,
   NormalizedPosition,
@@ -47,6 +46,7 @@ export type LegendEntry = ServiceStateMeta & { state: ServiceState; count: numbe
 export type FloorPlanStats = {
   seatedCovers: number;
   bookedCovers: number;
+  bookedTables: number;
   openTables: number;
   capacity: number;
   totalTables: number;
@@ -75,7 +75,6 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
   // ── UI state ──────────────────────────────────────────────────────────
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [spotlight, setSpotlight] = useState<ServiceState | null>(null);
-  const [editMode, setEditMode] = useState(false);
   const [scrubMs, setScrubMs] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [dragOverrides, setDragOverrides] = useState<Map<string, RawPosition>>(() => new Map());
@@ -93,7 +92,10 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
 
   // ── Time window ─────────────────────────────────────────────────────────
   const windowStartMs = toMs(data.window?.start) ?? nowMs - FALLBACK_BACK_MS;
-  const windowEndMs = Math.max(windowStartMs + 60_000, toMs(data.window?.end) ?? nowMs + FALLBACK_FWD_MS);
+  const windowEndMs = Math.max(
+    windowStartMs + 60_000,
+    toMs(data.window?.end) ?? nowMs + FALLBACK_FWD_MS,
+  );
   // The server's final segment ends exactly at windowEnd (half-open intervals), so resolving
   // a table state AT windowEnd yields null and every table would blink to free. Keep the
   // playback head 1ms inside the window so the last segment always resolves.
@@ -132,7 +134,13 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
         const resolved = resolveTableState(table, effectiveMs);
         const isSelected = table.id === selectedTableId;
         const dimmed = Boolean(spotlight) && resolved.state !== spotlight && !isSelected;
-        return { table, position: layout.positions.get(table.id) ?? null, resolved, isSelected, dimmed };
+        return {
+          table,
+          position: layout.positions.get(table.id) ?? null,
+          resolved,
+          isSelected,
+          dimmed,
+        };
       }),
     [tables, effectiveMs, selectedTableId, spotlight, layout],
   );
@@ -143,14 +151,6 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
   );
 
   const joinGroups = useMemo(() => computeJoinGroups(tables, effectiveMs), [tables, effectiveMs]);
-  const joinLinks = useMemo<JoinLink[]>(
-    () => computeJoinLinks(joinGroups, layout.positions),
-    [joinGroups, layout.positions],
-  );
-  const joinBoxes = useMemo<JoinBox[]>(
-    () => computeJoinBoxes(joinGroups, layout.positions),
-    [joinGroups, layout.positions],
-  );
 
   const legend = useMemo<LegendEntry[]>(() => {
     const counts = new Map<ServiceState, number>();
@@ -167,18 +167,23 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
   const stats = useMemo<FloorPlanStats>(() => {
     let seatedCovers = 0;
     let bookedCovers = 0;
+    let bookedTables = 0;
     let openTables = 0;
     let capacity = 0;
     for (const node of nodes) {
       capacity += node.table.capacity;
       const meta = SERVICE_STATE_META[node.resolved.state];
       if (meta.occupied && node.resolved.booking) seatedCovers += node.resolved.booking.partySize;
-      if (meta.booked && node.resolved.booking) bookedCovers += node.resolved.booking.partySize;
+      if (meta.booked && node.resolved.booking) {
+        bookedCovers += node.resolved.booking.partySize;
+        bookedTables += 1;
+      }
       if (node.resolved.state === 'free') openTables += 1;
     }
     return {
       seatedCovers,
       bookedCovers,
+      bookedTables,
       openTables,
       capacity,
       totalTables: nodes.length,
@@ -196,6 +201,25 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
     if (!selectedNode) return null;
     return joinGroups.find((group) => group.tableIds.includes(selectedNode.table.id)) ?? null;
   }, [joinGroups, selectedNode]);
+
+  // Candidate tables to combine the selected (party-holding) table with: free,
+  // in-service tables in the same zone, not already part of its joined group.
+  const joinTargetsForSelected = useMemo<{ id: string; label: string }[]>(() => {
+    if (!selectedNode || !selectedNode.resolved.booking) return [];
+    const selZone = selectedNode.table.zoneId ?? 'unzoned';
+    const inGroup = new Set(joinGroupForSelected?.tableIds ?? [selectedNode.table.id]);
+    return nodes
+      .filter(
+        (node) =>
+          node.table.id !== selectedNode.table.id &&
+          !inGroup.has(node.table.id) &&
+          (node.table.zoneId ?? 'unzoned') === selZone &&
+          node.resolved.state === 'free' &&
+          !node.resolved.outOfService,
+      )
+      .slice(0, 4)
+      .map((node) => ({ id: node.table.id, label: `Join ${node.table.tableNumber}` }));
+  }, [selectedNode, nodes, joinGroupForSelected]);
 
   // ── Actions ───────────────────────────────────────────────────────────
   const selectTable = useCallback(
@@ -219,22 +243,14 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
   }, []);
   const togglePlay = useCallback(() => setPlaying((value) => !value), []);
 
-  const toggleEditMode = useCallback(() => {
-    setEditMode((value) => {
-      const next = !value;
-      if (next) {
-        // Layout editing happens "now" — freeze the scrubber while arranging.
-        setPlaying(false);
-        setScrubMs(null);
-        setSpotlight(null);
-      }
-      return next;
-    });
-  }, []);
-
   const previewDrag = useCallback(
     (tableId: string, xPercent: number, yPercent: number, rotation = 0) => {
-      const raw = percentToRaw(layout.bounds, clamp(xPercent, 0, 100), clamp(yPercent, 0, 100), rotation);
+      const raw = percentToRaw(
+        layout.bounds,
+        clamp(xPercent, 0, 100),
+        clamp(yPercent, 0, 100),
+        rotation,
+      );
       setDragOverrides((current) => {
         const next = new Map(current);
         next.set(tableId, raw);
@@ -280,12 +296,12 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
     // derived view models
     nodes,
     zones,
-    joinLinks,
-    joinBoxes,
+    joinGroups,
     legend,
     stats,
     selectedNode,
     joinGroupForSelected,
+    joinTargetsForSelected,
     bounds: layout.bounds,
 
     // selection / filter
@@ -306,9 +322,7 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
     backToNow,
     togglePlay,
 
-    // edit / drag
-    editMode,
-    toggleEditMode,
+    // drag (admins can always rearrange movable tables — no edit-mode toggle)
     previewDrag,
     commitDrag,
     isPersistingLayout: layoutMutation.isPending,
@@ -318,6 +332,7 @@ export function useFloorPlanState({ initialNowIso }: UseFloorPlanStateOptions) {
     clearTable: actions.clearTable,
     markNoShowParty: actions.markNoShowParty,
     splitTable: actions.splitTable,
+    joinTables: actions.joinTables,
     isSeating: actions.isSeating,
     isClearing: actions.isClearing,
   };

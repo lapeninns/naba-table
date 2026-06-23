@@ -1,4 +1,3 @@
-
 import { segmentAt, toMs } from './timeSelection';
 
 import type { FloorPlanTable, ResolvedTableState, ServiceState } from './types';

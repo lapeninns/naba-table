@@ -1,39 +1,42 @@
-import { SERVICE_STATE_META } from './domain/types';
+import type { ServiceState } from './domain/types';
+import type { OpsStatusTone } from '@/lib/ops/status-tones';
 
-import type { ServiceState, ServiceStateTone } from './domain/types';
-
-/** Tone → dot/background colour class (app semantic tokens; cobalt = primary). */
-export const TONE_DOT: Record<ServiceStateTone, string> = {
-  neutral: 'bg-muted-foreground',
-  primary: 'bg-primary',
-  success: 'bg-success',
-  warning: 'bg-warning',
-  danger: 'bg-destructive',
-  info: 'bg-info',
-};
-
-/** Tone → text colour class. */
-export const TONE_TEXT: Record<ServiceStateTone, string> = {
-  neutral: 'text-muted-foreground',
-  primary: 'text-primary',
-  success: 'text-success',
-  warning: 'text-warning',
-  danger: 'text-destructive',
-  info: 'text-info',
-};
-
-export function stateDotClass(state: ServiceState): string {
-  return TONE_DOT[SERVICE_STATE_META[state].tone];
-}
-
-export function stateTextClass(state: ServiceState): string {
-  return TONE_TEXT[SERVICE_STATE_META[state].tone];
+/**
+ * Map a derived service state to the centralized ops status-badge tone vocabulary
+ * (`lib/ops/status-tones`). This is an EXPLICIT remap, not a passthrough of
+ * `SERVICE_STATE_META[state].tone`: the two enums are incompatible (the domain
+ * tone has `primary` and no `muted`; the ops tone has `muted` and no `primary`).
+ * Used by every BADGE on the page (legend, detail, service status) so status
+ * pills read exactly like every other ops surface.
+ */
+export function serviceTone(state: ServiceState): OpsStatusTone {
+  switch (state) {
+    case 'seated':
+      return 'success';
+    case 'finishing':
+      return 'warning';
+    case 'walkin':
+      return 'info';
+    case 'overdue':
+      return 'danger';
+    case 'held':
+    case 'confirmed':
+      return 'neutral';
+    case 'free':
+    default:
+      return 'muted';
+  }
 }
 
 /**
- * Surface (bg + border + text) class for a table node by service state. Occupied
- * states get a tinted fill + solid coloured border; booked-ahead states use cobalt;
- * held/free use dashed borders — mirroring the reference design.
+ * Floor-map tile surface (bg tint + border colour + text) by service state.
+ *
+ * The spatial map is the one surface that keeps the design system's semantic
+ * status hues (success/warning/info/destructive + cobalt primary) so a service
+ * lead can read the room at a glance; the calmer OpsStatusBadge tones are used
+ * for every badge/chip elsewhere. Colour classes are the app's own semantic
+ * tokens — no raw hex, no inline color-mix. Pair with a `border` width utility
+ * on the node element (this returns the colour + dash style only).
  */
 export function nodeSurfaceClass(state: ServiceState): string {
   switch (state) {
@@ -52,5 +55,25 @@ export function nodeSurfaceClass(state: ServiceState): string {
     case 'free':
     default:
       return 'border-dashed border-border bg-muted/40 text-muted-foreground';
+  }
+}
+
+/** Status-dot colour for a floor-map tile and the legend chip dot. */
+export function nodeDotClass(state: ServiceState): string {
+  switch (state) {
+    case 'seated':
+      return 'bg-success';
+    case 'finishing':
+      return 'bg-warning';
+    case 'overdue':
+      return 'bg-destructive';
+    case 'walkin':
+      return 'bg-info';
+    case 'held':
+    case 'confirmed':
+      return 'bg-primary';
+    case 'free':
+    default:
+      return 'bg-muted-foreground';
   }
 }

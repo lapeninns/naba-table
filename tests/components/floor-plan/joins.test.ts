@@ -9,20 +9,13 @@ import type {
   FloorPlanTable,
   NormalizedPosition,
 } from '@/components/features/floor-plan/domain/types';
-import type {
-  OpsBookingStatus,
-  TableTimelineBookingRef,
-  TableTimelineSegment,
-} from '@/types/ops';
+import type { OpsBookingStatus, TableTimelineBookingRef, TableTimelineSegment } from '@/types/ops';
 
 const BASE = Date.parse('2026-06-21T18:00:00.000Z');
 const mins = (n: number) => n * 60_000;
 const iso = (ms: number) => new Date(ms).toISOString();
 
-function bookingSeg(
-  bookingId: string,
-  tableIds: string[],
-): TableTimelineSegment {
+function bookingSeg(bookingId: string, tableIds: string[]): TableTimelineSegment {
   const ref: TableTimelineBookingRef = {
     id: bookingId,
     customerName: 'Lindqvist',
@@ -91,7 +84,10 @@ describe('computeJoinGroups', () => {
       const s = bookingSeg('book-done', ids);
       return {
         ...s,
-        booking: { ...(s.booking as TableTimelineBookingRef), status: 'completed' as OpsBookingStatus },
+        booking: {
+          ...(s.booking as TableTimelineBookingRef),
+          status: 'completed' as OpsBookingStatus,
+        },
       };
     };
     const tables = [makeTable('B2', done(['B2', 'M5'])), makeTable('M5', done(['B2', 'M5']))];

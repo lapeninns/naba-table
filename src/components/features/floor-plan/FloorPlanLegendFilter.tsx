@@ -3,7 +3,8 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { TONE_DOT } from './serviceStateStyles';
+import { nodeDotClass } from './serviceStateStyles';
+import { FLOOR_FOCUS_RING } from './styles';
 
 import type { ServiceState } from './domain/types';
 import type { LegendEntry } from './useFloorPlanState';
@@ -12,46 +13,43 @@ export type FloorPlanLegendFilterProps = {
   legend: LegendEntry[];
   spotlight: ServiceState | null;
   onToggle: (state: ServiceState) => void;
+  className?: string;
 };
 
 /** State legend that doubles as a filter: tap a state to spotlight it (dim the rest). */
-export function FloorPlanLegendFilter({ legend, spotlight, onToggle }: FloorPlanLegendFilterProps) {
+export function FloorPlanLegendFilter({
+  legend,
+  spotlight,
+  onToggle,
+  className,
+}: FloorPlanLegendFilterProps) {
   if (legend.length === 0) return null;
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3.5 py-3"
+      className={cn('flex flex-wrap items-center gap-2', className)}
       role="group"
-      aria-label="Filter tables by state"
+      aria-label="Filter tables by status"
     >
-      <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-        Filter
-      </span>
+      <span className="mr-1 text-[10px] uppercase tracking-wide text-muted-foreground">Filter</span>
       {legend.map((entry) => {
         const active = spotlight === entry.state;
         return (
           <Button
             key={entry.state}
-            variant="ghost"
+            variant="outline"
+            size="sm"
             type="button"
             onClick={() => onToggle(entry.state)}
             aria-pressed={active}
             className={cn(
-              'inline-flex h-auto items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-              active ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40',
+              'h-8 gap-1.5 px-2.5',
+              FLOOR_FOCUS_RING,
+              active && 'border-primary/30 bg-primary/10 text-primary',
             )}
           >
-            <span className={cn('h-2 w-2 rounded-full', TONE_DOT[entry.tone])} />
-            <span
-              className={cn(
-                'font-mono text-[11px] font-semibold uppercase tracking-[0.1em]',
-                active ? 'text-primary' : 'text-foreground',
-              )}
-            >
-              {entry.label}
-            </span>
-            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-              {entry.count}
-            </span>
+            <span className={cn('h-2 w-2 rounded-full', nodeDotClass(entry.state))} />
+            <span className="text-xs font-medium">{entry.label}</span>
+            <span className="text-xs tabular-nums text-muted-foreground">{entry.count}</span>
           </Button>
         );
       })}

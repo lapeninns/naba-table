@@ -1,83 +1,74 @@
 'use client';
 
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { useId } from 'react';
 
-import { StatTile } from './StatTile';
-import { StatusDot } from './StatusDot';
+import { OPS_CARD_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 import type { FloorPlanStats } from './useFloorPlanState';
 
 export type FloorPlanCockpitProps = {
-  venueName: string;
-  kicker: string;
-  summary: string;
   stats: FloorPlanStats;
-  canEdit: boolean;
-  editMode: boolean;
-  onToggleEdit: () => void;
 };
 
-/** Brand/title header + cockpit stat tiles + live status + Edit-layout toggle (admin). */
-export function FloorPlanCockpit({
-  venueName,
-  kicker,
-  summary,
-  stats,
-  canEdit,
-  editMode,
-  onToggleEdit,
-}: FloorPlanCockpitProps) {
-  return (
-    <header className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-          {kicker}
-        </div>
-        <div className="flex items-center gap-4">
-          {canEdit ? (
-            <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <span className="font-mono uppercase tracking-wide">Edit layout</span>
-              <Switch checked={editMode} onCheckedChange={onToggleEdit} aria-label="Edit layout" />
-            </Label>
-          ) : null}
-          <StatusDot
-            label={editMode ? 'Editing layout' : 'Service operational'}
-            tone={editMode ? 'primary' : 'success'}
-            pulse={!editMode}
-          />
-        </div>
-      </div>
+/** Service-summary metric tiles, built from the ops Card primitive. */
+export function FloorPlanCockpit({ stats }: FloorPlanCockpitProps) {
+  const baseId = useId();
+  const tiles = [
+    {
+      label: 'Covers seated',
+      value: stats.seatedCovers,
+      detail: `of ${stats.capacity} · ${stats.occupancyPct}% capacity`,
+    },
+    {
+      label: 'Booked ahead',
+      value: stats.bookedCovers,
+      detail: `${stats.bookedTables} tables held`,
+    },
+    {
+      label: 'Tables open',
+      value: stats.openTables,
+      detail: 'ready to seat',
+    },
+  ];
 
-      <div className="flex flex-wrap items-end justify-between gap-5 border-b border-border pb-4">
-        <div>
-          <h1 className="text-3xl font-bold leading-tight tracking-tight text-foreground">
-            {venueName}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{summary}</p>
-        </div>
-        <div className="flex flex-wrap gap-2.5">
-          <StatTile
-            value={stats.seatedCovers}
-            suffix={`/${stats.capacity}`}
-            label="Covers seated"
-            detail={`${stats.occupancyPct}% of capacity`}
-            tone="primary"
-          />
-          <StatTile
-            value={stats.bookedCovers}
-            label="Booked ahead"
-            detail="covers held"
-            tone="default"
-          />
-          <StatTile
-            value={stats.openTables}
-            label="Tables open"
-            detail="ready to seat"
-            tone="default"
-          />
-        </div>
-      </div>
-    </header>
+  return (
+    // The cockpit is a named group so assistive tech reads the three metrics as one "Service
+    // summary" unit; each tile is its own group labelled by its metric name, which ties the
+    // number + label + detail together (the audit flagged them as loose, ungrouped StaticText).
+    // Mobile redesign: a compact 3-up "dashboard strip" (not stacked full-width cards) so the
+    // three metrics cost ~one short row instead of ~285px — the floor map then sits near the top
+    // of the phone instead of below the fold. From sm+ the tiles relax into roomier cards and the
+    // detail line appears; on mobile the detail stays in the a11y tree (sr-only) so screen-reader
+    // users still get "of 46 · 61% capacity" while sighted users get a tighter glance.
+    <div role="group" aria-label="Service summary" className="grid grid-cols-3 gap-2 sm:gap-4">
+      {tiles.map((tile, index) => {
+        const labelId = `${baseId}-stat-${index}`;
+        return (
+          <Card
+            key={tile.label}
+            role="group"
+            aria-labelledby={labelId}
+            className={cn(OPS_CARD_CLASS, 'bg-muted/10')}
+          >
+            <div className="px-2.5 py-2.5 sm:px-5 sm:py-3">
+              <div className="text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
+                {tile.value}
+              </div>
+              <div
+                id={labelId}
+                className="mt-0.5 text-xs font-medium leading-tight text-foreground sm:mt-1 sm:text-sm"
+              >
+                {tile.label}
+              </div>
+              <div className="mt-0.5 text-xs text-muted-foreground sr-only sm:not-sr-only">
+                {tile.detail}
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
