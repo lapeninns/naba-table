@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { ZodIssue } from 'zod';
 
 import { envSchemas, findBlockedPublicEnvKeys, resolveEnvSchemaTarget } from '../config/env.schema';
+import { buildLocalRoutingEnvWarning } from './local-routing-env-check';
 
 const modulePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(modulePath), '..');
@@ -121,6 +122,23 @@ if (
   warnings.push(
     `APP_ENV=staging should typically run with NODE_ENV=development locally or NODE_ENV=production for deploy previews.`,
   );
+}
+
+// Local dev only: catch a Vercel-preview env copy whose NEXT_PUBLIC_ROOT_DOMAIN is a
+// real domain while site URLs still point at localhost, which silently breaks ops
+// routing on app.localhost (see docs/dev-routing.md).
+const localRoutingWarning = buildLocalRoutingEnvWarning({
+  nodeEnv: process.env.NODE_ENV,
+  vercelEnv,
+  rootDomain: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+  urls: {
+    BASE_URL: env.BASE_URL,
+    NEXT_PUBLIC_APP_URL: env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_SITE_URL: env.NEXT_PUBLIC_SITE_URL,
+  },
+});
+if (localRoutingWarning) {
+  warnings.push(localRoutingWarning);
 }
 
 const gbpVars = {

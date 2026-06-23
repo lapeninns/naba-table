@@ -34,8 +34,6 @@ type OpsLoginPageProps = {
 
 const ALLOWED_REDIRECT_PREFIXES = [
   '/app',
-  '/guest',
-  '/restaurants',
   '/dashboard',
   '/bookings',
   '/customers',
@@ -46,7 +44,7 @@ const ALLOWED_REDIRECT_PREFIXES = [
 function resolveRedirectTarget(raw: string | string[] | undefined): string {
   const candidate = Array.isArray(raw) ? raw[0] : raw;
   return sanitizeLocalRedirectPath(candidate, {
-    fallback: '/app',
+    fallback: '/dashboard',
     allowedPrefixes: ALLOWED_REDIRECT_PREFIXES,
   });
 }

@@ -28,10 +28,9 @@ Access:
 - Root: http://localhost:3000/
 - App (optional subdomain test): http://app.localhost:3000/
 
-### Single-host mode (preview/local)
+### Single-host mode (`NEXT_PUBLIC_LOCAL_APP_HOSTS`)
 
-In preview/local environments (e.g. Vercel `VERCEL_ENV=preview`) the proxy keeps `/app/*` on the same host and uses `/app/auth/signin` for ops auth.
-If you need to force single-host behavior on a custom host, set:
+Single-host mode keeps `/app/*` on the current host (resolving via the app route group) and uses `/app/auth/signin` for ops auth, instead of redirecting to the `app.` subdomain. It is **not** automatic for `VERCEL_ENV=preview` — it activates only when the current host (or hostname) is listed in `NEXT_PUBLIC_LOCAL_APP_HOSTS`. Vercel Preview deployments enable it by setting that var to the preview host:
 
 ```
 NEXT_PUBLIC_LOCAL_APP_HOSTS=frontend-2025-dec19.vercel.app,frontend-2025-dec19.local
@@ -41,8 +40,8 @@ Supabase session cookies are scoped to `.${ROOT_DOMAIN}` (defaults to `localhost
 
 ## What to verify
 
-- Root `/app/*` stays on localhost in dev (no subdomain redirect) and resolves via the app route group.
-- Preview/override hosts listed in `NEXT_PUBLIC_LOCAL_APP_HOSTS` behave like single-host mode.
+- Default multi-host dev: root `/app/*` (e.g. `localhost:3000/app/floor-plan`) **redirects** (308) to the app subdomain with the `/app` prefix stripped (`app.localhost:3000/floor-plan`) — it does not stay on the root host.
+- Single-host override: when the host (or hostname) is listed in `NEXT_PUBLIC_LOCAL_APP_HOSTS`, `/app/*` stays on that host and resolves via the app route group (no subdomain redirect).
 - App host `/app/app*` normalizes to `/app*` (no loops).
 - App host non-app paths (e.g., `/auth/signin`) redirect back to root host.
 - Ops API rewrite: `http://app.localhost:3000/api/bookings` rewrites to `/api/ops/bookings` and requires an authenticated restaurant member.

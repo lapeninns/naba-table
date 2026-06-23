@@ -93,7 +93,7 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
   const [mode, setMode] = useState<AuthMode>(AUTH_MODES.PASSWORD);
 
   const targetPath = sanitizeLocalRedirectPath(redirectedFrom, {
-    fallback: '/app',
+    fallback: '/dashboard',
     allowedPrefixes: [
       '/app',
       '/dashboard',
@@ -369,11 +369,7 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
                         className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                         aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
-                        {showPassword ? (
-                          <EyeOff aria-hidden="true" />
-                        ) : (
-                          <Eye aria-hidden="true" />
-                        )}
+                        {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
                       </Button>
                     </div>
                     <FormMessage />

@@ -115,7 +115,11 @@ function extractHostname(value: string | null): string | null {
 }
 
 export function parseHostname(req: NextRequest): string {
+  // Prefer the inbound Host header over Next's parsed URL. In local multi-host dev
+  // (`app.localhost` vs `localhost`), req.nextUrl can still reflect the internal
+  // origin while the browser is on the ops subdomain — wrong host → guest redirects.
   const candidates = [
+    req.headers.get('host'),
     req.nextUrl?.hostname,
     (() => {
       try {
@@ -124,7 +128,6 @@ export function parseHostname(req: NextRequest): string {
         return null;
       }
     })(),
-    req.headers.get('host'),
   ];
 
   for (const candidate of candidates) {

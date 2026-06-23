@@ -35,6 +35,35 @@ describe('QA ops auth fixture', () => {
     ).toBe(false);
   });
 
+  it('uses local process env flags when no explicit env override is supplied', () => {
+    const previous = {
+      APP_ENV: process.env.APP_ENV,
+      NODE_ENV: process.env.NODE_ENV,
+      NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+      QA_ENABLE_AUTH_FIXTURES: process.env.QA_ENABLE_AUTH_FIXTURES,
+      QA_TARGET_ENV: process.env.QA_TARGET_ENV,
+      QA_USE_MOCKS: process.env.QA_USE_MOCKS,
+    };
+
+    Object.assign(process.env, safeEnv);
+    try {
+      expect(
+        isQaOpsAuthFixtureAllowed({
+          cookieValue: QA_OPS_AUTH_COOKIE_VALUE,
+          host: 'app.localhost:5180',
+        }),
+      ).toBe(true);
+    } finally {
+      for (const [key, value] of Object.entries(previous)) {
+        if (typeof value === 'undefined') {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it('refuses production-like or non-local hosts even when the cookie is present', () => {
     expect(
       isQaOpsAuthFixtureAllowed({

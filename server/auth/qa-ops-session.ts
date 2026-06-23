@@ -37,17 +37,32 @@ function isLocalHost(host: string | null | undefined): boolean {
   return LOCAL_HOSTS.has(hostname);
 }
 
+function resolveQaFixtureEnv(env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+  if (env) return env;
+
+  return {
+    APP_ENV: process.env.APP_ENV,
+    NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+    QA_ENABLE_AUTH_FIXTURES: process.env.QA_ENABLE_AUTH_FIXTURES,
+    QA_TARGET_ENV: process.env.QA_TARGET_ENV,
+    QA_USE_MOCKS: process.env.QA_USE_MOCKS,
+  };
+}
+
 export function isQaOpsAuthFixtureAllowed({
   cookieValue,
-  env = process.env,
+  env,
   host,
 }: QaOpsAuthFixtureInput): boolean {
+  const fixtureEnv = resolveQaFixtureEnv(env);
+
   if (cookieValue !== QA_OPS_AUTH_COOKIE_VALUE) return false;
-  if (!isTruthy(env.QA_ENABLE_AUTH_FIXTURES)) return false;
-  if (!isTruthy(env.QA_USE_MOCKS)) return false;
-  if (env.QA_TARGET_ENV !== 'local') return false;
-  if (env.APP_ENV === 'production' || env.NODE_ENV === 'production') return false;
-  if ((env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost') !== 'localhost') return false;
+  if (!isTruthy(fixtureEnv.QA_ENABLE_AUTH_FIXTURES)) return false;
+  if (!isTruthy(fixtureEnv.QA_USE_MOCKS)) return false;
+  if (fixtureEnv.QA_TARGET_ENV !== 'local') return false;
+  if (fixtureEnv.APP_ENV === 'production' || fixtureEnv.NODE_ENV === 'production') return false;
+  if ((fixtureEnv.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost') !== 'localhost') return false;
   return isLocalHost(host);
 }
 

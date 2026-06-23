@@ -101,7 +101,7 @@ describe('sign-in page redirect-loop guard', () => {
 
     expect(getServerComponentSupabaseClientMock).toHaveBeenCalledOnce();
     expect(getUserMock).toHaveBeenCalledOnce();
-    expect(redirectMock).toHaveBeenCalledWith('/app');
+    expect(redirectMock).toHaveBeenCalledWith('/dashboard');
   });
 
   it('renders the public sign-in page after an auth-guard handoff without re-redirecting', async () => {

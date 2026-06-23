@@ -1,15 +1,51 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
-import { withPlatformAdminAuthorization } from '@/server/auth/guards';
+import { captureServerException } from '@/lib/posthog/server';
+import {
+  GuardError,
+  listUserRestaurantMemberships,
+  requireSession,
+  withPlatformAdminAuthorization,
+} from '@/server/auth/guards';
 import { fetchAllOccasions, insertAudit, toAdminOccasion } from '@/server/occasions/admin';
 import { clearOccasionCatalogCache } from '@/server/occasions/catalog';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
-export async function GET(request: NextRequest) {
-  const authorization = await withPlatformAdminAuthorization(request);
-  if (!authorization.ok) {
-    return authorization.response;
+async function authorizeOccasionCatalogRead(): Promise<NextResponse | null> {
+  try {
+    const { supabase, user } = await requireSession();
+    const memberships = await listUserRestaurantMemberships(supabase, user.id);
+    if (memberships.length === 0) {
+      return NextResponse.json({ error: 'Forbidden', code: 'FORBIDDEN' }, { status: 403 });
+    }
+    return null;
+  } catch (error) {
+    if (error instanceof GuardError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+        },
+        { status: error.status },
+      );
+    }
+
+    console.error('[ops/occasions][GET] failed to verify ops access', error);
+    captureServerException(error, {
+      properties: { source: 'ops', kind: 'ops-occasions-auth' },
+    });
+    return NextResponse.json(
+      { error: 'Unable to verify access', code: 'ACCESS_CHECK_FAILED' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function GET() {
+  const unauthorizedResponse = await authorizeOccasionCatalogRead();
+  if (unauthorizedResponse) {
+    return unauthorizedResponse;
   }
 
   try {
