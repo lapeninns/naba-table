@@ -40,7 +40,7 @@ Supabase session cookies are scoped to `.${ROOT_DOMAIN}` (defaults to `localhost
 
 ## What to verify
 
-- Default multi-host dev: root `/app/*` (e.g. `localhost:3000/app/floor-plan`) **redirects** (308) to the app subdomain with the `/app` prefix stripped (`app.localhost:3000/floor-plan`) — it does not stay on the root host.
+- Default multi-host dev: root `/app/*` (e.g. `localhost:3000/app/dashboard`) **redirects** (308) to the app subdomain with the `/app` prefix stripped (`app.localhost:3000/dashboard`) — it does not stay on the root host.
 - Single-host override: when the host (or hostname) is listed in `NEXT_PUBLIC_LOCAL_APP_HOSTS`, `/app/*` stays on that host and resolves via the app route group (no subdomain redirect).
 - App host `/app/app*` normalizes to `/app*` (no loops).
 - App host non-app paths (e.g., `/auth/signin`) redirect back to root host.
