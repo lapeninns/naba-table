@@ -1,6 +1,15 @@
 # Continuity Ledger
 
-Last updated: 2026-06-19T07:23:44Z
+Last updated: 2026-06-27T11:42:00Z
+
+## Current loyalty metrics read-only reporting
+
+- Task harness: `tasks/loyalty-metrics-readonly-20260627-1142/`.
+- Goal: prepare defensible aggregate-only SQL/reporting for Nabatable production data that can separate real loyalty/game/repeat-booking signals from fabricated or booking-cover-derived claims.
+- Current checkout finding: the old loyalty schema is explicitly removed in migrations (`loyalty_point_events`, `loyalty_points`, `loyalty_programs`, `loyalty_tier`), while `bookings.loyalty_points_awarded` remains as a legacy booking column that current create paths default to `0`.
+- Reward nuance: `restaurant_game_scores` and `weekly_leaderboard_reward_sends` exist as game/leaderboard reward tables; they are not stamp-card membership, stamp-event, or redemption tables and must be labelled separately if queried.
+- Production state: this shell has no Supabase access token, DB URL, production DB URL, Supabase URL, or service-role key, so no production aggregate values were queried or reported.
+- Next step: run `tasks/loyalty-metrics-readonly-20260627-1142/loyalty-metrics-readonly.sql` with read-only production credentials, then fill `report-template.md` using only returned rows.
 
 ## Current GBP directory architecture review
 

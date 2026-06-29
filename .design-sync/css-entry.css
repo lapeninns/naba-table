@@ -1,0 +1,6 @@
+/* design-sync CSS entry (durable). The app's globals (Tailwind v4 + tokens)
+   plus an explicit @source for the preview files — .design-sync is a dotdir
+   that Tailwind auto-detection skips, so preview-only utilities need this.
+   Recompile: .ds-sync/node_modules/.bin/tailwindcss -i .design-sync/css-entry.css -o .design-sync/compiled/ds.css */
+@import '../src/app/globals.css';
+@source "./previews/*.tsx";

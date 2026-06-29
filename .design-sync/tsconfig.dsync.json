@@ -1,0 +1,39 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "next/link": ["./.design-sync/shims/next-link"],
+      "next/image": ["./.design-sync/shims/next-image"],
+      "next/navigation": ["./.design-sync/shims/next-navigation"],
+      "@/config": ["./config/index.ts"],
+      "@/lib/utils": ["./lib/utils.ts"],
+      "@reserve/shared/booking": ["./reserve/shared/booking/index.ts"],
+      "@reserve/shared/occasions": ["./reserve/shared/occasions/index.ts"],
+      "@reserve/shared/time": ["./reserve/shared/time/index.ts"],
+      "@/app/*": ["./src/app/*"],
+      "@/components/features": ["./src/components/features/index.ts"],
+      "@/components/features/*": ["./src/components/features/*"],
+      "@/components/*": ["./components/*", "./src/components/*"],
+      "@/contexts/*": ["./src/contexts/*"],
+      "@/hooks/ops/*": ["./hooks/ops/*", "./src/hooks/ops/*"],
+      "@/hooks": ["./hooks/index.ts"],
+      "@/hooks/*": ["./hooks/*", "./src/hooks/*"],
+      "@/guest/*": ["./src/guest/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/services": ["./src/services/index.ts"],
+      "@/services/*": ["./src/services/*"],
+      "@/types/*": ["./types/*", "./src/types/*"],
+      "@/server/*": ["./server/*"],
+      "@/*": ["./*"],
+      "@src/*": ["./src/*"],
+      "@reserve/*": ["./reserve/*"],
+      "@app/*": ["./reserve/app/*"],
+      "@features/*": ["./reserve/features/*"],
+      "@entities/*": ["./reserve/entities/*"],
+      "@shared/*": ["./reserve/shared/*"],
+      "@pages/*": ["./reserve/pages/*"]
+    }
+  }
+}
