@@ -131,4 +131,18 @@ describe('production env schema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('treats empty optional integration variables as unset', () => {
+    const result = envSchemas.production.safeParse({
+      ...productionEnv,
+      ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
+      CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN: '',
+      GOOGLE_BUSINESS_PROFILE_CLIENT_ID: '',
+      GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET: '',
+      GOOGLE_BUSINESS_PROFILE_REDIRECT_URI: '',
+      GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

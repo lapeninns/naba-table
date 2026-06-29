@@ -7,6 +7,16 @@ const booleanStringOptional = booleanString.optional();
 const normalizeOptionalUrl = (value: unknown) =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
 
+const optionalString = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
+  z.string().min(1).optional(),
+);
+
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
+  z.string().url().optional(),
+);
+
 const appEnvSchema = z.enum(['development', 'staging', 'production', 'test']);
 
 export const PUBLIC_ENV_SECRET_PATTERNS = [
@@ -114,20 +124,20 @@ const baseEnvSchema = z
     POSTHOG_CLI_PROJECT_ID: z.string().min(1).optional(),
     POSTHOG_SOURCEMAP_UPLOAD: booleanStringOptional,
     OPENAI_API_KEY: z.string().optional(),
-    GOOGLE_BUSINESS_CLIENT_ID: z.string().min(1).optional(),
-    GOOGLE_BUSINESS_CLIENT_SECRET: z.string().min(1).optional(),
-    GOOGLE_BUSINESS_REDIRECT_URI: z.string().url().optional(),
-    GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
-    GOOGLE_BUSINESS_PROFILE_CLIENT_ID: z.string().min(1).optional(),
-    GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET: z.string().min(1).optional(),
-    GOOGLE_BUSINESS_PROFILE_REDIRECT_URI: z.string().url().optional(),
-    GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
+    GOOGLE_BUSINESS_CLIENT_ID: optionalString,
+    GOOGLE_BUSINESS_CLIENT_SECRET: optionalString,
+    GOOGLE_BUSINESS_REDIRECT_URI: optionalUrl,
+    GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY: optionalString,
+    GOOGLE_BUSINESS_PROFILE_CLIENT_ID: optionalString,
+    GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET: optionalString,
+    GOOGLE_BUSINESS_PROFILE_REDIRECT_URI: optionalUrl,
+    GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY: optionalString,
     GOOGLE_CLOUD_QUOTA_PROJECT: z.string().min(1).optional(),
     SITE_URL: z.preprocess(normalizeOptionalUrl, z.string().url().optional()),
     BASE_URL: z.preprocess(normalizeOptionalUrl, z.string().url().optional()),
     ANALYZE: booleanStringOptional,
     CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL: z.string().url().optional(),
-    CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN: z.string().min(1).optional(),
+    CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN: optionalString,
     BOOKING_SHORT_LINKS_BASE_URL: z.string().url().optional(),
     BOOKING_SHORT_LINKS_INTERNAL_URL: z.string().url().optional(),
     BOOKING_SHORT_LINKS_INTERNAL_TOKEN: z.string().min(1).optional(),

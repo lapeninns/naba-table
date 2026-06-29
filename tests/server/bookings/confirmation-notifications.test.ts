@@ -188,7 +188,7 @@ describe('sendFirstBookingConfirmationNotifications', () => {
     });
   });
 
-  it('releases the email claim when the email provider fails', async () => {
+  it('still attempts sms and releases the email claim when the email provider fails', async () => {
     const providerError = new Error('email provider unavailable');
     sendBookingConfirmationEmailMock.mockRejectedValue(providerError);
 
@@ -196,7 +196,7 @@ describe('sendFirstBookingConfirmationNotifications', () => {
       providerError,
     );
 
-    expect(sendGuestBookingConfirmationSmsMock).not.toHaveBeenCalled();
+    expect(sendGuestBookingConfirmationSmsMock).toHaveBeenCalledWith(booking);
     expect(claimDeleteMock).toHaveBeenCalledTimes(1);
     expect(claimDeleteBookingEqMock).toHaveBeenCalledWith('booking_id', 'booking-1');
     expect(claimDeleteChannelEqMock).toHaveBeenCalledWith('channel', 'email');

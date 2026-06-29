@@ -156,6 +156,7 @@ export async function sendFirstBookingConfirmationNotifications(
   let smsSent = false;
   let emailClaimedElsewhere = false;
   let smsClaimedElsewhere = false;
+  let dispatchError: unknown = null;
 
   if (hasValidRecipientEmail && !hasExistingConfirmationEmail) {
     const claimed = await claimFirstConfirmationNotification({
@@ -172,7 +173,7 @@ export async function sendFirstBookingConfirmationNotifications(
           bookingId: booking.id,
           channel: 'email',
         });
-        throw error;
+        dispatchError = error;
       }
     } else {
       emailClaimedElsewhere = true;
@@ -200,11 +201,15 @@ export async function sendFirstBookingConfirmationNotifications(
           bookingId: booking.id,
           channel: 'sms',
         });
-        throw error;
+        dispatchError ??= error;
       }
     } else {
       smsClaimedElsewhere = true;
     }
+  }
+
+  if (dispatchError !== null) {
+    throw dispatchError;
   }
 
   return {
