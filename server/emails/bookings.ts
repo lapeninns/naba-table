@@ -49,6 +49,7 @@ import {
 import {
   resolveRestaurantReplyTo,
   resolveRestaurantSenderName,
+  resolveReviewRequestSenderName,
 } from '@/server/emails/sender-policy';
 import {
   ensureLogoColumnOnRow,
@@ -132,6 +133,7 @@ async function resolveVenueDetails(restaurantId: string | null | undefined): Pro
     id: restaurant.id,
     slug: restaurant.slug || '',
     name: restaurant.name || 'Restaurant',
+    managerName: restaurant.manager_name ?? null,
     timezone: restaurant.timezone || 'Europe/London',
     address: restaurant.address || '',
     phone: restaurant.contact_phone || '',
@@ -815,7 +817,13 @@ async function dispatchEmail(
       attachments,
       category: bookingEmailCategory(type),
       replyTo: resolveRestaurantReplyTo(venue.email),
-      fromName: resolveRestaurantSenderName(venue.name),
+      // Review requests use a personal "Subodh from {Venue}" sender to read like a
+      // note from a host (helps Gmail Primary placement); all other booking emails
+      // keep the venue-branded sender name.
+      fromName:
+        deliveryTemplateType === 'review_request'
+          ? resolveReviewRequestSenderName(venue.managerName, venue.name)
+          : resolveRestaurantSenderName(venue.name),
       tags: [
         { name: 'email_type', value: deliveryEmailType },
         { name: 'template_type', value: deliveryTemplateType },
@@ -1073,7 +1081,12 @@ export async function sendRestaurantBookingEmailTest(params: {
     subject: `[Test] ${preview.subject}`,
     html: preview.html,
     text: preview.text,
-    fromName: params.venue.name,
+    // Mirror production: review-request test sends use the personal "Subodh from
+    // {Venue}" sender so the ops preview matches what customers actually receive.
+    fromName:
+      params.templateKey === 'review_request'
+        ? resolveReviewRequestSenderName(params.venue.managerName, params.venue.name)
+        : params.venue.name,
     tags: [
       { name: 'email_type', value: 'booking-template-test' },
       { name: 'template_type', value: params.templateKey },

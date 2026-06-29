@@ -62,6 +62,7 @@ export function ManagerNotificationsSubform({
             (nextState) => {
               const payload = sanitizePayload(nextState);
               return {
+                managerName: payload.managerName,
                 managerNotificationPhone: payload.managerNotificationPhone,
                 managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
               };
@@ -91,6 +92,43 @@ export function ManagerNotificationsSubform({
               phone number is required when it is on.
             </p>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1">
+            <Label htmlFor="restaurant-manager-name" className="inline-flex items-center gap-1">
+              Manager name
+            </Label>
+            <FieldRequirement label="Optional" />
+            <HelpTooltip
+              description={FIELD_TOOLTIPS.managerName}
+              ariaLabel="What is the manager name used for?"
+            />
+          </div>
+          <Input
+            id="restaurant-manager-name"
+            type="text"
+            placeholder="e.g. Sam"
+            maxLength={80}
+            value={state.managerName}
+            onChange={(event) => handleChange('managerName', event.target.value)}
+            aria-invalid={Boolean(errors.managerName)}
+            aria-describedby={
+              errors.managerName ? 'restaurant-manager-name-error' : 'restaurant-manager-name-help'
+            }
+            className={cn(
+              errors.managerName && 'border-destructive focus-visible:ring-destructive/60',
+            )}
+          />
+          <p id="restaurant-manager-name-help" className="text-xs text-muted-foreground">
+            Guests see this as the sender of review-request emails — for example, “Sam from The Old
+            Crown”. Leave blank to send as the venue name.
+          </p>
+          {errors.managerName ? (
+            <p id="restaurant-manager-name-error" className="text-xs text-destructive" role="alert">
+              {errors.managerName}
+            </p>
+          ) : null}
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

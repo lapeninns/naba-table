@@ -10,6 +10,7 @@ const RESTAURANT_BASE_COLUMNS = [
   'google_map_url',
   'google_review_url',
   'manager_daily_summary_enabled',
+  'manager_name',
   'manager_notification_phone',
   'booking_policy',
   'is_active',

@@ -78,6 +78,7 @@ export type CreatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   managerDailySummaryEnabled: boolean;
+  managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -237,6 +238,7 @@ export async function createRestaurant(
     contactPhone: restaurant.contact_phone,
     address: restaurant.address,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
+    managerName: restaurant.manager_name ?? null,
     managerNotificationPhone: restaurant.manager_notification_phone,
     googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
     googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),

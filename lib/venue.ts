@@ -4,6 +4,7 @@ export type VenueDetails = {
   id: string;
   slug: string;
   name: string;
+  managerName: string | null;
   address: string;
   phone: string;
   email: string;
@@ -19,6 +20,7 @@ export const DEFAULT_VENUE: VenueDetails = {
   id: '',
   slug: '',
   name: '',
+  managerName: null,
   address: '',
   phone: "",
   email: "",

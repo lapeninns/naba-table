@@ -55,4 +55,16 @@ describe('email sender policy', () => {
     expect(resolveRestaurantSenderName(' The Venue ')).toBe('The Venue');
     expect(resolveRestaurantSenderName('')).toBe('Restaurant');
   });
+
+  it('builds a personal review-request sender name from the manager + venue with fallback', async () => {
+    const { resolveReviewRequestSenderName } = await loadPolicy('support@nabatable.com');
+
+    // Manager + venue both present -> personal "<manager> from <venue>".
+    expect(resolveReviewRequestSenderName(' Sam ', ' Old Crown ')).toBe('Sam from Old Crown');
+    // No manager set -> fall back to the plain venue sender name.
+    expect(resolveReviewRequestSenderName(null, ' Old Crown ')).toBe('Old Crown');
+    expect(resolveReviewRequestSenderName('', 'Old Crown')).toBe('Old Crown');
+    // Neither manager nor venue -> generic restaurant sender.
+    expect(resolveReviewRequestSenderName(null, null)).toBe('Restaurant');
+  });
 });

@@ -54,6 +54,7 @@ function mapVenueDetails(restaurant: RestaurantRow): VenueDetails {
     id: restaurant.id,
     slug: restaurant.slug || '',
     name: restaurant.name || 'Restaurant',
+    managerName: restaurant.manager_name ?? null,
     timezone: restaurant.timezone || 'Europe/London',
     address: restaurant.address || '',
     phone: restaurant.contact_phone || '',

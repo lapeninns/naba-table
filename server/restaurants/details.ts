@@ -32,6 +32,7 @@ export type RestaurantDetails = {
   address: string | null;
   businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
+  managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -50,6 +51,7 @@ export type UpdateRestaurantDetailsInput = {
   address?: string | null;
   businessDescription?: string | null;
   managerDailySummaryEnabled?: boolean;
+  managerName?: string | null;
   managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
   googleReviewUrl?: string | null;
@@ -133,6 +135,9 @@ function buildRestaurantDetailsUpdatePayload(
   }
   if (hasInput(input, 'managerNotificationPhone')) {
     payload.managerNotificationPhone = sanitizeString(input.managerNotificationPhone);
+  }
+  if (hasInput(input, 'managerName')) {
+    payload.managerName = sanitizeString(input.managerName);
   }
   if (hasInput(input, 'googleMapUrl')) {
     payload.googleMapUrl = safeGoogleMapsUrl(input.googleMapUrl);
@@ -238,6 +243,7 @@ export async function getRestaurantDetails(
     address: restaurant.address,
     businessDescription,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
+    managerName: restaurant.manager_name,
     managerNotificationPhone: restaurant.manager_notification_phone,
     googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
     googleReviewUrl: safeGoogleReviewUrl(restaurant.google_review_url),
@@ -286,6 +292,7 @@ export async function updateRestaurantDetails(
     address: updated.address,
     businessDescription,
     managerDailySummaryEnabled: updated.managerDailySummaryEnabled,
+    managerName: updated.managerName,
     managerNotificationPhone: updated.managerNotificationPhone,
     googleMapUrl: updated.googleMapUrl,
     googleReviewUrl: updated.googleReviewUrl,

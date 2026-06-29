@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { captureServerException } from '@/lib/posthog/server';
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { createRestaurant, listRestaurantsForOps } from '@/server/restaurants';
@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
       address: restaurant.address,
       businessDescription: null,
       managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+      managerName: restaurant.managerName,
       managerNotificationPhone: restaurant.managerNotificationPhone,
       googleMapUrl: restaurant.googleMapUrl,
       googleReviewUrl: restaurant.googleReviewUrl,
@@ -203,6 +204,7 @@ export async function POST(req: NextRequest) {
         address: restaurant.address,
         businessDescription,
         managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+        managerName: restaurant.managerName,
         managerNotificationPhone: restaurant.managerNotificationPhone,
         googleMapUrl: restaurant.googleMapUrl,
         googleReviewUrl: restaurant.googleReviewUrl,

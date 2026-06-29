@@ -427,6 +427,7 @@ export const CONTACT_FIELDS = [
   'googleReviewUrl',
 ] as const satisfies readonly DetailsField[];
 export const NOTIFICATION_FIELDS = [
+  'managerName',
   'managerNotificationPhone',
   'managerDailySummaryEnabled',
 ] as const satisfies readonly DetailsField[];

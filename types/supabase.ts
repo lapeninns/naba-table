@@ -4978,6 +4978,7 @@ export type Database = {
           is_active: boolean;
           logo_url: string | null;
           manager_daily_summary_enabled: boolean;
+          manager_name: string | null;
           manager_notification_phone: string | null;
           name: string;
           reservation_default_duration_minutes: number;
@@ -5005,6 +5006,7 @@ export type Database = {
           is_active?: boolean;
           logo_url?: string | null;
           manager_daily_summary_enabled?: boolean;
+          manager_name?: string | null;
           manager_notification_phone?: string | null;
           name: string;
           reservation_default_duration_minutes?: number;
@@ -5032,6 +5034,7 @@ export type Database = {
           is_active?: boolean;
           logo_url?: string | null;
           manager_daily_summary_enabled?: boolean;
+          manager_name?: string | null;
           manager_notification_phone?: string | null;
           name?: string;
           reservation_default_duration_minutes?: number;

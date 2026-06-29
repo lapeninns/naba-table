@@ -25,6 +25,7 @@ type RestaurantsListResponse = {
     address: string | null;
     businessDescription: string | null;
     managerDailySummaryEnabled: boolean;
+    managerName: string | null;
     managerNotificationPhone: string | null;
     googleMapUrl: string | null;
     googleReviewUrl: string | null;
@@ -54,6 +55,7 @@ type RestaurantResponse = {
     address: string | null;
     businessDescription: string | null;
     managerDailySummaryEnabled: boolean;
+    managerName: string | null;
     managerNotificationPhone: string | null;
     googleMapUrl: string | null;
     googleReviewUrl: string | null;
@@ -791,6 +793,7 @@ export type RestaurantProfile = {
   address: string | null;
   businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
+  managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -1218,6 +1221,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     address: dto.address ?? null,
     businessDescription: dto.businessDescription ?? null,
     managerDailySummaryEnabled: dto.managerDailySummaryEnabled ?? false,
+    managerName: dto.managerName ?? null,
     managerNotificationPhone: dto.managerNotificationPhone ?? null,
     googleMapUrl: dto.googleMapUrl ?? null,
     googleReviewUrl: dto.googleReviewUrl ?? null,

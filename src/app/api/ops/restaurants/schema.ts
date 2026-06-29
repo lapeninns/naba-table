@@ -268,6 +268,16 @@ export const updateRestaurantSchema = z.object({
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
   reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
   reservationLifecycleGraceMinutes: GRACE_SCHEMA.optional(),
+  managerName: z
+    .string()
+    .trim()
+    .max(80, 'Manager name must be 80 characters or fewer')
+    .refine((value) => !hasLineBreakOrControlCharacter(value), {
+      message: 'Manager name cannot contain line breaks or control characters',
+    })
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
 });
 
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
@@ -284,6 +294,7 @@ export type RestaurantDTO = {
   address: string | null;
   businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
+  managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;

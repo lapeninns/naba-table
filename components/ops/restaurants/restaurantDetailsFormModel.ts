@@ -16,6 +16,7 @@ export type RestaurantDetailsFormValues = {
   contactPhone: string | null;
   address: string | null;
   businessDescription: string | null;
+  managerName: string | null;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -37,6 +38,7 @@ export type FormState = {
   contactPhone: string;
   address: string;
   businessDescription: string;
+  managerName: string;
   managerDailySummaryEnabled: boolean;
   managerNotificationPhone: string;
   googleMapUrl: string;
@@ -93,6 +95,8 @@ export const FIELD_TOOLTIPS = {
     'Minutes after the reservation end time when staff can still check out or mark no-shows.',
   bookingPolicy:
     'Optional message shown to guests during booking and in confirmations (e.g., grace periods, large-party policies).',
+  managerName:
+    'Manager or host name shown to guests as the sender of review-request emails (e.g. “Sam from The Old Crown”). Leave blank to send as the venue name.',
   managerNotificationPhone:
     'Direct delivery number for the daily manager SMS summary. Use E.164 format such as +447700900000.',
   managerDailySummaryEnabled:
@@ -231,6 +235,7 @@ export function mapInitialValues(values: RestaurantDetailsFormValues): FormState
     contactPhone: values.contactPhone ?? '',
     address: values.address ?? '',
     businessDescription: values.businessDescription ?? '',
+    managerName: values.managerName ?? '',
     managerDailySummaryEnabled: values.managerDailySummaryEnabled ?? false,
     managerNotificationPhone: values.managerNotificationPhone ?? '',
     bookingPolicy: values.bookingPolicy ?? '',
@@ -269,6 +274,7 @@ export function mapRestaurantProfileValues(
     contactPhone: profile.contactPhone,
     address: profile.address,
     businessDescription: profile.businessDescription,
+    managerName: profile.managerName,
     managerDailySummaryEnabled: profile.managerDailySummaryEnabled,
     managerNotificationPhone: profile.managerNotificationPhone,
     googleMapUrl: profile.googleMapUrl,
@@ -290,6 +296,7 @@ export function sanitizePayload(state: FormState): UpdateRestaurantInput {
   const trimmedPhone = trim(state.contactPhone);
   const trimmedAddress = trim(state.address);
   const trimmedBusinessDescription = trim(state.businessDescription);
+  const trimmedManagerName = trim(state.managerName);
   const trimmedManagerNotificationPhone = trim(state.managerNotificationPhone);
   const trimmedMapUrl = trim(state.googleMapUrl);
   const trimmedReviewUrl = trim(state.googleReviewUrl);
@@ -307,6 +314,7 @@ export function sanitizePayload(state: FormState): UpdateRestaurantInput {
     contactPhone: trimmedPhone.length > 0 ? trimmedPhone : null,
     address: trimmedAddress.length > 0 ? trimmedAddress : null,
     businessDescription: trimmedBusinessDescription.length > 0 ? trimmedBusinessDescription : null,
+    managerName: trimmedManagerName.length > 0 ? trimmedManagerName : null,
     managerDailySummaryEnabled: state.managerDailySummaryEnabled,
     managerNotificationPhone:
       trimmedManagerNotificationPhone.length > 0 ? trimmedManagerNotificationPhone : null,
@@ -400,6 +408,11 @@ export function validateRestaurantDetails(state: FormState): FormErrors {
   const phone = state.contactPhone.trim();
   if (phone && phone.length < 5) {
     errors.contactPhone = 'Phone number must be at least 5 characters';
+  }
+
+  const managerName = state.managerName.trim();
+  if (managerName.length > 80) {
+    errors.managerName = 'Manager name must be 80 characters or fewer';
   }
 
   const managerNotificationPhone = state.managerNotificationPhone.trim();

@@ -29,6 +29,7 @@ export type RestaurantListItem = {
   contactPhone: string | null;
   address: string | null;
   managerDailySummaryEnabled: boolean;
+  managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -140,6 +141,7 @@ export async function listRestaurantsForOps(
       contactPhone: row.contact_phone,
       address: row.address,
       managerDailySummaryEnabled: row.manager_daily_summary_enabled ?? false,
+      managerName: row.manager_name,
       managerNotificationPhone: row.manager_notification_phone,
       googleMapUrl: safeGoogleMapsUrl(row.google_map_url),
       googleReviewUrl: safeGoogleReviewUrl(row.google_review_url),

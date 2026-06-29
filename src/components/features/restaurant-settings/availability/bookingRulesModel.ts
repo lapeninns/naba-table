@@ -32,6 +32,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   contactPhone: null,
   address: null,
   businessDescription: null,
+  managerName: null,
   managerDailySummaryEnabled: false,
   managerNotificationPhone: null,
   googleMapUrl: null,
@@ -58,6 +59,8 @@ export function toBookingRulesFormValues(
     contactPhone: data.contactPhone,
     address: data.address,
     businessDescription: data.businessDescription,
+    // Manager name is edited on the profile notifications subform, not booking rules.
+    managerName: null,
     managerDailySummaryEnabled: data.managerDailySummaryEnabled,
     managerNotificationPhone: data.managerNotificationPhone,
     googleMapUrl: data.googleMapUrl,

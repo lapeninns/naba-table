@@ -27,6 +27,7 @@ export type UpdateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   managerDailySummaryEnabled?: boolean;
+  managerName?: string | null;
   managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
   googleReviewUrl?: string | null;
@@ -52,6 +53,7 @@ export type UpdatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   managerDailySummaryEnabled: boolean;
+  managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -129,6 +131,11 @@ export async function updateRestaurant(
   if (input.managerNotificationPhone !== undefined) {
     const trimmed = input.managerNotificationPhone?.trim();
     updateData.manager_notification_phone = trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (input.managerName !== undefined) {
+    const trimmed = input.managerName?.trim();
+    updateData.manager_name = trimmed && trimmed.length > 0 ? trimmed : null;
   }
 
   if (input.managerDailySummaryEnabled !== undefined) {
@@ -261,6 +268,7 @@ export async function updateRestaurant(
     contactPhone: data.contact_phone,
     address: data.address,
     managerDailySummaryEnabled: data.manager_daily_summary_enabled ?? false,
+    managerName: data.manager_name,
     managerNotificationPhone: data.manager_notification_phone,
     googleMapUrl: safeGoogleMapsUrl(data.google_map_url),
     googleReviewUrl: safeGoogleReviewUrl(data.google_review_url),

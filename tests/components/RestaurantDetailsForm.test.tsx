@@ -225,11 +225,13 @@ describe('RestaurantDetailsForm subforms', () => {
       screen.getByRole('textbox', { name: /manager alert number/i }),
       '+447700900000',
     );
+    await user.type(screen.getByRole('textbox', { name: /manager name/i }), 'Sam');
     await user.click(screen.getByRole('switch', { name: /daily manager sms summary/i }));
     await user.click(screen.getByRole('button', { name: /save notifications/i }));
 
     await waitFor(() =>
       expect(mutateAsyncMock).toHaveBeenCalledWith({
+        managerName: 'Sam',
         managerNotificationPhone: '+447700900000',
         managerDailySummaryEnabled: true,
       }),
