@@ -18,7 +18,7 @@ export type OpsPageShellProps = {
 const variantClasses: Record<OpsPageShellVariant, string> = {
   standard: 'mx-auto w-full max-w-[1200px] px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
   // Split-pane/editor-style experiences.
-  immersive: 'h-[calc(100vh-3.5rem)] w-full min-w-0 overflow-hidden',
+  immersive: 'h-[calc(100dvh-3.5rem)] w-full min-w-0 overflow-hidden',
 };
 
 /**

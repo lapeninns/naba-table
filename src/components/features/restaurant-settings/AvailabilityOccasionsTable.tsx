@@ -43,85 +43,162 @@ export function AvailabilityOccasionsTable({
   }
 
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[220px]">Label</TableHead>
-            <TableHead>Availability</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Dining duration</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {occasions.map((occasion) => {
-            const isServiceWindow = isServiceWindowOccasion(occasion.key);
-            return (
-              <TableRow
-                key={occasion.key}
-                id={`occasion-row-${occasion.key}`}
-                className="scroll-mt-28"
-              >
-                <TableCell className="font-medium">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{occasion.label}</span>
-                      {isServiceWindow ? (
-                        <Badge variant="outline" className="border-primary/40 text-primary">
-                          Service window
-                        </Badge>
-                      ) : null}
-                      {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
+    <>
+      {/* Mobile: stacked cards. The 5-column table would force horizontal scroll
+          below md, so phones/tablets get a card list instead (layout-system §8). */}
+      <div className="grid gap-3 md:hidden">
+        {occasions.map((occasion) => {
+          const isServiceWindow = isServiceWindowOccasion(occasion.key);
+          return (
+            <article key={occasion.key} className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{occasion.label}</span>
+                    {isServiceWindow ? (
+                      <Badge variant="outline" className="border-primary/40 text-primary">
+                        Service window
+                      </Badge>
+                    ) : null}
+                    {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
+                  </div>
+                  <p className="mt-1 text-xs font-normal text-muted-foreground">
+                    {occasion.shortLabel}
+                  </p>
+                </div>
+                <Switch
+                  id={`occasion-${occasion.key}-active-mobile`}
+                  aria-label={`Toggle ${occasion.label}`}
+                  checked={occasion.isActive}
+                  onCheckedChange={(checked) => onToggleActive(occasion.key, checked)}
+                  className="shrink-0"
+                />
+              </div>
+
+              <dl className="mt-3 space-y-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="shrink-0 text-muted-foreground">Availability</dt>
+                  <dd className="text-right text-foreground">
+                    {formatAvailabilitySummary(occasion.availability)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="shrink-0 text-muted-foreground">Status</dt>
+                  <dd className="text-right text-foreground">
+                    {occasion.isActive ? 'Active' : 'Inactive'}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="shrink-0 text-muted-foreground">Dining duration</dt>
+                  <dd className="text-right text-foreground">
+                    {describeTurnBands(
+                      turnBands?.[occasion.key],
+                      `${occasion.defaultDurationMinutes} min (default)`,
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={() => onEdit(occasion)}>
+                  Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={occasion.isBuiltin}
+                  onClick={() => onDelete(occasion)}
+                  className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  Delete
+                </Button>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {/* Desktop: full table */}
+      <div className="hidden rounded-lg border md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[220px]">Label</TableHead>
+              <TableHead>Availability</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Dining duration</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {occasions.map((occasion) => {
+              const isServiceWindow = isServiceWindowOccasion(occasion.key);
+              return (
+                <TableRow
+                  key={occasion.key}
+                  id={`occasion-row-${occasion.key}`}
+                  className="scroll-mt-28"
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{occasion.label}</span>
+                        {isServiceWindow ? (
+                          <Badge variant="outline" className="border-primary/40 text-primary">
+                            Service window
+                          </Badge>
+                        ) : null}
+                        {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
+                      </div>
+                      <p className="text-xs font-normal text-muted-foreground">
+                        {occasion.shortLabel}
+                      </p>
                     </div>
-                    <p className="text-xs font-normal text-muted-foreground">
-                      {occasion.shortLabel}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {formatAvailabilitySummary(occasion.availability)}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id={`occasion-${occasion.key}-active`}
-                      aria-label={`Toggle ${occasion.label}`}
-                      checked={occasion.isActive}
-                      onCheckedChange={(checked) => onToggleActive(occasion.key, checked)}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {occasion.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
-                  {describeTurnBands(
-                    turnBands?.[occasion.key],
-                    `${occasion.defaultDurationMinutes} min (default)`,
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => onEdit(occasion)}>
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={occasion.isBuiltin}
-                      onClick={() => onDelete(occasion)}
-                      className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatAvailabilitySummary(occasion.availability)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id={`occasion-${occasion.key}-active`}
+                        aria-label={`Toggle ${occasion.label}`}
+                        checked={occasion.isActive}
+                        onCheckedChange={(checked) => onToggleActive(occasion.key, checked)}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {occasion.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {describeTurnBands(
+                      turnBands?.[occasion.key],
+                      `${occasion.defaultDurationMinutes} min (default)`,
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => onEdit(occasion)}>
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={occasion.isBuiltin}
+                        onClick={() => onDelete(occasion)}
+                        className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }

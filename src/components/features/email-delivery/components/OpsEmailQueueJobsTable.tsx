@@ -44,7 +44,99 @@ export function OpsEmailQueueJobsTable({
 }: OpsEmailQueueJobsTableProps) {
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-border bg-background">
+      {/* Mobile: stacked cards. The 5-column queue table would force horizontal
+          scroll below lg, so smaller screens get a card list instead. */}
+      <div className="grid grid-cols-1 gap-3 lg:hidden">
+        {jobs.map((job) => (
+          <article
+            key={job.id}
+            className="rounded-xl border border-border bg-background p-4 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-foreground">
+                  {getOpsEmailQueueTypeLabel(job.type)}
+                </div>
+                <div
+                  className="mt-1 truncate font-mono text-[11px] text-muted-foreground"
+                  title={job.id}
+                >
+                  {job.id}
+                </div>
+              </div>
+              <Badge
+                variant={getOpsEmailQueueStatusBadgeVariant(job.status)}
+                className="shrink-0 whitespace-nowrap text-[10px] font-bold uppercase tracking-wide"
+              >
+                {getOpsEmailQueueStatusLabel(job.status)}
+              </Badge>
+            </div>
+
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-muted-foreground">Reservation</dt>
+                <dd className="min-w-0 text-right">
+                  {job.booking ? (
+                    <div className="space-y-1">
+                      <div className="font-mono text-xs font-semibold text-foreground">
+                        {job.booking.reference}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatOpsEmailQueueDateTime(job.booking.startAt, timezone)}
+                      </div>
+                      {job.bookingId ? (
+                        <Link
+                          href={`/app/bookings?restaurantId=${restaurantId ?? ''}&focus=${job.bookingId}`}
+                          prefetch={false}
+                          className="inline-block text-xs font-medium text-foreground underline underline-offset-2"
+                        >
+                          Open booking
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="font-mono text-xs text-muted-foreground">{job.bookingId}</span>
+                  )}
+                </dd>
+              </div>
+
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-muted-foreground">Guest</dt>
+                <dd className="min-w-0 text-right">
+                  <div className="break-words text-sm font-medium text-foreground">
+                    {job.booking?.customerName ?? 'Unknown guest'}
+                  </div>
+                  <div className="mt-0.5 break-all text-xs text-muted-foreground">
+                    {job.booking?.customerEmail ?? '—'}
+                  </div>
+                  {job.failedReason ? (
+                    <div className="mt-1 text-xs text-destructive" title={job.failedReason}>
+                      {job.failedReason}
+                    </div>
+                  ) : null}
+                </dd>
+              </div>
+
+              <div className="flex justify-between gap-3">
+                <dt className="shrink-0 text-muted-foreground">Send time</dt>
+                <dd className="text-right">
+                  <div className="text-sm font-medium text-foreground">
+                    {formatOpsEmailQueueDateTime(job.scheduledFor, timezone)}
+                  </div>
+                  {job.attemptsMade !== null ? (
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      Attempts: {job.attemptsMade}
+                    </div>
+                  ) : null}
+                </dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+
+      {/* Desktop: full table */}
+      <div className="hidden overflow-hidden rounded-xl border border-border bg-background lg:block">
         <Table>
           <TableHeader>
             <TableRow className="border-border bg-muted/40 hover:bg-muted/40">

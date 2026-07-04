@@ -86,7 +86,7 @@ export function BookingListClient({ initialTab = 'upcoming' }: { initialTab?: Bo
           </GuestPrimaryButton>
         }
         aside={
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
             <GuestMetricCard icon={Calendar} label="Upcoming" value={upcoming.length} />
             <GuestMetricCard icon={ReceiptText} label="Receipts" value={past.length} />
           </div>

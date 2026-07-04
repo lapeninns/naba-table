@@ -195,7 +195,7 @@ export function ReceiptClient({ reservationId, hasSession }: ReceiptClientProps)
           </>
         }
         aside={
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
             <GuestMetricCard icon={Calendar} label="Date" value={dateLabel} />
             <GuestMetricCard icon={Clock} label="Time" value={timeLabel} detail={venue.timezone} />
             <GuestMetricCard icon={Users} label="Party" value={reservation.partySize} />

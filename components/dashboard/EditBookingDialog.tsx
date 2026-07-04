@@ -558,7 +558,7 @@ function EditBookingDialogBase({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex max-h-[90vh] w-full flex-col overflow-hidden sm:max-w-3xl"
+        className="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-3xl"
         onInteractOutside={(event) => event.preventDefault()}
       >
         <Form {...form}>

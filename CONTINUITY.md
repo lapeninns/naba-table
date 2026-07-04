@@ -1,6 +1,15 @@
 # Continuity Ledger
 
-Last updated: 2026-06-27T11:42:00Z
+Last updated: 2026-06-29T09:50:50Z
+
+## Current manager-name production DB execution
+
+- Task harness: `tasks/manager-name-production-db-20260629-0950/`.
+- Goal: finish the production-only `restaurants.manager_name` rollout for review-request personal sender names after a prior agent was blocked by stale direct DB credentials.
+- Production target: Supabase project `vrdiqfudmwydclqpydee`; the checkout's own Supabase link pointed to staging (`ndxmivcrehsacuerwxtm`), so the successful route was an isolated temporary workdir with `supabase db query --linked --workdir /tmp/nabatable-prod-supabase.N6KnOr`.
+- Applied in production: `manager_name text`, `restaurants_manager_name_check` (`NULL` or length <= 80), column comment, and `NOTIFY pgrst, 'reload schema'`.
+- Final production values: The Old Crown Girton = Sub; The Queen Elizabeth = Diwakar; The Bell = Purna; The Corner House Pub (Cambridge) = Sub; The Old School House = San; The Railway Pub = Ravi; White Horse Pub = Sub.
+- Verification: CLI readback and REST readback both returned the seven expected `manager_name` values; REST `manager_name` select returned status `200`.
 
 ## Current loyalty metrics read-only reporting
 

@@ -327,13 +327,16 @@ export function WizardNavigation({
               Mobile: Compact inline controls
               Desktop: Inline with full progress treatment
           ───────────────────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Progress indicator with progress bar */}
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
+            {/* Progress indicator with progress bar.
+                On mobile the progress does not grow (flex-initial), so when the action
+                buttons cannot fit alongside it they wrap to their own row instead of
+                crushing the progress label. Restored to flex-1 from sm: up. */}
             <WizardProgress
               steps={steps}
               currentStep={currentStep}
               summary={summary}
-              className="min-w-0 flex-1 [&_[role=progressbar]]:hidden [&_.tabular-nums]:hidden sm:[&_[role=progressbar]]:block sm:[&_.tabular-nums]:inline"
+              className="min-w-0 flex-initial [&_[role=progressbar]]:hidden [&_.tabular-nums]:hidden sm:flex-1 sm:[&_[role=progressbar]]:block sm:[&_.tabular-nums]:inline"
             />
 
             {/* Action Buttons */}
