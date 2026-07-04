@@ -4980,6 +4980,7 @@ export type Database = {
           manager_daily_summary_enabled: boolean;
           manager_name: string | null;
           manager_notification_phone: string | null;
+          monthly_report_enabled: boolean;
           name: string;
           reservation_default_duration_minutes: number;
           reservation_interval_minutes: number;
@@ -5008,6 +5009,7 @@ export type Database = {
           manager_daily_summary_enabled?: boolean;
           manager_name?: string | null;
           manager_notification_phone?: string | null;
+          monthly_report_enabled?: boolean;
           name: string;
           reservation_default_duration_minutes?: number;
           reservation_interval_minutes?: number;
@@ -5036,6 +5038,7 @@ export type Database = {
           manager_daily_summary_enabled?: boolean;
           manager_name?: string | null;
           manager_notification_phone?: string | null;
+          monthly_report_enabled?: boolean;
           name?: string;
           reservation_default_duration_minutes?: number;
           reservation_interval_minutes?: number;
