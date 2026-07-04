@@ -110,13 +110,14 @@ export async function sendMonthlyVenueReports(options?: {
           // Render and send. The renderer owns the subject so the sent Subject header
           // and the email's document <title> can never drift apart.
           const dashboardUrl = `${dashboardOrigin}/dashboard`;
-          const { subject, html } = renderMonthlyReportEmail({ report, dashboardUrl });
+          const { subject, html, text } = renderMonthlyReportEmail({ report, dashboardUrl });
 
           const emailResult = await sendEmail({
             fromName: 'Team Nabatable',
             to: venue.contact_email,
             subject,
             html,
+            text,
             category: 'marketing', // Can unsubscribe; not transactional
             tags: [
               { name: 'email_type', value: 'monthly_report' },

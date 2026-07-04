@@ -62,13 +62,104 @@ function lifetimeStat(value: string, label: string, pad: string): string {
 }
 
 /**
- * Renders the monthly venue report. Returns the subject alongside the HTML so the
- * caller sends exactly the subject baked into the document title.
+ * Plain-text alternative part. Every HTML-only email is a deliverability liability:
+ * spam filters score multipart/alternative (HTML + text) higher, and some clients
+ * show the text part. Mirrors the same numbers as the HTML so the two never diverge.
+ */
+export function renderMonthlyReportText(params: {
+  report: MonthlyVenueReport;
+  dashboardUrl: string;
+}): string {
+  const { report, dashboardUrl } = params;
+  const greetingName = report.managerName?.trim() || 'there';
+  const messagesTotal = report.communications.emailsSent + report.communications.smsSent;
+
+  const lines: string[] = [];
+  lines.push(`Nabatable — Monthly Report — ${report.month}`);
+  lines.push('');
+  lines.push(
+    `${greetingName}, here's everything Nabatable did for ${report.restaurantName} in ${report.monthName}.`,
+  );
+  lines.push('');
+  lines.push(`GUESTS YOU SEATED IN ${report.monthName.toUpperCase()}: ${fmt(report.covers.active)}`);
+  lines.push(`across ${fmt(report.bookings.total)} bookings`);
+  if (report.guests.firstTime > 0) {
+    lines.push(`- ${fmt(report.guests.firstTime)} were first-time guests`);
+  }
+  lines.push('');
+  lines.push(`New guests discovered you: ${fmt(report.guests.firstTime)}`);
+  lines.push(`Guests who came back: ${fmt(report.guests.returning)}`);
+  lines.push(`Booked themselves online: ${report.bookings.onlinePercent}%`);
+  lines.push(
+    `No-show rate: ${report.bookings.noShowPercent}% (just ${fmt(report.bookings.noShowCount)} all month)`,
+  );
+
+  if (report.timing.afterHoursCount > 0) {
+    lines.push('');
+    lines.push(
+      `${fmt(report.timing.afterHoursCount)} of those bookings (${report.timing.afterHoursPercent}%) came in while you were closed — tables you'd have lost to voicemail.`,
+    );
+  }
+
+  lines.push('');
+  lines.push("Work Nabatable handled, so your team didn't have to:");
+  lines.push(`- Guest emails & texts sent automatically: ${fmt(messagesTotal)}`);
+  lines.push(`- Arrival reminders that kept no-shows at bay: ${fmt(report.communications.remindersSent)}`);
+  lines.push(`- Review invites sent to grow your reputation: ${fmt(report.communications.reviewRequestsSent)}`);
+  lines.push(`- Changes & cancellations sorted for you: ${fmt(report.communications.changesSentCount)}`);
+
+  const moments: string[] = [];
+  if (report.moments.busiestDateLabel) {
+    const service = report.moments.busiestService ? ` ${report.moments.busiestService.toLowerCase()}` : '';
+    moments.push(`Busiest table: ${report.moments.busiestDateLabel}${service} · ${fmt(report.moments.busiestCovers)} covers`);
+  }
+  if (report.moments.biggestParty > 0) {
+    moments.push(`Biggest party: ${fmt(report.moments.biggestParty)} guests`);
+  }
+  if (report.moments.repeatGuests > 0) {
+    moments.push(`${fmt(report.moments.repeatGuests)} guests already came back for seconds`);
+  }
+  if (moments.length) {
+    lines.push('');
+    lines.push(`${report.monthName}'s highlights:`);
+    for (const m of moments) lines.push(`- ${m}`);
+  }
+
+  lines.push('');
+  lines.push(
+    `Since you joined${report.lifetime.joinedLabel ? ` in ${report.lifetime.joinedLabel.split(' ')[0]}` : ''}:`,
+  );
+  lines.push(`- ${fmt(report.lifetime.coversActive)} guests seated`);
+  lines.push(`- ${fmt(report.lifetime.bookingsActive)} bookings taken`);
+  lines.push(`- ${fmt(report.lifetime.messagesSent)} messages sent for you`);
+
+  if (report.quietestDay) {
+    lines.push('');
+    lines.push(
+      `Worth a look: ${report.quietestDay.dayName}s were your quietest service last month — averaging just ${report.quietestDay.avgCoversPerDay} covers a day.`,
+    );
+  }
+
+  lines.push('');
+  lines.push(`See your full dashboard: ${dashboardUrl}`);
+  lines.push('');
+  lines.push('Every number above happened in the background — while you ran the floor.');
+  lines.push('See you next month — the Nabatable team');
+  lines.push('');
+  lines.push(`You're receiving this monthly summary because you manage ${report.restaurantName} on Nabatable.`);
+
+  return lines.join('\n');
+}
+
+/**
+ * Renders the monthly venue report. Returns the subject alongside the HTML and a
+ * plain-text alternative so the caller sends exactly the subject baked into the
+ * document title and a multipart/alternative (HTML + text) message.
  */
 export function renderMonthlyReportEmail(params: {
   report: MonthlyVenueReport;
   dashboardUrl: string;
-}): { subject: string; html: string } {
+}): { subject: string; html: string; text: string } {
   const { report, dashboardUrl } = params;
   const subject = buildMonthlyReportSubject(report);
   const safeVenue = escapeHtml(report.restaurantName);
@@ -320,5 +411,7 @@ export function renderMonthlyReportEmail(params: {
 </body>
 </html>`.trim();
 
-  return { subject, html };
+  const text = renderMonthlyReportText({ report, dashboardUrl });
+
+  return { subject, html, text };
 }
