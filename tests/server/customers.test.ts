@@ -141,6 +141,9 @@ describe('server/customers', () => {
   });
 
   it('does not fall back to a single email match after a strict public insert conflict', async () => {
+    const infoSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const duplicateEmailError = {
       code: '23505',
       message:
@@ -183,6 +186,16 @@ describe('server/customers', () => {
 
     expect(secondLookup.eq).toHaveBeenCalledWith('email_normalized', 'guest@example.com');
     expect(secondLookup.eq).toHaveBeenCalledWith('phone_normalized', '447000000000');
+
+    const logOutput = JSON.stringify([
+      ...infoSpy.mock.calls,
+      ...warnSpy.mock.calls,
+      ...errorSpy.mock.calls,
+    ]);
+    expect(logOutput).toContain('Unique violation unrecovered by identity re-find');
+    expect(logOutput).toContain('customers_restaurant_id_email_normalized_key');
+    expect(logOutput).not.toContain('guest@example.com');
+    expect(logOutput).not.toContain('07000');
   });
 
   it('fills a missing customer phone when reusing an existing email match', async () => {

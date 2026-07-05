@@ -10,7 +10,7 @@ describe('mapErrorToMessage', () => {
         message: 'duplicate key value violates unique constraint',
       }),
     ).toBe(
-      'We already have a booking with those details. Please check your confirmation email or call the restaurant if you need help.',
+      'Your email or phone number matches a previous guest, but not both. Please book with the same email address and phone number you used before, or call the restaurant for help.',
     );
   });
 

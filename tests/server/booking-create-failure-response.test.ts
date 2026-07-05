@@ -90,7 +90,7 @@ describe('booking create failure response', () => {
     });
 
     await expect(response.json()).resolves.toEqual({
-      error: 'This booking conflicts with an existing record (duplicate phone or email).',
+      error: 'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
       code: 'DUPLICATE_RESOURCE',
     });
     expect(response.status).toBe(409);
@@ -99,7 +99,7 @@ describe('booking create failure response', () => {
       eventType: 'booking.create.failure',
       severity: 'error',
       context: {
-        message: 'This booking conflicts with an existing record (duplicate phone or email).',
+        message: 'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
         restaurantId: bookingRequest.restaurantId,
         bookingDate: bookingRequest.date,
         emailDomain: 'example.com',

@@ -56,7 +56,8 @@ export function mapBookingApiError(error: unknown): BookingApiError {
     return {
       status: 409,
       body: {
-        error: 'This booking conflicts with an existing record (duplicate phone or email).',
+        error:
+          'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
         code: 'DUPLICATE_RESOURCE',
       },
     };

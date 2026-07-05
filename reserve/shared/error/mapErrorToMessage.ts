@@ -2,7 +2,7 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
   CAPACITY_EXCEEDED: 'No tables are available at that time. Please choose another slot.',
   CAPACITY_UNAVAILABLE: 'We cannot confirm availability right now. Please try again in a moment.',
   DUPLICATE_RESOURCE:
-    'We already have a booking with those details. Please check your confirmation email or call the restaurant if you need help.',
+    'Your email or phone number matches a previous guest, but not both. Please book with the same email address and phone number you used before, or call the restaurant for help.',
   INTERNAL: 'We could not complete your booking right now. Please try again in a moment.',
   INTERNAL_ERROR: 'We could not complete your booking right now. Please try again in a moment.',
   INTERNAL_SERVER_ERROR:

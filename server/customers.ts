@@ -58,6 +58,12 @@ function customerUpdateSummaryForLog(updates: TablesUpdate<'customers'>): {
   };
 }
 
+function uniqueConstraintNameForLog(error: unknown): string | undefined {
+  const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
+  const message = typeof record.message === 'string' ? record.message : '';
+  return /unique constraint "([^"]+)"/.exec(message)?.[1];
+}
+
 function dbErrorSummaryForLog(error: unknown): { code?: string; name?: string } {
   const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
   const code = typeof record.code === 'string' ? record.code : undefined;
@@ -284,7 +290,10 @@ export async function upsertCustomer(
       );
       // Final fallback for race conditions
       if (insertError.code === '23505') {
-        console.log(`[upsertCustomer] Race condition detected, retrying find.`);
+        const constraint = uniqueConstraintNameForLog(insertError);
+        console.log(`[upsertCustomer] Race condition detected, retrying find.`, {
+          ...(constraint ? { constraint } : {}),
+        });
         const secondFind = await findCustomerByNormalizedIdentity(
           client,
           params.restaurantId,
@@ -300,6 +309,15 @@ export async function upsertCustomer(
         if (secondFind) {
           return secondFind;
         }
+
+        // Not a race: the submitted contacts overlap an existing customer without
+        // matching it under the caller's identity mode (e.g. same email, different
+        // phone on the strict public path). Surfaces to guests as DUPLICATE_RESOURCE.
+        console.error(`[upsertCustomer] Unique violation unrecovered by identity re-find`, {
+          code: '23505',
+          matchMode: identityMatchMode,
+          ...(constraint ? { constraint } : {}),
+        });
       }
       throw insertError;
     }
