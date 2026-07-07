@@ -59,6 +59,37 @@ const deriveUnavailableReason = (
   return selectableSlots.length > 0 ? null : 'no-slots';
 };
 
+const isScheduleExhaustedByCurrentTime = (
+  nextSchedule: ReservationSchedule | null,
+  options?: { now?: Date },
+): boolean => {
+  if (!nextSchedule || nextSchedule.isClosed) {
+    return false;
+  }
+
+  const zone = nextSchedule.timezone?.trim() || 'UTC';
+  const reference = options?.now
+    ? DateTime.fromJSDate(options.now, { zone })
+    : DateTime.now().setZone(zone);
+  if (!reference.isValid || reference.toISODate() !== nextSchedule.date) {
+    return false;
+  }
+
+  const descriptors = nextSchedule.slots.map((slot) => toTimeSlotDescriptor(slot));
+  const capacitySlots = descriptors.filter((slot) => !slot.disabled);
+  if (capacitySlots.length === 0) {
+    return false;
+  }
+
+  return (
+    filterSelectableTimeSlots(capacitySlots, {
+      date: nextSchedule.date,
+      schedule: nextSchedule,
+      now: options?.now,
+    }).length === 0
+  );
+};
+
 export const buildMonthPrefetchTargets = (
   value: Date | null | undefined,
   normalizedMinTimestamp: number,
@@ -94,6 +125,33 @@ const parseDateKey = (value: string | null | undefined): Date | null => {
   }
   const next = new Date(year, month - 1, day);
   return Number.isNaN(next.getTime()) ? null : next;
+};
+
+const findNextCandidateDate = (
+  currentDate: string,
+  unavailableDates: Map<string, PlanStepUnavailableReason>,
+  options?: { skipNoSlots?: boolean },
+): string | null => {
+  let cursor = parseDateKey(currentDate);
+  if (!cursor) {
+    return null;
+  }
+
+  for (let i = 0; i < 60; i += 1) {
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    const isoKey = formatDateForInput(cursor);
+    const nextReason = unavailableDates.get(isoKey);
+
+    if (nextReason === 'closed') {
+      continue;
+    }
+    if (options?.skipNoSlots && nextReason === 'no-slots') {
+      continue;
+    }
+    return isoKey;
+  }
+
+  return null;
 };
 
 export const PLAN_DATE_ADVISORY_COPY =
@@ -588,30 +646,10 @@ export function usePlanStepForm({
       return;
     }
 
-    // Auto-advance to next available date
-    let cursor = parseDateKey(currentDate);
-    if (!cursor) {
-      return;
-    }
-
-    // Limit search to 60 days to avoid infinite loops
-    for (let i = 0; i < 60; i += 1) {
-      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
-      const isoKey = formatDateForInput(cursor);
-      const nextReason = unavailableDates.get(isoKey);
-
-      // If we don't have data for this date yet (undefined), we assume it might be open
-      // or wait for mask to load. However, since we prefetch masks, undefined usually means
-      // out of range or not yet loaded.
-      // But if we are within the prefetched range, undefined means "open".
-      // To be safe, we only switch if we explicitly know it is NOT closed.
-      // If nextReason is undefined, it effectively means "not closed" in the current mask logic.
-
-      if (nextReason !== 'closed') {
-        form.setValue('date', isoKey, { shouldDirty: false, shouldValidate: true });
-        actions.updateDetails('date', isoKey);
-        break;
-      }
+    const nextDate = findNextCandidateDate(currentDate, unavailableDates);
+    if (nextDate) {
+      form.setValue('date', nextDate, { shouldDirty: false, shouldValidate: true });
+      actions.updateDetails('date', nextDate);
     }
   }, [actions, form, state.details.date, unavailableDates]);
 
@@ -848,6 +886,20 @@ export function usePlanStepForm({
         });
       }
       if (isCurrentDate) {
+        if (derivedReason === 'no-slots' && isScheduleExhaustedByCurrentTime(schedule)) {
+          const nextDate = findNextCandidateDate(scheduleDate, unavailableDates, {
+            skipNoSlots: true,
+          });
+          if (nextDate) {
+            form.clearErrors(['date', 'time']);
+            form.setValue('date', nextDate, { shouldDirty: false, shouldValidate: true });
+            form.setValue('time', '', { shouldDirty: false, shouldValidate: true });
+            updateField('date', nextDate);
+            updateField('time', '');
+            return;
+          }
+        }
+
         const fallbackDate = lastValidDateRef.current;
         if (fallbackDate && fallbackDate !== scheduleDate) {
           form.setValue('date', fallbackDate, { shouldDirty: true, shouldValidate: true });
@@ -911,6 +963,7 @@ export function usePlanStepForm({
     schedule,
     state.details.date,
     state.details.restaurantSlug,
+    unavailableDates,
     updateField,
     updateUnavailableDate,
   ]);
