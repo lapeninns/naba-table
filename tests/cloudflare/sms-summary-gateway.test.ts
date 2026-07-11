@@ -13,7 +13,7 @@ import {
 } from '@/cloudflare/sms-summary-gateway/src/twilio';
 
 describe('sms summary scheduling', () => {
-  it('detects the local 10:00 window in summer and winter time', () => {
+  it('detects the local 10:00 window in summer and winter time @worker', () => {
     expect(
       resolveDueDispatch({
         now: '2026-06-15T09:05:00.000Z',
@@ -35,7 +35,7 @@ describe('sms summary scheduling', () => {
     });
   });
 
-  it('returns only enabled restaurants that are due in the current window', () => {
+  it('returns only enabled restaurants that are due in the current window @worker', () => {
     const due = selectDueDispatches(
       [
         {
@@ -67,7 +67,7 @@ describe('sms summary scheduling', () => {
 });
 
 describe('twilio sms delivery', () => {
-  it('builds the expected Twilio SMS payload', () => {
+  it('builds the expected Twilio SMS payload @worker @contract', () => {
     const { url, init } = buildTwilioSmsRequest({
       accountSid: 'AC123',
       apiKeySid: 'SK123',
@@ -91,7 +91,7 @@ describe('twilio sms delivery', () => {
     expect(params.get('MessagingServiceSid')).toBe('MG123');
   });
 
-  it('treats 429 and 5xx responses as retryable and hard 4xx errors as terminal', async () => {
+  it('treats 429 and 5xx responses as retryable and hard 4xx errors as terminal @worker @external-mock', async () => {
     await expect(
       sendTwilioSmsMessage({
         accountSid: 'AC123',
@@ -144,7 +144,7 @@ describe('daily summary queue consumer', () => {
     message: 'Old Crown Girton: Today 2 bkgs, 6 covers. Lunch 1/2. Dinner 1/4. app.nabatable.com',
   };
 
-  it('uses WhatsApp first and only falls back to SMS when provider acceptance fails', async () => {
+  it('uses WhatsApp first and only falls back to SMS when provider acceptance fails @worker', async () => {
     const idempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
       markSent: vi.fn().mockResolvedValue(undefined),
@@ -193,7 +193,7 @@ describe('daily summary queue consumer', () => {
     expect(sendSms).toHaveBeenCalledOnce();
   });
 
-  it('marks successful sends and skips duplicates', async () => {
+  it('marks successful sends and skips duplicates @worker', async () => {
     const idempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
       markSent: vi.fn().mockResolvedValue(undefined),
@@ -245,7 +245,7 @@ describe('daily summary queue consumer', () => {
     });
   });
 
-  it('releases the lock on transient send failures and leaves hard send state untouched after success', async () => {
+  it('releases the lock on transient send failures and leaves hard send state untouched after success @worker', async () => {
     const transientIdempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
       markSent: vi.fn(),

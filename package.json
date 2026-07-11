@@ -24,6 +24,8 @@
     ]
   },
   "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "dev": "next dev --webpack",
     "dev:turbo": "next dev --turbo",
     "build": "next build --webpack",
@@ -96,6 +98,7 @@
     "prepare": "husky",
     "secret:scan": "tsx scripts/qa/secret-scan.ts",
     "guard:qa-tags": "tsx scripts/qa/tag-audit.ts --baseline=config/qa/tag-baseline.json",
+    "guard:coverage": "pnpm run test:coverage && tsx scripts/qa/coverage-ratchet.ts --baseline=config/qa/coverage-baseline.json",
     "security:backlog": "node scripts/security/build-deepsec-backlog.mjs && prettier --write docs/security/deepsec-remediation-board.md",
     "security:regression": "vitest run tests/server/team-invitations-security.test.ts tests/server/auth/callback-route-security.test.ts tests/server/tenant-authorization-sprint2.test.ts tests/server/csrf-protected-mutations.test.ts tests/lib/security/safe-url.test.ts tests/lib/security/script-json.test.ts tests/server/restaurant-security-schema.test.ts tests/server/cron-routes-auth.test.ts tests/server/security/session-recovery-access-token.test.ts tests/lib/csv-export.test.ts tests/lib/query-params.test.ts tests/server/auth/signin-throttle.test.ts tests/server/auth/signin-route-magic-link-policy.test.ts tests/server/dual-sync-publish-orchestrator.test.ts tests/server/email-processing-security.test.ts tests/server/security-events.test.ts tests/server/capacity/soft-holds-rpc-security.test.ts tests/server/google-business-profile-callback-route.test.ts tests/server/google-business-profile-readonly-v1.test.ts tests/server/restaurant-google-business-profile-routes.test.ts tests/server/restaurant-google-business-v1-routes.test.ts tests/server/proxy-google-business-callback.test.ts tests/server/customers.test.ts tests/server/public-bookings-route.test.ts tests/server/public-booking-delete-route.test.ts tests/server/restaurants/create.test.ts tests/server/capacity/assignment-rpc-privileges-security.test.ts",
     "security:guard:service-role": "node scripts/security/check-service-role-routes.mjs",
@@ -252,6 +255,7 @@
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
     "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "4.1.0",
     "autoprefixer": "^10.4.22",
     "axe-core": "4.11.1",
     "baseline-browser-mapping": "^2.9.19",

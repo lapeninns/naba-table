@@ -12,7 +12,7 @@ import {
 } from '@/lib/twilio/sms';
 
 describe('buildTwilioWhatsAppRequest', () => {
-  it('uses the registered Nabatable sender and an approved content template', () => {
+  it('uses the registered Nabatable sender and an approved content template @contract', () => {
     const request = buildTwilioWhatsAppRequest({
       accountSid: 'AC123',
       apiKeySid: 'SK123',
@@ -42,7 +42,7 @@ describe('buildTwilioWhatsAppRequest', () => {
 });
 
 describe('buildTwilioSmsRequest', () => {
-  it('includes ShortenUrls when link shortening is enabled', () => {
+  it('includes ShortenUrls when link shortening is enabled @contract', () => {
     const request = buildTwilioSmsRequest({
       accountSid: 'AC123',
       apiKeySid: 'SK123',
@@ -58,7 +58,7 @@ describe('buildTwilioSmsRequest', () => {
     expect(String(request.init.body)).toContain('ShortenUrls=true');
   });
 
-  it('omits ShortenUrls when link shortening is disabled', () => {
+  it('omits ShortenUrls when link shortening is disabled @contract', () => {
     const request = buildTwilioSmsRequest({
       accountSid: 'AC123',
       apiKeySid: 'SK123',
@@ -71,7 +71,7 @@ describe('buildTwilioSmsRequest', () => {
     expect(String(request.init.body)).not.toContain('ShortenUrls=');
   });
 
-  it('includes StatusCallback when provided', () => {
+  it('includes StatusCallback when provided @contract', () => {
     const request = buildTwilioSmsRequest({
       accountSid: 'AC123',
       apiKeySid: 'SK123',
@@ -89,7 +89,7 @@ describe('buildTwilioSmsRequest', () => {
 });
 
 describe('buildTwilioListMessagesRequest', () => {
-  it('builds a filtered messages list request', () => {
+  it('builds a filtered messages list request @contract', () => {
     const request = buildTwilioListMessagesRequest({
       accountSid: 'AC123',
       authToken: 'auth-token',
@@ -107,7 +107,7 @@ describe('buildTwilioListMessagesRequest', () => {
     expect(request.init.method).toBe('GET');
   });
 
-  it('uses next_page_uri verbatim when following pagination', () => {
+  it('uses next_page_uri verbatim when following pagination @contract', () => {
     const request = buildTwilioListMessagesRequest({
       accountSid: 'AC123',
       authToken: 'auth-token',
@@ -124,7 +124,7 @@ describe('buildTwilioListMessagesRequest', () => {
 });
 
 describe('buildTwilioFetchMessageRequest', () => {
-  it('builds a single-message fetch request', () => {
+  it('builds a single-message fetch request @contract', () => {
     const request = buildTwilioFetchMessageRequest({
       accountSid: 'AC123',
       authToken: 'auth-token',
@@ -137,7 +137,7 @@ describe('buildTwilioFetchMessageRequest', () => {
 });
 
 describe('mapTwilioMessageStatusToDeliveryStatus', () => {
-  it('maps Twilio transport states into internal delivery states', () => {
+  it('maps Twilio transport states into internal delivery states @contract', () => {
     expect(mapTwilioMessageStatusToDeliveryStatus('accepted')).toBe('queued');
     expect(mapTwilioMessageStatusToDeliveryStatus('queued')).toBe('queued');
     expect(mapTwilioMessageStatusToDeliveryStatus('scheduled')).toBe('queued');
@@ -152,7 +152,7 @@ describe('mapTwilioMessageStatusToDeliveryStatus', () => {
 });
 
 describe('fetchTwilioMessage', () => {
-  it('parses a Twilio message resource response', async () => {
+  it('parses a Twilio message resource response @contract @external-mock', async () => {
     const message = await fetchTwilioMessage({
       accountSid: 'AC123',
       authToken: 'auth-token',
@@ -180,7 +180,7 @@ describe('fetchTwilioMessage', () => {
 });
 
 describe('validateTwilioWebhookSignature', () => {
-  it('accepts a correctly signed webhook payload', () => {
+  it('accepts a correctly signed webhook payload @security', () => {
     const form = new URLSearchParams();
     form.set('MessageSid', 'SM123');
     form.set('MessageStatus', 'delivered');

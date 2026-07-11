@@ -55,7 +55,7 @@ const persistence = {
 } satisfies Extract<BookingCreatePersistenceResult, { kind: 'created' }>;
 
 describe('completeBookingCreate', () => {
-  it('persists WhatsApp consent before notification-producing finalization', async () => {
+  it('persists WhatsApp consent before notification-producing finalization @contract', async () => {
     const whatsappRequest = { ...request, whatsappOptIn: true };
     const consentedBooking = {
       ...booking,
@@ -98,7 +98,7 @@ describe('completeBookingCreate', () => {
     expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ booking: consentedBooking }));
   });
 
-  it('finalizes the booking before building the HTTP response', async () => {
+  it('finalizes the booking before building the HTTP response @api @contract', async () => {
     const finalizer = vi.fn(async () => ({ booking: finalizedBooking })) as BookingCreateFinalizer;
     const responseBuilder = vi.fn(async () =>
       NextResponse.json({ bookingId: finalizedBooking.id }, { status: 201 }),
@@ -149,7 +149,7 @@ describe('completeBookingCreate', () => {
     );
   });
 
-  it('passes finalization and response error callbacks through unchanged', async () => {
+  it('passes finalization and response error callbacks through unchanged @contract', async () => {
     const callbacks = {
       onAutoAssignError: vi.fn(),
       onInlineAutoAssignError: vi.fn(),
@@ -190,7 +190,7 @@ describe('completeBookingCreate', () => {
     );
   });
 
-  it('preserves reused booking semantics through finalization and response', async () => {
+  it('preserves reused booking semantics through finalization and response @api @contract', async () => {
     const reusedPersistence = {
       ...persistence,
       reusedExisting: true,

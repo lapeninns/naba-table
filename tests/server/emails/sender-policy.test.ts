@@ -20,13 +20,13 @@ describe('email sender policy', () => {
     vi.resetModules();
   });
 
-  it('resolves the configured platform reply-to address', async () => {
+  it('resolves the configured platform reply-to address @contract', async () => {
     const { resolvePlatformReplyTo } = await loadPolicy(' support@nabatable.com ');
 
     expect(resolvePlatformReplyTo()).toBe('support@nabatable.com');
   });
 
-  it('falls back to the platform default when config is missing or blank', async () => {
+  it('falls back to the platform default when config is missing or blank @contract', async () => {
     const missingPolicy = await loadPolicy(undefined);
     expect(missingPolicy.resolvePlatformReplyTo()).toBe('info@lapeninns.com');
 
@@ -34,7 +34,7 @@ describe('email sender policy', () => {
     expect(blankPolicy.resolvePlatformReplyTo()).toBe('info@lapeninns.com');
   });
 
-  it('routes restaurant replies to venue email with platform fallback', async () => {
+  it('routes restaurant replies to venue email with platform fallback @contract', async () => {
     const { resolveRestaurantReplyTo } = await loadPolicy('platform@nabatable.com');
 
     expect(resolveRestaurantReplyTo(' venue@example.com ')).toBe('venue@example.com');
@@ -43,7 +43,7 @@ describe('email sender policy', () => {
     expect(resolveRestaurantReplyTo(null)).toBe('platform@nabatable.com');
   });
 
-  it('keeps sender display names deterministic', async () => {
+  it('keeps sender display names deterministic @contract', async () => {
     const {
       resolvePlatformAppSenderName,
       resolvePlatformSupportSenderName,
@@ -56,7 +56,7 @@ describe('email sender policy', () => {
     expect(resolveRestaurantSenderName('')).toBe('Restaurant');
   });
 
-  it('builds a personal review-request sender name from the manager + venue with fallback', async () => {
+  it('builds a personal review-request sender name from the manager + venue with fallback @contract', async () => {
     const { resolveReviewRequestSenderName } = await loadPolicy('support@nabatable.com');
 
     // Manager + venue both present -> personal "<manager> from <venue>".

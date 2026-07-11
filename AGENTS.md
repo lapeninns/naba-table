@@ -32,10 +32,10 @@ pnpm exec prettier --check .   # formatting check (use --write to fix)
 pnpm validate:env              # validate env against the contract — run before any remote work
 ```
 
-Tests — there is **no** `pnpm test` script; drive Vitest and Playwright directly:
+Tests — `pnpm test` runs the complete non-e2e Vitest suite (CI-gated on every PR and push to `main` via `.github/workflows/test-suite.yml`); drive narrower runs directly:
 
 ```bash
-pnpm exec vitest run                                            # full Vitest run (excludes tests/e2e)
+pnpm test                                                       # full Vitest run (excludes tests/e2e)
 pnpm exec vitest run tests/server/capacity/seatability.test.ts  # a single file
 pnpm exec vitest run -t "seats a booking"                       # by test name
 pnpm exec playwright test -c playwright.app.config.ts           # ops e2e; playwright.reserve.config.ts for guest reserve, playwright.config.ts for guest

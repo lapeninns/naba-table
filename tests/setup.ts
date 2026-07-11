@@ -26,18 +26,21 @@ if (!globalThis.crypto) {
 }
 
 if (!window.matchMedia) {
+  // Plain function, NOT vi.fn(): the config sets mockReset:true, which would wipe
+  // a vi.fn implementation before every test and hand components a matchMedia
+  // that returns undefined. Suites that need to observe calls install their own.
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
+    value: (query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
   });
 }
 

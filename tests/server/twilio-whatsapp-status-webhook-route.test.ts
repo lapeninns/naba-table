@@ -48,7 +48,7 @@ describe('POST /api/webhook/twilio/whatsapp-status', () => {
     processCallback.mockResolvedValue({ fallbackSent: true, ignored: false });
   });
 
-  it('processes a signed terminal failure that can claim SMS fallback', async () => {
+  it('processes a signed terminal failure that can claim SMS fallback @api @security', async () => {
     const response = await POST(request());
 
     expect(response.status).toBe(200);
@@ -65,7 +65,7 @@ describe('POST /api/webhook/twilio/whatsapp-status', () => {
     });
   });
 
-  it('rejects an invalid signature without writing state', async () => {
+  it('rejects an invalid signature without writing state @api @security', async () => {
     const response = await POST(request('invalid'));
 
     expect(response.status).toBe(401);

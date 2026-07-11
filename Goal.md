@@ -1,94 +1,57 @@
 You are working in `/Users/amankumarshrestha/LapenInns Project/nabatableLP`.
 
-Goal: redesign Nabatable UX/UI from the ground up with a clean, mobile-first, responsive design system, while preserving the existing product behavior, routes, backend contracts, permissions, and Supabase safety rules.
+Goal: bring this repo to 100% QA — every product surface covered by tests, every push forced through them — while preserving existing product behavior, backend contracts, permissions, and the fail-closed QA safety model.
+
+"100% QA" is met when all six pillars hold:
+
+1. **Green baseline.** The full Vitest suite and all Playwright packs pass on `main` at all times. A red `main` is a stop-the-line event.
+2. **Full-suite gate.** CI runs the complete Vitest suite (~3,374 tests, ~40s) on every PR **and every push to `main`** — direct pushes must not bypass tests.
+3. **Browser QA in CI.** Playwright browsers are installed in CI; guest + ops + reserve browser packs gate PRs (smoke) and run fully on a schedule.
+4. **Coverage is measured and ratcheted.** `@vitest/coverage-v8` reports per-directory coverage; a frozen baseline (same pattern as the tag/luma ratchets) only ever tightens.
+5. **Nightly RC run.** A scheduled workflow runs the `qa:rc` release-candidate pack (mock/local mode) nightly and uploads artifacts, so drift surfaces within a day even with no PR open.
+6. **Surface coverage closed.** The gap list below is driven to zero, highest risk first; DB-level invariants (RLS, atomicity, tenant isolation) get real-Postgres tests as AGENTS.md already mandates.
 
 Before editing, read and follow:
 
-1. `AGENTS.md`
-2. `docs/sdlc/README.md`
-3. `docs/sdlc/native-execution-loop.md`
-4. `docs/sdlc/risk-tier-workflow.md`
-5. `docs/sdlc/task-harness.md`
-6. `docs/sdlc/verification.md`
-7. `docs/sdlc/react-query-swr-ux.md`
-8. `.agents/*.md`
+1. `AGENTS.md` (binding: micro-spec governance + TDD workflow)
+2. `micro-specs/README.md` and `micro-specs/GLOBAL_CONTEXT.md`
+3. `docs/sdlc/verification.md` (change-type verification matrix)
+4. `docs/qa/README.md` and the per-pack docs in `docs/qa/*.md`
+5. `Instructions_tdd.md`
 
 Non-negotiables:
 
 - Do not leak or print secrets.
-- Supabase is remote-only. Do not perform data writes unless explicitly required, staged, and read back.
-- UI must use the existing shadcn/ui primitive layer at `components/ui/*`.
-- Do not introduce native HTML primitive systems, parallel component libraries, or one-off base components in app code.
-- Keep ops and guest/public on one Radix Luma shadcn theme.
-- UI changes require browser verification on real shipped routes, not only `/dev/**` or harness routes.
-- Do not claim verification that was not performed.
-- Medium/high-risk work must create a task folder under `tasks/<slug>-YYYYMMDD-HHMM/`.
+- Supabase is remote-only; tests stay mocked/local by default. Never weaken the fail-closed env guard (`scripts/qa/environment.ts`, `run-guarded-command.ts`) or its production blocklist.
+- New QA tooling (CI workflows, coverage config, runner scripts) goes through the micro-spec governance like any other work.
+- Respect the existing ratchets (`config/qa/tag-baseline.json`, luma baseline): baselines may tighten, never loosen.
+- Do not delete or quarantine failing tests to get green — diagnose and fix product code or update stale expectations with evidence.
+- New tests must be deterministic: no host-timezone, wall-clock, or timing dependence (pin TZ, use fake timers).
 
-Product surfaces to redesign:
+Audit snapshot (2026-07-11, `main` @ 4763635d) — the starting line:
 
-- Ops app: `src/app/app/**`
-- Public/guest: `src/app/(public)/**` and `src/app/guest/**`
-- Shared UI: `components/**` and `src/components/**`
-- Respect routing/host split enforced by `src/proxy.ts`.
+- Full suite: 3,363/3,374 passing; **11 failures in 6 files** (booking-lifecycle regression pushed to `main` the same day + component-test debt). Typecheck clean.
+- CI gates: PR-only; no workflow runs the full suite, no Playwright browsers installed, no coverage, no scheduled runs. `ai-governance.yml` is the only push-to-main workflow and runs no product tests.
+- QA packs exercise ~180 curated test files; **575 of 755 test files belong to no pack** (they run only under a bare `vitest run` / `playwright test`, which nothing invokes).
+- Untested surface: API routes ~11 of 145 (+ onboarding per-step cluster); server/lib modules 160/578; components 377/548 (restaurant-settings 119/179, dashboard 52/66, menu 28/29); hooks 49/76; reserve features ~83% of files; **supabase: 0 SQL-level tests across 106 migrations / ~70 functions**; e2e missing for `dashboard/print` and `new-bookings` pages; the `scripts/qa` harness itself is largely untested.
+- Tag debt: 91 of 3,343 test titles tagged; quarantine list empty; zero `.skip`.
 
-Design objective:
+Roadmap (execute in order; each phase is a separate PR-sized slice):
 
-Create a mobile-first Nabatable interface that feels like a serious hospitality operating system: calm, fast, clear, premium, and practical for restaurant staff and guests. It should not feel like a generic SaaS dashboard, template landing page, or purple-gradient AI app.
-
-Core design direction:
-
-- Mobile first, then tablet, then desktop.
-- Dense but readable layouts for ops workflows.
-- Guest/public flows should feel simple, polished, and trustworthy.
-- Prioritize scanning, decision-making, booking clarity, and operational speed.
-- Use restrained visual hierarchy, strong spacing rhythm, clear touch targets, and accessible contrast.
-- Avoid decorative clutter, generic card-heavy layouts, and marketing-style hero sections where a functional app view is needed.
-
-Design system requirements:
-
-Build or refactor toward a coherent system covering:
-
-- Color tokens: background, surface, elevated surface, border, muted, primary, accent, success, warning, destructive, info.
-- Typography scale: mobile-readable, no viewport-based font scaling, no negative letter spacing.
-- Spacing scale: consistent vertical rhythm and touch-safe controls.
-- Radius system: keep cards and controls restrained, generally 8px or less unless existing shadcn patterns require otherwise.
-- Shadows/elevation: subtle and functional only.
-- States: loading, empty, disabled, error, warning, success, stale data, optimistic update, offline/failed fetch.
-- Components: buttons, icon buttons, inputs, selects, date/time controls, tabs, segmented controls, tables, lists, cards, dialogs, drawers, sheets, toasts, badges, forms, nav, mobile bottom actions, filters.
-- Data UX: clear stale/reloading states using the repo’s React Query SWR guidance.
-- Accessibility: keyboard support, focus states, labels, contrast, reduced motion.
-
-Implementation approach:
-
-1. Audit current UI structure, routes, shared components, shadcn usage, theme files, and design inconsistencies.
-2. Create a task folder with findings, design principles, affected route list, and verification plan.
-3. Define the core design system first: tokens, theme usage, layout primitives, component conventions.
-4. Redesign in vertical slices, starting with the highest-value shipped routes.
-5. Preserve existing behavior and API contracts.
-6. Replace inconsistent UI with shadcn-based shared components.
-7. Keep changes scoped and avoid unrelated backend or data model work.
-8. Add or update focused tests where behavior risk exists.
-9. Verify with real browser screenshots on mobile and desktop widths.
-
-Mobile-first requirements:
-
-- All primary workflows must work cleanly at 375px width.
-- No horizontal overflow.
-- Text must not overlap, truncate awkwardly, or escape controls.
-- Touch targets should be comfortable for restaurant staff using phones.
-- Important actions should remain reachable without crowding.
-- Tables should become mobile-friendly lists, stacked rows, or responsive summaries where appropriate.
-- Dialog-heavy desktop flows should use sheets/drawers or full-screen mobile patterns where needed.
+- **Phase 0 — restore green.** Fix the 11 failures on `main` (diagnose regression vs stale test per cluster; the 5 server failures trace to the 4763635d booking-lifecycle commit and may be a live guest-facing bug).
+- **Phase 1 — enforce.** `test` script + full-suite CI workflow on PR + push to `main`; add Playwright browser install; wire browser smoke packs into CI.
+- **Phase 2 — measure.** Coverage tooling + per-directory ratchet baseline; report in CI.
+- **Phase 3 — schedule.** Nightly `qa:rc` workflow with artifact upload.
+- **Phase 4 — close the gaps.** Work the untested-surface list top-down by risk: booking/capacity/auth API routes → supabase SQL-level invariant tests (pgTAP or staging-shadow harness) → monthly-report + google-business-profile server clusters → ops hooks → restaurant-settings/dashboard component trees → reserve features. Tag new tests (`@p0`…) as you go.
+- **Phase 5 — self-test the harness.** Tests for `scripts/qa/*` (pr-baseline selector, rc-pack, tag-audit, environment guard) so the QA system can't silently rot.
 
 Validation commands:
 
-Run the relevant commands that exist in this repo:
-
 ```bash
-pnpm run lint
-pnpm run typecheck
-pnpm node scripts/check-no-shadcn.mjs --primitives-only
-pnpm exec vitest ...
-pnpm exec playwright test ...
-pnpm exec prettier --check ...
+pnpm exec vitest run                 # full unit/integration suite (must stay green)
+pnpm run typecheck && pnpm run lint
+pnpm run qa:foundation               # QA harness self-checks
+pnpm run guard:qa-tags
+pnpm exec playwright test            # e2e (per-config: playwright.config.ts / .app / .reserve)
+pnpm run qa:rc                       # full release-candidate pack (local, mocked)
 ```

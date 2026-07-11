@@ -1818,7 +1818,9 @@ describe('OpsEmailDeliveryClient', () => {
 
     await waitFor(
       () => {
-        expect(screen.getByText('Fast Queue')).toBeInTheDocument();
+        // Guest names render in both the mobile card list and the desktop table;
+        // scope to the desktop table so the query stays unambiguous.
+        expect(within(screen.getByRole('table')).getByText('Fast Queue')).toBeInTheDocument();
       },
       { timeout: 1500 },
     );
@@ -1882,12 +1884,15 @@ describe('OpsEmailDeliveryClient', () => {
     const user = userEvent.setup();
     renderClient(getRestaurantEmailDeliveryFeed, { getRestaurantEmailQueue });
 
-    expect(await screen.findByText('Stale Queue Guest')).toBeInTheDocument();
+    // Guest names render in both the mobile card list and the desktop table;
+    // scope to the desktop table so the queries stay unambiguous.
+    const queueTable = await screen.findByRole('table');
+    expect(within(queueTable).getByText('Stale Queue Guest')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Ready now' }));
 
     expect(await screen.findByLabelText('Refreshing email queue')).toBeInTheDocument();
-    expect(screen.getByText('Stale Queue Guest')).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText('Stale Queue Guest')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Refreshing email queue' })).toHaveAttribute(
       'aria-busy',
       'true',
@@ -1898,7 +1903,11 @@ describe('OpsEmailDeliveryClient', () => {
       await filteredQueueGate;
     });
 
-    expect(await screen.findByText('Filtered Queue Guest')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('table')).getByText('Filtered Queue Guest'),
+      ).toBeInTheDocument();
+    });
     await waitFor(() => {
       expect(screen.queryByLabelText('Refreshing email queue')).not.toBeInTheDocument();
     });

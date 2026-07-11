@@ -1,0 +1,59 @@
+name: Test suite
+
+# MS-foundation-full-suite-ci-gate: the complete Vitest suite gates every PR
+# and every push to main. No path filters — the suite is fast enough (~40s)
+# to always run whole, and path filters are how regressions slip through.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vitest:
+    name: Full Vitest suite
+    runs-on: ubuntu-latest
+    env:
+      # Sanitized offline env only — mirrors qa-foundation.yml. Tests must
+      # never receive real credentials; tests/setup.ts fallbacks align with
+      # these values.
+      APP_ENV: test
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      QA_TARGET_ENV: ci-ephemeral
+      RESEND_API_KEY: test-resend-api-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run full Vitest suite
+        run: pnpm test
+
+      # MS-foundation-coverage-ratchet: re-runs the suite with V8 coverage and
+      # compares the summary against config/qa/coverage-baseline.json, so a
+      # coverage drop below the frozen floors fails CI. Kept as a second step
+      # (rather than replacing `pnpm test`) because full-suite-command.test.ts
+      # pins the fast suite step; the coverage pass measured ~55-75s locally.
+      - name: Coverage ratchet
+        run: pnpm guard:coverage

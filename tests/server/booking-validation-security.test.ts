@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BookingValidationService } from '@/server/booking/BookingValidationService';
 
@@ -123,6 +123,17 @@ function makeService(overrides: Partial<CapacityService> = {}) {
 }
 
 describe('BookingValidationService security guards', () => {
+  beforeEach(() => {
+    // Pin the wall clock (assertBookingNotInPast reads it directly) to the same
+    // instant as the injected timeProvider so the 2026-07-01 fixtures stay future.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-16T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('rejects excessive durations before capacity checks', async () => {
     const { service, capacityService } = makeService();
 

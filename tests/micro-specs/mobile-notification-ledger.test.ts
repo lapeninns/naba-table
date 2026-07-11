@@ -13,7 +13,7 @@ function readMigration(): string {
 }
 
 describe('WhatsApp-first mobile notification ledger migration', () => {
-  it('stores versioned booking and manager consent against the approved phone snapshot', () => {
+  it('stores versioned booking and manager consent against the approved phone snapshot @contract @local-only', () => {
     const source = readMigration();
 
     expect(source).toContain('whatsapp_opt_in boolean NOT NULL DEFAULT false');
@@ -25,7 +25,7 @@ describe('WhatsApp-first mobile notification ledger migration', () => {
     expect(source).toContain('manager_whatsapp_consent_phone text');
   });
 
-  it('separates logical notifications from WhatsApp and SMS attempts', () => {
+  it('separates logical notifications from WhatsApp and SMS attempts @contract @local-only', () => {
     const source = readMigration();
 
     expect(source).toContain('CREATE TABLE IF NOT EXISTS public.mobile_notifications');
@@ -37,7 +37,7 @@ describe('WhatsApp-first mobile notification ledger migration', () => {
     expect(source).toContain('fallback_for_attempt_id uuid');
   });
 
-  it('exposes one service-only atomic fallback claim and protects both ledgers with RLS', () => {
+  it('exposes one service-only atomic fallback claim and protects both ledgers with RLS @contract @security @local-only', () => {
     const source = readMigration();
 
     expect(source).toContain('CREATE OR REPLACE FUNCTION public.claim_mobile_notification_fallback');

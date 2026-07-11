@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "spec_id": "MS-foundation-test-baseline-restoration",
+  "runs": [
+    {
+      "timestamp": "2026-07-11T15:58:04.578Z",
+      "git_sha": "4763635daecbeb036f15772de07127639cf7d742",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 206
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 35116
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 17872
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1758
+        },
+        {
+          "command": "pnpm run qa:foundation",
+          "exit_code": 0,
+          "duration_ms": 2185
+        },
+        {
+          "command": "pnpm security:regression",
+          "exit_code": 0,
+          "duration_ms": 2112
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-11T15:34:41.966Z",
+      "sha": "4763635daecbeb036f15772de07127639cf7d742",
+      "dirty": true,
+      "by": "amankumarshrestha"
+    }
+  ]
+}

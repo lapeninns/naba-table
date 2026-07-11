@@ -54,7 +54,7 @@ describe('ops occasions route security', () => {
     fetchAllOccasionsMock.mockReset();
   });
 
-  it('lists the occasion catalog for authenticated restaurant members', async () => {
+  it('lists the occasion catalog for authenticated restaurant members @api @security', async () => {
     requireSessionMock.mockResolvedValue({
       supabase: {},
       user: { id: 'user-1', email: 'owner@example.com' },
@@ -71,7 +71,7 @@ describe('ops occasions route security', () => {
     expect(fetchAllOccasionsMock).toHaveBeenCalledOnce();
   });
 
-  it('rejects occasion catalog reads from authenticated users without a restaurant membership', async () => {
+  it('rejects occasion catalog reads from authenticated users without a restaurant membership @api @security', async () => {
     requireSessionMock.mockResolvedValue({
       supabase: {},
       user: { id: 'user-1', email: 'owner@example.com' },
@@ -86,7 +86,7 @@ describe('ops occasions route security', () => {
     expect(fetchAllOccasionsMock).not.toHaveBeenCalled();
   });
 
-  it('maps session guard failures before listing the occasion catalog', async () => {
+  it('maps session guard failures before listing the occasion catalog @api @security', async () => {
     requireSessionMock.mockRejectedValue(
       new GuardErrorMock({
         status: 401,
@@ -106,7 +106,7 @@ describe('ops occasions route security', () => {
     expect(fetchAllOccasionsMock).not.toHaveBeenCalled();
   });
 
-  it('keeps platform admin authorization required for occasion mutations', async () => {
+  it('keeps platform admin authorization required for occasion mutations @api @security', async () => {
     withPlatformAdminAuthorizationMock.mockResolvedValue({
       ok: false,
       response: new Response(JSON.stringify({ error: 'Platform administrator access required' }), {

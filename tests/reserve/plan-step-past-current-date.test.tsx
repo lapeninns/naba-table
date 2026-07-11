@@ -73,7 +73,7 @@ afterEach(() => {
 });
 
 describe('usePlanStepForm current-day availability recovery', () => {
-  it('auto-advances when the current date only has past slots left', async () => {
+  it('auto-advances when the current date only has past slots left @contract', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date('2026-07-07T21:30:00+01:00'));
 

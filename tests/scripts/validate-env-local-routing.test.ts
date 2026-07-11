@@ -23,7 +23,7 @@ function mismatchedInput(
 }
 
 describe('buildLocalRoutingEnvWarning', () => {
-  it('warns when ROOT_DOMAIN is a real domain but URLs point at localhost', () => {
+  it('warns when ROOT_DOMAIN is a real domain but URLs point at localhost @contract @local-only', () => {
     const warning = buildLocalRoutingEnvWarning(mismatchedInput());
 
     expect(warning).not.toBeNull();
@@ -34,7 +34,7 @@ describe('buildLocalRoutingEnvWarning', () => {
     expect(warning).toContain('docs/dev-routing.md');
   });
 
-  it('lists every localhost URL key, sorted, with plural grammar', () => {
+  it('lists every localhost URL key, sorted, with plural grammar @contract @local-only', () => {
     const warning = buildLocalRoutingEnvWarning(mismatchedInput());
 
     expect(warning).toContain(
@@ -42,7 +42,7 @@ describe('buildLocalRoutingEnvWarning', () => {
     );
   });
 
-  it('uses singular grammar and names only the offending URL', () => {
+  it('uses singular grammar and names only the offending URL @contract @local-only', () => {
     const warning = buildLocalRoutingEnvWarning(
       mismatchedInput({
         urls: {
@@ -57,7 +57,7 @@ describe('buildLocalRoutingEnvWarning', () => {
     expect(warning).not.toContain('NEXT_PUBLIC_APP_URL');
   });
 
-  it('treats 127.0.0.1 and *.localhost as loopback', () => {
+  it('treats 127.0.0.1 and *.localhost as loopback @contract @local-only', () => {
     expect(
       buildLocalRoutingEnvWarning(
         mismatchedInput({
@@ -75,16 +75,16 @@ describe('buildLocalRoutingEnvWarning', () => {
     ).toContain('NEXT_PUBLIC_APP_URL points to localhost');
   });
 
-  it('does not warn when ROOT_DOMAIN is localhost', () => {
+  it('does not warn when ROOT_DOMAIN is localhost @contract @local-only', () => {
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ rootDomain: 'localhost' }))).toBeNull();
   });
 
-  it('does not warn when ROOT_DOMAIN is unset (proxy defaults to localhost)', () => {
+  it('does not warn when ROOT_DOMAIN is unset (proxy defaults to localhost) @contract @local-only', () => {
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ rootDomain: undefined }))).toBeNull();
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ rootDomain: '  ' }))).toBeNull();
   });
 
-  it('does not warn when URLs already match the real domain', () => {
+  it('does not warn when URLs already match the real domain @contract @local-only', () => {
     expect(
       buildLocalRoutingEnvWarning(
         mismatchedInput({
@@ -98,21 +98,21 @@ describe('buildLocalRoutingEnvWarning', () => {
     ).toBeNull();
   });
 
-  it('does not warn on Vercel builds (VERCEL_ENV set)', () => {
+  it('does not warn on Vercel builds (VERCEL_ENV set) @contract @local-only', () => {
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ vercelEnv: 'preview' }))).toBeNull();
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ vercelEnv: 'production' }))).toBeNull();
   });
 
-  it('does not warn outside local development (NODE_ENV=production|test)', () => {
+  it('does not warn outside local development (NODE_ENV=production|test) @contract @local-only', () => {
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ nodeEnv: 'production' }))).toBeNull();
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ nodeEnv: 'test' }))).toBeNull();
   });
 
-  it('defaults missing NODE_ENV to development and still warns', () => {
+  it('defaults missing NODE_ENV to development and still warns @contract @local-only', () => {
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ nodeEnv: undefined }))).not.toBeNull();
   });
 
-  it('ignores empty or unparseable URL values', () => {
+  it('ignores empty or unparseable URL values @contract @local-only', () => {
     expect(
       buildLocalRoutingEnvWarning(
         mismatchedInput({
@@ -122,7 +122,7 @@ describe('buildLocalRoutingEnvWarning', () => {
     ).toBeNull();
   });
 
-  it('returns null when no URLs are provided', () => {
+  it('returns null when no URLs are provided @contract @local-only', () => {
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ urls: {} }))).toBeNull();
     expect(buildLocalRoutingEnvWarning(mismatchedInput({ urls: undefined }))).toBeNull();
   });

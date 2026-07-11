@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const tenantAuthGetUserMock = vi.hoisted(() => vi.fn());
 const serviceFromMock = vi.hoisted(() => vi.fn());
@@ -151,6 +151,11 @@ function makeDeleteRequest() {
 
 describe('public DELETE /api/bookings/[id]', () => {
   beforeEach(() => {
+    // Pin the wall clock so the 2026-07-01 19:00 Europe/London fixtures stay in the
+    // future for the real-clock guest-modification lock (SERVICE_STARTED). Instant
+    // matches the suite family's injected time providers (now = 2026-05-16).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-16T12:00:00.000Z'));
     tenantAuthGetUserMock.mockReset();
     tenantAuthGetUserMock.mockResolvedValue({
       data: { user: { id: 'user-1', email: 'alex@example.com' } },
@@ -176,6 +181,10 @@ describe('public DELETE /api/bookings/[id]', () => {
     sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(false);
     validateSessionRecoveryAccessTokenMock.mockReset();
     validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid' });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('rejects authenticated email-only cancellation of an unbound guest booking', async () => {

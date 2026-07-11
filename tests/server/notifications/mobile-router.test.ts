@@ -26,7 +26,7 @@ function createDependencies() {
 }
 
 describe('dispatchMobileNotificationWithDependencies', () => {
-  it('sends WhatsApp first and suppresses SMS after provider acceptance', async () => {
+  it('sends WhatsApp first and suppresses SMS after provider acceptance @worker', async () => {
     const dependencies = createDependencies();
 
     await dispatchMobileNotificationWithDependencies(input, dependencies);
@@ -38,7 +38,7 @@ describe('dispatchMobileNotificationWithDependencies', () => {
     expect(dependencies.sendSms).not.toHaveBeenCalled();
   });
 
-  it('falls back once when WhatsApp fails before acceptance', async () => {
+  it('falls back once when WhatsApp fails before acceptance @worker', async () => {
     const dependencies = createDependencies();
     dependencies.sendWhatsApp.mockRejectedValueOnce(new Error('provider unavailable'));
 
@@ -53,7 +53,7 @@ describe('dispatchMobileNotificationWithDependencies', () => {
     expect(dependencies.sendSms).toHaveBeenCalledOnce();
   });
 
-  it('falls back when the provider immediately returns a terminal failure', async () => {
+  it('falls back when the provider immediately returns a terminal failure @worker', async () => {
     const dependencies = createDependencies();
     dependencies.sendWhatsApp.mockResolvedValueOnce({
       messageSid: 'WA-failed',
@@ -66,7 +66,7 @@ describe('dispatchMobileNotificationWithDependencies', () => {
     expect(dependencies.sendSms).toHaveBeenCalledOnce();
   });
 
-  it('sends SMS directly when WhatsApp consent or configuration is unavailable', async () => {
+  it('sends SMS directly when WhatsApp consent or configuration is unavailable @worker', async () => {
     const dependencies = createDependencies();
 
     await dispatchMobileNotificationWithDependencies(
@@ -78,7 +78,7 @@ describe('dispatchMobileNotificationWithDependencies', () => {
     expect(dependencies.sendSms).toHaveBeenCalledOnce();
   });
 
-  it('does not dispatch when another worker owns the channel attempt', async () => {
+  it('does not dispatch when another worker owns the channel attempt @worker', async () => {
     const dependencies = createDependencies();
     dependencies.claimAttempt.mockResolvedValueOnce(null);
 
@@ -90,7 +90,7 @@ describe('dispatchMobileNotificationWithDependencies', () => {
 });
 
 describe('shouldApplyWhatsAppStatus', () => {
-  it('allows delivered to advance to read but rejects terminal failure after success', () => {
+  it('allows delivered to advance to read but rejects terminal failure after success @worker', () => {
     expect(shouldApplyWhatsAppStatus('delivered', 'read')).toBe(true);
     expect(shouldApplyWhatsAppStatus('delivered', 'failed')).toBe(false);
   });

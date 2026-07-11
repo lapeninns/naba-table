@@ -1,0 +1,79 @@
+name: Nightly QA
+
+# MS-foundation-nightly-rc: run the release-candidate pack (pnpm run qa:rc)
+# every night on main in its safe local/mock mode so drift is caught within a
+# day even when nobody opens a PR. The persisted RC ledger (rc-summary.json +
+# browser artifacts under test-results/qa/<QA_RUN_ID>/) is the point, so
+# artifacts upload on success AND failure. See docs/qa/nightly.md.
+on:
+  schedule:
+    # 03:17 UTC daily — odd minute per GitHub's guidance to avoid the
+    # top-of-hour thundering herd.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-rc:
+    name: Release-candidate pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # Sanitized offline env only — mirrors test-suite.yml. The job must
+      # never receive real credentials. scripts/qa/rc-pack.ts layers its own
+      # safe QA defaults on top (QA_USE_MOCKS=1, QA_DRY_RUN=1, dry-run
+      # external mutations, destructive ops scoped local/ci-ephemeral) and
+      # the QA environment guard refuses production-like targets.
+      APP_ENV: test
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      QA_TARGET_ENV: ci-ephemeral
+      RESEND_API_KEY: test-resend-api-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The RC pack includes browser phases (p0p1-browser, a11y-visual);
+      # chromium must be present before qa:rc runs.
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install chromium --with-deps
+
+      # Bare invocation: rc-pack.ts selects every RC phase. Do not add
+      # --phase/--dry-run here — that would silently narrow the nightly
+      # signal — and never mask failures on this step or the job: a red
+      # night must show up as a failed scheduled run.
+      - name: Run release-candidate pack
+        run: pnpm run qa:rc
+
+      - name: Upload RC artifacts
+        # Upload the redacted RC ledger even when a phase fails — a red run
+        # with no ledger is undiagnosable.
+        if: always()
+        # First upload-artifact usage in this repo; pinned to the commit the
+        # v4 tag resolved to at authoring time, matching the SHA-pin
+        # convention of the other actions above.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nightly-rc-artifacts
+          path: test-results/qa/
+          retention-days: 14
+          if-no-files-found: warn

@@ -49,7 +49,7 @@ describe('signin route ops redirect host resolution', () => {
     }
   });
 
-  it('returns /dashboard for ops password sign-in when Host is app.localhost', async () => {
+  it('returns /dashboard for ops password sign-in when Host is app.localhost @api @security', async () => {
     const response = await POST(
       new NextRequest('http://localhost:3000/api/auth/signin', {
         method: 'POST',
@@ -73,7 +73,7 @@ describe('signin route ops redirect host resolution', () => {
     });
   });
 
-  it('does not fall back to guest dashboard when ops /app redirect is sent from app.localhost', async () => {
+  it('does not fall back to guest dashboard when ops /app redirect is sent from app.localhost @api @security', async () => {
     const response = await POST(
       new NextRequest('http://localhost:3000/api/auth/signin', {
         method: 'POST',

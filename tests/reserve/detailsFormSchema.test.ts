@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDetailsFormSchema } from '@features/reservations/wizard/model/schemas';
 
 describe('createDetailsFormSchema', () => {
-  it('keeps guest terms and contact requirements', () => {
+  it('keeps guest terms and contact requirements @contract', () => {
     const result = createDetailsFormSchema('customer').safeParse({
       name: 'Guest Booker',
       email: '',
@@ -24,7 +24,7 @@ describe('createDetailsFormSchema', () => {
     expect(fieldErrors.agree?.[0]).toBe('Please accept the terms to continue.');
   });
 
-  it('requires at least one contact method in ops mode without requiring guest terms', () => {
+  it('requires at least one contact method in ops mode without requiring guest terms @contract', () => {
     const result = createDetailsFormSchema('ops').safeParse({
       name: 'Walk In Guest',
       email: '',
@@ -45,7 +45,7 @@ describe('createDetailsFormSchema', () => {
     expect(fieldErrors.agree).toBeUndefined();
   });
 
-  it('accepts ops details with one valid contact method and no terms acceptance', () => {
+  it('accepts ops details with one valid contact method and no terms acceptance @contract', () => {
     const result = createDetailsFormSchema('ops').safeParse({
       name: 'Walk In Guest',
       email: 'guest@example.com',
@@ -58,7 +58,7 @@ describe('createDetailsFormSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('keeps WhatsApp transactional consent explicit and unchecked by default', () => {
+  it('keeps WhatsApp transactional consent explicit and unchecked by default @contract', () => {
     const result = createDetailsFormSchema('customer').parse({
       name: 'Guest Booker',
       email: 'guest@example.com',

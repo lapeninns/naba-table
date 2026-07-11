@@ -4,7 +4,7 @@ import { getInitialDetails } from '@features/reservations/wizard/model/reducer';
 import { buildReservationDraft } from '@features/reservations/wizard/model/transformers';
 
 describe('buildReservationDraft', () => {
-  it('preserves an explicit booking type chosen from the schedule', () => {
+  it('preserves an explicit booking type chosen from the schedule @contract @smoke', () => {
     const details = getInitialDetails({
       restaurantId: 'rest-1',
       restaurantSlug: 'the-fox',
@@ -27,7 +27,7 @@ describe('buildReservationDraft', () => {
     expect(result.draft.bookingType).toBe('dinner');
   });
 
-  it('preserves explicit WhatsApp consent for the submitted phone number', () => {
+  it('preserves explicit WhatsApp consent for the submitted phone number @contract', () => {
     const details = getInitialDetails({
       restaurantId: 'rest-1',
       restaurantSlug: 'the-fox',
@@ -51,7 +51,7 @@ describe('buildReservationDraft', () => {
     expect(result.draft.whatsappOptIn).toBe(true);
   });
 
-  it('falls back to time-based inference when booking type is blank', () => {
+  it('falls back to time-based inference when booking type is blank @contract', () => {
     const details = getInitialDetails({
       restaurantId: 'rest-1',
       restaurantSlug: 'the-fox',
@@ -74,7 +74,7 @@ describe('buildReservationDraft', () => {
     expect(result.draft.bookingType).toBe('lunch');
   });
 
-  it('allows slug-only drafts while restaurant id hydration is still pending', () => {
+  it('allows slug-only drafts while restaurant id hydration is still pending @contract', () => {
     const details = getInitialDetails({
       restaurantId: '',
       restaurantSlug: 'the-fox',
@@ -99,7 +99,7 @@ describe('buildReservationDraft', () => {
     expect(result.draft.restaurantSlug).toBe('the-fox');
   });
 
-  it('fails when both restaurant id and restaurant slug are missing', () => {
+  it('fails when both restaurant id and restaurant slug are missing @contract', () => {
     const details = getInitialDetails({
       restaurantId: '',
       restaurantSlug: '',
@@ -121,7 +121,7 @@ describe('buildReservationDraft', () => {
     });
   });
 
-  it('allows nullable contact fields for ops drafts', () => {
+  it('allows nullable contact fields for ops drafts @contract', () => {
     const details = getInitialDetails({
       restaurantId: 'rest-1',
       restaurantSlug: 'the-fox',

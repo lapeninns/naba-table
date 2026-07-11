@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "spec_id": "MS-foundation-playwright-ci-gate",
+  "runs": [
+    {
+      "timestamp": "2026-07-11T21:04:44.754Z",
+      "git_sha": "4763635daecbeb036f15772de07127639cf7d742",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 224
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 74112
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 19819
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1882
+        },
+        {
+          "command": "pnpm run qa:foundation",
+          "exit_code": 0,
+          "duration_ms": 2480
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-11T16:08:05.933Z",
+      "sha": "4763635daecbeb036f15772de07127639cf7d742",
+      "dirty": true,
+      "by": "amankumarshrestha"
+    }
+  ]
+}

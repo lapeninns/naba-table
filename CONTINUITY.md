@@ -25,6 +25,14 @@ Last updated: 2026-07-11T16:05:00Z
 - Final production values: The Old Crown Girton = Sub; The Queen Elizabeth = Diwakar; The Bell = Purna; The Corner House Pub (Cambridge) = Sub; The Old School House = San; The Railway Pub = Ravi; White Horse Pub = Sub.
 - Verification: CLI readback and REST readback both returned the seven expected `manager_name` values; REST `manager_name` select returned status `200`.
 
+## Current Old Crown 40-cover booking execution
+
+- Task harness: `tasks/old-crown-party-booking-20260711-1738/`.
+- Production booking `47ad4e60-481a-4a23-bb42-8b0c4fb2b7a0` / reference `9JQX4DVGHY` is confirmed for The Old Crown Girton on 8 August 2026, 18:30–21:00, 40 covers, birthday-party note.
+- Exactly four tables are assigned: `02`, `03`, `04`, `06`.
+- Confirmation email is logged `sent`; Twilio direct provider readback returned SMS `delivered` with no error code.
+- The newer mobile-notification claim layer failed in production before SMS provider dispatch; the established direct Twilio path completed the requested SMS and wrote the standard delivery log.
+
 ## Current loyalty metrics read-only reporting
 
 - Task harness: `tasks/loyalty-metrics-readonly-20260627-1142/`.

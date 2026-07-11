@@ -4,6 +4,13 @@ import { defineConfig } from 'vitest/config';
 
 const rootDir = __dirname;
 
+// MS-foundation-coverage-ratchet: true only for `vitest run --coverage`
+// (`pnpm test:coverage`). Used to scale the per-test timeout below — V8
+// instrumentation slows hot loops enough that the planner stress suite
+// crosses the default 5s timeout under full-suite worker contention. Plain
+// `pnpm test` keeps vitest defaults and is unaffected.
+const coverageEnabled = process.argv.includes('--coverage');
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -71,6 +78,42 @@ export default defineConfig({
         'src/hooks/ops/useOpsGoogleBusinessProfile.ts',
       ),
       '@/hooks/ops/useOpsDualSync': path.resolve(rootDir, 'src/hooks/ops/useOpsDualSync.ts'),
+      '@/hooks/ops/useOpsTodaySummary': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsTodaySummary.ts',
+      ),
+      '@/hooks/ops/useOpsBookingStatusSummary': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingStatusSummary.ts',
+      ),
+      '@/hooks/ops/useOpsBookingsDialogs': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingsDialogs.ts',
+      ),
+      '@/hooks/ops/useOpsBookingsLifecycleHandlers': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingsLifecycleHandlers.ts',
+      ),
+      '@/hooks/ops/useOpsEmailTemplatesPageState': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsEmailTemplatesPageState.ts',
+      ),
+      // Transitive imports of the four hooks above (they also only exist in src/).
+      '@/hooks/ops/useOpsBooking': path.resolve(rootDir, 'src/hooks/ops/useOpsBooking.ts'),
+      '@/hooks/ops/useOpsCancelBooking': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsCancelBooking.ts',
+      ),
+      '@/hooks/ops/useOpsBookingStatusActions': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsBookingStatusActions.ts',
+      ),
+      '@/hooks/ops/useOpsRestaurantEmailTemplates': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsRestaurantEmailTemplates.ts',
+      ),
+      '@/hooks/ops/utils': path.resolve(rootDir, 'src/hooks/ops/utils'),
+      '@/hooks/use-minimum-delay': path.resolve(rootDir, 'src/hooks/use-minimum-delay.ts'),
       '@/hooks/useMediaQuery': path.resolve(rootDir, 'src/hooks/useMediaQuery.ts'),
       '@/utils': path.resolve(rootDir, 'src/utils'),
       '@/app': path.resolve(rootDir, 'src/app'),
@@ -106,5 +149,34 @@ export default defineConfig({
     restoreMocks: true,
     clearMocks: true,
     mockReset: true,
+    // Coverage runs only: see `coverageEnabled` note above. Not set for
+    // plain runs, so vitest's default (5s) still applies to `pnpm test`.
+    ...(coverageEnabled ? { testTimeout: 30_000 } : {}),
+    // MS-foundation-coverage-ratchet: only active under `--coverage`
+    // (`pnpm test:coverage`); plain `pnpm test` behavior and timing are
+    // unchanged. Vitest 4 removed `coverage.all` — leaving `include` unset
+    // measures only files loaded by the suite (the phase-1 scoping decision;
+    // see docs/qa/coverage.md). Excludes are explicit so non-product code the
+    // suite loads never counts toward the ratchet floors.
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'json-summary'],
+      reportsDirectory: 'coverage',
+      // Reports are still written when the suite is red so a failing run can
+      // be inspected; the guard's exit code comes from the test run itself
+      // (`test:coverage && ratchet`), so failures still fail the gate.
+      reportOnFailure: true,
+      exclude: [
+        'tests/**',
+        '**/node_modules/**',
+        '.next/**',
+        'reserve/.storybook/**',
+        'reserve/storybook-static/**',
+        '**/*.stories.{ts,tsx}',
+        '**/*.config.{js,cjs,mjs,ts,mts,cts}',
+        '**/*.d.ts',
+        'types/**',
+      ],
+    },
   },
 });

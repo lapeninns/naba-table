@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultRedirectForHost, parseHostname, sanitizeRedirect } from '@/lib/auth/redirects';
 
 describe('auth redirect hostname resolution', () => {
-  it('prefers the Host header over req.nextUrl in local multi-host dev', () => {
+  it('prefers the Host header over req.nextUrl in local multi-host dev @contract @local-only', () => {
     const request = new NextRequest('http://localhost:3000/api/auth/signin', {
       method: 'POST',
       headers: {
@@ -15,7 +15,7 @@ describe('auth redirect hostname resolution', () => {
     expect(parseHostname(request)).toBe('app.localhost');
   });
 
-  it('routes ops password sign-in redirects to /dashboard, not guest dashboard', () => {
+  it('routes ops password sign-in redirects to /dashboard, not guest dashboard @security @contract', () => {
     const hostname = 'app.localhost';
     const rootDomain = 'localhost';
 
@@ -27,13 +27,13 @@ describe('auth redirect hostname resolution', () => {
     expect(redirectTarget).not.toBe('/guest/dashboard');
   });
 
-  it('rejects ops /app redirect targets on the root localhost host', () => {
+  it('rejects ops /app redirect targets on the root localhost host @security @contract', () => {
     const sanitized = sanitizeRedirect('/app', 'localhost', 'localhost');
     expect(sanitized).toBeUndefined();
     expect(defaultRedirectForHost('localhost', 'localhost')).toBe('/guest/dashboard');
   });
 
-  it('documents the guest-dashboard misroute when ops host is misread as localhost', () => {
+  it('documents the guest-dashboard misroute when ops host is misread as localhost @contract @local-only', () => {
     const misreadHost = 'localhost';
     const redirectedFrom = '/app';
 

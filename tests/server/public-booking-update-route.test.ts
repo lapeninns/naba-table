@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const tenantAuthGetUserMock = vi.hoisted(() => vi.fn());
 const serviceFromMock = vi.hoisted(() => vi.fn());
@@ -79,6 +79,11 @@ vi.mock('@/server/booking/http', () => ({
 
 vi.mock('@/server/customers', () => ({
   normalizeEmail: vi.fn((value: string | null | undefined) => (value ?? '').trim().toLowerCase()),
+  // Mirrors normalizeComparablePhone's digits-only comparable output
+  // (e.g. '+447700900123' -> '447700900123') for the WhatsApp-consent patch path.
+  normalizePhone: vi.fn((value: string | null | undefined) =>
+    (value ?? '').trim().replace(/[^0-9]/g, ''),
+  ),
 }));
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
@@ -220,6 +225,12 @@ function makeDashboardUpdateRequest(overrides: Record<string, unknown> = {}) {
 
 describe('public PUT /api/bookings/[id]', () => {
   beforeEach(() => {
+    // Pin the wall clock so the 2026-07-01 19:00 Europe/London fixtures stay in the
+    // future for the real-clock guards (evaluateGuestModificationLock,
+    // assertBookingNotInPast). Instant matches the suite family's injected
+    // time providers (now = 2026-05-16).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-16T12:00:00.000Z'));
     tenantAuthGetUserMock.mockReset();
     tenantAuthGetUserMock.mockResolvedValue({ data: { user: null }, error: null });
     serviceFromMock.mockReset();
@@ -275,6 +286,10 @@ describe('public PUT /api/bookings/[id]', () => {
     });
     sessionRecoveryTokenMatchesBookingContactMock.mockReset();
     sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('allows session-recovery guest updates for the scoped booking contact', async () => {

@@ -1,0 +1,77 @@
+name: E2E smoke
+
+# MS-foundation-playwright-ci-gate: the three unauthenticated browser smoke
+# packs gate every PR and every push to main. Each pack boots the app locally
+# with mocks via the Playwright webServer config — no real secrets, no remote
+# targets. Authenticated packs are excluded until QA fixture auth is repaired
+# at the edge-proxy layer (see docs/qa/e2e-smoke.md).
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Browser smoke packs
+    runs-on: ubuntu-latest
+    # A hung dev server must not burn hours of CI.
+    timeout-minutes: 30
+    env:
+      # Sanitized offline env only — mirrors test-suite.yml plus QA_USE_MOCKS.
+      # The Playwright webServer commands override app-facing values with
+      # localhost equivalents; nothing here is a real credential.
+      APP_ENV: test
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      QA_TARGET_ENV: ci-ephemeral
+      QA_USE_MOCKS: '1'
+      RESEND_API_KEY: test-resend-api-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      TZ: UTC
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Chromium only — the Playwright configs run Chromium projects.
+      # Browsers are intentionally not cached: a stale cache versus the pinned
+      # @playwright/test version fails confusingly, and correctness beats speed.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Public booking browser smoke
+        run: pnpm run qa:public-booking:browser
+
+      - name: Ops lifecycle browser smoke
+        run: pnpm run qa:ops-lifecycle:browser
+
+      - name: Guest portal browser smoke
+        run: pnpm run qa:guest-portal:browser
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: e2e-smoke-artifacts
+          path: test-results/qa/
+          if-no-files-found: ignore
+          retention-days: 7

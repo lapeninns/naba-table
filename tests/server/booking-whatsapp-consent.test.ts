@@ -11,7 +11,7 @@ const booking = {
 } as BookingRecord;
 
 describe('buildBookingWhatsAppConsentPatch', () => {
-  it('clears existing consent when the phone number changes without reconfirmation', () => {
+  it('clears existing consent when the phone number changes without reconfirmation @contract', () => {
     expect(
       buildBookingWhatsAppConsentPatch({
         actorId: null,
@@ -30,7 +30,7 @@ describe('buildBookingWhatsAppConsentPatch', () => {
     });
   });
 
-  it('preserves existing consent when neither phone nor preference changes', () => {
+  it('preserves existing consent when neither phone nor preference changes @contract', () => {
     expect(
       buildBookingWhatsAppConsentPatch({
         actorId: null,

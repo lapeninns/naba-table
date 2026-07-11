@@ -17,7 +17,7 @@ const safeEnv = {
 };
 
 describe('QA ops auth fixture', () => {
-  it('allows a local app-host request only with the explicit QA auth cookie', () => {
+  it('allows a local app-host request only with the explicit QA auth cookie @security @local-only', () => {
     expect(
       isQaOpsAuthFixtureAllowed({
         cookieValue: QA_OPS_AUTH_COOKIE_VALUE,
@@ -35,7 +35,7 @@ describe('QA ops auth fixture', () => {
     ).toBe(false);
   });
 
-  it('uses local process env flags when no explicit env override is supplied', () => {
+  it('uses local process env flags when no explicit env override is supplied @contract @local-only', () => {
     const previous = {
       APP_ENV: process.env.APP_ENV,
       NODE_ENV: process.env.NODE_ENV,
@@ -64,7 +64,7 @@ describe('QA ops auth fixture', () => {
     }
   });
 
-  it('refuses production-like or non-local hosts even when the cookie is present', () => {
+  it('refuses production-like or non-local hosts even when the cookie is present @security @local-only', () => {
     expect(
       isQaOpsAuthFixtureAllowed({
         cookieValue: QA_OPS_AUTH_COOKIE_VALUE,
@@ -82,7 +82,7 @@ describe('QA ops auth fixture', () => {
     ).toBe(false);
   });
 
-  it('returns deterministic ops persona and restaurant fixture data', () => {
+  it('returns deterministic ops persona and restaurant fixture data @contract @local-only', () => {
     const fixture = getQaOpsAuthFixture({
       cookieValue: QA_OPS_AUTH_COOKIE_VALUE,
       env: safeEnv,

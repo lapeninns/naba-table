@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 
 const pushMock = vi.fn();
 const useReservationMock = vi.fn();
@@ -62,6 +62,11 @@ const reservation = {
 
 describe('ReservationDetailClient', () => {
   beforeEach(() => {
+    // The controller's mount effect replaces the injected initialNow with
+    // Date.now(), so pin the system clock itself to the same instant the tests
+    // inject; shouldAdvanceTime keeps user-event and waitFor timers firing.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-04-15T12:00:00.000Z'));
     pushMock.mockReset();
     useReservationMock.mockReset();
     downloadCalendarEventMock.mockReset();
@@ -82,6 +87,10 @@ describe('ReservationDetailClient', () => {
       refetch: vi.fn(),
       isFetching: false,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders booking details and opens the edit dialog for manageable bookings', async () => {

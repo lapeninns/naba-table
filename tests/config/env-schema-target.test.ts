@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { envSchemas, findBlockedPublicEnvKeys, resolveEnvSchemaTarget } from '@/config/env.schema';
 
 describe('resolveEnvSchemaTarget', () => {
-  it('uses development schema for local staging builds', () => {
+  it('uses development schema for local staging builds @contract @local-only', () => {
     expect(
       resolveEnvSchemaTarget({
         NODE_ENV: 'production',
@@ -13,7 +13,7 @@ describe('resolveEnvSchemaTarget', () => {
     ).toBe('development');
   });
 
-  it('uses production schema for production app targets', () => {
+  it('uses production schema for production app targets @contract @local-only', () => {
     expect(
       resolveEnvSchemaTarget({
         NODE_ENV: 'production',
@@ -23,7 +23,7 @@ describe('resolveEnvSchemaTarget', () => {
     ).toBe('production');
   });
 
-  it('uses production schema for production vercel targets', () => {
+  it('uses production schema for production vercel targets @contract @local-only', () => {
     expect(
       resolveEnvSchemaTarget({
         NODE_ENV: 'production',
@@ -33,7 +33,7 @@ describe('resolveEnvSchemaTarget', () => {
     ).toBe('production');
   });
 
-  it('preserves test schema selection', () => {
+  it('preserves test schema selection @contract @local-only', () => {
     expect(
       resolveEnvSchemaTarget({
         NODE_ENV: 'test',
@@ -45,7 +45,7 @@ describe('resolveEnvSchemaTarget', () => {
 });
 
 describe('public env secret blocking', () => {
-  it('blocks NEXT_PUBLIC secret-looking names unless explicitly allowlisted', () => {
+  it('blocks NEXT_PUBLIC secret-looking names unless explicitly allowlisted @contract @security @local-only', () => {
     expect(
       findBlockedPublicEnvKeys({
         NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
@@ -82,7 +82,7 @@ describe('production env schema', () => {
     CRON_SECRET: 'cron-secret',
   };
 
-  it('requires PostHog browser configuration for production targets', () => {
+  it('requires PostHog browser configuration for production targets @contract @local-only', () => {
     const input = Object.fromEntries(
       Object.entries(productionEnv).filter(
         ([key]) => key !== 'NEXT_PUBLIC_POSTHOG_HOST' && key !== 'NEXT_PUBLIC_POSTHOG_KEY',
@@ -102,7 +102,7 @@ describe('production env schema', () => {
     }
   });
 
-  it('fails production validation when rate limiting has no gateway or explicit fallback', () => {
+  it('fails production validation when rate limiting has no gateway or explicit fallback @contract @local-only', () => {
     const result = envSchemas.production.safeParse(productionEnv);
 
     expect(result.success).toBe(false);
@@ -113,7 +113,7 @@ describe('production env schema', () => {
     }
   });
 
-  it('accepts production rate limiting with Cloudflare gateway credentials', () => {
+  it('accepts production rate limiting with Cloudflare gateway credentials @contract @local-only', () => {
     const result = envSchemas.production.safeParse({
       ...productionEnv,
       CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL: 'https://gateway.example.com/rate-limit',
@@ -123,7 +123,7 @@ describe('production env schema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts production rate limiting with an explicit memory fallback override', () => {
+  it('accepts production rate limiting with an explicit memory fallback override @contract @local-only', () => {
     const result = envSchemas.production.safeParse({
       ...productionEnv,
       ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
@@ -132,7 +132,7 @@ describe('production env schema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('treats empty optional integration variables as unset', () => {
+  it('treats empty optional integration variables as unset @contract @local-only', () => {
     const result = envSchemas.production.safeParse({
       ...productionEnv,
       ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',

@@ -38,5 +38,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # MS-foundation-playwright-ci-gate: the baseline selector can pick
+      # Playwright smoke on UI-touching PRs; without a browser binary that
+      # selection fails and is misclassified as a product failure. Chromium
+      # installs unconditionally (~30s) — conditional install adds fragile
+      # complexity.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium --with-deps
+
       - name: Run PR baseline
         run: pnpm run qa:pr-baseline -- --base-ref origin/main --head-ref HEAD

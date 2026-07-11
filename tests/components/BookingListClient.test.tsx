@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BookingListClient } from '@/components/features/booking/list/BookingListClient';
 
@@ -54,11 +54,20 @@ function createBookingsPage(startIso: string): BookingsPage {
 
 describe('BookingListClient', () => {
   beforeEach(() => {
+    // Pin the clock before the 2026-07-01 fixtures so groupBookingsByTimeline
+    // buckets them as "upcoming" on any host date; shouldAdvanceTime keeps
+    // testing-library's internal timers firing.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'));
     useGuestBookingsMock.mockReturnValue({
       data: createBookingsPage('2026-07-01T18:30:00.000Z'),
       isLoading: false,
       isError: false,
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders UTC booking times in the restaurant timezone', () => {

@@ -18,7 +18,7 @@ Coverage reality:
 - `pnpm run lint` covers `server`, `lib`, `scripts`, `src/app/app`, and `src/components/features` (plus the `guard:no-shadcn:strict` check).
 - It does **not** cover all of `src/**`, `components/**`, or markdown files.
 - For changed JS/TS files outside that scope, run targeted eslint such as `pnpm exec eslint --max-warnings=0 <files...>` or explicitly record that no repo lint command covered those files.
-- There is no package-level `pnpm test` script and no markdownlint script.
+- `pnpm test` runs the complete non-e2e Vitest suite (see `docs/qa/full-suite.md`); there is no markdownlint script.
 
 ## Route and API verification baseline
 
