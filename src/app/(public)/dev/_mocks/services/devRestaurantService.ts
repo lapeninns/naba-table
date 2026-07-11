@@ -55,6 +55,7 @@ function buildRestaurantSnapshot(
     address: overrides.address ?? '1 Example Street, London',
     businessDescription: overrides.businessDescription ?? null,
     managerDailySummaryEnabled: overrides.managerDailySummaryEnabled ?? true,
+    managerWhatsappEnabled: overrides.managerWhatsappEnabled ?? false,
     managerName: overrides.managerName ?? 'Sam',
     managerNotificationPhone: overrides.managerNotificationPhone ?? '+44 7700 900123',
     googleMapUrl: overrides.googleMapUrl ?? null,

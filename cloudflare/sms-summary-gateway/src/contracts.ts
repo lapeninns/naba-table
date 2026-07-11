@@ -12,6 +12,7 @@ export type DailySummaryQueueMessage = {
   recipient: string;
   timezone: string;
   dryRun: boolean;
+  whatsappFirst?: boolean;
 };
 
 export type RestaurantDailySummaryTarget = {
@@ -19,6 +20,7 @@ export type RestaurantDailySummaryTarget = {
   timezone: string;
   enabled: boolean;
   recipient: string;
+  whatsappFirst: boolean;
 };
 
 export type DailySummaryPreview = {

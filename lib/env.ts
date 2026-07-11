@@ -189,6 +189,14 @@ export const env = {
     const authToken = parsed.TWILIO_AUTH_TOKEN ?? null;
     const messagingServiceSid = parsed.TWILIO_MESSAGING_SERVICE_SID ?? null;
     const shortenUrls = parsed.TWILIO_SHORTEN_URLS ?? false;
+    const whatsappSender = parsed.TWILIO_WHATSAPP_SENDER ?? null;
+    const whatsappTemplates = {
+      bookingConfirmation: parsed.TWILIO_WHATSAPP_BOOKING_CONFIRMATION_CONTENT_SID ?? null,
+      bookingUpdate: parsed.TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID ?? null,
+      bookingCancellation: parsed.TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID ?? null,
+      restaurantCancellation: parsed.TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID ?? null,
+      managerSummary: parsed.TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID ?? null,
+    } as const;
 
     return {
       accountSid,
@@ -198,6 +206,20 @@ export const env = {
       messagingServiceSid,
       shortenUrls,
       configured: Boolean(accountSid && apiKeySid && apiKeySecret && messagingServiceSid),
+      whatsapp: {
+        sender: whatsappSender,
+        templates: whatsappTemplates,
+        configured: Boolean(
+          accountSid &&
+          apiKeySid &&
+          apiKeySecret &&
+          whatsappSender &&
+          whatsappTemplates.bookingConfirmation &&
+          whatsappTemplates.bookingUpdate &&
+          whatsappTemplates.bookingCancellation &&
+          whatsappTemplates.restaurantCancellation,
+        ),
+      },
     } as const;
   },
 

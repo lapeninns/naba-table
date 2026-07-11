@@ -4,7 +4,11 @@ import {
   listRestaurantDailySummaryTargets,
 } from './supabase';
 import { IDEMPOTENCY_LOCK_MS, SENT_RETENTION_DAYS, SERVICE_NAME } from './contracts';
-import { processDailySummaryDispatch, sendDailySummaryViaTwilio } from './job';
+import {
+  processDailySummaryDispatch,
+  sendDailySummaryViaTwilio,
+  sendDailySummaryViaWhatsApp,
+} from './job';
 import { resolveDueDispatch, selectDueDispatches } from './scheduling';
 import { TerminalDispatchError } from './twilio';
 
@@ -24,6 +28,8 @@ type WorkerEnv = {
   TWILIO_API_KEY_SID: string;
   TWILIO_API_KEY_SECRET: string;
   TWILIO_MESSAGING_SERVICE_SID: string;
+  TWILIO_WHATSAPP_SENDER: string;
+  TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   INTERNAL_TRIGGER_TOKEN: string;
@@ -301,6 +307,7 @@ async function handleManualDispatch(request: Request, env: WorkerEnv): Promise<R
     recipient: target.recipient,
     timezone: target.timezone,
     dryRun,
+    whatsappFirst: target.whatsappFirst,
   };
   const preview = await buildDailySummaryPreview(env, {
     restaurantId: target.restaurantId,
@@ -374,6 +381,12 @@ async function handleQueueMessage(
         recipient: params.recipient,
         message: params.message,
       }),
+    sendWhatsApp: (params) =>
+      sendDailySummaryViaWhatsApp({
+        env,
+        recipient: params.recipient,
+        message: params.message,
+      }),
   });
 }
 
@@ -404,6 +417,7 @@ const worker = {
           recipient: target.recipient,
           timezone: target.timezone,
           dryRun: false,
+          whatsappFirst: target.whatsappFirst,
         }),
       ),
     );

@@ -57,4 +57,17 @@ describe('createDetailsFormSchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('keeps WhatsApp transactional consent explicit and unchecked by default', () => {
+    const result = createDetailsFormSchema('customer').parse({
+      name: 'Guest Booker',
+      email: 'guest@example.com',
+      phone: '07123 456789',
+      rememberDetails: false,
+      marketingOptIn: false,
+      agree: true,
+    });
+
+    expect(result.whatsappOptIn).toBe(false);
+  });
 });

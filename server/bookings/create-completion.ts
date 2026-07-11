@@ -1,4 +1,5 @@
 import { captureRestaurantServerEvent } from '@/lib/posthog/server';
+import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import { finalizeBookingCreateCommit } from '@/server/bookings/create-finalization';
 import { buildBookingCreateHttpResponse } from '@/server/bookings/create-response';
 
@@ -15,10 +16,12 @@ type BookingCreateCreatedPersistenceResult = Extract<
 
 export type BookingCreateFinalizer = typeof finalizeBookingCreateCommit;
 export type BookingCreateHttpResponseBuilder = typeof buildBookingCreateHttpResponse;
+export type BookingWhatsAppConsentPersister = typeof persistBookingWhatsAppConsent;
 
 export async function completeBookingCreate({
   autoAssignEnabled,
   client,
+  consentPersister = persistBookingWhatsAppConsent,
   finalizer = finalizeBookingCreateCommit,
   inlineAutoAssignTimeoutMs,
   loyaltyPointsAwarded = 0,
@@ -38,6 +41,7 @@ export async function completeBookingCreate({
 }: {
   autoAssignEnabled: boolean;
   client: BookingCreateCompletionClient;
+  consentPersister?: BookingWhatsAppConsentPersister;
   finalizer?: BookingCreateFinalizer;
   inlineAutoAssignTimeoutMs?: number;
   loyaltyPointsAwarded?: number;
@@ -55,10 +59,22 @@ export async function completeBookingCreate({
   restaurantId: string;
   useUnifiedValidation: boolean;
 }): Promise<NextResponse> {
+  const shouldPersistConsent = request.whatsappOptIn && !persistence.booking.whatsapp_opt_in;
+  const bookingWithConsent = shouldPersistConsent
+    ? await consentPersister({
+        actorId: null,
+        booking: persistence.booking,
+        client,
+        optedIn: request.whatsappOptIn,
+        restaurantId,
+        source: 'guest_reserve',
+      })
+    : persistence.booking;
+
   const { booking: finalBooking } = await finalizer({
     actor: request.email,
     autoAssignEnabled,
-    booking: persistence.booking,
+    booking: bookingWithConsent,
     client,
     customer: persistence.customer,
     idempotencyKey: persistence.idempotencyKey,

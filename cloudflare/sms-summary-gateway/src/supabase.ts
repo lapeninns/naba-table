@@ -19,6 +19,8 @@ type RestaurantRow = {
   is_active: boolean | null;
   manager_daily_summary_enabled: boolean | null;
   manager_notification_phone: string | null;
+  manager_whatsapp_enabled: boolean | null;
+  manager_whatsapp_consent_phone: string | null;
 };
 
 type BookingRow = {
@@ -43,6 +45,9 @@ function mapRestaurantTarget(row: RestaurantRow): RestaurantDailySummaryTarget |
     timezone: row.timezone,
     enabled: row.manager_daily_summary_enabled === true,
     recipient: row.manager_notification_phone,
+    whatsappFirst:
+      row.manager_whatsapp_enabled === true &&
+      row.manager_whatsapp_consent_phone === row.manager_notification_phone,
   };
 }
 
@@ -52,7 +57,9 @@ export async function listRestaurantDailySummaryTargets(
   const supabase = createSupabaseAdminClient(env);
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, timezone, is_active, manager_daily_summary_enabled, manager_notification_phone')
+    .select(
+      'id, timezone, is_active, manager_daily_summary_enabled, manager_notification_phone, manager_whatsapp_enabled, manager_whatsapp_consent_phone',
+    )
     .eq('is_active', true)
     .eq('manager_daily_summary_enabled', true)
     .not('manager_notification_phone', 'is', null);
@@ -73,7 +80,9 @@ export async function getRestaurantDailySummaryTarget(
   const supabase = createSupabaseAdminClient(env);
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id, timezone, is_active, manager_daily_summary_enabled, manager_notification_phone')
+    .select(
+      'id, timezone, is_active, manager_daily_summary_enabled, manager_notification_phone, manager_whatsapp_enabled, manager_whatsapp_consent_phone',
+    )
     .eq('id', restaurantId)
     .maybeSingle();
 

@@ -81,6 +81,7 @@ export const opsWalkInBookingSchema = z
     email: optionalEmailSchema,
     phone: optionalPhoneSchema,
     marketingOptIn: explicitBooleanSchema.optional().default(false),
+    whatsappOptIn: explicitBooleanSchema.optional().default(false),
     override: overrideSchema.optional(),
   })
   .superRefine((data, ctx) => {

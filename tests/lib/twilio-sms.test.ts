@@ -5,10 +5,41 @@ import {
   buildTwilioFetchMessageRequest,
   buildTwilioListMessagesRequest,
   buildTwilioSmsRequest,
+  buildTwilioWhatsAppRequest,
   fetchTwilioMessage,
   mapTwilioMessageStatusToDeliveryStatus,
   validateTwilioWebhookSignature,
 } from '@/lib/twilio/sms';
+
+describe('buildTwilioWhatsAppRequest', () => {
+  it('uses the registered Nabatable sender and an approved content template', () => {
+    const request = buildTwilioWhatsAppRequest({
+      accountSid: 'AC123',
+      apiKeySid: 'SK123',
+      apiKeySecret: 'secret',
+      sender: '+447700900100',
+      to: '+447700900111',
+      contentSid: 'HX123',
+      contentVariables: {
+        venue: 'Old Crown Girton',
+        bookingReference: 'ABC123',
+      },
+      statusCallback: 'https://app.nabatable.com/api/webhook/twilio/whatsapp-status',
+    });
+
+    expect(request.url).toBe('https://api.twilio.com/2010-04-01/Accounts/AC123/Messages.json');
+    expect(String(request.init.body)).toContain('From=whatsapp%3A%2B447700900100');
+    expect(String(request.init.body)).toContain('To=whatsapp%3A%2B447700900111');
+    expect(String(request.init.body)).toContain('ContentSid=HX123');
+    expect(String(request.init.body)).toContain(
+      'ContentVariables=%7B%22venue%22%3A%22Old+Crown+Girton%22%2C%22bookingReference%22%3A%22ABC123%22%7D',
+    );
+    expect(String(request.init.body)).not.toContain('Body=');
+    expect(String(request.init.body)).toContain(
+      'StatusCallback=https%3A%2F%2Fapp.nabatable.com%2Fapi%2Fwebhook%2Ftwilio%2Fwhatsapp-status',
+    );
+  });
+});
 
 describe('buildTwilioSmsRequest', () => {
   it('includes ShortenUrls when link shortening is enabled', () => {

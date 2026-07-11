@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
-import { useWizardNavigation } from '../../context/WizardContext';
+import { useWizardNavigation, useWizardState } from '../../context/WizardContext';
 import { useWizardDependencies } from '../../di';
 import { useDetailsStepForm } from '../../hooks/useDetailsStepForm';
 import { StepErrorBoundary } from '../ErrorBoundary';
@@ -54,6 +54,7 @@ const requiredPreferenceLabelClass = (checked: boolean) =>
 export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
   const { analytics } = useWizardDependencies();
   const { goToStep } = useWizardNavigation();
+  const contextState = useWizardState();
   const controller = useDetailsStepForm({
     ...props,
     mode,
@@ -64,6 +65,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
   const isOpsMode = mode === 'ops';
   const rememberDetailsValue = useWatch({ control: form.control, name: 'rememberDetails' });
   const marketingOptInValue = useWatch({ control: form.control, name: 'marketingOptIn' });
+  const phoneValue = useWatch({ control: form.control, name: 'phone' });
   const agreeValue = useWatch({ control: form.control, name: 'agree' });
   const contactLocks = props.contactLocks ?? {};
   const isNameLocked = Boolean(contactLocks.name);
@@ -235,6 +237,52 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                         <FormMessage>{errors.phone?.message}</FormMessage>
                       </FormItem>
                     )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="whatsappOptIn"
+                    render={({ field }) => {
+                      const checkboxId = 'whatsapp-opt-in';
+                      const venueName =
+                        props.state?.details.restaurantName ||
+                        contextState?.details.restaurantName ||
+                        'the restaurant';
+                      return (
+                        <FormItem className="space-y-1">
+                          <Label
+                            htmlFor={checkboxId}
+                            className={optionalPreferenceLabelClass(Boolean(field.value))}
+                          >
+                            <FormControl>
+                              <Checkbox
+                                id={checkboxId}
+                                checked={field.value}
+                                disabled={!phoneValue.trim()}
+                                onCheckedChange={(next) => {
+                                  const value = next === true;
+                                  field.onChange(value);
+                                  handlers.toggleWhatsApp(value);
+                                }}
+                                className="size-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                              />
+                            </FormControl>
+                            <div className="space-y-1">
+                              <span className="text-sm font-semibold text-foreground">
+                                {isOpsMode
+                                  ? 'Guest agreed to WhatsApp booking updates'
+                                  : 'Use WhatsApp for my booking updates'}
+                              </span>
+                              <p className="text-sm text-muted-foreground">
+                                {isOpsMode
+                                  ? `Confirm the guest says this number uses WhatsApp and agrees to receive booking messages from Nabatable on behalf of ${venueName}. If WhatsApp is unavailable, we’ll send an SMS instead.`
+                                  : `You confirm this number uses WhatsApp and agree to receive booking messages from Nabatable on behalf of ${venueName}. If WhatsApp is unavailable, we’ll send an SMS instead.`}
+                              </p>
+                            </div>
+                          </Label>
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
               </WizardPanelContent>

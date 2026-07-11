@@ -18,6 +18,7 @@ export type RestaurantDetailsFormValues = {
   businessDescription: string | null;
   managerName: string | null;
   managerDailySummaryEnabled: boolean;
+  managerWhatsappEnabled: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -40,6 +41,7 @@ export type FormState = {
   businessDescription: string;
   managerName: string;
   managerDailySummaryEnabled: boolean;
+  managerWhatsappEnabled: boolean;
   managerNotificationPhone: string;
   googleMapUrl: string;
   googleReviewUrl: string;
@@ -101,6 +103,8 @@ export const FIELD_TOOLTIPS = {
     'Direct delivery number for the daily manager SMS summary. Use E.164 format such as +447700900000.',
   managerDailySummaryEnabled:
     'Turns the 10:00 local-time manager booking summary SMS on or off for this restaurant.',
+  managerWhatsappEnabled:
+    'Nabatable sends the daily summary via WhatsApp first for this manager number, with SMS as the fallback.',
   googleReviewUrl: 'Guest review link sent in post-visit emails.',
   googleMapUrl: 'Map link shared with guests for directions.',
 } as const;
@@ -237,6 +241,7 @@ export function mapInitialValues(values: RestaurantDetailsFormValues): FormState
     businessDescription: values.businessDescription ?? '',
     managerName: values.managerName ?? '',
     managerDailySummaryEnabled: values.managerDailySummaryEnabled ?? false,
+    managerWhatsappEnabled: values.managerWhatsappEnabled ?? false,
     managerNotificationPhone: values.managerNotificationPhone ?? '',
     bookingPolicy: values.bookingPolicy ?? '',
     reservationIntervalMinutes:
@@ -276,6 +281,7 @@ export function mapRestaurantProfileValues(
     businessDescription: profile.businessDescription,
     managerName: profile.managerName,
     managerDailySummaryEnabled: profile.managerDailySummaryEnabled,
+    managerWhatsappEnabled: profile.managerWhatsappEnabled,
     managerNotificationPhone: profile.managerNotificationPhone,
     googleMapUrl: profile.googleMapUrl,
     googleReviewUrl: profile.googleReviewUrl,
@@ -316,6 +322,7 @@ export function sanitizePayload(state: FormState): UpdateRestaurantInput {
     businessDescription: trimmedBusinessDescription.length > 0 ? trimmedBusinessDescription : null,
     managerName: trimmedManagerName.length > 0 ? trimmedManagerName : null,
     managerDailySummaryEnabled: state.managerDailySummaryEnabled,
+    managerWhatsappEnabled: state.managerWhatsappEnabled,
     managerNotificationPhone:
       trimmedManagerNotificationPhone.length > 0 ? trimmedManagerNotificationPhone : null,
     googleMapUrl: trimmedMapUrl.length > 0 ? trimmedMapUrl : null,
@@ -418,6 +425,9 @@ export function validateRestaurantDetails(state: FormState): FormErrors {
   const managerNotificationPhone = state.managerNotificationPhone.trim();
   if (state.managerDailySummaryEnabled && !managerNotificationPhone) {
     errors.managerNotificationPhone = 'Add a manager number before enabling daily SMS summaries';
+  }
+  if (state.managerWhatsappEnabled && !managerNotificationPhone) {
+    errors.managerNotificationPhone = 'Add a manager number before enabling WhatsApp summaries';
   }
   if (managerNotificationPhone && !/^\+[1-9][0-9]{6,14}$/.test(managerNotificationPhone)) {
     errors.managerNotificationPhone = 'Use E.164 format such as +447700900000';
@@ -525,6 +535,9 @@ export function pickDraftValues(
     switch (field) {
       case 'managerDailySummaryEnabled':
         result.managerDailySummaryEnabled = state.managerDailySummaryEnabled;
+        break;
+      case 'managerWhatsappEnabled':
+        result.managerWhatsappEnabled = state.managerWhatsappEnabled;
         break;
       case 'reservationIntervalMinutes':
       case 'reservationDefaultDurationMinutes':

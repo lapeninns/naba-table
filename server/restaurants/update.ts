@@ -27,6 +27,8 @@ export type UpdateRestaurantInput = {
   contactPhone?: string | null;
   address?: string | null;
   managerDailySummaryEnabled?: boolean;
+  managerWhatsappEnabled?: boolean;
+  managerWhatsappConsentActorId?: string;
   managerName?: string | null;
   managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
@@ -53,6 +55,7 @@ export type UpdatedRestaurant = {
   contactPhone: string | null;
   address: string | null;
   managerDailySummaryEnabled: boolean;
+  managerWhatsappEnabled: boolean;
   managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -133,6 +136,8 @@ export async function updateRestaurant(
     updateData.manager_notification_phone = trimmed && trimmed.length > 0 ? trimmed : null;
   }
 
+  const managerPhoneChanged = input.managerNotificationPhone !== undefined;
+
   if (input.managerName !== undefined) {
     const trimmed = input.managerName?.trim();
     updateData.manager_name = trimmed && trimmed.length > 0 ? trimmed : null;
@@ -140,6 +145,34 @@ export async function updateRestaurant(
 
   if (input.managerDailySummaryEnabled !== undefined) {
     updateData.manager_daily_summary_enabled = input.managerDailySummaryEnabled;
+  }
+
+  if (managerPhoneChanged) {
+    updateData.manager_whatsapp_enabled = false;
+    updateData.manager_whatsapp_opt_in_at = null;
+    updateData.manager_whatsapp_consent_phone = null;
+    updateData.manager_whatsapp_consent_version = null;
+    updateData.manager_whatsapp_consent_actor_id = null;
+  }
+
+  if (input.managerWhatsappEnabled === false) {
+    updateData.manager_whatsapp_enabled = false;
+    updateData.manager_whatsapp_opt_in_at = null;
+    updateData.manager_whatsapp_consent_phone = null;
+    updateData.manager_whatsapp_consent_version = null;
+    updateData.manager_whatsapp_consent_actor_id = null;
+  }
+
+  if (input.managerWhatsappEnabled === true) {
+    const consentPhone = updateData.manager_notification_phone;
+    if (!consentPhone || !input.managerWhatsappConsentActorId) {
+      throw new Error('A manager phone and authenticated actor are required for WhatsApp consent.');
+    }
+    updateData.manager_whatsapp_enabled = true;
+    updateData.manager_whatsapp_opt_in_at = new Date().toISOString();
+    updateData.manager_whatsapp_consent_phone = consentPhone;
+    updateData.manager_whatsapp_consent_version = 'manager-summary-v1';
+    updateData.manager_whatsapp_consent_actor_id = input.managerWhatsappConsentActorId;
   }
 
   if (
@@ -268,6 +301,7 @@ export async function updateRestaurant(
     contactPhone: data.contact_phone,
     address: data.address,
     managerDailySummaryEnabled: data.manager_daily_summary_enabled ?? false,
+    managerWhatsappEnabled: data.manager_whatsapp_enabled ?? false,
     managerName: data.manager_name,
     managerNotificationPhone: data.manager_notification_phone,
     googleMapUrl: safeGoogleMapsUrl(data.google_map_url),

@@ -40,7 +40,11 @@ export type BookingSmsDeliveryResponse =
 
 export type OpsSmsDeliveryRange = '24h' | '7d' | '30d';
 
-export const OPS_SMS_DELIVERY_RANGE_VALUES = ['24h', '7d', '30d'] as const satisfies ReadonlyArray<OpsSmsDeliveryRange>;
+export const OPS_SMS_DELIVERY_RANGE_VALUES = [
+  '24h',
+  '7d',
+  '30d',
+] as const satisfies ReadonlyArray<OpsSmsDeliveryRange>;
 
 export type OpsSmsDeliveryBookingDTO = {
   id: string;
@@ -62,6 +66,9 @@ export type OpsSmsDeliveryAttemptDTO = {
   currentOccurredAt: string | null;
   events: SmsDeliveryEventDTO[];
   booking: OpsSmsDeliveryBookingDTO | null;
+  channel?: 'whatsapp' | 'sms';
+  logicalNotificationId?: string | null;
+  fallbackForAttemptId?: string | null;
   /**
    * True when the attempt is still in a non-terminal state (queued / sent)
    * after the stale threshold has passed. Derived on the read path; not

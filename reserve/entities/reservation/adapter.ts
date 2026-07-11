@@ -30,6 +30,7 @@ const apiReservationSchema = z
     customer_email: z.string(),
     customer_phone: z.string(),
     marketing_opt_in: z.boolean().optional(),
+    whatsapp_opt_in: z.boolean().optional(),
     notes: z.string().nullable().optional(),
     reference: z.string().optional(),
     client_request_id: z.string().optional().nullable(),
@@ -217,6 +218,7 @@ const normalizeReservation = (input: z.infer<typeof apiReservationSchema>) => {
     customerEmail: input.customer_email,
     customerPhone: input.customer_phone,
     marketingOptIn: Boolean(input.marketing_opt_in),
+    whatsappOptIn: Boolean(input.whatsapp_opt_in),
     notes: input.notes ?? null,
     reference: input.reference,
     clientRequestId:

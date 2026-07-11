@@ -28,6 +28,7 @@ export type DetailsStepController = {
     changePhone: (value: string) => void;
     toggleRemember: (value: boolean) => void;
     toggleMarketing: (value: boolean) => void;
+    toggleWhatsApp: (value: boolean) => void;
     toggleAgree: (value: boolean) => void;
   };
 };

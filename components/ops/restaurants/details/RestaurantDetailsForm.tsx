@@ -114,7 +114,7 @@ export function RestaurantDetailsForm({
   };
 
   const handleToggle = (
-    field: keyof Pick<FormState, 'managerDailySummaryEnabled'>,
+    field: keyof Pick<FormState, 'managerDailySummaryEnabled' | 'managerWhatsappEnabled'>,
     value: boolean,
   ) => {
     setState((prev) => ({ ...prev, [field]: value }));
@@ -724,7 +724,10 @@ export function RestaurantDetailsForm({
               inputMode="tel"
               placeholder="+447700900000"
               value={state.managerNotificationPhone}
-              onChange={(event) => handleChange('managerNotificationPhone', event.target.value)}
+              onChange={(event) => {
+                handleChange('managerNotificationPhone', event.target.value);
+                handleToggle('managerWhatsappEnabled', false);
+              }}
               aria-invalid={Boolean(errors.managerNotificationPhone)}
               aria-describedby={
                 errors.managerNotificationPhone
@@ -781,6 +784,32 @@ export function RestaurantDetailsForm({
                 checked={state.managerDailySummaryEnabled}
                 onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
                 aria-describedby="restaurant-manager-daily-summary-enabled-help"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3 sm:col-span-2">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="restaurant-manager-whatsapp-enabled">
+                  Send daily summary via WhatsApp first
+                </Label>
+                <p
+                  id="restaurant-manager-whatsapp-enabled-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Nabatable sends on behalf of the restaurant to this manager number. If WhatsApp is
+                  unavailable, we’ll send the summary by SMS instead.
+                </p>
+              </div>
+              <Switch
+                id="restaurant-manager-whatsapp-enabled"
+                checked={state.managerWhatsappEnabled}
+                disabled={
+                  !state.managerNotificationPhone.trim() || !state.managerDailySummaryEnabled
+                }
+                onCheckedChange={(checked) => handleToggle('managerWhatsappEnabled', checked)}
+                aria-describedby="restaurant-manager-whatsapp-enabled-help"
               />
             </div>
           </div>

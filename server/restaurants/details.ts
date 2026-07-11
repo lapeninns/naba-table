@@ -32,6 +32,7 @@ export type RestaurantDetails = {
   address: string | null;
   businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
+  managerWhatsappEnabled: boolean;
   managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
@@ -51,6 +52,7 @@ export type UpdateRestaurantDetailsInput = {
   address?: string | null;
   businessDescription?: string | null;
   managerDailySummaryEnabled?: boolean;
+  managerWhatsappEnabled?: boolean;
   managerName?: string | null;
   managerNotificationPhone?: string | null;
   googleMapUrl?: string | null;
@@ -132,6 +134,9 @@ function buildRestaurantDetailsUpdatePayload(
   }
   if (hasInput(input, 'managerDailySummaryEnabled')) {
     payload.managerDailySummaryEnabled = input.managerDailySummaryEnabled ?? false;
+  }
+  if (hasInput(input, 'managerWhatsappEnabled')) {
+    payload.managerWhatsappEnabled = input.managerWhatsappEnabled ?? false;
   }
   if (hasInput(input, 'managerNotificationPhone')) {
     payload.managerNotificationPhone = sanitizeString(input.managerNotificationPhone);
@@ -243,6 +248,7 @@ export async function getRestaurantDetails(
     address: restaurant.address,
     businessDescription,
     managerDailySummaryEnabled: restaurant.manager_daily_summary_enabled ?? false,
+    managerWhatsappEnabled: restaurant.manager_whatsapp_enabled ?? false,
     managerName: restaurant.manager_name,
     managerNotificationPhone: restaurant.manager_notification_phone,
     googleMapUrl: safeGoogleMapsUrl(restaurant.google_map_url),
@@ -292,6 +298,7 @@ export async function updateRestaurantDetails(
     address: updated.address,
     businessDescription,
     managerDailySummaryEnabled: updated.managerDailySummaryEnabled,
+    managerWhatsappEnabled: updated.managerWhatsappEnabled,
     managerName: updated.managerName,
     managerNotificationPhone: updated.managerNotificationPhone,
     googleMapUrl: updated.googleMapUrl,

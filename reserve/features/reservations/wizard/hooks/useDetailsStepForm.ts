@@ -43,6 +43,7 @@ export function useDetailsStepForm({
       phone: state.details.phone ?? '',
       rememberDetails: state.details.rememberDetails ?? false,
       marketingOptIn: state.details.marketingOptIn ?? false,
+      whatsappOptIn: state.details.whatsappOptIn ?? false,
       agree: state.details.agree ?? false,
     },
   });
@@ -52,6 +53,7 @@ export function useDetailsStepForm({
       ...values,
       rememberDetails: values.rememberDetails ?? false,
       marketingOptIn: values.marketingOptIn ?? false,
+      whatsappOptIn: values.whatsappOptIn ?? false,
       agree: values.agree ?? false,
     }),
     [],
@@ -65,6 +67,7 @@ export function useDetailsStepForm({
       phone: state.details.phone ?? '',
       rememberDetails: state.details.rememberDetails ?? false,
       marketingOptIn: state.details.marketingOptIn ?? false,
+      whatsappOptIn: state.details.whatsappOptIn ?? false,
       agree: state.details.agree ?? false,
     };
     const next = normalizeValues(nextInput);
@@ -75,6 +78,7 @@ export function useDetailsStepForm({
       current.phone !== next.phone ||
       current.rememberDetails !== next.rememberDetails ||
       current.marketingOptIn !== next.marketingOptIn ||
+      current.whatsappOptIn !== next.whatsappOptIn ||
       current.agree !== next.agree
     ) {
       form.reset(nextInput, { keepDirty: false, keepTouched: false });
@@ -88,6 +92,7 @@ export function useDetailsStepForm({
     state.details.name,
     state.details.phone,
     state.details.rememberDetails,
+    state.details.whatsappOptIn,
   ]);
 
   const updateField = useCallback(
@@ -122,6 +127,7 @@ export function useDetailsStepForm({
       updateField('phone', trimmedPhone);
       updateField('rememberDetails', values.rememberDetails);
       updateField('marketingOptIn', values.marketingOptIn);
+      updateField('whatsappOptIn', values.whatsappOptIn);
       updateField('agree', values.agree);
 
       onTrack('details_submit', {
@@ -139,6 +145,20 @@ export function useDetailsStepForm({
   const handleReview = useCallback(() => {
     form.handleSubmit(handleSubmit, handleError)();
   }, [form, handleError, handleSubmit]);
+
+  const handlePhoneChange = useCallback(
+    (value: string) => {
+      if (value !== state.details.phone && form.getValues('whatsappOptIn')) {
+        form.setValue('whatsappOptIn', false, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        updateField('whatsappOptIn', false);
+      }
+      updateField('phone', value);
+    },
+    [form, state.details.phone, updateField],
+  );
 
   const detailsActions = useMemo<StepAction[]>(
     () => [
@@ -179,9 +199,10 @@ export function useDetailsStepForm({
     handlers: {
       changeName: (value: string) => updateField('name', value),
       changeEmail: (value: string) => updateField('email', value),
-      changePhone: (value: string) => updateField('phone', value),
+      changePhone: handlePhoneChange,
       toggleRemember: (value: boolean) => updateField('rememberDetails', value),
       toggleMarketing: (value: boolean) => updateField('marketingOptIn', value),
+      toggleWhatsApp: (value: boolean) => updateField('whatsappOptIn', value),
       toggleAgree: (value: boolean) => updateField('agree', value),
     },
   };

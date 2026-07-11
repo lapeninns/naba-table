@@ -1672,6 +1672,12 @@ export type Database = {
           start_time: string;
           status: Database['public']['Enums']['booking_status'];
           updated_at: string;
+          whatsapp_consent_actor_id: string | null;
+          whatsapp_consent_phone: string | null;
+          whatsapp_consent_source: string | null;
+          whatsapp_consent_version: string | null;
+          whatsapp_opt_in: boolean;
+          whatsapp_opt_in_at: string | null;
         };
         Insert: {
           assigned_zone_id?: string | null;
@@ -1711,6 +1717,12 @@ export type Database = {
           start_time: string;
           status?: Database['public']['Enums']['booking_status'];
           updated_at?: string;
+          whatsapp_consent_actor_id?: string | null;
+          whatsapp_consent_phone?: string | null;
+          whatsapp_consent_source?: string | null;
+          whatsapp_consent_version?: string | null;
+          whatsapp_opt_in?: boolean;
+          whatsapp_opt_in_at?: string | null;
         };
         Update: {
           assigned_zone_id?: string | null;
@@ -1750,6 +1762,12 @@ export type Database = {
           start_time?: string;
           status?: Database['public']['Enums']['booking_status'];
           updated_at?: string;
+          whatsapp_consent_actor_id?: string | null;
+          whatsapp_consent_phone?: string | null;
+          whatsapp_consent_source?: string | null;
+          whatsapp_consent_version?: string | null;
+          whatsapp_opt_in?: boolean;
+          whatsapp_opt_in_at?: string | null;
         };
         Relationships: [
           {
@@ -2049,6 +2067,117 @@ export type Database = {
             columns: ['restaurant_id'];
             isOneToOne: false;
             referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      mobile_notifications: {
+        Row: {
+          booking_id: string | null;
+          created_at: string;
+          id: string;
+          logical_key: string;
+          notification_type: string;
+          recipient_phone: string;
+          restaurant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          booking_id?: string | null;
+          created_at?: string;
+          id?: string;
+          logical_key: string;
+          notification_type: string;
+          recipient_phone: string;
+          restaurant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          booking_id?: string | null;
+          created_at?: string;
+          id?: string;
+          logical_key?: string;
+          notification_type?: string;
+          recipient_phone?: string;
+          restaurant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'mobile_notifications_booking_id_fkey';
+            columns: ['booking_id'];
+            isOneToOne: false;
+            referencedRelation: 'bookings';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'mobile_notifications_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      mobile_notification_attempts: {
+        Row: {
+          channel: string;
+          error_code: string | null;
+          fallback_for_attempt_id: string | null;
+          id: string;
+          metadata: Json;
+          notification_id: string;
+          occurred_at: string;
+          provider: string;
+          provider_message_id: string | null;
+          recipient_phone: string;
+          status: string;
+          template_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          channel: string;
+          error_code?: string | null;
+          fallback_for_attempt_id?: string | null;
+          id?: string;
+          metadata?: Json;
+          notification_id: string;
+          occurred_at?: string;
+          provider?: string;
+          provider_message_id?: string | null;
+          recipient_phone: string;
+          status: string;
+          template_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          channel?: string;
+          error_code?: string | null;
+          fallback_for_attempt_id?: string | null;
+          id?: string;
+          metadata?: Json;
+          notification_id?: string;
+          occurred_at?: string;
+          provider?: string;
+          provider_message_id?: string | null;
+          recipient_phone?: string;
+          status?: string;
+          template_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'mobile_notification_attempts_fallback_for_attempt_id_fkey';
+            columns: ['fallback_for_attempt_id'];
+            isOneToOne: false;
+            referencedRelation: 'mobile_notification_attempts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'mobile_notification_attempts_notification_id_fkey';
+            columns: ['notification_id'];
+            isOneToOne: false;
+            referencedRelation: 'mobile_notifications';
             referencedColumns: ['id'];
           },
         ];
@@ -4980,6 +5109,11 @@ export type Database = {
           manager_daily_summary_enabled: boolean;
           manager_name: string | null;
           manager_notification_phone: string | null;
+          manager_whatsapp_consent_actor_id: string | null;
+          manager_whatsapp_consent_phone: string | null;
+          manager_whatsapp_consent_version: string | null;
+          manager_whatsapp_enabled: boolean;
+          manager_whatsapp_opt_in_at: string | null;
           monthly_report_enabled: boolean;
           name: string;
           reservation_default_duration_minutes: number;
@@ -5009,6 +5143,11 @@ export type Database = {
           manager_daily_summary_enabled?: boolean;
           manager_name?: string | null;
           manager_notification_phone?: string | null;
+          manager_whatsapp_consent_actor_id?: string | null;
+          manager_whatsapp_consent_phone?: string | null;
+          manager_whatsapp_consent_version?: string | null;
+          manager_whatsapp_enabled?: boolean;
+          manager_whatsapp_opt_in_at?: string | null;
           monthly_report_enabled?: boolean;
           name: string;
           reservation_default_duration_minutes?: number;
@@ -5038,6 +5177,11 @@ export type Database = {
           manager_daily_summary_enabled?: boolean;
           manager_name?: string | null;
           manager_notification_phone?: string | null;
+          manager_whatsapp_consent_actor_id?: string | null;
+          manager_whatsapp_consent_phone?: string | null;
+          manager_whatsapp_consent_version?: string | null;
+          manager_whatsapp_enabled?: boolean;
+          manager_whatsapp_opt_in_at?: string | null;
           monthly_report_enabled?: boolean;
           name?: string;
           reservation_default_duration_minutes?: number;
@@ -5659,6 +5803,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_mobile_notification_fallback: {
+        Args: {
+          p_fallback_for_attempt_id: string;
+          p_notification_id: string;
+          p_recipient_phone: string;
+          p_restaurant_id: string;
+        };
+        Returns: string;
+      };
       acquire_soft_holds_atomic: {
         Args: {
           p_booking_id?: string;

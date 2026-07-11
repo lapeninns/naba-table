@@ -14,6 +14,7 @@ type BookingRulesDetails = {
   address: string | null;
   businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
+  managerWhatsappEnabled?: boolean;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;
   googleReviewUrl: string | null;
@@ -34,6 +35,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   businessDescription: null,
   managerName: null,
   managerDailySummaryEnabled: false,
+  managerWhatsappEnabled: false,
   managerNotificationPhone: null,
   googleMapUrl: null,
   googleReviewUrl: null,
@@ -62,6 +64,7 @@ export function toBookingRulesFormValues(
     // Manager name is edited on the profile notifications subform, not booking rules.
     managerName: null,
     managerDailySummaryEnabled: data.managerDailySummaryEnabled,
+    managerWhatsappEnabled: data.managerWhatsappEnabled ?? false,
     managerNotificationPhone: data.managerNotificationPhone,
     googleMapUrl: data.googleMapUrl,
     googleReviewUrl: data.googleReviewUrl,

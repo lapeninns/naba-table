@@ -12,6 +12,7 @@ import {
   type BookingInput,
   type ValidationContext,
 } from '@/server/booking';
+import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import {
   deriveEndTimeFromDuration,
@@ -835,6 +836,17 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
   });
 
   if (recoveredExisting) {
+    const recoveredBooking =
+      payload.whatsappOptIn && !recoveredExisting.whatsapp_opt_in
+        ? await persistBookingWhatsAppConsent({
+            actorId: user.id,
+            booking: recoveredExisting,
+            client: service,
+            optedIn: true,
+            restaurantId: payload.restaurantId,
+            source: 'ops_staff',
+          })
+        : recoveredExisting;
     const bookings = await fetchBookingsForContact(
       service,
       payload.restaurantId,
@@ -843,10 +855,10 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     );
     return NextResponse.json(
       {
-        booking: recoveredExisting,
+        booking: recoveredBooking,
         bookings,
         idempotencyKey: normalizedIdempotencyKey,
-        clientRequestId: recoveredExisting.client_request_id,
+        clientRequestId: recoveredBooking.client_request_id,
         duplicate: true,
       },
       withValidationHeaders({ status: 200 }),
@@ -912,6 +924,17 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     let booking = commit.booking as BookingRecord;
     const reusedExisting = commit.duplicate === true;
     const validationResponse = commit.response;
+
+    if (payload.whatsappOptIn && !booking.whatsapp_opt_in) {
+      booking = await persistBookingWhatsAppConsent({
+        actorId: user.id,
+        booking,
+        client: service,
+        optedIn: payload.whatsappOptIn,
+        restaurantId: payload.restaurantId,
+        source: 'ops_staff',
+      });
+    }
 
     const bookings = await fetchBookingsForContact(
       service,

@@ -3,6 +3,7 @@ import { recordObservabilityEvent } from '@/server/observability';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import {
   SMS_DELIVERY_IN_FLIGHT_STATUSES,
+  SMS_DELIVERY_STATUS_VALUES,
   SMS_DELIVERY_STALE_THRESHOLD_MINUTES,
 } from '@/types/smsDelivery';
 
@@ -132,7 +133,9 @@ async function findExistingSmsDeliveryLogEvent(params: {
   return data ? toEntryDto(data as SmsDeliveryLogRow) : null;
 }
 
-export async function recordSmsDeliveryLog(params: InsertParams): Promise<SmsDeliveryLogEntry | null> {
+export async function recordSmsDeliveryLog(
+  params: InsertParams,
+): Promise<SmsDeliveryLogEntry | null> {
   const normalizedPhone = normalizePhone(params.recipientPhone);
   if (!normalizedPhone) {
     return null;
@@ -194,7 +197,11 @@ export async function recordSmsDeliveryLog(params: InsertParams): Promise<SmsDel
 export async function findLatestSmsDeliveryByMessageSid(params: {
   messageSid: string;
   recipientPhone?: string | null;
-}): Promise<{ bookingId: string | null; restaurantId: string | null; smsType: string | null } | null> {
+}): Promise<{
+  bookingId: string | null;
+  restaurantId: string | null;
+  smsType: string | null;
+} | null> {
   const supabase = getServiceSupabaseClient();
   let query = supabase
     .from('sms_delivery_log')
@@ -324,12 +331,45 @@ type SmsAttemptAggregate = {
   currentOccurredAt: string | null;
   currentEventId: string;
   events: SmsDeliveryEventDTO[];
+  channel?: 'whatsapp' | 'sms';
+  logicalNotificationId?: string | null;
+  fallbackForAttemptId?: string | null;
 };
+
+type MobileAttemptReadRow = {
+  id: string;
+  channel: 'whatsapp' | 'sms';
+  fallback_for_attempt_id: string | null;
+  provider: SmsDeliveryProvider;
+  provider_message_id: string | null;
+  recipient_phone: string;
+  status: string;
+  updated_at: string;
+  mobile_notifications: {
+    id: string;
+    booking_id: string | null;
+    notification_type: string;
+    restaurant_id: string;
+  };
+};
+
+function normalizeMobileStatus(status: string): SmsDeliveryStatus {
+  if (status === 'read') return 'delivered';
+  if (status === 'accepted' || status === 'claimed') return 'queued';
+  if (SMS_DELIVERY_STATUS_VALUES.includes(status as SmsDeliveryStatus)) {
+    return status as SmsDeliveryStatus;
+  }
+  return 'queued';
+}
 
 function resolveRangeStartIso(range: OpsSmsDeliveryRange): string {
   const now = Date.now();
   const lookbackMs =
-    range === '24h' ? 24 * 60 * 60 * 1000 : range === '30d' ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+    range === '24h'
+      ? 24 * 60 * 60 * 1000
+      : range === '30d'
+        ? 30 * 24 * 60 * 60 * 1000
+        : 7 * 24 * 60 * 60 * 1000;
   return new Date(now - lookbackMs).toISOString();
 }
 
@@ -369,7 +409,9 @@ function toBookingDto(row: BookingSnapshotRow): NonNullable<OpsSmsDeliveryAttemp
 }
 
 const SMS_STALE_THRESHOLD_MS = SMS_DELIVERY_STALE_THRESHOLD_MINUTES * 60 * 1000;
-const SMS_IN_FLIGHT_STATUS_SET: ReadonlySet<SmsDeliveryStatus> = new Set(SMS_DELIVERY_IN_FLIGHT_STATUSES);
+const SMS_IN_FLIGHT_STATUS_SET: ReadonlySet<SmsDeliveryStatus> = new Set(
+  SMS_DELIVERY_IN_FLIGHT_STATUSES,
+);
 
 export function computeSmsAttemptStaleness(input: {
   currentStatus: SmsDeliveryStatus;
@@ -402,7 +444,12 @@ function decorateSmsAttemptWithStaleness(
 
 export async function listSmsDeliveryAttemptsForRestaurant(
   params: ListSmsDeliveryAttemptsForRestaurantParams,
-): Promise<{ attempts: OpsSmsDeliveryAttemptDTO[]; hasNext: boolean; page: number; pageSize: number }> {
+): Promise<{
+  attempts: OpsSmsDeliveryAttemptDTO[];
+  hasNext: boolean;
+  page: number;
+  pageSize: number;
+}> {
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
   const start = (page - 1) * pageSize;
@@ -458,6 +505,35 @@ export async function listSmsDeliveryAttemptsForRestaurant(
     }
   }
 
+  const { data: mobileRows, error: mobileError } = await supabase
+    .from('mobile_notification_attempts')
+    .select(
+      'id,channel,fallback_for_attempt_id,provider,provider_message_id,recipient_phone,status,updated_at,mobile_notifications!inner(id,booking_id,notification_type,restaurant_id)',
+    )
+    .eq('mobile_notifications.restaurant_id', params.restaurantId)
+    .gte('updated_at', sinceIso)
+    .limit(10_000);
+  if (!mobileError) {
+    for (const row of (mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []) {
+      const currentStatus = normalizeMobileStatus(row.status);
+      const messageSid = row.provider_message_id ?? `attempt:${row.id}`;
+      buckets.set(`mobile:${row.id}`, {
+        bookingId: row.mobile_notifications.booking_id,
+        channel: row.channel,
+        currentEventId: row.id,
+        currentOccurredAt: row.updated_at,
+        currentStatus,
+        events: [],
+        fallbackForAttemptId: row.fallback_for_attempt_id,
+        logicalNotificationId: row.mobile_notifications.id,
+        messageSid,
+        provider: row.provider,
+        recipientPhone: row.recipient_phone,
+        smsType: row.mobile_notifications.notification_type,
+      });
+    }
+  }
+
   const aggregates = Array.from(buckets.values())
     .filter((attempt) => (statusFilter ? statusFilter.has(attempt.currentStatus) : true))
     .sort((a, b) => parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt));
@@ -477,7 +553,10 @@ export async function listSmsDeliveryAttemptsForRestaurant(
       .in('id', bookingIds);
     if (!bookingsError) {
       bookingById = new Map(
-        ((bookings as BookingSnapshotRow[] | null | undefined) ?? []).map((booking) => [booking.id, toBookingDto(booking)]),
+        ((bookings as BookingSnapshotRow[] | null | undefined) ?? []).map((booking) => [
+          booking.id,
+          toBookingDto(booking),
+        ]),
       );
     }
   }
@@ -495,8 +574,14 @@ export async function listSmsDeliveryAttemptsForRestaurant(
         currentOccurredAt: attempt.currentOccurredAt,
         events: attempt.events
           .slice()
-          .sort((a, b) => parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id)),
-        booking: attempt.bookingId ? bookingById.get(attempt.bookingId) ?? null : null,
+          .sort(
+            (a, b) =>
+              parseIsoMs(a.occurredAt) - parseIsoMs(b.occurredAt) || a.id.localeCompare(b.id),
+          ),
+        booking: attempt.bookingId ? (bookingById.get(attempt.bookingId) ?? null) : null,
+        channel: attempt.channel ?? 'sms',
+        logicalNotificationId: attempt.logicalNotificationId ?? null,
+        fallbackForAttemptId: attempt.fallbackForAttemptId ?? null,
       },
       now,
     ),
@@ -562,12 +647,14 @@ export async function getSmsDeliveryAttemptsSummary(params: {
     }
     if (
       parseIsoMs(occurredAt) > parseIsoMs(current.currentOccurredAt) ||
-      (parseIsoMs(occurredAt) === parseIsoMs(current.currentOccurredAt) && eventId > current.currentEventId)
+      (parseIsoMs(occurredAt) === parseIsoMs(current.currentOccurredAt) &&
+        eventId > current.currentEventId)
     ) {
       current.currentStatus = status;
       current.currentOccurredAt = occurredAt;
       current.currentEventId = eventId;
-      current.bookingId = (typeof row.booking_id === 'string' ? row.booking_id : null) ?? current.bookingId;
+      current.bookingId =
+        (typeof row.booking_id === 'string' ? row.booking_id : null) ?? current.bookingId;
     }
   }
 
@@ -579,11 +666,15 @@ export async function getSmsDeliveryAttemptsSummary(params: {
   const queued = finalAttempts.filter((attempt) => attempt.currentStatus === 'queued').length;
   const sent = finalAttempts.filter((attempt) => attempt.currentStatus === 'sent').length;
   const delivered = finalAttempts.filter((attempt) => attempt.currentStatus === 'delivered').length;
-  const undelivered = finalAttempts.filter((attempt) => attempt.currentStatus === 'undelivered').length;
+  const undelivered = finalAttempts.filter(
+    (attempt) => attempt.currentStatus === 'undelivered',
+  ).length;
   const failed = finalAttempts.filter((attempt) => attempt.currentStatus === 'failed').length;
   const uniqueRecipients = new Set(finalAttempts.map((attempt) => attempt.recipientPhone)).size;
   const uniqueBookings = new Set(
-    finalAttempts.map((attempt) => attempt.bookingId).filter((bookingId): bookingId is string => Boolean(bookingId)),
+    finalAttempts
+      .map((attempt) => attempt.bookingId)
+      .filter((bookingId): bookingId is string => Boolean(bookingId)),
   ).size;
 
   const nowMs = Date.now();

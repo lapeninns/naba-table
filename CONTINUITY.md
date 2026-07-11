@@ -1,6 +1,20 @@
 # Continuity Ledger
 
-Last updated: 2026-06-29T09:50:50Z
+Last updated: 2026-07-11T16:05:00Z
+
+## Current WhatsApp-first notification planning
+
+- Task harness: `tasks/whatsapp-first-notifications-20260711-1413/`.
+- Goal: implement a high-risk WhatsApp-first mobile notification feature using the registered `Nabatable` sender, venue identity inside approved templates, and an exactly-once SMS fallback.
+- Settled scope: preserve email behavior; cover booking confirmation, update, guest cancellation, restaurant cancellation, and the separate Cloudflare manager daily summary SMS path; keep per-venue WhatsApp senders and two-way chat out of V1.
+- Core invariant: WhatsApp and SMS are attempts for one logical notification. A delivered/read WhatsApp attempt never falls back; a terminal eligible failure may claim one SMS fallback; delayed or duplicate callbacks must not create a second message.
+- Risk: high because the initiative crosses Reserve and app-host UI, public/ops APIs, service-role writes, signed provider webhooks, Supabase migrations, delivery observability, and a Cloudflare Worker.
+- Settled guest consent: the public Reserve form gets an unchecked `Use WhatsApp for my booking updates` preference beneath the phone field. Its copy identifies Nabatable, the venue, transactional booking messages, and SMS fallback; consent is versioned and tied to the normalized phone-number snapshot, and changing the number requires reconfirmation.
+- Settled staff consent: ops-created telephone bookings get an unchecked `Guest agreed to WhatsApp booking updates` preference; selection records the normalized phone snapshot, timestamp, consent-copy version, source `ops_staff`, and authenticated staff actor.
+- Governance lifecycle restored: the AI Governance Starter Kit engine, tests, package scripts, and CI workflow are installed and tuned to Nabatable's existing risk taxonomy; all five feature Micro-Specs are active and both governance validators pass.
+- Implementation complete locally: booking and manager consent evidence, mobile notification/attempt ledger, WhatsApp Content sends, atomic SMS fallback, signed callback route, manager Worker routing, and channel-aware ops delivery UI.
+- Verification: feature tests, typecheck, lint, privacy/worker QA, production build, and shipped Reserve/app-host Playwright proof pass. Full-suite failures are limited to pre-existing clock-expired booking fixtures and two parallel timing tests.
+- External next step: apply `20260711143000_whatsapp_first_mobile_notifications.sql` to staging, configure the Nabatable sender and approved Content SIDs, then run real provider callback/fallback proof. The declared `db:check-drift` command is currently broken because `scripts/db/check-drift.ts` is missing.
 
 ## Current manager-name production DB execution
 

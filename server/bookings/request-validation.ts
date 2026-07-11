@@ -56,6 +56,7 @@ export const bookingCreateRequestSchema = z.object({
       message: 'Please enter a valid UK phone number.',
     }),
   marketingOptIn: explicitBooleanSchema.optional().default(false),
+  whatsappOptIn: explicitBooleanSchema.optional().default(false),
 });
 
 export type ContactBookingLookupQuery = z.infer<typeof contactBookingLookupQuerySchema>;

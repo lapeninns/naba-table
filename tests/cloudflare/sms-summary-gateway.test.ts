@@ -144,6 +144,55 @@ describe('daily summary queue consumer', () => {
     message: 'Old Crown Girton: Today 2 bkgs, 6 covers. Lunch 1/2. Dinner 1/4. app.nabatable.com',
   };
 
+  it('uses WhatsApp first and only falls back to SMS when provider acceptance fails', async () => {
+    const idempotency = {
+      claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
+      markSent: vi.fn().mockResolvedValue(undefined),
+      release: vi.fn().mockResolvedValue(undefined),
+    };
+    const sendWhatsApp = vi.fn().mockResolvedValue({ messageSid: 'MM123' });
+    const sendSms = vi.fn();
+
+    const sent = await processDailySummaryDispatch({
+      payload: {
+        restaurantId: 'restaurant-1',
+        localDate: '2026-04-11',
+        recipient: '+447700900000',
+        timezone: 'Europe/London',
+        dryRun: false,
+        whatsappFirst: true,
+      },
+      idempotency,
+      loadPreview: vi.fn().mockResolvedValue(preview),
+      sendSms,
+      sendWhatsApp,
+    });
+
+    expect(sent).toMatchObject({ channel: 'whatsapp', messageSid: 'MM123', status: 'sent' });
+    expect(sendSms).not.toHaveBeenCalled();
+
+    idempotency.claim.mockResolvedValueOnce({ status: 'claimed' });
+    sendWhatsApp.mockRejectedValueOnce(new Error('WhatsApp unavailable'));
+    sendSms.mockResolvedValueOnce({ messageSid: 'SM123' });
+    const fallback = await processDailySummaryDispatch({
+      payload: {
+        restaurantId: 'restaurant-1',
+        localDate: '2026-04-12',
+        recipient: '+447700900000',
+        timezone: 'Europe/London',
+        dryRun: false,
+        whatsappFirst: true,
+      },
+      idempotency,
+      loadPreview: vi.fn().mockResolvedValue(preview),
+      sendSms,
+      sendWhatsApp,
+    });
+
+    expect(fallback).toMatchObject({ channel: 'sms', messageSid: 'SM123', status: 'sent' });
+    expect(sendSms).toHaveBeenCalledOnce();
+  });
+
   it('marks successful sends and skips duplicates', async () => {
     const idempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),

@@ -50,6 +50,7 @@ describe('RestaurantDetailsForm subforms', () => {
     address: '1 High Street',
     businessDescription: null,
     managerDailySummaryEnabled: false,
+    managerWhatsappEnabled: false,
     managerNotificationPhone: '+441223277217',
     googleMapUrl: 'https://maps.google.com/demo-venue',
     googleReviewUrl: 'https://g.page/demo-venue/review',
@@ -116,7 +117,9 @@ describe('RestaurantDetailsForm subforms', () => {
       expect(onDraftChange).toHaveBeenLastCalledWith({}, false);
       expect(onDirtyChange).toHaveBeenLastCalledWith(false);
     });
-    expect(screen.getByText('Saves local brand details only. Sync with Google remains optional.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Saves local brand details only. Sync with Google remains optional.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Saved just now.');
     expect(analyticsTrackMock).toHaveBeenCalledWith(
       'restaurant_profile_section_saved',
@@ -227,6 +230,9 @@ describe('RestaurantDetailsForm subforms', () => {
     );
     await user.type(screen.getByRole('textbox', { name: /manager name/i }), 'Sam');
     await user.click(screen.getByRole('switch', { name: /daily manager sms summary/i }));
+    await user.click(
+      screen.getByRole('switch', { name: /send daily summary via whatsapp first/i }),
+    );
     await user.click(screen.getByRole('button', { name: /save notifications/i }));
 
     await waitFor(() =>
@@ -234,6 +240,7 @@ describe('RestaurantDetailsForm subforms', () => {
         managerName: 'Sam',
         managerNotificationPhone: '+447700900000',
         managerDailySummaryEnabled: true,
+        managerWhatsappEnabled: true,
       }),
     );
   });

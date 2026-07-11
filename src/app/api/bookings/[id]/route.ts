@@ -73,6 +73,7 @@ import {
   CUSTOMER_PHONE_LENGTH_MIN,
   isUKPhone,
 } from '@reserve/shared/validation';
+import { buildBookingWhatsAppConsentPatch } from '@/server/booking/whatsapp-consent';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -106,6 +107,7 @@ const updateSchema = z.object({
       message: 'Please enter a valid UK phone number.',
     }),
   marketingOptIn: explicitBooleanSchema.optional().default(false),
+  whatsappOptIn: explicitBooleanSchema.optional(),
 });
 
 // Dashboard update schema for minimal booking updates (used by EditBookingDialog)
@@ -1125,7 +1127,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { data, error } = await serviceSupabase
       .from('bookings')
       .select(
-        'id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at',
+        'id,restaurant_id,booking_date,start_time,end_time,start_at,end_at,reference,party_size,booking_type,seating_preference,status,customer_name,customer_email,customer_phone,notes,marketing_opt_in,whatsapp_opt_in,whatsapp_opt_in_at,whatsapp_consent_phone,whatsapp_consent_source,whatsapp_consent_version,whatsapp_consent_actor_id,loyalty_points_awarded,client_request_id,pending_ref,idempotency_key,details,created_at,updated_at',
       )
       .eq('id', bookingId)
       .maybeSingle();
@@ -1543,6 +1545,13 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       existingBooking.start_time !== startTime ||
       existingBooking.end_time !== endTime ||
       existingBooking.party_size !== data.party;
+    const whatsappConsentPatch = buildBookingWhatsAppConsentPatch({
+      actorId: null,
+      existingBooking,
+      optedIn: data.whatsappOptIn,
+      phone: normalizedPhone,
+      source: 'guest_reserve',
+    });
 
     const updated: Tables<'bookings'> = requiresTableRealignment
       ? await beginBookingModificationFlow({
@@ -1562,6 +1571,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             customer_name: data.name,
             customer_email: normalizedEmail,
             customer_phone: normalizedPhone,
+            ...whatsappConsentPatch,
             notes: data.notes ?? null,
             marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
           },
@@ -1581,6 +1591,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             customer_name: data.name,
             customer_email: normalizedEmail,
             customer_phone: normalizedPhone,
+            ...whatsappConsentPatch,
             notes: data.notes ?? null,
             marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
           },

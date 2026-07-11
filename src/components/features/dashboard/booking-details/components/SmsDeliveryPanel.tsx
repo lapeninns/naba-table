@@ -62,7 +62,7 @@ function DeliveryStateCard({
       <CardContent className="space-y-3 p-3">
         <div className="flex items-center justify-between">
           <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-            SMS Observability
+            Message delivery
           </div>
           <MessageSquareWarning
             className={cn(
@@ -146,7 +146,7 @@ export function SmsDeliveryPanel({
     return wrapCard(
       <DeliveryStateCard
         title="Tracking unavailable"
-        description="This environment is not currently recording or exposing delivery events. SMS sending can still work normally."
+        description="This environment is not currently recording or exposing message delivery events. Sending can still work normally."
       />,
     );
   }
@@ -174,7 +174,7 @@ export function SmsDeliveryPanel({
   if (groups.length === 0) {
     return wrapCard(
       <DeliveryStateCard
-        title="No SMS events"
+        title="No message events"
         description="No delivery events have been recorded for this booking yet."
       />,
     );

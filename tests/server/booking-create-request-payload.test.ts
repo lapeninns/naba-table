@@ -27,6 +27,7 @@ describe('booking create request payload parser', () => {
         ...validPayload,
         party: 4,
         marketingOptIn: true,
+        whatsappOptIn: false,
       },
     });
   });

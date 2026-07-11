@@ -141,7 +141,7 @@ export function OpsSmsDeliveryClient({
   return (
     <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
-        title="SMS Delivery"
+        title="Message Delivery"
         subtitle="Track queued/sent/delivered/failed booking SMS in one place."
         meta={
           <OpsSmsDeliveryHeaderMeta

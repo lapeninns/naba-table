@@ -61,6 +61,7 @@ export function EditRestaurantDialog({
             businessDescription: restaurant.businessDescription,
             managerName: restaurant.managerName,
             managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
+            managerWhatsappEnabled: restaurant.managerWhatsappEnabled,
             managerNotificationPhone: restaurant.managerNotificationPhone,
             googleMapUrl: restaurant.googleMapUrl,
             googleReviewUrl: restaurant.googleReviewUrl,

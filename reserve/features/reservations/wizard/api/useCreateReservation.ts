@@ -51,6 +51,7 @@ export function useCreateReservation() {
         email: draft.email ?? undefined,
         phone: draft.phone ?? undefined,
         marketingOptIn: draft.marketingOptIn,
+        whatsappOptIn: draft.whatsappOptIn,
       };
 
       const path = bookingId ? `/bookings/${bookingId}` : '/bookings';

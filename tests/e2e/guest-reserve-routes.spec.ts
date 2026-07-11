@@ -278,6 +278,7 @@ test.describe('reserve routes', () => {
     page,
   }) => {
     createBookingMode = 'capacity';
+    await page.setViewportSize({ width: 375, height: 812 });
 
     await chooseDefaultRestaurantSlot(page);
 
@@ -295,11 +296,23 @@ test.describe('reserve routes', () => {
     await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
     await page.getByLabel('UK phone number').fill('07123 456789');
 
+    const whatsappPreference = page.getByRole('checkbox', {
+      name: /Use WhatsApp for my booking updates/,
+    });
+    await expect(whatsappPreference).not.toBeChecked();
+    await whatsappPreference.check();
+    await page.getByLabel('UK phone number').fill('07123 456780');
+    await expect(whatsappPreference).not.toBeChecked();
+    await whatsappPreference.check();
+    await page.setViewportSize({ width: 768, height: 900 });
+    await expect(whatsappPreference).toBeVisible();
+
     await page.getByRole('button', { name: 'Review booking' }).click();
 
     await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
     await expect(page.getByText('Reserve Guest')).toBeVisible();
     await expect(page.getByText('reserve.guest@example.com')).toBeVisible();
+    await expect(page.getByText('WhatsApp preferred · SMS backup')).toBeVisible();
 
     await page.getByRole('button', { name: 'Confirm booking' }).click();
 

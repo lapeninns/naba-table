@@ -9,7 +9,7 @@ import {
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'SMS Delivery · Nab a Table Ops',
+  title: 'Message Delivery · Nab a Table Ops',
   description: 'Deliverability dashboard for booking SMS (Twilio).',
 };
 

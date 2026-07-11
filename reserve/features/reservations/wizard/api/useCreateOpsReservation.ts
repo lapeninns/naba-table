@@ -48,6 +48,7 @@ export function buildOpsBookingPayload(draft: ReservationDraft) {
     email: draft.email ?? null,
     phone: draft.phone ?? null,
     marketingOptIn: draft.marketingOptIn,
+    whatsappOptIn: draft.whatsappOptIn,
   } as const;
 }
 

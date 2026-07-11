@@ -1,4 +1,9 @@
-import { RetryableDispatchError, TerminalDispatchError, sendTwilioSmsMessage } from './twilio';
+import {
+  RetryableDispatchError,
+  TerminalDispatchError,
+  sendTwilioSmsMessage,
+  sendTwilioWhatsAppMessage,
+} from './twilio';
 
 import type { DailySummaryPreview, DailySummaryQueueMessage } from './contracts';
 
@@ -21,10 +26,19 @@ export async function processDailySummaryDispatch(params: {
     recipient: string;
     message: string;
   }) => Promise<{ messageSid: string | null }>;
+  sendWhatsApp?: (params: {
+    recipient: string;
+    message: string;
+  }) => Promise<{ messageSid: string | null }>;
 }): Promise<
   | { status: 'duplicate'; providerMessageId: string | null; sentAt: string | null }
   | { status: 'dry_run'; preview: DailySummaryPreview }
-  | { status: 'sent'; preview: DailySummaryPreview; messageSid: string | null }
+  | {
+      status: 'sent';
+      preview: DailySummaryPreview;
+      messageSid: string | null;
+      channel: 'whatsapp' | 'sms';
+    }
 > {
   const claim = await params.idempotency.claim();
 
@@ -53,10 +67,27 @@ export async function processDailySummaryDispatch(params: {
       };
     }
 
-    const sent = await params.sendSms({
-      recipient: params.payload.recipient,
-      message: preview.message,
-    });
+    let channel: 'whatsapp' | 'sms' = 'sms';
+    let sent: { messageSid: string | null };
+    if (params.payload.whatsappFirst && params.sendWhatsApp) {
+      try {
+        sent = await params.sendWhatsApp({
+          recipient: params.payload.recipient,
+          message: preview.message,
+        });
+        channel = 'whatsapp';
+      } catch {
+        sent = await params.sendSms({
+          recipient: params.payload.recipient,
+          message: preview.message,
+        });
+      }
+    } else {
+      sent = await params.sendSms({
+        recipient: params.payload.recipient,
+        message: preview.message,
+      });
+    }
     sendCompleted = true;
 
     await params.idempotency.markSent(sent.messageSid);
@@ -65,6 +96,7 @@ export async function processDailySummaryDispatch(params: {
       status: 'sent',
       preview,
       messageSid: sent.messageSid,
+      channel,
     };
   } catch (error) {
     if (!sendCompleted) {
@@ -78,6 +110,31 @@ export async function processDailySummaryDispatch(params: {
     }
     throw error;
   }
+}
+
+export async function sendDailySummaryViaWhatsApp(params: {
+  env: {
+    TWILIO_ACCOUNT_SID: string;
+    TWILIO_API_KEY_SID: string;
+    TWILIO_API_KEY_SECRET: string;
+    TWILIO_WHATSAPP_SENDER: string;
+    TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: string;
+  };
+  recipient: string;
+  message: string;
+  fetchImpl?: typeof fetch;
+}): Promise<{ messageSid: string | null }> {
+  const result = await sendTwilioWhatsAppMessage({
+    accountSid: params.env.TWILIO_ACCOUNT_SID,
+    apiKeySid: params.env.TWILIO_API_KEY_SID,
+    apiKeySecret: params.env.TWILIO_API_KEY_SECRET,
+    sender: params.env.TWILIO_WHATSAPP_SENDER,
+    to: params.recipient,
+    contentSid: params.env.TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID,
+    contentVariables: { '1': params.message },
+    fetchImpl: params.fetchImpl,
+  });
+  return { messageSid: result.messageSid };
 }
 
 export async function sendDailySummaryViaTwilio(params: {

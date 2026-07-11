@@ -20,6 +20,7 @@ const restaurant = {
   address: '1 QA Street, Test Town',
   businessDescription: 'Local QA fixture restaurant for browser proof.',
   managerDailySummaryEnabled: true,
+  managerWhatsappEnabled: false,
   managerNotificationPhone: '+440000000001',
   googleMapUrl: null,
   googleReviewUrl: null,
@@ -228,6 +229,10 @@ test.describe('authenticated ops app-host shipped routes', () => {
     await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
     await expect(page.locator('main').getByText('QA App Host Restaurant').first()).toBeVisible();
     await expectProfileStatusBar(page);
+    await page.getByText('4 · Manager alerts', { exact: true }).click();
+    await expect(
+      page.getByRole('switch', { name: /Send daily summary via WhatsApp first/ }),
+    ).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-profile-authenticated-desktop.png'),
@@ -244,6 +249,10 @@ test.describe('authenticated ops app-host shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
     await expectProfileStatusBar(page);
+    await page.getByText('4 · Manager alerts', { exact: true }).click();
+    await expect(
+      page.getByRole('switch', { name: /Send daily summary via WhatsApp first/ }),
+    ).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-profile-authenticated-tablet.png'),

@@ -24,6 +24,7 @@ const request = {
   email: 'alex@example.com',
   phone: '07123456789',
   marketingOptIn: false,
+  whatsappOptIn: false,
 } as BookingCreateRequest;
 const requestContext = {
   headerIdempotencyKey: 'header-idem-1',
@@ -54,6 +55,49 @@ const persistence = {
 } satisfies Extract<BookingCreatePersistenceResult, { kind: 'created' }>;
 
 describe('completeBookingCreate', () => {
+  it('persists WhatsApp consent before notification-producing finalization', async () => {
+    const whatsappRequest = { ...request, whatsappOptIn: true };
+    const consentedBooking = {
+      ...booking,
+      whatsapp_opt_in: true,
+      whatsapp_consent_phone: request.phone,
+    } as BookingRecord;
+    const order: string[] = [];
+    const consentPersister = vi.fn(async () => {
+      order.push('consent');
+      return consentedBooking;
+    });
+    const finalizer = vi.fn(async () => {
+      order.push('finalize');
+      return { booking: consentedBooking };
+    }) as BookingCreateFinalizer;
+    const responseBuilder = vi.fn(async () => NextResponse.json({ ok: true }));
+
+    await completeBookingCreate({
+      autoAssignEnabled: false,
+      client,
+      consentPersister,
+      finalizer,
+      persistence,
+      request: whatsappRequest,
+      requestContext,
+      responseBuilder,
+      restaurantId,
+      useUnifiedValidation: false,
+    });
+
+    expect(order).toEqual(['consent', 'finalize']);
+    expect(consentPersister).toHaveBeenCalledWith({
+      actorId: null,
+      booking,
+      client,
+      optedIn: whatsappRequest.whatsappOptIn,
+      restaurantId,
+      source: 'guest_reserve',
+    });
+    expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ booking: consentedBooking }));
+  });
+
   it('finalizes the booking before building the HTTP response', async () => {
     const finalizer = vi.fn(async () => ({ booking: finalizedBooking })) as BookingCreateFinalizer;
     const responseBuilder = vi.fn(async () =>

@@ -160,6 +160,7 @@ export const createRestaurantSchema = z.object({
     .optional()
     .transform((val) => val || null),
   managerDailySummaryEnabled: z.boolean().optional(),
+  managerWhatsappEnabled: z.boolean().optional(),
   managerNotificationPhone: z
     .string()
     .trim()
@@ -239,6 +240,7 @@ export const updateRestaurantSchema = z.object({
     .optional()
     .transform((val) => val || null),
   managerDailySummaryEnabled: z.boolean().optional(),
+  managerWhatsappEnabled: z.boolean().optional(),
   managerNotificationPhone: z
     .string()
     .trim()
@@ -294,6 +296,7 @@ export type RestaurantDTO = {
   address: string | null;
   businessDescription: string | null;
   managerDailySummaryEnabled: boolean;
+  managerWhatsappEnabled: boolean;
   managerName: string | null;
   managerNotificationPhone: string | null;
   googleMapUrl: string | null;

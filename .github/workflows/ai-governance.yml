@@ -1,0 +1,32 @@
+name: AI Governance
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so blast-radius enforcement can diff PRs against the
+          # base branch (origin/<base>...HEAD). A shallow checkout makes the
+          # range empty and silently disables the check.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm governance:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:micro-specs
+      - run: pnpm build
+      # Runs the verification gates declared by active Micro-Specs. The README
+      # gate list documents this command, and docs-drift is bidirectional — a
+      # workflow that never ran it would fail every fresh install.
+      - run: pnpm governance:run-gates

@@ -44,6 +44,7 @@ export const reservationSchema = z.object({
   customerEmail: z.union([z.string().email(), z.literal('')]),
   customerPhone: z.string(),
   marketingOptIn: z.boolean(),
+  whatsappOptIn: z.boolean().default(false),
   notes: z.string().nullable(),
   reference: z.string().optional(),
   clientRequestId: z.string().uuid().nullable(),

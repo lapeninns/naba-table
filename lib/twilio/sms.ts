@@ -11,6 +11,17 @@ type TwilioSmsRequest = {
   statusCallback?: string;
 };
 
+type TwilioWhatsAppRequest = {
+  readonly accountSid: string;
+  readonly apiKeySid: string;
+  readonly apiKeySecret: string;
+  readonly sender: string;
+  readonly to: string;
+  readonly contentSid: string;
+  readonly contentVariables: Readonly<Record<string, string>>;
+  readonly statusCallback?: string;
+};
+
 type TwilioSendResult = {
   messageSid: string | null;
   status: string | null;
@@ -169,6 +180,32 @@ export function buildTwilioSmsRequest(params: TwilioSmsRequest): {
   };
 }
 
+export function buildTwilioWhatsAppRequest(params: TwilioWhatsAppRequest): {
+  url: string;
+  init: RequestInit;
+} {
+  const body = new URLSearchParams();
+  body.set('From', `whatsapp:${params.sender}`);
+  body.set('To', `whatsapp:${params.to}`);
+  body.set('ContentSid', params.contentSid);
+  body.set('ContentVariables', JSON.stringify(params.contentVariables));
+  if (params.statusCallback) {
+    body.set('StatusCallback', params.statusCallback);
+  }
+
+  return {
+    url: `https://api.twilio.com/2010-04-01/Accounts/${params.accountSid}/Messages.json`,
+    init: {
+      method: 'POST',
+      headers: {
+        authorization: buildBasicAuthHeader(params.apiKeySid, params.apiKeySecret),
+        'content-type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    },
+  };
+}
+
 export function buildTwilioListMessagesRequest(params: TwilioListMessagesRequest): {
   url: string;
   init: RequestInit;
@@ -274,7 +311,9 @@ export function validateTwilioWebhookSignature(params: {
   return safeEqualBase64(expected, params.signature.trim());
 }
 
-function parseTwilioMessageRecord(message: TwilioMessageApiPayload | null | undefined): TwilioMessageRecord | null {
+function parseTwilioMessageRecord(
+  message: TwilioMessageApiPayload | null | undefined,
+): TwilioMessageRecord | null {
   if (!message?.sid) return null;
 
   return {
@@ -325,6 +364,40 @@ export async function sendTwilioSmsMessage(
 
   const body = raw ? (JSON.parse(raw) as { sid?: string | null; status?: string | null }) : null;
 
+  return {
+    messageSid: body?.sid ?? null,
+    status: body?.status ?? null,
+  };
+}
+
+export async function sendTwilioWhatsAppMessage(
+  params: TwilioWhatsAppRequest & {
+    readonly fetchImpl?: typeof fetch;
+  },
+): Promise<TwilioSendResult> {
+  const { url, init } = buildTwilioWhatsAppRequest(params);
+  const fetchImpl = params.fetchImpl ?? fetch;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, init);
+  } catch (error) {
+    throw new RetryableDispatchError(
+      error instanceof Error ? error.message : 'Twilio WhatsApp request failed',
+    );
+  }
+
+  const raw = await response.text();
+  const parsed = parseTwilioErrorPayload(raw);
+  if (!response.ok) {
+    const message = parsed?.message?.trim() || `Twilio WhatsApp send failed (${response.status})`;
+    if (isRetryableTwilioStatus(response.status)) {
+      throw new RetryableDispatchError(message, response.status);
+    }
+    throw new TerminalDispatchError(message, response.status);
+  }
+
+  const body = raw ? (JSON.parse(raw) as { sid?: string | null; status?: string | null }) : null;
   return {
     messageSid: body?.sid ?? null,
     status: body?.status ?? null,

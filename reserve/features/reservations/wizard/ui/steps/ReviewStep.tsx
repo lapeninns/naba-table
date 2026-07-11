@@ -274,6 +274,11 @@ export function ReviewStep(props: ReviewStepProps) {
                   label="Phone"
                   value={phoneDisplay}
                 />
+                <DetailItem
+                  icon={<MessageSquareIcon className="size-4" />}
+                  label="Mobile messages"
+                  value={details.whatsappOptIn ? 'WhatsApp preferred · SMS backup' : 'SMS'}
+                />
                 {!isOpsMode ? (
                   <DetailItem
                     icon={<BellIcon className="size-4" />}

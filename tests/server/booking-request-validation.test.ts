@@ -55,6 +55,7 @@ describe('booking request validation', () => {
       expect(bookingCreateRequestSchema.parse(validBookingRequest)).toEqual({
         ...validBookingRequest,
         marketingOptIn: false,
+        whatsappOptIn: false,
       });
       expect(DEFAULT_SEATING_PREFERENCE).toBe('any');
     });

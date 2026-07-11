@@ -27,6 +27,30 @@ describe('buildReservationDraft', () => {
     expect(result.draft.bookingType).toBe('dinner');
   });
 
+  it('preserves explicit WhatsApp consent for the submitted phone number', () => {
+    const details = getInitialDetails({
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-fox',
+      date: '2026-03-29',
+      time: '19:30',
+      party: 2,
+      bookingType: 'dinner',
+      name: 'Guest Booker',
+      email: 'guest@example.com',
+      phone: '+441234567890',
+      whatsappOptIn: true,
+    });
+
+    const result = buildReservationDraft(details);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+
+    expect(result.draft.whatsappOptIn).toBe(true);
+  });
+
   it('falls back to time-based inference when booking type is blank', () => {
     const details = getInitialDetails({
       restaurantId: 'rest-1',

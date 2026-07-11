@@ -78,7 +78,7 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname.startsWith(path('/email-delivery')),
       },
       {
-        title: 'SMS Delivery',
+        title: 'Message Delivery',
         description: 'Track queued/sent/delivered/failed SMS status',
         href: path('/sms-delivery'),
         icon: MessageSquare,

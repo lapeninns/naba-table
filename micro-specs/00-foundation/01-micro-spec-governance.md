@@ -20,7 +20,11 @@ related_tests:
   - tests/micro-specs/check-micro-specs.test.ts
 verification_gates:
   - pnpm guard:micro-specs
-  - pnpm exec vitest run tests/micro-specs/check-micro-specs.test.ts
+  - pnpm test:micro-specs
+required_playwright_projects: []
+evidence_required:
+  - Micro-Spec validator command output.
+  - Governance engine test output.
 approved_exceptions: []
 ---
 

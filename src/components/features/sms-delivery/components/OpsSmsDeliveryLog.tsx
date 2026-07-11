@@ -61,6 +61,10 @@ function SmsDeliveryAttemptRow({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <SmsStatusBadge status={attempt.currentStatus} />
+            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wide">
+              {attempt.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'}
+              {attempt.fallbackForAttemptId ? ' fallback' : ''}
+            </Badge>
             {isStale ? (
               <Badge
                 variant="outline"
@@ -121,13 +125,13 @@ export function OpsSmsDeliveryLog({
         <Alert className="border-border bg-muted/40">
           <AlertTitle>Delivery tracking unavailable</AlertTitle>
           <AlertDescription>
-            This environment is not currently recording or exposing SMS delivery events.
+            This environment is not currently recording or exposing message delivery events.
           </AlertDescription>
         </Alert>
       ) : apiError ? (
         <Alert variant="destructive">
           <AlertCircle className="size-4" aria-hidden />
-          <AlertTitle>Unable to load SMS delivery attempts</AlertTitle>
+          <AlertTitle>Unable to load message delivery attempts</AlertTitle>
           <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       ) : errorMessage ? (
@@ -141,13 +145,13 @@ export function OpsSmsDeliveryLog({
           <CardHeader className={OPS_CARD_HEADER_CLASS}>
             <CardTitle className="flex items-center gap-2 text-base">
               <MessageSquare className="size-4" aria-hidden />
-              SMS Delivery Log
+              Message Delivery Log
             </CardTitle>
           </CardHeader>
           <CardContent className={OPS_CARD_CONTENT_CLASS}>
             {feed.attempts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No SMS attempts found for this range/filter.
+                No message attempts found for this range/filter.
               </p>
             ) : (
               <div className="flex flex-col gap-3">

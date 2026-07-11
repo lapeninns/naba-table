@@ -59,9 +59,9 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     expect(settingsItem?.match?.('/app/settings/restaurant/team')).toBe(true);
   });
 
-  it('marks SMS Delivery as active-admin navigation', () => {
+  it('marks Message Delivery as active-admin navigation', () => {
     const guestInsights = OPS_NAV_SECTIONS.find((section) => section.label === 'Guest & Insights');
-    const smsItem = guestInsights?.items.find((item) => item.title === 'SMS Delivery');
+    const smsItem = guestInsights?.items.find((item) => item.title === 'Message Delivery');
 
     expect(smsItem).toMatchObject({
       href: '/app/sms-delivery',
@@ -85,6 +85,6 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     });
     const titles = filtered.flatMap((section) => section.items.map((item) => item.title));
 
-    expect(titles).toContain('SMS Delivery');
+    expect(titles).toContain('Message Delivery');
   });
 });

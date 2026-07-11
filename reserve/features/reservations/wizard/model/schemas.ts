@@ -98,6 +98,7 @@ export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
       phone: buildPhoneSchema(mode),
       rememberDetails: z.boolean().default(mode !== 'ops'),
       marketingOptIn: z.boolean().default(mode !== 'ops'),
+      whatsappOptIn: z.boolean().default(false),
       agree: buildAgreeSchema(mode),
     })
     .superRefine((values, ctx) => {

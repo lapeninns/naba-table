@@ -65,6 +65,7 @@ export function ManagerNotificationsSubform({
                 managerName: payload.managerName,
                 managerNotificationPhone: payload.managerNotificationPhone,
                 managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
+                managerWhatsappEnabled: payload.managerWhatsappEnabled,
               };
             },
             'ManagerNotificationsSubform',
@@ -152,7 +153,10 @@ export function ManagerNotificationsSubform({
               inputMode="tel"
               placeholder="+447700900000"
               value={state.managerNotificationPhone}
-              onChange={(event) => handleChange('managerNotificationPhone', event.target.value)}
+              onChange={(event) => {
+                handleChange('managerNotificationPhone', event.target.value);
+                handleToggle('managerWhatsappEnabled', false);
+              }}
               aria-invalid={Boolean(errors.managerNotificationPhone)}
               aria-describedby={
                 errors.managerNotificationPhone
@@ -209,6 +213,32 @@ export function ManagerNotificationsSubform({
                 checked={state.managerDailySummaryEnabled}
                 onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
                 aria-describedby="restaurant-manager-daily-summary-enabled-help"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border/70 bg-muted/20 p-3 sm:col-span-2">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="restaurant-manager-whatsapp-enabled">
+                  Send daily summary via WhatsApp first
+                </Label>
+                <p
+                  id="restaurant-manager-whatsapp-enabled-help"
+                  className="text-xs text-muted-foreground"
+                >
+                  Nabatable sends on behalf of the restaurant to the manager number above. If
+                  WhatsApp is unavailable, we’ll send the summary by SMS instead.
+                </p>
+              </div>
+              <Switch
+                id="restaurant-manager-whatsapp-enabled"
+                checked={state.managerWhatsappEnabled}
+                disabled={
+                  !state.managerNotificationPhone.trim() || !state.managerDailySummaryEnabled
+                }
+                onCheckedChange={(checked) => handleToggle('managerWhatsappEnabled', checked)}
+                aria-describedby="restaurant-manager-whatsapp-enabled-help"
               />
             </div>
           </div>

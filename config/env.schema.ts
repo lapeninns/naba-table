@@ -103,6 +103,15 @@ const baseEnvSchema = z
     TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
     TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),
     TWILIO_SHORTEN_URLS: booleanStringOptional,
+    TWILIO_WHATSAPP_SENDER: z
+      .string()
+      .regex(/^\+[1-9][0-9]{6,14}$/)
+      .optional(),
+    TWILIO_WHATSAPP_BOOKING_CONFIRMATION_CONTENT_SID: z.string().min(1).optional(),
+    TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID: z.string().min(1).optional(),
+    TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID: z.string().min(1).optional(),
+    TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID: z.string().min(1).optional(),
+    TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: z.string().min(1).optional(),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
     TURNSTILE_EXPECTED_HOSTNAME: z.string().min(1).optional(),

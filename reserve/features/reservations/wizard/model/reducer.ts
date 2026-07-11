@@ -23,6 +23,7 @@ export type ApiBooking = {
   notes: string | null;
   source: string;
   marketing_opt_in: boolean;
+  whatsapp_opt_in: boolean;
   loyalty_points_awarded: number;
   created_at: string;
   updated_at: string;
@@ -61,6 +62,7 @@ export type BookingDetails = {
   rememberDetails: boolean;
   agree: boolean;
   marketingOptIn: boolean;
+  whatsappOptIn: boolean;
 };
 
 export type BookingWizardMode = 'customer' | 'ops';
@@ -121,6 +123,7 @@ export type ReservationDraft = {
   email: string | null;
   phone: string | null;
   marketingOptIn: boolean;
+  whatsappOptIn: boolean;
 };
 
 export function toBookingOption(value: BookingType): BookingOption {
@@ -151,6 +154,7 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     rememberDetails: false,
     agree: true,
     marketingOptIn: false,
+    whatsappOptIn: false,
   };
 
   if (!overrides) {
@@ -224,6 +228,7 @@ export function reducer(state: State, action: Action): State {
         bookingType: booking ? toBookingOption(booking.booking_type) : state.details.bookingType,
         notes: booking?.notes ?? state.details.notes,
         marketingOptIn: booking ? booking.marketing_opt_in : state.details.marketingOptIn,
+        whatsappOptIn: booking ? booking.whatsapp_opt_in : state.details.whatsappOptIn,
       };
 
       return {
@@ -267,6 +272,7 @@ export function reducer(state: State, action: Action): State {
           email: booking.customer_email,
           phone: booking.customer_phone,
           marketingOptIn: booking.marketing_opt_in,
+          whatsappOptIn: booking.whatsapp_opt_in,
         },
       };
     }

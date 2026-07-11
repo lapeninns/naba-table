@@ -65,6 +65,7 @@ export const buildReservationDraft = (
       email: normalizeContactValue(details.email, mode !== 'ops'),
       phone: normalizeContactValue(details.phone, mode !== 'ops'),
       marketingOptIn: buildMarketingOptIn(details.marketingOptIn),
+      whatsappOptIn: Boolean(details.whatsappOptIn),
     },
   };
 };
@@ -86,6 +87,7 @@ export const reservationToApiBooking = (reservation: Reservation): ApiBooking =>
   notes: reservation.notes ?? null,
   source: 'app',
   marketing_opt_in: buildMarketingOptIn(reservation.marketingOptIn),
+  whatsapp_opt_in: reservation.whatsappOptIn,
   loyalty_points_awarded: 0,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
