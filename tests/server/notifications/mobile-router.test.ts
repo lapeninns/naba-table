@@ -87,6 +87,54 @@ describe('dispatchMobileNotificationWithDependencies', () => {
     expect(dependencies.sendWhatsApp).not.toHaveBeenCalled();
     expect(dependencies.sendSms).not.toHaveBeenCalled();
   });
+
+  it('canonicalizes comparable-form recipient phones to strict E.164 before claiming @worker', async () => {
+    const dependencies = createDependencies();
+
+    // Regression: recipient_phone CHECK constraints reject comparable-form
+    // phones (leading + stripped), which failed every mobile notification claim.
+    await dispatchMobileNotificationWithDependencies(
+      { ...input, recipientPhone: '447123456789' },
+      dependencies,
+    );
+
+    expect(dependencies.claimNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientPhone: '+447123456789' }),
+    );
+    expect(dependencies.claimAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientPhone: '+447123456789' }),
+    );
+    expect(dependencies.sendWhatsApp).toHaveBeenCalledWith(
+      expect.objectContaining({ to: '+447123456789' }),
+    );
+  });
+
+  it('canonicalizes local UK recipient phones to E.164 @worker', async () => {
+    const dependencies = createDependencies();
+
+    await dispatchMobileNotificationWithDependencies(
+      { ...input, recipientPhone: '07123456789', whatsappEligible: false },
+      dependencies,
+    );
+
+    expect(dependencies.claimNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientPhone: '+447123456789' }),
+    );
+  });
+
+  it('keeps unstorable phones on the plain SMS path without touching the ledger @worker', async () => {
+    const dependencies = createDependencies();
+
+    const channel = await dispatchMobileNotificationWithDependencies(
+      { ...input, recipientPhone: 'not-a-phone' },
+      dependencies,
+    );
+
+    expect(channel).toBe('sms');
+    expect(dependencies.claimNotification).not.toHaveBeenCalled();
+    expect(dependencies.sendWhatsApp).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).toHaveBeenCalledOnce();
+  });
 });
 
 describe('shouldApplyWhatsAppStatus', () => {

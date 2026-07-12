@@ -3,6 +3,7 @@ import 'server-only';
 import { env } from '@/lib/env';
 import { sendTwilioWhatsAppMessage } from '@/lib/twilio/sms';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { formatUKPhoneToE164 } from '@reserve/shared/validation';
 
 export type MobileNotificationType =
   | 'booking_confirmation'
@@ -25,6 +26,19 @@ type ProviderSendResult = {
   messageSid: string | null;
   status: string | null;
 };
+
+// mobile_notifications/mobile_notification_attempts recipient_phone CHECKs
+// require strict E.164; comparable-form phones (leading + stripped) are not storable.
+const E164_RECIPIENT_PHONE_REGEX = /^\+[1-9][0-9]{6,14}$/;
+
+function toE164RecipientPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const trimmed = phone.trim();
+  if (!trimmed) return null;
+  const withPlus = /^[1-9][0-9]{6,14}$/.test(trimmed) ? `+${trimmed}` : trimmed;
+  const canonical = formatUKPhoneToE164(withPlus) ?? withPlus;
+  return E164_RECIPIENT_PHONE_REGEX.test(canonical) ? canonical : null;
+}
 
 export type MobileNotificationInput = {
   bookingId: string | null;
@@ -59,6 +73,7 @@ export type MobileNotificationDependencies = {
   }) => Promise<string | null>;
   sendWhatsApp: (input: {
     templateId: string;
+    to: string;
     variables: Readonly<Record<string, string>>;
   }) => Promise<ProviderSendResult>;
   sendSms: () => Promise<ProviderSendResult | null>;
@@ -117,9 +132,18 @@ export async function completeClaimedSmsAttempt(
 }
 
 export async function dispatchMobileNotificationWithDependencies(
-  input: MobileNotificationInput,
+  rawInput: MobileNotificationInput,
   dependencies: MobileNotificationDependencies,
 ): Promise<'whatsapp' | 'sms' | 'duplicate'> {
+  const recipientPhone = toE164RecipientPhone(rawInput.recipientPhone);
+  if (!recipientPhone) {
+    // Phones the ledger cannot store stay on the legacy plain-SMS path so the
+    // guest is still notified.
+    await dependencies.sendSms();
+    return 'sms';
+  }
+
+  const input: MobileNotificationInput = { ...rawInput, recipientPhone };
   const notification = await dependencies.claimNotification(input);
   const whatsappTemplateId = input.whatsappTemplateId;
 
@@ -150,6 +174,7 @@ export async function dispatchMobileNotificationWithDependencies(
   try {
     const result = await dependencies.sendWhatsApp({
       templateId: whatsappTemplateId,
+      to: input.recipientPhone,
       variables: input.whatsappVariables,
     });
     if (!result.messageSid) {
@@ -262,7 +287,7 @@ export async function dispatchMobileNotification(
       }
       return data;
     },
-    sendWhatsApp: async ({ templateId, variables }) => {
+    sendWhatsApp: async ({ templateId, to, variables }) => {
       const { accountSid, apiKeySid, apiKeySecret, authToken, whatsapp } = env.twilio;
       if (
         !accountSid ||
@@ -283,7 +308,7 @@ export async function dispatchMobileNotification(
         fetchImpl: options.fetchImpl,
         sender: whatsapp.sender,
         statusCallback: new URL('/api/webhook/twilio/whatsapp-status', env.app.url).toString(),
-        to: input.recipientPhone,
+        to,
       });
     },
     sendSms: options.sendSms,
