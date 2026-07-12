@@ -1,6 +1,6 @@
 ---
 spec_id: MS-guest-wizard-nav-summary-sheet
-status: active
+status: implemented
 risk_class: ui-only
 owner: amankumarshrestha
 last_reviewed: 2026-07-12
