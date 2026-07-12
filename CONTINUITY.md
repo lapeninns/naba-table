@@ -1,23 +1,28 @@
 # Continuity Ledger
 
-Last updated: 2026-07-12T10:04:00Z
+Last updated: 2026-07-12T21:30:00Z
 
 ## Current WhatsApp review production governance
 
 - Task harness: `tasks/whatsapp-review-production-release-20260712-1921/`.
 - Goal: activate four decision-complete Micro-Specs for consent v2, purpose-scoped review links,
   a one-shot review ledger with no SMS fallback, and staged production delivery/release.
-- Scope boundary: governance artifacts only in this task; no product code, remote service,
-  provider, database, deployment, or live-message mutation.
+- Scope has advanced through local implementation and a staging-only release attempt; production
+  provider configuration, deployment, and live-message mutation remain forbidden.
 - Locked event set: confirmation, update, guest cancellation, restaurant cancellation, and review;
   reminders stay absent, v1 stays lifecycle-only, and v2 covers all five booking events.
 - Release invariant: all five templates must be provider-approved before production config, with
   staged deploy/rollback and an explicitly armed T+0/60/120/180/240 controlled smoke.
-- State: all four specs are active with clean machine transition evidence; governance validates 31
-  specs and the 61-test Micro-Spec suite passes. Product implementation and remote release remain next.
+- State: the branch contains governed consent-v2, review redirect, no-SMS ledger, durable review
+  dispatch, five-template readiness, and restored DB safe-run work. Local focused, security, Worker,
+  type, lint, and governance gates pass.
 - Adversarial follow-up: radii now include durable task/evidence paths and assign every expected
   implementation file to one owning spec. All four clean implemented dry-runs, the 52-file synthetic
   check, governance guard/check, and 61-test Micro-Spec suite pass.
+- Task 7A staging result: env identity and safe-run dry-run passed, but Supabase readback stopped on
+  rejected staging DB authentication (28P01). An isolated staging D1 was created and initialized;
+  Cloudflare staging Worker deployment stopped after bounded HTTP 521 API failures. Production
+  Worker/config/provider traffic remained unchanged. See `.omo/evidence/task-7a-whatsapp-review-staging.txt`.
 
 ## Current silent production table-assignment repair
 

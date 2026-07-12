@@ -8,6 +8,7 @@ allowed_blast_radius:
   - micro-specs/05-integrations/**
   - micro-specs/evidence/MS-integrations-whatsapp-review-delivery.json
   - .omo/evidence/task-6-whatsapp-review-production-release.json
+  - .omo/evidence/task-7a-whatsapp-review-staging.txt
   - .omo/evidence/task-5-whatsapp-review-production-release.md
   - tasks/whatsapp-review-production-release-20260712-1921/**
   - CONTINUITY.md

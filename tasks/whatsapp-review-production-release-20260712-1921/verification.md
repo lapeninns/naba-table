@@ -53,6 +53,26 @@ executable Prettier binary (`Command "prettier" not found`). `git diff --check` 
 No blocker for spec activation. Runtime and remote release proof intentionally remain for the
 implementation program governed by these active specs.
 
+## Task 7A staging release candidate - 2026-07-12
+
+- Staging env validation passed and the linked project matched `ndxmivcrehsacuerwxtm`.
+- The safe-run dry-run passed. Its first real read-only status command stopped on rejected database
+  authentication (SQLSTATE 28P01), before any Supabase write. Migration apply/replay, transactional
+  SQL, list readback, and drift therefore remain unproven.
+- An isolated Cloudflare staging D1 was created in WEUR, initialized from the checked-in schema, and
+  read back successfully. The existing production Worker stayed healthy and its deployed version
+  remained the captured rollback baseline.
+- Bounded staging Worker deploy retries stopped after repeated Cloudflare Workers API HTTP 521
+  responses. Readback confirmed no staging Worker was created; no production Worker was deployed.
+- Focused release tests (157), security tests (227), background-worker tests (125), typecheck, lint,
+  changed-file ESLint, governance, service-role guard, Luma, changed-file Prettier, and diff checks
+  passed.
+- Full Vitest passed 5,934 tests with one unrelated 5-second capacity stress timeout; the isolated
+  13-test stress file passed with a 15-second timeout. The staging-env build compiled and typechecked,
+  then failed prerendering existing dev harness routes on a React `useContext` null error.
+- Exact redacted commands, resource/version readbacks, cleanup, and rollback facts are in
+  `.omo/evidence/task-7a-whatsapp-review-staging.txt`.
+
 ## Adversarial radius repair
 
 - Initial `governance:advance <spec> --to implemented --dry-run` failed for all four active specs
