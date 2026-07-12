@@ -52,3 +52,14 @@ executable Prettier binary (`Command "prettier" not found`). `git diff --check` 
 
 No blocker for spec activation. Runtime and remote release proof intentionally remain for the
 implementation program governed by these active specs.
+
+## Adversarial radius repair
+
+- Initial `governance:advance <spec> --to implemented --dry-run` failed for all four active specs
+  because the committed task packet was outside each spec radius.
+- A pre-commit repeat correctly refused a dirty tree, proving the transition cannot record stale
+  metadata.
+- `GOVERNANCE_CHANGED_FILES='<52 expected files>' pnpm governance:check` passed for the complete
+  consent, ledger/callback, redirect Worker/client/smoke, delivery/email/env/release, and shared
+  process-path set.
+- Final clean-tree implemented dry-runs and standard gates are pending the radius-fix commit.

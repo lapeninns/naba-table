@@ -6,25 +6,46 @@ owner: codex
 last_reviewed: 2026-07-12
 allowed_blast_radius:
   - micro-specs/05-integrations/**
-  - server/jobs/**
-  - server/notifications/**
+  - micro-specs/evidence/MS-integrations-whatsapp-review-delivery.json
+  - tasks/whatsapp-review-production-release-20260712-1921/**
+  - CONTINUITY.md
+  - server/jobs/booking-side-effects.ts
+  - server/jobs/auto-complete-bookings.ts
+  - server/notifications/booking-whatsapp-content.ts
+  - server/queue/email-processing.ts
+  - server/emails/bookings.ts
   - lib/env.ts
+  - config/env.schema.ts
   - .env.example
-  - scripts/**
-  - tests/server/jobs/**
-  - tests/server/notifications/**
-  - tests/config/**
-  - tests/scripts/**
+  - package.json
+  - scripts/whatsapp-review-production-release.ts
+  - tests/server/jobs/booking-side-effects.test.ts
+  - tests/server/jobs/auto-complete-bookings.test.ts
+  - tests/server/notifications/booking-whatsapp-content.test.ts
+  - tests/server/email-processing-security.test.ts
+  - tests/server/restaurant-email-templates.test.ts
+  - tests/lib/env.test.ts
+  - tests/config/env-schema-target.test.ts
+  - tests/scripts/whatsapp-review-production-release.test.ts
 implementation_surfaces:
-  - server/jobs/**
-  - server/notifications/**
+  - server/jobs/booking-side-effects.ts
+  - server/jobs/auto-complete-bookings.ts
+  - server/notifications/booking-whatsapp-content.ts
+  - server/queue/email-processing.ts
+  - server/emails/bookings.ts
   - lib/env.ts
+  - config/env.schema.ts
   - .env.example
-  - scripts/**
-  - tests/server/jobs/**
-  - tests/server/notifications/**
-  - tests/config/**
-  - tests/scripts/**
+  - package.json
+  - scripts/whatsapp-review-production-release.ts
+  - tests/server/jobs/booking-side-effects.test.ts
+  - tests/server/jobs/auto-complete-bookings.test.ts
+  - tests/server/notifications/booking-whatsapp-content.test.ts
+  - tests/server/email-processing-security.test.ts
+  - tests/server/restaurant-email-templates.test.ts
+  - tests/lib/env.test.ts
+  - tests/config/env-schema-target.test.ts
+  - tests/scripts/whatsapp-review-production-release.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
   - docs/sdlc/verification.md
@@ -58,6 +79,7 @@ In scope are review job orchestration, WhatsApp content variables, provider/env 
 release/smoke tooling, and focused tests in the declared paths. Out of scope are consent capture,
 redirect storage, ledger schema, reminder WhatsApp messages, manager-summary templates, email copy,
 provider account mutation outside the controlled release, and unrelated notification channels.
+The task packet, continuity ledger, and this spec's evidence ledger are process-only radius entries.
 
 ## 3. Strict Constraints and Assumptions
 

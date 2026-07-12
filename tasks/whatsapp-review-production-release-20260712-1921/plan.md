@@ -5,7 +5,8 @@ callbacks, outbound providers, and production release controls.
 
 ## Affected surfaces and files
 
-Only the four Micro-Specs, their evidence ledgers, this task folder, and `CONTINUITY.md`.
+Only the four Micro-Specs, their evidence ledgers, this task folder, and `CONTINUITY.md` are edited
+in this authoring task. The specs enumerate the exact product/test paths authorized for later work.
 
 ## Route/API identity
 
@@ -26,6 +27,7 @@ activation refusal proven; exact allowed-file status proven; intentional draft a
 2. Fill all six sections and commit the complete draft contracts.
 3. Activate through `governance:advance` and commit machine evidence.
 4. Run governance/tests/refusal QA and record exact outcomes.
+5. Adversarially verify the union of expected files and each future implemented transition.
 
 ## Verification plan
 

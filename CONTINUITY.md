@@ -15,6 +15,8 @@ Last updated: 2026-07-12T10:04:00Z
   staged deploy/rollback and an explicitly armed T+0/60/120/180/240 controlled smoke.
 - State: all four specs are active with clean machine transition evidence; governance validates 31
   specs and the 61-test Micro-Spec suite passes. Product implementation and remote release remain next.
+- Adversarial follow-up: radii now include durable task/evidence paths and assign every expected
+  implementation file to one owning spec; clean implemented dry-run proof is the remaining check.
 
 ## Current silent production table-assignment repair
 

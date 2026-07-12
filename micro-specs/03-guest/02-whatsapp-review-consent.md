@@ -6,6 +6,9 @@ owner: codex
 last_reviewed: 2026-07-12
 allowed_blast_radius:
   - micro-specs/03-guest/**
+  - micro-specs/evidence/MS-guest-whatsapp-review-consent.json
+  - tasks/whatsapp-review-production-release-20260712-1921/**
+  - CONTINUITY.md
   - reserve/features/reservations/wizard/**
   - reserve/entities/reservation/**
   - server/booking/**
@@ -16,6 +19,12 @@ allowed_blast_radius:
   - tests/reserve/**
   - tests/server/booking-whatsapp-consent.test.ts
   - tests/server/booking-request-validation.test.ts
+  - tests/server/booking-create-request-payload.test.ts
+  - tests/server/booking-create-completion.test.ts
+  - tests/server/public-bookings-route.test.ts
+  - tests/server/ops-bookings-create-route.test.ts
+  - tests/hooks/useCreateReservation.test.tsx
+  - tests/e2e/guest-reserve-routes.spec.ts
 implementation_surfaces:
   - reserve/features/reservations/wizard/**
   - reserve/entities/reservation/**
@@ -27,6 +36,12 @@ implementation_surfaces:
   - tests/reserve/**
   - tests/server/booking-whatsapp-consent.test.ts
   - tests/server/booking-request-validation.test.ts
+  - tests/server/booking-create-request-payload.test.ts
+  - tests/server/booking-create-completion.test.ts
+  - tests/server/public-bookings-route.test.ts
+  - tests/server/ops-bookings-create-route.test.ts
+  - tests/hooks/useCreateReservation.test.tsx
+  - tests/e2e/guest-reserve-routes.spec.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
@@ -58,6 +73,7 @@ In scope are Reserve and ops booking consent copy/state, request validation, boo
 serialization, and focused behavioral tests within the frontmatter paths. Out of scope are the
 review scheduler, provider templates, redirect implementation, ledger migration, email behavior,
 reminder channels, restaurant settings, and any retroactive change to stored consent evidence.
+The task packet, continuity ledger, and this spec's evidence ledger are process-only radius entries.
 
 ## 3. Strict Constraints and Assumptions
 

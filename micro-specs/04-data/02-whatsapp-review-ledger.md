@@ -6,17 +6,26 @@ owner: codex
 last_reviewed: 2026-07-12
 allowed_blast_radius:
   - micro-specs/04-data/**
+  - micro-specs/evidence/MS-data-whatsapp-review-ledger.json
+  - tasks/whatsapp-review-production-release-20260712-1921/**
+  - CONTINUITY.md
   - supabase/migrations/**
   - supabase/tests/**
-  - server/notifications/**
+  - server/notifications/mobile.ts
+  - server/notifications/whatsapp-status.ts
+  - types/supabase.ts
   - tests/micro-specs/mobile-notification-ledger.test.ts
-  - tests/server/notifications/**
+  - tests/server/notifications/mobile-router.test.ts
+  - tests/server/twilio-whatsapp-status-webhook-route.test.ts
 implementation_surfaces:
   - supabase/migrations/**
   - supabase/tests/**
-  - server/notifications/**
+  - server/notifications/mobile.ts
+  - server/notifications/whatsapp-status.ts
+  - types/supabase.ts
   - tests/micro-specs/mobile-notification-ledger.test.ts
-  - tests/server/notifications/**
+  - tests/server/notifications/mobile-router.test.ts
+  - tests/server/twilio-whatsapp-status-webhook-route.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
@@ -50,6 +59,7 @@ In scope are an idempotent staging-first migration, SQL invariant tests, the mob
 router/status callback behavior, and focused tests in the declared paths. Out of scope are review
 scheduling, consent UI, link creation, templates, email intents, lifecycle-event fallback rules,
 and production migration execution.
+The task packet, continuity ledger, and this spec's evidence ledger are process-only radius entries.
 
 ## 3. Strict Constraints and Assumptions
 

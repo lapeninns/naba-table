@@ -6,17 +6,28 @@ owner: codex
 last_reviewed: 2026-07-12
 allowed_blast_radius:
   - micro-specs/05-integrations/**
+  - micro-specs/evidence/MS-integrations-review-link-redirect.json
+  - tasks/whatsapp-review-production-release-20260712-1921/**
+  - CONTINUITY.md
   - cloudflare/booking-short-links/**
   - server/bookings/short-link.ts
+  - scripts/cloudflare/deploy-booking-short-links.sh
+  - scripts/cloudflare/smoke-booking-short-links.ts
   - tests/cloudflare/booking-short-links.test.ts
   - tests/cloudflare/booking-short-links-storage.test.ts
   - tests/server/bookings/short-link.test.ts
+  - tests/performance/qa-performance-smoke.test.ts
+  - tests/config/link-config.test.ts
 implementation_surfaces:
   - cloudflare/booking-short-links/**
   - server/bookings/short-link.ts
+  - scripts/cloudflare/deploy-booking-short-links.sh
+  - scripts/cloudflare/smoke-booking-short-links.ts
   - tests/cloudflare/booking-short-links.test.ts
   - tests/cloudflare/booking-short-links-storage.test.ts
   - tests/server/bookings/short-link.test.ts
+  - tests/performance/qa-performance-smoke.test.ts
+  - tests/config/link-config.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
@@ -48,6 +59,7 @@ In scope are the existing booking-short-links Worker contract, storage, resolver
 client, and focused tests listed above. Out of scope are booking-management authorization,
 provider dispatch, consent, review scheduling, schema outside the Worker store, UI, and Google API
 writes.
+The task packet, continuity ledger, and this spec's evidence ledger are process-only radius entries.
 
 ## 3. Strict Constraints and Assumptions
 

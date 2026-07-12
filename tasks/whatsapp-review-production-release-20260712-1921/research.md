@@ -10,6 +10,11 @@ redirects, a no-SMS review ledger, and production review delivery/release.
 - Review scheduling is currently email-gated in `server/jobs/booking-side-effects.ts`.
 - `go.nabatable.com` is served by the existing booking-short-links Worker.
 - Baseline `pnpm guard:micro-specs` and `pnpm test:micro-specs` passed before authoring.
+- Adversarial review found the first active drafts omitted task/evidence process paths and several
+  expected implementation files, so an implemented transition could not attribute the branch.
+- Implementation ownership is now non-overlapping: consent owns booking-form persistence; ledger
+  owns mobile routing/status and schema types; redirect owns Worker/client/smoke; delivery owns
+  scheduling, email coexistence, content, environment, and release tooling.
 
 ## Assumptions and tradeoffs
 
