@@ -289,10 +289,7 @@ export function useReservationWizard(
     }
   }, [savePreferences, state.details.party, state.details.time]);
 
-  const venueHydratedRef = useRef(false);
-
   useEffect(() => {
-    if (venueHydratedRef.current) return;
     const slug = state.details.restaurantSlug?.trim();
     const hasVenue =
       Boolean(state.details.restaurantId?.trim()) &&
@@ -302,7 +299,6 @@ export function useReservationWizard(
 
     if (!slug || hasVenue) return;
 
-    venueHydratedRef.current = true;
     const controller = new AbortController();
 
     fetchRestaurantBySlug(slug, { signal: controller.signal })
@@ -323,7 +319,6 @@ export function useReservationWizard(
     return () => controller.abort();
   }, [
     actions,
-    state.details,
     state.details.restaurantId,
     state.details.restaurantAddress,
     state.details.restaurantName,

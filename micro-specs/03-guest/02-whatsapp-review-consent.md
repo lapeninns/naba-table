@@ -7,6 +7,9 @@ last_reviewed: 2026-07-12
 allowed_blast_radius:
   - micro-specs/03-guest/**
   - micro-specs/evidence/MS-guest-whatsapp-review-consent.json
+  - .omo/evidence/task-2-whatsapp-review-production-release.md
+  - .omo/evidence/task-2-whatsapp-review-production-release-375.png
+  - .omo/evidence/task-2-whatsapp-review-production-release-768.png
   - tasks/whatsapp-review-production-release-20260712-1921/**
   - CONTINUITY.md
   - reserve/features/reservations/wizard/**
@@ -115,3 +118,5 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
 - Prove lifecycle eligibility is preserved for v1 and review eligibility is exclusive to v2.
 - Implement as Red → Green → Refactor slices for copy/state, payload validation, and persistence.
 - Record fresh gates with `governance:run-gates --spec MS-guest-whatsapp-review-consent --record`.
+- Keep committable browser proof and its verification receipt in the exact governed `.omo/evidence`
+  paths declared in this spec's process radius.
