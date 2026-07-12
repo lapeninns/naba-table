@@ -71,7 +71,7 @@ describe('useReviewStep', () => {
     const { result } = renderReviewStep(makeState(), createActions());
 
     expect(result.current.summary).toEqual({
-      summaryValue: '4 at 19:00 on Apr 14 2026',
+      summaryValue: '19:00 on Apr 14 2026',
       summaryDate: 'Apr 14 2026',
       summaryTime: '19:00',
       partyText: '4 guests',

@@ -60,6 +60,7 @@ describe('WizardStep', () => {
     renderInContainer(1, 1);
     const section = document.querySelector('section[data-step="1"]');
     expect(section).toHaveAttribute('data-state', 'active');
+    expect(section?.firstElementChild).toHaveClass('ring-1');
   });
 
   it('marks the section inactive when another step is current @contract', () => {

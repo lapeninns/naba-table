@@ -121,7 +121,15 @@ export function WizardStep({
       data-state={isActive ? 'active' : 'inactive'}
       className={STEP_CONTAINER_CLASSES}
     >
-      <Card ref={stepRef} tabIndex={-1} className={cn(CARD_CLASSES, className)}>
+      <Card
+        ref={stepRef}
+        tabIndex={-1}
+        className={cn(
+          CARD_CLASSES,
+          isActive && 'ring-1 ring-primary/30 ring-offset-2 ring-offset-background',
+          className,
+        )}
+      >
         <CardHeader className="pg-wizard-card-header border-b border-border/70 px-4 py-4 sm:px-6">
           <TitleSection titleId={titleId} title={title} description={description} icon={icon} />
           {totalSteps > 1 ? (

@@ -180,6 +180,25 @@ describe('completeBookingCreate', () => {
     );
   });
 
+  it('uses the non-PII customer id as the audit actor for a phone-only booking @contract', async () => {
+    const phoneOnlyRequest = { ...request, email: '' };
+    const finalizer = vi.fn(async () => ({ booking })) as BookingCreateFinalizer;
+
+    await completeBookingCreate({
+      autoAssignEnabled: false,
+      client,
+      finalizer,
+      persistence,
+      request: phoneOnlyRequest,
+      requestContext,
+      responseBuilder: vi.fn(async () => NextResponse.json({ ok: true })),
+      restaurantId,
+      useUnifiedValidation: false,
+    });
+
+    expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ actor: 'customer-1' }));
+  });
+
   it('passes finalization and response error callbacks through unchanged @contract', async () => {
     const callbacks = {
       onAutoAssignError: vi.fn(),

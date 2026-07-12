@@ -300,6 +300,7 @@ function BookingWizardContent({
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}
+        onStepSelect={actions.goToStep}
       >
         {stepContent}
       </WizardContainer>

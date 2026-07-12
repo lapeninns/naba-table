@@ -1,4 +1,5 @@
 import { expect, fn, userEvent, within } from '@storybook/test';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { PlanStepForm } from './PlanStepForm';
@@ -34,6 +35,13 @@ type StoryArgs = {
 
 const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTrack }) => {
   const [state, setState] = useState<State>(() => cloneState(initialState ?? createSampleState()));
+  const queryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      }),
+    [],
+  );
 
   useEffect(() => {
     setState(cloneState(initialState ?? createSampleState()));
@@ -81,13 +89,15 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
   const actionsChange = useMemo(() => fn<(actions: StepAction[]) => void>(), []);
 
   return (
-    <WizardProvider state={state} actions={actions}>
-      <PlanStepForm
-        minDate={minDate ?? DEFAULT_MIN_DATE}
-        onTrack={onTrack ?? fn()}
-        onActionsChange={actionsChange}
-      />
-    </WizardProvider>
+    <QueryClientProvider client={queryClient}>
+      <WizardProvider state={state} actions={actions}>
+        <PlanStepForm
+          minDate={minDate ?? DEFAULT_MIN_DATE}
+          onTrack={onTrack ?? fn()}
+          onActionsChange={actionsChange}
+        />
+      </WizardProvider>
+    </QueryClientProvider>
   );
 };
 
@@ -112,8 +122,8 @@ export const Default: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const timeButton = await canvas.findByRole('button', { name: /12:00/i });
-    await userEvent.click(timeButton);
+    const increasePartyButton = await canvas.findByRole('button', { name: /increase guests/i });
+    await userEvent.click(increasePartyButton);
     expect(args.onTrack).toHaveBeenCalled();
   },
 };

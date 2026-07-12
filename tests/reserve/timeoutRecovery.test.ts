@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { findMatchingReservation } from '@features/reservations/wizard/utils/timeoutRecovery';
+import { getTimeoutContactGuidance } from '@features/reservations/wizard/hooks/useReservationWizard';
 
 import type { Reservation } from '@entities/reservation/reservation.schema';
 import type { ReservationDraft } from '@features/reservations/wizard/model/reducer';
@@ -59,5 +60,21 @@ describe('timeoutRecovery phone matching', () => {
     const draft = makeDraft();
 
     expect(findMatchingReservation([booking], draft)).toEqual(booking);
+  });
+});
+
+describe('timeout recovery guidance', () => {
+  it('directs phone-only guests to their confirmation messages @contract', () => {
+    expect(getTimeoutContactGuidance({ email: '' })).toEqual({
+      error:
+        'We could not confirm the booking in time. Please check your phone for a confirmation before trying again.',
+      alert: 'If you received a confirmation message you are all set—otherwise retry now.',
+    });
+  });
+
+  it('retains email guidance when an email address is available @contract', () => {
+    expect(getTimeoutContactGuidance({ email: 'guest@example.com' }).error).toContain(
+      'check your email',
+    );
   });
 });

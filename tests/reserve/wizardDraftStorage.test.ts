@@ -96,8 +96,13 @@ describe('loadWizardDraft', () => {
         name: 'Legacy Guest',
         email: 'legacy@example.com',
         phone: '+447700900123',
+        agree: false,
       },
     });
+    const rewritten = JSON.parse(window.localStorage.getItem(LEGACY_DRAFT_KEY) as string) as {
+      details: Record<string, unknown>;
+    };
+    expect(rewritten.details).not.toHaveProperty('agree');
   });
 
   it('restores a namespaced draft for restaurant-scoped flows', () => {
@@ -108,7 +113,27 @@ describe('loadWizardDraft', () => {
       source: 'namespaced',
       details: {
         restaurantSlug: 'white-horse',
+        agree: false,
       },
     });
+  });
+
+  it('removes legacy accepted consent even when the stored draft has no contacts @contract', () => {
+    writeLegacyDraft(
+      makeDetails({
+        restaurantSlug: 'white-horse',
+        name: '',
+        email: '',
+        phone: '',
+        agree: true,
+      }),
+      Date.now() + 3_600_000,
+    );
+
+    expect(loadWizardDraft('white-horse')?.details.agree).toBe(false);
+    const rewritten = JSON.parse(window.localStorage.getItem(LEGACY_DRAFT_KEY) as string) as {
+      details: Record<string, unknown>;
+    };
+    expect(rewritten.details).not.toHaveProperty('agree');
   });
 });

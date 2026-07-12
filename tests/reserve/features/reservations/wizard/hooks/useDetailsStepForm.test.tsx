@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
 import { useDetailsStepForm } from '@features/reservations/wizard/hooks/useDetailsStepForm';
-import { getInitialState, type State, type StepAction } from '@features/reservations/wizard/model/reducer';
+import {
+  getInitialState,
+  type State,
+  type StepAction,
+} from '@features/reservations/wizard/model/reducer';
 
 import type { WizardActions } from '@features/reservations/wizard/model/store';
 
@@ -37,7 +41,7 @@ function makeState(overrides: Partial<State['details']> = {}): State {
       name: 'Alex Guest',
       email: 'alex@example.com',
       phone: '+447123456789',
-      agree: true,
+      agree: false,
       ...overrides,
     }),
     step: 2,
@@ -59,7 +63,9 @@ describe('useDetailsStepForm', () => {
   it('throws without a provider or explicit state/actions @contract', () => {
     expect(() =>
       renderHook(() => useDetailsStepForm({ onActionsChange: vi.fn(), onTrack: vi.fn() })),
-    ).toThrow('useDetailsStepForm requires explicit state/actions props or a WizardProvider ancestor.');
+    ).toThrow(
+      'useDetailsStepForm requires explicit state/actions props or a WizardProvider ancestor.',
+    );
   });
 
   it('seeds the form from the wizard state @contract @smoke', () => {
@@ -69,7 +75,7 @@ describe('useDetailsStepForm', () => {
       name: 'Alex Guest',
       email: 'alex@example.com',
       phone: '+447123456789',
-      agree: true,
+      agree: false,
     });
   });
 

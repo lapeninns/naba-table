@@ -34,6 +34,7 @@ export interface WizardContainerProps {
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
+  onStepSelect?: (step: number) => void;
 }
 
 export function WizardContainer({
@@ -53,6 +54,7 @@ export function WizardContainer({
   navigationClassName,
   className,
   contentClassName,
+  onStepSelect,
 }: WizardContainerProps) {
   const totalSteps = steps.length || 1;
   const clampedStep = Math.min(Math.max(currentStep, 1), totalSteps);
@@ -89,6 +91,7 @@ export function WizardContainer({
             visible={stickyVisible}
             onHeightChange={onStickyHeightChange}
             className={navigationClassName}
+            onStepSelect={onStepSelect}
           />
         }
       >

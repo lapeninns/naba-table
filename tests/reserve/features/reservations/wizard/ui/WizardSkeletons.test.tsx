@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BookingWizardShellSkeleton,
-  ConfirmationStepSkeleton,
   DetailsStepSkeleton,
   PlanStepSkeleton,
   ReviewStepSkeleton,
@@ -23,7 +22,6 @@ describe('wizard skeletons', () => {
     ['PlanStepSkeleton', PlanStepSkeleton],
     ['DetailsStepSkeleton', DetailsStepSkeleton],
     ['ReviewStepSkeleton', ReviewStepSkeleton],
-    ['ConfirmationStepSkeleton', ConfirmationStepSkeleton],
   ])('renders %s without crashing @smoke', (_name, Skeleton) => {
     const { container } = render(<Skeleton />);
     // Every step skeleton is a card shell with pulsing placeholders.

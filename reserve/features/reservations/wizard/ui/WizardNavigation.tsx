@@ -32,6 +32,7 @@ export interface WizardNavigationProps {
   onHeightChange?: (height: number) => void;
   /** Additional CSS classes */
   className?: string;
+  onStepSelect?: (step: number) => void;
 }
 
 interface ActionButtonProps {
@@ -261,6 +262,7 @@ export function WizardNavigation({
   visible = true,
   onHeightChange,
   className,
+  onStepSelect,
 }: WizardNavigationProps) {
   const navRef = React.useRef<HTMLElement | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -336,6 +338,8 @@ export function WizardNavigation({
               steps={steps}
               currentStep={currentStep}
               summary={summary}
+              showStepList={currentStep > 1}
+              onStepSelect={onStepSelect}
               className="min-w-0 flex-initial [&_[role=progressbar]]:hidden [&_.tabular-nums]:hidden sm:flex-1 sm:[&_[role=progressbar]]:block sm:[&_.tabular-nums]:inline"
             />
 

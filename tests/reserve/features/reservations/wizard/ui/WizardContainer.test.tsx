@@ -2,7 +2,10 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { WizardContainer, useWizardContext } from '@features/reservations/wizard/ui/WizardContainer';
+import {
+  WizardContainer,
+  useWizardContext,
+} from '@features/reservations/wizard/ui/WizardContainer';
 
 // WizardNavigation reads matchMedia; the global setup mock is emptied by
 // mockReset between tests, so install a plain (non-mock) stub per test.
@@ -58,7 +61,7 @@ describe('WizardContainer', () => {
   });
 
   it('announces the step and summary for screen readers @contract @a11y', () => {
-    render(
+    const { container } = render(
       <WizardContainer
         steps={steps}
         currentStep={2}
@@ -70,6 +73,7 @@ describe('WizardContainer', () => {
     );
 
     expect(screen.getByText('Step 2 of 4. Dinner. 4 guests, 19:00')).toBeInTheDocument();
+    expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1);
   });
 
   it('renders the banner slot and restaurant name @smoke', () => {

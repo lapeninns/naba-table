@@ -54,5 +54,6 @@ describe('saveWizardDraft does not persist PII-bearing notes to localStorage', (
     expect(parsed.details.name).toBe('');
     expect(parsed.details.email).toBe('');
     expect(parsed.details.phone).toBe('');
+    expect(parsed.details).not.toHaveProperty('agree');
   });
 });

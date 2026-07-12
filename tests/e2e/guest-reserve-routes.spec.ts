@@ -256,6 +256,86 @@ test.describe('reserve routes', () => {
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
+  test('@p1 @browser @contract @local-only @MS-guest-reserve-standalone-ui loads wizard utilities and privacy navigation in the standalone app', async ({
+    page,
+  }) => {
+    // Given the real standalone Reserve entrypoint at a mobile-first width
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`/r/${restaurantSlug}`);
+
+    // When the Plan step renders and its optional notes accordion opens
+    const planGrid = page.locator('form > .grid').first();
+    const notesTrigger = page.getByRole('button', {
+      name: /add dietary, access, or occasion notes/i,
+    });
+    await notesTrigger.click();
+    const notesContent = notesTrigger.locator('xpath=../following-sibling::*[1]');
+
+    // Then Tailwind layout and accordion animation utilities are active at runtime
+    await expect(planGrid).toHaveCSS('display', 'grid');
+    await expect(notesContent).toHaveAttribute('data-state', 'open');
+    await expect
+      .poll(async () => notesContent.evaluate((element) => getComputedStyle(element).animationName))
+      .not.toBe('none');
+    await page.screenshot({
+      path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-plan-mobile.png',
+      fullPage: true,
+    });
+
+    // When the guest reaches Details and activates the privacy notice
+    await chooseDefaultRestaurantSlot(page);
+    const privacyLink = page.getByRole('link', { name: /privacy notice/i });
+
+    // Then it is a normal cross-surface link and changes the browser location
+    await expect(privacyLink).toHaveAttribute('href', '/privacy');
+    await privacyLink.click();
+    await expect(page).toHaveURL(/\/privacy$/);
+  });
+
+  test('@p1 @browser @contract @local-only keeps Details consent explicit, supports email-only contact, and follows system dark mode', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.setViewportSize({ width: 375, height: 812 });
+    await chooseDefaultRestaurantSlot(page);
+
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+
+    const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
+    await expect(terms).toBeVisible();
+    await expect(terms).not.toBeChecked();
+    await expect(page.getByRole('button', { name: /Preferences/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+
+    await page.getByLabel('Full name').fill('Email Only Guest');
+    await page.getByLabel('Email address').fill('email.only@example.com');
+    const phoneInput = page.getByRole('textbox', { name: 'UK phone number' });
+    await expect(phoneInput).toHaveValue('');
+    await expect(page.getByLabel('Full name')).toHaveCSS('height', '44px');
+    await expect(page.getByLabel('Email address')).toHaveCSS('height', '44px');
+    await expect(phoneInput).toHaveCSS('height', '44px');
+    await terms.check();
+    await page.screenshot({
+      path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-details-mobile.png',
+      fullPage: true,
+    });
+    await page.getByRole('button', { name: 'Review booking' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
+    await expect(page.getByText('Email Only Guest')).toBeVisible();
+    await expect(page.getByText('Not provided')).toBeVisible();
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
+    await page.screenshot({
+      path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-review-desktop.png',
+      fullPage: true,
+    });
+  });
+
   test('restaurant-scoped reserve flow updates party size and selected slot', async ({ page }) => {
     await page.goto(`/r/${restaurantSlug}`);
 
@@ -292,16 +372,21 @@ test.describe('reserve routes', () => {
     await expect(page.getByText('Please enter a valid email address.')).toBeVisible();
     await page.getByLabel('Email address').fill('reserve.guest@example.com');
 
-    await page.getByLabel('UK phone number').fill('12345');
+    const phoneInput = page.getByRole('textbox', { name: 'UK phone number' });
+    await phoneInput.fill('12345');
     await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
-    await page.getByLabel('UK phone number').fill('07123 456789');
+    await phoneInput.fill('07123 456789');
+
+    const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
+    await expect(terms).not.toBeChecked();
+    await terms.check();
 
     const whatsappPreference = page.getByRole('checkbox', {
       name: /Use WhatsApp for my booking updates/,
     });
     await expect(whatsappPreference).not.toBeChecked();
     await whatsappPreference.check();
-    await page.getByLabel('UK phone number').fill('07123 456780');
+    await phoneInput.fill('07123 456780');
     await expect(whatsappPreference).not.toBeChecked();
     await whatsappPreference.check();
     await page.setViewportSize({ width: 768, height: 900 });

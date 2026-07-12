@@ -152,7 +152,7 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     email: '',
     phone: '',
     rememberDetails: false,
-    agree: true,
+    agree: false,
     marketingOptIn: false,
     whatsappOptIn: false,
   };
@@ -171,6 +171,7 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     restaurantTimezone: overrides.restaurantTimezone ?? base.restaurantTimezone,
     reservationDurationMinutes:
       overrides.reservationDurationMinutes ?? base.reservationDurationMinutes,
+    agree: false,
   } satisfies BookingDetails;
 };
 
@@ -308,6 +309,7 @@ export function reducer(state: State, action: Action): State {
           email: action.payload.email,
           phone: action.payload.phone,
           rememberDetails: action.payload.rememberDetails ?? false,
+          agree: false,
         },
       };
     case 'HYDRATE_DETAILS':
@@ -320,6 +322,7 @@ export function reducer(state: State, action: Action): State {
         details: {
           ...state.details,
           ...action.details,
+          agree: false,
         },
       };
     default:

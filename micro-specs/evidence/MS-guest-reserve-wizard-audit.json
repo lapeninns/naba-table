@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "spec_id": "MS-guest-reserve-wizard-audit",
+  "runs": [],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "active",
+      "to": "superseded",
+      "at": "2026-07-12T12:31:14.751Z",
+      "sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "dirty": true,
+      "by": "Codex",
+      "reason": "Coordination scope was split into the four verified standalone, contact-consent, plan-clarity, and review-navigation child specs."
+    }
+  ]
+}

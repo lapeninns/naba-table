@@ -1,0 +1,327 @@
+{
+  "schema": 1,
+  "spec_id": "MS-guest-reserve-standalone-ui",
+  "runs": [
+    {
+      "timestamp": "2026-07-12T10:22:27.480Z",
+      "git_sha": "e8573fdcf4f81f5eb6967dc871d8af3d609b2b41",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 220
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 72352
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 18112
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 2137
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 42686
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 2633
+        },
+        {
+          "command": "pnpm storybook:build",
+          "exit_code": 0,
+          "duration_ms": 5038
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 1,
+          "duration_ms": 1214
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-12T10:26:50.223Z",
+      "git_sha": "d112e778712fe3d201c6f4368d61460f93378bdb",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 250
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 70026
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 20985
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 2043
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 70589
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 4754
+        },
+        {
+          "command": "pnpm storybook:build",
+          "exit_code": 0,
+          "duration_ms": 5146
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 509
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 283
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 15892
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "timestamp": "2026-07-12T11:47:16.886Z",
+      "git_sha": "d112e778712fe3d201c6f4368d61460f93378bdb",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 235
+        },
+        {
+          "command": "pnpm test --maxWorkers=8",
+          "exit_code": 0,
+          "duration_ms": 98989
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 20971
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 2011
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 39705
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 3050
+        },
+        {
+          "command": "pnpm storybook:build",
+          "exit_code": 0,
+          "duration_ms": 5857
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 537
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 271
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 20522
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "timestamp": "2026-07-12T12:08:42.129Z",
+      "git_sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "git_branch": "codex/reserve-wizard-audit-fixes",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 283
+        },
+        {
+          "command": "pnpm test --maxWorkers=8",
+          "exit_code": 0,
+          "duration_ms": 91659
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 18596
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1819
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 36896
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 2841
+        },
+        {
+          "command": "pnpm storybook:build",
+          "exit_code": 0,
+          "duration_ms": 5490
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 483
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 271
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 21491
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "timestamp": "2026-07-12T12:23:42.575Z",
+      "git_sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "git_branch": "codex/reserve-wizard-audit-fixes",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 275
+        },
+        {
+          "command": "pnpm test --maxWorkers=8",
+          "exit_code": 0,
+          "duration_ms": 87538
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 18943
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1806
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 36342
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 2831
+        },
+        {
+          "command": "pnpm storybook:build",
+          "exit_code": 0,
+          "duration_ms": 5678
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 495
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 272
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 20354
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "manual_attestations": [
+    {
+      "gate": "evidence",
+      "by": "Codex",
+      "at": "2026-07-12T12:23:42.575Z",
+      "note": "Command output for the declared verification gates."
+    }
+  ],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T10:13:59.310Z",
+      "sha": "e8573fdcf4f81f5eb6967dc871d8af3d609b2b41",
+      "dirty": true,
+      "by": "amankumarshrestha"
+    },
+    {
+      "from": "active",
+      "to": "implemented",
+      "at": "2026-07-12T12:08:42.129Z",
+      "sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "dirty": true,
+      "by": "Codex",
+      "note": "Lifecycle evidence updates will be amended into the authorized local audit commit."
+    },
+    {
+      "from": "implemented",
+      "to": "verified",
+      "at": "2026-07-12T12:23:42.575Z",
+      "sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "dirty": true,
+      "by": "Codex",
+      "note": "Lifecycle evidence updates will be amended into the authorized local audit commit."
+    }
+  ]
+}

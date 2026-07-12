@@ -78,7 +78,7 @@ describe('getInitialDetails / getInitialState', () => {
     expect(details.date).toBe(new Date().toLocaleDateString('en-CA'));
     expect(details.party).toBe(1);
     expect(details.bookingType).toBe('lunch');
-    expect(details.agree).toBe(true);
+    expect(details.agree).toBe(false);
     expect(details.reservationDurationMinutes).toBeGreaterThan(0);
   });
 
@@ -87,10 +87,12 @@ describe('getInitialDetails / getInitialState', () => {
       restaurantSlug: 'the-fox',
       restaurantId: undefined,
       party: 6,
+      agree: true,
     });
     expect(details.restaurantSlug).toBe('the-fox');
     expect(details.restaurantId).toBe('');
     expect(details.party).toBe(6);
+    expect(details.agree).toBe(false);
   });
 
   it('starts the wizard at step 1 with a clean slate @contract @smoke', () => {
@@ -219,13 +221,16 @@ describe('reducer transitions', () => {
   });
 
   it('HYDRATE_CONTACTS restores contacts and defaults rememberDetails to false @contract', () => {
-    const next = reducer(makeState(), {
+    const state = makeState();
+    state.details.agree = true;
+    const next = reducer(state, {
       type: 'HYDRATE_CONTACTS',
       payload: { name: 'Sam', email: 'sam@example.com', phone: '+447000000000' },
     });
 
     expect(next.details.name).toBe('Sam');
     expect(next.details.rememberDetails).toBe(false);
+    expect(next.details.agree).toBe(false);
 
     const explicit = reducer(makeState(), {
       type: 'HYDRATE_CONTACTS',
@@ -237,7 +242,7 @@ describe('reducer transitions', () => {
   it('HYDRATE_DETAILS merges a draft and resets to step 1 @contract', () => {
     const next = reducer(makeState({ step: 3, editingId: 'x', error: 'stale' }), {
       type: 'HYDRATE_DETAILS',
-      details: { date: '2026-04-20', time: '20:00' },
+      details: { date: '2026-04-20', time: '20:00', agree: true },
     });
 
     expect(next.step).toBe(1);
@@ -246,6 +251,7 @@ describe('reducer transitions', () => {
     expect(next.details.date).toBe('2026-04-20');
     expect(next.details.time).toBe('20:00');
     expect(next.details.name).toBe('Alex Guest');
+    expect(next.details.agree).toBe(false);
   });
 
   it('SET flags update submitting, loading, bookings and errors independently @contract', () => {

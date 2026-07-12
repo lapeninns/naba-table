@@ -1,10 +1,19 @@
 import React from 'react';
-import '../styles/design-system/public-guest.tokens.css';
-import '../styles/design-system/public-guest.utilities.css';
+import '../src/app/globals.css';
 import './app/responsive.css';
 import { createRoot } from 'react-dom/client';
 
 import { ReserveApp } from './app';
+import { synchronizeSystemTheme } from './system-theme';
+
+const stopSynchronizingSystemTheme = synchronizeSystemTheme(
+  document.documentElement,
+  window.matchMedia('(prefers-color-scheme: dark)'),
+);
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(stopSynchronizingSystemTheme);
+}
 
 const container = document.getElementById('root');
 

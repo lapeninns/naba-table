@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 
 import { WizardProgress } from '@features/reservations/wizard/ui/WizardProgress';
 
@@ -55,10 +56,30 @@ describe('WizardProgress', () => {
 
     const list = screen.getByRole('list', { name: 'Steps' });
     expect(list).toBeInTheDocument();
+    expect(list).toHaveClass('grid-cols-4');
     const current = screen.getByLabelText('Review (3 of 4)');
     expect(current).toHaveAttribute('aria-current', 'step');
     expect(screen.getByLabelText('Plan (1 of 4)')).not.toHaveAttribute('aria-current');
-    expect(screen.getByText('Date and time')).toBeInTheDocument();
+    expect(screen.getByText('Date and time')).toHaveClass('hidden');
+  });
+
+  it('navigates through completed steps while current and future steps stay inert @contract', async () => {
+    const user = userEvent.setup();
+    const onStepSelect = vi.fn();
+    render(
+      <WizardProgress
+        steps={steps}
+        currentStep={3}
+        summary={summary}
+        showStepList
+        onStepSelect={onStepSelect}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Plan (1 of 4)' }));
+    expect(onStepSelect).toHaveBeenCalledWith(1);
+    expect(screen.queryByRole('button', { name: 'Review (3 of 4)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Done (4 of 4)' })).not.toBeInTheDocument();
   });
 
   it('treats an empty step list as a single-step flow @contract', () => {

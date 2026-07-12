@@ -83,6 +83,8 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
     >
       <Button type="submit" className="hidden" aria-hidden />
 
+      <p className="text-sm text-muted-foreground">Party size, date, and time are required.</p>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
         <WizardPanel interactive className="order-1 md:col-span-6 lg:col-span-4">
           <WizardPanelContent>
@@ -191,6 +193,18 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
           <AlertDescription aria-live="polite">{state.advisoryMessage}</AlertDescription>
         </Alert>
       )}
+
+      {state.dateChangeMessage ? (
+        <p className="text-sm font-medium text-foreground" aria-live="polite" role="status">
+          {state.dateChangeMessage}
+        </p>
+      ) : null}
+
+      {!state.isValid ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Choose a date and available time to continue.
+        </p>
+      ) : null}
     </FormRoot>
   );
 }
