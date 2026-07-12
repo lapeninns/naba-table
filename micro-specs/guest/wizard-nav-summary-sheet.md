@@ -31,7 +31,8 @@ related_docs:
   - reserve/AGENTS.md
 related_tests:
   - tests/components/WizardNavigation-resize-observer.test.tsx
-  - not-yet-created
+  - tests/components/WizardNavigation-summary-sheet.test.tsx
+  - tests/reserve/features/reservations/wizard/model/selectors.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm guard:no-shadcn:strict

@@ -17,7 +17,6 @@ implementation_surfaces:
   - reserve/features/reservations/wizard/ui/steps/plan-step/PlanStepForm.tsx
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
-  - tasks/customer-booking-wizard-audit-20260712-1004/plan.md
 related_tests:
   - tests/reserve/features/reservations/wizard/ui/steps/plan-step/PlanStepForm.test.tsx
   - tests/reserve/plan-step-past-current-date.test.tsx
