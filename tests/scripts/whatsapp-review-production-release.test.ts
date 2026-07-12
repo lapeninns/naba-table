@@ -52,6 +52,14 @@ const approvedTemplates = [
   },
 ] as const;
 
+const recordedCategories = {
+  bookingConfirmation: 'UTILITY',
+  bookingUpdate: 'UTILITY',
+  bookingCancellation: 'UTILITY',
+  restaurantCancellation: 'UTILITY',
+  reviewRequest: 'MARKETING',
+} as const;
+
 describe('WhatsApp review production release contract', () => {
   it('defines the exact native review action without ending the body in a variable @contract', () => {
     const givenRequest = REVIEW_TEMPLATE_REQUEST;
@@ -81,11 +89,35 @@ describe('WhatsApp review production release contract', () => {
     expect(whenBody).not.toMatch(/{{\d+}}\s*$/);
   });
 
-  it('accepts only an approved five-template set with expected categories @contract', () => {
+  it('accepts only an approved five-template set matching its recorded categories @contract', () => {
     const whenResult = assessWhatsAppTemplateReadiness({
       sender: '+447700900000',
       selectedContentSids,
+      recordedCategories,
       templates: approvedTemplates,
+    });
+
+    expect(whenResult).toEqual({ ready: true, blockers: [] });
+  });
+
+  it('accepts approved provider-assigned categories without assuming submitted categories @contract', () => {
+    const providerAssignedTemplates = approvedTemplates.map((template) => ({
+      ...template,
+      category: template.key === 'reviewRequest' ? 'UTILITY' : 'MARKETING',
+    }));
+    const providerRecordedCategories = {
+      bookingConfirmation: 'MARKETING',
+      bookingUpdate: 'MARKETING',
+      bookingCancellation: 'MARKETING',
+      restaurantCancellation: 'MARKETING',
+      reviewRequest: 'UTILITY',
+    } as const;
+
+    const whenResult = assessWhatsAppTemplateReadiness({
+      sender: '+447700900000',
+      selectedContentSids,
+      recordedCategories: providerRecordedCategories,
+      templates: providerAssignedTemplates,
     });
 
     expect(whenResult).toEqual({ ready: true, blockers: [] });
@@ -153,6 +185,13 @@ describe('WhatsApp review production release contract', () => {
       blocker: 'bookingUpdate is pending; approved is required.',
     },
     {
+      label: 'missing category lock',
+      sender: '+447700900000',
+      recordedCategories: { ...recordedCategories, reviewRequest: '' },
+      templates: approvedTemplates,
+      blocker: 'reviewRequest has no recorded provider-assigned category.',
+    },
+    {
       label: 'rejected template',
       sender: '+447700900000',
       templates: approvedTemplates.map((template) =>
@@ -172,10 +211,17 @@ describe('WhatsApp review production release contract', () => {
     },
   ])(
     'blocks activation for $label @contract',
-    ({ sender, selectedContentSids: selectedSids = selectedContentSids, templates, blocker }) => {
+    ({
+      sender,
+      selectedContentSids: selectedSids = selectedContentSids,
+      recordedCategories: categoryLock = recordedCategories,
+      templates,
+      blocker,
+    }) => {
       const whenResult = assessWhatsAppTemplateReadiness({
         sender,
         selectedContentSids: selectedSids,
+        recordedCategories: categoryLock,
         templates,
       });
 

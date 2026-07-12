@@ -81,12 +81,24 @@
     "review_request_sid": "blank_or_absent",
     "mutated": false
   },
+  "category_contract": {
+    "state": "not_locked_while_templates_are_pending",
+    "source": "provider-assigned category returned by the first all-approved readback",
+    "rule": "Record every assigned category without assuming the submission category, then block any later readback that differs from that explicit lock.",
+    "current_observations_only": {
+      "booking_confirmation": "UTILITY",
+      "booking_update": "UTILITY",
+      "booking_cancellation": "UTILITY",
+      "restaurant_cancellation": "UTILITY",
+      "review_request": "MARKETING"
+    }
+  },
   "tdd": {
     "red": [
       "Ten contract failures proved the review SID, partial production configuration, exact native action, and provider preflight were absent.",
       "Two follow-up failures proved malformed action origins and variable-ending bodies were not rejected."
     ],
-    "green": "27 focused tests passed across release preflight, runtime env, and production env schema."
+    "green": "29 focused tests passed across release preflight, provider-assigned category locking, runtime env, and production env schema."
   },
   "verification": {
     "focused_tests": "passed",
@@ -102,7 +114,7 @@
     "auth": "TWILIO_API_KEY_SID plus TWILIO_API_KEY_SECRET",
     "command": "curl --silent --show-error --fail-with-body -u \"$TWILIO_API_KEY_SID:$TWILIO_API_KEY_SECRET\" \"https://content.twilio.com/v1/Content/$CONTENT_SID/ApprovalRequests\" | jq -c '{sid, whatsapp: (.whatsapp | {name, status, category, content_type, rejection_reason})}'",
     "projection": "jq {sid, whatsapp: {name, status, category, content_type, rejection_reason}}",
-    "poll_policy": "Read-only polling only. Do not set any production sender or Content SID until every selected status is approved, every rejection_reason is empty, and categories match the governed expectations."
+    "poll_policy": "Read-only polling only. Do not set any production sender or Content SID until every selected status is approved and every rejection_reason is empty. Capture the provider-assigned categories from that all-approved readback as the category lock; subsequent readbacks must match it."
   },
   "blockers": [
     "All four lifecycle templates are pending.",

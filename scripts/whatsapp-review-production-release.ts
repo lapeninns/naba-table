@@ -23,16 +23,9 @@ type TemplateReadback = {
 type ReadinessInput = {
   readonly sender: string;
   readonly selectedContentSids: SelectedContentSids;
+  readonly recordedCategories: Readonly<Record<TemplateKey, string>>;
   readonly templates: readonly TemplateReadback[];
 };
-
-const expectedCategories = {
-  bookingConfirmation: 'UTILITY',
-  bookingUpdate: 'UTILITY',
-  bookingCancellation: 'UTILITY',
-  restaurantCancellation: 'UTILITY',
-  reviewRequest: 'MARKETING',
-} as const satisfies Readonly<Record<TemplateKey, string>>;
 
 const reviewTemplateSchema = z.object({
   friendly_name: z.string(),
@@ -120,6 +113,7 @@ export function validateReviewTemplateRequest(_input: unknown): readonly string[
 export function assessWhatsAppTemplateReadiness({
   sender,
   selectedContentSids,
+  recordedCategories,
   templates,
 }: ReadinessInput): {
   readonly ready: boolean;
@@ -146,9 +140,12 @@ export function assessWhatsAppTemplateReadiness({
       blockers.push(`${key} is ${normalizedStatus || 'unknown'}; approved is required.`);
     }
     const normalizedCategory = template.category.toUpperCase();
-    if (normalizedCategory !== expectedCategories[key]) {
+    const recordedCategory = recordedCategories[key].trim().toUpperCase();
+    if (recordedCategory.length === 0) {
+      blockers.push(`${key} has no recorded provider-assigned category.`);
+    } else if (normalizedCategory !== recordedCategory) {
       blockers.push(
-        `${key} category is ${normalizedCategory || 'UNKNOWN'}; expected ${expectedCategories[key]}.`,
+        `${key} category is ${normalizedCategory || 'UNKNOWN'}; expected ${recordedCategory}.`,
       );
     }
     if (template.rejectionReason.trim().length > 0) {
