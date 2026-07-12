@@ -352,9 +352,12 @@ async function fetchRestaurantMultiplier(params: {
 }): Promise<{ multiplier: number; rule: DemandMultiplierResult['rule'] } | null> {
   const { restaurantId, dayOfWeek, serviceWindow, minuteOfDay, client } = params;
 
+  // `label` is intentionally not selected: the column does not exist on
+  // demand_profiles, so requesting it made every lookup fail with 42703 and
+  // fall back to the legacy query. service_window is used as the rule label.
   const query = client
     .from('demand_profiles')
-    .select('multiplier, service_window, start_minute, end_minute, priority, label')
+    .select('multiplier, service_window, start_minute, end_minute, priority')
     .eq('restaurant_id', restaurantId)
     .eq('day_of_week', dayOfWeek)
     .eq('service_window', serviceWindow);
@@ -384,7 +387,6 @@ async function fetchRestaurantMultiplier(params: {
     start_minute?: number | null;
     end_minute?: number | null;
     priority?: number | null;
-    label?: string | null;
   };
 
   const matching = (data as unknown as DemandProfileRow[])
@@ -437,7 +439,7 @@ async function fetchRestaurantMultiplier(params: {
   return {
     multiplier,
     rule: {
-      label: row.label ?? row.service_window ?? serviceWindow,
+      label: row.service_window ?? serviceWindow,
       serviceWindow,
       source: 'restaurant',
       start: startLabel ?? undefined,

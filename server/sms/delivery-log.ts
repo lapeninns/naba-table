@@ -145,24 +145,39 @@ export async function recordSmsDeliveryLog(
     const supabase = getServiceSupabaseClient();
     const { data, error } = await supabase
       .from('sms_delivery_log')
-      .insert({
-        booking_id: params.bookingId ?? null,
-        restaurant_id: params.restaurantId ?? null,
-        sms_type: params.smsType ?? null,
-        recipient_phone: normalizedPhone,
-        message_sid: params.messageSid,
-        status: params.status,
-        provider: params.provider,
-        provider_event_id: params.providerEventId ?? null,
-        occurred_at: params.occurredAt ?? undefined,
-        error: params.error ?? null,
-        metadata: params.metadata ?? null,
-      })
+      .upsert(
+        {
+          booking_id: params.bookingId ?? null,
+          restaurant_id: params.restaurantId ?? null,
+          sms_type: params.smsType ?? null,
+          recipient_phone: normalizedPhone,
+          message_sid: params.messageSid,
+          status: params.status,
+          provider: params.provider,
+          provider_event_id: params.providerEventId ?? null,
+          occurred_at: params.occurredAt ?? undefined,
+          error: params.error ?? null,
+          metadata: params.metadata ?? null,
+        },
+        // Idempotent on the (message_sid, recipient_phone, status) unique key.
+        // Duplicate Twilio status callbacks now DO NOTHING at the DB level
+        // instead of raising a 23505 that Postgres logs as an error each time.
+        { onConflict: 'message_sid,recipient_phone,status', ignoreDuplicates: true },
+      )
       .select(SMS_DELIVERY_LOG_SELECT)
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw error;
+    }
+
+    if (!data) {
+      // ON CONFLICT DO NOTHING skipped the insert: return the existing row.
+      return findExistingSmsDeliveryLogEvent({
+        messageSid: params.messageSid,
+        recipientPhone: normalizedPhone,
+        status: params.status,
+      });
     }
 
     return toEntryDto(data as SmsDeliveryLogRow);

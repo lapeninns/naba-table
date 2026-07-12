@@ -99,15 +99,18 @@ describe('hasRecentSmsDelivery', () => {
   });
 });
 
-function createInsertThenDuplicateReadbackClient(params: {
-  duplicateError: { code?: string; message: string };
-  existingRow: Record<string, unknown> | null;
+function createUpsertThenReadbackClient(params: {
+  upsertResult: {
+    data: Record<string, unknown> | null;
+    error: { code?: string; message: string } | null;
+  };
+  existingRow?: Record<string, unknown> | null;
   readbackError?: { message: string } | null;
 }) {
-  const insertSingle = vi.fn().mockResolvedValue({ data: null, error: params.duplicateError });
-  const insertBuilder = {
-    insert: vi.fn(() => insertBuilder),
-    select: vi.fn(() => ({ single: insertSingle })),
+  const upsertMaybeSingle = vi.fn().mockResolvedValue(params.upsertResult);
+  const upsertBuilder = {
+    upsert: vi.fn(() => upsertBuilder),
+    select: vi.fn(() => ({ maybeSingle: upsertMaybeSingle })),
   };
 
   const readbackBuilder = {
@@ -116,15 +119,30 @@ function createInsertThenDuplicateReadbackClient(params: {
     order: vi.fn(() => readbackBuilder),
     limit: vi.fn(() => readbackBuilder),
     maybeSingle: vi.fn().mockResolvedValue({
-      data: params.existingRow,
+      data: params.existingRow ?? null,
       error: params.readbackError ?? null,
     }),
   };
 
-  const from = vi.fn().mockReturnValueOnce(insertBuilder).mockReturnValueOnce(readbackBuilder);
+  const from = vi.fn().mockReturnValueOnce(upsertBuilder).mockReturnValueOnce(readbackBuilder);
 
-  return { client: { from }, spies: { from, insertBuilder, insertSingle, readbackBuilder } };
+  return { client: { from }, spies: { from, upsertBuilder, upsertMaybeSingle, readbackBuilder } };
 }
+
+const SAMPLE_SMS_ROW = {
+  id: 'evt-1',
+  booking_id: 'booking-1',
+  restaurant_id: 'restaurant-1',
+  sms_type: 'booking_confirmation',
+  recipient_phone: '447700900000',
+  message_sid: 'SM123',
+  status: 'sent',
+  provider: 'twilio',
+  provider_event_id: null,
+  occurred_at: '2026-05-10T09:00:00.000Z',
+  error: null,
+  metadata: { source: 'twilio_status_webhook' },
+};
 
 describe('recordSmsDeliveryLog', () => {
   beforeEach(() => {
@@ -133,28 +151,38 @@ describe('recordSmsDeliveryLog', () => {
     recordObservabilityEventMock.mockResolvedValue(undefined);
   });
 
-  it('treats duplicate message recipient status rows as idempotent replay', async () => {
-    const existingRow = {
-      id: 'evt-1',
-      booking_id: 'booking-1',
-      restaurant_id: 'restaurant-1',
-      sms_type: 'booking_confirmation',
-      recipient_phone: '447700900000',
-      message_sid: 'SM123',
-      status: 'sent',
-      provider: 'twilio',
-      provider_event_id: null,
-      occurred_at: '2026-05-10T09:00:00.000Z',
-      error: null,
-      metadata: { source: 'twilio_status_webhook' },
-    };
-    const { client, spies } = createInsertThenDuplicateReadbackClient({
-      duplicateError: {
-        code: '23505',
-        message:
-          'duplicate key value violates unique constraint "sms_delivery_log_message_phone_status_key"',
-      },
-      existingRow,
+  it('records a new delivery event via idempotent upsert', async () => {
+    const { client, spies } = createUpsertThenReadbackClient({
+      upsertResult: { data: SAMPLE_SMS_ROW, error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    await expect(
+      recordSmsDeliveryLog({
+        bookingId: 'booking-1',
+        restaurantId: 'restaurant-1',
+        smsType: 'booking_confirmation',
+        recipientPhone: '+44 7700 900000',
+        messageSid: 'SM123',
+        status: 'sent',
+        provider: 'twilio',
+      }),
+    ).resolves.toMatchObject({ id: 'evt-1', messageSid: 'SM123', status: 'sent' });
+
+    expect(spies.upsertBuilder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ message_sid: 'SM123', recipient_phone: '447700900000' }),
+      { onConflict: 'message_sid,recipient_phone,status', ignoreDuplicates: true },
+    );
+    // A successful insert returns the row directly — no readback query.
+    expect(spies.from).toHaveBeenCalledTimes(1);
+    expect(recordObservabilityEventMock).not.toHaveBeenCalled();
+  });
+
+  it('treats duplicate message/recipient/status rows as idempotent replay', async () => {
+    const { client, spies } = createUpsertThenReadbackClient({
+      // ON CONFLICT DO NOTHING skips the insert: no row, no error.
+      upsertResult: { data: null, error: null },
+      existingRow: SAMPLE_SMS_ROW,
     });
     getServiceSupabaseClientMock.mockReturnValue(client);
 
@@ -181,17 +209,17 @@ describe('recordSmsDeliveryLog', () => {
     expect(recordObservabilityEventMock).not.toHaveBeenCalled();
   });
 
-  it('still records observability warnings for non-duplicate insert failures', async () => {
-    const insertSingle = vi.fn().mockResolvedValue({
+  it('still records observability warnings for non-duplicate upsert failures', async () => {
+    const upsertMaybeSingle = vi.fn().mockResolvedValue({
       data: null,
       error: { code: 'PGRST500', message: 'database unavailable' },
     });
-    const insertBuilder = {
-      insert: vi.fn(() => insertBuilder),
-      select: vi.fn(() => ({ single: insertSingle })),
+    const upsertBuilder = {
+      upsert: vi.fn(() => upsertBuilder),
+      select: vi.fn(() => ({ maybeSingle: upsertMaybeSingle })),
     };
     getServiceSupabaseClientMock.mockReturnValue({
-      from: vi.fn(() => insertBuilder),
+      from: vi.fn(() => upsertBuilder),
     });
 
     await expect(

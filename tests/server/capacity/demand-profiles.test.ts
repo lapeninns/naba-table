@@ -36,6 +36,8 @@ describe('resolveDemandMultiplier', () => {
   });
 
   it('filters database demand profiles by current minute and priority', async () => {
+    // demand_profiles has no `label` column, so rows never carry one; the rule
+    // label is derived from service_window.
     const query = new DemandProfileQuery([
       {
         multiplier: 2,
@@ -43,7 +45,6 @@ describe('resolveDemandMultiplier', () => {
         start_minute: 20 * 60,
         end_minute: 21 * 60,
         priority: 99,
-        label: 'late-peak',
       },
       {
         multiplier: 1.2,
@@ -51,7 +52,6 @@ describe('resolveDemandMultiplier', () => {
         start_minute: 18 * 60,
         end_minute: 22 * 60,
         priority: 1,
-        label: 'broad-dinner',
       },
       {
         multiplier: 1.8,
@@ -59,7 +59,6 @@ describe('resolveDemandMultiplier', () => {
         start_minute: 19 * 60,
         end_minute: 20 * 60,
         priority: 5,
-        label: 'current-peak',
       },
     ]);
     const client = {
@@ -74,9 +73,10 @@ describe('resolveDemandMultiplier', () => {
       client: client as never,
     });
 
+    // multiplier 1.8 + window 19:00–19:59 uniquely identify the current-peak row.
     expect(result.multiplier).toBe(1.8);
     expect(result.rule).toMatchObject({
-      label: 'current-peak',
+      label: 'dinner',
       source: 'restaurant',
       start: '19:00',
       end: '19:59',
@@ -97,7 +97,6 @@ describe('resolveDemandMultiplier', () => {
         start_minute: 17 * 60,
         end_minute: 23 * 60,
         priority: 3,
-        label: 'broad',
       },
       {
         multiplier: 1.4,
@@ -105,7 +104,6 @@ describe('resolveDemandMultiplier', () => {
         start_minute: 19 * 60,
         end_minute: 20 * 60,
         priority: 3,
-        label: 'specific',
       },
     ]);
 
@@ -117,7 +115,8 @@ describe('resolveDemandMultiplier', () => {
       client: { from: vi.fn(() => query) } as never,
     });
 
+    // The narrower 19:00–20:00 window (multiplier 1.4) wins the priority tie.
     expect(result.multiplier).toBe(1.4);
-    expect(result.rule?.label).toBe('specific');
+    expect(result.rule).toMatchObject({ label: 'dinner', start: '19:00', end: '19:59' });
   });
 });
