@@ -1,4 +1,5 @@
 import { env } from '@/lib/env';
+import { safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 
 type ShortLinkBooking = {
@@ -8,9 +9,12 @@ type ShortLinkBooking = {
   customer_phone: string | null | undefined;
 };
 
-type ShortLinkPurpose = 'booking_manage';
+type ShortLinkPurpose = 'booking_manage' | 'review';
 
-type ShortLinkCreateSource = 'guest_confirmation_sms' | 'guest_update_sms';
+type ShortLinkCreateSource =
+  | 'guest_confirmation_sms'
+  | 'guest_update_sms'
+  | 'guest_review_whatsapp';
 
 type CreateShortLinkRequest = {
   purpose: ShortLinkPurpose;
@@ -24,8 +28,8 @@ type CreateShortLinkRequest = {
 function isShortLinksConfigured(): boolean {
   return Boolean(
     env.cloudflare.bookingShortLinksInternalUrl &&
-      env.cloudflare.bookingShortLinksInternalToken &&
-      env.cloudflare.bookingShortLinksBaseUrl,
+    env.cloudflare.bookingShortLinksInternalToken &&
+    env.cloudflare.bookingShortLinksBaseUrl,
   );
 }
 
@@ -46,6 +50,7 @@ function buildShortLinkExpiry(): string {
 function isValidShortLinkResponse(
   value: unknown,
   expectedBaseUrl: string,
+  purpose: ShortLinkPurpose,
 ): value is { shortUrl: string } {
   if (!value || typeof value !== 'object') {
     return false;
@@ -59,7 +64,11 @@ function isValidShortLinkResponse(
   try {
     const parsedShortUrl = new URL(shortUrl);
     const parsedBaseUrl = new URL(expectedBaseUrl);
-    return parsedShortUrl.origin === parsedBaseUrl.origin;
+    const expectedPathPrefix = purpose === 'review' ? '/r/' : '/m/';
+    return (
+      parsedShortUrl.origin === parsedBaseUrl.origin &&
+      parsedShortUrl.pathname.startsWith(expectedPathPrefix)
+    );
   } catch {
     return false;
   }
@@ -98,8 +107,8 @@ async function requestBookingShortLink(
   }
 
   try {
-    const body = (await response.json()) as unknown;
-    if (!isValidShortLinkResponse(body, baseUrl)) {
+    const body: unknown = await response.json();
+    if (!isValidShortLinkResponse(body, baseUrl, payload.purpose)) {
       return null;
     }
     return body.shortUrl;
@@ -136,4 +145,33 @@ export async function createBookingManageShortUrl(
   );
 
   return shortUrl ?? longUrl;
+}
+
+export async function createReviewShortUrl(params: {
+  bookingId: string;
+  restaurantId: string;
+  destinationUrl: string;
+  expiresAt: string;
+  fetchImpl?: typeof fetch;
+}): Promise<string | null> {
+  if (!isShortLinksConfigured()) {
+    return null;
+  }
+
+  const destinationUrl = safeGoogleReviewUrl(params.destinationUrl);
+  if (!destinationUrl) {
+    return null;
+  }
+
+  return requestBookingShortLink(
+    {
+      purpose: 'review',
+      destinationUrl,
+      bookingId: params.bookingId,
+      restaurantId: params.restaurantId,
+      expiresAt: params.expiresAt,
+      createdBy: 'guest_review_whatsapp',
+    },
+    { fetchImpl: params.fetchImpl },
+  );
 }

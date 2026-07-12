@@ -19,7 +19,7 @@ vi.mock('@/lib/env', () => ({
   },
 }));
 
-import { createBookingManageShortUrl } from '@/server/bookings/short-link';
+import { createBookingManageShortUrl, createReviewShortUrl } from '@/server/bookings/short-link';
 
 const booking = {
   id: 'booking-1',
@@ -53,9 +53,7 @@ describe('createBookingManageShortUrl', () => {
       fetchImpl: vi.fn(),
     });
 
-    expect(shortUrl).toBe(
-      'https://nabatable.com/bookings/recover/error?code=INVALID_ACCESS_TOKEN',
-    );
+    expect(shortUrl).toBe('https://nabatable.com/bookings/recover/error?code=INVALID_ACCESS_TOKEN');
   });
 
   it('returns a Cloudflare short URL when the internal service succeeds', async () => {
@@ -74,5 +72,72 @@ describe('createBookingManageShortUrl', () => {
     });
 
     expect(shortUrl).toBe('https://go.nabatable.com/m/ABC123');
+  });
+});
+
+describe('createReviewShortUrl', () => {
+  it('requests a purpose-scoped review URL with a normalized Google destination', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          token: 'Review123456',
+          shortUrl: 'https://go.nabatable.com/r/Review123456',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+        }),
+        { status: 201 },
+      ),
+    );
+
+    const shortUrl = await createReviewShortUrl({
+      bookingId: 'booking-1',
+      restaurantId: 'rest-1',
+      destinationUrl: ' HTTPS://G.PAGE/demo-venue/review ',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      fetchImpl,
+    });
+
+    expect(shortUrl).toBe('https://go.nabatable.com/r/Review123456');
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://nabatable-booking-short-links.workers.dev/internal/booking-links',
+      expect.objectContaining({
+        body: JSON.stringify({
+          purpose: 'review',
+          destinationUrl: 'https://g.page/demo-venue/review',
+          bookingId: 'booking-1',
+          restaurantId: 'rest-1',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          createdBy: 'guest_review_whatsapp',
+        }),
+      }),
+    );
+  });
+
+  it('refuses unsafe review destinations before calling the Worker', async () => {
+    const fetchImpl = vi.fn();
+
+    const shortUrl = await createReviewShortUrl({
+      bookingId: 'booking-1',
+      restaurantId: 'rest-1',
+      destinationUrl: 'https://search.google.com/search?q=demo',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      fetchImpl,
+    });
+
+    expect(shortUrl).toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('refuses a booking-purpose URL returned for a review request', async () => {
+    const shortUrl = await createReviewShortUrl({
+      bookingId: 'booking-1',
+      restaurantId: 'rest-1',
+      destinationUrl: 'https://g.page/demo-venue/review',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      fetchImpl: vi
+        .fn()
+        .mockResolvedValue(Response.json({ shortUrl: 'https://go.nabatable.com/m/Booking12345' })),
+    });
+
+    expect(shortUrl).toBeNull();
   });
 });

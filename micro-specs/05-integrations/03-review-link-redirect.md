@@ -14,16 +14,19 @@ allowed_blast_radius:
   - scripts/cloudflare/deploy-booking-short-links.sh
   - scripts/cloudflare/smoke-booking-short-links.ts
   - tests/cloudflare/booking-short-links.test.ts
+  - tests/cloudflare/booking-short-links-review*.test.ts
   - tests/cloudflare/booking-short-links-storage.test.ts
   - tests/server/bookings/short-link.test.ts
   - tests/performance/qa-performance-smoke.test.ts
   - tests/config/link-config.test.ts
+  - .omo/evidence/task-3-*
 implementation_surfaces:
   - cloudflare/booking-short-links/**
   - server/bookings/short-link.ts
   - scripts/cloudflare/deploy-booking-short-links.sh
   - scripts/cloudflare/smoke-booking-short-links.ts
   - tests/cloudflare/booking-short-links.test.ts
+  - tests/cloudflare/booking-short-links-review*.test.ts
   - tests/cloudflare/booking-short-links-storage.test.ts
   - tests/server/bookings/short-link.test.ts
   - tests/performance/qa-performance-smoke.test.ts
@@ -31,7 +34,11 @@ implementation_surfaces:
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
-  - not-yet-created
+  - tests/cloudflare/booking-short-links.test.ts
+  - tests/cloudflare/booking-short-links-review.test.ts
+  - tests/cloudflare/booking-short-links-review-worker.test.ts
+  - tests/cloudflare/booking-short-links-storage.test.ts
+  - tests/server/bookings/short-link.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm test
