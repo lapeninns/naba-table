@@ -10,6 +10,12 @@
       ],
       "port": 5180,
       "autoPort": false
+    },
+    {
+      "name": "reserve",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "reserve:dev"],
+      "port": 5174
     }
   ]
 }

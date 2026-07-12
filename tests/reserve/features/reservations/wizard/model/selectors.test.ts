@@ -36,4 +36,31 @@ describe('createSelectionSummary', () => {
     expect(summary.details).toEqual(['2 guests', 'Time not selected', 'Date not selected']);
     expect(summary.srLabel).toContain('Date not selected');
   });
+
+  it('produces labeled booking facts in reading order, omitting empty notes @contract', () => {
+    const summary = createSelectionSummary(
+      getInitialDetails({ date: '2026-04-14', time: '19:00', party: 4, bookingType: 'dinner' }),
+    );
+
+    expect(summary.facts).toEqual([
+      { label: 'Date', value: 'Apr 14 2026' },
+      { label: 'Time', value: '19:00' },
+      { label: 'Party', value: '4 guests' },
+      { label: 'Service', value: 'Dinner' },
+    ]);
+  });
+
+  it('includes trimmed notes as a fact when present @contract', () => {
+    const summary = createSelectionSummary(
+      getInitialDetails({
+        date: '2026-04-14',
+        time: '19:00',
+        party: 2,
+        bookingType: 'dinner',
+        notes: '  Window seat please  ',
+      }),
+    );
+
+    expect(summary.facts).toContainEqual({ label: 'Notes', value: 'Window seat please' });
+  });
 });

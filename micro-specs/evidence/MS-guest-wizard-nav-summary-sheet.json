@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "spec_id": "MS-guest-wizard-nav-summary-sheet",
+  "runs": [
+    {
+      "timestamp": "2026-07-12T14:39:15.817Z",
+      "git_sha": "317c71fe8b04824ef07864c589bb59f8a6c801b2",
+      "git_branch": "claude/wizard-navigation-redesign-649cf5",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 1,
+          "duration_ms": 248
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-12T14:40:30.510Z",
+      "git_sha": "317c71fe8b04824ef07864c589bb59f8a6c801b2",
+      "git_branch": "claude/wizard-navigation-redesign-649cf5",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 225
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 582
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 290
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 2731
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 1,
+          "duration_ms": 18510
+        }
+      ],
+      "all_passed": false
+    }
+  ],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T14:17:43.623Z",
+      "sha": "317c71fe8b04824ef07864c589bb59f8a6c801b2",
+      "dirty": true,
+      "by": "amankumarshrestha"
+    }
+  ]
+}
