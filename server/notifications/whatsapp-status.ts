@@ -27,6 +27,7 @@ const STATUS_RANK: Readonly<Record<MobileAttemptStatus, number>> = {
 };
 
 type WhatsAppStatusInput = {
+  readonly attemptId?: string;
   readonly errorCode: string | null;
   readonly messageSid: string;
   readonly providerStatus: string;
@@ -50,7 +51,10 @@ export type WhatsAppStatusDependencies = {
     readonly restaurantId: string;
     readonly whatsappAttemptId: string;
   }) => Promise<string | null>;
-  readonly findAttempt: (messageSid: string) => Promise<WhatsAppAttemptLookup | null>;
+  readonly findAttempt: (
+    messageSid: string,
+    attemptId: string | null,
+  ) => Promise<WhatsAppAttemptLookup | null>;
   readonly sendFallback: (input: {
     readonly attemptId: string;
     readonly notificationId: string;
@@ -59,6 +63,7 @@ export type WhatsAppStatusDependencies = {
     readonly attemptId: string;
     readonly currentStatus: MobileAttemptStatus;
     readonly errorCode: string | null;
+    readonly providerMessageId: string;
     readonly status: MobileAttemptStatus;
   }) => Promise<boolean>;
 };
@@ -111,12 +116,12 @@ function parseMobileAttemptStatus(value: string): MobileAttemptStatus | null {
 }
 
 export async function reconcileWhatsAppStatusWithDependencies(
-  { errorCode, messageSid, providerStatus, recipientPhone }: WhatsAppStatusInput,
+  { attemptId, errorCode, messageSid, providerStatus, recipientPhone }: WhatsAppStatusInput,
   dependencies: WhatsAppStatusDependencies,
 ): Promise<{ ignored: boolean; fallbackSent: boolean }> {
   const incoming = mapProviderMobileStatus(providerStatus);
   const normalizedRecipient = normalizeWhatsAppRecipient(recipientPhone);
-  const attempt = await dependencies.findAttempt(messageSid);
+  const attempt = await dependencies.findAttempt(messageSid, attemptId ?? null);
   if (!attempt || attempt.recipientPhone !== normalizedRecipient) {
     return { ignored: true, fallbackSent: false };
   }
@@ -128,6 +133,7 @@ export async function reconcileWhatsAppStatusWithDependencies(
     attemptId: attempt.id,
     currentStatus: attempt.status,
     errorCode,
+    providerMessageId: messageSid,
     status: incoming,
   });
   if (!updated || (incoming !== 'failed' && incoming !== 'undelivered')) {
@@ -160,14 +166,18 @@ export async function processWhatsAppStatusCallback(
   const client = getServiceSupabaseClient();
 
   return reconcileWhatsAppStatusWithDependencies(input, {
-    findAttempt: async (messageSid) => {
-      const { data: attempt, error } = await client
+    findAttempt: async (messageSid, attemptId) => {
+      let query = client
         .from('mobile_notification_attempts')
         .select('id,notification_id,recipient_phone,status')
         .eq('provider', 'twilio')
-        .eq('provider_message_id', messageSid)
-        .eq('channel', 'whatsapp')
-        .maybeSingle();
+        .eq('channel', 'whatsapp');
+      query = attemptId
+        ? query
+            .eq('id', attemptId)
+            .or(`provider_message_id.is.null,provider_message_id.eq.${messageSid}`)
+        : query.eq('provider_message_id', messageSid);
+      const { data: attempt, error } = await query.maybeSingle();
       if (error) {
         throw new Error('Failed to resolve WhatsApp delivery attempt.');
       }
@@ -202,16 +212,18 @@ export async function processWhatsAppStatusCallback(
         status,
       };
     },
-    updateAttempt: async ({ attemptId, currentStatus, errorCode, status }) => {
+    updateAttempt: async ({ attemptId, currentStatus, errorCode, providerMessageId, status }) => {
       const { data: updated, error } = await client
         .from('mobile_notification_attempts')
         .update({
           error_code: errorCode,
+          provider_message_id: providerMessageId,
           status,
           updated_at: new Date().toISOString(),
         })
         .eq('id', attemptId)
         .eq('status', currentStatus)
+        .or(`provider_message_id.is.null,provider_message_id.eq.${providerMessageId}`)
         .select('id')
         .maybeSingle();
       if (error) {

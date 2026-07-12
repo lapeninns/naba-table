@@ -2077,6 +2077,17 @@ export type Database = {
           created_at: string;
           id: string;
           logical_key: string;
+          mobile_intent_attempt_error_code: string | null;
+          mobile_intent_attempt_id: string | null;
+          mobile_intent_attempt_status: string | null;
+          mobile_intent_attempts: number;
+          mobile_intent_claimed_at: string | null;
+          mobile_intent_claim_token: string | null;
+          mobile_intent_last_error: string | null;
+          mobile_intent_processed_at: string | null;
+          mobile_intent_provider_message_id: string | null;
+          mobile_intent_scheduled_for: string | null;
+          mobile_intent_status: string | null;
           notification_type: string;
           recipient_phone: string;
           restaurant_id: string;
@@ -2087,6 +2098,17 @@ export type Database = {
           created_at?: string;
           id?: string;
           logical_key: string;
+          mobile_intent_attempt_error_code?: string | null;
+          mobile_intent_attempt_id?: string | null;
+          mobile_intent_attempt_status?: string | null;
+          mobile_intent_attempts?: number;
+          mobile_intent_claimed_at?: string | null;
+          mobile_intent_claim_token?: string | null;
+          mobile_intent_last_error?: string | null;
+          mobile_intent_processed_at?: string | null;
+          mobile_intent_provider_message_id?: string | null;
+          mobile_intent_scheduled_for?: string | null;
+          mobile_intent_status?: string | null;
           notification_type: string;
           recipient_phone: string;
           restaurant_id: string;
@@ -2097,6 +2119,17 @@ export type Database = {
           created_at?: string;
           id?: string;
           logical_key?: string;
+          mobile_intent_attempt_error_code?: string | null;
+          mobile_intent_attempt_id?: string | null;
+          mobile_intent_attempt_status?: string | null;
+          mobile_intent_attempts?: number;
+          mobile_intent_claimed_at?: string | null;
+          mobile_intent_claim_token?: string | null;
+          mobile_intent_last_error?: string | null;
+          mobile_intent_processed_at?: string | null;
+          mobile_intent_provider_message_id?: string | null;
+          mobile_intent_scheduled_for?: string | null;
+          mobile_intent_status?: string | null;
           notification_type?: string;
           recipient_phone?: string;
           restaurant_id?: string;
@@ -5803,6 +5836,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_due_mobile_review_notifications: {
+        Args: { p_limit?: number };
+        Returns: Database['public']['Tables']['mobile_notifications']['Row'][];
+      };
       claim_mobile_notification_fallback: {
         Args: {
           p_fallback_for_attempt_id: string;
@@ -5811,6 +5848,33 @@ export type Database = {
           p_restaurant_id: string;
         };
         Returns: string;
+      };
+      claim_mobile_notification_preaccept_fallback: {
+        Args: {
+          p_fallback_for_attempt_id: string;
+          p_notification_id: string;
+          p_recipient_phone: string;
+          p_restaurant_id: string;
+        };
+        Returns: string | null;
+      };
+      finalize_mobile_whatsapp_attempt: {
+        Args: {
+          p_attempt_id: string;
+          p_error_code: string | null;
+          p_provider_message_id: string | null;
+          p_status: string;
+        };
+        Returns: string | null;
+      };
+      schedule_mobile_review_notification: {
+        Args: {
+          p_booking_id: string;
+          p_recipient_phone: string;
+          p_restaurant_id: string;
+          p_scheduled_for: string;
+        };
+        Returns: string | null;
       };
       acquire_soft_holds_atomic: {
         Args: {

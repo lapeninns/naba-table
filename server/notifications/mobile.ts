@@ -28,6 +28,25 @@ type ProviderSendResult = {
   status: string | null;
 };
 
+export type MobileDispatchResult =
+  | {
+      readonly attemptId: string;
+      readonly kind: 'whatsapp_accepted';
+      readonly providerMessageId: string;
+      readonly status: MobileAttemptStatus;
+    }
+  | { readonly kind: 'sms' }
+  | { readonly kind: 'duplicate' }
+  | { readonly kind: 'ineligible' }
+  | { readonly attemptId: string; readonly kind: 'provider_attempt_failed' }
+  | {
+      readonly attemptId: string;
+      readonly errorCode: string | null;
+      readonly kind: 'attempt_finalization_pending';
+      readonly providerMessageId: string | null;
+      readonly status: MobileAttemptStatus;
+    };
+
 // mobile_notifications/mobile_notification_attempts recipient_phone CHECKs
 // require strict E.164; comparable-form phones (leading + stripped) are not storable.
 const E164_RECIPIENT_PHONE_REGEX = /^\+[1-9][0-9]{6,14}$/;
@@ -66,19 +85,70 @@ export type MobileNotificationDependencies = {
     providerMessageId?: string | null;
     errorCode?: string | null;
   }) => Promise<void>;
+  finalizeWhatsAppAttempt: (input: {
+    attemptId: string;
+    errorCode: string | null;
+    providerMessageId: string | null;
+    status: MobileAttemptStatus;
+  }) => Promise<MobileAttemptStatus>;
   claimFallback: (input: {
     notificationId: string;
+    preacceptFailure?: boolean;
     restaurantId: string;
     recipientPhone: string;
     whatsappAttemptId: string;
   }) => Promise<string | null>;
   sendWhatsApp: (input: {
+    attemptId: string;
     templateId: string;
     to: string;
     variables: Readonly<Record<string, string>>;
   }) => Promise<ProviderSendResult>;
   sendSms: () => Promise<ProviderSendResult | null>;
 };
+
+type WhatsAppAttemptFinalization = {
+  readonly attemptId: string;
+  readonly errorCode: string | null;
+  readonly providerMessageId: string | null;
+  readonly status: MobileAttemptStatus;
+};
+
+const ATTEMPT_FINALIZATION_TRIES = 2;
+
+async function finalizeWhatsAppAttemptWithRetry(
+  input: WhatsAppAttemptFinalization,
+  dependencies: Pick<MobileNotificationDependencies, 'finalizeWhatsAppAttempt'>,
+): Promise<MobileAttemptStatus> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < ATTEMPT_FINALIZATION_TRIES; attempt += 1) {
+    try {
+      return await dependencies.finalizeWhatsAppAttempt(input);
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error('Failed to finalize mobile WhatsApp attempt.');
+}
+
+export async function finalizeMobileWhatsAppAttempt(
+  input: WhatsAppAttemptFinalization,
+): Promise<MobileAttemptStatus> {
+  const client = getServiceSupabaseClient();
+  const { data, error } = await client.rpc('finalize_mobile_whatsapp_attempt', {
+    p_attempt_id: input.attemptId,
+    p_error_code: input.errorCode,
+    p_provider_message_id: input.providerMessageId,
+    p_status: input.status,
+  });
+  if (error || !data) {
+    throw new Error('Failed to finalize mobile WhatsApp attempt.');
+  }
+  return data as MobileAttemptStatus;
+}
 
 export function mapProviderMobileStatus(status: string | null | undefined): MobileAttemptStatus {
   switch (status?.trim().toLowerCase()) {
@@ -135,16 +205,16 @@ export async function completeClaimedSmsAttempt(
 export async function dispatchMobileNotificationWithDependencies(
   rawInput: MobileNotificationInput,
   dependencies: MobileNotificationDependencies,
-): Promise<'whatsapp' | 'sms' | 'duplicate'> {
+): Promise<MobileDispatchResult> {
   const recipientPhone = toE164RecipientPhone(rawInput.recipientPhone);
   if (!recipientPhone) {
     if (rawInput.notificationType === 'booking_review_request') {
-      return 'duplicate';
+      return { kind: 'ineligible' };
     }
     // Phones the ledger cannot store stay on the legacy plain-SMS path so the
     // guest is still notified.
     await dependencies.sendSms();
-    return 'sms';
+    return { kind: 'sms' };
   }
 
   const input: MobileNotificationInput = { ...rawInput, recipientPhone };
@@ -153,7 +223,7 @@ export async function dispatchMobileNotificationWithDependencies(
 
   if (!input.whatsappEligible || !whatsappTemplateId) {
     if (input.notificationType === 'booking_review_request') {
-      return 'duplicate';
+      return { kind: 'ineligible' };
     }
     const smsAttemptId = await dependencies.claimAttempt({
       notificationId: notification.id,
@@ -163,9 +233,9 @@ export async function dispatchMobileNotificationWithDependencies(
     });
     if (smsAttemptId) {
       await sendClaimedSmsAttempt(smsAttemptId, dependencies);
-      return 'sms';
+      return { kind: 'sms' };
     }
-    return 'duplicate';
+    return { kind: 'duplicate' };
   }
 
   const whatsappAttemptId = await dependencies.claimAttempt({
@@ -175,11 +245,13 @@ export async function dispatchMobileNotificationWithDependencies(
     templateId: whatsappTemplateId,
   });
   if (!whatsappAttemptId) {
-    return 'duplicate';
+    return { kind: 'duplicate' };
   }
 
+  let result: ProviderSendResult;
   try {
-    const result = await dependencies.sendWhatsApp({
+    result = await dependencies.sendWhatsApp({
+      attemptId: whatsappAttemptId,
       templateId: whatsappTemplateId,
       to: input.recipientPhone,
       variables: input.whatsappVariables,
@@ -187,24 +259,46 @@ export async function dispatchMobileNotificationWithDependencies(
     if (!result.messageSid) {
       throw new Error('WhatsApp provider did not return a message identifier.');
     }
-    const providerStatus = mapProviderMobileStatus(result.status);
-    if (providerStatus === 'failed' || providerStatus === 'undelivered') {
-      throw new Error('WhatsApp provider rejected the message before delivery.');
-    }
-    await dependencies.updateAttempt({
-      attemptId: whatsappAttemptId,
-      providerMessageId: result.messageSid,
-      status: providerStatus,
-    });
-    return 'whatsapp';
   } catch (error) {
-    await dependencies.updateAttempt({
-      attemptId: whatsappAttemptId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.name : 'WHATSAPP_DISPATCH_FAILED',
-    });
+    const errorCode = error instanceof Error ? error.name : 'WHATSAPP_DISPATCH_FAILED';
+    try {
+      await finalizeWhatsAppAttemptWithRetry(
+        {
+          attemptId: whatsappAttemptId,
+          errorCode,
+          providerMessageId: null,
+          status: 'failed',
+        },
+        dependencies,
+      );
+    } catch (finalizationError) {
+      if (!(finalizationError instanceof Error)) {
+        throw finalizationError;
+      }
+      if (input.notificationType !== 'booking_review_request') {
+        const smsAttemptId = await dependencies.claimFallback({
+          notificationId: notification.id,
+          preacceptFailure: true,
+          restaurantId: input.restaurantId,
+          recipientPhone: input.recipientPhone,
+          whatsappAttemptId,
+        });
+        if (smsAttemptId) {
+          await sendClaimedSmsAttempt(smsAttemptId, dependencies);
+          return { kind: 'sms' };
+        }
+        return { kind: 'duplicate' };
+      }
+      return {
+        attemptId: whatsappAttemptId,
+        errorCode,
+        kind: 'attempt_finalization_pending',
+        providerMessageId: null,
+        status: 'failed',
+      };
+    }
     if (input.notificationType === 'booking_review_request') {
-      return 'duplicate';
+      return { attemptId: whatsappAttemptId, kind: 'provider_attempt_failed' };
     }
     const smsAttemptId = await dependencies.claimFallback({
       notificationId: notification.id,
@@ -214,10 +308,59 @@ export async function dispatchMobileNotificationWithDependencies(
     });
     if (smsAttemptId) {
       await sendClaimedSmsAttempt(smsAttemptId, dependencies);
-      return 'sms';
+      return { kind: 'sms' };
     }
-    return 'duplicate';
+    return { kind: 'duplicate' };
   }
+
+  const providerStatus = mapProviderMobileStatus(result.status);
+  let persistedStatus: MobileAttemptStatus;
+  try {
+    persistedStatus = await finalizeWhatsAppAttemptWithRetry(
+      {
+        attemptId: whatsappAttemptId,
+        errorCode: null,
+        providerMessageId: result.messageSid,
+        status: providerStatus,
+      },
+      dependencies,
+    );
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    return {
+      attemptId: whatsappAttemptId,
+      errorCode: null,
+      kind: 'attempt_finalization_pending',
+      providerMessageId: result.messageSid,
+      status: providerStatus,
+    };
+  }
+
+  if (persistedStatus === 'failed' || persistedStatus === 'undelivered') {
+    if (input.notificationType === 'booking_review_request') {
+      return { attemptId: whatsappAttemptId, kind: 'provider_attempt_failed' };
+    }
+    const smsAttemptId = await dependencies.claimFallback({
+      notificationId: notification.id,
+      restaurantId: input.restaurantId,
+      recipientPhone: input.recipientPhone,
+      whatsappAttemptId,
+    });
+    if (smsAttemptId) {
+      await sendClaimedSmsAttempt(smsAttemptId, dependencies);
+      return { kind: 'sms' };
+    }
+    return { kind: 'duplicate' };
+  }
+
+  return {
+    attemptId: whatsappAttemptId,
+    kind: 'whatsapp_accepted',
+    providerMessageId: result.messageSid,
+    status: persistedStatus,
+  };
 }
 
 export async function dispatchMobileNotification(
@@ -226,7 +369,7 @@ export async function dispatchMobileNotification(
     sendSms: () => Promise<ProviderSendResult | null>;
     fetchImpl?: typeof fetch;
   },
-): Promise<'whatsapp' | 'sms' | 'duplicate'> {
+): Promise<MobileDispatchResult> {
   const client = getServiceSupabaseClient();
 
   return dispatchMobileNotificationWithDependencies(input, {
@@ -285,8 +428,18 @@ export async function dispatchMobileNotification(
         throw new Error('Failed to update mobile notification attempt.');
       }
     },
-    claimFallback: async ({ notificationId, recipientPhone, restaurantId, whatsappAttemptId }) => {
-      const { data, error } = await client.rpc('claim_mobile_notification_fallback', {
+    finalizeWhatsAppAttempt: finalizeMobileWhatsAppAttempt,
+    claimFallback: async ({
+      notificationId,
+      preacceptFailure,
+      recipientPhone,
+      restaurantId,
+      whatsappAttemptId,
+    }) => {
+      const rpc = preacceptFailure
+        ? 'claim_mobile_notification_preaccept_fallback'
+        : 'claim_mobile_notification_fallback';
+      const { data, error } = await client.rpc(rpc, {
         p_fallback_for_attempt_id: whatsappAttemptId,
         p_notification_id: notificationId,
         p_recipient_phone: recipientPhone,
@@ -297,7 +450,7 @@ export async function dispatchMobileNotification(
       }
       return data;
     },
-    sendWhatsApp: async ({ templateId, to, variables }) => {
+    sendWhatsApp: async ({ attemptId, templateId, to, variables }) => {
       const { accountSid, apiKeySid, apiKeySecret, authToken, whatsapp } = env.twilio;
       if (
         !accountSid ||
@@ -309,6 +462,8 @@ export async function dispatchMobileNotification(
       ) {
         throw new Error('Twilio WhatsApp is not configured.');
       }
+      const statusCallback = new URL('/api/webhook/twilio/whatsapp-status', env.app.url);
+      statusCallback.searchParams.set('attempt', attemptId);
       return sendTwilioWhatsAppMessage({
         accountSid,
         apiKeySid,
@@ -317,7 +472,7 @@ export async function dispatchMobileNotification(
         contentVariables: variables,
         fetchImpl: options.fetchImpl,
         sender: whatsapp.sender,
-        statusCallback: new URL('/api/webhook/twilio/whatsapp-status', env.app.url).toString(),
+        statusCallback: statusCallback.toString(),
         to,
       });
     },

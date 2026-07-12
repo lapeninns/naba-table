@@ -5,6 +5,8 @@ const sendFirstBookingConfirmationNotificationsMock = vi.hoisted(() => vi.fn());
 const sendBookingConfirmationEmailMock = vi.hoisted(() => vi.fn());
 const sendGuestBookingUpdateSmsMock = vi.hoisted(() => vi.fn());
 const sendGuestBookingCancellationSmsMock = vi.hoisted(() => vi.fn());
+const enqueueEmailJobMock = vi.hoisted(() => vi.fn());
+const emailQueueEnabled = vi.hoisted(() => ({ value: false }));
 
 vi.mock('@/server/analytics', () => ({
   recordBookingCancelledEvent: vi.fn(),
@@ -30,11 +32,11 @@ vi.mock('@/server/sms/bookings', () => ({
 }));
 
 vi.mock('@/server/runtime-policy', () => ({
-  isEmailQueueEnabled: vi.fn(() => false),
+  isEmailQueueEnabled: vi.fn(() => emailQueueEnabled.value),
 }));
 
 vi.mock('@/server/queue/email', () => ({
-  enqueueEmailJob: vi.fn(),
+  enqueueEmailJob: enqueueEmailJobMock,
 }));
 
 vi.mock('@/server/queue/email-intents', () => ({
@@ -48,6 +50,7 @@ vi.mock('@/server/observability', () => ({
 import {
   enqueueBookingCancelledSideEffects,
   enqueueBookingUpdatedSideEffects,
+  enqueueCheckOutSideEffects,
   processBookingCreatedSideEffects,
 } from '@/server/jobs/booking-side-effects';
 
@@ -80,6 +83,8 @@ describe('processBookingCreatedSideEffects', () => {
     sendBookingConfirmationEmailMock.mockReset();
     sendGuestBookingUpdateSmsMock.mockReset();
     sendGuestBookingCancellationSmsMock.mockReset();
+    enqueueEmailJobMock.mockReset();
+    emailQueueEnabled.value = false;
     recordBookingCreatedEventMock.mockResolvedValue(undefined);
     sendFirstBookingConfirmationNotificationsMock.mockResolvedValue({
       alreadySent: false,
@@ -92,6 +97,269 @@ describe('processBookingCreatedSideEffects', () => {
       messageSid: 'SM124',
       status: 'sent',
     });
+    enqueueEmailJobMock.mockResolvedValue(undefined);
+  });
+
+  it('durably schedules a completed review job without a valid guest email', async () => {
+    // Given
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      customer_email: 'invalid-email',
+      whatsapp_consent_actor_id: null,
+      whatsapp_consent_phone: pendingBooking.customer_phone,
+      whatsapp_consent_source: 'guest_reserve',
+      whatsapp_consent_version: 'booking-plus-review-v2',
+      whatsapp_opt_in: true,
+      end_at: '2026-07-12T18:00:00.000Z',
+    };
+    const scheduleReviewIntentMock = vi.fn().mockResolvedValue({
+      data: completed.id,
+      error: null,
+    });
+    const client = {
+      rpc: scheduleReviewIntentMock,
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: 'https://g.page/r/example/review',
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    // Then
+    expect(scheduleReviewIntentMock).toHaveBeenCalledWith(
+      'schedule_mobile_review_notification',
+      expect.objectContaining({
+        p_booking_id: completed.id,
+        p_recipient_phone: completed.customer_phone,
+        p_restaurant_id: completed.restaurant_id,
+      }),
+    );
+    expect(enqueueEmailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('schedules neither review channel when the venue preference is disabled', async () => {
+    // Given
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      end_at: '2026-07-12T18:00:00.000Z',
+    };
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { email_send_review_request: false, timezone: 'Europe/London' },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    // Then
+    expect(enqueueEmailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule mobile review without a valid venue review destination', async () => {
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      customer_email: 'invalid-email',
+      whatsapp_consent_actor_id: null,
+      whatsapp_consent_phone: pendingBooking.customer_phone,
+      whatsapp_consent_source: 'guest_reserve',
+      whatsapp_consent_version: 'booking-plus-review-v2',
+      whatsapp_opt_in: true,
+      end_at: '2026-07-12T18:00:00.000Z',
+    };
+    const scheduleReviewIntentMock = vi.fn();
+    const client = {
+      rpc: scheduleReviewIntentMock,
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: null,
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    expect(scheduleReviewIntentMock).not.toHaveBeenCalled();
+    expect(enqueueEmailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule a phone-only review for version 1 consent', async () => {
+    // Given
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      customer_email: 'invalid-email',
+      whatsapp_consent_actor_id: null,
+      whatsapp_consent_phone: pendingBooking.customer_phone,
+      whatsapp_consent_source: 'guest_reserve',
+      whatsapp_consent_version: 'booking-transactional-v1',
+      whatsapp_opt_in: true,
+      end_at: '2026-07-12T18:00:00.000Z',
+    };
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { email_send_review_request: true, timezone: 'Europe/London' },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    // Then
+    expect(enqueueEmailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('schedules mobile but not email when a completed booking has an invalid guest email', async () => {
+    // Given
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      customer_email: 'invalid-email',
+      whatsapp_consent_actor_id: null,
+      whatsapp_consent_phone: pendingBooking.customer_phone,
+      whatsapp_consent_source: 'guest_reserve',
+      whatsapp_consent_version: 'booking-plus-review-v2',
+      whatsapp_opt_in: true,
+      end_at: '2026-07-12T18:00:00.000Z',
+    };
+    const scheduleReviewIntentMock = vi.fn().mockResolvedValue({
+      data: completed.id,
+      error: null,
+    });
+    const client = {
+      rpc: scheduleReviewIntentMock,
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: 'https://g.page/r/example/review',
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await processBookingCreatedSideEffects(
+      {
+        booking: completed,
+        idempotencyKey: null,
+        restaurantId: completed.restaurant_id,
+        emailProvided: true,
+      },
+      client as never,
+    );
+
+    // Then
+    expect(scheduleReviewIntentMock).toHaveBeenCalledOnce();
+    expect(enqueueEmailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('schedules mobile review once on a transition to completed', async () => {
+    // Given
+    emailQueueEnabled.value = true;
+    const previous = { ...pendingBooking, status: 'confirmed' };
+    const completed = {
+      ...previous,
+      status: 'completed',
+      customer_email: 'invalid-email',
+      whatsapp_consent_actor_id: null,
+      whatsapp_consent_phone: pendingBooking.customer_phone,
+      whatsapp_consent_source: 'guest_reserve',
+      whatsapp_consent_version: 'booking-plus-review-v2',
+      whatsapp_opt_in: true,
+      end_at: '2026-07-12T18:00:00.000Z',
+    };
+    const scheduleReviewIntentMock = vi.fn().mockResolvedValue({
+      data: completed.id,
+      error: null,
+    });
+    const client = {
+      rpc: scheduleReviewIntentMock,
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: 'https://g.page/r/example/review',
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueBookingUpdatedSideEffects(
+      {
+        previous: previous as never,
+        current: completed as never,
+        restaurantId: completed.restaurant_id,
+      },
+      { supabase: client as never },
+    );
+
+    // Then
+    expect(scheduleReviewIntentMock).toHaveBeenCalledOnce();
+    expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
   it('does not send a confirmed email when the booking is still pending', async () => {
@@ -102,7 +370,18 @@ describe('processBookingCreatedSideEffects', () => {
         restaurantId: pendingBooking.restaurant_id,
         emailProvided: true,
       },
-      {} as never,
+      {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { email_send_review_request: true },
+                error: null,
+              }),
+            })),
+          })),
+        })),
+      } as never,
     );
 
     expect(sendFirstBookingConfirmationNotificationsMock).not.toHaveBeenCalled();

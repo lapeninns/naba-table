@@ -115,6 +115,57 @@ describe('WhatsApp review notification ledger migration', () => {
     expect(normalized).toContain('CREATE UNIQUE INDEX IF NOT EXISTS');
   });
 
+  it('adds atomic scheduled intent claiming without reviving terminal reviews @contract @security @local-only', () => {
+    // Given
+    const source = readReviewMigration();
+
+    // When
+    const normalized = source.toLowerCase();
+
+    // Then
+    expect(source).toContain('mobile_intent_status');
+    expect(source).toContain('mobile_intent_scheduled_for');
+    expect(source).toContain('mobile_intent_claim_token uuid');
+    expect(source).toContain('mobile_intent_attempt_id uuid');
+    expect(source).toContain('mobile_intent_provider_message_id text');
+    expect(source).toContain('mobile_intent_attempt_status text');
+    expect(source).toContain('schedule_mobile_review_notification');
+    expect(source).toContain('claim_due_mobile_review_notifications');
+    expect(source).toContain('finalize_mobile_whatsapp_attempt');
+    expect(source).toContain('claim_mobile_notification_preaccept_fallback');
+    expect(source).toContain(
+      "v_whatsapp_status IS NULL OR v_whatsapp_status NOT IN ('claimed', 'failed')",
+    );
+    expect(source).toContain('AND notification_id = p_notification_id');
+    expect(source).toContain('AND recipient_phone = v_notification_recipient_phone');
+    expect(source).toContain('COALESCE(attempt.provider_message_id, p_provider_message_id)');
+    expect(source).toContain("WHEN attempt.status = 'delivered' AND p_status = 'read'");
+    expect(normalized).toContain('for update skip locked');
+    expect(source).toContain('mobile_intent_claim_token = gen_random_uuid()');
+    expect(source).toContain("mobile_intent_status = 'pending'");
+    expect(source).toContain("mobile_intent_claimed_at < now() - interval '15 minutes'");
+    expect(source).toContain("mobile_intent_status IN ('processed', 'skipped', 'failed')");
+    expect(source).toContain('TO service_role');
+  });
+
+  it('proves delayed post-send persistence cannot regress a faster callback @contract @local-only', () => {
+    const source = readReviewProof();
+
+    expect(source).toContain("'delivered'");
+    expect(source).toContain("'queued'");
+    expect(source).toContain(
+      'Post-send finalization regressed callback truth or lost provider SID',
+    );
+  });
+
+  it('proves pre-accept fallback rejects cross-notification and cross-tenant ids @contract @security @local-only', () => {
+    const source = readReviewProof();
+
+    expect(source).toContain('Cross-notification pre-accept fallback was accepted');
+    expect(source).toContain('Cross-notification pre-accept fallback mutated the foreign attempt');
+    expect(source).toContain('Cross-tenant pre-accept fallback was accepted');
+  });
+
   it('proves an attempt cannot change the review recipient snapshot @contract @security @local-only', () => {
     // Given: the transactional staging invariant proof.
     const source = readReviewProof();

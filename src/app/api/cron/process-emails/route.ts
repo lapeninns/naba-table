@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 
 import { captureServerException } from '@/lib/posthog/server';
-import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { recordObservabilityEvent } from '@/server/observability';
 import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
 import {
@@ -10,6 +9,8 @@ import {
   triggerEmailQueueDrain,
 } from '@/server/queue/email';
 import { processEmailJobs, processEmailJobsRequestSchema } from '@/server/queue/email-processing';
+import { drainMobileReviewIntents } from '@/server/queue/mobile-review-intents';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
@@ -71,15 +72,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: typesError }, { status: 400 });
     }
 
-    if (!isEmailQueueEnabled()) {
-      return NextResponse.json({
-        success: true,
-        message: 'Email queue is disabled',
-        processed: 0,
-        filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
-      });
-    }
-
     try {
       await recordObservabilityEvent({
         source: 'cron.process-emails',
@@ -93,15 +85,55 @@ export async function GET(request: Request) {
         },
       });
 
-      const result = await triggerEmailQueueDrain({
-        types: allowedTypes,
-        maxJobs,
-      });
+      const emailQueueEnabled = isEmailQueueEnabled();
+      const [emailOutcome, mobileOutcome] = await Promise.allSettled([
+        emailQueueEnabled
+          ? triggerEmailQueueDrain({
+              types: allowedTypes,
+              maxJobs,
+            })
+          : Promise.resolve({
+              success: true,
+              message: 'Email queue is disabled',
+              processed: 0,
+              stats: { sent: 0, skipped: 0, failed: 0 },
+              filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
+            }),
+        drainMobileReviewIntents({ maxJobs: maxJobs ?? MAX_EMAIL_DRAIN_JOBS }),
+      ]);
+      const result =
+        emailOutcome.status === 'fulfilled'
+          ? emailOutcome.value
+          : {
+              success: false,
+              processed: 0,
+              stats: { sent: 0, skipped: 0, failed: 1 },
+            };
+      const mobileReview =
+        mobileOutcome.status === 'fulfilled'
+          ? mobileOutcome.value
+          : { processed: 0, sent: 0, skipped: 0, failed: 1 };
+      const channels = {
+        email: {
+          success: emailOutcome.status === 'fulfilled',
+          processed: result.processed ?? 0,
+          stats: result.stats,
+        },
+        mobileReview: {
+          success: mobileOutcome.status === 'fulfilled',
+          ...mobileReview,
+        },
+      } as const;
 
       await recordObservabilityEvent({
         source: 'cron.process-emails',
         eventType: 'drain.completed',
-        severity: (result.stats?.failed ?? 0) > 0 ? 'warning' : 'info',
+        severity:
+          emailOutcome.status === 'rejected' || mobileOutcome.status === 'rejected'
+            ? 'error'
+            : (result.stats?.failed ?? 0) > 0 || mobileReview.failed > 0
+              ? 'warning'
+              : 'info',
         context: {
           jobName: auth.jobName,
           runId: auth.runId,
@@ -109,6 +141,10 @@ export async function GET(request: Request) {
           sent: result.stats?.sent ?? 0,
           skipped: result.stats?.skipped ?? 0,
           failed: result.stats?.failed ?? 0,
+          mobileReviewProcessed: mobileReview.processed,
+          mobileReviewSent: mobileReview.sent,
+          mobileReviewSkipped: mobileReview.skipped,
+          mobileReviewFailed: mobileReview.failed,
           filterTypes: allowedTypes ? Array.from(allowedTypes) : null,
           maxJobs: maxJobs ?? null,
         },
@@ -125,7 +161,32 @@ export async function GET(request: Request) {
         });
       }
 
-      return NextResponse.json({ ...result, reconciliation: reconcileReport });
+      if (emailOutcome.status === 'rejected' || mobileOutcome.status === 'rejected') {
+        if (emailOutcome.status === 'rejected') {
+          captureServerException(emailOutcome.reason, {
+            properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron.email' },
+          });
+        }
+        if (mobileOutcome.status === 'rejected') {
+          captureServerException(mobileOutcome.reason, {
+            properties: {
+              jobName: auth.jobName,
+              runId: auth.runId,
+              source: 'cron.mobile-review',
+            },
+          });
+        }
+        return NextResponse.json(
+          {
+            success: false,
+            channels,
+            reconciliation: reconcileReport,
+          },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({ ...result, channels, reconciliation: reconcileReport });
     } catch (error) {
       console.error('[cron][process-emails] Error:', {
         jobName: auth.jobName,

@@ -22,6 +22,7 @@ const SUPPORTED_STATUSES = new Set([
   'failed',
   'canceled',
 ]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function firstForwardedValue(value: string | null): string | null {
   return (
@@ -89,7 +90,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
+  const attemptId = req.nextUrl.searchParams.get('attempt')?.trim() ?? '';
+  if (attemptId && !UUID_PATTERN.test(attemptId)) {
+    return NextResponse.json({ error: 'Invalid attempt correlation' }, { status: 400 });
+  }
+
   const result = await processWhatsAppStatusCallback({
+    ...(attemptId ? { attemptId } : {}),
     errorCode: form.get('ErrorCode')?.trim() || null,
     messageSid,
     providerStatus,

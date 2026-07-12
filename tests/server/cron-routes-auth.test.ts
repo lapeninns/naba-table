@@ -8,6 +8,7 @@ const isDualSyncScheduledRefreshEnabledMock = vi.hoisted(() => vi.fn());
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 const reconcileDeliveryAnomaliesMock = vi.hoisted(() => vi.fn());
 const triggerEmailQueueDrainMock = vi.hoisted(() => vi.fn());
+const drainMobileReviewIntentsMock = vi.hoisted(() => vi.fn());
 const processEmailJobsMock = vi.hoisted(() => vi.fn());
 const autoCompletePastBookingsMock = vi.hoisted(() => vi.fn());
 const runScheduledRefreshForAllTenantsMock = vi.hoisted(() => vi.fn());
@@ -57,6 +58,16 @@ vi.mock('@/server/queue/email-processing', async () => {
 vi.mock('@/server/jobs/auto-complete-bookings', () => ({
   autoCompletePastBookings: autoCompletePastBookingsMock,
 }));
+
+vi.mock('@/server/queue/mobile-review-intents', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>(
+    '@/server/queue/mobile-review-intents',
+  );
+  return {
+    ...actual,
+    drainMobileReviewIntents: drainMobileReviewIntentsMock,
+  };
+});
 
 vi.mock('@/server/dual-sync/scheduling', () => ({
   runScheduledRefreshForAllTenants: runScheduledRefreshForAllTenantsMock,
@@ -193,6 +204,12 @@ describe('cron route authentication', () => {
       processed: 0,
       stats: { sent: 0, skipped: 0, failed: 0 },
       results: [],
+    });
+    drainMobileReviewIntentsMock.mockResolvedValue({
+      processed: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
     });
     processEmailJobsMock.mockResolvedValue({
       processed: 1,
@@ -348,6 +365,7 @@ describe('cron route authentication', () => {
 
     expect(response.status).toBe(200);
     expect(triggerEmailQueueDrainMock).toHaveBeenCalledOnce();
+    expect(drainMobileReviewIntentsMock).toHaveBeenCalledWith({ maxJobs: 100 });
   });
 
   it('caps large email drain limits', async () => {
@@ -358,6 +376,39 @@ describe('cron route authentication', () => {
       types: null,
       maxJobs: 100,
     });
+  });
+
+  it('reports mobile review failure without hiding the completed email drain', async () => {
+    // Given
+    drainMobileReviewIntentsMock.mockRejectedValue(new Error('mobile claim unavailable'));
+
+    // When
+    const response = await processEmailsGET(cronRequest('/api/cron/process-emails'));
+    const payload = await response.json();
+
+    // Then
+    expect(triggerEmailQueueDrainMock).toHaveBeenCalledOnce();
+    expect(response.status).toBe(500);
+    expect(payload).toMatchObject({
+      success: false,
+      channels: {
+        email: { success: true, processed: 0 },
+        mobileReview: { success: false },
+      },
+    });
+  });
+
+  it('drains mobile reviews even when the email queue is disabled', async () => {
+    // Given
+    isEmailQueueEnabledMock.mockReturnValue(false);
+
+    // When
+    const response = await processEmailsGET(cronRequest('/api/cron/process-emails'));
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(triggerEmailQueueDrainMock).not.toHaveBeenCalled();
+    expect(drainMobileReviewIntentsMock).toHaveBeenCalledOnce();
   });
 
   it('keeps dryRun behind auth and caps auto-complete limits', async () => {

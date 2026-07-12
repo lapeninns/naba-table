@@ -8,13 +8,18 @@ allowed_blast_radius:
   - micro-specs/05-integrations/**
   - micro-specs/evidence/MS-integrations-whatsapp-review-delivery.json
   - .omo/evidence/task-6-whatsapp-review-production-release.json
+  - .omo/evidence/task-5-whatsapp-review-production-release.md
   - tasks/whatsapp-review-production-release-20260712-1921/**
   - CONTINUITY.md
   - server/jobs/booking-side-effects.ts
   - server/jobs/auto-complete-bookings.ts
   - server/notifications/booking-whatsapp-content.ts
+  - server/sms/bookings.ts
   - server/queue/email-processing.ts
+  - server/queue/mobile-review-intents.ts
   - server/emails/bookings.ts
+  - src/app/api/cron/process-emails/route.ts
+  - src/app/api/webhook/twilio/whatsapp-status/route.ts
   - lib/env.ts
   - config/env.schema.ts
   - .env.example
@@ -24,16 +29,25 @@ allowed_blast_radius:
   - tests/server/jobs/auto-complete-bookings.test.ts
   - tests/server/notifications/booking-whatsapp-content.test.ts
   - tests/server/email-processing-security.test.ts
+  - tests/server/mobile-review-intents.test.ts
+  - tests/server/email-queue-route.test.ts
+  - tests/server/cron-routes-auth.test.ts
   - tests/server/restaurant-email-templates.test.ts
+  - tests/server/sms/bookings.test.ts
   - tests/lib/env.test.ts
   - tests/config/env-schema-target.test.ts
   - tests/scripts/whatsapp-review-production-release.test.ts
+  - .omo/evidence/task-5-whatsapp-review-production-release.md
 implementation_surfaces:
   - server/jobs/booking-side-effects.ts
   - server/jobs/auto-complete-bookings.ts
   - server/notifications/booking-whatsapp-content.ts
+  - server/sms/bookings.ts
   - server/queue/email-processing.ts
+  - server/queue/mobile-review-intents.ts
   - server/emails/bookings.ts
+  - src/app/api/cron/process-emails/route.ts
+  - src/app/api/webhook/twilio/whatsapp-status/route.ts
   - lib/env.ts
   - config/env.schema.ts
   - .env.example
@@ -43,7 +57,11 @@ implementation_surfaces:
   - tests/server/jobs/auto-complete-bookings.test.ts
   - tests/server/notifications/booking-whatsapp-content.test.ts
   - tests/server/email-processing-security.test.ts
+  - tests/server/mobile-review-intents.test.ts
+  - tests/server/email-queue-route.test.ts
+  - tests/server/cron-routes-auth.test.ts
   - tests/server/restaurant-email-templates.test.ts
+  - tests/server/sms/bookings.test.ts
   - tests/lib/env.test.ts
   - tests/config/env-schema-target.test.ts
   - tests/scripts/whatsapp-review-production-release.test.ts
@@ -90,6 +108,8 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   the venue's existing review-request preference and requires eligible version 2 WhatsApp consent.
 - The review email continues under its existing preference and queue semantics. WhatsApp does not
   cancel, replace, or deduplicate the email channel.
+- Review WhatsApp work uses the mobile notification intent state and is never stored, processed, or
+  reported as an email intent.
 - Provider-assigned template category is read back and recorded; code and release checks must not
   assume a category requested at submission.
 - Production configuration fails closed unless sender and all five booking Content SIDs are present.
@@ -114,6 +134,18 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   scheduler SHALL skip WhatsApp review without sending SMS and without changing email behavior.
 - WHEN eligible, THE job SHALL dispatch one approved review template whose native **Leave a review**
   button receives the actual purpose-scoped HTTPS link required by the provider contract.
+- WHEN review delivery is scheduled, THE scheduler SHALL enqueue email only when email is eligible
+  and SHALL independently enqueue one durable mobile review intent when WhatsApp is eligible.
+- IF one review channel fails or is skipped, THEN THE worker SHALL preserve truthful channel state
+  and SHALL NOT block, revive, or misreport the other channel.
+- IF attempt finalization is temporarily unavailable after a provider outcome is known, THEN THE
+  worker SHALL durably retry only ledger finalization and SHALL NOT resend the WhatsApp template.
+- IF a lifecycle WhatsApp send definitely fails before provider acceptance and the first attempt
+  finalization write is transient, THEN THE dispatcher SHALL retry bounded finalization and SHALL
+  execute the existing SMS fallback after the attempt is truthfully failed.
+- IF lifecycle pre-accept failure finalization remains pending, THEN THE booking caller SHALL NOT
+  report WhatsApp acceptance and SHALL deliver the ordinary SMS path; review requests remain
+  durable finalization-only work with no SMS.
 - WHEN provider template state is checked, THE release tooling SHALL require approved status for
   all five booking templates and SHALL record the category returned by the provider.
 - IF any of the five templates is unapproved or required production config is absent, THEN THE
