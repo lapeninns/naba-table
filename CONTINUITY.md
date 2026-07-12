@@ -16,7 +16,8 @@ Last updated: 2026-07-12T10:04:00Z
 - State: all four specs are active with clean machine transition evidence; governance validates 31
   specs and the 61-test Micro-Spec suite passes. Product implementation and remote release remain next.
 - Adversarial follow-up: radii now include durable task/evidence paths and assign every expected
-  implementation file to one owning spec; clean implemented dry-run proof is the remaining check.
+  implementation file to one owning spec. All four clean implemented dry-runs, the 52-file synthetic
+  check, governance guard/check, and 61-test Micro-Spec suite pass.
 
 ## Current silent production table-assignment repair
 

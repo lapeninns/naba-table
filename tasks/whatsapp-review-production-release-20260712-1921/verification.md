@@ -62,4 +62,11 @@ implementation program governed by these active specs.
 - `GOVERNANCE_CHANGED_FILES='<52 expected files>' pnpm governance:check` passed for the complete
   consent, ledger/callback, redirect Worker/client/smoke, delivery/email/env/release, and shared
   process-path set.
-- Final clean-tree implemented dry-runs and standard gates are pending the radius-fix commit.
+- Radius repair commit: `12bda84b` (`Repair WhatsApp review spec radii`).
+- All four clean-tree `pnpm governance:advance <spec> --to implemented --dry-run` commands passed;
+  consent, redirect, and delivery would run six fresh gates, while ledger would run seven.
+- Final `pnpm guard:micro-specs` passed with 31 valid specs.
+- Final `pnpm test:micro-specs` passed all 61 tests.
+- Final `pnpm governance:check` passed with 31 specs, 18 CI commands, and 0 changed files.
+- The 52-file synthetic governance check passed again after the radius commit.
+- An implementation-surface intersection check returned no duplicate entries across the four specs.
