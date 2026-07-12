@@ -8,7 +8,6 @@ import { emit } from '@/lib/analytics/emit';
 import { BOOKING_IN_PAST_CUSTOMER_MESSAGE } from '@/lib/bookings/messages';
 import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { extractBookingSubmissionError, mapErrorToMessage } from '@reserve/shared/error';
-import { useStickyProgress } from '@reserve/shared/hooks/useStickyProgress';
 import { BOOKING_TYPES_UI } from '@shared/config/booking';
 import { runtime } from '@shared/config/runtime';
 
@@ -120,6 +119,24 @@ const isTimeoutError = (error: unknown): error is { code?: string | number | nul
 
 const TIMEOUT_RECOVERY_ATTEMPTS = 3;
 const TIMEOUT_RECOVERY_DELAY_MS = 2_000;
+
+export function getTimeoutContactGuidance(draft: Pick<ReservationDraft, 'email'>): {
+  error: string;
+  alert: string;
+} {
+  if (draft.email?.trim()) {
+    return {
+      error:
+        'We could not confirm the booking in time. Please check your email before trying again.',
+      alert: 'If you received a confirmation email you are all set—otherwise retry now.',
+    };
+  }
+  return {
+    error:
+      'We could not confirm the booking in time. Please check your phone for a confirmation before trying again.',
+    alert: 'If you received a confirmation message you are all set—otherwise retry now.',
+  };
+}
 
 export function useReservationWizard(
   initialDetails?: Partial<BookingDetails>,
@@ -362,7 +379,7 @@ export function useReservationWizard(
     [],
   );
 
-  const { shouldShow: stickyVisible } = useStickyProgress(heroRef);
+  const stickyVisible = true;
 
   const handleStickyHeightChange = useCallback((height: number) => {
     setStickyHeight((prev) => (Math.abs(prev - height) < 1 ? prev : height));
@@ -573,10 +590,9 @@ export function useReservationWizard(
         actions.setSubmitting(false);
         actions.goToStep(originStep);
         actions.setSubmissionError(null);
-        actions.setError(
-          'We could not confirm the booking in time. Please check your email before trying again.',
-        );
-        setPlanAlert('If you received a confirmation email you are all set—otherwise retry now.');
+        const timeoutGuidance = getTimeoutContactGuidance(draft);
+        actions.setError(timeoutGuidance.error);
+        setPlanAlert(timeoutGuidance.alert);
         analytics.track('booking_timeout_unrecovered', {
           context: mode,
           party: draft.party,

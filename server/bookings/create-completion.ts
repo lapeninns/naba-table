@@ -81,7 +81,7 @@ export async function completeBookingCreate({
   }
 
   const { booking: finalBooking } = await finalizer({
-    actor: request.email,
+    actor: request.email || persistence.customer.id,
     autoAssignEnabled,
     booking: bookingWithConsent,
     client,

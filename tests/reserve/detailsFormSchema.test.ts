@@ -19,9 +19,40 @@ describe('createDetailsFormSchema', () => {
     }
 
     const fieldErrors = result.error.flatten().fieldErrors;
-    expect(fieldErrors.email?.[0]).toBe('Please enter a valid email address.');
-    expect(fieldErrors.phone?.[0]).toBe('Please enter your phone number.');
+    expect(fieldErrors.email?.[0]).toBe('Add an email address or phone number.');
+    expect(fieldErrors.phone?.[0]).toBe('Add an email address or phone number.');
     expect(fieldErrors.agree?.[0]).toBe('Please accept the terms to continue.');
+  });
+
+  it.each([
+    { email: 'guest@example.com', phone: '' },
+    { email: '', phone: '07123 456789' },
+  ])('accepts customer details with one valid contact method @contract', ({ email, phone }) => {
+    expect(
+      createDetailsFormSchema('customer').safeParse({
+        name: 'Guest Booker',
+        email,
+        phone,
+        rememberDetails: false,
+        marketingOptIn: false,
+        agree: true,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a malformed populated contact even when the alternative is valid @contract', () => {
+    const result = createDetailsFormSchema('customer').safeParse({
+      name: 'Guest Booker',
+      email: 'guest@example.com',
+      phone: '123',
+      rememberDetails: false,
+      marketingOptIn: false,
+      agree: true,
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error('Expected phone validation to fail.');
+    expect(result.error.flatten().fieldErrors.phone?.[0]).toMatch(/valid UK phone number/);
   });
 
   it('requires at least one contact method in ops mode without requiring guest terms @contract', () => {

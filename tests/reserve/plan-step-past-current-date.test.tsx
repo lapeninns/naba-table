@@ -89,7 +89,7 @@ describe('usePlanStepForm current-day availability recovery', () => {
       from: '2026-07-01',
       to: '2026-07-31',
       closedDaysOfWeek: [],
-      closedDates: [],
+      closedDates: ['2026-07-08', '2026-07-09'],
     };
     vi.mocked(fetchCalendarMask).mockResolvedValue(mask);
     vi.mocked(fetchReservationSchedule).mockResolvedValue(buildSchedule('2026-07-07'));
@@ -106,7 +106,7 @@ describe('usePlanStepForm current-day availability recovery', () => {
     });
     const actions = buildActions();
 
-    renderHook(
+    const { result } = renderHook(
       () =>
         usePlanStepForm({
           state,
@@ -119,7 +119,8 @@ describe('usePlanStepForm current-day availability recovery', () => {
     );
 
     await waitFor(() => {
-      expect(actions.updateDetails).toHaveBeenCalledWith('date', '2026-07-08');
+      expect(actions.updateDetails).toHaveBeenCalledWith('date', '2026-07-10');
     });
+    expect(result.current.dateChangeMessage).toContain('Friday, 10 July 2026');
   });
 });

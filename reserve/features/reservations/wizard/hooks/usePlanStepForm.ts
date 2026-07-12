@@ -19,7 +19,7 @@ import {
   type ReservationSchedule,
 } from '@reserve/features/reservations/wizard/services/timeSlots';
 import { isBookingOption } from '@reserve/shared/booking';
-import { formatDateForInput } from '@reserve/shared/formatting/booking';
+import { formatDateForInput, formatReservationDate } from '@reserve/shared/formatting/booking';
 import { filterSelectableTimeSlots, isPastOrClosing } from '@reserve/shared/schedule/availability';
 import { toMinutes } from '@reserve/shared/time';
 import { isWeekend, toDateMidnight } from '@reserve/shared/time/date';
@@ -127,7 +127,7 @@ const parseDateKey = (value: string | null | undefined): Date | null => {
   return Number.isNaN(next.getTime()) ? null : next;
 };
 
-const findNextCandidateDate = (
+export const findNextCandidateDate = (
   currentDate: string,
   unavailableDates: Map<string, PlanStepUnavailableReason>,
   options?: { skipNoSlots?: boolean },
@@ -156,6 +156,9 @@ const findNextCandidateDate = (
 
 export const PLAN_DATE_ADVISORY_COPY =
   'Weekend and holiday hours can vary. Contact the venue directly if you need to confirm availability before you travel.';
+
+const automaticDateChangeMessage = (date: string) =>
+  `That date is unavailable, so we moved you to ${formatReservationDate(date)}.`;
 
 export function derivePlanDateAdvisory(
   date: string | null | undefined,
@@ -601,6 +604,7 @@ export function usePlanStepForm({
     },
   });
   const initialPrefetchSlugRef = useRef<string | null>(null);
+  const [dateChangeMessage, setDateChangeMessage] = useState<string | null>(null);
 
   const {
     unavailableDates,
@@ -616,6 +620,18 @@ export function usePlanStepForm({
     minDate,
     initialCalendarMask,
   });
+  const effectiveUnavailableDates = useMemo(() => {
+    if (!initialCalendarMask) {
+      return unavailableDates;
+    }
+    const next = new Map(unavailableDates);
+    deriveMaskAvailability(initialCalendarMask, normalizedMinDate.getTime()).forEach(
+      (reason, dateKey) => {
+        if (reason) next.set(dateKey, reason);
+      },
+    );
+    return next;
+  }, [initialCalendarMask, normalizedMinDate, unavailableDates]);
 
   useEffect(() => {
     const slug = state.details.restaurantSlug?.trim();
@@ -641,17 +657,18 @@ export function usePlanStepForm({
       return;
     }
 
-    const reason = unavailableDates.get(currentDate);
+    const reason = effectiveUnavailableDates.get(currentDate);
     if (reason !== 'closed') {
       return;
     }
 
-    const nextDate = findNextCandidateDate(currentDate, unavailableDates);
+    const nextDate = findNextCandidateDate(currentDate, effectiveUnavailableDates);
     if (nextDate) {
       form.setValue('date', nextDate, { shouldDirty: false, shouldValidate: true });
       actions.updateDetails('date', nextDate);
+      setDateChangeMessage(automaticDateChangeMessage(nextDate));
     }
-  }, [actions, form, state.details.date, unavailableDates]);
+  }, [actions, effectiveUnavailableDates, form, state.details.date]);
 
   const {
     slots,
@@ -780,6 +797,7 @@ export function usePlanStepForm({
 
   const selectDate = useCallback(
     (value: Date | undefined | null) => {
+      setDateChangeMessage(null);
       const formatted = value ? formatDateForInput(value) : '';
       form.setValue('date', formatted, { shouldDirty: true, shouldValidate: true });
       updateField('date', formatted);
@@ -887,7 +905,7 @@ export function usePlanStepForm({
       }
       if (isCurrentDate) {
         if (derivedReason === 'no-slots' && isScheduleExhaustedByCurrentTime(schedule)) {
-          const nextDate = findNextCandidateDate(scheduleDate, unavailableDates, {
+          const nextDate = findNextCandidateDate(scheduleDate, effectiveUnavailableDates, {
             skipNoSlots: true,
           });
           if (nextDate) {
@@ -896,6 +914,7 @@ export function usePlanStepForm({
             form.setValue('time', '', { shouldDirty: false, shouldValidate: true });
             updateField('date', nextDate);
             updateField('time', '');
+            setDateChangeMessage(automaticDateChangeMessage(nextDate));
             return;
           }
         }
@@ -963,7 +982,7 @@ export function usePlanStepForm({
     schedule,
     state.details.date,
     state.details.restaurantSlug,
-    unavailableDates,
+    effectiveUnavailableDates,
     updateField,
     updateUnavailableDate,
   ]);
@@ -1035,7 +1054,7 @@ export function usePlanStepForm({
     },
     minDate: normalizedMinDate,
     intervalMinutes,
-    unavailableDates,
+    unavailableDates: effectiveUnavailableDates,
     loadingDates,
     hasAvailableSlots,
     isScheduleLoading,
@@ -1043,6 +1062,7 @@ export function usePlanStepForm({
     schedule,
     currentUnavailabilityReason,
     advisoryMessage,
+    dateChangeMessage,
     isSubmitting: form.formState.isSubmitting,
     isValid: form.formState.isValid,
     submitForm,

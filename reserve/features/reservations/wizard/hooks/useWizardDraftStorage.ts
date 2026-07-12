@@ -8,7 +8,7 @@ type StoredDraft = {
   version: 1;
   savedAt: number;
   expiresAt: number;
-  details: BookingDetails;
+  details: Omit<BookingDetails, 'agree'> & { agree?: boolean };
 };
 
 const CURRENT_VERSION = 1;
@@ -173,6 +173,10 @@ const readDraftFromKey = (key: string): LoadedDraft | null => {
 
   let needsRewrite = false;
   if (parsed.details) {
+    if ('agree' in parsed.details) {
+      delete parsed.details.agree;
+      needsRewrite = true;
+    }
     const legacyContact = {
       name: parsed.details.name,
       email: parsed.details.email,
@@ -212,7 +216,7 @@ const readDraftFromKey = (key: string): LoadedDraft | null => {
   }
 
   return {
-    details: parsed.details,
+    details: { ...parsed.details, agree: false },
     expired: parsed.expiresAt <= Date.now(),
     expiresAt: parsed.expiresAt,
     source: key === DRAFT_STORAGE_KEY ? 'legacy' : 'namespaced',
@@ -271,12 +275,14 @@ export function saveWizardDraft(details: BookingDetails): void {
   }
   const normalizedSlug = normalizeSlug(details.restaurantSlug);
   const key = normalizedSlug ? `${DRAFT_STORAGE_KEY}.${normalizedSlug}` : DRAFT_STORAGE_KEY;
+  const { agree: _ignoredConsent, ...detailsWithoutConsent } = details;
+  void _ignoredConsent;
   const payload: StoredDraft = {
     version: CURRENT_VERSION,
     savedAt: Date.now(),
     expiresAt: Date.now() + WIZARD_DRAFT_TTL_MS,
     details: {
-      ...details,
+      ...detailsWithoutConsent,
       // Strip at-rest PII from the localStorage draft. `notes` is free text that
       // routinely carries allergies / accessibility needs, so it is blanked
       // alongside name/email/phone (contact fields live in sessionStorage).
@@ -339,6 +345,7 @@ const mergeDraftWithContacts = (draft: LoadedDraft, expectedSlug: string | null)
     details: {
       ...draft.details,
       ...storedContacts.data,
+      agree: false,
     },
   };
 };

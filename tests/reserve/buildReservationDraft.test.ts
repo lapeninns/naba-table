@@ -144,4 +144,35 @@ describe('buildReservationDraft', () => {
     expect(result.draft.email).toBeNull();
     expect(result.draft.phone).toBeNull();
   });
+
+  it.each([
+    {
+      email: 'guest@example.com',
+      phone: '',
+      expectedEmail: 'guest@example.com',
+      expectedPhone: null,
+    },
+    { email: '', phone: '07123 456789', expectedEmail: null, expectedPhone: '07123 456789' },
+  ])(
+    'preserves one customer contact and omits the blank alternative @contract',
+    ({ email, phone, expectedEmail, expectedPhone }) => {
+      const details = getInitialDetails({
+        restaurantId: 'rest-1',
+        restaurantSlug: 'the-fox',
+        date: '2026-03-29',
+        time: '18:30',
+        party: 2,
+        bookingType: 'dinner',
+        name: 'Guest Booker',
+        email,
+        phone,
+      });
+
+      const result = buildReservationDraft(details);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(result.error);
+      expect(result.draft.email).toBe(expectedEmail);
+      expect(result.draft.phone).toBe(expectedPhone);
+    },
+  );
 });

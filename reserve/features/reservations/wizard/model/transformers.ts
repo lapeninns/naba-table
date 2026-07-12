@@ -28,7 +28,7 @@ const normalizeContactValue = (value: string, required: boolean): string | null 
 
 export const buildReservationDraft = (
   details: BookingDetails,
-  mode: BookingWizardMode = 'customer',
+  _mode: BookingWizardMode = 'customer',
 ): DraftResult => {
   const normalizedRestaurantId = details.restaurantId?.trim();
   const normalizedRestaurantSlug = details.restaurantSlug?.trim().toLowerCase() || undefined;
@@ -62,8 +62,8 @@ export const buildReservationDraft = (
       bookingType,
       notes: details.notes ? details.notes : null,
       name: details.name.trim(),
-      email: normalizeContactValue(details.email, mode !== 'ops'),
-      phone: normalizeContactValue(details.phone, mode !== 'ops'),
+      email: normalizeContactValue(details.email, false),
+      phone: normalizeContactValue(details.phone, false),
       marketingOptIn: buildMarketingOptIn(details.marketingOptIn),
       whatsappOptIn: Boolean(details.whatsappOptIn),
     },

@@ -110,5 +110,53 @@ describe('booking request validation', () => {
         );
       }
     });
+
+    it.each([
+      { email: 'guest@example.com', phone: '' },
+      { email: '', phone: '07123456789' },
+    ])('accepts a create request with one valid contact @api @contract', ({ email, phone }) => {
+      expect(
+        bookingCreateRequestSchema.parse({
+          ...validBookingRequest,
+          email,
+          phone,
+        }),
+      ).toMatchObject({ email, phone });
+    });
+
+    it('rejects WhatsApp opt-in when no phone number is supplied @api @contract', () => {
+      const parsed = bookingCreateRequestSchema.safeParse({
+        ...validBookingRequest,
+        email: 'guest@example.com',
+        phone: '',
+        whatsappOptIn: true,
+      });
+
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) {
+        expect(parsed.error.issues).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              path: ['phone'],
+              message: 'Add a phone number for WhatsApp updates.',
+            }),
+          ]),
+        );
+      }
+    });
+
+    it('rejects a create request with neither contact @api @contract', () => {
+      const result = bookingCreateRequestSchema.safeParse({
+        ...validBookingRequest,
+        email: '',
+        phone: '',
+      });
+
+      expect(result.success).toBe(false);
+      if (result.success) throw new Error('Expected contact validation to fail.');
+      expect(result.error.issues.map((issue) => issue.path.join('.'))).toEqual(
+        expect.arrayContaining(['email', 'phone']),
+      );
+    });
   });
 });

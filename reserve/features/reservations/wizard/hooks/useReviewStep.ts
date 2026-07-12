@@ -26,9 +26,7 @@ export function useReviewStep({
   const contextActions = useWizardActions();
   const state = providedState ?? contextState;
   if (!state) {
-    throw new Error(
-      'useReviewStep requires an explicit state prop or a WizardProvider ancestor.',
-    );
+    throw new Error('useReviewStep requires an explicit state prop or a WizardProvider ancestor.');
   }
   const actions = useMemo(
     () => ({
@@ -58,7 +56,7 @@ export function useReviewStep({
     const partyText = `${details.party} ${details.party === 1 ? 'guest' : 'guests'}`;
     const summaryValue =
       details.date && details.time
-        ? `${details.party} at ${formatReservationTime(details.time)} on ${formatReservationSummaryDate(details.date)}`
+        ? `${formatReservationTime(details.time)} on ${formatReservationSummaryDate(details.date)}`
         : partyText;
 
     return {

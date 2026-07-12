@@ -34,18 +34,12 @@ const nameSchema = z
   .min(2, { message: 'Please enter at least two characters.' })
   .max(120, { message: 'Name looks too long. Shorten it a little.' });
 
-const buildEmailSchema = (mode: BookingWizardMode) =>
+const buildEmailSchema = () =>
   z
     .string()
     .trim()
     .superRefine((value, ctx) => {
       if (!value) {
-        if (mode !== 'ops') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Please enter a valid email address.',
-          });
-        }
         return;
       }
 
@@ -57,18 +51,12 @@ const buildEmailSchema = (mode: BookingWizardMode) =>
       }
     });
 
-const buildPhoneSchema = (mode: BookingWizardMode) =>
+const buildPhoneSchema = () =>
   z
     .string()
     .trim()
     .superRefine((value, ctx) => {
       if (!value) {
-        if (mode !== 'ops') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Please enter your phone number.',
-          });
-        }
         return;
       }
 
@@ -94,18 +82,14 @@ export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
   z
     .object({
       name: nameSchema,
-      email: buildEmailSchema(mode),
-      phone: buildPhoneSchema(mode),
+      email: buildEmailSchema(),
+      phone: buildPhoneSchema(),
       rememberDetails: z.boolean().default(mode !== 'ops'),
       marketingOptIn: z.boolean().default(mode !== 'ops'),
       whatsappOptIn: z.boolean().default(false),
       agree: buildAgreeSchema(mode),
     })
     .superRefine((values, ctx) => {
-      if (mode !== 'ops') {
-        return;
-      }
-
       const hasEmail = values.email.trim().length > 0;
       const hasPhone = values.phone.trim().length > 0;
 

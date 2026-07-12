@@ -51,6 +51,7 @@ vi.mock('@features/reservations/wizard/hooks/usePlanStepForm', async () => {
         schedule: null,
         currentUnavailabilityReason: null,
         advisoryMessage: null,
+        dateChangeMessage: null,
         isSubmitting: false,
         isValid: true,
         submitForm: vi.fn(),
@@ -80,6 +81,20 @@ describe('PlanStepForm', () => {
     expect(screen.getByRole('button', { name: /Date/ })).toBeInTheDocument();
     expect(screen.getByText('Time')).toBeInTheDocument();
     expect(screen.getByText('Add dietary, access, or occasion notes')).toBeInTheDocument();
+    expect(screen.getByText('Party size, date, and time are required.')).toBeVisible();
+  });
+
+  it('explains why Continue is unavailable and announces automatic date changes @contract', () => {
+    harness.overrides = {
+      isValid: false,
+      dateChangeMessage: 'That date is unavailable, so we moved you to Wednesday, 8 July 2026.',
+    };
+    renderForm();
+
+    expect(screen.getByText('Choose a date and available time to continue.')).toBeVisible();
+    expect(
+      screen.getByText('That date is unavailable, so we moved you to Wednesday, 8 July 2026.'),
+    ).toHaveAttribute('aria-live', 'polite');
   });
 
   it('routes party stepper interaction to the plan handlers @contract', async () => {
