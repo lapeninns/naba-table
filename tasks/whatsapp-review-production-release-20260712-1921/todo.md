@@ -12,5 +12,6 @@
 - [x] Local notification, Worker, security, type, lint, governance, and formatting gates were run.
 - [x] An isolated Cloudflare staging D1 was created, initialized, and read back.
 - [ ] Supabase staging migration/list/SQL/drift proof is blocked by rejected DB authentication.
-- [ ] Cloudflare staging Worker deploy/readback/HTTP smoke is blocked by Workers API HTTP 521.
+- [x] Cloudflare staging Worker deploy and version readback succeeded after the bounded retry.
+- [ ] Staging Worker authenticated-create smoke remains blocked by an isolated secret mismatch (401).
 - [ ] Production release and live traffic remain disabled until staging proof and provider approval gates pass.

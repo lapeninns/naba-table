@@ -62,8 +62,11 @@ implementation program governed by these active specs.
 - An isolated Cloudflare staging D1 was created in WEUR, initialized from the checked-in schema, and
   read back successfully. The existing production Worker stayed healthy and its deployed version
   remained the captured rollback baseline.
-- Bounded staging Worker deploy retries stopped after repeated Cloudflare Workers API HTTP 521
-  responses. Readback confirmed no staging Worker was created; no production Worker was deployed.
+- After initial HTTP 521 failures, the final bounded retry deployed and read back the isolated
+  staging Worker. Health returned 200 and missing authorization returned 401. Authenticated creation
+  still returned 401 after the staging-only secret binding was set; code/tests and Wrangler readback
+  agree on `INTERNAL_LINKS_TOKEN` plus the Bearer-header contract, but Cloudflare exposes no secret
+  value hash for independent comparison. No production Worker was deployed.
 - Focused release tests (157), security tests (227), background-worker tests (125), typecheck, lint,
   changed-file ESLint, governance, service-role guard, Luma, changed-file Prettier, and diff checks
   passed.

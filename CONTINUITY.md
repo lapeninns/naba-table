@@ -20,9 +20,10 @@ Last updated: 2026-07-12T21:30:00Z
   implementation file to one owning spec. All four clean implemented dry-runs, the 52-file synthetic
   check, governance guard/check, and 61-test Micro-Spec suite pass.
 - Task 7A staging result: env identity and safe-run dry-run passed, but Supabase readback stopped on
-  rejected staging DB authentication (28P01). An isolated staging D1 was created and initialized;
-  Cloudflare staging Worker deployment stopped after bounded HTTP 521 API failures. Production
-  Worker/config/provider traffic remained unchanged. See `.omo/evidence/task-7a-whatsapp-review-staging.txt`.
+  rejected staging DB authentication (28P01). An isolated staging D1 and Worker were deployed and
+  read back after transient HTTP 521 failures; health and unauthorized smoke passed, while the
+  authenticated-create smoke remains 401 on the isolated secret binding. Production Worker/config/
+  provider traffic remained unchanged. See `.omo/evidence/task-7a-whatsapp-review-staging.txt`.
 
 ## Current silent production table-assignment repair
 
