@@ -1,6 +1,10 @@
 import 'server-only';
 
-import { mapProviderMobileStatus, type MobileAttemptStatus } from '@/server/notifications/mobile';
+import {
+  mapProviderMobileStatus,
+  type MobileAttemptStatus,
+  type MobileNotificationType,
+} from '@/server/notifications/mobile';
 import { sendClaimedBookingSmsFallback } from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -22,6 +26,43 @@ const STATUS_RANK: Readonly<Record<MobileAttemptStatus, number>> = {
   failed: 4,
 };
 
+type WhatsAppStatusInput = {
+  readonly errorCode: string | null;
+  readonly messageSid: string;
+  readonly providerStatus: string;
+  readonly recipientPhone: string;
+};
+
+type WhatsAppAttemptLookup = {
+  readonly id: string;
+  readonly notificationId: string;
+  readonly notificationType: MobileNotificationType;
+  readonly notificationRecipientPhone: string;
+  readonly recipientPhone: string;
+  readonly restaurantId: string;
+  readonly status: MobileAttemptStatus;
+};
+
+export type WhatsAppStatusDependencies = {
+  readonly claimFallback: (input: {
+    readonly notificationId: string;
+    readonly recipientPhone: string;
+    readonly restaurantId: string;
+    readonly whatsappAttemptId: string;
+  }) => Promise<string | null>;
+  readonly findAttempt: (messageSid: string) => Promise<WhatsAppAttemptLookup | null>;
+  readonly sendFallback: (input: {
+    readonly attemptId: string;
+    readonly notificationId: string;
+  }) => Promise<boolean>;
+  readonly updateAttempt: (input: {
+    readonly attemptId: string;
+    readonly currentStatus: MobileAttemptStatus;
+    readonly errorCode: string | null;
+    readonly status: MobileAttemptStatus;
+  }) => Promise<boolean>;
+};
+
 export function shouldApplyWhatsAppStatus(
   current: MobileAttemptStatus,
   incoming: MobileAttemptStatus,
@@ -39,86 +80,158 @@ function normalizeWhatsAppRecipient(value: string): string {
   return value.trim().replace(/^whatsapp:/i, '');
 }
 
-export async function processWhatsAppStatusCallback({
-  errorCode,
-  messageSid,
-  providerStatus,
-  recipientPhone,
-}: {
-  errorCode: string | null;
-  messageSid: string;
-  providerStatus: string;
-  recipientPhone: string;
-}): Promise<{ ignored: boolean; fallbackSent: boolean }> {
+function parseMobileNotificationType(value: string): MobileNotificationType | null {
+  switch (value) {
+    case 'booking_confirmation':
+    case 'booking_update':
+    case 'booking_cancellation':
+    case 'restaurant_cancellation':
+    case 'booking_review_request':
+    case 'manager_daily_summary':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function parseMobileAttemptStatus(value: string): MobileAttemptStatus | null {
+  switch (value) {
+    case 'claimed':
+    case 'accepted':
+    case 'queued':
+    case 'sent':
+    case 'delivered':
+    case 'read':
+    case 'undelivered':
+    case 'failed':
+      return value;
+    default:
+      return null;
+  }
+}
+
+export async function reconcileWhatsAppStatusWithDependencies(
+  { errorCode, messageSid, providerStatus, recipientPhone }: WhatsAppStatusInput,
+  dependencies: WhatsAppStatusDependencies,
+): Promise<{ ignored: boolean; fallbackSent: boolean }> {
   const incoming = mapProviderMobileStatus(providerStatus);
-  const client = getServiceSupabaseClient();
   const normalizedRecipient = normalizeWhatsAppRecipient(recipientPhone);
-  const { data: attempt, error } = await client
-    .from('mobile_notification_attempts')
-    .select('id,notification_id,recipient_phone,status')
-    .eq('provider', 'twilio')
-    .eq('provider_message_id', messageSid)
-    .eq('channel', 'whatsapp')
-    .maybeSingle();
-
-  if (error) {
-    throw new Error('Failed to resolve WhatsApp delivery attempt.');
+  const attempt = await dependencies.findAttempt(messageSid);
+  if (!attempt || attempt.recipientPhone !== normalizedRecipient) {
+    return { ignored: true, fallbackSent: false };
   }
-  if (!attempt || attempt.recipient_phone !== normalizedRecipient) {
+  if (!shouldApplyWhatsAppStatus(attempt.status, incoming)) {
     return { ignored: true, fallbackSent: false };
   }
 
-  const current = attempt.status as MobileAttemptStatus;
-  if (!shouldApplyWhatsAppStatus(current, incoming)) {
-    return { ignored: true, fallbackSent: false };
-  }
-
-  const { data: updated, error: updateError } = await client
-    .from('mobile_notification_attempts')
-    .update({
-      error_code: errorCode,
-      status: incoming,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', attempt.id)
-    .eq('status', current)
-    .select('id')
-    .maybeSingle();
-  if (updateError) {
-    throw new Error('Failed to update WhatsApp delivery status.');
-  }
+  const updated = await dependencies.updateAttempt({
+    attemptId: attempt.id,
+    currentStatus: attempt.status,
+    errorCode,
+    status: incoming,
+  });
   if (!updated || (incoming !== 'failed' && incoming !== 'undelivered')) {
     return { ignored: !updated, fallbackSent: false };
   }
-
-  const { data: notification, error: notificationError } = await client
-    .from('mobile_notifications')
-    .select('restaurant_id,recipient_phone')
-    .eq('id', attempt.notification_id)
-    .single();
-  if (notificationError || !notification) {
-    throw new Error('Failed to resolve WhatsApp notification for fallback.');
+  if (attempt.notificationType === 'booking_review_request') {
+    return { ignored: false, fallbackSent: false };
   }
 
-  const { data: fallbackAttemptId, error: fallbackError } = await client.rpc(
-    'claim_mobile_notification_fallback',
-    {
-      p_fallback_for_attempt_id: attempt.id,
-      p_notification_id: attempt.notification_id,
-      p_recipient_phone: notification.recipient_phone,
-      p_restaurant_id: notification.restaurant_id,
-    },
-  );
-  if (fallbackError) {
-    throw new Error('Failed to claim WhatsApp SMS fallback.');
-  }
+  const fallbackAttemptId = await dependencies.claimFallback({
+    notificationId: attempt.notificationId,
+    recipientPhone: attempt.notificationRecipientPhone,
+    restaurantId: attempt.restaurantId,
+    whatsappAttemptId: attempt.id,
+  });
   if (!fallbackAttemptId) {
     return { ignored: false, fallbackSent: false };
   }
 
-  const fallbackSent = await sendClaimedBookingSmsFallback({
+  const fallbackSent = await dependencies.sendFallback({
     attemptId: fallbackAttemptId,
-    notificationId: attempt.notification_id,
+    notificationId: attempt.notificationId,
   });
   return { ignored: false, fallbackSent };
+}
+
+export async function processWhatsAppStatusCallback(
+  input: WhatsAppStatusInput,
+): Promise<{ ignored: boolean; fallbackSent: boolean }> {
+  const client = getServiceSupabaseClient();
+
+  return reconcileWhatsAppStatusWithDependencies(input, {
+    findAttempt: async (messageSid) => {
+      const { data: attempt, error } = await client
+        .from('mobile_notification_attempts')
+        .select('id,notification_id,recipient_phone,status')
+        .eq('provider', 'twilio')
+        .eq('provider_message_id', messageSid)
+        .eq('channel', 'whatsapp')
+        .maybeSingle();
+      if (error) {
+        throw new Error('Failed to resolve WhatsApp delivery attempt.');
+      }
+      if (!attempt) {
+        return null;
+      }
+
+      const { data: notification, error: notificationError } = await client
+        .from('mobile_notifications')
+        .select('notification_type,restaurant_id,recipient_phone')
+        .eq('id', attempt.notification_id)
+        .single();
+      if (notificationError || !notification) {
+        throw new Error('Failed to resolve WhatsApp notification.');
+      }
+      const notificationType = parseMobileNotificationType(notification.notification_type);
+      if (!notificationType) {
+        throw new Error('WhatsApp notification type is unsupported.');
+      }
+      const status = parseMobileAttemptStatus(attempt.status);
+      if (!status) {
+        throw new Error('WhatsApp attempt status is unsupported.');
+      }
+
+      return {
+        id: attempt.id,
+        notificationId: attempt.notification_id,
+        notificationRecipientPhone: notification.recipient_phone,
+        notificationType,
+        recipientPhone: attempt.recipient_phone,
+        restaurantId: notification.restaurant_id,
+        status,
+      };
+    },
+    updateAttempt: async ({ attemptId, currentStatus, errorCode, status }) => {
+      const { data: updated, error } = await client
+        .from('mobile_notification_attempts')
+        .update({
+          error_code: errorCode,
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', attemptId)
+        .eq('status', currentStatus)
+        .select('id')
+        .maybeSingle();
+      if (error) {
+        throw new Error('Failed to update WhatsApp delivery status.');
+      }
+      return Boolean(updated);
+    },
+    claimFallback: async ({ notificationId, recipientPhone, restaurantId, whatsappAttemptId }) => {
+      const { data, error } = await client.rpc('claim_mobile_notification_fallback', {
+        p_fallback_for_attempt_id: whatsappAttemptId,
+        p_notification_id: notificationId,
+        p_recipient_phone: recipientPhone,
+        p_restaurant_id: restaurantId,
+      });
+      if (error) {
+        throw new Error('Failed to claim WhatsApp SMS fallback.');
+      }
+      return data;
+    },
+    sendFallback: ({ attemptId, notificationId }) =>
+      sendClaimedBookingSmsFallback({ attemptId, notificationId }),
+  });
 }

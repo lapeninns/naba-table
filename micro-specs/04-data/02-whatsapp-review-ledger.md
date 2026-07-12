@@ -8,6 +8,7 @@ allowed_blast_radius:
   - micro-specs/04-data/**
   - micro-specs/evidence/MS-data-whatsapp-review-ledger.json
   - tasks/whatsapp-review-production-release-20260712-1921/**
+  - .omo/evidence/task-4-*
   - CONTINUITY.md
   - supabase/migrations/**
   - supabase/tests/**

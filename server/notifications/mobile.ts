@@ -10,6 +10,7 @@ export type MobileNotificationType =
   | 'booking_update'
   | 'booking_cancellation'
   | 'restaurant_cancellation'
+  | 'booking_review_request'
   | 'manager_daily_summary';
 
 export type MobileAttemptStatus =
@@ -137,6 +138,9 @@ export async function dispatchMobileNotificationWithDependencies(
 ): Promise<'whatsapp' | 'sms' | 'duplicate'> {
   const recipientPhone = toE164RecipientPhone(rawInput.recipientPhone);
   if (!recipientPhone) {
+    if (rawInput.notificationType === 'booking_review_request') {
+      return 'duplicate';
+    }
     // Phones the ledger cannot store stay on the legacy plain-SMS path so the
     // guest is still notified.
     await dependencies.sendSms();
@@ -148,6 +152,9 @@ export async function dispatchMobileNotificationWithDependencies(
   const whatsappTemplateId = input.whatsappTemplateId;
 
   if (!input.whatsappEligible || !whatsappTemplateId) {
+    if (input.notificationType === 'booking_review_request') {
+      return 'duplicate';
+    }
     const smsAttemptId = await dependencies.claimAttempt({
       notificationId: notification.id,
       channel: 'sms',
@@ -196,6 +203,9 @@ export async function dispatchMobileNotificationWithDependencies(
       status: 'failed',
       errorCode: error instanceof Error ? error.name : 'WHATSAPP_DISPATCH_FAILED',
     });
+    if (input.notificationType === 'booking_review_request') {
+      return 'duplicate';
+    }
     const smsAttemptId = await dependencies.claimFallback({
       notificationId: notification.id,
       restaurantId: input.restaurantId,
