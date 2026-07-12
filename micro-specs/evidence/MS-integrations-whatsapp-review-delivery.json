@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "spec_id": "MS-integrations-whatsapp-review-delivery",
+  "runs": [],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T19:24:49.016Z",
+      "sha": "656b027051d1035374e83cf440b4b5aa00d3130e",
+      "dirty": false,
+      "by": "amankumarshrestha"
+    }
+  ]
+}

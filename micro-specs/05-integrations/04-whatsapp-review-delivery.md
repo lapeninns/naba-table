@@ -1,6 +1,6 @@
 ---
 spec_id: MS-integrations-whatsapp-review-delivery
-status: draft
+status: active
 risk_class: webhooks
 owner: codex
 last_reviewed: 2026-07-12
