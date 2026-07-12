@@ -9,18 +9,14 @@ allowed_blast_radius:
   - supabase/migrations/**
   - supabase/tests/**
   - server/notifications/**
-  - src/app/api/webhook/twilio/whatsapp-status/route.ts
   - tests/micro-specs/mobile-notification-ledger.test.ts
   - tests/server/notifications/**
-  - tests/server/twilio-whatsapp-status-webhook-route.test.ts
 implementation_surfaces:
   - supabase/migrations/**
   - supabase/tests/**
   - server/notifications/**
-  - src/app/api/webhook/twilio/whatsapp-status/route.ts
   - tests/micro-specs/mobile-notification-ledger.test.ts
   - tests/server/notifications/**
-  - tests/server/twilio-whatsapp-status-webhook-route.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
