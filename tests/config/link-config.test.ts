@@ -60,7 +60,7 @@ describe('public link configuration', () => {
     expect(redirects.find((redirect) => redirect.source === '/invite/:token')).toBeUndefined();
   });
 
-  it('keeps review destinations purpose-scoped and disables token-bearing invocation logs', () => {
+  it('keeps review destinations purpose-scoped and disables token-bearing invocation logs @contract', () => {
     const config = readFileSync('cloudflare/booking-short-links/wrangler.jsonc', 'utf8');
 
     expect(config).toContain('"ALLOWED_REVIEW_DESTINATION_HOSTS"');

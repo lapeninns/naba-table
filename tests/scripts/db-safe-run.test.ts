@@ -100,7 +100,7 @@ afterEach(() => {
 });
 
 describe('remote database safe runner CLI', () => {
-  it('prints side-effect-free operator guidance when help is requested', () => {
+  it('prints side-effect-free operator guidance when help is requested @contract', () => {
     const whenHelpRuns = runCli(['--help']);
 
     expect(whenHelpRuns.status).toBe(0);
@@ -109,7 +109,7 @@ describe('remote database safe runner CLI', () => {
     expect(whenHelpRuns.calls).toEqual([]);
   });
 
-  it('prints a redacted plan without children when dry-run is requested', () => {
+  it('prints a redacted plan without children when dry-run is requested @contract', () => {
     const secret = 'postgres://operator:never-print-this@example.invalid/db';
 
     const whenDryRunRuns = runCli(['status', '--dry-run'], {
@@ -137,7 +137,7 @@ describe('remote database safe runner CLI', () => {
     },
   );
 
-  it('refuses an unconfirmed production migration before running children', () => {
+  it('refuses an unconfirmed production migration before running children @contract', () => {
     const whenProductionIsUnconfirmed = runCli(['migrate'], { DB_TARGET_ENV: 'production' });
 
     expect(whenProductionIsUnconfirmed.status).toBe(2);
@@ -145,7 +145,7 @@ describe('remote database safe runner CLI', () => {
     expect(whenProductionIsUnconfirmed.calls).toEqual([]);
   });
 
-  it('allows an unconfirmed production migration dry-run without children', () => {
+  it('allows an unconfirmed production migration dry-run without children @contract', () => {
     const whenProductionDryRunRuns = runCli(['migrate', '--dry-run'], {
       DB_TARGET_ENV: 'production',
     });
@@ -184,7 +184,7 @@ describe('remote database safe runner CLI', () => {
     expect(whenMigrationRuns.calls).toEqual(['pnpm validate:env', 'supabase db push']);
   });
 
-  it('allows a confirmed production migration', () => {
+  it('allows a confirmed production migration @contract', () => {
     const whenProductionIsConfirmed = runCli(['push'], {
       CONFIRM_PRODUCTION: 'true',
       DB_TARGET_ENV: 'production',
@@ -194,7 +194,7 @@ describe('remote database safe runner CLI', () => {
     expect(whenProductionIsConfirmed.calls).toEqual(['pnpm validate:env', 'supabase db push']);
   });
 
-  it('propagates environment validation failure and stops', () => {
+  it('propagates environment validation failure and stops @contract', () => {
     const whenValidationFails = runCli(['status'], {
       DB_TARGET_ENV: 'staging',
       SAFE_RUN_TEST_VALIDATE_EXIT: '17',
@@ -204,7 +204,7 @@ describe('remote database safe runner CLI', () => {
     expect(whenValidationFails.calls).toEqual(['pnpm validate:env']);
   });
 
-  it('propagates the delegated workflow exit code', () => {
+  it('propagates the delegated workflow exit code @contract', () => {
     const whenWorkflowFails = runCli(['status'], {
       DB_TARGET_ENV: 'staging',
       SAFE_RUN_TEST_COMMAND_EXIT: '23',
@@ -216,7 +216,7 @@ describe('remote database safe runner CLI', () => {
 });
 
 describe('remote-only database command inventory', () => {
-  it('routes supported package commands through the safe runner and removes local workflows', () => {
+  it('routes supported package commands through the safe runner and removes local workflows @contract', () => {
     const packageJson = JSON.parse(readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
     const scripts = packageJson.scripts;
 
@@ -233,7 +233,7 @@ describe('remote-only database command inventory', () => {
     ).toEqual([]);
   });
 
-  it('keeps every fixed local delegate present on disk', () => {
+  it('keeps every fixed local delegate present on disk @contract', () => {
     expect(existsSync(path.join(projectRoot, 'scripts/db/safe-run.ts'))).toBe(true);
     expect(existsSync(path.join(projectRoot, 'scripts/db/check-drift.ts'))).toBe(true);
   });
@@ -251,7 +251,7 @@ describe('remote-only database command inventory', () => {
     },
   );
 
-  it('documents the linked staging-first drift workflow without obsolete inputs', () => {
+  it('documents the linked staging-first drift workflow without obsolete inputs @contract', () => {
     const whenSecurityGuidanceIsRead = readFileSync(
       path.join(projectRoot, 'docs/security.md'),
       'utf8',
@@ -266,14 +266,14 @@ describe('remote-only database command inventory', () => {
 });
 
 describe('remote schema drift checker', () => {
-  it('passes when the linked public schema matches local migrations', () => {
+  it('passes when the linked public schema matches local migrations @contract', () => {
     const whenSchemasMatch = runDriftCli();
 
     expect(whenSchemasMatch.status).toBe(0);
     expect(whenSchemasMatch.calls).toEqual(['supabase db diff --linked --schema public']);
   });
 
-  it('fails and emits the SQL when drift exists', () => {
+  it('fails and emits the SQL when drift exists @contract', () => {
     const driftSql = 'alter table public.bookings add column drifted boolean;';
 
     const whenDriftExists = runDriftCli({ SAFE_RUN_TEST_DRIFT_OUTPUT: driftSql });
@@ -282,7 +282,7 @@ describe('remote schema drift checker', () => {
     expect(whenDriftExists.output).toContain(driftSql);
   });
 
-  it('propagates the exact Supabase CLI failure', () => {
+  it('propagates the exact Supabase CLI failure @contract', () => {
     const whenSupabaseFails = runDriftCli({ SAFE_RUN_TEST_COMMAND_EXIT: '19' });
 
     expect(whenSupabaseFails.status).toBe(19);

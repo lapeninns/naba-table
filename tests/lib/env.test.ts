@@ -72,7 +72,7 @@ describe('WhatsApp five-event configuration', () => {
     restoreEnv();
   });
 
-  it('stays disabled until the review Content SID completes the lifecycle set', () => {
+  it('stays disabled until the review Content SID completes the lifecycle set @contract', () => {
     process.env.TWILIO_ACCOUNT_SID = 'AC123';
     process.env.TWILIO_API_KEY_SID = 'SK123';
     process.env.TWILIO_API_KEY_SECRET = 'secret';

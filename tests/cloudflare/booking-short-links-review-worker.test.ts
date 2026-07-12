@@ -71,7 +71,7 @@ function reviewRequest(destinationUrl = 'https://g.page/demo-venue/review', auth
 }
 
 describe('review short-link Worker HTTP surface', () => {
-  it('creates and resolves an authenticated review link', async () => {
+  it('creates and resolves an authenticated review link @contract', async () => {
     const { env } = makeWorkerEnv();
     const createResponse = await bookingShortLinkWorker.fetch(reviewRequest(), env);
     const created = await createResponse.json();
@@ -88,7 +88,7 @@ describe('review short-link Worker HTTP surface', () => {
     expect(resolveResponse.headers.get('location')).toBe('https://g.page/demo-venue/review');
   });
 
-  it('does not store a review link without internal authorization', async () => {
+  it('does not store a review link without internal authorization @contract', async () => {
     const { env, rows } = makeWorkerEnv();
 
     const response = await bookingShortLinkWorker.fetch(reviewRequest(undefined, false), env);
@@ -97,7 +97,7 @@ describe('review short-link Worker HTTP surface', () => {
     expect(rows.size).toBe(0);
   });
 
-  it('does not store an unsafe Google search URL', async () => {
+  it('does not store an unsafe Google search URL @contract', async () => {
     const { env, rows } = makeWorkerEnv();
 
     const response = await bookingShortLinkWorker.fetch(
@@ -109,7 +109,7 @@ describe('review short-link Worker HTTP surface', () => {
     expect(rows.size).toBe(0);
   });
 
-  it('does not resolve a booking token through the review route', async () => {
+  it('does not resolve a booking token through the review route @contract', async () => {
     const { env, rows } = makeWorkerEnv();
     rows.set('Booking12345', {
       token: 'Booking12345',
@@ -134,7 +134,7 @@ describe('review short-link Worker HTTP surface', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 
-  it('rejects malformed review tokens before querying storage', async () => {
+  it('rejects malformed review tokens before querying storage @contract', async () => {
     const { env } = makeWorkerEnv();
 
     const response = await bookingShortLinkWorker.fetch(

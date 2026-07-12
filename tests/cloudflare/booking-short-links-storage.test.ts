@@ -62,7 +62,7 @@ describe('booking short-link storage', () => {
     expect(first).toHaveBeenCalled();
   });
 
-  it('queries reusable review links by purpose, source, destination, and active TTL', async () => {
+  it('queries reusable review links by purpose, source, destination, and active TTL @contract', async () => {
     const destinationUrl = 'https://g.page/demo-venue/review';
     const { db, bind } = makeDb({
       token: 'Review123456',

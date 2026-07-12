@@ -106,7 +106,7 @@ describe('mobile review intent drain', () => {
     finalizeMobileWhatsAppAttemptMock.mockResolvedValue('queued');
   });
 
-  it('claims due work and records a sent WhatsApp independently of email', async () => {
+  it('claims due work and records a sent WhatsApp independently of email @contract', async () => {
     // Given
     const booking = {
       id: BOOKING_ID,
@@ -132,7 +132,7 @@ describe('mobile review intent drain', () => {
     expect(updateFilters).toContainEqual(['restaurant_id', RESTAURANT_ID]);
   });
 
-  it('records stale or ineligible work as skipped without dispatch', async () => {
+  it('records stale or ineligible work as skipped without dispatch @contract', async () => {
     // Given
     const { updates } = createClient(null);
 
@@ -145,7 +145,7 @@ describe('mobile review intent drain', () => {
     expect(updates).toContainEqual(expect.objectContaining({ mobile_intent_status: 'skipped' }));
   });
 
-  it('returns infrastructure failures to pending before the final retry', async () => {
+  it('returns infrastructure failures to pending before the final retry @contract', async () => {
     // Given
     dispatchBookingReviewWhatsAppMock.mockRejectedValue(new Error('short-link unavailable'));
     const { updates } = createClient({
@@ -167,7 +167,7 @@ describe('mobile review intent drain', () => {
     );
   });
 
-  it('records infrastructure failure as terminal after the final retry', async () => {
+  it('records infrastructure failure as terminal after the final retry @contract', async () => {
     // Given
     dispatchBookingReviewWhatsAppMock.mockRejectedValue(new Error('mobile ledger unavailable'));
     const { updates } = createClient(
@@ -183,7 +183,7 @@ describe('mobile review intent drain', () => {
     expect(updates).toContainEqual(expect.objectContaining({ mobile_intent_status: 'failed' }));
   });
 
-  it('marks an already-claimed one-shot provider outcome as skipped', async () => {
+  it('marks an already-claimed one-shot provider outcome as skipped @contract', async () => {
     // Given
     dispatchBookingReviewWhatsAppMock.mockResolvedValue({ kind: 'duplicate' });
     const { updates } = createClient({
@@ -200,7 +200,7 @@ describe('mobile review intent drain', () => {
     expect(updates).toContainEqual(expect.objectContaining({ mobile_intent_status: 'skipped' }));
   });
 
-  it('records a provider-attempt failure as terminal without retrying the intent', async () => {
+  it('records a provider-attempt failure as terminal without retrying the intent @contract', async () => {
     dispatchBookingReviewWhatsAppMock.mockResolvedValue({
       attemptId: '55555555-5555-4555-8555-555555555555',
       kind: 'provider_attempt_failed',
@@ -222,7 +222,7 @@ describe('mobile review intent drain', () => {
     );
   });
 
-  it('durably schedules provider acceptance finalization without another provider send', async () => {
+  it('durably schedules provider acceptance finalization without another provider send @contract', async () => {
     dispatchBookingReviewWhatsAppMock.mockResolvedValue({
       attemptId: '55555555-5555-4555-8555-555555555555',
       errorCode: null,
@@ -250,7 +250,7 @@ describe('mobile review intent drain', () => {
     );
   });
 
-  it('retries only known provider-attempt finalization without resending WhatsApp', async () => {
+  it('retries only known provider-attempt finalization without resending WhatsApp @contract', async () => {
     const { updates } = createClient(
       { id: BOOKING_ID, restaurant_id: RESTAURANT_ID, status: 'completed' },
       {
@@ -275,7 +275,7 @@ describe('mobile review intent drain', () => {
     expect(updates).toContainEqual(expect.objectContaining({ mobile_intent_status: 'processed' }));
   });
 
-  it('retries pre-accept failure finalization without resending WhatsApp', async () => {
+  it('retries pre-accept failure finalization without resending WhatsApp @contract', async () => {
     const { updates } = createClient(
       { id: BOOKING_ID, restaurant_id: RESTAURANT_ID, status: 'completed' },
       {
@@ -299,7 +299,7 @@ describe('mobile review intent drain', () => {
     );
   });
 
-  it('keeps a failed finalization retry pending without resending WhatsApp', async () => {
+  it('keeps a failed finalization retry pending without resending WhatsApp @contract', async () => {
     const { updates } = createClient(
       { id: BOOKING_ID, restaurant_id: RESTAURANT_ID, status: 'completed' },
       {
@@ -323,7 +323,7 @@ describe('mobile review intent drain', () => {
     );
   });
 
-  it('does not overwrite a newer claim when finalization ownership is lost', async () => {
+  it('does not overwrite a newer claim when finalization ownership is lost @contract', async () => {
     dispatchBookingReviewWhatsAppMock.mockResolvedValue({
       attemptId: '55555555-5555-4555-8555-555555555555',
       kind: 'whatsapp_accepted',

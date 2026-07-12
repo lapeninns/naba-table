@@ -116,7 +116,7 @@ describe('booking WhatsApp content', () => {
     mockVenue();
   });
 
-  it('passes only the trusted short-link suffix to the confirmation native action', async () => {
+  it('passes only the trusted short-link suffix to the confirmation native action @contract', async () => {
     // Given
     createBookingManageShortUrlMock.mockResolvedValue('https://go.nabatable.com/m/secure-token');
 
@@ -136,7 +136,7 @@ describe('booking WhatsApp content', () => {
     );
   });
 
-  it('passes only the trusted short-link suffix to the update native action', async () => {
+  it('passes only the trusted short-link suffix to the update native action @contract', async () => {
     // Given
     createBookingManageShortUrlMock.mockResolvedValue('https://go.nabatable.com/m/update-token');
 
@@ -177,7 +177,7 @@ describe('booking WhatsApp content', () => {
     );
   });
 
-  it('dispatches the review template with the purpose-scoped native action', async () => {
+  it('dispatches the review template with the purpose-scoped native action @contract', async () => {
     // Given
     dispatchMobileNotificationMock.mockResolvedValue({ kind: 'whatsapp_accepted' });
 
@@ -234,7 +234,7 @@ describe('booking WhatsApp content', () => {
     expect(dispatchMobileNotificationMock).not.toHaveBeenCalled();
   });
 
-  it('skips both channels when the venue review preference is disabled', async () => {
+  it('skips both channels when the venue review preference is disabled @contract', async () => {
     // Given
     mockVenue({ email_send_review_request: false });
 
@@ -250,7 +250,7 @@ describe('booking WhatsApp content', () => {
     expect(dispatchMobileNotificationMock).not.toHaveBeenCalled();
   });
 
-  it('does not create a review link when the approved review template is absent', async () => {
+  it('does not create a review link when the approved review template is absent @contract', async () => {
     // Given
     reviewTemplate.value = null;
 
@@ -266,7 +266,7 @@ describe('booking WhatsApp content', () => {
     expect(dispatchMobileNotificationMock).not.toHaveBeenCalled();
   });
 
-  it('reuses one logical key when the durable worker retries', async () => {
+  it('reuses one logical key when the durable worker retries @contract', async () => {
     // Given
     dispatchMobileNotificationMock.mockResolvedValue({ kind: 'duplicate' });
 
@@ -306,7 +306,7 @@ describe('booking WhatsApp content', () => {
     expect(dispatchMobileNotificationMock).not.toHaveBeenCalled();
   });
 
-  it('surfaces short-link transport failure for durable retry before provider attempt', async () => {
+  it('surfaces short-link transport failure for durable retry before provider attempt @contract', async () => {
     // Given
     createReviewShortUrlMock.mockResolvedValue(null);
 
@@ -316,7 +316,7 @@ describe('booking WhatsApp content', () => {
     expect(dispatchMobileNotificationMock).not.toHaveBeenCalled();
   });
 
-  it('skips an unsafe venue review destination without retrying infrastructure', async () => {
+  it('skips an unsafe venue review destination without retrying infrastructure @contract', async () => {
     // Given
     mockVenue({ google_review_url: 'https://evil.example/review' });
 
@@ -331,7 +331,7 @@ describe('booking WhatsApp content', () => {
     expect(createReviewShortUrlMock).not.toHaveBeenCalled();
   });
 
-  it('uses the exact attributed consent predicate for lifecycle WhatsApp', async () => {
+  it('uses the exact attributed consent predicate for lifecycle WhatsApp @contract', async () => {
     // Given
     createBookingManageShortUrlMock.mockResolvedValue('https://go.nabatable.com/m/secure-token');
     const forgedConsent = {

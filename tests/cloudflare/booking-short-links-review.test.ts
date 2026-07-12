@@ -44,7 +44,7 @@ function repositoryFor(record: ShortLinkRecord) {
 }
 
 describe('review short-link core', () => {
-  it('accepts supported HTTPS Google review destinations', () => {
+  it('accepts supported HTTPS Google review destinations @contract', () => {
     expect(validateShortLinkRequest(reviewRequest, ['nabatable.com'])).toMatchObject({ ok: true });
     expect(
       validateShortLinkRequest(
@@ -71,7 +71,7 @@ describe('review short-link core', () => {
     ).toMatchObject({ ok: false });
   });
 
-  it('keeps creation sources bound to their purpose', () => {
+  it('keeps creation sources bound to their purpose @contract', () => {
     expect(
       validateShortLinkRequest({ ...reviewRequest, createdBy: 'guest_confirmation_sms' }, [
         'nabatable.com',
@@ -90,7 +90,7 @@ describe('review short-link core', () => {
     ).toEqual({ ok: false, error: 'Creation source is not allowed for this purpose.' });
   });
 
-  it('reuses only the matching review-purpose record', async () => {
+  it('reuses only the matching review-purpose record @contract', async () => {
     const record = reviewRecord();
     const repository = repositoryFor(record);
 
@@ -111,7 +111,7 @@ describe('review short-link core', () => {
     expect(repository.insertLink).not.toHaveBeenCalled();
   });
 
-  it('fails closed when a token is resolved through the wrong purpose', async () => {
+  it('fails closed when a token is resolved through the wrong purpose @contract', async () => {
     const repository = repositoryFor(
       reviewRecord({
         purpose: 'booking_manage',

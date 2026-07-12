@@ -378,7 +378,7 @@ describe('cron route authentication', () => {
     });
   });
 
-  it('reports mobile review failure without hiding the completed email drain', async () => {
+  it('reports mobile review failure without hiding the completed email drain @contract', async () => {
     // Given
     drainMobileReviewIntentsMock.mockRejectedValue(new Error('mobile claim unavailable'));
 
@@ -398,7 +398,7 @@ describe('cron route authentication', () => {
     });
   });
 
-  it('drains mobile reviews even when the email queue is disabled', async () => {
+  it('drains mobile reviews even when the email queue is disabled @contract', async () => {
     // Given
     isEmailQueueEnabledMock.mockReturnValue(false);
 

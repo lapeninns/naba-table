@@ -76,7 +76,7 @@ describe('createBookingManageShortUrl', () => {
 });
 
 describe('createReviewShortUrl', () => {
-  it('requests a purpose-scoped review URL with a normalized Google destination', async () => {
+  it('requests a purpose-scoped review URL with a normalized Google destination @contract', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -112,7 +112,7 @@ describe('createReviewShortUrl', () => {
     );
   });
 
-  it('refuses unsafe review destinations before calling the Worker', async () => {
+  it('refuses unsafe review destinations before calling the Worker @contract', async () => {
     const fetchImpl = vi.fn();
 
     const shortUrl = await createReviewShortUrl({
@@ -127,7 +127,7 @@ describe('createReviewShortUrl', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('refuses a booking-purpose URL returned for a review request', async () => {
+  it('refuses a booking-purpose URL returned for a review request @contract', async () => {
     const shortUrl = await createReviewShortUrl({
       bookingId: 'booking-1',
       restaurantId: 'rest-1',

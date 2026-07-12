@@ -29,7 +29,7 @@ const venue = {
 } as const;
 
 describe('booking SMS builders', () => {
-  it('distinguishes definite pre-accept failure from provider acceptance', () => {
+  it('distinguishes definite pre-accept failure from provider acceptance @contract', () => {
     expect(
       requiresDirectSmsAfterPendingWhatsAppFailure({
         attemptId: 'attempt-1',

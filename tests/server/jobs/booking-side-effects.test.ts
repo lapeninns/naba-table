@@ -100,7 +100,7 @@ describe('processBookingCreatedSideEffects', () => {
     enqueueEmailJobMock.mockResolvedValue(undefined);
   });
 
-  it('durably schedules a completed review job without a valid guest email', async () => {
+  it('durably schedules a completed review job without a valid guest email @contract', async () => {
     // Given
     emailQueueEnabled.value = true;
     const completed = {
@@ -153,7 +153,7 @@ describe('processBookingCreatedSideEffects', () => {
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
-  it('schedules neither review channel when the venue preference is disabled', async () => {
+  it('schedules neither review channel when the venue preference is disabled @contract', async () => {
     // Given
     emailQueueEnabled.value = true;
     const completed = {
@@ -183,7 +183,7 @@ describe('processBookingCreatedSideEffects', () => {
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
-  it('does not schedule mobile review without a valid venue review destination', async () => {
+  it('does not schedule mobile review without a valid venue review destination @contract', async () => {
     const completed = {
       ...pendingBooking,
       status: 'completed',
@@ -222,7 +222,7 @@ describe('processBookingCreatedSideEffects', () => {
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
-  it('does not schedule a phone-only review for version 1 consent', async () => {
+  it('does not schedule a phone-only review for version 1 consent @contract', async () => {
     // Given
     emailQueueEnabled.value = true;
     const completed = {
@@ -258,7 +258,7 @@ describe('processBookingCreatedSideEffects', () => {
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
-  it('schedules mobile but not email when a completed booking has an invalid guest email', async () => {
+  it('schedules mobile but not email when a completed booking has an invalid guest email @contract', async () => {
     // Given
     emailQueueEnabled.value = true;
     const completed = {
@@ -310,7 +310,7 @@ describe('processBookingCreatedSideEffects', () => {
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
-  it('schedules mobile review once on a transition to completed', async () => {
+  it('schedules mobile review once on a transition to completed @contract', async () => {
     // Given
     emailQueueEnabled.value = true;
     const previous = { ...pendingBooking, status: 'confirmed' };
