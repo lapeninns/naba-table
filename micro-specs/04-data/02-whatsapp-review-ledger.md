@@ -1,6 +1,6 @@
 ---
 spec_id: MS-data-whatsapp-review-ledger
-status: draft
+status: active
 risk_class: migrations
 owner: codex
 last_reviewed: 2026-07-12

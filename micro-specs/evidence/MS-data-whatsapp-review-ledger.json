@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "spec_id": "MS-data-whatsapp-review-ledger",
+  "runs": [],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T19:24:48.548Z",
+      "sha": "7c91cfa99cd35d7f4e22bad32fe9725ff841fc96",
+      "dirty": false,
+      "by": "amankumarshrestha"
+    }
+  ]
+}
