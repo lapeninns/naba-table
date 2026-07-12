@@ -2,6 +2,18 @@
 
 Last updated: 2026-07-12T10:04:00Z
 
+## Current WhatsApp review production governance
+
+- Task harness: `tasks/whatsapp-review-production-release-20260712-1921/`.
+- Goal: activate four decision-complete Micro-Specs for consent v2, purpose-scoped review links,
+  a one-shot review ledger with no SMS fallback, and staged production delivery/release.
+- Scope boundary: governance artifacts only in this task; no product code, remote service,
+  provider, database, deployment, or live-message mutation.
+- Locked event set: confirmation, update, guest cancellation, restaurant cancellation, and review;
+  reminders stay absent, v1 stays lifecycle-only, and v2 covers all five booking events.
+- Release invariant: all five templates must be provider-approved before production config, with
+  staged deploy/rollback and an explicitly armed T+0/60/120/180/240 controlled smoke.
+
 ## Current silent production table-assignment repair
 
 - Task harness: `tasks/silent-table-assignment-repair-20260712-1213/`.
