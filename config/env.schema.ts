@@ -111,6 +111,7 @@ const baseEnvSchema = z
     TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID: z.string().min(1).optional(),
     TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID: z.string().min(1).optional(),
     TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID: z.string().min(1).optional(),
+    TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID: z.string().min(1).optional(),
     TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: z.string().min(1).optional(),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
@@ -182,16 +183,34 @@ const productionEnvSchema = baseEnvSchema
     const hasCloudflareGateway =
       Boolean(env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL) &&
       Boolean(env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN);
-    if (hasCloudflareGateway || env.ALLOW_MEMORY_RATE_LIMIT_IN_PROD === true) {
-      return;
+    if (!hasCloudflareGateway && env.ALLOW_MEMORY_RATE_LIMIT_IN_PROD !== true) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL'],
+        message:
+          'Production rate limiting requires Cloudflare gateway credentials or ALLOW_MEMORY_RATE_LIMIT_IN_PROD=true.',
+      });
     }
 
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL'],
-      message:
-        'Production rate limiting requires Cloudflare gateway credentials or ALLOW_MEMORY_RATE_LIMIT_IN_PROD=true.',
-    });
+    const whatsappKeys = [
+      'TWILIO_WHATSAPP_SENDER',
+      'TWILIO_WHATSAPP_BOOKING_CONFIRMATION_CONTENT_SID',
+      'TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID',
+      'TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID',
+      'TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID',
+      'TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID',
+    ] as const;
+    if (whatsappKeys.some((key) => Boolean(env[key]))) {
+      for (const key of whatsappKeys) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: 'Production WhatsApp configuration requires sender and all five event SIDs.',
+          });
+        }
+      }
+    }
   });
 
 const developmentEnvSchema = baseEnvSchema;

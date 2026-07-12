@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "task": 6,
+  "spec_id": "MS-integrations-whatsapp-review-delivery",
+  "timestamp": "2026-07-12T20:00:09Z",
+  "last_provider_poll": "2026-07-12T20:01:54Z",
+  "status": "local_complete_provider_approval_blocked",
+  "template_request": {
+    "friendly_name": "nabatable_post_visit_review_v1",
+    "language": "en",
+    "variables": {
+      "1": "The Old Crown",
+      "2": "r/Review123456"
+    },
+    "types": {
+      "twilio/call-to-action": {
+        "body": "Thanks for visiting {{1}}.\n\nWe hope you enjoyed your visit. Your feedback helps our team and future guests.\n\nTap below to leave a quick review.\n\nThank you for supporting us.",
+        "actions": [
+          {
+            "type": "URL",
+            "title": "Leave a review",
+            "url": "https://go.nabatable.com/{{2}}"
+          }
+        ]
+      }
+    }
+  },
+  "provider_readback": [
+    {
+      "event": "booking_confirmation",
+      "sid": "HX5314cca961d164966548d0a55fc85a57",
+      "name": "nabatable_booking_confirmation_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "content_type": "twilio/call-to-action",
+      "rejection_reason": ""
+    },
+    {
+      "event": "booking_update",
+      "sid": "HX2bc9fea6e092a5f8e4447bf2d40e0701",
+      "name": "nabatable_booking_update_v4",
+      "status": "pending",
+      "category": "UTILITY",
+      "content_type": "twilio/call-to-action",
+      "rejection_reason": ""
+    },
+    {
+      "event": "booking_cancellation",
+      "sid": "HX63714e1f2a8199cfe76e99afcb7d7018",
+      "name": "nabatable_booking_cancellation_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "content_type": "twilio/text",
+      "rejection_reason": ""
+    },
+    {
+      "event": "restaurant_cancellation",
+      "sid": "HX10d088b0511873455818bcd0b56d6b03",
+      "name": "nabatable_restaurant_cancellation_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "content_type": "twilio/text",
+      "rejection_reason": ""
+    },
+    {
+      "event": "review_request",
+      "sid": "HXa465c6d38370bf754fb401518620e5a0",
+      "name": "nabatable_post_visit_review_v1",
+      "status": "pending",
+      "category": "MARKETING",
+      "content_type": "twilio/call-to-action",
+      "rejection_reason": ""
+    }
+  ],
+  "production_environment": {
+    "sender": "blank_or_absent",
+    "booking_confirmation_sid": "blank_or_absent",
+    "booking_update_sid": "blank_or_absent",
+    "booking_cancellation_sid": "blank_or_absent",
+    "restaurant_cancellation_sid": "blank_or_absent",
+    "review_request_sid": "blank_or_absent",
+    "mutated": false
+  },
+  "tdd": {
+    "red": [
+      "Ten contract failures proved the review SID, partial production configuration, exact native action, and provider preflight were absent.",
+      "Two follow-up failures proved malformed action origins and variable-ending bodies were not rejected."
+    ],
+    "green": "27 focused tests passed across release preflight, runtime env, and production env schema."
+  },
+  "verification": {
+    "focused_tests": "passed",
+    "targeted_eslint": "passed",
+    "typecheck": "passed",
+    "no_excuse_audit": "passed",
+    "global_micro_spec_guard": "passed",
+    "governance_check": "passed"
+  },
+  "safe_readback": {
+    "credential_source": "Vercel production env pulled to a mode-600 temporary file and deleted by EXIT trap; API key values were never printed.",
+    "endpoint": "GET https://content.twilio.com/v1/Content/{ContentSid}/ApprovalRequests",
+    "auth": "TWILIO_API_KEY_SID plus TWILIO_API_KEY_SECRET",
+    "command": "curl --silent --show-error --fail-with-body -u \"$TWILIO_API_KEY_SID:$TWILIO_API_KEY_SECRET\" \"https://content.twilio.com/v1/Content/$CONTENT_SID/ApprovalRequests\" | jq -c '{sid, whatsapp: (.whatsapp | {name, status, category, content_type, rejection_reason})}'",
+    "projection": "jq {sid, whatsapp: {name, status, category, content_type, rejection_reason}}",
+    "poll_policy": "Read-only polling only. Do not set any production sender or Content SID until every selected status is approved, every rejection_reason is empty, and categories match the governed expectations."
+  },
+  "blockers": [
+    "All four lifecycle templates are pending.",
+    "The review template is pending and not yet approved.",
+    "Production sender and all five Content SID values remain blank or absent by design."
+  ],
+  "pii": "No recipient or sender phone number is retained in this artifact."
+}

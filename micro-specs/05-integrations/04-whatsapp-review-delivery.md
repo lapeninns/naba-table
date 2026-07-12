@@ -7,6 +7,7 @@ last_reviewed: 2026-07-12
 allowed_blast_radius:
   - micro-specs/05-integrations/**
   - micro-specs/evidence/MS-integrations-whatsapp-review-delivery.json
+  - .omo/evidence/task-6-whatsapp-review-production-release.json
   - tasks/whatsapp-review-production-release-20260712-1921/**
   - CONTINUITY.md
   - server/jobs/booking-side-effects.ts
@@ -50,7 +51,9 @@ related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
   - docs/sdlc/verification.md
 related_tests:
-  - not-yet-created
+  - tests/config/env-schema-target.test.ts
+  - tests/lib/env.test.ts
+  - tests/scripts/whatsapp-review-production-release.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm test

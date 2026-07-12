@@ -67,4 +67,31 @@ describe('env app URL resolution', () => {
   });
 });
 
+describe('WhatsApp five-event configuration', () => {
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  it('stays disabled until the review Content SID completes the lifecycle set', () => {
+    process.env.TWILIO_ACCOUNT_SID = 'AC123';
+    process.env.TWILIO_API_KEY_SID = 'SK123';
+    process.env.TWILIO_API_KEY_SECRET = 'secret';
+    process.env.TWILIO_WHATSAPP_SENDER = '+447700900000';
+    process.env.TWILIO_WHATSAPP_BOOKING_CONFIRMATION_CONTENT_SID = 'HXconfirmation';
+    process.env.TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID = 'HXupdate';
+    process.env.TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID = 'HXguestcancel';
+    process.env.TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID = 'HXvenuecancel';
+    delete process.env.TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID;
+    resetEnvCache();
+
+    expect(env.twilio.whatsapp.configured).toBe(false);
+
+    process.env.TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID = 'HXreview';
+    resetEnvCache();
+
+    expect(env.twilio.whatsapp.configured).toBe(true);
+    expect(env.twilio.whatsapp.templates.reviewRequest).toBe('HXreview');
+  });
+});
+
 export {};
