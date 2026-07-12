@@ -90,7 +90,8 @@ describe('booking create failure response', () => {
     });
 
     await expect(response.json()).resolves.toEqual({
-      error: 'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
+      error:
+        'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
       code: 'DUPLICATE_RESOURCE',
     });
     expect(response.status).toBe(409);
@@ -99,7 +100,8 @@ describe('booking create failure response', () => {
       eventType: 'booking.create.failure',
       severity: 'error',
       context: {
-        message: 'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
+        message:
+          'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
         restaurantId: bookingRequest.restaurantId,
         bookingDate: bookingRequest.date,
         emailDomain: 'example.com',
@@ -136,6 +138,7 @@ describe('booking create failure response', () => {
   });
 
   it('masks email addresses consistently for route debug logs', () => {
+    expect(maskEmailForBookingCreateLog('')).toBe('...');
     expect(maskEmailForBookingCreateLog('xy@example.com')).toBe('xy...');
     expect(maskEmailForBookingCreateLog('ada@example.com')).toBe('ada...');
   });

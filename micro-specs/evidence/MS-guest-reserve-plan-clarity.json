@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "spec_id": "MS-guest-reserve-plan-clarity",
+  "runs": [
+    {
+      "timestamp": "2026-07-12T11:37:36.487Z",
+      "git_sha": "d112e778712fe3d201c6f4368d61460f93378bdb",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 1,
+          "duration_ms": 250
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-12T11:40:51.430Z",
+      "git_sha": "d112e778712fe3d201c6f4368d61460f93378bdb",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 225
+        },
+        {
+          "command": "pnpm test --maxWorkers=8",
+          "exit_code": 0,
+          "duration_ms": 97178
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 20716
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 2390
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 37401
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 2905
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 474
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 258
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 20112
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "timestamp": "2026-07-12T11:52:31.865Z",
+      "git_sha": "d112e778712fe3d201c6f4368d61460f93378bdb",
+      "git_branch": "main",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 1,
+          "duration_ms": 298
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-12T12:02:28.573Z",
+      "git_sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "git_branch": "codex/reserve-wizard-audit-fixes",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 209
+        },
+        {
+          "command": "pnpm test --maxWorkers=8",
+          "exit_code": 0,
+          "duration_ms": 88978
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 18833
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 2029
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 37754
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 2902
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 479
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 255
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 20525
+        }
+      ],
+      "all_passed": true
+    },
+    {
+      "timestamp": "2026-07-12T12:17:33.277Z",
+      "git_sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "git_branch": "codex/reserve-wizard-audit-fixes",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 289
+        },
+        {
+          "command": "pnpm test --maxWorkers=8",
+          "exit_code": 0,
+          "duration_ms": 89570
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 19191
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1895
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 35996
+        },
+        {
+          "command": "pnpm reserve:build",
+          "exit_code": 0,
+          "duration_ms": 2773
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 489
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 254
+        },
+        {
+          "command": "pnpm qa:reserve-app:browser",
+          "exit_code": 0,
+          "duration_ms": 20465
+        }
+      ],
+      "all_passed": true
+    }
+  ],
+  "manual_attestations": [
+    {
+      "gate": "evidence",
+      "by": "Codex",
+      "at": "2026-07-12T12:17:33.277Z",
+      "note": "Command output for the declared verification gates."
+    }
+  ],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T10:50:15.482Z",
+      "sha": "d112e778712fe3d201c6f4368d61460f93378bdb",
+      "dirty": true,
+      "by": "amankumarshrestha",
+      "note": "Audit seam isolated in the existing dirty goal worktree."
+    },
+    {
+      "from": "active",
+      "to": "implemented",
+      "at": "2026-07-12T12:02:28.573Z",
+      "sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "dirty": true,
+      "by": "Codex",
+      "note": "Lifecycle evidence updates will be amended into the authorized local audit commit."
+    },
+    {
+      "from": "implemented",
+      "to": "verified",
+      "at": "2026-07-12T12:17:33.277Z",
+      "sha": "5fc3e79f77d8fe01463bbffdf2164fc08f652e4b",
+      "dirty": true,
+      "by": "Codex",
+      "note": "Lifecycle evidence updates will be amended into the authorized local audit commit."
+    }
+  ]
+}

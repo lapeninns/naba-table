@@ -32,6 +32,8 @@ export interface WizardNavigationProps {
   onHeightChange?: (height: number) => void;
   /** Additional CSS classes */
   className?: string;
+  /** Jump back to a completed step (wayfinding). Omit to make steps inert (e.g. after confirmation). */
+  onStepSelect?: (step: number) => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -146,6 +148,7 @@ export function WizardNavigation({
   visible = true,
   onHeightChange,
   className,
+  onStepSelect,
 }: WizardNavigationProps) {
   const peekRef = React.useRef<HTMLDivElement | null>(null);
   const reduced = usePrefersReducedMotion();
@@ -288,6 +291,33 @@ export function WizardNavigation({
                     </div>
                   ))}
                 </dl>
+
+                {/* Jump back to a completed step (preserved from the wizard-audit
+                    wayfinding fix). Rendered only when a handler is supplied — so
+                    steps are inert after confirmation. */}
+                {onStepSelect && current > 1 && (
+                  <nav
+                    aria-label="Go to a previous step"
+                    className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3"
+                  >
+                    {steps.slice(0, current - 1).map((step, index) => (
+                      <Button
+                        key={step.id ?? index + 1}
+                        type="button"
+                        variant="guest-ghost"
+                        size="guest-sm"
+                        onClick={() => onStepSelect(index + 1)}
+                        aria-label={`${step.label} (${index + 1} of ${total})`}
+                        className="pg-focus-ring min-h-10 gap-2"
+                      >
+                        <span className="flex size-5 items-center justify-center rounded-full bg-[color:var(--pg-action)] text-[10px] font-bold text-[color:var(--pg-action-contrast)]">
+                          {index + 1}
+                        </span>
+                        {step.label}
+                      </Button>
+                    ))}
+                  </nav>
+                )}
 
                 {support.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">

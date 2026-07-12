@@ -93,7 +93,7 @@
     "reserve:dev": "vite --config reserve/vite.config.ts",
     "reserve:build": "vite build --config reserve/vite.config.ts",
     "storybook": "storybook dev -p 6006 -c reserve/.storybook",
-    "storybook:build": "storybook build -c reserve/.storybook -o reserve/storybook-static",
+    "storybook:build": "storybook build -c reserve/.storybook -o test-results/storybook-static",
     "analyze": "vite build --config reserve/vite.config.ts --mode analyze",
     "prepare": "husky",
     "secret:scan": "tsx scripts/qa/secret-scan.ts",

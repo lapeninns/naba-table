@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@shared/lib/cn';
 
@@ -30,6 +31,7 @@ interface WizardProgressProps {
   className?: string;
   /** Show detailed step list (for main content area, not sticky nav) */
   showStepList?: boolean;
+  onStepSelect?: (step: number) => void;
 }
 
 export function WizardProgress({
@@ -38,6 +40,7 @@ export function WizardProgress({
   summary,
   className,
   showStepList = false,
+  onStepSelect,
 }: WizardProgressProps) {
   const total = steps.length || 1;
   const clampedCurrent = Math.min(Math.max(currentStep, 1), total);
@@ -89,45 +92,73 @@ export function WizardProgress({
       </div>
 
       {/* Screen reader live region */}
-      <div id={liveSummaryId} className="sr-only" aria-live="polite">
+      <div id={liveSummaryId} className="sr-only">
         {`Step ${clampedCurrent} of ${total}. ${ariaSummary}`}
       </div>
 
       {/* Optional: Full step list (only when showStepList is true) */}
       {showStepList && (
-        <ol className="mt-4 flex items-center justify-between gap-3" aria-label="Steps">
+        <ol
+          className="mt-2 grid grid-cols-4 gap-1 sm:mt-4 sm:flex sm:items-center sm:justify-between sm:gap-3"
+          aria-label="Steps"
+        >
           {steps.map((step, index) => {
             const stepNumber = index + 1;
             const isCurrent = stepNumber === clampedCurrent;
             const isComplete = stepNumber < clampedCurrent;
+            const marker = (
+              <div
+                className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:h-9 sm:w-9 sm:text-sm',
+                  isCurrent
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : isComplete
+                      ? 'border-primary bg-primary/20 text-primary'
+                      : 'border-border bg-background text-muted-foreground',
+                )}
+              >
+                {stepNumber}
+              </div>
+            );
+            const copy = (
+              <div className="min-w-0 text-center sm:text-left">
+                <p className="truncate text-xs font-semibold text-foreground">{step.label}</p>
+                {step.helper ? (
+                  <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
+                    {step.helper}
+                  </p>
+                ) : null}
+              </div>
+            );
             return (
               <li
                 key={step.id ?? stepNumber}
                 className={cn(
-                  'flex min-w-0 flex-1 items-center gap-3 text-sm',
+                  'flex min-w-0 items-center justify-center text-sm sm:flex-1 sm:justify-start sm:gap-3',
                   !isCurrent && 'opacity-80',
                 )}
               >
-                <div
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
-                    isCurrent
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : isComplete
-                        ? 'border-primary bg-primary/20 text-primary'
-                        : 'border-border bg-background text-muted-foreground',
-                  )}
-                  aria-current={isCurrent ? 'step' : undefined}
-                  aria-label={`${step.label} (${stepNumber} of ${total})`}
-                >
-                  {stepNumber}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-foreground">{step.label}</p>
-                  {step.helper ? (
-                    <p className="truncate text-[11px] text-muted-foreground">{step.helper}</p>
-                  ) : null}
-                </div>
+                {isComplete && onStepSelect ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="flex min-h-11 min-w-0 flex-col items-center gap-1 rounded-md p-0 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:gap-3 sm:text-left"
+                    aria-label={`${step.label} (${stepNumber} of ${total})`}
+                    onClick={() => onStepSelect(stepNumber)}
+                  >
+                    {marker}
+                    {copy}
+                  </Button>
+                ) : (
+                  <div
+                    className="flex min-h-11 min-w-0 flex-col items-center gap-1 sm:flex-row sm:gap-3"
+                    aria-label={`${step.label} (${stepNumber} of ${total})`}
+                    aria-current={isCurrent ? 'step' : undefined}
+                  >
+                    {marker}
+                    {copy}
+                  </div>
+                )}
               </li>
             );
           })}

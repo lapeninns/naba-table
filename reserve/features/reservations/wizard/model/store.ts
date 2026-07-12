@@ -6,6 +6,7 @@ import {
   reducer,
   type Action,
   type BookingDetails,
+  type ContactHydrationPayload,
   type State,
   type WizardStep,
 } from './reducer';
@@ -30,9 +31,7 @@ export type WizardActions = {
   applyConfirmation: (payload: ConfirmationPayload) => void;
   startEdit: (bookingId: string) => void;
   resetForm: () => void;
-  hydrateContacts: (
-    payload: Pick<BookingDetails, 'name' | 'email' | 'phone'> & { rememberDetails?: boolean },
-  ) => void;
+  hydrateContacts: (payload: ContactHydrationPayload) => void;
   hydrateDetails: (details: Partial<BookingDetails>) => void;
 };
 

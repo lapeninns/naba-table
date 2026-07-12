@@ -1,21 +1,13 @@
 import { expect, fn, userEvent, within } from '@storybook/test';
-import React, { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { Calendar24Field } from './components/Calendar24Field';
 
-import type { Calendar24FieldProps } from './components/Calendar24Field';
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services';
 import type { Meta, StoryObj } from '@storybook/react';
+import type { ComponentProps } from 'react';
 
-const meta = {
-  title: 'Reserve/Wizard/PlanStep/Calendar24Field',
-  component: Calendar24Field,
-  parameters: { layout: 'centered' },
-} satisfies Meta<typeof Calendar24Field>;
-
-export default meta;
-
-type Story = StoryObj<typeof Calendar24Field>;
+type CalendarStoryArgs = ComponentProps<typeof Calendar24Field>;
 
 const slots: TimeSlotDescriptor[] = [
   {
@@ -26,11 +18,7 @@ const slots: TimeSlotDescriptor[] = [
     defaultBookingOption: 'lunch',
     availability: {
       services: { lunch: 'enabled', dinner: 'disabled' },
-      labels: {
-        kitchenClosed: false,
-        lunchWindow: true,
-        dinnerWindow: false,
-      },
+      labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
     },
     disabled: false,
     periodId: 'slot-lunch',
@@ -43,70 +31,68 @@ const slots: TimeSlotDescriptor[] = [
     defaultBookingOption: 'dinner',
     availability: {
       services: { lunch: 'disabled', dinner: 'enabled' },
-      labels: {
-        kitchenClosed: false,
-        lunchWindow: false,
-        dinnerWindow: true,
-      },
+      labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
     },
     disabled: false,
     periodId: 'slot-dinner',
   },
 ];
 
-const DEFAULT_MIN_DATE = new Date('2025-05-01');
-
-function StatefulCalendar24Field({ date, time, suggestions }: Calendar24FieldProps) {
+function CalendarStory({ date, time, ...props }: CalendarStoryArgs) {
   const [dateValue, setDateValue] = useState(date.value);
   const [timeValue, setTimeValue] = useState(time.value);
-  const minDate = useMemo(() => date.minDate ?? DEFAULT_MIN_DATE, [date.minDate]);
 
   return (
     <Calendar24Field
+      {...props}
       date={{
         ...date,
         value: dateValue,
-        minDate,
         onSelect: (next) => {
           date.onSelect(next);
-          if (next) {
-            const iso = next.toISOString().slice(0, 10);
-            setDateValue(iso);
-          }
+          if (next) setDateValue(next.toISOString().slice(0, 10));
         },
       }}
       time={{
         ...time,
         value: timeValue,
-        onChange: (value) => {
-          time.onChange(value);
-          setTimeValue(value);
+        onChange: (next, options) => {
+          setTimeValue(next);
+          time.onChange(next, options);
         },
       }}
-      suggestions={suggestions}
     />
   );
 }
 
-export const Default: Story = {
+const meta = {
+  title: 'Reserve/Wizard/PlanStep/Calendar24Field',
+  component: Calendar24Field,
+  parameters: { layout: 'centered' },
+  render: (args) => <CalendarStory {...args} />,
   args: {
     date: {
-      value: '2025-05-08',
-      minDate: DEFAULT_MIN_DATE,
+      value: '2026-07-18',
+      minDate: new Date('2026-07-12T00:00:00'),
       onSelect: fn(),
     },
-    time: {
-      value: '13:00',
-      onChange: fn(),
-    },
+    time: { value: '12:00', onChange: fn() },
     suggestions: slots,
+    intervalMinutes: 30,
+    onMonthChange: fn(),
   },
-  render: (args) => <StatefulCalendar24Field {...args} />,
+} satisfies Meta<CalendarStoryArgs>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const timeInput = await canvas.findByLabelText(/time/i);
-    await userEvent.clear(timeInput);
-    await userEvent.type(timeInput, '14:30');
-    expect(args.time.onChange).toHaveBeenCalled();
+    const page = within(canvasElement.ownerDocument.body);
+    await userEvent.click(await canvas.findByRole('combobox', { name: 'Time' }));
+    await userEvent.click(await page.findByRole('option', { name: '17:30' }));
+    expect(args.time.onChange).toHaveBeenCalledWith('17:30', { commit: true });
   },
 };

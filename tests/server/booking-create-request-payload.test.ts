@@ -49,7 +49,7 @@ describe('booking create request payload parser', () => {
           code: 'VALIDATION_FAILED',
           details: expect.objectContaining({
             fieldErrors: expect.objectContaining({
-              email: expect.arrayContaining([expect.stringContaining('Invalid')]),
+              email: expect.arrayContaining([expect.stringContaining('valid email address')]),
             }),
           }),
         },

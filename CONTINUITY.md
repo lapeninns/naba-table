@@ -1,6 +1,48 @@
 # Continuity Ledger
 
-Last updated: 2026-07-11T16:05:00Z
+Last updated: 2026-07-12T10:04:00Z
+
+## Current silent production table-assignment repair
+
+- Task harness: `tasks/silent-table-assignment-repair-20260712-1213/`.
+- Goal: assign capacity-safe tables to the four newly created confirmed-but-unassigned production bookings without enqueueing or sending email/SMS.
+- Production target: Supabase `vrdiqfudmwydclqpydee`.
+- Safety boundary: capacity quote plus atomic assignment only; no booking update route or notification side-effect dispatcher.
+- Result: all four targets are assigned and remain confirmed: Queen Elizabeth `17`, Corner House `B1-3F-01`, Old School House `09`, Old Crown `07`.
+- Verification: 4 atomic success events, 0 active holds, and no new email intent, email delivery, or SMS delivery rows. The baseline remained 11 email intents, 4 email delivery rows, and 0 SMS rows.
+
+## Current customer booking wizard audit cleanup
+
+- Task harness: `tasks/customer-booking-wizard-audit-20260712-1004/`.
+- Goal: fix verified UX/UI and correctness findings in the customer Reserve wizard while preserving ops-mode behavior and the existing architecture.
+- Current phase: complete. All verified audit findings are implemented, all four child Micro-Specs
+  are `verified`, the coordination parent is superseded, and all five independent review lanes pass.
+- Governance: D1 is customer email OR phone, D2 is Details-scoped 44px targets, and D3 is fresh
+  unchecked consent. All three decisions are encoded in active Micro-Specs and regression tests.
+- Batch 0 result: Storybook is ESM-safe and its three Plan stories render; Reserve now loads the canonical Tailwind v4/Luma CSS so layout and accordion animations ship; the Details privacy link no longer imports the Next router and navigates to `/privacy`.
+- Verification: final lifecycle runs pass 1,237 Vitest files / 5,770 tests with 5 intentional skips,
+  lint, typecheck, Next build, Reserve build, Storybook build, strict UI guards, all 8 Reserve
+  Playwright tests, and the 51-test observability/privacy pack where declared.
+- Behavioral result: consent is never restored or pre-accepted; legal acceptance is visible outside
+  Preferences; customer and API validation accept one valid contact; Details explains requirements
+  and disabled states; Plan announces automatic date moves and permits browser zoom; Review removes
+  party count from Date & Time; completed progress steps navigate backward; standalone dark mode
+  follows the system; verified dead wizard modules were removed.
+- Browser proof covers mobile Plan/Details, email-only and phone-only contact, Review, completed-step
+  navigation, capacity alternatives, privacy navigation, 44px controls, and reactive dark mode;
+  desktop Review and final mobile screenshots were manually inspected.
+- Local handoff: branch `codex/reserve-wizard-audit-fixes`; the single authorized local commit
+  contains implementation, tests, lifecycle evidence, and final review closure. Nothing is pushed.
+- Remaining-audit verification is complete in `tasks/customer-booking-wizard-audit-20260712-1004/research.md`: M7 and M2 are already satisfied under narrow-first, L8 is a proven false alarm, and every confirmed finding has an explicit test/blast-radius map.
+- Branch-review follow-up on 2026-07-12 fixed all four actionable findings: confirmation progress
+  is inert after booking creation, authenticated profile hydration resets legal consent, invalid
+  phone values keep WhatsApp disabled, and three governed Plan Storybook surfaces are retained.
+  The second pass also merges auth hydration against reducer-current remembered contacts, clears
+  WhatsApp consent when the profile phone changes, and explicitly governs the occasion-selection
+  story as a design-only fixture rather than a shipped component. The amended navigation spec has
+  fresh recorded evidence. Full Vitest (1,237 files / 5,777 passed, 5 skipped), typecheck, lint,
+  Next/Reserve/Storybook builds, strict guards, 8/8 shipped Reserve browser tests, live Chromium
+  story checks, and independent security/QA/visual reviews are green.
 
 ## Current WhatsApp-first notification planning
 
@@ -15,6 +57,14 @@ Last updated: 2026-07-11T16:05:00Z
 - Implementation complete locally: booking and manager consent evidence, mobile notification/attempt ledger, WhatsApp Content sends, atomic SMS fallback, signed callback route, manager Worker routing, and channel-aware ops delivery UI.
 - Verification: feature tests, typecheck, lint, privacy/worker QA, production build, and shipped Reserve/app-host Playwright proof pass. Full-suite failures are limited to pre-existing clock-expired booking fixtures and two parallel timing tests.
 - External next step: apply `20260711143000_whatsapp_first_mobile_notifications.sql` to staging, configure the Nabatable sender and approved Content SIDs, then run real provider callback/fallback proof. The declared `db:check-drift` command is currently broken because `scripts/db/check-drift.ts` is missing.
+- Live sender profile completed on 2026-07-12 in Twilio account `amanshresthaaaaa`: `Nabatable`
+  remains ONLINE/HIGH quality; the Nabatable repository brand mark, About text, outbound-only
+  description, canonical website, support email, and Professional Services vertical were saved.
+  Incoming and fallback webhooks remain blank. Evidence is in
+  `tasks/whatsapp-business-profile-20260712-1119/verification.md`.
+- A post-profile-update WhatsApp confirmation-channel test to the redacted operator number reached
+  provider status `read` with no error and no SMS fallback; evidence is appended to
+  `tasks/whatsapp-live-delivery-test-20260711-2214/verification.md`.
 
 ## Current manager-name production DB execution
 

@@ -144,6 +144,35 @@ describe('booking create payload builders', () => {
     });
   });
 
+  it.each([
+    {
+      email: 'guest@example.com',
+      phone: '',
+      expectedEmail: 'guest@example.com',
+      expectedPhone: '',
+    },
+    { email: '', phone: '07123456789', expectedEmail: '', expectedPhone: '07123456789' },
+  ])(
+    'builds booking payloads with one contact and an empty omitted value @contract',
+    ({ email, phone, expectedEmail, expectedPhone }) => {
+      const params = {
+        ...baseParams,
+        request: { ...baseParams.request, email, phone },
+      };
+
+      expect(buildCapacityCreateBookingParams(params)).toMatchObject({
+        customerEmail: expectedEmail,
+        customerPhone: expectedPhone,
+      });
+      expect(
+        buildFallbackInsertBookingPayload({ ...params, reference: 'REF-ONE-CONTACT' }),
+      ).toMatchObject({
+        customer_email: expectedEmail,
+        customer_phone: expectedPhone,
+      });
+    },
+  );
+
   it('builds fallback insert payloads with route-equivalent values', () => {
     expect(
       buildFallbackInsertBookingPayload({
