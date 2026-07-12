@@ -60,7 +60,10 @@ export const createConfirmationSummary = (
   const formattedTime = details.time ? formatReservationTime(details.time) : 'TBC';
   const partyText = `${details.party} ${details.party === 1 ? 'guest' : 'guests'}`;
   const when = `${formattedDate} · ${formattedTime}`;
-  const summaryLines = [reference, formattedTime, formattedDate];
+  // The collapsed line stays party/time/date; the reference is the expand-to-see
+  // fact (and is already prominent in the confirmation body), so it is not
+  // duplicated in the one-line summary.
+  const summaryLines = [partyText, formattedTime, formattedDate];
 
   return {
     primary: 'Booking confirmed',

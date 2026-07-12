@@ -283,7 +283,9 @@ test('@p0 @browser @local-only @external-mock guest can complete a booking flow'
   await clickClientControl(page.getByTestId('wizard-action-review-confirm'));
 
   await expect(page.getByRole('heading', { name: 'Booking confirmed' })).toBeVisible();
-  await expect(page.getByText(bookingReference)).toBeVisible();
+  // The reference now appears in the confirmation body and (as a fact) in the
+  // summary sheet, so assert a visible occurrence rather than a unique match.
+  await expect(page.getByText(bookingReference).filter({ visible: true }).first()).toBeVisible();
 });
 
 test('@p0 @browser @local-only @external-mock guest sees a friendly duplicate-booking error instead of a raw code', async ({
