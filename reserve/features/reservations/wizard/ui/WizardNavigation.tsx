@@ -118,8 +118,9 @@ function ActionButton({ action, role }: { action: StepAction; role: ActionRole }
       data-testid={`wizard-action-${action.id}`}
       className={cn(
         'pg-focus-ring',
-        // Primary: dominant, full-width on mobile, auto-width from sm up (min 44px).
-        role === 'primary' && 'min-h-12 flex-1 px-6 sm:min-h-11 sm:flex-none',
+        // Primary: dominant (grows to fill, basis auto so a long second action wraps
+        // instead of clipping); full-width on mobile, auto-width from sm up (min 44px).
+        role === 'primary' && 'min-h-12 grow px-6 sm:min-h-11 sm:grow-0 sm:flex-none',
         role === 'secondary' && 'min-h-12 flex-none px-4 sm:min-h-11',
         role === 'support' && 'min-h-10 flex-none',
       )}
@@ -271,6 +272,9 @@ export function WizardNavigation({
             id={PANEL_ID}
             role="region"
             aria-label="Booking summary"
+            // Collapsed, the panel is only visually hidden (grid row 0fr); mark it
+            // inert so its buttons leave the tab order + a11y tree until expanded.
+            inert={!isOpen}
             className={cn(
               'grid px-4 sm:px-5',
               !reduced && 'transition-[grid-template-rows] duration-300 ease-out',
@@ -354,7 +358,9 @@ export function WizardNavigation({
 
           {hasActions && (
             <div
-              className="flex items-stretch gap-2 sm:w-auto sm:shrink-0"
+              // flex-wrap so multi-action steps (e.g. the ops confirmation pair)
+              // stack instead of overflowing at 320px; single row from sm up.
+              className="flex flex-wrap items-stretch justify-end gap-2 sm:w-auto sm:flex-nowrap sm:shrink-0"
               role="group"
               aria-label="Step actions"
             >

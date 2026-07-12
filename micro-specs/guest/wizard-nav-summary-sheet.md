@@ -9,6 +9,7 @@ allowed_blast_radius:
   - reserve/features/reservations/wizard/ui/WizardProgress.tsx
   - reserve/features/reservations/wizard/ui/types.ts
   - reserve/features/reservations/wizard/ui/WizardContainer.tsx
+  - reserve/features/reservations/wizard/ui/BookingWizard.tsx
   - reserve/features/reservations/wizard/model/selectors.ts
   - reserve/features/reservations/wizard/ui/__stories__/WizardNavigation.stories.tsx
   - reserve/dev/**

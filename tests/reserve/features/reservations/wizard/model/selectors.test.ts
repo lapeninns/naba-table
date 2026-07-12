@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { getInitialDetails } from '@features/reservations/wizard/model/reducer';
-import { createSelectionSummary } from '@features/reservations/wizard/model/selectors';
+import {
+  createConfirmationSummary,
+  createSelectionSummary,
+} from '@features/reservations/wizard/model/selectors';
 
 describe('createSelectionSummary', () => {
   it('summarizes a complete selection @contract @smoke', () => {
@@ -62,5 +65,21 @@ describe('createSelectionSummary', () => {
     );
 
     expect(summary.facts).toContainEqual({ label: 'Notes', value: 'Window seat please' });
+  });
+});
+
+describe('createConfirmationSummary', () => {
+  it('surfaces the booking reference and when/party as facts @contract', () => {
+    const summary = createConfirmationSummary(
+      'Q8H42',
+      getInitialDetails({ date: '2026-04-14', time: '19:00', party: 4, bookingType: 'dinner' }),
+    );
+
+    expect(summary.primary).toBe('Booking confirmed');
+    expect(summary.facts).toEqual([
+      { label: 'Reference', value: 'Q8H42' },
+      { label: 'When', value: 'Apr 14 2026 · 19:00' },
+      { label: 'Party', value: '4 guests' },
+    ]);
   });
 });

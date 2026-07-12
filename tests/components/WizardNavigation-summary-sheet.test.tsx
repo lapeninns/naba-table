@@ -83,10 +83,19 @@ describe('WizardNavigation summary sheet', () => {
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('exposes the booking facts in a labeled region', () => {
+  it('exposes the booking facts in a labeled region when expanded', () => {
     render(<WizardNavigation {...baseProps} />);
+    fireEvent.click(disclosure());
     expect(screen.getByRole('region', { name: /booking summary/i })).toBeInTheDocument();
     expect(screen.getByText('Dinner')).toBeInTheDocument();
+  });
+
+  it('marks the collapsed summary panel inert so its controls leave the tab order', () => {
+    render(<WizardNavigation {...baseProps} />);
+    const panel = document.getElementById('wizard-summary-sheet');
+    expect(panel).toHaveAttribute('inert');
+    fireEvent.click(disclosure());
+    expect(panel).not.toHaveAttribute('inert');
   });
 
   it('omits the disclosure and region when there are no facts', () => {

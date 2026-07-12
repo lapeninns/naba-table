@@ -46,3 +46,30 @@ export const createSelectionSummary = (details: BookingDetails): SelectionSummar
     facts,
   };
 };
+
+/**
+ * Summary for the confirmation step. Once a booking exists, the sheet should
+ * surface the details a guest needs *after* booking — the reference and when /
+ * party — not the pre-booking Date/Time/Party/Service selection.
+ */
+export const createConfirmationSummary = (
+  reference: string,
+  details: BookingDetails,
+): SelectionSummary => {
+  const formattedDate = details.date ? formatReservationSummaryDate(details.date) : 'TBC';
+  const formattedTime = details.time ? formatReservationTime(details.time) : 'TBC';
+  const partyText = `${details.party} ${details.party === 1 ? 'guest' : 'guests'}`;
+  const when = `${formattedDate} · ${formattedTime}`;
+  const summaryLines = [reference, formattedTime, formattedDate];
+
+  return {
+    primary: 'Booking confirmed',
+    details: summaryLines,
+    srLabel: `Booking confirmed. Reference ${reference}. ${partyText}, ${when}.`,
+    facts: [
+      { label: 'Reference', value: reference },
+      { label: 'When', value: when },
+      { label: 'Party', value: partyText },
+    ],
+  };
+};
