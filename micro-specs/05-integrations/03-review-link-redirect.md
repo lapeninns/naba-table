@@ -1,6 +1,6 @@
 ---
 spec_id: MS-integrations-review-link-redirect
-status: draft
+status: active
 risk_class: auth-session
 owner: codex
 last_reviewed: 2026-07-12

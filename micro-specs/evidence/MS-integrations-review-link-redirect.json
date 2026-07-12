@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "spec_id": "MS-integrations-review-link-redirect",
+  "runs": [],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T19:24:48.067Z",
+      "sha": "8a2d0a22f77679c69c502a316453f424e9ba0b57",
+      "dirty": false,
+      "by": "amankumarshrestha"
+    }
+  ]
+}
