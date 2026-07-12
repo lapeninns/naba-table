@@ -10,6 +10,7 @@ import { emit } from '@/lib/analytics/emit';
 import { WizardProvider } from '../context/WizardContext';
 import { useWizardDependencies } from '../di';
 import { useReservationWizard } from '../hooks/useReservationWizard';
+import { createConfirmationSummary } from '../model/selectors';
 import { ConfirmationStep } from './steps/ConfirmationStep';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
@@ -212,6 +213,16 @@ function BookingWizardContent({
     ) : null;
   const effectiveStickyVisible = state.step === 4 ? true : stickyVisible;
 
+  // On the confirmation step, the summary sheet should surface the booking
+  // reference + when/party, not the pre-booking Date/Time/Party/Service selection.
+  const navSummary = useMemo(
+    () =>
+      state.step === 4 && state.lastConfirmed?.reference
+        ? createConfirmationSummary(state.lastConfirmed.reference, state.details)
+        : selectionSummary,
+    [state.step, state.lastConfirmed?.reference, state.details, selectionSummary],
+  );
+
   const shouldShowSkeleton = state.loading && state.step !== 4;
 
   const stepContent = (() => {
@@ -282,7 +293,7 @@ function BookingWizardContent({
         steps={stepsMeta}
         currentStep={state.step}
         actions={effectiveActions}
-        summary={selectionSummary}
+        summary={navSummary}
         heroRef={heroRef}
         stickyHeight={stickyHeight}
         stickyVisible={effectiveStickyVisible}

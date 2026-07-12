@@ -1,15 +1,15 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { ChevronUp, Loader2 } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@shared/lib/cn';
 
 import { wizardIconMap } from './wizardIcons';
-import { WizardProgress, type WizardStepMeta, type WizardSummary } from './WizardProgress';
 import { groupActions } from '../utils/groupActions';
 
+import type { WizardStepMeta, WizardSummary } from './WizardProgress';
 import type { StepAction } from '../model/reducer';
 import type { ActionRole } from '../utils/groupActions';
 
@@ -18,35 +18,32 @@ import type { ActionRole } from '../utils/groupActions';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export interface WizardNavigationProps {
-  /** Step metadata for progress indicator */
+  /** Step metadata for the progress indicator */
   steps: WizardStepMeta[];
   /** Current active step number (1-indexed) */
   currentStep: number;
-  /** Summary content to display */
+  /** Summary content (primary line, details, and labeled facts) */
   summary: WizardSummary;
   /** Actions available for the current step */
   actions: StepAction[];
   /** Whether the navigation is visible (default: true) */
   visible?: boolean;
-  /** Callback when the nav height changes (for scroll padding) */
+  /** Callback when the collapsed nav height changes (for scroll padding) */
   onHeightChange?: (height: number) => void;
   /** Additional CSS classes */
   className?: string;
+  /** Jump back to a completed step (wayfinding). Omit to make steps inert (e.g. after confirmation). */
   onStepSelect?: (step: number) => void;
 }
 
-interface ActionButtonProps {
-  action: StepAction;
-  role: ActionRole;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// CUSTOM HOOKS
+// HOOKS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Tracks element height via ResizeObserver and reports changes.
- * Used to dynamically adjust scroll padding when the nav resizes.
+ * Tracks an element's height via ResizeObserver and reports changes so the page
+ * can pad its scroll region. Takes an initial measurement even where
+ * ResizeObserver is unavailable (legacy/SSR).
  */
 function useHeightObserver(
   ref: React.RefObject<HTMLElement | null>,
@@ -62,24 +59,15 @@ function useHeightObserver(
       return;
     }
 
-    const updateHeight = () => {
-      const height = node.getBoundingClientRect().height;
-      onHeightChange(height);
-    };
-
-    // Initial measurement
+    const updateHeight = () => onHeightChange(node.getBoundingClientRect().height);
     updateHeight();
 
-    // triage-099: ResizeObserver is unavailable in some legacy/SSR environments; the initial
-    // measurement above already reported the height, so skip observation rather than throwing.
     if (typeof ResizeObserver === 'undefined') {
       return;
     }
 
-    // Observe for size changes (content, font loading, etc.)
     const observer = new ResizeObserver(updateHeight);
     observer.observe(node);
-
     return () => {
       observer.disconnect();
       onHeightChange(0);
@@ -87,21 +75,14 @@ function useHeightObserver(
   }, [ref, visible, onHeightChange]);
 }
 
-/**
- * Detects user's motion preference for accessibility.
- * Returns true if user prefers reduced motion.
- */
+/** Detects the user's reduced-motion preference. */
 function usePrefersReducedMotion(): boolean {
   const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(false);
 
   React.useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     setPrefersReducedMotion(mediaQuery.matches);
-
-    const handler = (event: MediaQueryListEvent) => {
-      setPrefersReducedMotion(event.matches);
-    };
-
+    const handler = (event: MediaQueryListEvent) => setPrefersReducedMotion(event.matches);
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
@@ -110,149 +91,55 @@ function usePrefersReducedMotion(): boolean {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SUB-COMPONENTS
+// ACTION BUTTON (shared shadcn primitive — guest-* variants)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Individual action button with role-based styling.
- * Memoized to prevent unnecessary re-renders.
- *
- * Touch targets: 48px height (exceeds WCAG 2.1 44px minimum)
- * Shape: Pill (rounded-full) for modern aesthetic
- */
-const ActionButton = React.memo(function ActionButton({ action, role }: ActionButtonProps) {
-  const IconComponent = action.icon ? (wizardIconMap[action.icon] ?? null) : null;
-  const isPrimary = role === 'primary';
-  const isSecondary = role === 'secondary';
-  const isSupport = role === 'support';
-  const isLoading = action.loading;
-  const isDisabled = action.disabled || isLoading;
+const VARIANT_BY_ROLE: Record<ActionRole, 'guest-primary' | 'guest-outline' | 'guest-ghost'> = {
+  primary: 'guest-primary',
+  secondary: 'guest-outline',
+  support: 'guest-ghost',
+};
 
-  // Determine button variant based on action config or role
-  const variant = action.variant ?? (isPrimary ? 'default' : isSecondary ? 'outline' : 'ghost');
-
-  // Build accessible label (fallback chain)
+function ActionButton({ action, role }: { action: StepAction; role: ActionRole }) {
+  const Icon = action.icon ? (wizardIconMap[action.icon] ?? null) : null;
+  const isLoading = !!action.loading;
+  const isDisabled = !!action.disabled || isLoading;
   const accessibleLabel = action.ariaLabel ?? action.srLabel ?? action.label;
 
   return (
     <Button
-      variant={variant}
-      size="lg"
+      type="button"
+      variant={VARIANT_BY_ROLE[role]}
+      size={role === 'support' ? 'guest-sm' : 'guest-lg'}
       onClick={action.onClick}
       disabled={isDisabled}
       aria-label={accessibleLabel}
       aria-busy={isLoading}
       data-testid={`wizard-action-${action.id}`}
       className={cn(
-        // Base: 44px height on mobile, 48px on desktop
-        'pg-action pg-focus-ring h-11 min-w-[7.25rem] flex-none rounded-full sm:h-12',
-        // Typography - responsive sizing (smaller on mobile to fit)
-        'text-xs font-semibold sm:text-sm',
-        // GPU-accelerated transitions (transform + opacity only)
-        'transition-transform duration-200 ease-out',
-        // Role-specific styling
-        isPrimary && [
-          'px-3 sm:px-6',
-          // Micro-interaction: scale on hover/press
-          'hover:scale-[1.02] active:scale-[0.98]',
-        ],
-        isSecondary && [
-          'px-2 sm:px-5',
-          // Subtle border emphasis on hover
-          'hover:border-primary/50',
-        ],
-        isSupport && ['flex-none px-3 h-9 text-xs font-medium'],
-        // Override width if explicitly set
-        action.fullWidth === false && 'flex-none w-auto',
+        'pg-focus-ring',
+        // Primary: dominant (grows to fill, basis auto so a long second action wraps
+        // instead of clipping); full-width on mobile, auto-width from sm up (min 44px).
+        role === 'primary' && 'min-h-12 grow px-6 sm:min-h-11 sm:grow-0 sm:flex-none',
+        role === 'secondary' && 'min-h-12 flex-none px-4 sm:min-h-11',
+        role === 'support' && 'min-h-10 flex-none',
       )}
     >
-      {/* Icon or Loading Spinner */}
       {isLoading ? (
-        <Loader2
-          className="mr-1.5 h-3.5 w-3.5 shrink-0 animate-spin sm:mr-2 sm:h-4 sm:w-4"
-          aria-hidden="true"
-        />
-      ) : IconComponent ? (
-        <IconComponent
-          className="mr-1.5 h-3.5 w-3.5 shrink-0 sm:mr-2 sm:h-4 sm:w-4"
-          aria-hidden="true"
-        />
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+      ) : Icon ? (
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
       ) : null}
-
-      {/* Label - no truncate, uses responsive font size */}
-      <span className="whitespace-nowrap">{action.label}</span>
+      <span>{action.label}</span>
     </Button>
   );
-});
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// STYLE CONSTANTS
+// MAIN COMPONENT — "summary sheet"
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Outer fixed container.
- *
- * Responsibilities:
- * - Fixed positioning at viewport bottom
- * - Safe area insets for notched devices (iPhone X+)
- * - Horizontal padding that scales with viewport
- * - Pointer-events passthrough to content below
- *
- * Desktop: Adds bottom padding for floating effect
- */
-const OUTER_CONTAINER_CLASSES = cn(
-  // Fixed positioning at bottom
-  'fixed inset-x-0 bottom-0 z-50',
-  // Safe area padding for notched devices
-  'pb-[env(safe-area-inset-bottom,0px)]',
-  // Mobile: No horizontal padding (edge-to-edge)
-  // Desktop: Horizontal padding + bottom margin for floating effect
-  'px-0 sm:px-[var(--pg-gutter)]',
-  'sm:pb-4',
-  // Guest drawer state hides this fixed bar with compositor-only properties.
-  'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
-  // Pointer events pass through (nav re-enables them)
-  'pointer-events-none',
-);
-
-/**
- * Inner nav capsule.
- *
- * Implements glassmorphism with:
- * - Semi-transparent background
- * - Backdrop blur (hardware-accelerated)
- * - Subtle border for definition
- * - Prominent shadow for floating effect
- *
- * Shape:
- * - Mobile: Rounded top corners, attached to bottom
- * - Desktop: Full pill shape, floating
- */
-const NAV_CAPSULE_CLASSES = cn(
-  // Re-enable pointer events
-  'pointer-events-auto',
-  // Centering and max-width
-  'mx-auto w-full',
-
-  'pg-panel backdrop-blur-xl',
-  // Reserve the settled summary + action height so the fixed bar does not grow after hydration.
-  'min-h-[5.375rem] sm:min-h-[6.125rem]',
-
-  // ─── SHAPE ───────────────────────────────────────────────────────────────
-  // Mobile: Attached to viewport bottom, rounded top corners
-  'rounded-t-[var(--pg-radius-lg)]',
-  // Desktop: Floating capsule with graceful rounding
-  // Using rounded-3xl (24px) instead of rounded-full to prevent
-  // "stretched pill" appearance on wide screens
-  'sm:max-w-4xl sm:rounded-[var(--pg-radius-lg)]',
-
-  // ─── TEXT ────────────────────────────────────────────────────────────────
-  'text-foreground',
-);
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
+const PANEL_ID = 'wizard-summary-sheet';
 
 export function WizardNavigation({
   steps,
@@ -264,123 +151,233 @@ export function WizardNavigation({
   className,
   onStepSelect,
 }: WizardNavigationProps) {
-  const navRef = React.useRef<HTMLElement | null>(null);
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const peekRef = React.useRef<HTMLDivElement | null>(null);
+  const reduced = usePrefersReducedMotion();
+  const [open, setOpen] = React.useState(false);
 
-  // Track height for parent scroll padding
-  useHeightObserver(navRef, visible, onHeightChange);
+  // Report the always-present peek height (not the transient expanded panel).
+  useHeightObserver(peekRef, visible, onHeightChange);
 
-  // Memoize action grouping to prevent recalculation
-  const groupedActions = React.useMemo(() => groupActions(actions), [actions]);
-  const { primary, secondary, support } = groupedActions;
+  const total = steps.length || 1;
+  const current = Math.min(Math.max(currentStep, 1), total);
+  const fraction = current / total;
+  const stepLabel = steps[current - 1]?.label ?? `Step ${current}`;
+  const line = (summary.details ?? []).filter(Boolean).join(' · ');
+  const facts = summary.facts ?? [];
+  const canExpand = facts.length > 0;
 
-  // Early return if not visible
-  if (!visible) {
-    return null;
-  }
+  const { primary, secondary, support } = React.useMemo(() => groupActions(actions), [actions]);
 
-  // Check if we have any actions to display
+  // Every step starts collapsed.
+  React.useEffect(() => setOpen(false), [current]);
+  const isOpen = open && canExpand;
+
+  if (!visible) return null;
+
   const hasActions = primary.length > 0 || secondary.length > 0;
-  const hasSupport = support.length > 0;
+  const dashOffset = 100 - Math.round(fraction * 100);
+
+  const peekBody = (
+    <>
+      {/* Circular step-progress indicator */}
+      <span
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        <svg viewBox="0 0 36 36" className="size-9 -rotate-90">
+          <circle
+            cx="18"
+            cy="18"
+            r="16"
+            fill="none"
+            strokeWidth="3"
+            className="stroke-[color:var(--pg-bg-muted)]"
+          />
+          <circle
+            cx="18"
+            cy="18"
+            r="16"
+            fill="none"
+            strokeWidth="3"
+            strokeLinecap="round"
+            pathLength={100}
+            className={cn(
+              'stroke-[color:var(--pg-action)]',
+              !reduced && 'transition-[stroke-dashoffset] duration-500 ease-out',
+            )}
+            style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
+          />
+        </svg>
+        <span className="absolute text-[11px] font-bold tabular-nums text-[color:var(--pg-text)]">
+          {current}/{total}
+        </span>
+      </span>
+
+      <span className="flex min-w-0 flex-col text-left">
+        <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
+          {stepLabel}
+        </span>
+        {line ? (
+          <span className="truncate text-xs text-[color:var(--pg-text-muted)]">{line}</span>
+        ) : null}
+      </span>
+
+      {canExpand ? (
+        <span className="ml-auto flex shrink-0">
+          <ChevronUp
+            className={cn(
+              'h-4 w-4 text-[color:var(--pg-text-muted)]',
+              !reduced && 'transition-transform duration-300 ease-out',
+              isOpen && 'rotate-180',
+            )}
+            aria-hidden="true"
+          />
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
-    <div data-booking-wizard-navigation className={cn(OUTER_CONTAINER_CLASSES, className)}>
+    <div
+      data-booking-wizard-navigation
+      className={cn(
+        'pointer-events-none fixed inset-x-0 bottom-0 z-50',
+        'pb-[env(safe-area-inset-bottom,0px)] sm:px-[var(--pg-gutter)] sm:pb-4',
+        className,
+      )}
+    >
       <nav
-        ref={navRef}
         role="navigation"
         aria-label="Booking wizard navigation"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && isOpen) setOpen(false);
+        }}
         className={cn(
-          NAV_CAPSULE_CLASSES,
-          // Entry animation (respects reduced motion preference)
-          !prefersReducedMotion && 'animate-slide-up',
+          'pointer-events-auto mx-auto w-full backdrop-blur-xl text-[color:var(--pg-text)]',
+          'pg-panel rounded-t-[var(--pg-radius-xl)] sm:max-w-3xl sm:rounded-[var(--pg-radius-xl)]',
+          !reduced && 'animate-slide-up',
+          isOpen && 'shadow-[var(--pg-shadow-lg)]',
         )}
       >
-        {/* ═══════════════════════════════════════════════════════════════════
-            CONTENT CONTAINER
-            Mobile: Stacked layout (summary, progress, buttons)
-            Desktop: Summary on top, progress + buttons inline below
-        ═══════════════════════════════════════════════════════════════════ */}
-        <div className="flex flex-col gap-2 px-3 py-2 sm:px-5 sm:py-3">
-          {/* ─────────────────────────────────────────────────────────────────
-              TOP: Centered Booking Summary
-          ───────────────────────────────────────────────────────────────── */}
-          <p
-            className={cn(
-              'min-h-4 text-center text-xs text-muted-foreground',
-              !(summary.details && summary.details.length >= 3) && 'invisible',
-            )}
-            aria-hidden={!(summary.details && summary.details.length >= 3)}
-          >
-            {summary.details && summary.details.length >= 3 ? (
-              <>
-                <span className="font-medium text-foreground">{summary.details[0]}</span>
-                {' at '}
-                <span className="font-medium text-foreground">{summary.details[1]}</span>
-                {' on '}
-                <span className="font-medium text-foreground">{summary.details[2]}</span>
-              </>
-            ) : (
-              'Selection summary'
-            )}
-          </p>
-
-          {/* ─────────────────────────────────────────────────────────────────
-              MIDDLE/BOTTOM: Progress + Buttons
-              Mobile: Compact inline controls
-              Desktop: Inline with full progress treatment
-          ───────────────────────────────────────────────────────────────── */}
-          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
-            {/* Progress indicator with progress bar.
-                On mobile the progress does not grow (flex-initial), so when the action
-                buttons cannot fit alongside it they wrap to their own row instead of
-                crushing the progress label. Restored to flex-1 from sm: up. */}
-            <WizardProgress
-              steps={steps}
-              currentStep={currentStep}
-              summary={summary}
-              showStepList={currentStep > 1}
-              onStepSelect={onStepSelect}
-              className="min-w-0 flex-initial [&_[role=progressbar]]:hidden [&_.tabular-nums]:hidden sm:flex-1 sm:[&_[role=progressbar]]:block sm:[&_.tabular-nums]:inline"
-            />
-
-            {/* Action Buttons */}
-            {hasActions && (
-              <div
-                className="flex w-auto shrink-0 items-stretch gap-2"
-                role="group"
-                aria-label="Step actions"
-              >
-                {/* Secondary Actions */}
-                {secondary.map((action) => (
-                  <ActionButton key={action.id} action={action} role="secondary" />
-                ))}
-
-                {/* Primary Actions */}
-                {primary.map((action) => (
-                  <ActionButton key={action.id} action={action} role="primary" />
-                ))}
-              </div>
-            )}
+        {/* Mobile-only drag/expand affordance */}
+        {canExpand && (
+          <div className="flex justify-center pt-2 sm:hidden" aria-hidden="true">
+            <span className="h-1 w-9 rounded-full bg-[color:var(--pg-border)]" />
           </div>
-        </div>
+        )}
 
-        {/* ─────────────────────────────────────────────────────────────────
-            SUPPORT ACTIONS ROW (Optional)
-            Only rendered if there are support-level actions (rare)
-        ───────────────────────────────────────────────────────────────── */}
-        {hasSupport && (
-          <div className="border-t border-dashed border-border/40 px-4 py-2">
-            <div
-              className="flex flex-wrap justify-center gap-2"
-              role="group"
-              aria-label="Additional actions"
-            >
-              {support.map((action) => (
-                <ActionButton key={action.id} action={action} role="support" />
-              ))}
+        {/* Expandable sheet (grid-rows 0fr→1fr height animation) */}
+        {canExpand && (
+          <div
+            id={PANEL_ID}
+            role="region"
+            aria-label="Booking summary"
+            // Collapsed, the panel is only visually hidden (grid row 0fr); mark it
+            // inert so its buttons leave the tab order + a11y tree until expanded.
+            inert={!isOpen}
+            className={cn(
+              'grid px-4 sm:px-5',
+              !reduced && 'transition-[grid-template-rows] duration-300 ease-out',
+              isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="flex flex-col gap-3 pb-3 pt-1.5">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+                  {facts.map((fact) => (
+                    <div key={fact.label} className="flex flex-col gap-0.5">
+                      <dt className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--pg-text-muted)]">
+                        {fact.label}
+                      </dt>
+                      <dd className="text-sm font-semibold text-[color:var(--pg-text)]">
+                        {fact.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+
+                {/* Jump back to a completed step (preserved from the wizard-audit
+                    wayfinding fix). Rendered only when a handler is supplied — so
+                    steps are inert after confirmation. */}
+                {onStepSelect && current > 1 && (
+                  <nav
+                    aria-label="Go to a previous step"
+                    className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3"
+                  >
+                    {steps.slice(0, current - 1).map((step, index) => (
+                      <Button
+                        key={step.id ?? index + 1}
+                        type="button"
+                        variant="guest-ghost"
+                        size="guest-sm"
+                        onClick={() => onStepSelect(index + 1)}
+                        aria-label={`${step.label} (${index + 1} of ${total})`}
+                        className="pg-focus-ring min-h-10 gap-2"
+                      >
+                        <span className="flex size-5 items-center justify-center rounded-full bg-[color:var(--pg-action)] text-[10px] font-bold text-[color:var(--pg-action-contrast)]">
+                          {index + 1}
+                        </span>
+                        {step.label}
+                      </Button>
+                    ))}
+                  </nav>
+                )}
+
+                {support.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">
+                    {support.map((action) => (
+                      <ActionButton key={action.id} action={action} role="support" />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
+
+        {/* Peek + actions: stacked on mobile, single row from sm up */}
+        <div
+          ref={peekRef}
+          className="flex flex-col gap-2.5 px-4 pb-3 pt-2 sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:pt-2.5"
+        >
+          {canExpand ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setOpen((value) => !value)}
+              aria-expanded={isOpen}
+              aria-controls={PANEL_ID}
+              aria-label={isOpen ? 'Hide booking summary' : 'Show booking summary'}
+              className="pg-focus-ring -mx-1 flex h-auto w-full items-center justify-start gap-3 rounded-[var(--pg-radius-md)] px-1 py-1 font-normal sm:w-auto sm:flex-1"
+            >
+              {peekBody}
+            </Button>
+          ) : (
+            <div className="-mx-1 flex items-center gap-3 px-1 py-1 sm:flex-1">{peekBody}</div>
+          )}
+
+          {hasActions && (
+            <div
+              // flex-wrap so multi-action steps (e.g. the ops confirmation pair)
+              // stack instead of overflowing at 320px; single row from sm up.
+              className="flex flex-wrap items-stretch justify-end gap-2 sm:w-auto sm:flex-nowrap sm:shrink-0"
+              role="group"
+              aria-label="Step actions"
+            >
+              {secondary.map((action) => (
+                <ActionButton key={action.id} action={action} role="secondary" />
+              ))}
+              {primary.map((action) => (
+                <ActionButton key={action.id} action={action} role="primary" />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Screen-reader step announcement */}
+        <div className="sr-only" aria-live="polite">
+          {`Step ${current} of ${total}. ${summary.srLabel ?? summary.primary}`}
+        </div>
       </nav>
     </div>
   );

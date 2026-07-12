@@ -29,7 +29,6 @@ implementation_surfaces:
   - .env.example
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
-  - tasks/whatsapp-first-notifications-20260711-1413/plan.md
 related_tests:
   - not-yet-created
 verification_gates:

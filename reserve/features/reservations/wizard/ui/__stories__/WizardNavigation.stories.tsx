@@ -17,6 +17,12 @@ const summary: WizardSummary = {
   primary: 'Tuesday, Mar 15',
   details: ['7:00 PM', '2 guests', 'Inside seating'],
   srLabel: 'Dinner on March 15 at 7 PM for two guests. Inside seating',
+  facts: [
+    { label: 'Date', value: 'Sat 15 Mar' },
+    { label: 'Time', value: '7:00 PM' },
+    { label: 'Party', value: '2 guests' },
+    { label: 'Service', value: 'Dinner' },
+  ],
 };
 
 const actions: StepAction[] = [
@@ -101,6 +107,11 @@ export const Confirmation: Story = {
       primary: '✓ Confirmed: Tue, Mar 15 at 7:00 PM',
       details: ['Reference Q8H42', '2 guests'],
       srLabel: 'Booking confirmed for March 15 at 7 PM, two guests, reference Q8H42',
+      facts: [
+        { label: 'Reference', value: 'Q8H42' },
+        { label: 'When', value: 'Tue, Mar 15 · 7:00 PM' },
+        { label: 'Party', value: '2 guests' },
+      ],
     },
   },
 };

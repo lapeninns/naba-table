@@ -25,7 +25,6 @@ implementation_surfaces:
   - package.json
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
-  - tasks/customer-booking-wizard-audit-20260712-1004/plan.md
 related_tests:
   - tests/e2e/guest-reserve-routes.spec.ts
   - tests/reserve/standalone-boundaries.test.ts

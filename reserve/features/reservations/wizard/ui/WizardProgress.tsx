@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@shared/lib/cn';
 
+import type { SummaryFact } from '../model/selectors';
+
+export type { SummaryFact };
+
 export interface WizardStepMeta {
   id: number;
   label: string;
@@ -16,6 +20,8 @@ export interface WizardSummary {
   primary: string;
   details?: string[];
   srLabel?: string;
+  /** Labeled booking facts for the expandable summary sheet. */
+  facts?: SummaryFact[];
 }
 
 interface WizardProgressProps {
