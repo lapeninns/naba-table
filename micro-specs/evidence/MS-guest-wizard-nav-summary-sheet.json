@@ -93,6 +93,50 @@
         }
       ],
       "all_passed": true
+    },
+    {
+      "timestamp": "2026-07-12T15:37:14.550Z",
+      "git_sha": "7bf074651f187c9e3d0f6e1cb7fe3229aadf7611",
+      "git_branch": "claude/wizard-navigation-redesign-649cf5",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 218
+        },
+        {
+          "command": "pnpm guard:no-shadcn:strict",
+          "exit_code": 0,
+          "duration_ms": 462
+        },
+        {
+          "command": "pnpm guard:luma:strict",
+          "exit_code": 0,
+          "duration_ms": 338
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1939
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 17528
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 65674
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 41540
+        }
+      ],
+      "all_passed": true
     }
   ],
   "manual_attestations": [],
