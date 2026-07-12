@@ -1,8 +1,12 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getInitialState, type State, type StepAction } from '@features/reservations/wizard/model/reducer';
+import {
+  getInitialState,
+  type State,
+  type StepAction,
+} from '@features/reservations/wizard/model/reducer';
 import { BookingWizard } from '@features/reservations/wizard/ui/BookingWizard';
 
 import type { WizardActions } from '@features/reservations/wizard/model/store';
@@ -12,6 +16,14 @@ import type { WizardActions } from '@features/reservations/wizard/model/store';
 const harness = vi.hoisted(() => ({
   wizard: null as null | (() => Record<string, unknown>),
   online: true,
+  session: {
+    user: null as null | { id: string; email?: string; user_metadata?: Record<string, unknown> },
+    session: null,
+    status: 'unauthenticated',
+  },
+  profile: undefined as
+    | undefined
+    | { name?: string | null; email?: string | null; phone?: string | null },
   planProps: vi.fn(),
   reviewProps: vi.fn(),
 }));
@@ -23,10 +35,10 @@ vi.mock('@/hooks/useOnlineStatus', () => ({
   useOnlineStatus: () => harness.online,
 }));
 vi.mock('@/hooks/useSupabaseSession', () => ({
-  useSupabaseSession: () => ({ user: null, session: null, status: 'unauthenticated' }),
+  useSupabaseSession: () => harness.session,
 }));
 vi.mock('@/hooks/useProfile', () => ({
-  useProfile: () => ({ data: undefined }),
+  useProfile: () => ({ data: harness.profile }),
 }));
 vi.mock('@/lib/analytics/emit', () => ({ emit: vi.fn() }));
 
@@ -88,9 +100,10 @@ const stickyActions: StepAction[] = [
 
 function installWizard(state: State) {
   const handleConfirm = vi.fn();
+  const actions = createActions();
   harness.wizard = () => ({
     state,
-    actions: createActions(),
+    actions,
     heroRef: { current: null },
     stepsMeta: [
       { id: 1, label: 'Plan' },
@@ -109,11 +122,13 @@ function installWizard(state: State) {
     handleClose: vi.fn(),
     planAlert: null,
   });
-  return { handleConfirm };
+  return { actions, handleConfirm };
 }
 
 beforeEach(() => {
   harness.online = true;
+  harness.session = { user: null, session: null, status: 'unauthenticated' };
+  harness.profile = undefined;
   harness.wizard = null;
   harness.planProps.mockClear();
   harness.reviewProps.mockClear();
@@ -169,6 +184,46 @@ describe('BookingWizard step routing', () => {
     expect(screen.queryByText('plan-step-stub')).not.toBeInTheDocument();
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
   });
+
+  it('keeps completed progress steps inert after confirmation @contract', async () => {
+    installWizard(makeState({ step: 4 }));
+    render(<BookingWizard />);
+
+    expect(await screen.findByText('confirmation-step-stub')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Plan (1 of 4)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review (3 of 4)' })).not.toBeInTheDocument();
+  });
+
+  it('hydrates authenticated contacts through the consent-resetting action @contract', async () => {
+    harness.session = {
+      user: { id: 'user-1', email: 'account@example.com', user_metadata: {} },
+      session: null,
+      status: 'authenticated',
+    };
+    harness.profile = {
+      name: 'Account Guest',
+      email: 'account@example.com',
+      phone: '07123456789',
+    };
+    const state = makeState({ step: 2 });
+    state.details.name = 'Account Guest';
+    state.details.email = 'account@example.com';
+    state.details.phone = '07123456789';
+    state.details.agree = true;
+    const { actions } = installWizard(state);
+
+    render(<BookingWizard />);
+
+    await waitFor(() =>
+      expect(actions.hydrateContacts).toHaveBeenCalledWith({
+        name: 'Account Guest',
+        email: 'account@example.com',
+        phone: '07123456789',
+        source: 'authenticated',
+      }),
+    );
+    expect(actions.updateDetails).not.toHaveBeenCalledWith('email', 'account@example.com');
+  });
 });
 
 describe('BookingWizard offline handling', () => {
@@ -179,7 +234,9 @@ describe('BookingWizard offline handling', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('You’re offline');
     expect(
-      screen.getByText('You’re offline. You can edit details, but confirming requires a connection.'),
+      screen.getByText(
+        'You’re offline. You can edit details, but confirming requires a connection.',
+      ),
     ).toBeInTheDocument();
 
     const primary = await screen.findByRole('button', { name: /Continue/ });

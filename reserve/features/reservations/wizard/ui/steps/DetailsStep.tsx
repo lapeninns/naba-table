@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { isUKPhone } from '@reserve/shared/validation';
 
 import { useWizardNavigation, useWizardState } from '../../context/WizardContext';
 import { useWizardDependencies } from '../../di';
@@ -65,6 +66,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
   const rememberDetailsValue = useWatch({ control: form.control, name: 'rememberDetails' });
   const marketingOptInValue = useWatch({ control: form.control, name: 'marketingOptIn' });
   const phoneValue = useWatch({ control: form.control, name: 'phone' });
+  const hasValidWhatsAppPhone = isUKPhone(phoneValue?.trim() ?? '');
   const contactLocks = props.contactLocks ?? {};
   const isNameLocked = Boolean(contactLocks.name);
   const isEmailLocked = Boolean(contactLocks.email);
@@ -246,14 +248,14 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                             htmlFor={checkboxId}
                             className={cn(
                               optionalPreferenceLabelClass(Boolean(field.value)),
-                              !phoneValue.trim() && 'opacity-60',
+                              !hasValidWhatsAppPhone && 'opacity-60',
                             )}
                           >
                             <FormControl>
                               <Checkbox
                                 id={checkboxId}
                                 checked={field.value}
-                                disabled={!phoneValue.trim()}
+                                disabled={!hasValidWhatsAppPhone}
                                 onCheckedChange={(next) => {
                                   const value = next === true;
                                   field.onChange(value);
@@ -273,7 +275,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                   ? `Confirm the guest says this number uses WhatsApp and agrees to receive booking messages from Nabatable on behalf of ${venueName}. If WhatsApp is unavailable, we’ll send an SMS instead.`
                                   : `You confirm this number uses WhatsApp and agree to receive booking messages from Nabatable on behalf of ${venueName}. If WhatsApp is unavailable, we’ll send an SMS instead.`}
                               </p>
-                              {!phoneValue.trim() ? (
+                              {!hasValidWhatsAppPhone ? (
                                 <p className="text-sm font-medium text-muted-foreground">
                                   Add a valid UK phone number to enable WhatsApp updates.
                                 </p>

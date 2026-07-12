@@ -97,6 +97,7 @@ function BookingWizardContent({
   const lockedName = shouldLockContacts ? (profile?.name ?? fallbackName ?? '').trim() : '';
   const lockedEmail = shouldLockContacts ? (profile?.email ?? user?.email ?? '').trim() : '';
   const lockedPhone = shouldLockContacts ? (profile?.phone ?? '').trim() : '';
+  const authenticatedHydrationKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     void import('./steps/DetailsStep');
@@ -105,30 +106,23 @@ function BookingWizardContent({
 
   useEffect(() => {
     if (!shouldLockContacts) {
+      authenticatedHydrationKeyRef.current = null;
       return;
     }
 
-    if (lockedEmail && state.details.email.trim() !== lockedEmail) {
-      actions.updateDetails('email', lockedEmail);
+    const hydrationKey = [user?.id ?? '', lockedName, lockedEmail, lockedPhone].join('\u0000');
+    if (authenticatedHydrationKeyRef.current === hydrationKey) {
+      return;
     }
 
-    if (lockedName && state.details.name.trim() !== lockedName) {
-      actions.updateDetails('name', lockedName);
-    }
-
-    if (lockedPhone && state.details.phone.trim() !== lockedPhone) {
-      actions.updateDetails('phone', lockedPhone);
-    }
-  }, [
-    actions,
-    shouldLockContacts,
-    lockedEmail,
-    lockedName,
-    lockedPhone,
-    state.details.email,
-    state.details.name,
-    state.details.phone,
-  ]);
+    authenticatedHydrationKeyRef.current = hydrationKey;
+    actions.hydrateContacts({
+      name: lockedName,
+      email: lockedEmail,
+      phone: lockedPhone,
+      source: 'authenticated',
+    });
+  }, [actions, shouldLockContacts, lockedEmail, lockedName, lockedPhone, user?.id]);
 
   const contactLocks = useMemo(() => {
     if (!shouldLockContacts) {
@@ -300,7 +294,7 @@ function BookingWizardContent({
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}
-        onStepSelect={actions.goToStep}
+        onStepSelect={state.step < 4 ? actions.goToStep : undefined}
       >
         {stepContent}
       </WizardContainer>

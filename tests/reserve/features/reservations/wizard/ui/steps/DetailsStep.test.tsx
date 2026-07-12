@@ -12,8 +12,8 @@ import {
 } from '@features/reservations/wizard/model/reducer';
 import { DetailsStep } from '@features/reservations/wizard/ui/steps/DetailsStep';
 
-import type { DetailsStepProps } from '@features/reservations/wizard/ui/steps/details-step/types';
 import type { WizardActions } from '@features/reservations/wizard/model/store';
+import type { DetailsStepProps } from '@features/reservations/wizard/ui/steps/details-step/types';
 
 function createActions(): WizardActions {
   return {
@@ -182,6 +182,15 @@ describe('DetailsStep', () => {
 
   it('disables the WhatsApp opt-in until a phone number exists @contract', () => {
     renderDetailsStep(makeState({ phone: '' }), createActions());
+    expect(screen.getByRole('checkbox', { name: /WhatsApp/ })).toBeDisabled();
+    expect(
+      screen.getByText('Add a valid UK phone number to enable WhatsApp updates.'),
+    ).toBeVisible();
+  });
+
+  it('keeps WhatsApp disabled while a populated phone number is invalid @contract', () => {
+    renderDetailsStep(makeState({ phone: '12345', whatsappOptIn: false }), createActions());
+
     expect(screen.getByRole('checkbox', { name: /WhatsApp/ })).toBeDisabled();
     expect(
       screen.getByText('Add a valid UK phone number to enable WhatsApp updates.'),

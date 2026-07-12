@@ -239,6 +239,74 @@ describe('reducer transitions', () => {
     expect(explicit.details.rememberDetails).toBe(true);
   });
 
+  it('authenticated contact hydration resets legal consent even when contacts are unchanged @contract', () => {
+    const state = makeState();
+    state.details.agree = true;
+
+    const next = reducer(state, {
+      type: 'HYDRATE_CONTACTS',
+      payload: {
+        name: state.details.name,
+        email: state.details.email,
+        phone: state.details.phone,
+        source: 'authenticated',
+      },
+    });
+
+    expect(next.details.agree).toBe(false);
+  });
+
+  it('authenticated phone hydration clears WhatsApp consent when the phone changes @contract', () => {
+    const state = makeState();
+    state.details.whatsappOptIn = true;
+
+    const next = reducer(state, {
+      type: 'HYDRATE_CONTACTS',
+      payload: {
+        name: state.details.name,
+        email: state.details.email,
+        phone: '+447987654321',
+        source: 'authenticated',
+      },
+    });
+
+    expect(next.details.phone).toBe('+447987654321');
+    expect(next.details.whatsappOptIn).toBe(false);
+  });
+
+  it('authenticated hydration merges locked fields with reducer-current remembered contacts @contract', () => {
+    const initial = makeState();
+    initial.details.name = '';
+    initial.details.phone = '';
+
+    const remembered = reducer(initial, {
+      type: 'HYDRATE_CONTACTS',
+      payload: {
+        name: 'Remembered Guest',
+        email: 'remembered@example.com',
+        phone: '07111111111',
+        rememberDetails: true,
+      },
+    });
+    remembered.details.agree = true;
+
+    const authenticated = reducer(remembered, {
+      type: 'HYDRATE_CONTACTS',
+      payload: {
+        name: '',
+        email: 'account@example.com',
+        phone: '',
+        source: 'authenticated',
+      },
+    });
+
+    expect(authenticated.details.name).toBe('Remembered Guest');
+    expect(authenticated.details.email).toBe('account@example.com');
+    expect(authenticated.details.phone).toBe('07111111111');
+    expect(authenticated.details.rememberDetails).toBe(true);
+    expect(authenticated.details.agree).toBe(false);
+  });
+
   it('HYDRATE_DETAILS merges a draft and resets to step 1 @contract', () => {
     const next = reducer(makeState({ step: 3, editingId: 'x', error: 'stale' }), {
       type: 'HYDRATE_DETAILS',

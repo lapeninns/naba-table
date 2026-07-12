@@ -67,6 +67,11 @@ export type BookingDetails = {
 
 export type BookingWizardMode = 'customer' | 'ops';
 
+export type ContactHydrationPayload = Pick<BookingDetails, 'name' | 'email' | 'phone'> & {
+  rememberDetails?: boolean;
+  source?: 'remembered' | 'authenticated';
+};
+
 export type LastAction = 'create' | 'update' | null;
 
 export type WizardStep = 1 | 2 | 3 | 4;
@@ -104,7 +109,7 @@ export type Action =
   | { type: 'RESET_FORM'; initialDetails?: Partial<BookingDetails> }
   | {
       type: 'HYDRATE_CONTACTS';
-      payload: Pick<BookingDetails, 'name' | 'email' | 'phone'> & { rememberDetails?: boolean };
+      payload: ContactHydrationPayload;
     }
   | {
       type: 'HYDRATE_DETAILS';
@@ -298,20 +303,34 @@ export function reducer(state: State, action: Action): State {
         },
       };
     }
-    case 'HYDRATE_CONTACTS':
+    case 'HYDRATE_CONTACTS': {
+      const isAuthenticatedHydration = action.payload.source === 'authenticated';
+      const phone = isAuthenticatedHydration
+        ? action.payload.phone || state.details.phone
+        : action.payload.phone;
+      const phoneChanged = phone.trim() !== state.details.phone.trim();
+
       return {
         ...state,
         error: null,
         submissionError: null,
         details: {
           ...state.details,
-          name: action.payload.name,
-          email: action.payload.email,
-          phone: action.payload.phone,
-          rememberDetails: action.payload.rememberDetails ?? false,
+          name: isAuthenticatedHydration
+            ? action.payload.name || state.details.name
+            : action.payload.name,
+          email: isAuthenticatedHydration
+            ? action.payload.email || state.details.email
+            : action.payload.email,
+          phone,
+          rememberDetails: isAuthenticatedHydration
+            ? state.details.rememberDetails
+            : (action.payload.rememberDetails ?? false),
           agree: false,
+          whatsappOptIn: phoneChanged ? false : state.details.whatsappOptIn,
         },
       };
+    }
     case 'HYDRATE_DETAILS':
       return {
         ...state,

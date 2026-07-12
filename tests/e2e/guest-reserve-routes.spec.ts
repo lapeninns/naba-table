@@ -334,6 +334,11 @@ test.describe('reserve routes', () => {
       path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-review-desktop.png',
       fullPage: true,
     });
+
+    await page.getByRole('button', { name: 'Confirm booking' }).click();
+    await expect(page.getByRole('heading', { name: 'Booking confirmed' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Plan (1 of 4)' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Review (3 of 4)' })).toHaveCount(0);
   });
 
   test('restaurant-scoped reserve flow updates party size and selected slot', async ({ page }) => {
@@ -375,15 +380,18 @@ test.describe('reserve routes', () => {
     const phoneInput = page.getByRole('textbox', { name: 'UK phone number' });
     await phoneInput.fill('12345');
     await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
+    const whatsappPreference = page.getByRole('checkbox', {
+      name: /Use WhatsApp for my booking updates/,
+    });
+    await expect(whatsappPreference).toBeDisabled();
+
     await phoneInput.fill('07123 456789');
+    await expect(whatsappPreference).toBeEnabled();
 
     const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
     await expect(terms).not.toBeChecked();
     await terms.check();
 
-    const whatsappPreference = page.getByRole('checkbox', {
-      name: /Use WhatsApp for my booking updates/,
-    });
     await expect(whatsappPreference).not.toBeChecked();
     await whatsappPreference.check();
     await phoneInput.fill('07123 456780');

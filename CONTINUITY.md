@@ -34,6 +34,15 @@ Last updated: 2026-07-12T10:04:00Z
 - Local handoff: branch `codex/reserve-wizard-audit-fixes`; the single authorized local commit
   contains implementation, tests, lifecycle evidence, and final review closure. Nothing is pushed.
 - Remaining-audit verification is complete in `tasks/customer-booking-wizard-audit-20260712-1004/research.md`: M7 and M2 are already satisfied under narrow-first, L8 is a proven false alarm, and every confirmed finding has an explicit test/blast-radius map.
+- Branch-review follow-up on 2026-07-12 fixed all four actionable findings: confirmation progress
+  is inert after booking creation, authenticated profile hydration resets legal consent, invalid
+  phone values keep WhatsApp disabled, and three governed Plan Storybook surfaces are retained.
+  The second pass also merges auth hydration against reducer-current remembered contacts, clears
+  WhatsApp consent when the profile phone changes, and explicitly governs the occasion-selection
+  story as a design-only fixture rather than a shipped component. The amended navigation spec has
+  fresh recorded evidence. Full Vitest (1,237 files / 5,777 passed, 5 skipped), typecheck, lint,
+  Next/Reserve/Storybook builds, strict guards, 8/8 shipped Reserve browser tests, live Chromium
+  story checks, and independent security/QA/visual reviews are green.
 
 ## Current WhatsApp-first notification planning
 
