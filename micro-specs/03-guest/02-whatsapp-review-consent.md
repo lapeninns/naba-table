@@ -1,6 +1,6 @@
 ---
 spec_id: MS-guest-whatsapp-review-consent
-status: draft
+status: active
 risk_class: customer-pii
 owner: codex
 last_reviewed: 2026-07-12
