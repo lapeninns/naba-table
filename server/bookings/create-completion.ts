@@ -26,6 +26,7 @@ export async function completeBookingCreate({
   inlineAutoAssignTimeoutMs,
   loyaltyPointsAwarded = 0,
   onAutoAssignError,
+  onConsentPersistError,
   onInlineAutoAssignError,
   onRecoveryCookieError,
   onSideEffectsError,
@@ -46,6 +47,7 @@ export async function completeBookingCreate({
   inlineAutoAssignTimeoutMs?: number;
   loyaltyPointsAwarded?: number;
   onAutoAssignError?: (error: unknown) => void;
+  onConsentPersistError?: (error: unknown) => void;
   onInlineAutoAssignError?: (error: unknown) => void;
   onRecoveryCookieError?: (error: unknown) => void;
   onSideEffectsError?: (error: unknown) => void;
@@ -60,16 +62,23 @@ export async function completeBookingCreate({
   useUnifiedValidation: boolean;
 }): Promise<NextResponse> {
   const shouldPersistConsent = request.whatsappOptIn && !persistence.booking.whatsapp_opt_in;
-  const bookingWithConsent = shouldPersistConsent
-    ? await consentPersister({
+  // The booking row is already committed here; a consent write failure must not
+  // fail the request, or the guest gets an error for a booking that exists.
+  let bookingWithConsent = persistence.booking;
+  if (shouldPersistConsent) {
+    try {
+      bookingWithConsent = await consentPersister({
         actorId: null,
         booking: persistence.booking,
         client,
         optedIn: request.whatsappOptIn,
         restaurantId,
         source: 'guest_reserve',
-      })
-    : persistence.booking;
+      });
+    } catch (error) {
+      onConsentPersistError?.(error);
+    }
+  }
 
   const { booking: finalBooking } = await finalizer({
     actor: request.email,

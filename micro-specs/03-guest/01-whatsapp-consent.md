@@ -10,6 +10,7 @@ allowed_blast_radius:
   - reserve/entities/reservation/**
   - server/booking/**
   - server/bookings/create-completion.ts
+  - server/bookings/bookings-post-response.ts
   - server/bookings/request-validation.ts
   - src/app/api/bookings/**
   - src/app/api/ops/bookings/**
@@ -27,6 +28,7 @@ implementation_surfaces:
   - reserve/entities/reservation/**
   - server/booking/**
   - server/bookings/create-completion.ts
+  - server/bookings/bookings-post-response.ts
   - server/bookings/request-validation.ts
   - src/app/api/bookings/**
   - src/app/api/ops/bookings/**

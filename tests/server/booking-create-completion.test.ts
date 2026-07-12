@@ -98,6 +98,37 @@ describe('completeBookingCreate', () => {
     expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ booking: consentedBooking }));
   });
 
+  it('still finalizes the committed booking when consent persistence fails @contract', async () => {
+    const whatsappRequest = { ...request, whatsappOptIn: true };
+    const consentError = new Error('Failed to persist WhatsApp consent for booking booking-1.');
+    const consentPersister = vi.fn(async () => {
+      throw consentError;
+    });
+    const onConsentPersistError = vi.fn();
+    const finalizer = vi.fn(async () => ({ booking: finalizedBooking })) as BookingCreateFinalizer;
+    const responseBuilder = vi.fn(async () =>
+      NextResponse.json({ ok: true }, { status: 201 }),
+    ) as BookingCreateHttpResponseBuilder;
+
+    const response = await completeBookingCreate({
+      autoAssignEnabled: false,
+      client,
+      consentPersister,
+      finalizer,
+      onConsentPersistError,
+      persistence,
+      request: whatsappRequest,
+      requestContext,
+      responseBuilder,
+      restaurantId,
+      useUnifiedValidation: false,
+    });
+
+    expect(response.status).toBe(201);
+    expect(onConsentPersistError).toHaveBeenCalledWith(consentError);
+    expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ booking }));
+  });
+
   it('finalizes the booking before building the HTTP response @api @contract', async () => {
     const finalizer = vi.fn(async () => ({ booking: finalizedBooking })) as BookingCreateFinalizer;
     const responseBuilder = vi.fn(async () =>

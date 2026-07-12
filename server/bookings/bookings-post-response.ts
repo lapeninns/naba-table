@@ -140,6 +140,9 @@ export async function buildBookingsPostHttpResponse({
           error: stringifyError(error),
         });
       },
+      onConsentPersistError: (consentError) => {
+        logger.error('[bookings][POST][whatsapp-consent]', stringifyError(consentError));
+      },
       onSideEffectsError: (jobError) => {
         logger.error('[bookings][POST][side-effects]', stringifyError(jobError));
       },

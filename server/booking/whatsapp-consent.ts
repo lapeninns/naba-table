@@ -1,9 +1,21 @@
 import { normalizePhone } from '@/server/customers';
+import { formatUKPhoneToE164 } from '@reserve/shared/validation';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { getServiceSupabaseClient } from '@/server/supabase';
 
 export const BOOKING_WHATSAPP_CONSENT_VERSION = 'booking-transactional-v1';
+
+// bookings_whatsapp_consent_check requires strict E.164 for whatsapp_consent_phone.
+const E164_CONSENT_PHONE_REGEX = /^\+[1-9][0-9]{6,14}$/;
+
+function toE164ConsentPhone(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const trimmed = phone.trim();
+  if (!trimmed) return null;
+  const canonical = formatUKPhoneToE164(trimmed) ?? trimmed;
+  return E164_CONSENT_PHONE_REGEX.test(canonical) ? canonical : null;
+}
 
 export type BookingWhatsAppConsentSource = 'guest_reserve' | 'ops_staff';
 
@@ -34,12 +46,13 @@ export function buildBookingWhatsAppConsentPatch({
   const normalizedPhone = normalizePhone(phone);
   const previousPhone = normalizePhone(existingBooking.customer_phone);
   if (optedIn === true) {
-    if (!normalizedPhone) {
+    const consentPhone = toE164ConsentPhone(phone);
+    if (!consentPhone) {
       throw new Error('WhatsApp consent requires a valid booking phone number.');
     }
     return {
       whatsapp_consent_actor_id: actorId,
-      whatsapp_consent_phone: normalizedPhone,
+      whatsapp_consent_phone: consentPhone,
       whatsapp_consent_source: source,
       whatsapp_consent_version: BOOKING_WHATSAPP_CONSENT_VERSION,
       whatsapp_opt_in: true,
