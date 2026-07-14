@@ -11,7 +11,19 @@
 - [x] Staging identity and environment contract were verified without exposing secrets.
 - [x] Local notification, Worker, security, type, lint, governance, and formatting gates were run.
 - [x] An isolated Cloudflare staging D1 was created, initialized, and read back.
-- [ ] Supabase staging migration/list/SQL/drift proof is blocked by rejected DB authentication.
+- [x] Final Twilio template approval and provider-assigned categories were read back without PII.
+- [x] The release guard matches the final approved post-visit review `_20260713_v3` definition.
+- [x] Canonical staging database authentication is restored and Vercel Preview Supabase values are
+      isolated from unchanged production/development values.
+- [x] Supabase staging migration/list/SQL proof is complete through the review-ledger migration.
+- [x] The user authorized staging-only historical replay; the Micro-Spec radius and safe runner were
+      extended test-first with production/non-migration refusal.
+- [x] Preserve 144 legacy drink items, 64 modifier groups, and 149 modifier options as exact JSON;
+      prove 144 canonical items/extensions and lock archive access to service role.
+- [x] Rerun `--include-all` after the archive/parity guard; all 17 versions are now aligned.
+- [ ] Drift proof remains blocked independently because the remote-only baseline cannot build the
+      local shadow database (`public.restaurants` is absent at the second historical migration).
 - [x] Cloudflare staging Worker deploy and version readback succeeded after the bounded retry.
-- [ ] Staging Worker authenticated-create smoke remains blocked by an isolated secret mismatch (401).
-- [ ] Production release and live traffic remain disabled until staging proof and provider approval gates pass.
+- [x] Staging Worker authenticated-create and GET redirect smoke passed; the disposable row was
+      cleaned.
+- [ ] Configure approved SIDs, deploy the staged app, and complete the controlled release proof.

@@ -3,22 +3,60 @@ import process from 'node:process';
 
 const HELP = `Nabatable remote database safe runner
 
-Usage: pnpm db:<workflow> [--dry-run]
+Usage: pnpm db:<workflow> [--include-all] [--dry-run]
 
-Workflows: status, migrate, push, pull, check-drift
+Workflows: status, migrate, push, pull, check-drift, prepare-staging-legacy-drink-menu
 Target: DB_TARGET_ENV=staging|production
 Production migration apply: CONFIRM_PRODUCTION=true
+Historical replay: --include-all is staging-only and requires migrate or push
+Legacy drink-menu preparation: staging-only
 `;
 
 const WORKFLOW_PLANS = {
-  status: { access: 'read-only', command: 'supabase', args: ['migration', 'list'] },
-  migrate: { access: 'migration', command: 'supabase', args: ['db', 'push'] },
-  push: { access: 'migration', command: 'supabase', args: ['db', 'push'] },
-  pull: { access: 'read-only', command: 'supabase', args: ['db', 'pull'] },
+  status: {
+    access: 'read-only',
+    steps: [{ command: 'supabase', args: ['migration', 'list'] }],
+  },
+  migrate: {
+    access: 'migration',
+    steps: [{ command: 'supabase', args: ['db', 'push'] }],
+  },
+  push: {
+    access: 'migration',
+    steps: [{ command: 'supabase', args: ['db', 'push'] }],
+  },
+  pull: {
+    access: 'read-only',
+    steps: [{ command: 'supabase', args: ['db', 'pull'] }],
+  },
   'check-drift': {
     access: 'read-only',
-    command: 'pnpm',
-    args: ['exec', 'tsx', 'scripts/db/check-drift.ts'],
+    steps: [{ command: 'pnpm', args: ['exec', 'tsx', 'scripts/db/check-drift.ts'] }],
+  },
+  'prepare-staging-legacy-drink-menu': {
+    access: 'staging-preparation',
+    steps: [
+      {
+        command: 'supabase',
+        args: [
+          'db',
+          'query',
+          '--linked',
+          '--file',
+          'supabase/migrations/20260507223000_backfill_canonical_menu_hierarchy.sql',
+        ],
+      },
+      {
+        command: 'supabase',
+        args: [
+          'db',
+          'query',
+          '--linked',
+          '--file',
+          'scripts/db/prepare-staging-legacy-drink-menu.sql',
+        ],
+      },
+    ],
   },
 } as const;
 
@@ -35,6 +73,7 @@ type ParsedRequest =
       readonly workflow: Workflow;
       readonly target: Target;
       readonly dryRun: boolean;
+      readonly includeAll: boolean;
     }
   | { readonly kind: 'refusal'; readonly message: string };
 
@@ -48,8 +87,14 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
   }
 
   const workflow = args[0];
-  const dryRun = args.length === 2 && args[1] === '--dry-run';
-  if (!workflow || !isWorkflow(workflow) || (args.length !== 1 && !dryRun)) {
+  const options = args.slice(1);
+  const dryRun = options.includes('--dry-run');
+  const includeAll = options.includes('--include-all');
+  const optionsAreSupported =
+    options.length <= 2 &&
+    new Set(options).size === options.length &&
+    options.every((option) => option === '--dry-run' || option === '--include-all');
+  if (!workflow || !isWorkflow(workflow) || !optionsAreSupported) {
     return { kind: 'refusal', message: 'Unsupported database workflow or argument.' };
   }
 
@@ -62,6 +107,18 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
   }
 
   const access = WORKFLOW_PLANS[workflow].access;
+  if (includeAll && access !== 'migration') {
+    return { kind: 'refusal', message: '--include-all requires migrate or push.' };
+  }
+  if (includeAll && target !== 'staging') {
+    return { kind: 'refusal', message: '--include-all is staging-only.' };
+  }
+  if (access === 'staging-preparation' && target !== 'staging') {
+    return {
+      kind: 'refusal',
+      message: 'Legacy drink-menu preparation is staging-only.',
+    };
+  }
   if (
     target === 'production' &&
     access === 'migration' &&
@@ -74,7 +131,16 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
     };
   }
 
-  return { kind: 'workflow', workflow, target, dryRun };
+  return { kind: 'workflow', workflow, target, dryRun, includeAll };
+}
+
+function resolvePlans(
+  request: Extract<ParsedRequest, { readonly kind: 'workflow' }>,
+): readonly ChildPlan[] {
+  const plans = WORKFLOW_PLANS[request.workflow].steps;
+  return request.includeAll
+    ? plans.map((plan) => ({ ...plan, args: [...plan.args, '--include-all'] }))
+    : plans;
 }
 
 function runChild(plan: ChildPlan): number {
@@ -99,18 +165,28 @@ function run(): number {
       process.stderr.write(`${request.message}\n\n${HELP}`);
       return 2;
     case 'workflow': {
-      const plan = WORKFLOW_PLANS[request.workflow];
+      const plans = resolvePlans(request);
       if (request.dryRun) {
+        const access = WORKFLOW_PLANS[request.workflow].access;
         process.stdout.write(
-          `dry-run target=${request.target} access=${plan.access}\n` +
+          `dry-run target=${request.target} access=${access}\n` +
             `validate: pnpm validate:env\n` +
-            `workflow: ${renderPlan(plan)}\n`,
+            plans.map((plan) => `workflow: ${renderPlan(plan)}\n`).join(''),
         );
         return 0;
       }
 
       const validationExit = runChild({ command: 'pnpm', args: ['validate:env'] });
-      return validationExit === 0 ? runChild(plan) : validationExit;
+      if (validationExit !== 0) {
+        return validationExit;
+      }
+      for (const plan of plans) {
+        const exitCode = runChild(plan);
+        if (exitCode !== 0) {
+          return exitCode;
+        }
+      }
+      return 0;
     }
   }
 }

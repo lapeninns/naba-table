@@ -23,6 +23,7 @@ BEGIN
   SELECT booking.id, booking.restaurant_id
   INTO v_booking_id, v_restaurant_id
   FROM public.bookings booking
+  WHERE booking.status = 'completed'
   ORDER BY booking.created_at
   LIMIT 1;
 
@@ -42,8 +43,7 @@ BEGIN
   END IF;
 
   UPDATE public.bookings
-  SET status = 'completed',
-      customer_phone = '+447000000003',
+  SET customer_phone = '+447000000003',
       whatsapp_opt_in = true,
       whatsapp_opt_in_at = now(),
       whatsapp_consent_phone = '+447000000003',

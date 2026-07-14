@@ -3,7 +3,7 @@ spec_id: MS-integrations-whatsapp-review-delivery
 status: active
 risk_class: webhooks
 owner: codex
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-14
 allowed_blast_radius:
   - micro-specs/05-integrations/**
   - micro-specs/evidence/MS-integrations-whatsapp-review-delivery.json
@@ -25,6 +25,8 @@ allowed_blast_radius:
   - config/env.schema.ts
   - .env.example
   - package.json
+  - scripts/db/safe-run.ts
+  - scripts/db/prepare-staging-legacy-drink-menu.sql
   - scripts/whatsapp-review-production-release.ts
   - tests/server/jobs/booking-side-effects.test.ts
   - tests/server/jobs/auto-complete-bookings.test.ts
@@ -38,6 +40,8 @@ allowed_blast_radius:
   - tests/lib/env.test.ts
   - tests/config/env-schema-target.test.ts
   - tests/scripts/whatsapp-review-production-release.test.ts
+  - tests/scripts/db-safe-run-include-all.test.ts
+  - tests/scripts/prepare-staging-legacy-drink-menu.test.ts
   - .omo/evidence/task-5-whatsapp-review-production-release.md
 implementation_surfaces:
   - server/jobs/booking-side-effects.ts
@@ -53,6 +57,8 @@ implementation_surfaces:
   - config/env.schema.ts
   - .env.example
   - package.json
+  - scripts/db/safe-run.ts
+  - scripts/db/prepare-staging-legacy-drink-menu.sql
   - scripts/whatsapp-review-production-release.ts
   - tests/server/jobs/booking-side-effects.test.ts
   - tests/server/jobs/auto-complete-bookings.test.ts
@@ -66,6 +72,8 @@ implementation_surfaces:
   - tests/lib/env.test.ts
   - tests/config/env-schema-target.test.ts
   - tests/scripts/whatsapp-review-production-release.test.ts
+  - tests/scripts/db-safe-run-include-all.test.ts
+  - tests/scripts/prepare-staging-legacy-drink-menu.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
   - docs/sdlc/verification.md
@@ -73,6 +81,8 @@ related_tests:
   - tests/config/env-schema-target.test.ts
   - tests/lib/env.test.ts
   - tests/scripts/whatsapp-review-production-release.test.ts
+  - tests/scripts/db-safe-run-include-all.test.ts
+  - tests/scripts/prepare-staging-legacy-drink-menu.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm test
@@ -114,6 +124,11 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
 - Provider-assigned template category is read back and recorded; code and release checks must not
   assume a category requested at submission.
 - Production configuration fails closed unless sender and all five booking Content SIDs are present.
+- Historical migration replay is an explicit staging-only release operation. The safe runner must
+  refuse `--include-all` for production and for every non-migration workflow.
+- Legacy drink-menu preparation is an explicit staging-only release operation. It must archive the
+  exact legacy rows, prove canonical drink item and extension parity, and refuse production before
+  any database child runs.
 
 ## 4. Decisions Already Made
 
@@ -124,6 +139,13 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   be provider-approved before any production SID is configured or traffic is enabled.
 - Release order is staging migration, staged app/Worker configuration and smoke, then production;
   rollback removes/returns review traffic and config without changing lifecycle delivery.
+- The confirmed staging migration-history gap is repaired by applying the 16 genuine historical
+  migrations in order before the review-ledger migration; those versions must not be falsely
+  baselined as already applied.
+- The populated legacy drink-menu tables blocking that replay are preserved in a locked-down
+  archive schema after the existing idempotent canonical hierarchy backfill is replayed. Modifier
+  groups and options remain recoverable as source JSON even though they have no canonical grouped
+  equivalent.
 
 ## 5. Behavioral Requirements (EARS)
 
@@ -151,6 +173,20 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   all five booking templates and SHALL record the category returned by the provider.
 - IF any of the five templates is unapproved or required production config is absent, THEN THE
   release tooling SHALL refuse enablement without partially configuring the event set.
+- WHEN an operator explicitly requests historical replay for a staging migration workflow, THE
+  database safe runner SHALL validate the environment and delegate `supabase db push --include-all`.
+- IF historical replay is requested for production or a non-migration workflow, THEN THE database
+  safe runner SHALL refuse before executing validation or Supabase children.
+- WHEN legacy drink-menu preparation is explicitly requested for staging, THE database safe runner
+  SHALL validate the environment, replay the checked-in canonical hierarchy backfill, and then run
+  the fixed archive-and-retirement preparation transaction.
+- IF legacy drink-menu preparation is requested for production, THEN THE database safe runner SHALL
+  refuse before executing validation or Supabase children even when production confirmation exists.
+- BEFORE any legacy menu row is deleted, THE preparation transaction SHALL preserve every legacy
+  row as exact JSON in a restricted archive and SHALL prove archive count parity plus one canonical
+  drink item and extension match per legacy drink item.
+- IF any archive or canonical parity assertion fails, THEN THE preparation transaction SHALL roll
+  back without deleting legacy menu rows.
 - WHEN the controlled smoke is explicitly armed, THE runner SHALL send the five events to the
   approved redacted test recipient at T+0, T+60, T+120, T+180, and T+240 seconds in event order.
 - IF staged verification or production smoke fails, THEN THE release SHALL roll back review traffic
@@ -161,6 +197,11 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
 - Prove email-invalid, email-suppressed, venue-disabled, v1, v2, missing-link, and duplicate paths.
 - Prove the native button receives an actual HTTPS short link and review failures never invoke SMS.
 - Prove provider readback rejects any unapproved set and records provider-assigned categories.
+- Prove historical replay delegates only for staging migration aliases, appears truthfully in a
+  side-effect-free dry-run, and is refused for production and read-only workflows.
+- Prove legacy drink-menu preparation delegates the two fixed staging steps only after validation,
+  refuses production, archives all five retirement-table sources, and places parity assertions
+  before FK-ordered deletion.
 - Prove staged deploy/rollback and require explicit arming, recipient allowlisting, and exact
   T+0/60/120/180/240 timing before the five-message smoke can mutate provider state.
 - Implement as Red → Green → Refactor slices for scheduling, content/env contract, and release tool.

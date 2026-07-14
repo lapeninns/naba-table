@@ -177,4 +177,14 @@ describe('WhatsApp review notification ledger migration', () => {
     expect(source).toContain(mismatchedRecipient);
     expect(source).toContain('Attempt recipient mismatch was accepted');
   });
+
+  it('uses an existing completed booking without rewriting lifecycle state @contract @local-only', () => {
+    // Given: lifecycle timestamps are protected by database consistency constraints.
+    const source = readReviewProof();
+
+    // When: the transactional proof chooses and prepares its fixture.
+    // Then: it selects a valid completed lifecycle and changes only notification prerequisites.
+    expect(source).toContain("WHERE booking.status = 'completed'");
+    expect(source).not.toContain("SET status = 'completed'");
+  });
 });

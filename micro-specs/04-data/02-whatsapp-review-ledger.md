@@ -3,7 +3,7 @@ spec_id: MS-data-whatsapp-review-ledger
 status: active
 risk_class: migrations
 owner: codex
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-14
 allowed_blast_radius:
   - micro-specs/04-data/**
   - micro-specs/evidence/MS-data-whatsapp-review-ledger.json
@@ -20,6 +20,7 @@ allowed_blast_radius:
   - tests/micro-specs/mobile-notification-ledger.test.ts
   - tests/server/notifications/mobile-router.test.ts
   - tests/server/twilio-whatsapp-status-webhook-route.test.ts
+  - tests/server/service-only-rpc-privileges.test.ts
 implementation_surfaces:
   - supabase/migrations/**
   - supabase/tests/**
@@ -29,10 +30,12 @@ implementation_surfaces:
   - tests/micro-specs/mobile-notification-ledger.test.ts
   - tests/server/notifications/mobile-router.test.ts
   - tests/server/twilio-whatsapp-status-webhook-route.test.ts
+  - tests/server/service-only-rpc-privileges.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
-  - not-yet-created
+  - tests/micro-specs/mobile-notification-ledger.test.ts
+  - tests/server/service-only-rpc-privileges.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm test
@@ -73,6 +76,10 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   one such logical notification and one WhatsApp attempt for a recipient snapshot.
 - Existing lifecycle events retain exactly-once SMS fallback. Review requests never have fallback.
 - Migration SQL is idempotent and must be applied to staging before any production rollout.
+- Historical privilege hardening tolerates service-only menu RPCs already removed by an earlier
+  retirement migration while continuing to harden any of those RPCs that still exist.
+- The staging database proof uses a booking already satisfying completed-lifecycle invariants and
+  never bypasses or reconstructs lifecycle state through a direct status rewrite.
 
 ## 4. Decisions Already Made
 
@@ -119,6 +126,11 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
 - WHEN due review intents are claimed concurrently, THE database SHALL return each pending intent
   to at most one worker and SHALL expose retryable infrastructure failure separately from a
   terminal one-shot provider attempt.
+- IF a retired service-only menu RPC is absent when historical privilege hardening replays, THEN THE
+  migration SHALL skip that exact RPC and SHALL continue to revoke browser-role execution and grant
+  service-role execution for every listed RPC that still exists.
+- WHEN the staging ledger proof selects its fixture booking, THE proof SHALL require an existing
+  completed booking and SHALL leave its lifecycle status and timestamps unchanged.
 
 ## 6. Verification Criteria and Task Breakdown
 
@@ -127,5 +139,9 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   real database.
 - Prove router, callback, and reconciliation no-SMS paths with focused behavioral tests.
 - Prove lifecycle confirmation/update/cancellation fallback behavior is unchanged.
+- Prove the historical service-only privilege migration guards each retired menu RPC by exact
+  signature without weakening restrictions for present functions.
+- Prove the staging ledger fixture selects a completed booking and never directly changes booking
+  lifecycle status.
 - Implement as Red → Green → Refactor slices for migration, router, callback, and reconciliation.
 - Record fresh gates with `governance:run-gates --spec MS-data-whatsapp-review-ledger --record`.
