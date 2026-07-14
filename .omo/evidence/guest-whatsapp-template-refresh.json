@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "spec_id": "MS-integrations-guest-whatsapp-template-refresh",
+  "captured_at": "2026-07-14T18:31:14Z",
+  "provider": "twilio_content_api",
+  "production_changed": false,
+  "release_ready": false,
+  "blocker": "All six successor templates remain pending WhatsApp approval.",
+  "rollback_set": {
+    "bookingConfirmation": "HX78688ba4f6738f6fc3a8208c300ac911",
+    "bookingUpdate": "HXa2ff8bb1dfe84884e93ed3d00b8aa1d4",
+    "bookingCancellation": "HXbc2317fae04cde871d5fb697d40cfe7f",
+    "restaurantCancellation": "HX1502dce2894a886555e35de67412f474",
+    "reviewRequest": "HXb492923d7284f0fa2409917dd7d7b9a8",
+    "managerDailySummary": "HX6e65d006f4d22435c232bb6e734a2e3b"
+  },
+  "successors": {
+    "bookingConfirmation": {
+      "sid": "HX6bb3e3f887c1c4b6b5e8845d39809dcf",
+      "name": "nabatable_booking_confirmation_20260714_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "bookingUpdate": {
+      "sid": "HX7e02e24d5388b8bacff056ded58bb650",
+      "name": "nabatable_booking_update_20260714_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "bookingCancellation": {
+      "sid": "HX2f3552a7707960ac7366315ae49001c7",
+      "name": "nabatable_booking_cancellation_20260714_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "restaurantCancellation": {
+      "sid": "HXc7b06cc3140ca09aa36950e2bab576f8",
+      "name": "nabatable_restaurant_cancellation_20260714_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "reviewRequest": {
+      "sid": "HX2c2b80e61c40c01ffee2d7f6984ebe65",
+      "name": "nabatable_post_visit_review_20260714_v4",
+      "status": "pending",
+      "category": "MARKETING",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "managerDailySummary": {
+      "sid": "HX390b4df2d0c62661510a1c2ade185be7",
+      "name": "nabatable_manager_daily_summary_20260714_v3",
+      "status": "pending",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    }
+  },
+  "verification": {
+    "focused_contract_tests": "19 passed",
+    "full_vitest": "1247 files; 5964 passed; 5 skipped",
+    "lint": "passed with existing warnings",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "background_workers": "19 files; 125 passed; mock mutation mode"
+  },
+  "privacy": {
+    "credentials_recorded": false,
+    "phone_numbers_recorded": false,
+    "recipient_pii_recorded": false
+  }
+}
