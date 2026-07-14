@@ -54,6 +54,132 @@
         }
       ],
       "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-14T17:59:40.689Z",
+      "git_sha": "2f2ad07dcb5214632f7ef20501edb7f1b668af35",
+      "git_branch": "codex/guest-whatsapp-template-refresh",
+      "dirty": false,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 225
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 65420
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 16898
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1847
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 1,
+          "duration_ms": 459
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-14T18:01:46.258Z",
+      "git_sha": "2f2ad07dcb5214632f7ef20501edb7f1b668af35",
+      "git_branch": "codex/guest-whatsapp-template-refresh",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 1,
+          "duration_ms": 238
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-14T18:04:07.918Z",
+      "git_sha": "2f2ad07dcb5214632f7ef20501edb7f1b668af35",
+      "git_branch": "codex/guest-whatsapp-template-refresh",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 209
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 66135
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 17150
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1763
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 30780
+        },
+        {
+          "command": "pnpm qa:background-workers",
+          "exit_code": 1,
+          "duration_ms": 330
+        }
+      ],
+      "all_passed": false
+    },
+    {
+      "timestamp": "2026-07-14T18:06:19.011Z",
+      "git_sha": "2f2ad07dcb5214632f7ef20501edb7f1b668af35",
+      "git_branch": "codex/guest-whatsapp-template-refresh",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 199
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 0,
+          "duration_ms": 61062
+        },
+        {
+          "command": "pnpm lint",
+          "exit_code": 0,
+          "duration_ms": 16440
+        },
+        {
+          "command": "pnpm typecheck",
+          "exit_code": 0,
+          "duration_ms": 1771
+        },
+        {
+          "command": "pnpm build",
+          "exit_code": 0,
+          "duration_ms": 28734
+        },
+        {
+          "command": "pnpm qa:background-workers",
+          "exit_code": 0,
+          "duration_ms": 4044
+        }
+      ],
+      "all_passed": true
     }
   ],
   "manual_attestations": [],
