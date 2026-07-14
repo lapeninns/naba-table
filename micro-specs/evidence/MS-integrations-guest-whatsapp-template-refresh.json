@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "spec_id": "MS-integrations-guest-whatsapp-template-refresh",
+  "runs": [],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-14T17:36:32.792Z",
+      "sha": "a406bc83be9dd2f4bc2098e313c0a4553b6249ce",
+      "dirty": true,
+      "by": "amankumarshrestha"
+    }
+  ]
+}
