@@ -7,11 +7,11 @@ import {
 } from '@/scripts/whatsapp-review-production-release';
 
 const selectedContentSids = {
-  bookingConfirmation: 'HX5314cca961d164966548d0a55fc85a57',
-  bookingUpdate: 'HX2bc9fea6e092a5f8e4447bf2d40e0701',
-  bookingCancellation: 'HX63714e1f2a8199cfe76e99afcb7d7018',
-  restaurantCancellation: 'HX10d088b0511873455818bcd0b56d6b03',
-  reviewRequest: 'HXa465c6d38370bf754fb401518620e5a0',
+  bookingConfirmation: 'HX78688ba4f6738f6fc3a8208c300ac911',
+  bookingUpdate: 'HXa2ff8bb1dfe84884e93ed3d00b8aa1d4',
+  bookingCancellation: 'HXbc2317fae04cde871d5fb697d40cfe7f',
+  restaurantCancellation: 'HX1502dce2894a886555e35de67412f474',
+  reviewRequest: 'HXb492923d7284f0fa2409917dd7d7b9a8',
 } as const;
 
 const approvedTemplates = [
@@ -67,11 +67,11 @@ describe('WhatsApp review production release contract', () => {
     const whenBody = givenRequest.types['twilio/call-to-action'].body;
 
     expect(givenRequest).toEqual({
-      friendly_name: 'nabatable_post_visit_review_v1',
+      friendly_name: 'nabatable_post_visit_review_20260713_v3',
       language: 'en',
       variables: {
         '1': 'The Old Crown',
-        '2': 'r/Review123456',
+        '2': 'm/review-sample',
       },
       types: {
         'twilio/call-to-action': {
@@ -87,6 +87,7 @@ describe('WhatsApp review production release contract', () => {
       },
     });
     expect(whenBody).not.toMatch(/{{\d+}}\s*$/);
+    expect(validateReviewTemplateRequest(givenRequest)).toEqual([]);
   });
 
   it('accepts only an approved five-template set matching its recorded categories @contract', () => {

@@ -51,11 +51,11 @@ const reviewBody =
   'Thanks for visiting {{1}}.\n\nWe hope you enjoyed your visit. Your feedback helps our team and future guests.\n\nTap below to leave a quick review.\n\nThank you for supporting us.';
 
 export const REVIEW_TEMPLATE_REQUEST = {
-  friendly_name: 'nabatable_post_visit_review_v1',
+  friendly_name: 'nabatable_post_visit_review_20260713_v3',
   language: 'en',
   variables: {
     '1': 'The Old Crown',
-    '2': 'r/Review123456',
+    '2': 'm/review-sample',
   },
   types: {
     'twilio/call-to-action': {
@@ -80,7 +80,7 @@ export function validateReviewTemplateRequest(_input: unknown): readonly string[
   const blockers: string[] = [];
   const callToAction = parsed.data.types['twilio/call-to-action'];
   const action = callToAction.actions.at(0);
-  if (parsed.data.friendly_name !== 'nabatable_post_visit_review_v1') {
+  if (parsed.data.friendly_name !== 'nabatable_post_visit_review_20260713_v3') {
     blockers.push('Review template friendly name does not match the selected template.');
   }
   if (parsed.data.language !== 'en') {
@@ -100,7 +100,7 @@ export function validateReviewTemplateRequest(_input: unknown): readonly string[
   }
   if (
     parsed.data.variables['1'] !== 'The Old Crown' ||
-    parsed.data.variables['2'] !== 'r/Review123456'
+    parsed.data.variables['2'] !== 'm/review-sample'
   ) {
     blockers.push(
       'Review template variable samples do not match the provider submission contract.',
