@@ -256,7 +256,7 @@ test.describe('reserve routes', () => {
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
-  test('@p1 @browser @contract @local-only @MS-guest-reserve-standalone-ui loads wizard utilities and privacy navigation in the standalone app', async ({
+  test('@p1 @browser @contract @local-only loads wizard utilities and privacy navigation in the standalone app', async ({
     page,
   }) => {
     // Given the real standalone Reserve entrypoint at a mobile-first width
@@ -381,31 +381,62 @@ test.describe('reserve routes', () => {
     await phoneInput.fill('12345');
     await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
     const whatsappPreference = page.getByRole('checkbox', {
-      name: /Use WhatsApp for my booking updates/,
+      name: /Use WhatsApp for booking messages and one review request/,
     });
     await expect(whatsappPreference).toBeDisabled();
 
     await phoneInput.fill('07123 456789');
     await expect(whatsappPreference).toBeEnabled();
-
-    const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
-    await expect(terms).not.toBeChecked();
-    await terms.check();
+    await expect(page.getByText('Booking confirmation and updates')).toBeVisible();
+    await expect(page.getByText('Guest or venue cancellations')).toBeVisible();
+    await expect(page.getByText('One post-visit review request')).toBeVisible();
+    await expect(page.getByText(/from Nabatable on behalf of The Fox/)).toBeVisible();
+    await expect(page.getByText(/Review requests never fall back to SMS/)).toBeVisible();
+    await phoneInput.focus();
+    await page.keyboard.press('Tab');
+    await expect(whatsappPreference).toBeFocused();
+    const checkboxBox = await whatsappPreference.boundingBox();
+    expect(checkboxBox?.width).toBeLessThanOrEqual(20);
+    expect(checkboxBox?.height).toBeLessThanOrEqual(20);
+    const preferenceLabelBox = await page.locator('label[for="whatsapp-opt-in"]').boundingBox();
+    expect(preferenceLabelBox?.height).toBeGreaterThanOrEqual(44);
+    await page.locator('label[for="whatsapp-opt-in"]').scrollIntoViewIfNeeded();
+    const stickyNavigation = page.locator('[data-booking-wizard-navigation]');
+    await stickyNavigation.evaluate((element) => element.setAttribute('style', 'display: none'));
+    await page.screenshot({
+      path: '.omo/evidence/task-2-whatsapp-review-production-release-375.png',
+    });
+    await stickyNavigation.evaluate((element) => element.removeAttribute('style'));
 
     await expect(whatsappPreference).not.toBeChecked();
-    await whatsappPreference.check();
+    await page.keyboard.press('Space');
+    await expect(whatsappPreference).toBeChecked();
     await phoneInput.fill('07123 456780');
     await expect(whatsappPreference).not.toBeChecked();
     await whatsappPreference.check();
     await page.setViewportSize({ width: 768, height: 900 });
     await expect(whatsappPreference).toBeVisible();
 
+    const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
+    await expect(terms).not.toBeChecked();
+    await terms.check();
+
     await page.getByRole('button', { name: 'Review booking' }).click();
 
     await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
     await expect(page.getByText('Reserve Guest')).toBeVisible();
     await expect(page.getByText('reserve.guest@example.com')).toBeVisible();
-    await expect(page.getByText('WhatsApp preferred · SMS backup')).toBeVisible();
+    await expect(
+      page.getByText(
+        'WhatsApp booking messages + one post-visit review request · SMS backup for booking messages',
+      ),
+    ).toBeVisible();
+    await stickyNavigation.evaluate((element) => element.setAttribute('style', 'display: none'));
+    await page.screenshot({
+      path: '.omo/evidence/task-2-whatsapp-review-production-release-768.png',
+      fullPage: true,
+    });
+    await stickyNavigation.evaluate((element) => element.removeAttribute('style'));
 
     await page.getByRole('button', { name: 'Confirm booking' }).click();
 

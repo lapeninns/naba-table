@@ -195,6 +195,7 @@ export const env = {
       bookingUpdate: parsed.TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID ?? null,
       bookingCancellation: parsed.TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID ?? null,
       restaurantCancellation: parsed.TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID ?? null,
+      reviewRequest: parsed.TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID ?? null,
       managerSummary: parsed.TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID ?? null,
     } as const;
 
@@ -217,7 +218,8 @@ export const env = {
           whatsappTemplates.bookingConfirmation &&
           whatsappTemplates.bookingUpdate &&
           whatsappTemplates.bookingCancellation &&
-          whatsappTemplates.restaurantCancellation,
+          whatsappTemplates.restaurantCancellation &&
+          whatsappTemplates.reviewRequest,
         ),
       },
     } as const;

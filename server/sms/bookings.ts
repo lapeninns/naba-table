@@ -1,6 +1,7 @@
 import { env } from '@/lib/env';
 import { redactSmsRecipientPhone } from '@/lib/sms/phone-redaction';
 import { mapTwilioMessageStatusToDeliveryStatus, sendTwilioSmsMessage } from '@/lib/twilio/sms';
+import { isBookingWhatsAppEventEligible } from '@/server/booking/whatsapp-consent';
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 import { createBookingManageShortUrl } from '@/server/bookings/short-link';
 import { normalizePhone } from '@/server/customers';
@@ -18,6 +19,7 @@ import {
 } from '@reserve/shared/formatting/booking';
 
 import type { BookingRecord } from '@/server/bookings';
+import type { MobileDispatchResult } from '@/server/notifications/mobile';
 
 type SmsVenue = {
   id: string;
@@ -25,6 +27,16 @@ type SmsVenue = {
   timezone: string;
   phone?: string;
 };
+
+export function requiresDirectSmsAfterPendingWhatsAppFailure(
+  result: MobileDispatchResult,
+): boolean {
+  return (
+    result.kind === 'attempt_finalization_pending' &&
+    result.status === 'failed' &&
+    result.providerMessageId === null
+  );
+}
 
 type SmsResult = {
   messageSid: string | null;
@@ -303,10 +315,12 @@ async function sendGuestBookingMobileMessage(params: {
     return sendGuestBookingSmsOnly(params);
   }
 
-  const consentPhone = normalizePhone(params.booking.whatsapp_consent_phone ?? '');
   const whatsappEligible = Boolean(
-    params.booking.whatsapp_opt_in &&
-    consentPhone === recipient &&
+    isBookingWhatsAppEventEligible({
+      booking: params.booking,
+      event: params.smsType,
+      phone: recipient,
+    }) &&
     env.twilio.whatsapp.configured &&
     env.twilio.authToken,
   );
@@ -337,10 +351,16 @@ async function sendGuestBookingMobileMessage(params: {
     },
   );
 
-  if (channel === 'whatsapp') {
+  if (channel.kind === 'whatsapp_accepted') {
     return { messageSid: null, status: 'whatsapp_accepted' };
   }
-  if (channel === 'duplicate') {
+  if (channel.kind === 'attempt_finalization_pending') {
+    if (requiresDirectSmsAfterPendingWhatsAppFailure(channel)) {
+      return sendGuestBookingSmsOnly(params);
+    }
+    return { messageSid: null, status: 'whatsapp_accepted' };
+  }
+  if (channel.kind === 'duplicate') {
     return { messageSid: null, status: 'duplicate' };
   }
   return smsResult;

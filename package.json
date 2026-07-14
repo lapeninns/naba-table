@@ -92,16 +92,13 @@
     "jobs:allocations-pruner": "tsx -r tsconfig-paths/register scripts/jobs/run-allocations-pruner.ts",
     "assign:loop": "tsx -r tsconfig-paths/register scripts/ops-auto-assign-ultra-fast-loop.ts --slug white-horse-pub-waterbeach --date 2025-11-10",
     "booking:flow": "tsx -r tsconfig-paths/register scripts/run-booking-flow.ts",
-    "db:reset": "tsx scripts/db/safe-run.ts reset",
     "db:migrate": "tsx scripts/db/safe-run.ts migrate",
-    "db:seed-only": "tsx scripts/db/safe-run.ts seed-only",
-    "db:full-reset": "tsx scripts/db/safe-run.ts full-reset",
-    "db:wipe": "tsx scripts/db/safe-run.ts wipe",
-    "db:check-drift": "tsx scripts/db/check-drift.ts",
+    "db:check-drift": "tsx scripts/db/safe-run.ts check-drift",
     "vibeproxy:health": "bash scripts/vibeproxy_health_check.sh",
-    "db:push": "echo '📤 Pushing migrations to Supabase remote...' && supabase db push",
-    "db:pull": "echo '📥 Pulling schema from Supabase remote...' && supabase db pull",
-    "db:status": "supabase migration list"
+    "db:push": "tsx scripts/db/safe-run.ts push",
+    "db:pull": "tsx scripts/db/safe-run.ts pull",
+    "db:status": "tsx scripts/db/safe-run.ts status",
+    "format:db-safe-run": "prettier --check scripts/db/safe-run.ts scripts/db/check-drift.ts tests/scripts/db-safe-run.test.ts package.json README.md docs/environments.md docs/security.md"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

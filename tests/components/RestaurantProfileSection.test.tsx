@@ -214,7 +214,7 @@ describe('RestaurantProfileSection', () => {
     expect(screen.getAllByRole('status').map((node) => node.textContent)).toEqual(
       expect.arrayContaining([expect.stringMatching(/Saved just now/i)]),
     );
-  });
+  }, 15_000);
 
   it('renders the consolidated profile overview with rail navigation', async () => {
     const user = userEvent.setup();

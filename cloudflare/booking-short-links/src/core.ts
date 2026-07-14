@@ -1,6 +1,6 @@
 import {
   DEFAULT_ALLOWED_DESTINATION_HOSTS,
-  SHORT_LINK_PURPOSES,
+  DEFAULT_ALLOWED_REVIEW_DESTINATION_HOSTS,
   type CreateShortLinkRequest,
   type CreateShortLinkResponse,
   type ShortLinkRecord,
@@ -43,12 +43,10 @@ function toBase62(bytes: Uint8Array): string {
   return output;
 }
 
-export function generateOpaqueToken(
-  options?: {
-    length?: number;
-    randomBytes?: RandomBytesFn;
-  },
-): string {
+export function generateOpaqueToken(options?: {
+  length?: number;
+  randomBytes?: RandomBytesFn;
+}): string {
   const targetLength = Math.max(8, Math.min(options?.length ?? 12, 24));
   const randomBytes = options?.randomBytes ?? defaultRandomBytes;
   let token = '';
@@ -69,14 +67,20 @@ export function parseAllowedHosts(raw: string | null | undefined): string[] {
   return values.length > 0 ? values : [...DEFAULT_ALLOWED_DESTINATION_HOSTS];
 }
 
+export function parseAllowedReviewHosts(raw: string | null | undefined): string[] {
+  const values = (raw ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return values.length > 0 ? values : [...DEFAULT_ALLOWED_REVIEW_DESTINATION_HOSTS];
+}
+
 export function validateShortLinkRequest(
   request: CreateShortLinkRequest,
   allowedHosts: string[],
+  allowedReviewHosts: string[] = [...DEFAULT_ALLOWED_REVIEW_DESTINATION_HOSTS],
 ): { ok: true; destinationUrl: URL } | { ok: false; error: string } {
-  if (!SHORT_LINK_PURPOSES.includes(request.purpose)) {
-    return { ok: false, error: 'Invalid purpose.' };
-  }
-
   let destinationUrl: URL;
   try {
     destinationUrl = new URL(request.destinationUrl);
@@ -84,12 +88,31 @@ export function validateShortLinkRequest(
     return { ok: false, error: 'Destination URL is invalid.' };
   }
 
-  if (!['https:', 'http:'].includes(destinationUrl.protocol)) {
-    return { ok: false, error: 'Destination URL protocol is not allowed.' };
-  }
-
-  if (!allowedHosts.includes(destinationUrl.hostname.toLowerCase())) {
-    return { ok: false, error: 'Destination host is not allowlisted.' };
+  switch (request.purpose) {
+    case 'review':
+      if (request.createdBy !== 'guest_review_whatsapp') {
+        return { ok: false, error: 'Creation source is not allowed for this purpose.' };
+      }
+      if (!isAllowedGoogleReviewUrl(destinationUrl, allowedReviewHosts)) {
+        return { ok: false, error: 'Destination is not an allowed Google review URL.' };
+      }
+      break;
+    case 'booking_manage':
+      if (
+        request.createdBy !== 'guest_confirmation_sms' &&
+        request.createdBy !== 'guest_update_sms'
+      ) {
+        return { ok: false, error: 'Creation source is not allowed for this purpose.' };
+      }
+      if (!['https:', 'http:'].includes(destinationUrl.protocol)) {
+        return { ok: false, error: 'Destination URL protocol is not allowed.' };
+      }
+      if (!allowedHosts.includes(destinationUrl.hostname.toLowerCase())) {
+        return { ok: false, error: 'Destination host is not allowlisted.' };
+      }
+      break;
+    default:
+      return { ok: false, error: 'Invalid purpose.' };
   }
 
   const expiresAtMs = Date.parse(request.expiresAt);
@@ -104,9 +127,41 @@ export function validateShortLinkRequest(
   return { ok: true, destinationUrl };
 }
 
-export function buildShortUrl(baseUrl: string, token: string): string {
+function isAllowedGoogleReviewUrl(url: URL, allowedHosts: string[]): boolean {
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) {
+    return false;
+  }
+
+  const host = url.hostname.toLowerCase();
+  const isAllowedHost = allowedHosts.some(
+    (suffix) => host === suffix || host.endsWith(`.${suffix}`),
+  );
+  if (!isAllowedHost) {
+    return false;
+  }
+
+  const pathname = url.pathname.toLowerCase().replace(/\/+$/, '');
+  if (host === 'g.page') {
+    const pathSegments = pathname.split('/').filter(Boolean);
+    return pathSegments.length >= 2 && pathSegments.at(-1) === 'review';
+  }
+
+  return (
+    pathname === '/local/writereview' ||
+    pathname.startsWith('/local/writereview/') ||
+    pathname === '/local/reviews' ||
+    pathname.startsWith('/local/reviews/')
+  );
+}
+
+export function buildShortUrl(
+  baseUrl: string,
+  token: string,
+  purpose: CreateShortLinkRequest['purpose'] = 'booking_manage',
+): string {
   const normalized = baseUrl.replace(/\/+$/, '');
-  return `${normalized}/m/${token}`;
+  const path = purpose === 'review' ? 'r' : 'm';
+  return `${normalized}/${path}/${token}`;
 }
 
 export function isLinkActive(record: ShortLinkRecord, now: Date): boolean {
@@ -143,7 +198,7 @@ export async function createBookingShortLink(params: {
   if (reusable) {
     return {
       token: reusable.token,
-      shortUrl: buildShortUrl(params.shortBaseUrl, reusable.token),
+      shortUrl: buildShortUrl(params.shortBaseUrl, reusable.token, reusable.purpose),
       expiresAt: reusable.expiresAt,
     };
   }
@@ -172,7 +227,7 @@ export async function createBookingShortLink(params: {
       await params.repository.insertLink(record);
       return {
         token,
-        shortUrl: buildShortUrl(params.shortBaseUrl, token),
+        shortUrl: buildShortUrl(params.shortBaseUrl, token, params.request.purpose),
         expiresAt: params.request.expiresAt,
       };
     } catch (error) {
@@ -186,6 +241,7 @@ export async function createBookingShortLink(params: {
 export async function resolveBookingShortLink(params: {
   repository: ShortLinkRepository;
   token: string;
+  purpose?: CreateShortLinkRequest['purpose'];
   now?: Date;
 }): Promise<
   | { status: 'redirect'; record: ShortLinkRecord }
@@ -193,8 +249,23 @@ export async function resolveBookingShortLink(params: {
   | { status: 'expired'; record: ShortLinkRecord }
 > {
   const record = await params.repository.getLinkByToken(params.token);
-  if (!record) {
+  const expectedPurpose = params.purpose ?? 'booking_manage';
+  if (!record || record.purpose !== expectedPurpose) {
     return { status: 'missing' };
+  }
+
+  if (expectedPurpose === 'review') {
+    try {
+      if (
+        !isAllowedGoogleReviewUrl(new URL(record.destinationUrl), [
+          ...DEFAULT_ALLOWED_REVIEW_DESTINATION_HOSTS,
+        ])
+      ) {
+        return { status: 'missing' };
+      }
+    } catch {
+      return { status: 'missing' };
+    }
   }
 
   const now = params.now ?? new Date();

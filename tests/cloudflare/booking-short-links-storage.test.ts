@@ -61,4 +61,43 @@ describe('booking short-link storage', () => {
     expect(prepare).toHaveBeenCalledWith(expect.stringContaining('FROM booking_short_links'));
     expect(first).toHaveBeenCalled();
   });
+
+  it('queries reusable review links by purpose, source, destination, and active TTL @contract', async () => {
+    const destinationUrl = 'https://g.page/demo-venue/review';
+    const { db, bind } = makeDb({
+      token: 'Review123456',
+      destination_url: destinationUrl,
+      destination_host: 'g.page',
+      purpose: 'review',
+      booking_id: 'booking-1',
+      restaurant_id: 'restaurant-1',
+      created_at: '2026-07-12T18:00:00.000Z',
+      expires_at: '2099-01-01T00:00:00.000Z',
+      revoked_at: null,
+      last_accessed_at: null,
+      created_by: 'guest_review_whatsapp',
+    });
+    const repository = createShortLinkRepository({ db });
+
+    const record = await repository.findReusableLink({
+      bookingId: 'booking-1',
+      purpose: 'review',
+      createdBy: 'guest_review_whatsapp',
+      destinationUrl,
+      nowIso: '2026-07-12T20:00:00.000Z',
+    });
+
+    expect(bind).toHaveBeenCalledWith(
+      'booking-1',
+      'review',
+      'guest_review_whatsapp',
+      destinationUrl,
+      '2026-07-12T20:00:00.000Z',
+    );
+    expect(record).toMatchObject({
+      purpose: 'review',
+      createdBy: 'guest_review_whatsapp',
+      destinationUrl,
+    });
+  });
 });

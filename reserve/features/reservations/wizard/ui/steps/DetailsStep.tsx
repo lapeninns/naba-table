@@ -261,19 +261,28 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                                   field.onChange(value);
                                   handlers.toggleWhatsApp(value);
                                 }}
-                                className="size-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                className="!size-4 !min-h-4 !min-w-4 rounded-[4px] border border-muted-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                               />
                             </FormControl>
                             <div className="space-y-1">
                               <span className="text-sm font-semibold text-foreground">
                                 {isOpsMode
-                                  ? 'Guest agreed to WhatsApp booking updates'
-                                  : 'Use WhatsApp for my booking updates'}
+                                  ? 'Guest agreed to WhatsApp booking messages and one review request'
+                                  : 'Use WhatsApp for booking messages and one review request'}
                               </span>
                               <p className="text-sm text-muted-foreground">
                                 {isOpsMode
-                                  ? `Confirm the guest says this number uses WhatsApp and agrees to receive booking messages from Nabatable on behalf of ${venueName}. If WhatsApp is unavailable, we’ll send an SMS instead.`
-                                  : `You confirm this number uses WhatsApp and agree to receive booking messages from Nabatable on behalf of ${venueName}. If WhatsApp is unavailable, we’ll send an SMS instead.`}
+                                  ? `Confirm this number uses WhatsApp and the guest agrees to receive these messages from Nabatable on behalf of ${venueName}:`
+                                  : `You confirm this number uses WhatsApp and agree to receive these messages from Nabatable on behalf of ${venueName}:`}
+                              </p>
+                              <ul className="list-disc space-y-0.5 pl-4 text-sm text-muted-foreground">
+                                <li>Booking confirmation and updates</li>
+                                <li>Guest or venue cancellations</li>
+                                <li>One post-visit review request</li>
+                              </ul>
+                              <p className="text-sm text-muted-foreground">
+                                If WhatsApp is unavailable for booking messages, we’ll send an SMS
+                                instead. Review requests never fall back to SMS.
                               </p>
                               {!hasValidWhatsAppPhone ? (
                                 <p className="text-sm font-medium text-muted-foreground">

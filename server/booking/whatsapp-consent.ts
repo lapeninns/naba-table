@@ -4,7 +4,16 @@ import { formatUKPhoneToE164 } from '@reserve/shared/validation';
 import type { BookingRecord } from '@/server/bookings';
 import type { getServiceSupabaseClient } from '@/server/supabase';
 
-export const BOOKING_WHATSAPP_CONSENT_VERSION = 'booking-transactional-v1';
+export const BOOKING_WHATSAPP_LIFECYCLE_CONSENT_VERSION = 'booking-transactional-v1';
+export const BOOKING_WHATSAPP_CONSENT_VERSION = 'booking-plus-review-v2';
+
+export type BookingWhatsAppEvent =
+  | 'booking_confirmation'
+  | 'booking_update'
+  | 'booking_cancellation'
+  | 'restaurant_cancellation'
+  | 'post_visit_review'
+  | 'booking_reminder';
 
 // bookings_whatsapp_consent_check requires strict E.164 for whatsapp_consent_phone.
 const E164_CONSENT_PHONE_REGEX = /^\+[1-9][0-9]{6,14}$/;
@@ -30,6 +39,52 @@ type BookingWhatsAppConsentPatch = Pick<
   | 'whatsapp_opt_in_at'
 >;
 
+function hasValidConsentAttribution(booking: BookingRecord): boolean {
+  if (booking.whatsapp_consent_source === 'guest_reserve') {
+    return booking.whatsapp_consent_actor_id === null;
+  }
+  if (booking.whatsapp_consent_source === 'ops_staff') {
+    return Boolean(booking.whatsapp_consent_actor_id);
+  }
+  return false;
+}
+
+export function isBookingWhatsAppEventEligible({
+  booking,
+  event,
+  phone,
+}: {
+  booking: BookingRecord;
+  event: BookingWhatsAppEvent;
+  phone: string;
+}): boolean {
+  const consentPhone = toE164ConsentPhone(booking.whatsapp_consent_phone);
+  const currentPhone = toE164ConsentPhone(phone);
+  if (
+    !booking.whatsapp_opt_in ||
+    !hasValidConsentAttribution(booking) ||
+    !consentPhone ||
+    consentPhone !== currentPhone
+  ) {
+    return false;
+  }
+
+  switch (event) {
+    case 'booking_confirmation':
+    case 'booking_update':
+    case 'booking_cancellation':
+    case 'restaurant_cancellation':
+      return (
+        booking.whatsapp_consent_version === BOOKING_WHATSAPP_LIFECYCLE_CONSENT_VERSION ||
+        booking.whatsapp_consent_version === BOOKING_WHATSAPP_CONSENT_VERSION
+      );
+    case 'post_visit_review':
+      return booking.whatsapp_consent_version === BOOKING_WHATSAPP_CONSENT_VERSION;
+    case 'booking_reminder':
+      return false;
+  }
+}
+
 export function buildBookingWhatsAppConsentPatch({
   actorId,
   existingBooking,
@@ -46,6 +101,12 @@ export function buildBookingWhatsAppConsentPatch({
   const normalizedPhone = normalizePhone(phone);
   const previousPhone = normalizePhone(existingBooking.customer_phone);
   if (optedIn === true) {
+    if (source === 'ops_staff' && !actorId) {
+      throw new Error('Ops WhatsApp consent requires an authenticated actor.');
+    }
+    if (source === 'guest_reserve' && actorId) {
+      throw new Error('Guest WhatsApp consent cannot include an actor.');
+    }
     const consentPhone = toE164ConsentPhone(phone);
     if (!consentPhone) {
       throw new Error('WhatsApp consent requires a valid booking phone number.');

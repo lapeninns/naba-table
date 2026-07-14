@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { dispatchMobileNotificationWithDependencies } from '@/server/notifications/mobile';
-import { shouldApplyWhatsAppStatus } from '@/server/notifications/whatsapp-status';
+import {
+  reconcileWhatsAppStatusWithDependencies,
+  shouldApplyWhatsAppStatus,
+} from '@/server/notifications/whatsapp-status';
 
 const input = {
   bookingId: 'booking-1',
@@ -14,10 +17,18 @@ const input = {
   whatsappVariables: { '1': 'Old Crown Girton' },
 };
 
+const reviewInput = {
+  ...input,
+  logicalKey: 'booking-1:booking_review_request',
+  notificationType: 'booking_review_request' as const,
+  whatsappTemplateId: 'HX-review',
+};
+
 function createDependencies() {
   return {
     claimNotification: vi.fn().mockResolvedValue({ id: 'notification-1' }),
     claimAttempt: vi.fn().mockResolvedValue('attempt-whatsapp'),
+    finalizeWhatsAppAttempt: vi.fn(async (attempt: { status: string }) => attempt.status),
     updateAttempt: vi.fn().mockResolvedValue(undefined),
     claimFallback: vi.fn().mockResolvedValue('attempt-sms'),
     sendWhatsApp: vi.fn().mockResolvedValue({ messageSid: 'WA1', status: 'queued' }),
@@ -35,6 +46,9 @@ describe('dispatchMobileNotificationWithDependencies', () => {
       expect.objectContaining({ channel: 'whatsapp' }),
     );
     expect(dependencies.sendWhatsApp).toHaveBeenCalledOnce();
+    expect(dependencies.sendWhatsApp).toHaveBeenCalledWith(
+      expect.objectContaining({ attemptId: 'attempt-whatsapp' }),
+    );
     expect(dependencies.sendSms).not.toHaveBeenCalled();
   });
 
@@ -130,10 +144,229 @@ describe('dispatchMobileNotificationWithDependencies', () => {
       dependencies,
     );
 
-    expect(channel).toBe('sms');
+    expect(channel).toEqual({ kind: 'sms' });
     expect(dependencies.claimNotification).not.toHaveBeenCalled();
     expect(dependencies.sendWhatsApp).not.toHaveBeenCalled();
     expect(dependencies.sendSms).toHaveBeenCalledOnce();
+  });
+
+  it('sends no SMS for a review request with an unstorable phone @worker', async () => {
+    // Given: a review request whose phone cannot be stored in the mobile ledger.
+    const dependencies = createDependencies();
+
+    // When: the review request is dispatched.
+    const result = await dispatchMobileNotificationWithDependencies(
+      { ...reviewInput, recipientPhone: 'not-a-phone' },
+      dependencies,
+    );
+
+    // Then: neither a direct nor claimed SMS attempt is made.
+    expect(dependencies.claimAttempt).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+    expect(result).toEqual({ kind: 'ineligible' });
+  });
+
+  it('sends no SMS for an ineligible review request with a present template @worker', async () => {
+    // Given: an ineligible review request whose template is present.
+    const dependencies = createDependencies();
+
+    // When: the review request is dispatched.
+    const result = await dispatchMobileNotificationWithDependencies(
+      { ...reviewInput, whatsappEligible: false },
+      dependencies,
+    );
+
+    // Then: the router records no SMS attempt and sends no SMS.
+    expect(dependencies.claimAttempt).not.toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'sms' }),
+    );
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+    expect(result).toEqual({ kind: 'ineligible' });
+  });
+
+  it('sends no SMS for an eligible review request with a missing template @worker', async () => {
+    // Given: an eligible review request whose template is missing.
+    const dependencies = createDependencies();
+
+    // When: the review request is dispatched.
+    const result = await dispatchMobileNotificationWithDependencies(
+      { ...reviewInput, whatsappTemplateId: null },
+      dependencies,
+    );
+
+    // Then: the router records no SMS attempt and sends no SMS.
+    expect(dependencies.claimAttempt).not.toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'sms' }),
+    );
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+    expect(result).toEqual({ kind: 'ineligible' });
+  });
+
+  it('records a pre-accept review failure without claiming or sending SMS @worker', async () => {
+    // Given: an eligible review whose provider send fails before acceptance.
+    const dependencies = createDependencies();
+    dependencies.sendWhatsApp.mockRejectedValueOnce(new Error('provider unavailable'));
+
+    // When: the review request is dispatched.
+    const result = await dispatchMobileNotificationWithDependencies(reviewInput, dependencies);
+
+    // Then: the WhatsApp failure is recorded and no fallback is claimed or sent.
+    expect(dependencies.finalizeWhatsAppAttempt).toHaveBeenCalledWith({
+      attemptId: 'attempt-whatsapp',
+      errorCode: 'Error',
+      providerMessageId: null,
+      status: 'failed',
+    });
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      attemptId: 'attempt-whatsapp',
+      kind: 'provider_attempt_failed',
+    });
+  });
+
+  it('sends one eligible review through WhatsApp without SMS @worker', async () => {
+    // Given: an eligible review with an approved template and valid recipient snapshot.
+    const dependencies = createDependencies();
+
+    // When: the review request is dispatched.
+    const channel = await dispatchMobileNotificationWithDependencies(reviewInput, dependencies);
+
+    // Then: one WhatsApp attempt is accepted and no SMS path is touched.
+    expect(channel).toEqual({
+      attemptId: 'attempt-whatsapp',
+      kind: 'whatsapp_accepted',
+      providerMessageId: 'WA1',
+      status: 'queued',
+    });
+    expect(dependencies.sendWhatsApp).toHaveBeenCalledOnce();
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+  });
+
+  it('does not send a second review when another worker owns the WhatsApp attempt @worker', async () => {
+    // Given: a duplicate review job after another worker claimed WhatsApp.
+    const dependencies = createDependencies();
+    dependencies.claimAttempt.mockResolvedValueOnce(null);
+
+    // When: the duplicate review request is dispatched.
+    const channel = await dispatchMobileNotificationWithDependencies(reviewInput, dependencies);
+
+    // Then: the job is deduplicated without another WhatsApp or SMS send.
+    expect(channel).toEqual({ kind: 'duplicate' });
+    expect(dependencies.sendWhatsApp).not.toHaveBeenCalled();
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+  });
+
+  it('reports provider acceptance when immediate SID persistence is ambiguous @worker', async () => {
+    const dependencies = createDependencies();
+    dependencies.finalizeWhatsAppAttempt.mockRejectedValue(new Error('ledger update unavailable'));
+
+    const result = await dispatchMobileNotificationWithDependencies(reviewInput, dependencies);
+
+    expect(result).toEqual({
+      attemptId: 'attempt-whatsapp',
+      errorCode: null,
+      kind: 'attempt_finalization_pending',
+      providerMessageId: 'WA1',
+      status: 'queued',
+    });
+    expect(dependencies.finalizeWhatsAppAttempt).toHaveBeenCalledTimes(2);
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+  });
+
+  it('preserves a callback status that advances before the provider promise returns @worker', async () => {
+    const dependencies = createDependencies();
+    dependencies.sendWhatsApp.mockResolvedValueOnce({ messageSid: 'WA1', status: 'queued' });
+    dependencies.finalizeWhatsAppAttempt.mockResolvedValueOnce('delivered');
+
+    const result = await dispatchMobileNotificationWithDependencies(reviewInput, dependencies);
+
+    expect(dependencies.finalizeWhatsAppAttempt).toHaveBeenCalledWith({
+      attemptId: 'attempt-whatsapp',
+      errorCode: null,
+      providerMessageId: 'WA1',
+      status: 'queued',
+    });
+    expect(dependencies.updateAttempt).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      attemptId: 'attempt-whatsapp',
+      kind: 'whatsapp_accepted',
+      providerMessageId: 'WA1',
+      status: 'delivered',
+    });
+  });
+
+  it('retains a pre-accept failure when its attempt finalization must be retried @worker', async () => {
+    const dependencies = createDependencies();
+    dependencies.sendWhatsApp.mockRejectedValueOnce(new Error('provider unavailable'));
+    dependencies.finalizeWhatsAppAttempt.mockRejectedValue(new Error('ledger update unavailable'));
+
+    const result = await dispatchMobileNotificationWithDependencies(reviewInput, dependencies);
+
+    expect(result).toEqual({
+      attemptId: 'attempt-whatsapp',
+      errorCode: 'Error',
+      kind: 'attempt_finalization_pending',
+      providerMessageId: null,
+      status: 'failed',
+    });
+    expect(dependencies.sendWhatsApp).toHaveBeenCalledOnce();
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendSms).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'booking_confirmation',
+    'booking_update',
+    'booking_cancellation',
+    'restaurant_cancellation',
+  ] as const)(
+    'retries transient failed-attempt persistence before %s SMS fallback @worker',
+    async (notificationType) => {
+      const dependencies = createDependencies();
+      dependencies.sendWhatsApp.mockRejectedValueOnce(new Error('provider unavailable'));
+      dependencies.finalizeWhatsAppAttempt.mockRejectedValueOnce(
+        new Error('transient ledger write failure'),
+      );
+
+      const result = await dispatchMobileNotificationWithDependencies(
+        {
+          ...input,
+          logicalKey: `booking-1:${notificationType}:v1`,
+          notificationType,
+        },
+        dependencies,
+      );
+
+      expect(dependencies.finalizeWhatsAppAttempt).toHaveBeenCalledTimes(2);
+      expect(dependencies.claimFallback).toHaveBeenCalledOnce();
+      expect(dependencies.sendSms).toHaveBeenCalledOnce();
+      expect(result).toEqual({ kind: 'sms' });
+    },
+  );
+
+  it('atomically reconciles a persistent pre-accept finalizer failure before lifecycle SMS @worker', async () => {
+    const dependencies = createDependencies();
+    dependencies.sendWhatsApp.mockRejectedValueOnce(new Error('provider unavailable'));
+    dependencies.finalizeWhatsAppAttempt.mockRejectedValue(
+      new Error('ledger finalizer unavailable'),
+    );
+
+    const result = await dispatchMobileNotificationWithDependencies(input, dependencies);
+
+    expect(dependencies.finalizeWhatsAppAttempt).toHaveBeenCalledTimes(2);
+    expect(dependencies.claimFallback).toHaveBeenCalledWith({
+      notificationId: 'notification-1',
+      preacceptFailure: true,
+      restaurantId: input.restaurantId,
+      recipientPhone: input.recipientPhone,
+      whatsappAttemptId: 'attempt-whatsapp',
+    });
+    expect(dependencies.sendSms).toHaveBeenCalledOnce();
+    expect(result).toEqual({ kind: 'sms' });
   });
 });
 
@@ -141,5 +374,217 @@ describe('shouldApplyWhatsAppStatus', () => {
   it('allows delivered to advance to read but rejects terminal failure after success @worker', () => {
     expect(shouldApplyWhatsAppStatus('delivered', 'read')).toBe(true);
     expect(shouldApplyWhatsAppStatus('delivered', 'failed')).toBe(false);
+  });
+});
+
+describe('reconcileWhatsAppStatusWithDependencies', () => {
+  it('uses opaque attempt correlation when binding an accepted provider SID @worker', async () => {
+    const dependencies = {
+      findAttempt: vi.fn().mockResolvedValue({
+        id: 'attempt-whatsapp',
+        notificationId: 'notification-1',
+        notificationRecipientPhone: '+447123456789',
+        notificationType: 'booking_review_request' as const,
+        recipientPhone: '+447123456789',
+        restaurantId: 'restaurant-1',
+        status: 'claimed' as const,
+      }),
+      updateAttempt: vi.fn().mockResolvedValue(true),
+      claimFallback: vi.fn().mockResolvedValue(null),
+      sendFallback: vi.fn().mockResolvedValue(false),
+    };
+
+    await reconcileWhatsAppStatusWithDependencies(
+      {
+        attemptId: 'attempt-whatsapp',
+        errorCode: null,
+        messageSid: 'MM-review',
+        providerStatus: 'sent',
+        recipientPhone: 'whatsapp:+447123456789',
+      },
+      dependencies,
+    );
+
+    expect(dependencies.findAttempt).toHaveBeenCalledWith('MM-review', 'attempt-whatsapp');
+    expect(dependencies.updateAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attemptId: 'attempt-whatsapp',
+        providerMessageId: 'MM-review',
+        status: 'sent',
+      }),
+    );
+  });
+
+  it('records a terminal review callback without claiming an SMS fallback @worker', async () => {
+    // Given: one accepted review attempt and a terminal provider callback.
+    const dependencies = {
+      findAttempt: vi.fn().mockResolvedValue({
+        id: 'attempt-whatsapp',
+        notificationId: 'notification-1',
+        notificationRecipientPhone: '+447123456789',
+        notificationType: 'booking_review_request' as const,
+        recipientPhone: '+447123456789',
+        restaurantId: 'restaurant-1',
+        status: 'accepted',
+      }),
+      updateAttempt: vi.fn().mockResolvedValue(true),
+      claimFallback: vi.fn().mockResolvedValue('attempt-sms'),
+      sendFallback: vi.fn().mockResolvedValue(true),
+    };
+
+    // When: callback reconciliation observes the terminal review failure.
+    const result = await reconcileWhatsAppStatusWithDependencies(
+      {
+        errorCode: '63016',
+        messageSid: 'MM-review',
+        providerStatus: 'undelivered',
+        recipientPhone: 'whatsapp:+447123456789',
+      },
+      dependencies,
+    );
+
+    // Then: the failure remains observable but creates no SMS fallback.
+    expect(result).toEqual({ ignored: false, fallbackSent: false });
+    expect(dependencies.updateAttempt).toHaveBeenCalledOnce();
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendFallback).not.toHaveBeenCalled();
+  });
+
+  it('records a failed review callback without claiming an SMS fallback @worker', async () => {
+    // Given: one sent review attempt and a failed provider callback.
+    const dependencies = {
+      findAttempt: vi.fn().mockResolvedValue({
+        id: 'attempt-whatsapp',
+        notificationId: 'notification-1',
+        notificationRecipientPhone: '+447123456789',
+        notificationType: 'booking_review_request' as const,
+        recipientPhone: '+447123456789',
+        restaurantId: 'restaurant-1',
+        status: 'sent' as const,
+      }),
+      updateAttempt: vi.fn().mockResolvedValue(true),
+      claimFallback: vi.fn().mockResolvedValue('attempt-sms'),
+      sendFallback: vi.fn().mockResolvedValue(true),
+    };
+
+    // When: callback reconciliation observes the failed review status.
+    const result = await reconcileWhatsAppStatusWithDependencies(
+      {
+        errorCode: '63017',
+        messageSid: 'MM-review-failed',
+        providerStatus: 'failed',
+        recipientPhone: 'whatsapp:+447123456789',
+      },
+      dependencies,
+    );
+
+    // Then: failure is recorded and no SMS fallback is claimed or sent.
+    expect(result).toEqual({ ignored: false, fallbackSent: false });
+    expect(dependencies.updateAttempt).toHaveBeenCalledOnce();
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendFallback).not.toHaveBeenCalled();
+  });
+
+  it('retains one SMS fallback for a lifecycle terminal callback @worker', async () => {
+    // Given: one accepted lifecycle attempt and an undelivered callback.
+    const dependencies = {
+      findAttempt: vi.fn().mockResolvedValue({
+        id: 'attempt-whatsapp',
+        notificationId: 'notification-1',
+        notificationRecipientPhone: '+447123456789',
+        notificationType: 'booking_confirmation' as const,
+        recipientPhone: '+447123456789',
+        restaurantId: 'restaurant-1',
+        status: 'accepted' as const,
+      }),
+      updateAttempt: vi.fn().mockResolvedValue(true),
+      claimFallback: vi.fn().mockResolvedValue('attempt-sms'),
+      sendFallback: vi.fn().mockResolvedValue(true),
+    };
+
+    // When: callback reconciliation applies the terminal failure.
+    const result = await reconcileWhatsAppStatusWithDependencies(
+      {
+        errorCode: '63016',
+        messageSid: 'MM-confirmation',
+        providerStatus: 'undelivered',
+        recipientPhone: 'whatsapp:+447123456789',
+      },
+      dependencies,
+    );
+
+    // Then: the existing exactly-once lifecycle fallback path remains active.
+    expect(result).toEqual({ ignored: false, fallbackSent: true });
+    expect(dependencies.claimFallback).toHaveBeenCalledOnce();
+    expect(dependencies.sendFallback).toHaveBeenCalledOnce();
+  });
+
+  it('ignores an out-of-order review callback without another channel attempt @worker', async () => {
+    // Given: a review attempt that is already terminal.
+    const dependencies = {
+      findAttempt: vi.fn().mockResolvedValue({
+        id: 'attempt-whatsapp',
+        notificationId: 'notification-1',
+        notificationRecipientPhone: '+447123456789',
+        notificationType: 'booking_review_request' as const,
+        recipientPhone: '+447123456789',
+        restaurantId: 'restaurant-1',
+        status: 'failed' as const,
+      }),
+      updateAttempt: vi.fn().mockResolvedValue(true),
+      claimFallback: vi.fn().mockResolvedValue('attempt-sms'),
+      sendFallback: vi.fn().mockResolvedValue(true),
+    };
+
+    // When: a stale sent callback arrives after failure.
+    const result = await reconcileWhatsAppStatusWithDependencies(
+      {
+        errorCode: null,
+        messageSid: 'MM-review',
+        providerStatus: 'sent',
+        recipientPhone: 'whatsapp:+447123456789',
+      },
+      dependencies,
+    );
+
+    // Then: the terminal record is preserved without WhatsApp or SMS replay.
+    expect(result).toEqual({ ignored: true, fallbackSent: false });
+    expect(dependencies.updateAttempt).not.toHaveBeenCalled();
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendFallback).not.toHaveBeenCalled();
+  });
+
+  it('loses a duplicate callback race without claiming fallback @worker', async () => {
+    // Given: another callback updates the same review attempt first.
+    const dependencies = {
+      findAttempt: vi.fn().mockResolvedValue({
+        id: 'attempt-whatsapp',
+        notificationId: 'notification-1',
+        notificationRecipientPhone: '+447123456789',
+        notificationType: 'booking_review_request' as const,
+        recipientPhone: '+447123456789',
+        restaurantId: 'restaurant-1',
+        status: 'sent' as const,
+      }),
+      updateAttempt: vi.fn().mockResolvedValue(false),
+      claimFallback: vi.fn().mockResolvedValue('attempt-sms'),
+      sendFallback: vi.fn().mockResolvedValue(true),
+    };
+
+    // When: this duplicate callback attempts the same terminal update.
+    const result = await reconcileWhatsAppStatusWithDependencies(
+      {
+        errorCode: '63016',
+        messageSid: 'MM-review',
+        providerStatus: 'failed',
+        recipientPhone: 'whatsapp:+447123456789',
+      },
+      dependencies,
+    );
+
+    // Then: the compare-and-set loser creates no fallback.
+    expect(result).toEqual({ ignored: true, fallbackSent: false });
+    expect(dependencies.claimFallback).not.toHaveBeenCalled();
+    expect(dependencies.sendFallback).not.toHaveBeenCalled();
   });
 });

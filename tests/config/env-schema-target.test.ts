@@ -145,4 +145,40 @@ describe('production env schema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('rejects a partially configured five-event WhatsApp production set @contract @local-only', () => {
+    const result = envSchemas.production.safeParse({
+      ...productionEnv,
+      ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
+      TWILIO_WHATSAPP_SENDER: '+447700900000',
+      TWILIO_WHATSAPP_BOOKING_CONFIRMATION_CONTENT_SID: 'HX5314cca961d164966548d0a55fc85a57',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.'))).toEqual(
+        expect.arrayContaining([
+          'TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID',
+          'TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID',
+          'TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID',
+          'TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID',
+        ]),
+      );
+    }
+  });
+
+  it('accepts the complete five-event WhatsApp production set @contract @local-only', () => {
+    const result = envSchemas.production.safeParse({
+      ...productionEnv,
+      ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
+      TWILIO_WHATSAPP_SENDER: '+447700900000',
+      TWILIO_WHATSAPP_BOOKING_CONFIRMATION_CONTENT_SID: 'HXconfirmation',
+      TWILIO_WHATSAPP_BOOKING_UPDATE_CONTENT_SID: 'HXupdate',
+      TWILIO_WHATSAPP_BOOKING_CANCELLATION_CONTENT_SID: 'HXguestcancel',
+      TWILIO_WHATSAPP_RESTAURANT_CANCELLATION_CONTENT_SID: 'HXvenuecancel',
+      TWILIO_WHATSAPP_REVIEW_REQUEST_CONTENT_SID: 'HXreview',
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
