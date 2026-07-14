@@ -17,6 +17,7 @@ allowed_blast_radius:
   - src/components/features/ops-shell/navigation.tsx
   - tests/server/sms-delivery-route.test.ts
   - tests/server/booking-sms-delivery-route.test.ts
+  - tests/server/sms/delivery-log.test.ts
   - tests/components/opsSmsDeliveryDomain.test.ts
   - tests/components/opsNavigation.test.ts
 implementation_surfaces:
@@ -31,12 +32,13 @@ implementation_surfaces:
   - src/components/features/ops-shell/navigation.tsx
   - tests/server/sms-delivery-route.test.ts
   - tests/server/booking-sms-delivery-route.test.ts
+  - tests/server/sms/delivery-log.test.ts
   - tests/components/opsSmsDeliveryDomain.test.ts
   - tests/components/opsNavigation.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
 related_tests:
-  - not-yet-created
+  - tests/server/sms/delivery-log.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm test:micro-specs

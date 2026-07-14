@@ -26,4 +26,10 @@
 - [x] Cloudflare staging Worker deploy and version readback succeeded after the bounded retry.
 - [x] Staging Worker authenticated-create and GET redirect smoke passed; the disposable row was
       cleaned.
-- [ ] Configure approved SIDs, deploy the staged app, and complete the controlled release proof.
+- [x] Configure approved sender/SIDs on the release-branch Preview, deploy the staged app, and prove
+      `/api/health` returns 200 with the staging database connected.
+- [x] Remove the retired test phone from staging through a production-refusing transaction and prove
+      production already contains no matching phone value.
+- [x] Read production migration history; only `20260712204500` remains pending.
+- [ ] Merge the CI-green release, apply the single production ledger migration, configure production
+      app/Worker SIDs, and verify the first eligible real-guest lifecycle/review processing.

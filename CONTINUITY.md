@@ -1,6 +1,6 @@
 # Continuity Ledger
 
-Last updated: 2026-07-14T12:54:49Z
+Last updated: 2026-07-14T13:32:19Z
 
 ## Current WhatsApp review production governance
 
@@ -45,6 +45,21 @@ Last updated: 2026-07-14T12:54:49Z
   selects an existing completed booking rather than violating lifecycle timestamp invariants through
   a direct status rewrite. The known shadow drift command remains independently limited by the
   repo's remote-only baseline, not by the applied review schema.
+- Vercel Preview has the approved sender and all six final Content SIDs on the release branch. The
+  manual Preview deployment is READY and `/api/health` returns 200 with a connected database.
+- Production contains no occurrence of the retired test phone. The remaining staging copies were
+  removed through a new staging-only guarded transaction: required booking/customer rows were
+  replaced with reserved synthetic E.164 values, dependent WhatsApp consent and manager summary
+  settings were cleared, the matching canonical restaurant-phone row was deleted, and a dynamic
+  assertion proved zero matches across every public phone-named text column.
+- Production migration history is aligned through `20260711143000` and is missing only the review
+  ledger migration `20260712204500`. The safe runner now supports an explicitly linked absolute
+  `SUPABASE_WORKDIR` while retaining production confirmation and staging-only replay/cleanup guards.
+- PR CI root causes were repaired without product logic changes: governance now supplies the same
+  non-secret test environment as the other CI workflows, and stale QA-title metadata now satisfies
+  the tag ratchet. The exact CI-environment production build passes all 72 static pages locally.
+- Production migration, production Vercel/Cloudflare configuration, and real-guest enablement remain
+  stopped until the updated branch passes required CI and is merged.
 
 ## Current silent production table-assignment repair
 

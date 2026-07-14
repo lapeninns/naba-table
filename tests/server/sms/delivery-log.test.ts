@@ -13,7 +13,10 @@ vi.mock('@/server/observability', () => ({
 
 import { hasRecentSmsDelivery, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 
-function createRecentDeliveryQuery(result: { data: Array<{ id: string }> | null; error: { message: string } | null }) {
+function createRecentDeliveryQuery(result: {
+  data: Array<{ id: string }> | null;
+  error: { message: string } | null;
+}) {
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
@@ -209,7 +212,7 @@ describe('recordSmsDeliveryLog', () => {
     expect(recordObservabilityEventMock).not.toHaveBeenCalled();
   });
 
-  it('still records observability warnings for non-duplicate upsert failures', async () => {
+  it('@observability still records warnings for non-duplicate upsert failures', async () => {
     const upsertMaybeSingle = vi.fn().mockResolvedValue({
       data: null,
       error: { code: 'PGRST500', message: 'database unavailable' },

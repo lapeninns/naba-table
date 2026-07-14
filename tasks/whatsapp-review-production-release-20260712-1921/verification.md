@@ -180,6 +180,33 @@ six final templates. No credentials or recipient data were retained.
   A failing-first fixture contract now requires an existing completed booking; the corrected proof
   passes against staging and ends in `ROLLBACK`.
 
+### Preview deployment, test-phone retirement, and production readiness
+
+- Vercel Preview branch configuration now contains the approved WhatsApp sender and exact six final
+  Content SIDs. Credential records remain Sensitive; non-secret sender/SID readback matched exactly.
+- Deployment `dpl_6SLsEPAvxeJRiszXvkTtHSyFFKQh` reached READY at the branch Preview URL. Vercel curl
+  returned 200 from `/api/health` with `status=healthy` and `database=connected`.
+- A production-wide aggregate search found zero copies of the retired test phone before any cleanup.
+- Staging cleanup was implemented Red -> Green behind `remove-staging-test-phone`: the safe runner
+  requires a runtime E.164 value, rejects production before children, validates the environment,
+  and renders the target only into a mode-0600 temporary SQL file that is deleted in `finally`.
+- The first real attempt safely rolled back when Postgres rejected an assignment to generated
+  `customers.phone_normalized`. A regression contract removed that assignment; updating `phone`
+  now regenerates the normalized column through the database definition.
+- The successful transaction anonymized 3 booking phones and 2 customer phones with reserved
+  synthetic E.164 values, nulled one profile phone and restaurant contact, deleted one canonical
+  restaurant-phone row, disabled/cleared five manager-summary targets, and asserted zero remaining
+  target values across every public phone-named text column. No booking or customer row was deleted.
+- Focused cleanup/safe-run/database contracts pass 22/22. Targeted ESLint, strict typecheck,
+  formatting, diff check, Micro-Spec guard, and governance check pass.
+- Production migration history readback is complete through `20260711143000`; only
+  `20260712204500_add_whatsapp_review_notification_ledger.sql` is pending. No production migration,
+  configuration, or outbound guest traffic was changed.
+- The two PR CI failures were reproduced and repaired without product behavior changes. Governance
+  now receives sanitized test Supabase/Resend values; the exact job environment builds 72/72 static
+  pages. QA tag audit now passes after test-title metadata repair, and the affected 130-test group
+  passes.
+
 ## Task 7A staging release candidate - 2026-07-12
 
 - Staging env validation passed and the linked project matched `ndxmivcrehsacuerwxtm`.

@@ -256,7 +256,7 @@ test.describe('reserve routes', () => {
     await expect(page.getByRole('heading', { name: 'Plan your table' })).toBeVisible();
   });
 
-  test('@p1 @browser @contract @local-only @MS-guest-reserve-standalone-ui loads wizard utilities and privacy navigation in the standalone app', async ({
+  test('@p1 @browser @contract @local-only loads wizard utilities and privacy navigation in the standalone app', async ({
     page,
   }) => {
     // Given the real standalone Reserve entrypoint at a mobile-first width
