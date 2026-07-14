@@ -2,13 +2,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 describe('@p1 @contract @local-only Reserve standalone module boundaries', () => {
-  it('keeps browser zoom available in the standalone viewport contract', () => {
+  it('@contract keeps browser zoom available in the standalone viewport contract', () => {
     const html = readFileSync('reserve/index.html', 'utf8');
     expect(html).not.toContain('maximum-scale=1');
     expect(html).not.toContain('user-scalable=no');
   });
 
-  it('keeps the Details step independent of the Next.js client router', () => {
+  it('@contract keeps the Details step independent of the Next.js client router', () => {
     // Given the production source used by the standalone Vite application
     const detailsStepSource = readFileSync(
       'reserve/features/reservations/wizard/ui/steps/DetailsStep.tsx',

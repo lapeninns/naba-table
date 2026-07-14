@@ -81,17 +81,17 @@ Notes:
 
 ## Database scripts (remote only)
 
-Destructive scripts are guarded by `scripts/db/safe-run.ts`.
+Every database command is guarded by `scripts/db/safe-run.ts` and runs `pnpm validate:env`
+before its delegated command.
 
-- `pnpm db:reset` — apply init schema + seeds
-- `pnpm db:migrate` — apply init schema/migrations
-- `pnpm db:seed-only` — apply seeds only
-- `pnpm db:wipe` — drop public schema
-- Safety:
-  - Requires `SUPABASE_DB_URL`.
-  - Blocks `DB_TARGET_ENV=production` unless `ALLOW_PROD_DB_WIPE=true`.
-  - Blocks when non‑prod target uses production DB URL unless override set.
-  - TTY prompt to type the target env before continuing.
+- Set `DB_TARGET_ENV=staging|production` explicitly; the runner never infers the target.
+- `pnpm db:status` — list remote migration status.
+- `pnpm db:migrate` or `pnpm db:push` — apply pending migrations.
+- `pnpm db:pull` — pull the linked remote schema.
+- `pnpm db:check-drift` — compare the linked remote schema with the repository baseline.
+- Append `-- --dry-run` to preview the fixed, redacted command plan without running children.
+- Production migration apply additionally requires `CONFIRM_PRODUCTION=true`.
+- Local reset, seed, full-reset, and wipe workflows are intentionally unsupported.
 
 Production-oriented scripts must fail closed:
 

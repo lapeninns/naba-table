@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from '@/server/analytics';
+import { isBookingWhatsAppEventEligible } from '@/server/booking/whatsapp-consent';
 import { sendFirstBookingConfirmationNotifications } from '@/server/bookings/confirmation-notifications';
 import { normalizePhone } from '@/server/customers';
 import {
@@ -13,6 +15,7 @@ import {
 import { recordObservabilityEvent } from '@/server/observability';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { cancelEmailIntents } from '@/server/queue/email-intents';
+import { scheduleMobileReviewIntent } from '@/server/queue/mobile-review-intents';
 import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { sendGuestBookingCancellationSms, sendGuestBookingUpdateSms } from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -134,25 +137,41 @@ async function reportInlineFallbackInUse(context: {
 }
 
 type EmailPrefs = {
+  googleReviewUrl: string | null;
   sendReminder24h: boolean;
   sendReminderShort: boolean;
   sendReviewRequest: boolean;
 };
 
-// All guest emails are always enabled and cannot be disabled by restaurants.
-// This ensures consistent guest communication across all venues.
 const ALWAYS_ENABLED_EMAIL_PREFS: EmailPrefs = {
+  googleReviewUrl: null,
   sendReminder24h: true,
   sendReminderShort: true,
   sendReviewRequest: true,
 } as const;
 
 async function fetchRestaurantEmailPrefs(
-  _restaurantId: string,
-  _client?: SupabaseClient<Database, 'public', 'public'>,
+  restaurantId: string,
+  client: SupabaseClient<Database, 'public', 'public'> = getServiceSupabaseClient(),
 ): Promise<EmailPrefs> {
-  // All emails are always enabled - restaurant preferences are no longer checked.
-  return ALWAYS_ENABLED_EMAIL_PREFS;
+  const { data, error } = await client
+    .from('restaurants')
+    .select('email_send_review_request, google_review_url')
+    .eq('id', restaurantId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[jobs][review-job] failed to load venue review preference', {
+      restaurantId,
+      error: error.message,
+    });
+  }
+
+  return {
+    ...ALWAYS_ENABLED_EMAIL_PREFS,
+    googleReviewUrl: safeGoogleReviewUrl(data?.google_review_url),
+    sendReviewRequest: !error && data?.email_send_review_request === true,
+  };
 }
 
 async function fetchRestaurantTimezone(
@@ -177,6 +196,14 @@ function isValidEmail(value?: string | null): boolean {
 
 function hasValidSmsRecipient(value?: string | null): boolean {
   return normalizePhone(value).length > 0;
+}
+
+function hasReviewWhatsAppCandidate(booking: BookingRecord): boolean {
+  return isBookingWhatsAppEventEligible({
+    booking,
+    event: 'post_visit_review',
+    phone: booking.customer_phone,
+  });
 }
 
 function computeDelayMs(
@@ -431,11 +458,13 @@ async function scheduleReminderJob(
 async function scheduleReviewJob(
   booking: BookingRecord,
   restaurantId: string,
-  timezone = 'Europe/London',
+  options: {
+    readonly allowEmail: boolean;
+    readonly allowWhatsApp: boolean;
+    readonly client: SupabaseLike;
+    readonly timezone?: string;
+  },
 ) {
-  // prefs check will be done by caller and worker
-  if (!isValidEmail(booking.customer_email)) return;
-
   // Default anchor: end_at then start_at then updated_at.
   const anchorIso = booking.end_at ?? booking.start_at ?? booking.updated_at ?? booking.created_at;
   const baseDelayMs = computeDelayMs(anchorIso, -REVIEW_DELAY_MINUTES); // 3 hours after visit ends
@@ -447,7 +476,11 @@ async function scheduleReviewJob(
 
   // Apply smart scheduling to ensure we only send during optimal hours (9 AM - 8 PM)
   // This improves open rates by avoiding late night/early morning sends
-  const optimizedDelayMs = adjustToOptimalSendTime(proposedSendTime, timezone, 'post-event');
+  const optimizedDelayMs = adjustToOptimalSendTime(
+    proposedSendTime,
+    options.timezone ?? 'Europe/London',
+    'post-event',
+  );
 
   // If smart scheduling returns null, it means we can't schedule this email
   if (optimizedDelayMs === null) {
@@ -456,14 +489,31 @@ async function scheduleReviewJob(
 
   // Always queue review requests when the email queue is enabled.
   // Avoid relying on setTimeout in serverless environments for delayed sends.
-  if (isEmailQueueEnabled()) {
+  const scheduledFor = new Date(Date.now() + Math.max(0, optimizedDelayMs)).toISOString();
+  if (options.allowWhatsApp) {
+    try {
+      await scheduleMobileReviewIntent({
+        booking,
+        client: options.client,
+        restaurantId,
+        scheduledFor,
+      });
+    } catch (error) {
+      console.warn('[jobs][review-job] failed to enqueue review WhatsApp', {
+        bookingId: booking.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (options.allowEmail && isEmailQueueEnabled()) {
     try {
       await enqueueEmailJob(
         {
           bookingId: booking.id,
           restaurantId,
           type: 'review_request',
-          scheduledFor: new Date(Date.now() + Math.max(0, optimizedDelayMs)).toISOString(),
+          scheduledFor,
         },
         { jobId: `review_request:${booking.id}`, delayMs: Math.max(0, optimizedDelayMs) },
       );
@@ -477,6 +527,10 @@ async function scheduleReviewJob(
     return;
   }
 
+  if (!options.allowEmail) {
+    return;
+  }
+
   // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
   // Note: any delay > 0 is not reliable in serverless environments.
   if (optimizedDelayMs >= 0) {
@@ -486,13 +540,15 @@ async function scheduleReviewJob(
       variant: 'review_request',
       delayMs: optimizedDelayMs,
     });
-    await sendEmailInlineWithDelay(
-      optimizedDelayMs,
-      async () => {
-        await sendBookingReviewRequestEmail(booking);
-      },
-      'booking.review_request',
-    );
+    if (options.allowEmail) {
+      await sendEmailInlineWithDelay(
+        optimizedDelayMs,
+        async () => {
+          await sendBookingReviewRequestEmail(booking);
+        },
+        'booking.review_request',
+      );
+    }
   }
 }
 
@@ -504,8 +560,7 @@ async function processBookingCreatedSideEffects(
   const { booking, idempotencyKey, restaurantId } = payload;
 
   const queuedViaQueue = false;
-  const normalizedEmail = booking.customer_email?.trim?.() ?? '';
-  const shouldSendEmail = (payload.emailProvided ?? true) && normalizedEmail.length > 0;
+  const shouldSendEmail = (payload.emailProvided ?? true) && isValidEmail(booking.customer_email);
   const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
   const shouldSendConfirmationNotifications =
     booking.status === 'confirmed' && ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
@@ -573,13 +628,19 @@ async function processBookingCreatedSideEffects(
 
   // Edge: if created as completed (rare), schedule review with smart timing.
   if (
-    !SUPPRESS_EMAILS &&
-    shouldSendEmail &&
     booking.status === 'completed' &&
-    emailPrefs.sendReviewRequest
+    emailPrefs.sendReviewRequest &&
+    ((!SUPPRESS_EMAILS && shouldSendEmail) ||
+      (Boolean(emailPrefs.googleReviewUrl) && hasReviewWhatsAppCandidate(booking as BookingRecord)))
   ) {
     const timezone = await fetchRestaurantTimezone(restaurantId, client);
-    await scheduleReviewJob(booking as BookingRecord, restaurantId, timezone);
+    await scheduleReviewJob(booking as BookingRecord, restaurantId, {
+      allowEmail: !SUPPRESS_EMAILS && shouldSendEmail,
+      allowWhatsApp:
+        Boolean(emailPrefs.googleReviewUrl) && hasReviewWhatsAppCandidate(booking as BookingRecord),
+      client,
+      timezone,
+    });
   }
 
   return queuedViaQueue;
@@ -670,9 +731,21 @@ async function processBookingUpdatedSideEffects(
   }
 
   const completedFromOtherStatus = currStatus === 'completed' && prevStatus !== 'completed';
-  if (!SUPPRESS_EMAILS && completedFromOtherStatus && prefs.sendReviewRequest) {
-    const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
-    await scheduleReviewJob(current as BookingRecord, restaurantId, timezone);
+  if (
+    completedFromOtherStatus &&
+    prefs.sendReviewRequest &&
+    ((!SUPPRESS_EMAILS && isValidEmail(current.customer_email)) ||
+      (Boolean(prefs.googleReviewUrl) && hasReviewWhatsAppCandidate(current as BookingRecord)))
+  ) {
+    const client = resolveSupabase(_supabase);
+    const timezone = await fetchRestaurantTimezone(restaurantId, client);
+    await scheduleReviewJob(current as BookingRecord, restaurantId, {
+      allowEmail: !SUPPRESS_EMAILS && isValidEmail(current.customer_email),
+      allowWhatsApp:
+        Boolean(prefs.googleReviewUrl) && hasReviewWhatsAppCandidate(current as BookingRecord),
+      client,
+      timezone,
+    });
   }
 }
 
@@ -791,14 +864,22 @@ export async function enqueueCheckOutSideEffects(
   restaurantId: string,
   options?: { supabase?: SupabaseLike },
 ): Promise<void> {
-  if (SUPPRESS_EMAILS) return;
-
-  const prefs = await fetchRestaurantEmailPrefs(restaurantId, resolveSupabase(options?.supabase));
+  const client = resolveSupabase(options?.supabase);
+  const prefs = await fetchRestaurantEmailPrefs(restaurantId, client);
 
   if (!prefs.sendReviewRequest) return;
 
-  const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(options?.supabase));
-  await scheduleReviewJob(booking, restaurantId, timezone);
+  const allowEmail = !SUPPRESS_EMAILS && isValidEmail(booking.customer_email);
+  const allowWhatsApp = Boolean(prefs.googleReviewUrl) && hasReviewWhatsAppCandidate(booking);
+  if (!allowEmail && !allowWhatsApp) return;
+
+  const timezone = await fetchRestaurantTimezone(restaurantId, client);
+  await scheduleReviewJob(booking, restaurantId, {
+    allowEmail,
+    allowWhatsApp,
+    client,
+    timezone,
+  });
 }
 
 export {

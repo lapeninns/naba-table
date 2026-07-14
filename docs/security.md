@@ -15,14 +15,18 @@ description: Required security workflows for Nab a Table
 
 ## Migration drift detection
 
-- Script: `pnpm db:check-drift` (wraps `supabase db dump --schema-only` and diffs against `supabase/schema.sql`).
-- CI job `db-drift-check` uses `DRIFT_CHECK_DB_URL` (read-only service account) to connect remotely.
+- Link the Supabase CLI to the intended staging project, then run
+  `DB_TARGET_ENV=staging pnpm db:check-drift` first.
+- The safe runner validates the environment before delegating to
+  `supabase db diff --linked --schema public`. Any emitted SQL is treated as drift and exits
+  non-zero.
 - When drift is detected:
-  1. Pull the latest canonical schema (`git checkout supabase/schema.sql`).
-  2. Re-run migrations against staging via Supabase CLI and regenerate `schema.sql`.
-  3. Commit the refreshed schema with migration changes in the same PR.
+  1. Reconcile the difference in an idempotent migration under `supabase/migrations/`.
+  2. Apply the migration through `DB_TARGET_ENV=staging pnpm db:migrate`.
+  3. Re-run the guarded staging drift check before promoting the migration.
 
 ## Local expectations
 
-- Run `pnpm validate:env`, `pnpm lint`, and `pnpm db:check-drift` (with safe credentials) before opening a PR.
+- Run `pnpm lint` and `DB_TARGET_ENV=staging pnpm db:check-drift` before opening a database PR;
+  the database wrapper runs `pnpm validate:env` before its linked drift command.
 - Never bypass CI scans; if you must temporarily suppress a false positive, add the hash/commit to a gitleaks or trufflehog allowlist with justification in the task folder.

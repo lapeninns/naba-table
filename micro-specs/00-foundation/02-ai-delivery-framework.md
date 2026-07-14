@@ -3,7 +3,7 @@ spec_id: MS-foundation-ai-delivery-framework
 status: active
 risk_class: docs-tooling
 owner: ai-governance-starter-kit
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-14
 allowed_blast_radius:
   - .github/**
   - .claude/skills/**
@@ -102,3 +102,4 @@ Out of scope:
 - `package.json` exposes governance scripts.
 - `pnpm governance:check` passes.
 - Active Micro-Spec gate execution works for declared gates.
+- CI build gates receive only non-secret test Supabase values required by environment validation.

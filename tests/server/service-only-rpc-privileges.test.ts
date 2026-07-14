@@ -31,13 +31,19 @@ const serviceOnlyRpcSignatures = [
   ],
 ] as const;
 
+const retiredMenuRpcSignatures = [
+  'public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb)',
+  'public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb)',
+  'public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean)',
+] as const;
+
 describe('service-only RPC privilege hardening migration', () => {
   it('revokes direct execution from public browser roles and grants service-role only', () => {
     for (const [signature, name] of serviceOnlyRpcSignatures) {
-      expect(compactMigration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC;`);
-      expect(compactMigration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM anon;`);
-      expect(compactMigration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM authenticated;`);
-      expect(compactMigration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role;`);
+      expect(compactMigration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC`);
+      expect(compactMigration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM anon`);
+      expect(compactMigration).toContain(`REVOKE ALL ON FUNCTION ${signature} FROM authenticated`);
+      expect(compactMigration).toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO service_role`);
       expect(compactMigration).not.toContain(`GRANT EXECUTE ON FUNCTION ${signature} TO anon`);
       expect(compactMigration).not.toContain(
         `GRANT EXECUTE ON FUNCTION ${signature} TO authenticated`,
@@ -50,5 +56,19 @@ describe('service-only RPC privilege hardening migration', () => {
     expect(migration).toContain('Containment:');
     expect(migration).toContain('Rollback:');
     expect(migration).toContain('Do not grant direct execution to anon or authenticated clients.');
+  });
+
+  it('guards RPCs that an earlier retirement migration may already have removed @contract', () => {
+    for (const signature of retiredMenuRpcSignatures) {
+      const guard = `to_regprocedure('${signature}') IS NOT NULL`;
+      const guardOffset = compactMigration.indexOf(guard);
+      const revokeOffset = compactMigration.indexOf(
+        `REVOKE ALL ON FUNCTION ${signature} FROM PUBLIC`,
+        guardOffset,
+      );
+
+      expect(guardOffset).toBeGreaterThan(-1);
+      expect(revokeOffset).toBeGreaterThan(guardOffset);
+    }
   });
 });

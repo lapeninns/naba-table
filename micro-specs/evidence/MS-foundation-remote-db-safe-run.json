@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "spec_id": "MS-foundation-remote-db-safe-run",
+  "runs": [
+    {
+      "timestamp": "2026-07-12T20:11:49.037Z",
+      "git_sha": "3439d3bee43083c3320bcc5742c41306ec8b5435",
+      "git_branch": "codex/whatsapp-review-production",
+      "dirty": true,
+      "gates": [
+        {
+          "command": "pnpm governance:check",
+          "exit_code": 0,
+          "duration_ms": 303
+        },
+        {
+          "command": "pnpm test",
+          "exit_code": 1,
+          "duration_ms": 89918
+        }
+      ],
+      "all_passed": false
+    }
+  ],
+  "manual_attestations": [],
+  "transitions": [
+    {
+      "from": "draft",
+      "to": "active",
+      "at": "2026-07-12T20:04:07.422Z",
+      "sha": "a2900e56b1ab9d0faeb900108e1a72abfa3e3486",
+      "dirty": true,
+      "by": "agent:wa-db-safe-run"
+    }
+  ]
+}

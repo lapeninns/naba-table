@@ -7,22 +7,26 @@
     {
       "binding": "BOOKING_SHORT_LINKS_DB",
       "database_name": "nabatable-booking-short-links",
-      "database_id": "f8257f81-bb92-4dc5-b3fd-def172090e06"
-    }
+      "database_id": "f8257f81-bb92-4dc5-b3fd-def172090e06",
+    },
   ],
   "kv_namespaces": [
     {
       "binding": "BOOKING_SHORT_LINKS_CACHE",
       "id": "e5ca786cf59c426c9f745f15a96529c8",
-      "preview_id": "507983302fa64e4bbaa090d77740d60d"
-    }
+      "preview_id": "507983302fa64e4bbaa090d77740d60d",
+    },
   ],
   "vars": {
     "SHORT_LINKS_PUBLIC_BASE_URL": "https://go.nabatable.com",
     "BOOKING_SITE_URL": "https://nabatable.com",
-    "ALLOWED_DESTINATION_HOSTS": "nabatable.com,www.nabatable.com,app.nabatable.com"
+    "ALLOWED_DESTINATION_HOSTS": "nabatable.com,www.nabatable.com,app.nabatable.com",
+    "ALLOWED_REVIEW_DESTINATION_HOSTS": "g.page,maps.app.goo.gl,google.com,google.co.uk,google.co.in,google.ca,google.com.au,google.ie,google.fr,google.de,google.es,google.it,google.nl",
   },
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+    "logs": {
+      "invocation_logs": false,
+    },
+  },
 }

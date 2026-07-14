@@ -3,7 +3,7 @@ spec_id: MS-foundation-test-baseline-restoration
 status: active
 risk_class: docs-tooling
 owner: amankumarshrestha
-last_reviewed: 2026-07-11
+last_reviewed: 2026-07-14
 allowed_blast_radius:
   - micro-specs/foundation/**
   - micro-specs/evidence/**
@@ -20,6 +20,8 @@ implementation_surfaces:
   - tests/components/BookingListClient.test.tsx
   - tests/components/OpsEmailDeliveryClient.test.tsx
   - tests/components/ReservationDetailClient.test.tsx
+  - tests/components/RestaurantProfileSection.test.tsx
+  - tests/server/capacity/planner-stress.test.ts
 related_docs:
   - docs/qa/full-suite.md
   - docs/qa/foundation.md
@@ -30,6 +32,8 @@ related_tests:
   - tests/components/BookingListClient.test.tsx
   - tests/components/OpsEmailDeliveryClient.test.tsx
   - tests/components/ReservationDetailClient.test.tsx
+  - tests/components/RestaurantProfileSection.test.tsx
+  - tests/server/capacity/planner-stress.test.ts
 verification_gates:
   - pnpm governance:check
   - pnpm test
@@ -85,6 +89,8 @@ test files.
   (advance or opt real timers back in where user-event awaits).
 - New/changed test titles must satisfy the tag audit (tag with allowed tags from
   `scripts/qa/tags.ts`; never raise untagged counts above baseline).
+- Tests that legitimately exceed the global five-second budget under shared CI load keep every
+  assertion and receive a narrow per-test 15-second timeout rather than a skip or suite-wide waiver.
 
 ## 4. Decisions Already Made
 

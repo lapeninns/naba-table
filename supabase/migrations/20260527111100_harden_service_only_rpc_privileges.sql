@@ -95,22 +95,40 @@ GRANT EXECUTE ON FUNCTION public.create_booking_with_capacity_check(
   integer
 ) TO service_role;
 
-REVOKE ALL ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) FROM anon;
-REVOKE ALL ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) FROM PUBLIC';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) FROM anon';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) FROM authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.upsert_restaurant_menu_item_with_modifiers(uuid, jsonb) TO service_role';
+  END IF;
+END
+$$;
 
 REVOKE ALL ON FUNCTION public.import_restaurant_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.import_restaurant_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM anon;
 REVOKE ALL ON FUNCTION public.import_restaurant_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.import_restaurant_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) TO service_role;
 
-REVOKE ALL ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) FROM anon;
-REVOKE ALL ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) FROM PUBLIC';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) FROM anon';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) FROM authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.upsert_restaurant_drink_menu_item_with_modifiers(uuid, jsonb) TO service_role';
+  END IF;
+END
+$$;
 
-REVOKE ALL ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM anon;
-REVOKE ALL ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) TO service_role;
+DO $$
+BEGIN
+  IF to_regprocedure('public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean)') IS NOT NULL THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM PUBLIC';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM anon';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) FROM authenticated';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.import_restaurant_drink_menu_bundle(uuid, jsonb, jsonb, jsonb, boolean) TO service_role';
+  END IF;
+END
+$$;

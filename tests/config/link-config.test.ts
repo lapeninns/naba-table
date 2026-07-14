@@ -1,5 +1,5 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
@@ -58,5 +58,12 @@ describe('public link configuration', () => {
       has: [{ type: 'query', key: 'bookingId', value: '(?<bookingId>[^/]+)' }],
     });
     expect(redirects.find((redirect) => redirect.source === '/invite/:token')).toBeUndefined();
+  });
+
+  it('keeps review destinations purpose-scoped and disables token-bearing invocation logs @contract', () => {
+    const config = readFileSync('cloudflare/booking-short-links/wrangler.jsonc', 'utf8');
+
+    expect(config).toContain('"ALLOWED_REVIEW_DESTINATION_HOSTS"');
+    expect(config).toContain('"invocation_logs": false');
   });
 });

@@ -1,5 +1,5 @@
-import { createHmac } from 'node:crypto';
 import { NextRequest } from 'next/server';
+import { createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const processCallback = vi.hoisted(() => vi.fn());
@@ -17,8 +17,9 @@ vi.mock('@/server/notifications/whatsapp-status', () => ({
 
 import { POST } from '@/src/app/api/webhook/twilio/whatsapp-status/route';
 
-function request(signatureOverride?: string) {
-  const url = 'https://app.nabatable.com/api/webhook/twilio/whatsapp-status';
+function request(signatureOverride?: string, attemptId?: string) {
+  const baseUrl = 'https://app.nabatable.com/api/webhook/twilio/whatsapp-status';
+  const url = attemptId ? `${baseUrl}?attempt=${attemptId}` : baseUrl;
   const form = new URLSearchParams({
     ErrorCode: '63016',
     MessageSid: 'MM123',
@@ -70,5 +71,16 @@ describe('POST /api/webhook/twilio/whatsapp-status', () => {
 
     expect(response.status).toBe(401);
     expect(processCallback).not.toHaveBeenCalled();
+  });
+
+  it('passes the signed opaque attempt correlation to callback reconciliation @api @security', async () => {
+    const attemptId = '11111111-1111-4111-8111-111111111111';
+
+    const response = await POST(request(undefined, attemptId));
+
+    expect(response.status).toBe(200);
+    expect(processCallback).toHaveBeenCalledWith(
+      expect.objectContaining({ attemptId, messageSid: 'MM123' }),
+    );
   });
 });

@@ -1,6 +1,65 @@
 # Continuity Ledger
 
-Last updated: 2026-07-12T10:04:00Z
+Last updated: 2026-07-14T13:32:19Z
+
+## Current WhatsApp review production governance
+
+- Task harness: `tasks/whatsapp-review-production-release-20260712-1921/`.
+- Goal: activate four decision-complete Micro-Specs for consent v2, purpose-scoped review links,
+  a one-shot review ledger with no SMS fallback, and staged production delivery/release.
+- Scope has advanced through local implementation, final provider approval, successful Cloudflare
+  staging review-link proof, and complete Supabase staging migration/ledger proof. Production
+  configuration, deployment, and live-message mutation remain the final release lane.
+- Locked event set: confirmation, update, guest cancellation, restaurant cancellation, and review;
+  reminders stay absent, v1 stays lifecycle-only, and v2 covers all five booking events.
+- Release invariant: all five booking templates must be provider-approved before production config, with
+  staged deploy/rollback and an explicitly armed T+0/60/120/180/240 controlled smoke.
+- State: the branch contains governed consent-v2, review redirect, no-SMS ledger, durable review
+  dispatch, five-template readiness, and restored DB safe-run work. Local focused, security, Worker,
+  type, lint, and governance gates pass.
+- Adversarial follow-up: radii now include durable task/evidence paths and assign every expected
+  implementation file to one owning spec. All four clean implemented dry-runs, the 52-file synthetic
+  check, governance guard/check, and 61-test Micro-Spec suite pass.
+- 2026-07-14 provider readback: the final confirmation, update, guest-cancellation,
+  restaurant-cancellation, manager-summary, and post-visit-review templates are all `approved`,
+  with five `UTILITY`, review `MARKETING`, and no rejection reasons. The release guard now matches
+  the final review `_20260713_v3` provider definition.
+- Cloudflare staging proof is now green: direct staging health returned 200, unauthorized create
+  returned 401, authorized malformed JSON returned 400, review-link creation succeeded, and a real
+  GET resolved 302 to the allowed review destination. The disposable D1 row was cleaned. Earlier
+  401s were transient secret-deployment propagation; a separate 404 was a HEAD-vs-GET QA error.
+- The staging credential and Vercel Preview drift are repaired. Project `ndxmivcrehsacuerwxtm`
+  accepted a rotated database password, the Supabase CLI authenticated after propagation, and
+  Preview now has isolated canonical-staging URL, anon, service-role, DB URL, DB password, and
+  project-ref values. Production and development readbacks remained byte-for-byte unchanged.
+- The user approved staging-only historical replay and legacy preservation. The safe runner now
+  supports guarded `--include-all` and a production-refusing preparation workflow. The preparation
+  replayed the existing canonical hierarchy backfill, archived exact JSON for 144 drink items, 64
+  groups, and 149 options, proved 144 canonical item/extension matches, and emptied all five legacy
+  retirement tables. Archive access is denied to anon/authenticated and retained for service role.
+- All 17 pending staging migrations are now applied and local/remote history aligns through
+  `20260712204500`. A historical privilege migration was made replay-safe for three already-retired
+  RPCs with exact-signature guards. Live database readback confirms all review intent columns,
+  notification constraint/index, service-only RPC grants, tenant/attempt triggers, and history.
+- The transactional real-Postgres WhatsApp review ledger proof passes and rolls back. Its fixture now
+  selects an existing completed booking rather than violating lifecycle timestamp invariants through
+  a direct status rewrite. The known shadow drift command remains independently limited by the
+  repo's remote-only baseline, not by the applied review schema.
+- Vercel Preview has the approved sender and all six final Content SIDs on the release branch. The
+  manual Preview deployment is READY and `/api/health` returns 200 with a connected database.
+- Production contains no occurrence of the retired test phone. The remaining staging copies were
+  removed through a new staging-only guarded transaction: required booking/customer rows were
+  replaced with reserved synthetic E.164 values, dependent WhatsApp consent and manager summary
+  settings were cleared, the matching canonical restaurant-phone row was deleted, and a dynamic
+  assertion proved zero matches across every public phone-named text column.
+- Production migration history is aligned through `20260711143000` and is missing only the review
+  ledger migration `20260712204500`. The safe runner now supports an explicitly linked absolute
+  `SUPABASE_WORKDIR` while retaining production confirmation and staging-only replay/cleanup guards.
+- PR CI root causes were repaired without product logic changes: governance now supplies the same
+  non-secret test environment as the other CI workflows, and stale QA-title metadata now satisfies
+  the tag ratchet. The exact CI-environment production build passes all 72 static pages locally.
+- Production migration, production Vercel/Cloudflare configuration, and real-guest enablement remain
+  stopped until the updated branch passes required CI and is merged.
 
 ## Current silent production table-assignment repair
 

@@ -4,7 +4,8 @@
 
 - `APP_ENV`: `development` | `staging` | `production` | `test` (defaults to `development`)
 - `NODE_ENV` should mirror `APP_ENV` in production (`NODE_ENV=production`).
-- `DB_TARGET_ENV` defaults to `APP_ENV` for DB scripts.
+- Database scripts require explicit `DB_TARGET_ENV=staging|production`; they do not infer it from
+  `APP_ENV`.
 
 ## Auth email delivery (Resend + Supabase)
 
@@ -44,10 +45,15 @@
 
 ## Database scripts
 
-- Use `pnpm db:reset|migrate|seed-only|wipe|full-reset`.
-- Blocks `DB_TARGET_ENV=production` unless `ALLOW_PROD_DB_WIPE=true`.
-- Blocks when non‑prod target uses production DB URL (if provided) unless override set.
-- Interactive confirmation in TTY: type the target env to continue.
+- `pnpm db:status` lists remote migration status.
+- `pnpm db:migrate` and `pnpm db:push` apply pending migrations.
+- `pnpm db:pull` pulls the linked remote schema.
+- `pnpm db:check-drift` compares the linked remote schema with the repository baseline.
+- Every workflow runs through `scripts/db/safe-run.ts` and validates the environment first.
+- Set `DB_TARGET_ENV=staging|production`; production migration apply also requires
+  `CONFIRM_PRODUCTION=true`.
+- Append `-- --dry-run` to preview the fixed, redacted command plan without running children.
+- Local reset, seed, full-reset, and wipe workflows are intentionally unsupported.
 
 ## Checklist for new env files
 

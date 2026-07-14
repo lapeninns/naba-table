@@ -77,6 +77,47 @@ function renderDetailsStep(
 }
 
 describe('DetailsStep', () => {
+  it('replaces the characterized booking-only WhatsApp consent copy @contract', () => {
+    renderDetailsStep(makeState(), createActions());
+
+    expect(screen.queryByText('Use WhatsApp for my booking updates')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'You confirm this number uses WhatsApp and agree to receive booking messages from Nabatable on behalf of The Old Crown. If WhatsApp is unavailable, we’ll send an SMS instead.',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('names every WhatsApp lifecycle purpose and one post-visit review request @contract', () => {
+    renderDetailsStep(makeState(), createActions());
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: /Use WhatsApp for booking messages and one review request/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Booking confirmation and updates')).toBeVisible();
+    expect(screen.getByText('Guest or venue cancellations')).toBeVisible();
+    expect(screen.getByText('One post-visit review request')).toBeVisible();
+    expect(screen.getByText(/from Nabatable on behalf of The Old Crown/)).toBeVisible();
+    expect(screen.getByText(/Review requests never fall back to SMS/)).toBeVisible();
+  });
+
+  it('uses explicit consent-v2 wording for staff-created bookings @contract', () => {
+    renderDetailsStep(makeState(), createActions(), { mode: 'ops' });
+
+    expect(
+      screen.getByRole('checkbox', {
+        name: /Guest agreed to WhatsApp booking messages and one review request/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /the guest agrees to receive these messages from Nabatable on behalf of The Old Crown/,
+      ),
+    ).toBeVisible();
+  });
+
   it('renders the contact form prefilled from the wizard state @smoke', () => {
     renderDetailsStep(makeState(), createActions());
 
@@ -229,6 +270,11 @@ describe('DetailsStep', () => {
     expect(screen.getByRole('button', { name: /Preferences/ })).toHaveClass('min-h-11');
     expect(screen.getByRole('checkbox', { name: /I agree/ }).closest('label')).toHaveClass(
       'min-h-11',
+    );
+    expect(screen.getByRole('checkbox', { name: /WhatsApp/ })).toHaveClass(
+      '!size-4',
+      '!min-h-4',
+      '!min-w-4',
     );
   });
 

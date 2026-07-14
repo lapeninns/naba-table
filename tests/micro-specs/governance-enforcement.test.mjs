@@ -1,5 +1,12 @@
 import assert from "node:assert/strict"
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { test } from "node:test"
@@ -36,6 +43,15 @@ test("Given governance is installed When required files are checked Then the spi
   ]) {
     assert.equal(existsSync(path.join(projectRoot, file)), true, `${file} exists`)
   }
+})
+
+test("Given governance runs external-mutation gates When CI executes Then providers stay mocked", () => {
+  const workflow = readFileSync(
+    path.join(projectRoot, ".github/workflows/ai-governance.yml"),
+    "utf8"
+  )
+
+  assert.match(workflow, /^\s+QA_EXTERNAL_MUTATION_MODE: mock$/m)
 })
 
 test("Given supported frontmatter When parsed Then lists, flow lists, and quotes survive", () => {

@@ -5,6 +5,7 @@ import {
   buildGuestBookingCancellationSms,
   buildGuestBookingConfirmationSms,
   buildGuestBookingUpdateSms,
+  requiresDirectSmsAfterPendingWhatsAppFailure,
 } from '@/server/sms/bookings';
 
 const booking = {
@@ -28,6 +29,27 @@ const venue = {
 } as const;
 
 describe('booking SMS builders', () => {
+  it('distinguishes definite pre-accept failure from provider acceptance @contract', () => {
+    expect(
+      requiresDirectSmsAfterPendingWhatsAppFailure({
+        attemptId: 'attempt-1',
+        errorCode: 'Error',
+        kind: 'attempt_finalization_pending',
+        providerMessageId: null,
+        status: 'failed',
+      }),
+    ).toBe(true);
+    expect(
+      requiresDirectSmsAfterPendingWhatsAppFailure({
+        attemptId: 'attempt-1',
+        errorCode: null,
+        kind: 'attempt_finalization_pending',
+        providerMessageId: 'WA1',
+        status: 'queued',
+      }),
+    ).toBe(false);
+  });
+
   it('builds a signed-context status callback url for Twilio delivery events', () => {
     const url = buildSmsStatusCallbackUrl({
       appUrl: 'https://app.nabatable.com',
