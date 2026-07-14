@@ -13,6 +13,7 @@ const selectedContentSids = {
   bookingCancellation: 'HXbc2317fae04cde871d5fb697d40cfe7f',
   restaurantCancellation: 'HX1502dce2894a886555e35de67412f474',
   reviewRequest: 'HXb492923d7284f0fa2409917dd7d7b9a8',
+  managerDailySummary: 'HX6e65d006f4d22435c232bb6e734a2e3b',
 } as const;
 
 const approvedTemplates = [
@@ -51,6 +52,13 @@ const approvedTemplates = [
     category: 'MARKETING',
     rejectionReason: '',
   },
+  {
+    key: 'managerDailySummary',
+    sid: selectedContentSids.managerDailySummary,
+    status: 'approved',
+    category: 'UTILITY',
+    rejectionReason: '',
+  },
 ] as const;
 
 const recordedCategories = {
@@ -59,6 +67,7 @@ const recordedCategories = {
   bookingCancellation: 'UTILITY',
   restaurantCancellation: 'UTILITY',
   reviewRequest: 'MARKETING',
+  managerDailySummary: 'UTILITY',
 } as const;
 
 type MutableTemplateRequests = Record<
@@ -75,13 +84,13 @@ type MutableTemplateRequests = Record<
   }
 >;
 
-describe('guest WhatsApp template refresh contract', () => {
-  it('defines the exact five operator-approved successor requests @contract', () => {
+describe('WhatsApp template refresh contract', () => {
+  it('defines the exact six operator-approved successor requests @contract', () => {
     const requests = (
       releaseContract as unknown as {
-        GUEST_TEMPLATE_REQUESTS?: unknown;
+        WHATSAPP_TEMPLATE_REQUESTS?: unknown;
       }
-    ).GUEST_TEMPLATE_REQUESTS;
+    ).WHATSAPP_TEMPLATE_REQUESTS;
 
     expect(requests).toEqual({
       bookingConfirmation: {
@@ -180,17 +189,29 @@ describe('guest WhatsApp template refresh contract', () => {
           },
         },
       },
+      managerDailySummary: {
+        friendly_name: 'nabatable_manager_daily_summary_20260714_v3',
+        language: 'en',
+        variables: {
+          '1': 'The Old Crown Girton: Today 8 bookings, 24 covers. Lunch 3 bookings / 8 covers. Dinner 5 bookings / 16 covers. app.nabatable.com',
+        },
+        types: {
+          'twilio/text': {
+            body: 'Your daily booking summary is ready.\n\n{{1}}\n\nOpen Nabatable to review today’s bookings and prepare for service.\n\nYou’re receiving this because daily summaries are enabled in your restaurant notification settings.',
+          },
+        },
+      },
     });
   });
 
-  it('accepts the exact five-template set before provider submission @contract', () => {
+  it('accepts the exact six-template set before provider submission @contract', () => {
     const validate = (
       releaseContract as unknown as {
-        validateGuestTemplateRequests?: (input: unknown) => readonly string[];
+        validateWhatsAppTemplateRequests?: (input: unknown) => readonly string[];
       }
-    ).validateGuestTemplateRequests;
+    ).validateWhatsAppTemplateRequests;
 
-    expect(validate?.(releaseContract.GUEST_TEMPLATE_REQUESTS)).toEqual([]);
+    expect(validate?.(releaseContract.WHATSAPP_TEMPLATE_REQUESTS)).toEqual([]);
   });
 
   it.each([
@@ -236,14 +257,21 @@ describe('guest WhatsApp template refresh contract', () => {
       },
       blocker: 'reviewRequest variable {{2}} requires a provider sample.',
     },
+    {
+      label: 'manager summary copy drift',
+      mutate: (requests: MutableTemplateRequests) => {
+        requests.managerDailySummary.types['twilio/text']!.body = 'Summary: {{1}}';
+      },
+      blocker: 'managerDailySummary request does not match the approved contract.',
+    },
   ])('rejects $label before provider submission @contract', ({ mutate, blocker }) => {
     const validate = (
       releaseContract as unknown as {
-        validateGuestTemplateRequests?: (input: unknown) => readonly string[];
+        validateWhatsAppTemplateRequests?: (input: unknown) => readonly string[];
       }
-    ).validateGuestTemplateRequests;
+    ).validateWhatsAppTemplateRequests;
     const requests = structuredClone(
-      releaseContract.GUEST_TEMPLATE_REQUESTS,
+      releaseContract.WHATSAPP_TEMPLATE_REQUESTS,
     ) as unknown as MutableTemplateRequests;
     mutate(requests);
 
@@ -281,7 +309,7 @@ describe('WhatsApp review production release contract', () => {
     expect(validateReviewTemplateRequest(givenRequest)).toEqual([]);
   });
 
-  it('accepts only an approved five-template set matching its recorded categories @contract', () => {
+  it('accepts only an approved six-template set matching its recorded categories @contract', () => {
     const whenResult = assessWhatsAppTemplateReadiness({
       sender: '+447700900000',
       selectedContentSids,
@@ -303,6 +331,7 @@ describe('WhatsApp review production release contract', () => {
       bookingCancellation: 'MARKETING',
       restaurantCancellation: 'MARKETING',
       reviewRequest: 'UTILITY',
+      managerDailySummary: 'MARKETING',
     } as const;
 
     const whenResult = assessWhatsAppTemplateReadiness({

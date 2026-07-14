@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-const templateKeys = [
+const guestTemplateKeys = [
   'bookingConfirmation',
   'bookingUpdate',
   'bookingCancellation',
   'restaurantCancellation',
   'reviewRequest',
 ] as const;
+
+const templateKeys = [...guestTemplateKeys, 'managerDailySummary'] as const;
 
 type TemplateKey = (typeof templateKeys)[number];
 
@@ -85,6 +87,17 @@ const guestTemplateRequestsSchema = z
     bookingCancellation: guestTemplateRequestSchema,
     restaurantCancellation: guestTemplateRequestSchema,
     reviewRequest: guestTemplateRequestSchema,
+  })
+  .strict();
+
+const whatsappTemplateRequestsSchema = z
+  .object({
+    bookingConfirmation: guestTemplateRequestSchema,
+    bookingUpdate: guestTemplateRequestSchema,
+    bookingCancellation: guestTemplateRequestSchema,
+    restaurantCancellation: guestTemplateRequestSchema,
+    reviewRequest: guestTemplateRequestSchema,
+    managerDailySummary: guestTemplateRequestSchema,
   })
   .strict();
 
@@ -190,6 +203,24 @@ export const GUEST_TEMPLATE_REQUESTS = {
   },
 } as const;
 
+export const MANAGER_DAILY_SUMMARY_TEMPLATE_REQUEST = {
+  friendly_name: 'nabatable_manager_daily_summary_20260714_v3',
+  language: 'en',
+  variables: {
+    '1': 'The Old Crown Girton: Today 8 bookings, 24 covers. Lunch 3 bookings / 8 covers. Dinner 5 bookings / 16 covers. app.nabatable.com',
+  },
+  types: {
+    'twilio/text': {
+      body: 'Your daily booking summary is ready.\n\n{{1}}\n\nOpen Nabatable to review today’s bookings and prepare for service.\n\nYou’re receiving this because daily summaries are enabled in your restaurant notification settings.',
+    },
+  },
+} as const;
+
+export const WHATSAPP_TEMPLATE_REQUESTS = {
+  ...GUEST_TEMPLATE_REQUESTS,
+  managerDailySummary: MANAGER_DAILY_SUMMARY_TEMPLATE_REQUEST,
+} as const;
+
 export const REVIEW_TEMPLATE_REQUEST = {
   friendly_name: 'nabatable_post_visit_review_20260713_v3',
   language: 'en',
@@ -217,10 +248,27 @@ export function validateGuestTemplateRequests(input: unknown): readonly string[]
     return ['Guest template requests do not match the provider schema.'];
   }
 
+  return validateTemplateRequests(parsed.data, guestTemplateKeys, GUEST_TEMPLATE_REQUESTS);
+}
+
+export function validateWhatsAppTemplateRequests(input: unknown): readonly string[] {
+  const parsed = whatsappTemplateRequestsSchema.safeParse(input);
+  if (!parsed.success) {
+    return ['WhatsApp template requests do not match the provider schema.'];
+  }
+
+  return validateTemplateRequests(parsed.data, templateKeys, WHATSAPP_TEMPLATE_REQUESTS);
+}
+
+function validateTemplateRequests<Key extends TemplateKey>(
+  requests: Readonly<Record<Key, z.infer<typeof guestTemplateRequestSchema>>>,
+  keys: readonly Key[],
+  expectedRequests: Readonly<Record<Key, unknown>>,
+): readonly string[] {
   const blockers: string[] = [];
-  for (const key of templateKeys) {
-    const request = parsed.data[key];
-    const expected = GUEST_TEMPLATE_REQUESTS[key];
+  for (const key of keys) {
+    const request = requests[key];
+    const expected = expectedRequests[key];
     if (JSON.stringify(request) !== JSON.stringify(expected)) {
       blockers.push(`${key} request does not match the approved contract.`);
     }
