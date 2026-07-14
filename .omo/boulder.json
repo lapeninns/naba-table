@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "active_work_id": "whatsapp-review-production-release",
+  "works": {
+    "whatsapp-review-production-release": {
+      "work_id": "whatsapp-review-production-release",
+      "active_plan": ".omo/plans/whatsapp-review-production-release.md",
+      "plan_name": "whatsapp-review-production-release",
+      "session_ids": ["codex:whatsapp-review-production-release-20260712"],
+      "status": "active",
+      "worktree_path": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-whatsapp-review-production"
+    }
+  }
+}

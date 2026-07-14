@@ -827,7 +827,7 @@ async function seedBookingsAndAssignments(
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
-  const taskDir = path.join(projectRoot, 'tasks/staging-perf-dataset-20260207-1647');
+  const taskDir = path.join(projectRoot, 'test-results/performance/staging-perf-dataset');
   const artifactsDir = path.join(taskDir, 'artifacts');
   const summaryPath = path.join(artifactsDir, 'seed-summary.json');
 

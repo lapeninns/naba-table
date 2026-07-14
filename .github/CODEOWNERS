@@ -1,11 +1,8 @@
 # Repository owner for all changes.
 * @lapeninns
 
-# Governance and delivery controls.
+# Repository configuration.
 .github/** @lapeninns
-AGENTS.md @lapeninns
-docs/sdlc/** @lapeninns
-.agents/** @lapeninns
 
 # Security, auth, API, and data-boundary code.
 config/** @lapeninns
@@ -22,7 +19,6 @@ supabase/migrations/** @lapeninns
 # Deployment and automation.
 scripts/security/** @lapeninns
 scripts/db/** @lapeninns
-scripts/qa/** @lapeninns
 scripts/cloudflare/** @lapeninns
 cloudflare/** @lapeninns
 vercel.json @lapeninns

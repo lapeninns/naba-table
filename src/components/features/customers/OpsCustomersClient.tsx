@@ -94,7 +94,7 @@ export function OpsCustomersClient({
 
   const currentRestaurantName =
     activeMembership?.restaurantName ?? accountSnapshot.restaurantName ?? 'Restaurant';
-  // Param-change stale state (filters/search/sort) per docs/sdlc/react-query-swr-ux.md.
+  // Param-change stale state (filters/search/sort) per docs/technical/react-query-swr-ux.md.
   const swr = getSwrUiState(customersQuery);
 
   if (memberships.length === 0) {

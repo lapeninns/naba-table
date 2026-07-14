@@ -119,7 +119,7 @@ type PerformanceThresholds = {
 };
 
 const thresholds = JSON.parse(
-  readFileSync('config/qa/performance-thresholds.json', 'utf8'),
+  readFileSync('config/performance-thresholds.json', 'utf8'),
 ) as PerformanceThresholds;
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';

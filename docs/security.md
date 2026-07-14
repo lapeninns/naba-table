@@ -11,7 +11,7 @@ description: Required security workflows for Nab a Table
 2. Rotate in staging first, verify health, then promote to production.
 3. Update hosting + CI secrets plus `.env.example` placeholders. Never commit live values.
 4. Scrub prior secrets from git history via `git filter-repo`/BFG and coordinate a force-pull with collaborators.
-5. Capture evidence in `tasks/<slug>.../artifacts/secret-rotation.md`.
+5. Record the rotation in the provider or incident-management system without copying secrets.
 
 ## Migration drift detection
 
@@ -25,4 +25,4 @@ description: Required security workflows for Nab a Table
 ## Local expectations
 
 - Run `pnpm validate:env`, `pnpm lint`, and `pnpm db:check-drift` (with safe credentials) before opening a PR.
-- Never bypass CI scans; if you must temporarily suppress a false positive, add the hash/commit to a gitleaks or trufflehog allowlist with justification in the task folder.
+- Never bypass CI scans; document any justified false-positive suppression in the allowlist change.

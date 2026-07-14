@@ -70,4 +70,4 @@ Inside [`public-guest.tokens.css`](styles/design-system/public-guest.tokens.css)
 
 ## Risk note
 
-Touching global CSS and Tailwind theme extensions is **medium/high surface area**; per [`docs/sdlc/risk-tier-workflow.md`](docs/sdlc/risk-tier-workflow.md), consider a task folder `tasks/remove-legacy-ds-YYYYMMDD-HHMM/` with a short note of files changed and spot-check URLs.
+Touching global CSS and Tailwind theme extensions is **medium/high surface area**; sequence the rollout and record the files changed, verification commands, and spot-check URLs.

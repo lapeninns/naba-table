@@ -370,7 +370,7 @@ function resolveOutputPath(): string {
     process.env.DB_PERF_BASELINE_OUTPUT_PATH ??
       path.join(
         __dirname,
-        '../tasks/db-perf-optimization-20260106-1108/artifacts/baseline-results.json',
+        '../test-results/performance/db-perf-optimization/baseline-results.json',
       ),
   );
 }

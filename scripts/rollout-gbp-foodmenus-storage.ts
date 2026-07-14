@@ -5,7 +5,7 @@ import process from 'node:process';
 import { assertExactSupabaseProjectRef } from './db/safety';
 
 const MIGRATION_FILE = 'supabase/migrations/20260502190006_add_gbp_foodmenus_sync_storage.sql';
-const TASK_ARTIFACT_DIR = 'tasks/gbp-foodmenus-sync-design-20260502-1850/artifacts';
+const OUTPUT_DIR = 'test-results/operations/gbp-foodmenus-sync';
 
 const TARGETS = {
   staging: {
@@ -115,7 +115,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 function artifactPath(args: Args, suffix: string): string {
-  const prefix = args.outPrefix ?? `${TASK_ARTIFACT_DIR}/${args.target}-foodmenus-storage-rollout`;
+  const prefix = args.outPrefix ?? `${OUTPUT_DIR}/${args.target}-foodmenus-storage-rollout`;
   return path.normalize(`${prefix}-${suffix}.json`);
 }
 

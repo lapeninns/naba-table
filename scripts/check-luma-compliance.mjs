@@ -49,13 +49,7 @@ const EXCLUDED_PATH_PARTS = [
   '/dev/',
 ];
 
-const EXCLUDED_PREFIXES = [
-  'tests/',
-  'tasks/',
-  'public/',
-  'storybook-static/',
-  'reserve/storybook-static/',
-];
+const EXCLUDED_PREFIXES = ['tests/', 'public/', 'storybook-static/', 'reserve/storybook-static/'];
 
 const EXCLUDED_FILE_PATTERNS = [/\.(?:test|spec)\.[jt]sx?$/, /\.d\.ts$/, /\.min\.css$/, /backup/i];
 

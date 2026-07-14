@@ -22,7 +22,7 @@
  * - Blur effect is **disabled** when `prefers-reduced-motion` is active;
  *   opacity-only transition is used instead.
  *
- * @see docs/sdlc/react-query-swr-ux.md
+ * @see docs/technical/react-query-swr-ux.md
  */
 
 import { cn } from '@/lib/utils';

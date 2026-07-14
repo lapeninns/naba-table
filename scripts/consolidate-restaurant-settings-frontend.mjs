@@ -27,7 +27,6 @@ const EXCLUDED_DIR_NAMES = new Set([
   'dist',
   '.next',
   'test-results',
-  'tasks',
   'supabase',
   'analysis',
 ]);
@@ -37,7 +36,6 @@ const EXCLUDED_PATH_PREFIXES = [
   'tests/',
   'scripts/',
   'docs/',
-  'tasks/',
   '.deepsec/',
 ];
 
@@ -138,7 +136,8 @@ function createSingleRoutePreset({
   scopeExcludedSibling = 'Other /settings/restaurant/* view modules',
   redirect,
 }) {
-  const externalPath = pathSegment === '' ? '/settings/restaurant' : `/settings/restaurant/${pathSegment}`;
+  const externalPath =
+    pathSegment === '' ? '/settings/restaurant' : `/settings/restaurant/${pathSegment}`;
   const appHrefPath = `/app${externalPath}`;
 
   return {
@@ -154,9 +153,16 @@ function createSingleRoutePreset({
       view: view ?? id,
       ...(redirect ? { redirect } : {}),
     },
-    routes: routes ?? [{ path: externalPath, view: view ?? id, entry, ...(redirect ? { redirect } : {}) }],
+    routes: routes ?? [
+      { path: externalPath, view: view ?? id, entry, ...(redirect ? { redirect } : {}) },
+    ],
     routeEntryCoverage,
-    seedFiles: [LAYOUT_ENTRY, ...routeEntryCoverage.filter((p) => p !== LAYOUT_ENTRY), ...BOUNDARY_SEEDS, ...extraSeedFiles],
+    seedFiles: [
+      LAYOUT_ENTRY,
+      ...routeEntryCoverage.filter((p) => p !== LAYOUT_ENTRY),
+      ...BOUNDARY_SEEDS,
+      ...extraSeedFiles,
+    ],
     seedDirs: [],
     includeAllRouteEntries: false,
     allowDynamicImport(fromRel, specifier) {
@@ -354,7 +360,8 @@ const ROUTE_PRESETS = {
     scopeIncluded: [
       'Legacy restaurant email-templates route stub that redirects to /email-templates (no OpsRestaurantSettingsClient view)',
     ],
-    scopeExcludedSibling: 'Other settings views and the destination /email-templates implementation',
+    scopeExcludedSibling:
+      'Other settings views and the destination /email-templates implementation',
   }),
 };
 
@@ -398,14 +405,19 @@ function parseArgs(argv) {
 
   const preset = ROUTE_PRESETS[presetId];
   if (!preset) {
-    throw new Error(`Unknown preset "${presetId}". Use: ${Object.keys(ROUTE_PRESETS).join(', ')}, each`);
+    throw new Error(
+      `Unknown preset "${presetId}". Use: ${Object.keys(ROUTE_PRESETS).join(', ')}, each`,
+    );
   }
 
   if (!outputPath) {
     const fileName = preset.outputFile ?? `${preset.id}-${formatTimestamp(new Date())}.json`;
     outputPath =
       preset.id === 'all' && !preset.outputFile
-        ? path.join(REPO_ROOT, `restaurant-settings-frontend-consolidated-${formatTimestamp(new Date())}.json`)
+        ? path.join(
+            REPO_ROOT,
+            `restaurant-settings-frontend-consolidated-${formatTimestamp(new Date())}.json`,
+          )
         : path.join(preset.id === 'all' ? CONSOLIDATED_ROOT : ROUTES_DIR, fileName);
   }
 
@@ -561,7 +573,11 @@ async function traceDependencies(seedFiles, preset) {
     }
 
     for (const specifier of extractImports(content, current, preset)) {
-      if (!specifier.startsWith('.') && !specifier.startsWith('@/') && !specifier.startsWith('@reserve/')) {
+      if (
+        !specifier.startsWith('.') &&
+        !specifier.startsWith('@/') &&
+        !specifier.startsWith('@reserve/')
+      ) {
         continue;
       }
       const resolved = await resolveModule(current, specifier);
@@ -590,7 +606,10 @@ async function traceDependencies(seedFiles, preset) {
 
 async function buildArtifact(preset) {
   const seeds = await collectSeedFiles(preset);
-  const { files, dependencyEdges, skippedLocalDependencies } = await traceDependencies(seeds, preset);
+  const { files, dependencyEdges, skippedLocalDependencies } = await traceDependencies(
+    seeds,
+    preset,
+  );
 
   const fileRecords = [];
   let totalContentBytes = 0;
@@ -653,7 +672,9 @@ async function runSingle(preset, outputPath) {
   const artifact = await buildArtifact(preset);
   await writeArtifact(artifact, outputPath);
   console.log(`Wrote ${outputPath}`);
-  console.log(`  preset=${preset.id} files=${artifact.summary.filesIncluded} bytes=${artifact.summary.totalContentBytes}`);
+  console.log(
+    `  preset=${preset.id} files=${artifact.summary.filesIncluded} bytes=${artifact.summary.totalContentBytes}`,
+  );
   return { preset: preset.id, outputPath, artifact };
 }
 
@@ -705,7 +726,9 @@ async function runEach() {
   const manifestPath = path.join(CONSOLIDATED_ROOT, 'manifest.json');
   await writeArtifact(manifest, manifestPath);
   console.log(`\nWrote ${manifestPath}`);
-  console.log(`Organized ${manifest.routeBundles.length} bundles under ${path.relative(REPO_ROOT, CONSOLIDATED_ROOT)}/`);
+  console.log(
+    `Organized ${manifest.routeBundles.length} bundles under ${path.relative(REPO_ROOT, CONSOLIDATED_ROOT)}/`,
+  );
 }
 
 async function main() {

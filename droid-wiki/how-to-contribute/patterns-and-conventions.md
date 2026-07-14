@@ -6,7 +6,7 @@ Use shadcn/Radix primitives from `components/ui/**`, keep route handlers thin, u
 
 - Route handlers collect request context, auth, and validation, then delegate to domain modules.
 - Ops browser code should use `src/services/ops/**`, `src/hooks/ops/**`, and React Query patterns instead of ad hoc fetches.
-- React Query SWR UX follows `docs/sdlc/react-query-swr-ux.md`: per-hook `placeholderData`, content-only `StaleBoundary`, and explicit loading states.
+- React Query SWR UX follows `docs/technical/react-query-swr-ux.md`: per-hook `placeholderData`, content-only `StaleBoundary`, and explicit loading states.
 - Shared UI spans both `components/**` and `src/components/**`; primitive edits require consumer scans and stricter verification.
 - `scripts/check-no-shadcn.mjs` and `scripts/check-luma-compliance.mjs` enforce major UI guardrails.
 

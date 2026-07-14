@@ -107,7 +107,7 @@ async function installOpsApiMocks(page: Page) {
   });
 }
 
-const ARTIFACT_DIR = 'tasks/ops-sidebar-active-state-apphost-20260612-2140/artifacts';
+const ARTIFACT_DIR = 'test-results/browser-proof/ops-sidebar-active-state';
 
 test.describe('ops sidebar active state on the app host', () => {
   test.use({ baseURL: appHostBaseUrl });

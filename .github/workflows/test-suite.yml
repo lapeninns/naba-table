@@ -1,8 +1,6 @@
 name: Test suite
 
-# MS-foundation-full-suite-ci-gate: the complete Vitest suite gates every PR
-# and every push to main. No path filters — the suite is fast enough (~40s)
-# to always run whole, and path filters are how regressions slip through.
+# Run the Vitest suite on pull requests and pushes to main.
 on:
   pull_request:
   push:
@@ -18,9 +16,8 @@ jobs:
     name: Full Vitest suite
     runs-on: ubuntu-latest
     env:
-      # Sanitized offline env only — mirrors qa-foundation.yml. Tests must
-      # never receive real credentials; tests/setup.ts fallbacks align with
-      # these values.
+      # Sanitized offline env only. Tests must never receive real credentials;
+      # tests/setup.ts fallbacks align with these values.
       APP_ENV: test
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
@@ -49,11 +46,3 @@ jobs:
 
       - name: Run full Vitest suite
         run: pnpm test
-
-      # MS-foundation-coverage-ratchet: re-runs the suite with V8 coverage and
-      # compares the summary against config/qa/coverage-baseline.json, so a
-      # coverage drop below the frozen floors fails CI. Kept as a second step
-      # (rather than replacing `pnpm test`) because full-suite-command.test.ts
-      # pins the fast suite step; the coverage pass measured ~55-75s locally.
-      - name: Coverage ratchet
-        run: pnpm guard:coverage

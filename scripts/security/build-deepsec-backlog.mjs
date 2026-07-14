@@ -8,10 +8,7 @@ const ROOT = process.cwd();
 const FINDINGS_ROOT = path.join(ROOT, '.deepsec/findings');
 const OUTPUT_BOARD = path.join(ROOT, 'docs/security/deepsec-remediation-board.md');
 const OUTPUT_CSV = path.join(ROOT, 'docs/security/deepsec-backlog.csv');
-const TASK_OUTPUT_CSV = path.join(
-  ROOT,
-  'tasks/security-sprint-0-20260505-1324/artifacts/deepsec-backlog.csv',
-);
+const SECONDARY_OUTPUT_CSV = path.join(ROOT, 'test-results/security/deepsec-backlog.csv');
 
 const ROOT_CAUSES = [
   {
@@ -20,7 +17,14 @@ const ROOT_CAUSES = [
     owner: 'Auth owner',
     labels: ['security-critical', 'account-takeover', 'secrets', 'needs-regression'],
     sprint: 'Sprint 1',
-    matches: [/account-takeover/i, /auth-bypass/i, /recovery/i, /invite/i, /magic/i, /password reset/i],
+    matches: [
+      /account-takeover/i,
+      /auth-bypass/i,
+      /recovery/i,
+      /invite/i,
+      /magic/i,
+      /password reset/i,
+    ],
   },
   {
     id: 'SEC-002',
@@ -136,7 +140,10 @@ function parseFinding(filePath) {
     source.match(/^# \[([^\]]+)\]/m)?.[1]?.trim() ?? path.basename(path.dirname(filePath));
   const slug =
     source.match(/\*\*Severity:\*\*.+?\*\*Slug:\*\* `([^`]+)`/)?.[1]?.trim() ??
-    path.basename(filePath).replace(/^nabatableLP-/, '').replace(/-[a-f0-9]+\.md$/, '');
+    path
+      .basename(filePath)
+      .replace(/^nabatableLP-/, '')
+      .replace(/-[a-f0-9]+\.md$/, '');
   const file =
     source.match(/\*\*File:\*\* \[`([^`]+)`\]/)?.[1]?.trim() ??
     source.match(/\*\*File:\*\* ([^\n]+)/)?.[1]?.trim() ??
@@ -162,24 +169,28 @@ function parseFinding(filePath) {
 }
 
 function severityRank(severity) {
-  return {
-    CRITICAL: 0,
-    HIGH: 1,
-    HIGH_BUG: 2,
-    MEDIUM: 3,
-    BUG: 4,
-  }[severity] ?? 5;
+  return (
+    {
+      CRITICAL: 0,
+      HIGH: 1,
+      HIGH_BUG: 2,
+      MEDIUM: 3,
+      BUG: 4,
+    }[severity] ?? 5
+  );
 }
 
 if (!fs.existsSync(FINDINGS_ROOT)) {
   throw new Error('Expected .deepsec/findings to exist.');
 }
 
-const findings = walk(FINDINGS_ROOT).map(parseFinding).sort((a, b) => {
-  const bySeverity = severityRank(a.severity) - severityRank(b.severity);
-  if (bySeverity !== 0) return bySeverity;
-  return a.id.localeCompare(b.id);
-});
+const findings = walk(FINDINGS_ROOT)
+  .map(parseFinding)
+  .sort((a, b) => {
+    const bySeverity = severityRank(a.severity) - severityRank(b.severity);
+    if (bySeverity !== 0) return bySeverity;
+    return a.id.localeCompare(b.id);
+  });
 
 const grouped = new Map(ROOT_CAUSES.map((rootCause) => [rootCause.id, []]));
 for (const finding of findings) {
@@ -278,7 +289,7 @@ board.push(
   '## Backlog Mapping',
   '',
   `- Full versioned CSV mapping: docs/security/deepsec-backlog.csv`,
-  `- Task evidence copy: tasks/security-sprint-0-20260505-1324/artifacts/deepsec-backlog.csv`,
+  `- Generated CSV copy: test-results/security/deepsec-backlog.csv`,
   `- Finding counts: ${Object.entries(countsBySeverity)
     .map(([severity, count]) => `${severity}=${count}`)
     .join(', ')}`,
@@ -324,10 +335,10 @@ for (const finding of findings) {
   );
 }
 fs.writeFileSync(OUTPUT_CSV, `${rows.join('\n')}\n`);
-fs.mkdirSync(path.dirname(TASK_OUTPUT_CSV), { recursive: true });
-fs.writeFileSync(TASK_OUTPUT_CSV, `${rows.join('\n')}\n`);
+fs.mkdirSync(path.dirname(SECONDARY_OUTPUT_CSV), { recursive: true });
+fs.writeFileSync(SECONDARY_OUTPUT_CSV, `${rows.join('\n')}\n`);
 
 console.log(`Wrote ${OUTPUT_BOARD}`);
 console.log(`Wrote ${OUTPUT_CSV}`);
-console.log(`Wrote ${TASK_OUTPUT_CSV}`);
+console.log(`Wrote ${SECONDARY_OUTPUT_CSV}`);
 console.log(`Mapped ${findings.length} finding(s).`);

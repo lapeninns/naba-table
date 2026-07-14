@@ -4,6 +4,7 @@ import { mapTwilioMessageStatusToDeliveryStatus, sendTwilioSmsMessage } from '@/
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
 import { createBookingManageShortUrl } from '@/server/bookings/short-link';
 import { normalizePhone } from '@/server/customers';
+import { buildBookingWhatsAppActionContent } from '@/server/notifications/booking-whatsapp-content';
 import {
   completeClaimedSmsAttempt,
   dispatchMobileNotification,
@@ -286,6 +287,7 @@ async function sendGuestBookingMobileMessage(params: {
   source: string;
   smsType: SmsDeliveryType;
   whatsappVariables: Readonly<Record<string, string>>;
+  whatsappActionAvailable: boolean;
   fetchImpl?: typeof fetch;
 }): Promise<SmsResult | null> {
   if (!hasGuestConfirmationSmsConfig()) {
@@ -321,7 +323,9 @@ async function sendGuestBookingMobileMessage(params: {
       recipientPhone: recipient,
       restaurantId: params.booking.restaurant_id,
       whatsappEligible,
-      whatsappTemplateId: resolveWhatsAppTemplateId(params.smsType),
+      whatsappTemplateId: params.whatsappActionAvailable
+        ? resolveWhatsAppTemplateId(params.smsType)
+        : null,
       whatsappVariables: params.whatsappVariables,
     },
     {
@@ -351,6 +355,12 @@ export async function sendGuestBookingConfirmationSms(
     createdBy: 'guest_confirmation_sms',
     fetchImpl: options?.fetchImpl,
   });
+  const whatsappContent = buildBookingWhatsAppActionContent({
+    venueName: venue.name,
+    summaryLine: buildBookingSummaryLine({ booking, venue }),
+    referenceLine: buildBookingReferenceLine(booking),
+    manageUrl,
+  });
   return sendGuestBookingMobileMessage({
     booking,
     body: buildGuestBookingConfirmationSms({
@@ -360,12 +370,8 @@ export async function sendGuestBookingConfirmationSms(
     }),
     source: 'booking.confirmation_sms',
     smsType: 'booking_confirmation',
-    whatsappVariables: {
-      '1': venue.name,
-      '2': buildBookingSummaryLine({ booking, venue }),
-      '3': buildBookingReferenceLine(booking),
-      '4': manageUrl,
-    },
+    whatsappVariables: whatsappContent.variables,
+    whatsappActionAvailable: whatsappContent.actionPath !== null,
     fetchImpl: options?.fetchImpl,
   });
 }
@@ -379,6 +385,12 @@ export async function sendGuestBookingUpdateSms(
     createdBy: 'guest_update_sms',
     fetchImpl: options?.fetchImpl,
   });
+  const whatsappContent = buildBookingWhatsAppActionContent({
+    venueName: venue.name,
+    summaryLine: buildBookingSummaryLine({ booking, venue }),
+    referenceLine: buildBookingReferenceLine(booking),
+    manageUrl,
+  });
   return sendGuestBookingMobileMessage({
     booking,
     body: buildGuestBookingUpdateSms({
@@ -388,12 +400,8 @@ export async function sendGuestBookingUpdateSms(
     }),
     source: 'booking.update_sms',
     smsType: 'booking_update',
-    whatsappVariables: {
-      '1': venue.name,
-      '2': buildBookingSummaryLine({ booking, venue }),
-      '3': buildBookingReferenceLine(booking),
-      '4': manageUrl,
-    },
+    whatsappVariables: whatsappContent.variables,
+    whatsappActionAvailable: whatsappContent.actionPath !== null,
     fetchImpl: options?.fetchImpl,
   });
 }
@@ -425,6 +433,7 @@ export async function sendGuestBookingCancellationSms(
       '3': buildBookingReferenceLine(booking),
       '4': buildVenueContactLine(venue) ?? venue.name,
     },
+    whatsappActionAvailable: true,
     fetchImpl: options?.fetchImpl,
   });
 }

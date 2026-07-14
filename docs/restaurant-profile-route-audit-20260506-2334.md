@@ -2,7 +2,6 @@
 
 Captured: 2026-05-06 23:34 Europe/London  
 Scope: shipped app-host route `http://app.localhost:3000/settings/restaurant/profile`  
-Risk tier: research/low, docs-only audit  
 Baseline note: `docs/restaurant-settings-full-diagnostic-20260506-2037.md` is the broader
 settings diagnostic. This document narrows to the current profile route contract and browser
 sanity check.

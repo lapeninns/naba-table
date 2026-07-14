@@ -68,7 +68,7 @@ export function OpsBookingsClient(props: OpsBookingsClientProps) {
     activeMembershipRestaurantName: activeMembership?.restaurantName,
   });
   const bookingsQuery = dataState.bookingsQuery;
-  // Param-change stale state (filters/search/date) per docs/sdlc/react-query-swr-ux.md.
+  // Param-change stale state (filters/search/date) per docs/technical/react-query-swr-ux.md.
   const swr = getSwrUiState(bookingsQuery);
 
   return (

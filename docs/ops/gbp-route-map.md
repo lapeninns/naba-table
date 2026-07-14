@@ -64,7 +64,7 @@ This map is source-backed only. It does not claim production traffic, live Googl
 - Treat source-inferred behavior as source-inferred; record live verification separately.
 - Keep direct GBP manual sync and destructive disconnect actions password-confirmed on canonical and legacy routes.
 - Use `docs/ops/gbp-production-wiring-checklist.md` before deployed environment wiring.
-- Use `docs/sdlc/gbp-dual-sync-extension-guide.md` before adding a syncable field family.
+- Use `docs/technical/gbp-dual-sync-extension-guide.md` before adding a syncable field family.
 
 ## Protected Action Policy
 

@@ -10,7 +10,7 @@ import { assertExactSupabaseApiProjectRef } from './db/safety';
 loadEnv({ path: '.env.local', override: false });
 
 const CONFIRM_GOOGLE_WRITE_ENV = 'CONFIRM_GBP_FOODMENUS_GOOGLE_WRITE';
-const TASK_ARTIFACT_DIR = 'tasks/gbp-foodmenus-sync-design-20260502-1850/artifacts';
+const OUTPUT_DIR = 'test-results/operations/gbp-foodmenus-sync';
 const TARGETS = {
   staging: {
     expectedProjectRef: 'ndxmivcrehsacuerwxtm',
@@ -334,7 +334,7 @@ function countGoogleItems(googleFoodMenus: {
 
 function defaultOutPath(mode: Mode, restaurantId: string): string {
   const safeRestaurantId = restaurantId.replace(/[^a-zA-Z0-9-]/g, '_');
-  return `${TASK_ARTIFACT_DIR}/google-foodmenus-${mode}-proof-${safeRestaurantId}.json`;
+  return `${OUTPUT_DIR}/google-foodmenus-${mode}-proof-${safeRestaurantId}.json`;
 }
 
 async function main() {

@@ -1,10 +1,7 @@
 name: E2E smoke
 
-# MS-foundation-playwright-ci-gate: the three unauthenticated browser smoke
-# packs gate every PR and every push to main. Each pack boots the app locally
-# with mocks via the Playwright webServer config — no real secrets, no remote
-# targets. Authenticated packs are excluded until QA fixture auth is repaired
-# at the edge-proxy layer (see docs/qa/e2e-smoke.md).
+# Three unauthenticated browser smoke packs run with local mocks and no real
+# credentials or remote targets.
 on:
   pull_request:
   push:
@@ -59,13 +56,13 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Public booking browser smoke
-        run: pnpm run qa:public-booking:browser
+        run: pnpm exec playwright test tests/e2e/guest-booking.spec.ts
 
       - name: Ops lifecycle browser smoke
-        run: pnpm run qa:ops-lifecycle:browser
+        run: pnpm exec playwright test tests/e2e/ops-app-host-redirects.spec.ts
 
       - name: Guest portal browser smoke
-        run: pnpm run qa:guest-portal:browser
+        run: pnpm exec playwright test tests/e2e/guest-portal-redirects.spec.ts
 
       - name: Upload Playwright artifacts
         if: failure()
