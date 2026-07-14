@@ -160,4 +160,72 @@ describe('remote database safe runner historical replay', () => {
     );
     expect(whenDryRunRuns.calls).toEqual([]);
   });
+
+  it('validates then delegates runtime-parametrized test-phone cleanup for staging @contract', () => {
+    const environment = {
+      DB_TARGET_ENV: 'staging',
+      TEST_PHONE_E164: '+447700900999',
+    };
+
+    const whenCleanupRuns = runCli(['remove-staging-test-phone'], environment);
+
+    expect(whenCleanupRuns.status).toBe(0);
+    expect(whenCleanupRuns.calls).toEqual([
+      'pnpm validate:env',
+      'pnpm exec tsx scripts/db/remove-staging-test-phone.ts',
+    ]);
+  });
+
+  it('refuses test-phone cleanup for production before any child runs @contract', () => {
+    const environment = {
+      CONFIRM_PRODUCTION: 'true',
+      DB_TARGET_ENV: 'production',
+      TEST_PHONE_E164: '+447700900999',
+    };
+
+    const whenCleanupRuns = runCli(['remove-staging-test-phone'], environment);
+
+    expect(whenCleanupRuns.status).toBe(2);
+    expect(whenCleanupRuns.output).toContain('Legacy test-phone cleanup is staging-only');
+    expect(whenCleanupRuns.calls).toEqual([]);
+  });
+
+  it('refuses test-phone cleanup without a runtime E.164 target @contract', () => {
+    const environment = { DB_TARGET_ENV: 'staging' };
+
+    const whenCleanupRuns = runCli(['remove-staging-test-phone'], environment);
+
+    expect(whenCleanupRuns.status).toBe(2);
+    expect(whenCleanupRuns.output).toContain('TEST_PHONE_E164 must be valid E.164');
+    expect(whenCleanupRuns.calls).toEqual([]);
+  });
+
+  it('targets an explicitly linked absolute Supabase workdir for production migration @contract', () => {
+    const environment = {
+      CONFIRM_PRODUCTION: 'true',
+      DB_TARGET_ENV: 'production',
+      SUPABASE_WORKDIR: '/tmp/nabatable-production',
+    };
+
+    const whenMigrationRuns = runCli(['migrate'], environment);
+
+    expect(whenMigrationRuns.status).toBe(0);
+    expect(whenMigrationRuns.calls).toEqual([
+      'pnpm validate:env',
+      'supabase db push --workdir /tmp/nabatable-production',
+    ]);
+  });
+
+  it('refuses a relative Supabase workdir before any child runs @contract', () => {
+    const environment = {
+      DB_TARGET_ENV: 'staging',
+      SUPABASE_WORKDIR: '../different-project',
+    };
+
+    const whenMigrationRuns = runCli(['migrate'], environment);
+
+    expect(whenMigrationRuns.status).toBe(2);
+    expect(whenMigrationRuns.output).toContain('SUPABASE_WORKDIR must be an absolute path');
+    expect(whenMigrationRuns.calls).toEqual([]);
+  });
 });

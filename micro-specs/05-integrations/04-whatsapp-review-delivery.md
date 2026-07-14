@@ -27,6 +27,8 @@ allowed_blast_radius:
   - package.json
   - scripts/db/safe-run.ts
   - scripts/db/prepare-staging-legacy-drink-menu.sql
+  - scripts/db/remove-staging-test-phone.sql
+  - scripts/db/remove-staging-test-phone.ts
   - scripts/whatsapp-review-production-release.ts
   - tests/server/jobs/booking-side-effects.test.ts
   - tests/server/jobs/auto-complete-bookings.test.ts
@@ -42,6 +44,7 @@ allowed_blast_radius:
   - tests/scripts/whatsapp-review-production-release.test.ts
   - tests/scripts/db-safe-run-include-all.test.ts
   - tests/scripts/prepare-staging-legacy-drink-menu.test.ts
+  - tests/scripts/remove-staging-test-phone.test.ts
   - .omo/evidence/task-5-whatsapp-review-production-release.md
 implementation_surfaces:
   - server/jobs/booking-side-effects.ts
@@ -59,6 +62,8 @@ implementation_surfaces:
   - package.json
   - scripts/db/safe-run.ts
   - scripts/db/prepare-staging-legacy-drink-menu.sql
+  - scripts/db/remove-staging-test-phone.sql
+  - scripts/db/remove-staging-test-phone.ts
   - scripts/whatsapp-review-production-release.ts
   - tests/server/jobs/booking-side-effects.test.ts
   - tests/server/jobs/auto-complete-bookings.test.ts
@@ -74,6 +79,7 @@ implementation_surfaces:
   - tests/scripts/whatsapp-review-production-release.test.ts
   - tests/scripts/db-safe-run-include-all.test.ts
   - tests/scripts/prepare-staging-legacy-drink-menu.test.ts
+  - tests/scripts/remove-staging-test-phone.test.ts
 related_docs:
   - micro-specs/GLOBAL_CONTEXT.md
   - docs/sdlc/verification.md
@@ -126,9 +132,15 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
 - Production configuration fails closed unless sender and all five booking Content SIDs are present.
 - Historical migration replay is an explicit staging-only release operation. The safe runner must
   refuse `--include-all` for production and for every non-migration workflow.
+- An operator may select a separately linked Supabase project only through an absolute
+  `SUPABASE_WORKDIR`; all ordinary target and production-confirmation guards remain in force.
 - Legacy drink-menu preparation is an explicit staging-only release operation. It must archive the
   exact legacy rows, prove canonical drink item and extension parity, and refuse production before
   any database child runs.
+- Legacy test-phone cleanup is an explicit staging-only release operation. It accepts the phone at
+  runtime, replaces required booking/customer values with reserved synthetic E.164 values, clears
+  every related consent and restaurant notification field, and refuses production before any
+  database child runs.
 
 ## 4. Decisions Already Made
 
@@ -177,6 +189,10 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   database safe runner SHALL validate the environment and delegate `supabase db push --include-all`.
 - IF historical replay is requested for production or a non-migration workflow, THEN THE database
   safe runner SHALL refuse before executing validation or Supabase children.
+- WHEN an absolute `SUPABASE_WORKDIR` is supplied, THE database safe runner SHALL delegate Supabase
+  commands to that linked workdir after applying the same target and confirmation checks.
+- IF `SUPABASE_WORKDIR` is relative, THEN THE database safe runner SHALL refuse before validation or
+  Supabase execution.
 - WHEN legacy drink-menu preparation is explicitly requested for staging, THE database safe runner
   SHALL validate the environment, replay the checked-in canonical hierarchy backfill, and then run
   the fixed archive-and-retirement preparation transaction.
@@ -187,6 +203,15 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
   drink item and extension match per legacy drink item.
 - IF any archive or canonical parity assertion fails, THEN THE preparation transaction SHALL roll
   back without deleting legacy menu rows.
+- WHEN legacy test-phone cleanup is explicitly requested for staging, THE database safe runner
+  SHALL require a valid runtime E.164 target, validate the environment, and execute the fixed
+  cleanup transaction without persisting the target in source control.
+- IF legacy test-phone cleanup is requested for production, THEN THE database safe runner SHALL
+  refuse before executing validation or Supabase children even when production confirmation exists.
+- BEFORE cleanup commits, THE transaction SHALL replace required booking and customer phone values
+  with non-colliding reserved synthetic values, clear dependent WhatsApp consent and manager
+  notification settings, delete the matching canonical restaurant-phone row, and prove the target
+  is absent from every public phone-named text column.
 - WHEN the controlled smoke is explicitly armed, THE runner SHALL send the five events to the
   approved redacted test recipient at T+0, T+60, T+120, T+180, and T+240 seconds in event order.
 - IF staged verification or production smoke fails, THEN THE release SHALL roll back review traffic
@@ -202,6 +227,9 @@ The task packet, continuity ledger, and this spec's evidence ledger are process-
 - Prove legacy drink-menu preparation delegates the two fixed staging steps only after validation,
   refuses production, archives all five retirement-table sources, and places parity assertions
   before FK-ordered deletion.
+- Prove legacy test-phone cleanup is runtime-parametrized, staging-only, transactionally asserted,
+  preserves required booking/customer rows with reserved replacements, and leaves no target phone
+  in public phone-named text columns.
 - Prove staged deploy/rollback and require explicit arming, recipient allowlisting, and exact
   T+0/60/120/180/240 timing before the five-message smoke can mutate provider state.
 - Implement as Red → Green → Refactor slices for scheduling, content/env contract, and release tool.

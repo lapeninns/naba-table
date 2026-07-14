@@ -1,15 +1,17 @@
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 import process from 'node:process';
 
 const HELP = `Nabatable remote database safe runner
 
 Usage: pnpm db:<workflow> [--include-all] [--dry-run]
 
-Workflows: status, migrate, push, pull, check-drift, prepare-staging-legacy-drink-menu
+Workflows: status, migrate, push, pull, check-drift, prepare-staging-legacy-drink-menu, remove-staging-test-phone
 Target: DB_TARGET_ENV=staging|production
 Production migration apply: CONFIRM_PRODUCTION=true
 Historical replay: --include-all is staging-only and requires migrate or push
 Legacy drink-menu preparation: staging-only
+Legacy test-phone cleanup: staging-only; requires TEST_PHONE_E164
 `;
 
 const WORKFLOW_PLANS = {
@@ -58,6 +60,15 @@ const WORKFLOW_PLANS = {
       },
     ],
   },
+  'remove-staging-test-phone': {
+    access: 'staging-cleanup',
+    steps: [
+      {
+        command: 'pnpm',
+        args: ['exec', 'tsx', 'scripts/db/remove-staging-test-phone.ts'],
+      },
+    ],
+  },
 } as const;
 
 type Workflow = keyof typeof WORKFLOW_PLANS;
@@ -74,6 +85,7 @@ type ParsedRequest =
       readonly target: Target;
       readonly dryRun: boolean;
       readonly includeAll: boolean;
+      readonly supabaseWorkdir?: string;
     }
   | { readonly kind: 'refusal'; readonly message: string };
 
@@ -106,6 +118,14 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
     };
   }
 
+  const supabaseWorkdir = env.SUPABASE_WORKDIR?.trim() || undefined;
+  if (supabaseWorkdir && !path.isAbsolute(supabaseWorkdir)) {
+    return {
+      kind: 'refusal',
+      message: 'SUPABASE_WORKDIR must be an absolute path.',
+    };
+  }
+
   const access = WORKFLOW_PLANS[workflow].access;
   if (includeAll && access !== 'migration') {
     return { kind: 'refusal', message: '--include-all requires migrate or push.' };
@@ -117,6 +137,18 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
     return {
       kind: 'refusal',
       message: 'Legacy drink-menu preparation is staging-only.',
+    };
+  }
+  if (access === 'staging-cleanup' && target !== 'staging') {
+    return {
+      kind: 'refusal',
+      message: 'Legacy test-phone cleanup is staging-only.',
+    };
+  }
+  if (access === 'staging-cleanup' && !/^\+[1-9]\d{6,14}$/.test(env.TEST_PHONE_E164 ?? '')) {
+    return {
+      kind: 'refusal',
+      message: 'TEST_PHONE_E164 must be valid E.164 for legacy test-phone cleanup.',
     };
   }
   if (
@@ -131,16 +163,23 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
     };
   }
 
-  return { kind: 'workflow', workflow, target, dryRun, includeAll };
+  return { kind: 'workflow', workflow, target, dryRun, includeAll, supabaseWorkdir };
 }
 
 function resolvePlans(
   request: Extract<ParsedRequest, { readonly kind: 'workflow' }>,
 ): readonly ChildPlan[] {
-  const plans = WORKFLOW_PLANS[request.workflow].steps;
-  return request.includeAll
+  const plans: readonly ChildPlan[] = WORKFLOW_PLANS[request.workflow].steps;
+  const replayPlans = request.includeAll
     ? plans.map((plan) => ({ ...plan, args: [...plan.args, '--include-all'] }))
     : plans;
+  return request.supabaseWorkdir
+    ? replayPlans.map((plan) =>
+        plan.command === 'supabase'
+          ? { ...plan, args: [...plan.args, '--workdir', request.supabaseWorkdir!] }
+          : plan,
+      )
+    : replayPlans;
 }
 
 function runChild(plan: ChildPlan): number {
