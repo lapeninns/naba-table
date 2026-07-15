@@ -106,6 +106,17 @@ describe('WizardNavigation summary sheet', () => {
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('@contract collapses on Escape when activation does not move focus into the navigation', () => {
+    render(<WizardNavigation {...baseProps} />);
+    fireEvent.click(disclosure());
+    expect(disclosure()).toHaveAttribute('aria-expanded', 'true');
+    expect(document.activeElement).not.toBe(disclosure());
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('@contract collapses when the current step changes', () => {
     const { rerender } = render(<WizardNavigation {...baseProps} />);
     fireEvent.click(disclosure());

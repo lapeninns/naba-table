@@ -112,6 +112,15 @@ export function WizardNavigation({
   const { primary, secondary, support } = React.useMemo(() => groupActions(actions), [actions]);
 
   React.useEffect(() => setOpen(false), [current]);
+  React.useEffect(() => {
+    if (!visible || !isOpen) return;
+
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', dismissOnEscape);
+    return () => document.removeEventListener('keydown', dismissOnEscape);
+  }, [isOpen, visible]);
   if (!visible) return null;
 
   return (
@@ -125,9 +134,6 @@ export function WizardNavigation({
     >
       <nav
         aria-label="Booking wizard navigation"
-        onKeyDown={(event) => {
-          if (event.key === 'Escape' && isOpen) setOpen(false);
-        }}
         className={cn(
           'pg-panel pointer-events-auto mx-auto w-full text-[color:var(--pg-text)] backdrop-blur-xl',
           'rounded-t-[var(--pg-radius-xl)] sm:max-w-3xl sm:rounded-[var(--pg-radius-xl)]',
