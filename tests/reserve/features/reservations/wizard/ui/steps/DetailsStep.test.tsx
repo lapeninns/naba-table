@@ -77,6 +77,27 @@ function renderDetailsStep(
 }
 
 describe('DetailsStep', () => {
+  it('orders one bounded contact, consent, and preferences hierarchy @contract', () => {
+    renderDetailsStep(makeState(), createActions());
+
+    const form = document.querySelector('[data-slot="details-form"]');
+    const contact = screen.getByRole('region', { name: 'Contact details' });
+    const consent = screen.getByRole('region', { name: 'Booking consent' });
+    const preferences = screen.getByRole('region', { name: 'Preferences' });
+
+    expect(form).toHaveClass('mx-auto', 'w-full', 'max-w-2xl');
+    expect(form?.querySelectorAll('[data-slot="wizard-panel"]')).toHaveLength(1);
+    expect(
+      contact.compareDocumentPosition(consent) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      consent.compareDocumentPosition(preferences) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(contact).toHaveClass('min-w-0');
+    expect(consent).toHaveClass('min-w-0');
+    expect(preferences).toHaveClass('min-w-0');
+  });
+
   it('replaces the characterized booking-only WhatsApp consent copy @contract', () => {
     renderDetailsStep(makeState(), createActions());
 
@@ -191,6 +212,19 @@ describe('DetailsStep', () => {
     });
   });
 
+  it.each([
+    ['email only', { email: 'alex@example.com', phone: '' }],
+    ['phone only', { email: '', phone: '07123456789' }],
+  ])('keeps Review available with %s @contract', async (_scenario, details) => {
+    const { captured } = renderDetailsStep(makeState(details), createActions());
+
+    await waitFor(() => {
+      expect(captured.actions.find((action) => action.id === 'details-review')?.disabled).toBe(
+        false,
+      );
+    });
+  });
+
   it('keeps Review disabled while the email is invalid @contract', async () => {
     const { captured } = renderDetailsStep(makeState({ email: 'not-an-email' }), createActions());
 
@@ -238,6 +272,19 @@ describe('DetailsStep', () => {
     ).toBeVisible();
   });
 
+  it('clears WhatsApp consent when the phone number changes @contract', async () => {
+    const user = userEvent.setup();
+    const actions = createActions();
+    renderDetailsStep(makeState({ whatsappOptIn: true }), actions);
+
+    const whatsapp = screen.getByRole('checkbox', { name: /WhatsApp/ });
+    expect(whatsapp).toBeChecked();
+    await user.type(screen.getByLabelText(/UK phone number/), '0');
+
+    expect(whatsapp).not.toBeChecked();
+    expect(actions.updateDetails).toHaveBeenCalledWith('whatsappOptIn', false);
+  });
+
   it('explains customer requirements and why Review is unavailable @contract', async () => {
     const { captured } = renderDetailsStep(
       makeState({ name: '', email: '', phone: '', agree: false }),
@@ -271,11 +318,10 @@ describe('DetailsStep', () => {
     expect(screen.getByRole('checkbox', { name: /I agree/ }).closest('label')).toHaveClass(
       'min-h-11',
     );
-    expect(screen.getByRole('checkbox', { name: /WhatsApp/ })).toHaveClass(
-      '!size-4',
-      '!min-h-4',
-      '!min-w-4',
+    expect(screen.getByRole('checkbox', { name: /WhatsApp/ }).closest('label')).toHaveClass(
+      'min-h-11',
     );
+    expect(screen.getByRole('link', { name: 'privacy notice' })).toHaveClass('min-h-11');
   });
 
   it('locks contact fields the account already owns @contract', () => {
