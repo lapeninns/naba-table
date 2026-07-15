@@ -11,6 +11,25 @@ function mockFocusGeometry(element: HTMLElement, rect: DOMRect) {
   return scrollIntoView;
 }
 
+function mockAnimationFrame() {
+  let scheduledFrame: FrameRequestCallback | undefined;
+  const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+    scheduledFrame = callback;
+    return 7;
+  });
+  const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+
+  return {
+    cancel,
+    request,
+    run: () => {
+      const callback = scheduledFrame;
+      scheduledFrame = undefined;
+      callback?.(0);
+    },
+  };
+}
+
 describe('WizardLayout', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -207,5 +226,91 @@ describe('WizardLayout', () => {
     // When / Then
     expect(() => fireEvent.focus(target)).not.toThrow();
     expect(onFocusCapture).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks a still-focused control after layout shifts beneath the sticky rail @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    const animationFrame = mockAnimationFrame();
+    render(
+      <WizardLayout stickyVisible stickyHeight={124}>
+        <textarea aria-label="Reservation notes" />
+      </WizardLayout>,
+    );
+    const notes = screen.getByRole('textbox', { name: 'Reservation notes' });
+    const scrollIntoView = vi.fn();
+    notes.scrollIntoView = scrollIntoView;
+    vi.spyOn(notes, 'getBoundingClientRect')
+      .mockReturnValueOnce(new DOMRect(24, 974, 327, 114))
+      .mockReturnValue(new DOMRect(24, 668, 327, 114));
+
+    // When
+    notes.focus();
+    animationFrame.run();
+
+    // Then
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(animationFrame.request).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not scroll again after layout settles when the focused control remains clear @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    const animationFrame = mockAnimationFrame();
+    render(
+      <WizardLayout stickyVisible stickyHeight={124}>
+        <button type="button">Visible field</button>
+      </WizardLayout>,
+    );
+    const button = screen.getByRole('button', { name: 'Visible field' });
+    const scrollIntoView = mockFocusGeometry(button, new DOMRect(24, 320, 120, 44));
+
+    // When
+    button.focus();
+    animationFrame.run();
+
+    // Then
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('ignores the scheduled recheck when the target is no longer focused @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    const animationFrame = mockAnimationFrame();
+    render(
+      <WizardLayout stickyVisible stickyHeight={124}>
+        <textarea aria-label="Reservation notes" />
+      </WizardLayout>,
+    );
+    const notes = screen.getByRole('textbox', { name: 'Reservation notes' });
+    const scrollIntoView = mockFocusGeometry(notes, new DOMRect(24, 974, 327, 114));
+
+    // When
+    notes.focus();
+    notes.blur();
+    animationFrame.run();
+
+    // Then
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels the scheduled recheck when the layout unmounts @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    const animationFrame = mockAnimationFrame();
+    const { unmount } = render(
+      <WizardLayout stickyVisible stickyHeight={124}>
+        <textarea aria-label="Reservation notes" />
+      </WizardLayout>,
+    );
+    const notes = screen.getByRole('textbox', { name: 'Reservation notes' });
+    mockFocusGeometry(notes, new DOMRect(24, 974, 327, 114));
+
+    // When
+    notes.focus();
+    unmount();
+
+    // Then
+    expect(animationFrame.cancel).toHaveBeenCalledWith(7);
   });
 });

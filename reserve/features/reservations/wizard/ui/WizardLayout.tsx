@@ -27,6 +27,16 @@ interface WizardLayoutProps {
   onFocusCapture?: React.FocusEventHandler<HTMLElement>;
 }
 
+function scrollFocusedElementClearOfRail(target: HTMLElement, stickyHeight: number) {
+  const focusedBounds = target.getBoundingClientRect();
+  const visibleBottom = window.innerHeight - stickyHeight;
+  const isFocusClear = focusedBounds.top >= 0 && focusedBounds.bottom <= visibleBottom;
+
+  if (!isFocusClear) {
+    target.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }
+}
+
 export function WizardLayout({
   heroRef,
   stickyHeight = 0,
@@ -45,20 +55,38 @@ export function WizardLayout({
   const Container = elementType === 'div' ? 'div' : 'main';
   const footerOffset = stickyVisible ? stickyHeight : 0;
   const isOpsSurface = surface === 'ops';
+  const focusRecheckFrame = React.useRef<number | null>(null);
+
+  React.useEffect(
+    () => () => {
+      if (focusRecheckFrame.current !== null) {
+        window.cancelAnimationFrame(focusRecheckFrame.current);
+      }
+    },
+    [],
+  );
+
   const handleFocusCapture: React.FocusEventHandler<HTMLElement> = (event) => {
+    if (focusRecheckFrame.current !== null) {
+      window.cancelAnimationFrame(focusRecheckFrame.current);
+      focusRecheckFrame.current = null;
+    }
+
     onFocusCapture?.(event);
 
     if (!stickyVisible || stickyHeight <= 0 || !(event.target instanceof HTMLElement)) {
       return;
     }
 
-    const focusedBounds = event.target.getBoundingClientRect();
-    const visibleBottom = window.innerHeight - stickyHeight;
-    const isFocusClear = focusedBounds.top >= 0 && focusedBounds.bottom <= visibleBottom;
+    const focusedTarget = event.target;
+    scrollFocusedElementClearOfRail(focusedTarget, stickyHeight);
 
-    if (!isFocusClear) {
-      event.target.scrollIntoView({ block: 'center', inline: 'nearest' });
-    }
+    focusRecheckFrame.current = window.requestAnimationFrame(() => {
+      focusRecheckFrame.current = null;
+      if (focusedTarget.isConnected && document.activeElement === focusedTarget) {
+        scrollFocusedElementClearOfRail(focusedTarget, stickyHeight);
+      }
+    });
   };
 
   return (
