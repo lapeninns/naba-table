@@ -1,6 +1,7 @@
 {
   "name": "nabatable-sms-summary-gateway",
   "main": "src/index.ts",
+  "upload_source_maps": true,
   "compatibility_date": "2026-04-11",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
@@ -43,6 +44,7 @@
   ],
   "vars": {
     "POSTHOG_HOST": "https://eu.i.posthog.com",
+    "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
   },
   "observability": {
     "enabled": true,

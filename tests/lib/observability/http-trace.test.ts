@@ -27,9 +27,7 @@ describe('root HTTP trace propagation', () => {
       async () => new Response(null, { status: 204 }),
     );
 
-    expect(response.headers.get('traceparent')).toMatch(
-      /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/u,
-    );
+    expect(response.headers.get('traceparent')).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/u);
     expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/u);
   });
 });

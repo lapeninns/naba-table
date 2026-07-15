@@ -33,6 +33,9 @@ jobs:
             const service = safe(payload.service, 'unknown-service');
             const traceId = safe(payload.trace_id, 'unavailable');
             const deploySha = safe(payload.deploy_sha, 'unknown');
+            const requestId = safe(payload.request_id, 'unavailable');
+            const method = safe(payload.method, 'unknown');
+            const path = safe(payload.path, 'unknown');
             const fingerprint = safe(payload.fingerprint, traceId);
             const title = `[automated error] ${service}: ${fingerprint}`;
             const body = [
@@ -40,7 +43,9 @@ jobs:
               '',
               `- Service: ${service}`,
               `- Trace ID: ${traceId}`,
+              `- Request ID: ${requestId}`,
               `- Deployment: ${deploySha}`,
+              `- Route: ${method} ${path}`,
               `- Source event: ${context.eventName}`,
               '',
               'Use the trace ID and deployment metadata to investigate in PostHog and service logs. Do not paste guest PII into this issue.',

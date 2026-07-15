@@ -36,4 +36,29 @@ describe('residual readiness contracts', () => {
     expect(source).toContain('issues.createComment');
     expect(source).toContain('trace_id');
   });
+
+  it('uploads source maps for every Cloudflare Worker @contract', () => {
+    const wranglerConfigs = [
+      'cloudflare/booking-short-links/wrangler.jsonc',
+      'cloudflare/email-queue-gateway/wrangler.jsonc',
+      'cloudflare/sms-summary-gateway/wrangler.jsonc',
+    ];
+
+    for (const config of wranglerConfigs) {
+      expect(readFileSync(path.join(repositoryRoot, config), 'utf8'), config).toContain(
+        '"upload_source_maps": true',
+      );
+    }
+  });
+
+  it('provides an authenticated receiver for repository insight dispatches @contract', () => {
+    const source = readFileSync(
+      path.join(repositoryRoot, 'src/app/api/webhook/error-insight/route.ts'),
+      'utf8',
+    );
+
+    expect(source).toContain('buildGitHubDispatchRequest');
+    expect(source).toContain('ERROR_INSIGHT_RECEIVER_TOKEN');
+    expect(source).toContain('ERROR_INSIGHT_GITHUB_TOKEN');
+  });
 });

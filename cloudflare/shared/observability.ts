@@ -1,3 +1,4 @@
+import { buildWorkerExceptionProperties, resolveWorkerActorContext } from './error-context';
 import { capturePostHogEvent } from './posthog';
 import { redactLogFields } from './redaction';
 
@@ -78,6 +79,7 @@ export async function reportErrorInsight(input: {
 function schedulePostHogCapture(
   input: RequestObservationInput,
   event: string,
+  distinctId: string,
   properties: LogFields,
 ): void {
   const { apiKey, host, waitUntil } = input.posthog ?? {};
@@ -88,7 +90,7 @@ function schedulePostHogCapture(
       apiKey,
       host,
       event,
-      distinctId: input.service,
+      distinctId,
       properties,
     }).catch(() => undefined),
   );
@@ -140,6 +142,7 @@ export async function observeWorkerRequest(input: RequestObservationInput): Prom
   const now = input.now ?? Date.now;
   const startedAt = now();
   const context = requestContext(input.request);
+  const actor = await resolveWorkerActorContext(input.request, input.service);
 
   try {
     const response = await input.handler();
@@ -165,7 +168,8 @@ export async function observeWorkerRequest(input: RequestObservationInput): Prom
         durationMs,
       },
     });
-    schedulePostHogCapture(input, 'worker_http_request_completed', {
+    schedulePostHogCapture(input, 'worker_http_request_completed', actor.distinctId, {
+      actorType: actor.actorType,
       service: input.service,
       requestId: context.requestId,
       traceId: context.traceId,
@@ -204,10 +208,18 @@ export async function observeWorkerRequest(input: RequestObservationInput): Prom
       fields: errorFields,
     }).catch(() => undefined);
     input.errorInsight?.waitUntil?.(insight);
-    schedulePostHogCapture(input, '$exception', {
+    schedulePostHogCapture(input, '$exception', actor.distinctId, {
       ...errorFields,
-      $exception_message: error instanceof Error ? error.message : String(error),
-      $exception_type: error instanceof Error ? error.name : 'UnknownError',
+      ...buildWorkerExceptionProperties({
+        error,
+        service: input.service,
+        actorType: actor.actorType,
+        requestId: context.requestId,
+        traceId: context.traceId,
+        deploySha: input.deploySha ?? 'unknown',
+        method: input.request.method,
+        path: new URL(input.request.url).pathname,
+      }),
     });
     throw error;
   }

@@ -5,9 +5,23 @@ import {
   observeWorkerRequest,
   redactLogFields,
 } from '@/cloudflare/shared/observability';
+import { resolveWorkerActorContext } from '@/cloudflare/shared/error-context';
 import { buildPostHogCaptureRequest, capturePostHogEvent } from '@/cloudflare/shared/posthog';
 
 describe('Cloudflare Worker observability', () => {
+  it('hashes authenticated actor context before analytics capture', async () => {
+    const actor = await resolveWorkerActorContext(
+      new Request('https://worker.test/internal/run', {
+        headers: { 'x-ops-user-id': '11111111-1111-4111-8111-111111111111' },
+      }),
+      'test-worker',
+    );
+
+    expect(actor.actorType).toBe('authenticated_ops');
+    expect(actor.distinctId).toMatch(/^ops:[0-9a-f]{32}$/u);
+    expect(actor.distinctId).not.toContain('11111111');
+  });
+
   it('builds a PII-safe PostHog usage event with trace and deployment context', async () => {
     const request = buildPostHogCaptureRequest({
       apiKey: 'phc_project_key',
@@ -144,10 +158,18 @@ describe('Cloudflare Worker observability', () => {
       await expect(new Response(fetcher.mock.calls[0]?.[1]?.body).json()).resolves.toMatchObject({
         event: '$exception',
         properties: {
-          distinct_id: 'test-worker',
+          distinct_id: 'test-worker:anonymous',
           deploySha: 'abc123',
-          $exception_message: 'provider unavailable',
-          $exception_type: 'Error',
+          actorType: 'anonymous',
+          $exception_list: [
+            {
+              type: 'Error',
+              value: 'provider unavailable',
+              mechanism: { handled: false, type: 'middleware' },
+            },
+          ],
+          $exception_level: 'error',
+          $breadcrumbs: [{ category: 'http.request', level: 'error' }],
         },
       });
     } finally {

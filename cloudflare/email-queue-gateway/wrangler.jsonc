@@ -1,6 +1,7 @@
 {
   "name": "nabatable-email-queue-gateway",
   "main": "src/index.ts",
+  "upload_source_maps": true,
   "compatibility_date": "2026-03-23",
   "workers_dev": true,
   "version_metadata": {
@@ -34,6 +35,7 @@
   ],
   "vars": {
     "POSTHOG_HOST": "https://eu.i.posthog.com",
+    "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
   },
   "observability": {
     "enabled": true,

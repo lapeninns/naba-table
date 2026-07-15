@@ -44,7 +44,7 @@
     "test:ci:workspaces": "pnpm --filter '@nabatable/*' -r test:ci",
     "build:workspaces": "pnpm --filter '@nabatable/*' -r build",
     "verify:workspaces": "pnpm --filter '@nabatable/*' -r verify",
-    "format:check": "prettier --check AGENTS.md CHANGELOG.md package.json pnpm-workspace.yaml tsconfig.json tsconfig.strict.json tsconfig.worker.json typedoc.json .size-limit.json '.devcontainer/**/*.{json,Dockerfile}' '.factory/**/*.{json,yaml,md}' '.github/**/*.{yml,yaml,md}' 'cloudflare/**/*.{ts,json,yaml,md}' 'config/feature-flags.json' 'config/quality/**/*.{json,yaml}' 'docs/testing/**/*.md' 'docs/security/dast.md' 'docs/profiling.md' 'scripts/governance/**/*.ts' 'scripts/quality/**/*.ts' 'tests/cloudflare/*.test.ts' 'tests/scripts/*.test.ts'",
+    "format:check": "prettier --check AGENTS.md CHANGELOG.md package.json pnpm-workspace.yaml tsconfig.json tsconfig.strict.json tsconfig.worker.json typedoc.json .size-limit.json '.devcontainer/**/*.{json,Dockerfile}' '.factory/**/*.{json,yaml,md}' '.github/**/*.{yml,yaml,md}' 'cloudflare/**/*.{ts,json,yaml,md}' 'config/env.schema.ts' 'config/eslint/**/*.mjs' 'config/feature-flags.json' 'config/quality/**/*.{json,yaml}' 'docs/testing/**/*.md' 'docs/security/dast.md' 'docs/profiling.md' 'lib/observability/**/*.ts' 'src/proxy*.ts' 'src/app/api/webhook/error-insight/**/*.ts' 'scripts/governance/**/*.ts' 'scripts/quality/**/*.ts' 'tests/api/error-insight*.test.ts' 'tests/cloudflare/*.test.ts' 'tests/lib/observability/*.test.ts' 'tests/scripts/*.test.ts'",
     "format:write": "prettier --write .",
     "agents:validate": "tsx scripts/governance/validate-agents.ts",
     "openapi:validate": "tsx scripts/governance/validate-openapi.ts",

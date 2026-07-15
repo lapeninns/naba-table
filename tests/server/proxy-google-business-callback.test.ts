@@ -18,7 +18,7 @@ vi.mock('@/lib/security/csrf', () => ({
 }));
 
 import { APP_REQUEST_PATH_HEADER } from '@/lib/url/app-request-path';
-import { handleRouting } from '@/src/proxy';
+import proxy, { handleRouting } from '@/src/proxy';
 
 describe('proxy GBP callback public API routing', () => {
   beforeEach(() => {
@@ -141,5 +141,25 @@ describe('proxy GBP callback public API routing', () => {
     expect(response.status).toBe(308);
     expect(response.headers.get('location')).toBe('http://app.localhost/evil');
     expect(requireOpsAuthMock).not.toHaveBeenCalled();
+  });
+
+  it('propagates W3C trace and request identity through every matched root request', async () => {
+    const response = await proxy(
+      new NextRequest('http://localhost/api/events', {
+        headers: {
+          traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+          'x-request-id': 'request-123',
+        },
+      }),
+    );
+
+    expect(response.headers.get('traceparent')).toMatch(
+      /^00-4bf92f3577b34da6a3ce929d0e0e4736-[0-9a-f]{16}-01$/u,
+    );
+    expect(response.headers.get('x-request-id')).toBe('request-123');
+    expect(response.headers.get('server-timing')).toMatch(/^proxy;dur=\d+(?:\.\d+)?$/u);
+    expect(response.headers.get('x-middleware-request-traceparent')).toBe(
+      response.headers.get('traceparent'),
+    );
   });
 });

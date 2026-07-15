@@ -9,10 +9,12 @@ function randomHex(length: number): string {
   return value.slice(0, length);
 }
 
-function buildTraceContext(request: Request): {
+export type HttpTraceContext = {
   requestId: string;
   traceparent: string;
-} {
+};
+
+export function createHttpTraceContext(request: Request): HttpTraceContext {
   const suppliedRequestId = request.headers.get('x-request-id');
   const requestId =
     suppliedRequestId && SAFE_REQUEST_ID_PATTERN.test(suppliedRequestId)
@@ -27,18 +29,27 @@ function buildTraceContext(request: Request): {
   };
 }
 
+export function applyHttpTraceHeaders(
+  headers: Headers,
+  context: HttpTraceContext,
+  durationMs: number,
+  metric = 'app',
+): void {
+  headers.set('x-request-id', context.requestId);
+  headers.set('traceparent', context.traceparent);
+  headers.set('server-timing', `${metric};dur=${Math.max(0, durationMs)}`);
+}
+
 export async function observeHttpRequest(
   request: Request,
   handler: () => Promise<Response>,
   now: () => number = Date.now,
 ): Promise<Response> {
   const startedAt = now();
-  const context = buildTraceContext(request);
+  const context = createHttpTraceContext(request);
   const response = await handler();
   const headers = new Headers(response.headers);
-  headers.set('x-request-id', context.requestId);
-  headers.set('traceparent', context.traceparent);
-  headers.set('server-timing', `app;dur=${Math.max(0, now() - startedAt)}`);
+  applyHttpTraceHeaders(headers, context, now() - startedAt);
 
   return new Response(response.body, {
     status: response.status,
