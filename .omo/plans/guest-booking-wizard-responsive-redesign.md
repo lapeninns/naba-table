@@ -112,7 +112,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Re-plan trigger: live main moved materially, deterministic states cannot be reached without product changes, or any fixture requires real guest/provider data.
      Commit: Y | `docs(booking): lock responsive redesign contract`
 
-- [ ] 2. Redesign `WizardLayout` under RED-GREEN-REFACTOR
+- [x] 2. Redesign `WizardLayout` under RED-GREEN-REFACTOR
      Task / method: Add RED tests for one mobile gutter, compact venue context, bounded readable desktop content, explicit normal-flow progress slot, surface-aware guest/ops spacing, and navigation-height-derived bottom/scroll padding. Implement the smallest compatible layout change; preserve main/div landmark semantics.
      Knowledge and why: verified nested gutters leave about 160px for inner controls at 320; `layoutSurface` currently owns outer shell only.
      Owned / forbidden: `reserve/features/reservations/wizard/ui/WizardLayout.tsx` and `tests/reserve/features/reservations/wizard/ui/WizardLayout.test.tsx`. Do not edit Container, Navigation, steps, hooks, or tokens.
@@ -124,7 +124,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-2/` with RED and GREEN logs.
      Commit: Y | `feat(booking): simplify responsive wizard layout`
 
-- [ ] 3. Redesign Navigation and mount-ready Progress under RED-GREEN-REFACTOR
+- [x] 3. Redesign Navigation and mount-ready Progress under RED-GREEN-REFACTOR
      Task / method: Add RED tests for sticky summary/actions without duplicate progress, mobile wrapping, full-width wrapped primary action, 44px actions, bounded/scrollable expanded summary on short screens, inert/Escape semantics, completed-step navigation before Confirmation, and height observer behavior. Make `WizardProgress` the accessible normal-flow progress presentation and keep Navigation compatible for integration.
      Knowledge and why: production progress is currently a circular meter in fixed Navigation; `WizardProgress` has no live renderer; expanded summary can cover short screens.
      Owned / forbidden: `WizardNavigation.tsx`, `WizardProgress.tsx`, their stories/tests, `tests/components/WizardNavigation-resize-observer.test.tsx`, `tests/components/WizardNavigation-summary-sheet.test.tsx`. Do not edit Container/Layout/steps/hooks.
@@ -136,7 +136,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-3/` with RED/GREEN and story render proof.
      Commit: Y | `feat(booking): clarify wizard progress and action rail`
 
-- [ ] 4. Flatten shared Step and Panel surfaces under RED-GREEN-REFACTOR
+- [x] 4. Flatten shared Step and Panel surfaces under RED-GREEN-REFACTOR
      Task / method: Add RED tests for a single primary step surface, semantic section grouping, guest/ops density hooks, 44px interaction affordance compatibility, focus visibility, and defined elevation tokens. Replace undefined shadow usages with existing token values and remove unnecessary nested-card styling without changing public component contracts.
      Knowledge and why: verified frame -> venue panel -> step card -> field cards causes cramped composition; shadow aliases are undefined in the live token graph.
      Owned / forbidden: `WizardStep.tsx`, `WizardPanel.tsx`, and their focused tests. Do not edit fields, Layout, Navigation, or global CSS.
@@ -147,7 +147,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-4/`.
      Commit: Y | `feat(booking): flatten wizard step surfaces`
 
-- [ ] 5. Align offline and loading skeleton geometry under RED-GREEN-REFACTOR
+- [x] 5. Align offline and loading skeleton geometry under RED-GREEN-REFACTOR
      Task / method: Add RED tests for accessible offline messaging/actions and skeleton structures that mirror the final venue/progress/step/rail geometry at small and wide layouts. Implement presentation-only changes using live utilities and defined elevations.
      Knowledge and why: state surfaces must be included in the responsive contract and skeletons must not preserve the old nested-card geometry.
      Owned / forbidden: `WizardOfflineBanner.tsx`, `WizardSkeletons.tsx`, and focused tests. Do not edit networking/hooks, retry behavior, shell files, or tokens.
