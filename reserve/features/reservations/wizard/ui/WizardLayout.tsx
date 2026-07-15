@@ -55,6 +55,9 @@ export function WizardLayout({
   const Container = elementType === 'div' ? 'div' : 'main';
   const footerOffset = stickyVisible ? stickyHeight : 0;
   const isOpsSurface = surface === 'ops';
+  const trailingClearance = isOpsSurface
+    ? 'var(--pg-grid-gap)'
+    : 'calc(var(--pg-touch-target) * 3)';
   const focusRecheckFrame = React.useRef<number | null>(null);
 
   React.useEffect(
@@ -93,7 +96,7 @@ export function WizardLayout({
     <>
       <Container
         style={{
-          paddingBottom: `calc(1.5rem + ${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
+          paddingBottom: `calc(${trailingClearance} + ${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
           scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
         }}
         onFocusCapture={handleFocusCapture}
