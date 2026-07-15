@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
-const templateKeys = [
+const guestTemplateKeys = [
   'bookingConfirmation',
   'bookingUpdate',
   'bookingCancellation',
   'restaurantCancellation',
   'reviewRequest',
 ] as const;
+
+const templateKeys = [...guestTemplateKeys, 'managerDailySummary'] as const;
 
 type TemplateKey = (typeof templateKeys)[number];
 
@@ -47,8 +49,177 @@ const reviewTemplateSchema = z.object({
   }),
 });
 
+const guestTemplateRequestSchema = z
+  .object({
+    friendly_name: z.string(),
+    language: z.string(),
+    variables: z.record(z.string(), z.string()),
+    types: z.union([
+      z
+        .object({
+          'twilio/call-to-action': z
+            .object({
+              body: z.string(),
+              actions: z.array(
+                z.object({
+                  type: z.string(),
+                  title: z.string(),
+                  url: z.string(),
+                }),
+              ),
+            })
+            .strict(),
+        })
+        .strict(),
+      z
+        .object({
+          'twilio/text': z.object({ body: z.string() }).strict(),
+        })
+        .strict(),
+    ]),
+  })
+  .strict();
+
+const guestTemplateRequestsSchema = z
+  .object({
+    bookingConfirmation: guestTemplateRequestSchema,
+    bookingUpdate: guestTemplateRequestSchema,
+    bookingCancellation: guestTemplateRequestSchema,
+    restaurantCancellation: guestTemplateRequestSchema,
+    reviewRequest: guestTemplateRequestSchema,
+  })
+  .strict();
+
+const whatsappTemplateRequestsSchema = z
+  .object({
+    bookingConfirmation: guestTemplateRequestSchema,
+    bookingUpdate: guestTemplateRequestSchema,
+    bookingCancellation: guestTemplateRequestSchema,
+    restaurantCancellation: guestTemplateRequestSchema,
+    reviewRequest: guestTemplateRequestSchema,
+    managerDailySummary: guestTemplateRequestSchema,
+  })
+  .strict();
+
 const reviewBody =
   'Thanks for visiting {{1}}.\n\nWe hope you enjoyed your visit. Your feedback helps our team and future guests.\n\nTap below to leave a quick review.\n\nThank you for supporting us.';
+
+export const GUEST_TEMPLATE_REQUESTS = {
+  bookingConfirmation: {
+    friendly_name: 'nabatable_booking_confirmation_20260714_v3',
+    language: 'en',
+    variables: {
+      '1': 'The Old Crown Girton',
+      '2': 'Sat, 18 Jul 2026 at 19:00 | 4 guests',
+      '3': 'Reference: NBT-1234',
+      '4': 'https://go.nabatable.com/m/secure-token',
+      '5': 'm/secure-token',
+    },
+    types: {
+      'twilio/call-to-action': {
+        body: 'Booking confirmed at {{1}}\n\n{{2}}\n{{3}}\n\nUse the button below to manage or cancel your booking.\nIf the button is unavailable, use this secure link: {{4}}\n\nWe look forward to seeing you.',
+        actions: [
+          {
+            type: 'URL',
+            title: 'Manage booking',
+            url: 'https://go.nabatable.com/{{5}}',
+          },
+        ],
+      },
+    },
+  },
+  bookingUpdate: {
+    friendly_name: 'nabatable_booking_update_20260714_v3',
+    language: 'en',
+    variables: {
+      '1': 'The Old Crown Girton',
+      '2': 'Sat, 18 Jul 2026 at 19:30 | 4 guests',
+      '3': 'Reference: NBT-1234',
+      '4': 'https://go.nabatable.com/m/update-token',
+      '5': 'm/update-token',
+    },
+    types: {
+      'twilio/call-to-action': {
+        body: 'Your booking at {{1}} has been updated.\n\n{{2}}\n{{3}}\n\nUse the button below to review or manage the latest details.\nIf the button is unavailable, use this secure link: {{4}}\n\nPlease check everything looks right before your visit.',
+        actions: [
+          {
+            type: 'URL',
+            title: 'Review booking',
+            url: 'https://go.nabatable.com/{{5}}',
+          },
+        ],
+      },
+    },
+  },
+  bookingCancellation: {
+    friendly_name: 'nabatable_booking_cancellation_20260714_v3',
+    language: 'en',
+    variables: {
+      '1': 'The Old Crown Girton',
+      '2': 'Sat, 18 Jul 2026 at 19:00 | 4 guests',
+      '3': 'Reference: NBT-1234',
+      '4': 'Contact: 01223 000000',
+    },
+    types: {
+      'twilio/text': {
+        body: 'Your booking at {{1}} has been cancelled as requested.\n\n{{2}}\n{{3}}\n\nNeed help?\n{{4}}\n\nWe hope to welcome you another time.',
+      },
+    },
+  },
+  restaurantCancellation: {
+    friendly_name: 'nabatable_restaurant_cancellation_20260714_v3',
+    language: 'en',
+    variables: {
+      '1': 'The Old Crown Girton',
+      '2': 'Sat, 18 Jul 2026 at 19:00 | 4 guests',
+      '3': 'Reference: NBT-1234',
+      '4': 'Contact: 01223 000000',
+    },
+    types: {
+      'twilio/text': {
+        body: 'We’re sorry, {{1}} has had to cancel your booking.\n\n{{2}}\n{{3}}\n\nIf you would like help finding another time:\n{{4}}\n\nWe apologise for the inconvenience.',
+      },
+    },
+  },
+  reviewRequest: {
+    friendly_name: 'nabatable_post_visit_review_20260714_v4',
+    language: 'en',
+    variables: {
+      '1': 'The Old Crown Girton',
+      '2': 'm/review-sample',
+    },
+    types: {
+      'twilio/call-to-action': {
+        body: 'Thank you for visiting {{1}}.\n\nWe hope you enjoyed your visit. Your feedback helps the team and future guests.\n\nTap the button below to leave a quick review.\n\nThank you for your support.',
+        actions: [
+          {
+            type: 'URL',
+            title: 'Leave a review',
+            url: 'https://go.nabatable.com/{{2}}',
+          },
+        ],
+      },
+    },
+  },
+} as const;
+
+export const MANAGER_DAILY_SUMMARY_TEMPLATE_REQUEST = {
+  friendly_name: 'nabatable_manager_daily_summary_20260714_v3',
+  language: 'en',
+  variables: {
+    '1': 'The Old Crown Girton: Today 8 bookings, 24 covers. Lunch 3 bookings / 8 covers. Dinner 5 bookings / 16 covers. app.nabatable.com',
+  },
+  types: {
+    'twilio/text': {
+      body: 'Your daily booking summary is ready.\n\n{{1}}\n\nOpen Nabatable to review today’s bookings and prepare for service.\n\nYou’re receiving this because daily summaries are enabled in your restaurant notification settings.',
+    },
+  },
+} as const;
+
+export const WHATSAPP_TEMPLATE_REQUESTS = {
+  ...GUEST_TEMPLATE_REQUESTS,
+  managerDailySummary: MANAGER_DAILY_SUMMARY_TEMPLATE_REQUEST,
+} as const;
 
 export const REVIEW_TEMPLATE_REQUEST = {
   friendly_name: 'nabatable_post_visit_review_20260713_v3',
@@ -70,6 +241,63 @@ export const REVIEW_TEMPLATE_REQUEST = {
     },
   },
 } as const;
+
+export function validateGuestTemplateRequests(input: unknown): readonly string[] {
+  const parsed = guestTemplateRequestsSchema.safeParse(input);
+  if (!parsed.success) {
+    return ['Guest template requests do not match the provider schema.'];
+  }
+
+  return validateTemplateRequests(parsed.data, guestTemplateKeys, GUEST_TEMPLATE_REQUESTS);
+}
+
+export function validateWhatsAppTemplateRequests(input: unknown): readonly string[] {
+  const parsed = whatsappTemplateRequestsSchema.safeParse(input);
+  if (!parsed.success) {
+    return ['WhatsApp template requests do not match the provider schema.'];
+  }
+
+  return validateTemplateRequests(parsed.data, templateKeys, WHATSAPP_TEMPLATE_REQUESTS);
+}
+
+function validateTemplateRequests<Key extends TemplateKey>(
+  requests: Readonly<Record<Key, z.infer<typeof guestTemplateRequestSchema>>>,
+  keys: readonly Key[],
+  expectedRequests: Readonly<Record<Key, unknown>>,
+): readonly string[] {
+  const blockers: string[] = [];
+  for (const key of keys) {
+    const request = requests[key];
+    const expected = expectedRequests[key];
+    if (JSON.stringify(request) !== JSON.stringify(expected)) {
+      blockers.push(`${key} request does not match the approved contract.`);
+    }
+
+    const content = request.types;
+    const body =
+      'twilio/call-to-action' in content
+        ? content['twilio/call-to-action'].body
+        : content['twilio/text'].body;
+    if (/^\s*{{\d+}}|{{\d+}}\s*$/.test(body)) {
+      blockers.push(`${key} body must not start or end with a variable.`);
+    }
+
+    const actionUrls =
+      'twilio/call-to-action' in content
+        ? content['twilio/call-to-action'].actions.map((action) => action.url).join('\n')
+        : '';
+    const referencedVariables = new Set(
+      [...`${body}\n${actionUrls}`.matchAll(/{{(\d+)}}/g)].map((match) => match[1]),
+    );
+    for (const variable of referencedVariables) {
+      if (!request.variables[variable]?.trim()) {
+        blockers.push(`${key} variable {{${variable}}} requires a provider sample.`);
+      }
+    }
+  }
+
+  return blockers;
+}
 
 export function validateReviewTemplateRequest(_input: unknown): readonly string[] {
   const parsed = reviewTemplateSchema.safeParse(_input);

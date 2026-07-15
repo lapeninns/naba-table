@@ -1,0 +1,128 @@
+{
+  "schema": 2,
+  "release_id": "guest-whatsapp-template-refresh-20260714",
+  "captured_at": "2026-07-15T18:38:01Z",
+  "provider": "twilio_content_api",
+  "production_changed": true,
+  "release_ready": true,
+  "blocker": null,
+  "rollback_set": {
+    "bookingConfirmation": "HX78688ba4f6738f6fc3a8208c300ac911",
+    "bookingUpdate": "HXa2ff8bb1dfe84884e93ed3d00b8aa1d4",
+    "bookingCancellation": "HXbc2317fae04cde871d5fb697d40cfe7f",
+    "restaurantCancellation": "HX1502dce2894a886555e35de67412f474",
+    "reviewRequest": "HXb492923d7284f0fa2409917dd7d7b9a8",
+    "managerDailySummary": "HX6e65d006f4d22435c232bb6e734a2e3b"
+  },
+  "successors": {
+    "bookingConfirmation": {
+      "sid": "HX6bb3e3f887c1c4b6b5e8845d39809dcf",
+      "name": "nabatable_booking_confirmation_20260714_v3",
+      "status": "approved",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "bookingUpdate": {
+      "sid": "HX7e02e24d5388b8bacff056ded58bb650",
+      "name": "nabatable_booking_update_20260714_v3",
+      "status": "approved",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "bookingCancellation": {
+      "sid": "HX2f3552a7707960ac7366315ae49001c7",
+      "name": "nabatable_booking_cancellation_20260714_v3",
+      "status": "approved",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "restaurantCancellation": {
+      "sid": "HXc7b06cc3140ca09aa36950e2bab576f8",
+      "name": "nabatable_restaurant_cancellation_20260714_v3",
+      "status": "approved",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "reviewRequest": {
+      "sid": "HX2c2b80e61c40c01ffee2d7f6984ebe65",
+      "name": "nabatable_post_visit_review_20260714_v4",
+      "status": "approved",
+      "category": "MARKETING",
+      "rejection_reason": "",
+      "exact_source_match": true
+    },
+    "managerDailySummary": {
+      "sid": "HX390b4df2d0c62661510a1c2ade185be7",
+      "name": "nabatable_manager_daily_summary_20260714_v3",
+      "status": "approved",
+      "category": "UTILITY",
+      "rejection_reason": "",
+      "exact_source_match": true
+    }
+  },
+  "production": {
+    "deployment_id": "dpl_47i5MUxtQyoTKK2jZD5Ymmh7x8vX",
+    "deployment_url": "https://nabatable-ocisoaeve-lapen-inns-projects.vercel.app",
+    "alias": "https://app.nabatable.com",
+    "status": "ready",
+    "health": {
+      "status": "healthy",
+      "database": "connected",
+      "version": "954873d242e87acd25ca1cc22d1b45507946aa22"
+    },
+    "all_six_content_sids_verified": true,
+    "rollback_set_preserved": true
+  },
+  "controlled_delivery": {
+    "recipient": "redacted_authorised_test_handset",
+    "messages": {
+      "bookingConfirmation": {
+        "message_sid": "MM0ee728a0b0350d3952e0e472b569eb41",
+        "status": "delivered"
+      },
+      "bookingUpdate": {
+        "message_sid": "MMda8807877d5e10642bf5f9cd00e5a9e3",
+        "status": "delivered"
+      },
+      "bookingCancellation": {
+        "message_sid": "MM7f0a22276062a21dd9786dca74a03523",
+        "status": "delivered"
+      },
+      "restaurantCancellation": {
+        "message_sid": "MMf662ba833a779b1764b990c18e4a86cf",
+        "status": "delivered"
+      },
+      "reviewRequest": {
+        "message_sid": "MMf9de9ef1a95599cb5ed72c11fb925b75",
+        "status": "delivered"
+      },
+      "managerDailySummary": {
+        "message_sid": "MMb0bc99173c819944aff0032e3bc60067",
+        "status": "delivered"
+      }
+    },
+    "error_codes": [],
+    "native_action_origins_verified": [
+      "https://go.nabatable.com/{{5}}",
+      "https://go.nabatable.com/{{2}}"
+    ]
+  },
+  "verification": {
+    "focused_contract_tests": "19 passed",
+    "full_vitest": "1247 files; 5964 passed; 5 skipped",
+    "lint": "passed with existing warnings",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "background_workers": "19 files; 125 passed; mock mutation mode",
+    "post_merge_verify": "passed: 1228 files; 5828 tests passed; 5 skipped; workspace coverage, lint, strict typecheck, dead-code, and duplication gates passed"
+  },
+  "privacy": {
+    "credentials_recorded": false,
+    "phone_numbers_recorded": false,
+    "recipient_pii_recorded": false
+  }
+}
