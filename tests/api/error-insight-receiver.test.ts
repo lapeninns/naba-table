@@ -5,7 +5,7 @@ import { POST } from '@/src/app/api/webhook/error-insight/route';
 
 const payload = {
   timestamp: '2026-07-15T16:00:00.000Z',
-  service: 'nabatable-booking-short-links',
+  service: 'booking-short-links',
   event: 'http.request.failed',
   fields: {
     traceId: 'trace-123',
@@ -48,11 +48,11 @@ describe('error insight webhook receiver', () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     const dispatchBody = await new Response(fetcher.mock.calls[0]?.[1]?.body).json();
     expect(dispatchBody).toMatchObject({
-      event_type: 'worker-error',
+      event_type: 'runtime-error',
       client_payload: {
-        service: 'nabatable-booking-short-links',
+        service: 'booking-short-links',
         trace_id: 'trace-123',
-        fingerprint: 'nabatable-booking-short-links:POST:/internal/links',
+        fingerprint: 'booking-short-links:POST:/internal/links',
       },
     });
     expect(JSON.stringify(dispatchBody)).not.toContain('provider unavailable');

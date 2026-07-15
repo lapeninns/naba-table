@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { logger } from '@/lib/logger';
+import { buildGitHubDispatchRequest, parseErrorInsight } from '@/lib/observability/error-insight';
+import { stripUrlQueryAndHash } from '@/lib/security/url-redaction';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 
 import type { NextRequest } from 'next/server';
@@ -8,6 +10,7 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const MAX_CLIENT_ERROR_BODY_BYTES = 16 * 1024;
+const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/u;
 
 type ClientErrorPayload = {
   bookingId: string | null;
@@ -62,6 +65,37 @@ function parseClientErrorPayload(value: unknown): ClientErrorPayload | null {
   };
 }
 
+async function dispatchClientErrorInsight(
+  request: NextRequest,
+  clientError: ClientErrorPayload,
+): Promise<void> {
+  const token = process.env.ERROR_INSIGHT_GITHUB_TOKEN?.trim() ?? '';
+  if (!token) return;
+
+  const requestId = request.headers.get('x-request-id') ?? crypto.randomUUID();
+  const traceId =
+    request.headers.get('traceparent')?.toLowerCase().match(TRACEPARENT_PATTERN)?.[1] ?? requestId;
+  const insight = parseErrorInsight({
+    service: 'nabatable-web',
+    event: 'web.client.failed',
+    fields: {
+      traceId,
+      requestId,
+      deploySha: process.env.VERCEL_GIT_COMMIT_SHA ?? 'unknown',
+      method: 'POST',
+      path: stripUrlQueryAndHash(clientError.path ?? '/unknown'),
+    },
+  });
+  if (!insight) return;
+
+  const dispatch = buildGitHubDispatchRequest(insight, {
+    token,
+    repository: process.env.ERROR_INSIGHT_GITHUB_REPOSITORY ?? 'lapeninns/nabatable',
+  });
+  const response = await fetch(dispatch.url, dispatch.init);
+  if (!response.ok) throw new Error(`GitHub dispatch returned ${response.status}.`);
+}
+
 export async function POST(req: NextRequest) {
   const rateLimit = await requireApiRateLimit({
     request: req,
@@ -105,6 +139,9 @@ export async function POST(req: NextRequest) {
     }
 
     logger.error('client error report', clientError);
+    await dispatchClientErrorInsight(req, clientError).catch((error) => {
+      logger.warn('client error insight dispatch failed', { error });
+    });
   } catch (error) {
     logger.error('client error report failed', { error });
   }

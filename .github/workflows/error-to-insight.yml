@@ -2,7 +2,7 @@ name: Error to insight
 
 on:
   repository_dispatch:
-    types: [posthog-error, worker-error]
+    types: [posthog-error, worker-error, runtime-error]
   workflow_dispatch:
     inputs:
       service:

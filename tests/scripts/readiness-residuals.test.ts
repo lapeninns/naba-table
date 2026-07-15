@@ -61,4 +61,23 @@ describe('residual readiness contracts', () => {
     expect(source).toContain('ERROR_INSIGHT_RECEIVER_TOKEN');
     expect(source).toContain('ERROR_INSIGHT_GITHUB_TOKEN');
   });
+
+  it('covers real Worker and web sources in the insight and pre-commit contracts @contract', () => {
+    const insightSource = readFileSync(
+      path.join(repositoryRoot, 'lib/observability/error-insight.ts'),
+      'utf8',
+    );
+    const clientErrorSource = readFileSync(
+      path.join(repositoryRoot, 'src/app/api/client-error/route.ts'),
+      'utf8',
+    );
+    const packageSource = readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8');
+
+    expect(insightSource).toContain("'booking-short-links'");
+    expect(insightSource).toContain("'email-queue-gateway'");
+    expect(insightSource).toContain("'sms-summary-gateway'");
+    expect(clientErrorSource).toContain("service: 'nabatable-web'");
+    expect(clientErrorSource).toContain('buildGitHubDispatchRequest');
+    expect(packageSource).toContain('cloudflare/**/*.{ts,tsx,js,jsx}');
+  });
 });

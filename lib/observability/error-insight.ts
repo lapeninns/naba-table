@@ -2,9 +2,10 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 const SERVICE_NAMES = [
-  'nabatable-booking-short-links',
-  'nabatable-email-queue-gateway',
-  'nabatable-sms-summary-gateway',
+  'booking-short-links',
+  'email-queue-gateway',
+  'sms-summary-gateway',
+  'nabatable-web',
 ] as const;
 
 const safeIdentifier = z
@@ -13,9 +14,9 @@ const safeIdentifier = z
   .min(1)
   .max(160)
   .regex(/^[A-Za-z0-9._:/-]+$/u);
-const workerEnvelopeSchema = z.object({
+const errorEnvelopeSchema = z.object({
   service: z.enum(SERVICE_NAMES),
-  event: z.literal('http.request.failed'),
+  event: z.enum(['http.request.failed', 'web.client.failed']),
   fields: z.object({
     traceId: safeIdentifier,
     deploySha: safeIdentifier,
@@ -30,7 +31,7 @@ const workerEnvelopeSchema = z.object({
   }),
 });
 
-export type WorkerErrorInsight = {
+export type ErrorInsight = {
   readonly service: (typeof SERVICE_NAMES)[number];
   readonly traceId: string;
   readonly deploySha: string;
@@ -40,8 +41,8 @@ export type WorkerErrorInsight = {
   readonly fingerprint: string;
 };
 
-export function parseWorkerErrorInsight(value: unknown): WorkerErrorInsight | null {
-  const parsed = workerEnvelopeSchema.safeParse(value);
+export function parseErrorInsight(value: unknown): ErrorInsight | null {
+  const parsed = errorEnvelopeSchema.safeParse(value);
   if (!parsed.success) return null;
 
   const { service, fields } = parsed.data;
@@ -71,7 +72,7 @@ export function isAuthorizedInsightRequest(
 }
 
 export function buildGitHubDispatchRequest(
-  insight: WorkerErrorInsight,
+  insight: ErrorInsight,
   config: { readonly token: string; readonly repository: string },
 ): { url: string; init: RequestInit } {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(config.repository)) {
@@ -90,7 +91,7 @@ export function buildGitHubDispatchRequest(
         'x-github-api-version': '2022-11-28',
       },
       body: JSON.stringify({
-        event_type: 'worker-error',
+        event_type: 'runtime-error',
         client_payload: {
           service: insight.service,
           trace_id: insight.traceId,

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import {
   buildGitHubDispatchRequest,
   isAuthorizedInsightRequest,
-  parseWorkerErrorInsight,
+  parseErrorInsight,
 } from '@/lib/observability/error-insight';
 
 import type { NextRequest } from 'next/server';
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const insight = parseWorkerErrorInsight(payload);
+  const insight = parseErrorInsight(payload);
   if (!insight) {
     return NextResponse.json({ error: 'Invalid error insight payload' }, { status: 400 });
   }
