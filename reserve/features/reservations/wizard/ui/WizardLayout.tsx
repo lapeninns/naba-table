@@ -17,6 +17,7 @@ interface WizardLayoutProps {
   /** Restaurant name to display at the top */
   restaurantName?: string;
   banner?: React.ReactNode;
+  progress?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   elementType?: 'main' | 'div';
@@ -31,6 +32,7 @@ export function WizardLayout({
   stickyVisible = false,
   restaurantName,
   banner,
+  progress,
   children,
   footer,
   elementType = 'main',
@@ -51,7 +53,7 @@ export function WizardLayout({
         }}
         className={cn(
           'w-full',
-          isOpsSurface ? 'py-0' : 'pg-page px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]',
+          isOpsSurface ? 'py-0' : 'pg-page py-[var(--pg-section-y-tight)]',
           'font-sans text-foreground',
           className,
         )}
@@ -61,31 +63,24 @@ export function WizardLayout({
             scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
           }}
           className={cn(
-            'flex w-full flex-col gap-4 rounded-[calc(var(--pg-radius-xl)+0.5rem)] border border-border/70 bg-background/78 shadow-[var(--pg-shadow-sm)] backdrop-blur-sm sm:gap-5',
-            isOpsSurface ? 'p-3 sm:p-4 lg:p-5' : 'mx-auto max-w-6xl p-[var(--pg-gutter)]',
+            'flex w-full flex-col gap-4 sm:gap-5',
+            isOpsSurface ? 'p-3 sm:p-4 lg:p-5' : 'mx-auto max-w-3xl px-[var(--pg-gutter)]',
             contentClassName,
           )}
         >
           <span ref={heroRef} aria-hidden className="block h-px w-full" />
 
           {restaurantName && (
-            <header className="pg-panel border-border/80 bg-background/90 px-4 py-4 text-center shadow-[var(--pg-shadow-edge)] sm:px-5">
-              <div className="mx-auto flex max-w-xl flex-col items-center gap-3">
-                <div className="space-y-1">
-                  <p className="pg-kicker text-[0.66rem]">Book at</p>
-                  <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                    {restaurantName}
-                  </h1>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <p className="pg-chip">Live availability</p>
-                  <p className="pg-chip">Instant confirmation</p>
-                </div>
-              </div>
+            <header className="space-y-1 border-b border-border/70 pb-4 sm:pb-5">
+              <p className="pg-kicker">Book at</p>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+                {restaurantName}
+              </h1>
             </header>
           )}
 
           {banner ? <div>{banner}</div> : null}
+          {progress ? <div data-booking-wizard-progress-slot="">{progress}</div> : null}
           {children}
         </div>
       </Container>
