@@ -126,7 +126,7 @@ describe('ConfirmationStep', () => {
     expect(screen.getByText('Apr 14 2026 · 19:00')).toBeInTheDocument();
     expect(screen.getByText('4 guests')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Booking reference' })).toHaveClass(
-      'text-foreground',
+      '!text-foreground',
     );
     expect(screen.getByRole('region', { name: 'Booking reference' })).toHaveAttribute(
       'data-confirmation-status',

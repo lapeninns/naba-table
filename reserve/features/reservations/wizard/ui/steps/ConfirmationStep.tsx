@@ -65,7 +65,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
             className="pg-panel motion-safe:animate-in overflow-hidden motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-700"
           >
             <div className={REFERENCE_HEADER_CLASSES[status]}>
-              <h3 id={referenceHeadingId} className="pg-kicker text-foreground">
+              <h3 id={referenceHeadingId} className="pg-kicker !text-foreground">
                 Booking reference
               </h3>
               <p className="mt-1 font-[var(--pg-font-mono)] text-2xl font-semibold tracking-tight text-foreground [overflow-wrap:anywhere] sm:text-3xl">
