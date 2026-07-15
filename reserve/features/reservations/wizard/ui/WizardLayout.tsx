@@ -27,9 +27,23 @@ interface WizardLayoutProps {
   onFocusCapture?: React.FocusEventHandler<HTMLElement>;
 }
 
+function getFocusVisibleBottom(stickyHeight: number) {
+  const fallbackBoundary = window.innerHeight - stickyHeight;
+  const navigation = document.querySelector<HTMLElement>('[data-booking-wizard-navigation]');
+
+  if (!navigation) {
+    return fallbackBoundary;
+  }
+
+  const navigationTop = navigation.getBoundingClientRect().top;
+  return Number.isFinite(navigationTop) && navigationTop >= 0 && navigationTop <= window.innerHeight
+    ? navigationTop
+    : fallbackBoundary;
+}
+
 function scrollFocusedElementClearOfRail(target: HTMLElement, stickyHeight: number) {
   const focusedBounds = target.getBoundingClientRect();
-  const visibleBottom = window.innerHeight - stickyHeight;
+  const visibleBottom = getFocusVisibleBottom(stickyHeight);
   const isFocusClear = focusedBounds.top >= 0 && focusedBounds.bottom <= visibleBottom;
 
   if (!isFocusClear) {
