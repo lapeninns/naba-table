@@ -92,9 +92,9 @@ export function WizardStep({
   className,
   contentClassName,
   icon,
-  surface = 'guest',
+  surface,
 }: WizardStepProps) {
-  const { currentStep, totalSteps } = useWizardContext();
+  const { currentStep, totalSteps, layoutSurface } = useWizardContext();
   const isActive = currentStep === step;
   const stepRef = React.useRef<HTMLDivElement | null>(null);
   const titleId = React.useId();
@@ -117,22 +117,23 @@ export function WizardStep({
     return () => clearTimeout(timer);
   }, [isActive, step]);
 
-  const isOpsSurface = surface === 'ops';
+  const resolvedSurface = surface ?? layoutSurface;
+  const isOpsSurface = resolvedSurface === 'ops';
 
   return (
-    <WizardSurfaceProvider surface={surface}>
+    <WizardSurfaceProvider surface={resolvedSurface}>
       <section
         aria-labelledby={titleId}
         data-step={step}
         data-state={isActive ? 'active' : 'inactive'}
-        data-surface={surface}
+        data-surface={resolvedSurface}
         className={STEP_CONTAINER_CLASSES}
       >
         <Card
           ref={stepRef}
           tabIndex={-1}
           data-slot="wizard-step-surface"
-          data-surface={surface}
+          data-surface={resolvedSurface}
           className={cn(
             CARD_CLASSES,
             isActive && 'ring-1 ring-primary/30 ring-offset-2 ring-offset-background',

@@ -123,6 +123,55 @@ describe('WizardStep', () => {
     expect(panel.querySelector('[data-slot="wizard-panel-content"]')).toHaveClass('p-3', 'sm:p-4');
   });
 
+  it('inherits ops density from the integrated container surface @contract', () => {
+    render(
+      <WizardContainer
+        steps={steps}
+        currentStep={1}
+        actions={[]}
+        summary={{ primary: 'Dinner' }}
+        layoutSurface="ops"
+      >
+        <WizardStep step={1} title="Plan your table">
+          <WizardPanel aria-label="Inherited availability section">
+            <WizardPanelHeader title="Availability" />
+            <WizardPanelContent>Open tables</WizardPanelContent>
+          </WizardPanel>
+        </WizardStep>
+      </WizardContainer>,
+    );
+
+    const step = document.querySelector('section[data-step="1"]');
+    const panel = screen.getByRole('group', { name: 'Inherited availability section' });
+    expect(step).toHaveAttribute('data-surface', 'ops');
+    expect(panel).toHaveAttribute('data-surface', 'ops');
+    expect(panel.querySelector('[data-slot="wizard-panel-header"]')).toHaveClass('p-3', 'sm:p-4');
+  });
+
+  it('lets an explicit step surface override the container density @contract', () => {
+    render(
+      <WizardContainer
+        steps={steps}
+        currentStep={1}
+        actions={[]}
+        summary={{ primary: 'Dinner' }}
+        layoutSurface="ops"
+      >
+        <WizardStep step={1} title="Plan your table" surface="guest">
+          <WizardPanel aria-label="Guest override section">
+            <WizardPanelHeader title="Availability" />
+          </WizardPanel>
+        </WizardStep>
+      </WizardContainer>,
+    );
+
+    const step = document.querySelector('section[data-step="1"]');
+    const panel = screen.getByRole('group', { name: 'Guest override section' });
+    expect(step).toHaveAttribute('data-surface', 'guest');
+    expect(panel).toHaveAttribute('data-surface', 'guest');
+    expect(panel.querySelector('[data-slot="wizard-panel-header"]')).toHaveClass('p-4', 'sm:p-5');
+  });
+
   it('keeps the active step programmatically focusable with a visible focus treatment @a11y', () => {
     vi.useFakeTimers();
     renderInContainer(1, 1);
