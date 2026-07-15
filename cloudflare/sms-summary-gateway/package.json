@@ -1,0 +1,25 @@
+{
+  "name": "@nabatable/sms-summary-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "dev": "wrangler dev --local",
+    "lint": "eslint --max-warnings=0 src tests vitest.config.ts",
+    "test": "vitest run --config vitest.config.ts",
+    "test:ci": "vitest run --coverage --config vitest.config.ts --reporter=default --reporter=junit --outputFile.junit=test-results/vitest/junit.xml --slowTestThreshold=500",
+    "test:coverage": "vitest run --coverage --config vitest.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260715.1",
+    "@vitest/coverage-v8": "4.1.0",
+    "eslint": "9.39.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0",
+    "wrangler": "4.111.0"
+  }
+}

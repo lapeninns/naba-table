@@ -1,2 +1,7 @@
 packages:
   - .
+  - cloudflare/*
+
+# Hold newly published packages for 24 hours so compromised releases have time
+# to be detected and removed before normal dependency resolution can select them.
+minimumReleaseAge: 1440

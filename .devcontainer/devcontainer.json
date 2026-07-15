@@ -1,0 +1,21 @@
+{
+  "name": "Nabatable",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "forwardPorts": [3000, 8787, 8788, 8789],
+  "portsAttributes": {
+    "3000": { "label": "Nabatable web" },
+    "8787": { "label": "Booking short links" },
+    "8788": { "label": "Email queue gateway" },
+    "8789": { "label": "SMS summary gateway" }
+  },
+  "postCreateCommand": "corepack enable && pnpm install --frozen-lockfile",
+  "remoteUser": "node",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+    }
+  }
+}

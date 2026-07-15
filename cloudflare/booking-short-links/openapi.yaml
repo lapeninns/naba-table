@@ -1,0 +1,86 @@
+openapi: 3.1.0
+info:
+  title: Nabatable booking short-links API
+  version: 1.0.0
+  description: Internal link creation and public booking or review redirects.
+servers:
+  - url: https://go.nabatable.com
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Worker is healthy.
+  /internal/booking-links:
+    post:
+      operationId: createBookingLink
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShortLinkRequest'
+      responses:
+        '201':
+          description: Link created.
+        '400':
+          description: Invalid request.
+        '401':
+          description: Invalid service token.
+        '500':
+          description: Link creation failed.
+  /m/{token}:
+    get:
+      operationId: resolveManagementLink
+      parameters:
+        - $ref: '#/components/parameters/Token'
+      responses:
+        '302':
+          description: Redirect to the booking management destination.
+  /r/{token}:
+    get:
+      operationId: resolveReviewLink
+      parameters:
+        - $ref: '#/components/parameters/Token'
+      responses:
+        '302':
+          description: Redirect to the review destination.
+        '404':
+          description: Link not found.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Token:
+      name: token
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    CreateShortLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, destinationUrl, bookingId, expiresAt, createdBy]
+      properties:
+        purpose:
+          type: string
+          enum: [booking_manage, review]
+        destinationUrl:
+          type: string
+          format: uri
+        bookingId:
+          type: string
+        restaurantId:
+          type: [string, 'null']
+        expiresAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+          enum: [guest_confirmation_sms, guest_update_sms, guest_review_whatsapp]

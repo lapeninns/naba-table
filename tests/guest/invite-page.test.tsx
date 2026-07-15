@@ -22,6 +22,9 @@ vi.mock('@/server/team/invitations', () => ({
   findInviteByToken: findInviteByTokenMock,
   inviteHasExpired: inviteHasExpiredMock,
   markInviteExpired: markInviteExpiredMock,
+}));
+
+vi.mock('@/server/team/invite-context', () => ({
   resolveInviteContext: resolveInviteContextMock,
 }));
 

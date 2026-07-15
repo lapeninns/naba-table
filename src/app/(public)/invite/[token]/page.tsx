@@ -8,8 +8,8 @@ import {
   findInviteByToken,
   inviteHasExpired,
   markInviteExpired,
-  resolveInviteContext,
 } from '@/server/team/invitations';
+import { resolveInviteContext } from '@/server/team/invite-context';
 
 import type { Metadata } from 'next';
 

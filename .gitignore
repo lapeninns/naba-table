@@ -43,6 +43,12 @@ test_output*.log
 test_single_output.log
 test-results/
 playwright-report/
+coverage/
+.jscpd-report/
+docs/api/
+cloudflare/*/coverage/
+cloudflare/*/dist/
+cloudflare/*/.wrangler/
 
 # temporary directories
 tmp/

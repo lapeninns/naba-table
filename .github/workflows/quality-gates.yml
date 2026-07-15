@@ -1,0 +1,131 @@
+name: Readiness quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: test
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  QA_TARGET_ENV: ci-ephemeral
+  RESEND_API_KEY: test-resend-api-key
+  SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+  TZ: UTC
+
+jobs:
+  fast-gates:
+    name: Fast static gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate agent and API contracts
+        run: pnpm agents:validate && pnpm openapi:validate
+      - name: Validate repository governance
+        run: pnpm check:feature-flags && pnpm check:large-files
+      - name: Lint every application
+        run: pnpm lint && pnpm lint:workspaces
+      - name: Strict typecheck every application
+        run: pnpm typecheck && pnpm typecheck:strict && pnpm typecheck:workspaces
+      - name: Dead-code and import-cycle ratchet
+        run: pnpm quality:dead-code
+      - name: Duplicate-code ceiling
+        run: pnpm quality:duplicates
+      - name: Dependency vulnerability audit
+        run: pnpm audit --audit-level high
+
+  tests:
+    name: Coverage and performance evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Root coverage and timing report
+        run: pnpm test:ci
+      - name: Worker coverage and timing reports
+        run: pnpm test:ci:workspaces
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: test-evidence
+          path: |
+            coverage/
+            cloudflare/*/coverage/
+            test-results/
+            cloudflare/*/test-results/
+          if-no-files-found: error
+          retention-days: 14
+
+  build:
+    name: Build performance and bundle budgets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate API reference
+        run: pnpm docs:generate
+      - name: Build and enforce Worker budgets
+        run: pnpm quality:bundles
+      - name: Record build timing
+        run: |
+          start=$(date +%s)
+          pnpm build
+          end=$(date +%s)
+          mkdir -p test-results/build
+          printf '{"durationSeconds":%s,"commit":"%s"}\n' "$((end-start))" "$GITHUB_SHA" > test-results/build/timing.json
+      - name: Upload build evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build-evidence
+          path: |
+            test-results/build/
+            docs/api/
+          if-no-files-found: error
+          retention-days: 14

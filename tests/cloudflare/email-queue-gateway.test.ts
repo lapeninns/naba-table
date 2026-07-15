@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { routeGatewayRequest } from '@/cloudflare/email-queue-gateway/src/gateway-router.mjs';
+import { routeGatewayRequest } from '@/cloudflare/email-queue-gateway/src/gateway-router';
 
 type DurableObjectStub = {
   fetch: (request: Request) => Promise<Response>;

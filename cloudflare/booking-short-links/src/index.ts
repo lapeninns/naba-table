@@ -1,3 +1,4 @@
+import { createCircuitBreaker } from './circuit-breaker';
 import { SERVICE_NAME, type CreateShortLinkRequest, type ShortLinkRecord } from './contracts';
 import {
   createBookingShortLink,
@@ -7,6 +8,7 @@ import {
   validateShortLinkRequest,
 } from './core';
 import { createShortLinkRepository } from './storage';
+import { observeWorkerRequest, writeStructuredLog } from '../../shared/observability';
 
 type WorkerEnv = {
   BOOKING_SHORT_LINKS_DB: {
@@ -26,7 +28,17 @@ type WorkerEnv = {
   BOOKING_SITE_URL: string;
   ALLOWED_DESTINATION_HOSTS?: string;
   ALLOWED_REVIEW_DESTINATION_HOSTS?: string;
+  DEPLOY_SHA?: string;
+  ERROR_INSIGHT_TOKEN?: string;
+  ERROR_INSIGHT_WEBHOOK_URL?: string;
+  CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 };
+
+const storageCircuitBreaker = createCircuitBreaker({
+  failureThreshold: 5,
+  cooldownMs: 30_000,
+  timeoutMs: 2_000,
+});
 
 function json(data: unknown, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
@@ -64,105 +76,137 @@ async function readJsonBody<T>(request: Request): Promise<T | null> {
   }
 }
 
-const worker = {
-  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
-    const url = new URL(request.url);
-    const repository = createShortLinkRepository({
-      db: env.BOOKING_SHORT_LINKS_DB,
-      cache: env.BOOKING_SHORT_LINKS_CACHE,
-    });
+async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
+  const url = new URL(request.url);
+  const repository = createShortLinkRepository({
+    db: env.BOOKING_SHORT_LINKS_DB,
+    cache: env.BOOKING_SHORT_LINKS_CACHE,
+  });
 
-    if (request.method === 'GET' && url.pathname === '/health') {
-      return json({
-        status: 'ok',
-        service: SERVICE_NAME,
-      });
+  if (request.method === 'GET' && url.pathname === '/health') {
+    return json({
+      status: 'ok',
+      service: SERVICE_NAME,
+    });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/internal/booking-links') {
+    if (!isAuthorized(request, env.INTERNAL_LINKS_TOKEN)) {
+      return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (request.method === 'POST' && url.pathname === '/internal/booking-links') {
-      if (!isAuthorized(request, env.INTERNAL_LINKS_TOKEN)) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    const body = await readJsonBody<CreateShortLinkRequest>(request);
+    if (!body) {
+      return json({ error: 'Invalid JSON body.' }, { status: 400 });
+    }
 
-      const body = await readJsonBody<CreateShortLinkRequest>(request);
-      if (!body) {
-        return json({ error: 'Invalid JSON body.' }, { status: 400 });
-      }
+    const allowedHosts = parseAllowedHosts(env.ALLOWED_DESTINATION_HOSTS);
+    const allowedReviewHosts = parseAllowedReviewHosts(env.ALLOWED_REVIEW_DESTINATION_HOSTS);
+    const validation = validateShortLinkRequest(body, allowedHosts, allowedReviewHosts);
+    if (!validation.ok) {
+      return json({ error: validation.error }, { status: 400 });
+    }
 
-      const allowedHosts = parseAllowedHosts(env.ALLOWED_DESTINATION_HOSTS);
-      const allowedReviewHosts = parseAllowedReviewHosts(env.ALLOWED_REVIEW_DESTINATION_HOSTS);
-      const validation = validateShortLinkRequest(body, allowedHosts, allowedReviewHosts);
-      if (!validation.ok) {
-        return json({ error: validation.error }, { status: 400 });
-      }
-
-      try {
-        const result = await createBookingShortLink({
+    try {
+      const result = await storageCircuitBreaker.execute(() =>
+        createBookingShortLink({
           repository,
           request: {
             ...body,
             destinationUrl: validation.destinationUrl.toString(),
           },
           shortBaseUrl: env.SHORT_LINKS_PUBLIC_BASE_URL,
-        });
+        }),
+      );
 
-        return json(result, { status: 201 });
-      } catch (error) {
-        console.error('[booking-short-links] failed to create link', {
+      writeStructuredLog({
+        level: 'info',
+        event: 'product.booking_short_link.created',
+        service: SERVICE_NAME,
+        fields: { purpose: body.purpose, createdBy: body.createdBy },
+      });
+
+      return json(result, { status: 201 });
+    } catch (error) {
+      writeStructuredLog({
+        level: 'error',
+        event: 'booking_short_link.create_failed',
+        service: SERVICE_NAME,
+        fields: {
           bookingId: body.bookingId,
           createdBy: body.createdBy,
           error: error instanceof Error ? error.message : String(error),
-        });
+        },
+      });
 
-        return json({ error: 'Failed to create short link.' }, { status: 500 });
-      }
+      return json({ error: 'Failed to create short link.' }, { status: 500 });
+    }
+  }
+
+  if (request.method === 'GET' && url.pathname.startsWith('/m/')) {
+    const token = url.pathname.slice('/m/'.length).trim();
+    if (!token) {
+      return Response.redirect(
+        buildRecoverErrorRedirect(env.BOOKING_SITE_URL, 'INVALID_ACCESS_TOKEN'),
+        302,
+      );
     }
 
-    if (request.method === 'GET' && url.pathname.startsWith('/m/')) {
-      const token = url.pathname.slice('/m/'.length).trim();
-      if (!token) {
-        return Response.redirect(
-          buildRecoverErrorRedirect(env.BOOKING_SITE_URL, 'INVALID_ACCESS_TOKEN'),
-          302,
-        );
-      }
-
-      const result = await resolveBookingShortLink({
+    const result = await storageCircuitBreaker.execute(() =>
+      resolveBookingShortLink({
         repository,
         token,
         purpose: 'booking_manage',
-      });
+      }),
+    );
 
-      if (result.status === 'redirect') {
-        return Response.redirect(result.record.destinationUrl, 302);
-      }
-
-      const code = result.status === 'expired' ? 'INVALID_ACCESS_TOKEN' : 'INVALID_ACCESS_TOKEN';
-      return Response.redirect(buildRecoverErrorRedirect(env.BOOKING_SITE_URL, code), 302);
-    }
-
-    if (request.method === 'GET' && url.pathname.startsWith('/r/')) {
-      const token = url.pathname.slice('/r/'.length).trim();
-      if (!isOpaqueToken(token)) {
-        return json({ error: 'Not found' }, { status: 404 });
-      }
-
-      const result = await resolveBookingShortLink({ repository, token, purpose: 'review' });
-      if (result.status !== 'redirect') {
-        return json({ error: 'Not found' }, { status: 404 });
-      }
-
+    if (result.status === 'redirect') {
       return Response.redirect(result.record.destinationUrl, 302);
     }
 
-    if (request.method === 'GET' && url.pathname === '/') {
-      return json({
-        service: SERVICE_NAME,
-        status: 'ok',
-      });
+    const code = result.status === 'expired' ? 'INVALID_ACCESS_TOKEN' : 'INVALID_ACCESS_TOKEN';
+    return Response.redirect(buildRecoverErrorRedirect(env.BOOKING_SITE_URL, code), 302);
+  }
+
+  if (request.method === 'GET' && url.pathname.startsWith('/r/')) {
+    const token = url.pathname.slice('/r/'.length).trim();
+    if (!isOpaqueToken(token)) {
+      return json({ error: 'Not found' }, { status: 404 });
     }
 
-    return json({ error: 'Not found' }, { status: 404 });
+    const result = await storageCircuitBreaker.execute(() =>
+      resolveBookingShortLink({ repository, token, purpose: 'review' }),
+    );
+    if (result.status !== 'redirect') {
+      return json({ error: 'Not found' }, { status: 404 });
+    }
+
+    return Response.redirect(result.record.destinationUrl, 302);
+  }
+
+  if (request.method === 'GET' && url.pathname === '/') {
+    return json({
+      service: SERVICE_NAME,
+      status: 'ok',
+    });
+  }
+
+  return json({ error: 'Not found' }, { status: 404 });
+}
+
+const worker = {
+  async fetch(request: Request, env: WorkerEnv, ctx?: ExecutionContext): Promise<Response> {
+    return observeWorkerRequest({
+      request,
+      service: SERVICE_NAME,
+      deploySha: env.DEPLOY_SHA ?? env.CF_VERSION_METADATA?.id,
+      errorInsight: {
+        url: env.ERROR_INSIGHT_WEBHOOK_URL,
+        token: env.ERROR_INSIGHT_TOKEN,
+        waitUntil: (promise) => ctx?.waitUntil(promise),
+      },
+      handler: () => handleRequest(request, env),
+    });
   },
 };
 

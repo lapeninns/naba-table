@@ -108,7 +108,7 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
               date={{
                 value: dateField.value ?? '',
                 minDate: state.minDate,
-                onSelect: (next: Date | null) => {
+                onSelect: (next) => {
                   state.handlers.selectDate(next);
                 },
                 onBlur: dateField.onBlur,

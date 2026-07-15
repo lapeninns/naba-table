@@ -18,11 +18,21 @@ export type PartySizeFieldProps = {
 
 export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) {
   const [isAnimating, setIsAnimating] = React.useState(false);
+  const animationTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const labelId = React.useId();
   const descriptionId = React.useId();
   const canDecrement = value > MIN_ONLINE_PARTY_SIZE;
   const canIncrement = value < MAX_ONLINE_PARTY_SIZE;
   const partyLabel = value === 1 ? 'guest' : 'guests';
+
+  React.useEffect(
+    () => () => {
+      if (animationTimerRef.current !== null) {
+        clearTimeout(animationTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const handleChange = (direction: 'decrement' | 'increment') => {
     if (direction === 'decrement' && !canDecrement) {
@@ -33,7 +43,13 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
     }
     setIsAnimating(true);
     onChange(direction);
-    setTimeout(() => setIsAnimating(false), 200);
+    if (animationTimerRef.current !== null) {
+      clearTimeout(animationTimerRef.current);
+    }
+    animationTimerRef.current = setTimeout(() => {
+      setIsAnimating(false);
+      animationTimerRef.current = null;
+    }, 200);
   };
 
   return (

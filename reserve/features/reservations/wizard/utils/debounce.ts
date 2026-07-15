@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 /**
  * Simple debounce helper for non-hook usage.
  */
-export function debounce<T extends (...args: unknown[]) => unknown>(
+export function debounce<T extends (...args: never[]) => unknown>(
   func: T,
   wait: number,
 ): (...args: Parameters<T>) => void {
@@ -26,7 +26,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 /**
  * React hook variant that keeps the latest callback reference.
  */
-export function useDebounce<T extends (...args: unknown[]) => unknown>(
+export function useDebounce<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number,
 ): (...args: Parameters<T>) => void {
@@ -62,7 +62,7 @@ export function useDebounce<T extends (...args: unknown[]) => unknown>(
 /**
  * Lightweight throttle helper to avoid hammering handlers.
  */
-export function useThrottle<T extends (...args: unknown[]) => unknown>(
+export function useThrottle<T extends (...args: never[]) => unknown>(
   callback: T,
   delay: number,
 ): (...args: Parameters<T>) => void {

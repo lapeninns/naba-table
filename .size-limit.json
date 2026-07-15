@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Booking short-links Worker",
+    "path": "cloudflare/booking-short-links/dist/index.js",
+    "limit": "100 kB"
+  },
+  {
+    "name": "Email queue gateway Worker",
+    "path": "cloudflare/email-queue-gateway/dist/index.js",
+    "limit": "100 kB"
+  },
+  {
+    "name": "SMS summary gateway Worker",
+    "path": "cloudflare/sms-summary-gateway/dist/index.js",
+    "limit": "800 kB"
+  }
+]

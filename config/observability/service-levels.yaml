@@ -1,0 +1,15 @@
+version: 1
+windowDays: 30
+services:
+  nabatable-web:
+    availabilityTarget: 99.9
+    latencyP95Ms: 1500
+  booking-short-links:
+    availabilityTarget: 99.95
+    latencyP95Ms: 300
+  email-queue-gateway:
+    availabilityTarget: 99.9
+    latencyP95Ms: 500
+  sms-summary-gateway:
+    availabilityTarget: 99.9
+    latencyP95Ms: 750
