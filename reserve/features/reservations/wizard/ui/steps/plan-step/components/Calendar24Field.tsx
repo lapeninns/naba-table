@@ -263,6 +263,8 @@ export function Calendar24Time({
 
   return (
     <div
+      data-slot="calendar-time-field"
+      aria-busy={isTimeLoading}
       className={cn(
         'flex flex-col gap-3 transition-opacity duration-300',
         isTimeLoading && 'opacity-50',
@@ -288,7 +290,7 @@ export function Calendar24Time({
               <SelectTrigger
                 id={timeInputId}
                 className={cn(
-                  'h-12 w-full rounded-[var(--pg-radius-md)] border-border bg-background px-4 text-base font-semibold text-foreground shadow-[var(--pg-shadow-soft)] hover:bg-muted/40 focus:ring-ring/25',
+                  'h-12 min-h-11 w-full rounded-[var(--pg-radius-md)] border-border bg-background px-4 text-base font-semibold text-foreground shadow-[var(--pg-shadow-xs)] hover:bg-muted/40 focus:ring-ring/25',
                   !inputValue && 'text-muted-foreground',
                   time.error && 'border-destructive focus-visible:ring-destructive',
                 )}
@@ -301,7 +303,7 @@ export function Calendar24Time({
                 <SelectValue placeholder="--:--" />
               </SelectTrigger>
               <SelectContent
-                className="pg-panel max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] rounded-[var(--pg-radius-lg)] border-border p-1 shadow-[var(--pg-shadow-floating)]"
+                className="pg-panel max-h-[min(22rem,var(--radix-select-content-available-height))] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] rounded-[var(--pg-radius-lg)] border-border p-1 shadow-[var(--pg-shadow-popover)]"
                 position="popper"
                 sideOffset={8}
               >
@@ -316,7 +318,7 @@ export function Calendar24Time({
                         <SelectItem
                           key={slot.value}
                           value={slot.value}
-                          className="my-0.5 rounded-[var(--pg-radius-sm)] py-2.5 pl-8 pr-3 font-[var(--pg-font-mono)] text-sm font-semibold focus:bg-muted focus:text-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
+                          className="my-0.5 min-h-11 rounded-[var(--pg-radius-sm)] py-2.5 pl-8 pr-3 font-[var(--pg-font-mono)] text-sm font-semibold focus:bg-muted focus:text-foreground data-[state=checked]:bg-muted data-[state=checked]:text-foreground"
                         >
                           {slot.display}
                         </SelectItem>
@@ -377,7 +379,10 @@ export function Calendar24Time({
           )}
 
           {isTimeLoading && !inputValue ? (
-            <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
+            <div
+              className="pointer-events-none absolute inset-0 flex items-center px-3"
+              aria-hidden="true"
+            >
               <div className="h-5 w-20 animate-pulse rounded bg-muted/60" />
             </div>
           ) : null}

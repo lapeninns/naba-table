@@ -5,8 +5,8 @@ import { useForm } from 'react-hook-form';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Form, FormField } from '@/components/ui/form';
-import { PartySizeField } from '@features/reservations/wizard/ui/steps/plan-step/components/PartySizeField';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
+import { PartySizeField } from '@features/reservations/wizard/ui/steps/plan-step/components/PartySizeField';
 
 // The field renders shadcn Form primitives, which require a FormProvider and
 // FormField context — the same shell PlanStepForm provides in the product.
@@ -43,6 +43,16 @@ describe('PartySizeField', () => {
 
     await user.click(screen.getByRole('button', { name: 'Decrease guests' }));
     expect(onChange).toHaveBeenCalledWith('decrement');
+  });
+
+  it('uses defined elevation and explicit 44px minimum stepper targets @contract @a11y', () => {
+    render(<PartySizeField value={4} onChange={vi.fn()} />);
+
+    expect(screen.getByRole('group', { name: 'Party size' })).toHaveClass(
+      'shadow-[var(--pg-shadow-xs)]',
+    );
+    expect(screen.getByRole('button', { name: 'Decrease guests' })).toHaveClass('min-h-11');
+    expect(screen.getByRole('button', { name: 'Increase guests' })).toHaveClass('min-h-11');
   });
 
   it('cancels the pending animation timer when unmounted @contract', () => {
@@ -83,7 +93,9 @@ describe('PartySizeField', () => {
   it('renders the large-party assistance copy and errors @contract', () => {
     render(<PartySizeField value={4} onChange={vi.fn()} error="Party too large" />);
 
-    expect(screen.getByText("Tables for 12+? Give us a call and we'll help you out.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tables for 12+? Give us a call and we'll help you out."),
+    ).toBeInTheDocument();
     expect(screen.getByText('Party too large')).toBeInTheDocument();
   });
 });

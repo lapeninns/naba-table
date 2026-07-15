@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PlanStepForm } from '@features/reservations/wizard/ui/steps/plan-step/PlanStepForm';
 
+import type { PlanFormValues } from '@features/reservations/wizard/model/schemas';
 import type {
   PlanStepFormState,
   PlanStepUnavailableReason,
@@ -28,7 +29,7 @@ vi.mock('@features/reservations/wizard/hooks/usePlanStepForm', async () => {
   const { useForm } = await import('react-hook-form');
   return {
     usePlanStepForm: (props: { minDate: Date }) => {
-      const form = useForm({
+      const form = useForm<PlanFormValues>({
         defaultValues: {
           date: '2026-04-14',
           time: '19:00',
@@ -38,7 +39,7 @@ vi.mock('@features/reservations/wizard/hooks/usePlanStepForm', async () => {
         },
       });
       const state: PlanStepFormState = {
-        form: form as unknown as PlanStepFormState['form'],
+        form,
         slots: [],
         handlers: harness.handlers,
         minDate: props.minDate,
@@ -74,6 +75,25 @@ beforeEach(() => {
 });
 
 describe('PlanStepForm', () => {
+  it('keeps the planning fields in mobile reading order and groups only party and date at tablet widths @contract @responsive', () => {
+    renderForm();
+
+    const fields = screen.getByRole('group', { name: 'Booking plan' });
+    const regions = Array.from(fields.querySelectorAll<HTMLElement>(':scope > [data-plan-field]'));
+
+    expect(fields).toHaveClass('grid-cols-1', 'md:grid-cols-2', 'max-w-3xl');
+    expect(regions.map((region) => region.dataset.planField)).toEqual([
+      'party',
+      'date',
+      'time',
+      'notes',
+    ]);
+    expect(regions[0]).toHaveClass('md:col-span-1');
+    expect(regions[1]).toHaveClass('md:col-span-1');
+    expect(regions[2]).toHaveClass('md:col-span-2');
+    expect(regions[3]).toHaveClass('md:col-span-2');
+  });
+
   it('renders the party, date, time, and notes fields @smoke', () => {
     renderForm();
 
@@ -135,6 +155,21 @@ describe('PlanStepForm', () => {
         'Availability is still loading. Please try another date or retry in a moment.',
       ).length,
     ).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Time')).toBeEnabled();
+  });
+
+  it('keeps automatic date moves in an atomic polite status region @contract @a11y', () => {
+    harness.overrides = {
+      dateChangeMessage: 'That date is unavailable, so we moved you to Wednesday, 8 July 2026.',
+    };
+    renderForm();
+
+    const announcement = screen
+      .getByText('That date is unavailable, so we moved you to Wednesday, 8 July 2026.')
+      .closest('[role="status"]');
+    expect(announcement).not.toBeNull();
+    expect(announcement).toHaveAttribute('aria-live', 'polite');
+    expect(announcement).toHaveAttribute('aria-atomic', 'true');
   });
 
   it('surfaces advisory messages from the schedule @contract', () => {

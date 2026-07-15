@@ -17,7 +17,6 @@ import { formatDateForInput } from '@reserve/shared/formatting/booking';
 
 import { Calendar24Date, Calendar24Time, NotesField, PartySizeField } from './components';
 import { usePlanStepForm } from '../../../hooks/usePlanStepForm';
-import { WizardPanel, WizardPanelContent } from '../../WizardPanel';
 
 import type { PlanStepFormProps, PlanStepFormState } from './types';
 
@@ -85,95 +84,108 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
 
       <p className="text-sm text-muted-foreground">Party size, date, and time are required.</p>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
-        <WizardPanel interactive className="order-1 md:col-span-6 lg:col-span-4">
-          <WizardPanelContent>
-            <FormField
-              control={control}
-              name="party"
-              render={({ field }) => (
-                <PartySizeField
-                  value={field.value ?? 1}
-                  onChange={state.handlers.changeParty}
-                  error={formState.errors.party?.message}
-                />
-              )}
-            />
-          </WizardPanelContent>
-        </WizardPanel>
+      <div
+        role="group"
+        aria-label="Booking plan"
+        data-slot="plan-fields"
+        className="mx-auto grid w-full max-w-3xl grid-cols-1 gap-x-6 md:grid-cols-2"
+      >
+        <section
+          aria-label="Party size selection"
+          data-plan-field="party"
+          className="border-b border-border/70 py-5 md:col-span-1 md:pr-3"
+        >
+          <FormField
+            control={control}
+            name="party"
+            render={({ field }) => (
+              <PartySizeField
+                value={field.value ?? 1}
+                onChange={state.handlers.changeParty}
+                error={formState.errors.party?.message}
+              />
+            )}
+          />
+        </section>
 
-        <WizardPanel interactive className="order-2 md:col-span-3 lg:col-span-4">
-          <WizardPanelContent>
-            <Calendar24Date
-              date={{
-                value: dateField.value ?? '',
-                minDate: state.minDate,
-                onSelect: (next) => {
-                  state.handlers.selectDate(next);
-                },
-                onBlur: dateField.onBlur,
-                error: dateFieldError?.message ?? formState.errors.date?.message,
-              }}
-              onMonthChange={state.handlers.prefetchMonth}
-              isDateUnavailable={isDateUnavailable}
-              loadingDates={state.loadingDates}
-            />
-          </WizardPanelContent>
-        </WizardPanel>
+        <section
+          aria-label="Date selection"
+          data-plan-field="date"
+          className="border-b border-border/70 py-5 md:col-span-1 md:pl-3"
+        >
+          <Calendar24Date
+            date={{
+              value: dateField.value ?? '',
+              minDate: state.minDate,
+              onSelect: (next) => {
+                state.handlers.selectDate(next);
+              },
+              onBlur: dateField.onBlur,
+              error: dateFieldError?.message ?? formState.errors.date?.message,
+            }}
+            onMonthChange={state.handlers.prefetchMonth}
+            isDateUnavailable={isDateUnavailable}
+            loadingDates={state.loadingDates}
+          />
+        </section>
 
-        <WizardPanel interactive className="order-3 md:col-span-3 lg:col-span-4">
-          <WizardPanelContent>
-            <Calendar24Time
-              time={{
-                value: timeField.value ?? '',
-                onChange: (next: string, options?: { commit?: boolean }) => {
-                  state.handlers.selectTime(next, options);
-                },
-                onBlur: () => {
-                  timeField.onBlur?.();
-                  state.handlers.selectTime(getValues('time'), { commit: true });
-                },
-                error: timeFieldError?.message ?? formState.errors.time?.message,
-              }}
-              suggestions={state.slots}
-              intervalMinutes={state.intervalMinutes ?? undefined}
-              isTimeDisabled={timeDisabled}
-              unavailableMessage={unavailableCopy ?? undefined}
-              isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
-            />
-          </WizardPanelContent>
-        </WizardPanel>
+        <section
+          aria-label="Time selection"
+          data-plan-field="time"
+          className="border-b border-border/70 py-5 md:col-span-2"
+        >
+          <Calendar24Time
+            time={{
+              value: timeField.value ?? '',
+              onChange: (next: string, options?: { commit?: boolean }) => {
+                state.handlers.selectTime(next, options);
+              },
+              onBlur: () => {
+                timeField.onBlur?.();
+                state.handlers.selectTime(getValues('time'), { commit: true });
+              },
+              error: timeFieldError?.message ?? formState.errors.time?.message,
+            }}
+            suggestions={state.slots}
+            intervalMinutes={state.intervalMinutes ?? undefined}
+            isTimeDisabled={timeDisabled}
+            unavailableMessage={unavailableCopy ?? undefined}
+            isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
+          />
+        </section>
 
-        <WizardPanel className="order-4 md:col-span-6 lg:col-span-12">
+        <section
+          aria-label="Additional booking notes"
+          data-plan-field="notes"
+          className="pt-4 md:col-span-2"
+        >
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="notes" className="border-b-0">
-              <AccordionTrigger className="px-4 py-4 text-base sm:px-5">
+              <AccordionTrigger className="min-h-11 px-1 py-3 text-base sm:px-1">
                 Add dietary, access, or occasion notes
               </AccordionTrigger>
-              <AccordionContent className="px-0 pb-0">
-                <WizardPanelContent className="pt-0">
-                  <FormField
-                    control={control}
-                    name="notes"
-                    render={({ field }) => (
-                      <NotesField
-                        value={field.value ?? ''}
-                        onChange={(next) => {
-                          field.onChange(next);
-                        }}
-                        onBlur={(next) => {
-                          field.onBlur();
-                          state.handlers.commitNotes(next);
-                        }}
-                        error={formState.errors.notes?.message}
-                      />
-                    )}
-                  />
-                </WizardPanelContent>
+              <AccordionContent className="px-1 pb-0 pt-2">
+                <FormField
+                  control={control}
+                  name="notes"
+                  render={({ field }) => (
+                    <NotesField
+                      value={field.value ?? ''}
+                      onChange={(next) => {
+                        field.onChange(next);
+                      }}
+                      onBlur={(next) => {
+                        field.onBlur();
+                        state.handlers.commitNotes(next);
+                      }}
+                      error={formState.errors.notes?.message}
+                    />
+                  )}
+                />
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </WizardPanel>
+        </section>
       </div>
 
       {unavailableCopy && (
@@ -195,7 +207,12 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
       )}
 
       {state.dateChangeMessage ? (
-        <p className="text-sm font-medium text-foreground" aria-live="polite" role="status">
+        <p
+          className="text-sm font-medium text-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+          role="status"
+        >
           {state.dateChangeMessage}
         </p>
       ) : null}

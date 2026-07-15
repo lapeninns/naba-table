@@ -121,14 +121,34 @@ describe('Calendar24Time', () => {
       />,
     );
 
-    await user.click(screen.getByRole('combobox'));
+    const combobox = screen.getByRole('combobox');
+    expect(combobox).toHaveClass('min-h-11', 'shadow-[var(--pg-shadow-xs)]');
+    await user.click(combobox);
 
     expect(await screen.findByText('Lunch')).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toHaveClass('shadow-[var(--pg-shadow-popover)]');
     // Disabled slots are excluded from suggestions entirely.
     expect(screen.queryByRole('option', { name: '19:30' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('option', { name: '19:00' }));
+    const slot = screen.getByRole('option', { name: '19:00' });
+    expect(slot).toHaveClass('min-h-11');
+    await user.click(slot);
     expect(onChange).toHaveBeenCalledWith('19:00', { commit: true });
+  });
+
+  it('announces the loading state without changing availability behavior @contract @a11y', () => {
+    render(
+      <Calendar24Time
+        time={{ value: '', onChange: vi.fn() }}
+        suggestions={[makeSlot()]}
+        isTimeLoading
+      />,
+    );
+
+    const field = document.querySelector('[data-slot="calendar-time-field"]');
+    expect(field).not.toBeNull();
+    expect(field).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByLabelText('Time')).toBeDisabled();
   });
 
   it('falls back to a native time input without suggestions @contract', () => {

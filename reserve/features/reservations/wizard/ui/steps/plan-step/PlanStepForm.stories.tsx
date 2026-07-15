@@ -89,15 +89,19 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
   const actionsChange = useMemo(() => fn<(actions: StepAction[]) => void>(), []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <WizardProvider state={state} actions={actions}>
-        <PlanStepForm
-          minDate={minDate ?? DEFAULT_MIN_DATE}
-          onTrack={onTrack ?? fn()}
-          onActionsChange={actionsChange}
-        />
-      </WizardProvider>
-    </QueryClientProvider>
+    <main className="guest-theme min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-3xl">
+        <QueryClientProvider client={queryClient}>
+          <WizardProvider state={state} actions={actions}>
+            <PlanStepForm
+              minDate={minDate ?? DEFAULT_MIN_DATE}
+              onTrack={onTrack ?? fn()}
+              onActionsChange={actionsChange}
+            />
+          </WizardProvider>
+        </QueryClientProvider>
+      </div>
+    </main>
   );
 };
 
@@ -105,7 +109,7 @@ const meta = {
   title: 'Reserve/Wizard/PlanStep/PlanStepForm',
   component: PlanStepFormPreview,
   parameters: {
-    layout: 'centered',
+    layout: 'fullscreen',
   },
   render: (args: StoryArgs) => <PlanStepFormPreview {...args} />,
 } satisfies Meta<StoryArgs>;

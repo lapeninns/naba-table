@@ -68,8 +68,14 @@ function CalendarStory({ date, time, ...props }: CalendarStoryArgs) {
 const meta = {
   title: 'Reserve/Wizard/PlanStep/Calendar24Field',
   component: Calendar24Field,
-  parameters: { layout: 'centered' },
-  render: (args) => <CalendarStory {...args} />,
+  parameters: { layout: 'fullscreen' },
+  render: (args) => (
+    <main className="guest-theme min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-3xl">
+        <CalendarStory {...args} />
+      </div>
+    </main>
+  ),
   args: {
     date: {
       value: '2026-07-18',

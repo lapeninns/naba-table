@@ -110,9 +110,7 @@ export function PlanStep({
           </Alert>
         )}
 
-        {/* ─────────────────────────────────────────────────────────────
-            Plan Step Form - Bento Grid Layout
-        ───────────────────────────────────────────────────────────── */}
+        {/* Plan fields retain their reading order at every breakpoint. */}
         <PlanStepForm
           onActionsChange={onActionsChange}
           onTrack={onTrack}

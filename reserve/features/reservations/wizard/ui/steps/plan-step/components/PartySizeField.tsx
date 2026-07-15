@@ -63,7 +63,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
       </div>
       <div
         className={cn(
-          'grid h-12 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden rounded-[var(--pg-radius-md)] border border-border bg-background shadow-[var(--pg-shadow-soft)] transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 sm:grid-cols-[48px_minmax(0,1fr)_48px] lg:grid-cols-[52px_minmax(0,1fr)_52px]',
+          'grid h-12 w-full grid-cols-[44px_minmax(0,1fr)_44px] items-center overflow-hidden rounded-[var(--pg-radius-md)] border border-border bg-background shadow-[var(--pg-shadow-xs)] transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/25 sm:grid-cols-[48px_minmax(0,1fr)_48px] lg:grid-cols-[52px_minmax(0,1fr)_52px]',
           error && 'border-destructive ring-1 ring-destructive/20',
         )}
         role="group"
@@ -77,7 +77,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
           onClick={() => handleChange('decrement')}
           disabled={!canDecrement}
           aria-label="Decrease guests"
-          className="h-full w-full shrink-0 rounded-none border-r border-border/70 text-foreground transition-transform hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-[0.96]"
+          className="min-h-11 min-w-11 h-full w-full shrink-0 rounded-none border-r border-border/70 text-foreground transition-transform hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-[0.96]"
         >
           <MinusIcon className="size-5" aria-hidden="true" />
         </Button>
@@ -105,7 +105,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
           onClick={() => handleChange('increment')}
           disabled={!canIncrement}
           aria-label="Increase guests"
-          className="h-full w-full shrink-0 rounded-none border-l border-border/70 text-foreground transition-transform hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-[0.96]"
+          className="min-h-11 min-w-11 h-full w-full shrink-0 rounded-none border-l border-border/70 text-foreground transition-transform hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-35 active:scale-[0.96]"
         >
           <PlusIcon className="size-5" aria-hidden="true" />
         </Button>
