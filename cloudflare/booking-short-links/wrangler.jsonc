@@ -1,8 +1,12 @@
 {
   "name": "nabatable-booking-short-links",
   "main": "src/index.ts",
+  "upload_source_maps": true,
   "compatibility_date": "2026-04-11",
   "workers_dev": true,
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
   "d1_databases": [
     {
       "binding": "BOOKING_SHORT_LINKS_DB",
@@ -22,6 +26,8 @@
     "BOOKING_SITE_URL": "https://nabatable.com",
     "ALLOWED_DESTINATION_HOSTS": "nabatable.com,www.nabatable.com,app.nabatable.com",
     "ALLOWED_REVIEW_DESTINATION_HOSTS": "g.page,maps.app.goo.gl,google.com,google.co.uk,google.co.in,google.ca,google.com.au,google.ie,google.fr,google.de,google.es,google.it,google.nl",
+    "POSTHOG_HOST": "https://eu.i.posthog.com",
+    "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
   },
   "observability": {
     "enabled": true,

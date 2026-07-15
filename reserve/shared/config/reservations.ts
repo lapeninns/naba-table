@@ -1,7 +1,6 @@
-import { isReservationTime, normalizeTime as normalizeReservationTime } from '@reserve/shared/time';
+import { normalizeTime as normalizeReservationTime } from '@reserve/shared/time/time';
+import { isReservationTime, type ReservationTime } from '@reserve/shared/time/types';
 import { runtime } from '@shared/config/runtime';
-
-import type { ReservationTime } from '@reserve/shared/time';
 
 export type ReservationConfig = {
   timezone: string;

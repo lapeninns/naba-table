@@ -133,6 +133,12 @@ const baseEnvSchema = z
     POSTHOG_CLI_API_KEY: z.string().min(1).optional(),
     POSTHOG_CLI_PROJECT_ID: z.string().min(1).optional(),
     POSTHOG_SOURCEMAP_UPLOAD: booleanStringOptional,
+    ERROR_INSIGHT_RECEIVER_TOKEN: z.string().min(32).optional(),
+    ERROR_INSIGHT_GITHUB_TOKEN: z.string().min(1).optional(),
+    ERROR_INSIGHT_GITHUB_REPOSITORY: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u)
+      .optional(),
     OPENAI_API_KEY: z.string().optional(),
     GOOGLE_BUSINESS_CLIENT_ID: optionalString,
     GOOGLE_BUSINESS_CLIENT_SECRET: optionalString,

@@ -1,40 +1,43 @@
 {
   "name": "nabatable-email-queue-gateway",
-  "main": "src/index.mjs",
+  "main": "src/index.ts",
+  "upload_source_maps": true,
   "compatibility_date": "2026-03-23",
   "workers_dev": true,
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
   "durable_objects": {
     "bindings": [
       {
         "name": "EMAIL_QUEUE_STATE",
-        "class_name": "EmailQueueState"
+        "class_name": "EmailQueueState",
       },
       {
         "name": "RATE_LIMIT_STATE",
-        "class_name": "RateLimitState"
+        "class_name": "RateLimitState",
       },
       {
         "name": "CAPACITY_VERSION_STATE",
-        "class_name": "CapacityVersionState"
-      }
-    ]
+        "class_name": "CapacityVersionState",
+      },
+    ],
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": [
-        "EmailQueueState"
-      ]
+      "new_sqlite_classes": ["EmailQueueState"],
     },
     {
       "tag": "v2",
-      "new_sqlite_classes": [
-        "RateLimitState",
-        "CapacityVersionState"
-      ]
-    }
+      "new_sqlite_classes": ["RateLimitState", "CapacityVersionState"],
+    },
   ],
+  "vars": {
+    "POSTHOG_HOST": "https://eu.i.posthog.com",
+    "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
+  },
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+  },
 }

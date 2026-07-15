@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 
-import { GbpDriftContext } from './GbpDriftProvider';
+import { GbpDriftContext } from './context';
 
 export function useOptionalGbpDrift() {
   return useContext(GbpDriftContext);

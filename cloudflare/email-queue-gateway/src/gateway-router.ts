@@ -1,4 +1,8 @@
-export function json(data, init = {}) {
+import { isJsonObject } from './contracts';
+
+import type { EmailQueueGatewayEnv, JsonObject } from './contracts';
+
+export function json(data: unknown, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   headers.set('content-type', 'application/json; charset=utf-8');
   return new Response(JSON.stringify(data), {
@@ -7,7 +11,7 @@ export function json(data, init = {}) {
   });
 }
 
-export function getBearerToken(request) {
+export function getBearerToken(request: Request): string | null {
   const header = request.headers.get('authorization');
   if (!header || !header.startsWith('Bearer ')) {
     return null;
@@ -15,7 +19,7 @@ export function getBearerToken(request) {
   return header.slice('Bearer '.length).trim() || null;
 }
 
-export function withCorsHeaders(response) {
+export function withCorsHeaders(response: Response): Response {
   const next = new Response(response.body, response);
   next.headers.set('access-control-allow-origin', '*');
   next.headers.set('access-control-allow-headers', 'authorization, content-type');
@@ -23,15 +27,16 @@ export function withCorsHeaders(response) {
   return next;
 }
 
-export async function readJson(request) {
+export async function readJson(request: Request): Promise<JsonObject | null> {
   try {
-    return await request.json();
+    const value: unknown = await request.json();
+    return isJsonObject(value) ? value : null;
   } catch {
     return null;
   }
 }
 
-export function cloneRequest(request, body) {
+export function cloneRequest(request: Request, body: unknown): Request {
   return new Request(request.url, {
     method: request.method,
     headers: request.headers,
@@ -39,7 +44,10 @@ export function cloneRequest(request, body) {
   });
 }
 
-export async function routeGatewayRequest(request, env) {
+export async function routeGatewayRequest<Id>(
+  request: Request,
+  env: EmailQueueGatewayEnv<Id>,
+): Promise<Response> {
   if (request.method === 'OPTIONS') {
     return withCorsHeaders(new Response(null, { status: 204 }));
   }

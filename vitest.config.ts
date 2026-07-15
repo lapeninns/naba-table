@@ -162,6 +162,12 @@ export default defineConfig({
       // Reports are still written when the suite is red so a failing run can
       // be inspected while the test command still reports the failure.
       reportOnFailure: true,
+      thresholds: {
+        branches: 55,
+        functions: 70,
+        lines: 65,
+        statements: 65,
+      },
       exclude: [
         'tests/**',
         '**/node_modules/**',

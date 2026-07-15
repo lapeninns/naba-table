@@ -1,34 +1,19 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { useProfile } from '@/hooks/useProfile';
-import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { emit } from '@/lib/analytics/emit';
 
 import { WizardProvider } from '../context/WizardContext';
 import { useWizardDependencies } from '../di';
-import { useReservationWizard } from '../hooks/useReservationWizard';
-import { createConfirmationSummary } from '../model/selectors';
-import { ConfirmationStep } from './steps/ConfirmationStep';
+import { BookingWizardStepContent } from './BookingWizardStepContent';
 import { WizardContainer } from './WizardContainer';
 import { WizardOfflineBanner } from './WizardOfflineBanner';
-import {
-  BookingWizardShellSkeleton,
-  DetailsStepSkeleton,
-  PlanStepSkeleton,
-  ReviewStepSkeleton,
-} from './WizardSkeletons';
-const PlanStep = React.lazy(() =>
-  import('./steps/PlanStep').then((m) => ({ default: m.PlanStep })),
-);
-const DetailsStep = React.lazy(() =>
-  import('./steps/DetailsStep').then((m) => ({ default: m.DetailsStep })),
-);
-const ReviewStep = React.lazy(() =>
-  import('./steps/ReviewStep').then((m) => ({ default: m.ReviewStep })),
-);
+import { BookingWizardShellSkeleton } from './WizardSkeletons';
+import { useAuthenticatedContactLocks } from '../hooks/useAuthenticatedContactLocks';
+import { useReservationWizard } from '../hooks/useReservationWizard';
+import { createConfirmationSummary } from '../model/selectors';
 
 import type { WizardLayoutSurface } from './WizardLayout';
 import type { BookingDetails, BookingWizardMode } from '../model/reducer';
@@ -86,56 +71,12 @@ function BookingWizardContent({
     planAlert,
   } = useReservationWizard(initialDetails, mode, { returnPath, redirectOnSuccess });
   const { analytics } = useWizardDependencies();
-  const { user, status: sessionStatus } = useSupabaseSession();
-  const isAuthenticated = sessionStatus === 'authenticated' && Boolean(user);
-  const shouldLockContacts = isAuthenticated && mode !== 'ops';
-  const { data: profile } = useProfile({ enabled: shouldLockContacts });
-
-  const fallbackName =
-    (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
-    (typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
-    '';
-  const lockedName = shouldLockContacts ? (profile?.name ?? fallbackName ?? '').trim() : '';
-  const lockedEmail = shouldLockContacts ? (profile?.email ?? user?.email ?? '').trim() : '';
-  const lockedPhone = shouldLockContacts ? (profile?.phone ?? '').trim() : '';
-  const authenticatedHydrationKeyRef = useRef<string | null>(null);
+  const contactLocks = useAuthenticatedContactLocks(actions, mode);
 
   useEffect(() => {
     void import('./steps/DetailsStep');
     void import('./steps/ReviewStep');
   }, []);
-
-  useEffect(() => {
-    if (!shouldLockContacts) {
-      authenticatedHydrationKeyRef.current = null;
-      return;
-    }
-
-    const hydrationKey = [user?.id ?? '', lockedName, lockedEmail, lockedPhone].join('\u0000');
-    if (authenticatedHydrationKeyRef.current === hydrationKey) {
-      return;
-    }
-
-    authenticatedHydrationKeyRef.current = hydrationKey;
-    actions.hydrateContacts({
-      name: lockedName,
-      email: lockedEmail,
-      phone: lockedPhone,
-      source: 'authenticated',
-    });
-  }, [actions, shouldLockContacts, lockedEmail, lockedName, lockedPhone, user?.id]);
-
-  const contactLocks = useMemo(() => {
-    if (!shouldLockContacts) {
-      return undefined;
-    }
-
-    return {
-      name: Boolean(lockedName),
-      email: true,
-      phone: Boolean(lockedPhone),
-    } as const;
-  }, [lockedName, lockedPhone, shouldLockContacts]);
 
   const isOnline = useOnlineStatus();
   const isOffline = !isOnline;
@@ -223,70 +164,6 @@ function BookingWizardContent({
     [state.step, state.lastConfirmed?.reference, state.details, selectionSummary],
   );
 
-  const shouldShowSkeleton = state.loading && state.step !== 4;
-
-  const stepContent = (() => {
-    if (shouldShowSkeleton) {
-      switch (state.step) {
-        case 1:
-          return <PlanStepSkeleton />;
-        case 2:
-          return <DetailsStepSkeleton />;
-        case 3:
-          return <ReviewStepSkeleton />;
-        default:
-          return null;
-      }
-    }
-
-    switch (state.step) {
-      case 1:
-        return (
-          <Suspense fallback={<PlanStepSkeleton />}>
-            <PlanStep
-              onActionsChange={handleActionsChange}
-              onTrack={analytics.track}
-              planAlert={
-                planAlert ?? (isOffline ? 'Reconnect to confirm; edits are saved locally.' : null)
-              }
-              initialCalendarMask={initialCalendarMask}
-            />
-          </Suspense>
-        );
-      case 2:
-        return (
-          <Suspense fallback={<DetailsStepSkeleton />}>
-            <DetailsStep
-              onActionsChange={handleActionsChange}
-              contactLocks={contactLocks}
-              mode={mode}
-            />
-          </Suspense>
-        );
-      case 3:
-        return (
-          <Suspense fallback={<ReviewStepSkeleton />}>
-            <ReviewStep
-              mode={mode}
-              onConfirm={handleConfirm}
-              onActionsChange={handleActionsChange}
-            />
-          </Suspense>
-        );
-      case 4:
-        return (
-          <ConfirmationStep
-            mode={mode}
-            onNewBooking={handleNewBooking}
-            onClose={handleClose}
-            onActionsChange={handleActionsChange}
-          />
-        );
-      default:
-        return null;
-    }
-  })();
-
   return (
     <WizardProvider state={state} actions={actions}>
       <WizardContainer
@@ -305,9 +182,33 @@ function BookingWizardContent({
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}
-        onStepSelect={state.step < 4 ? actions.goToStep : undefined}
+        onStepSelect={
+          state.step < 4
+            ? (step) => {
+                switch (step) {
+                  case 1:
+                  case 2:
+                  case 3:
+                  case 4:
+                    actions.goToStep(step);
+                }
+              }
+            : undefined
+        }
       >
-        {stepContent}
+        <BookingWizardStepContent
+          state={state}
+          mode={mode}
+          isOffline={isOffline}
+          initialCalendarMask={initialCalendarMask}
+          contactLocks={contactLocks}
+          onTrack={analytics.track}
+          handleActionsChange={handleActionsChange}
+          handleConfirm={handleConfirm}
+          handleNewBooking={handleNewBooking}
+          handleClose={handleClose}
+          planAlert={planAlert}
+        />
       </WizardContainer>
     </WizardProvider>
   );

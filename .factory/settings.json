@@ -1,0 +1,9 @@
+{
+  "$schema": "https://app.factory.ai/schemas/settings.json",
+  "enabledPlugins": {
+    "core@factory-plugins": true
+  },
+  "sessionDefaultSettings": {
+    "interactionMode": "auto"
+  }
+}

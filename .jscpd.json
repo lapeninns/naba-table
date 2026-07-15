@@ -1,0 +1,24 @@
+{
+  "threshold": 8,
+  "minLines": 10,
+  "minTokens": 60,
+  "reporters": ["console", "json"],
+  "output": ".jscpd-report",
+  "format": ["typescript", "tsx", "javascript"],
+  "absolute": false,
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/tests/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.stories.*",
+    "**/*.d.ts",
+    "types/supabase.ts",
+    "tasks/**",
+    "backups/**"
+  ]
+}

@@ -1,0 +1,30 @@
+commands:
+  install: corepack enable && pnpm install --frozen-lockfile
+  dev: pnpm dev
+  build: pnpm build
+  typecheck: pnpm typecheck
+  lint: pnpm lint
+  test: pnpm test
+  verify: pnpm verify
+
+services:
+  web:
+    start: pnpm dev
+    healthcheck: curl --fail --silent http://127.0.0.1:3000/api/health
+    port: 3000
+    depends_on: []
+  booking-short-links:
+    start: pnpm --filter @nabatable/booking-short-links dev
+    healthcheck: curl --fail --silent http://127.0.0.1:8787/health
+    port: 8787
+    depends_on: []
+  email-queue-gateway:
+    start: pnpm --filter @nabatable/email-queue-gateway dev
+    healthcheck: curl --fail --silent http://127.0.0.1:8788/health
+    port: 8788
+    depends_on: []
+  sms-summary-gateway:
+    start: pnpm --filter @nabatable/sms-summary-gateway dev
+    healthcheck: curl --fail --silent http://127.0.0.1:8789/health
+    port: 8789
+    depends_on: []

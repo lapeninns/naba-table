@@ -2,10 +2,11 @@ import {
   reservationConfigResult,
   type ReservationConfig,
 } from '@reserve/shared/config/reservations';
-import { normalizeTime, slotsForRange, toMinutes } from '@reserve/shared/time';
 
+import { normalizeTime, slotsForRange, toMinutes } from './time';
+
+import type { ReservationTime } from './types';
 import type { BookingOption } from '@reserve/shared/booking';
-import type { ReservationTime } from '@reserve/shared/time';
 
 export type ServiceWindow = {
   start: ReservationTime;

@@ -103,7 +103,7 @@ const PlanStepFormPreview: React.FC<StoryArgs> = ({ initialState, minDate, onTra
 
 const meta = {
   title: 'Reserve/Wizard/PlanStep/PlanStepForm',
-  component: PlanStepForm,
+  component: PlanStepFormPreview,
   parameters: {
     layout: 'centered',
   },

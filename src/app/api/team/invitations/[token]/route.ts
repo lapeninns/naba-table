@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
-import {
-  findInviteByToken,
-  inviteHasExpired,
-  markInviteExpired,
-  resolveInviteContext,
-} from '@/server/team/invitations';
+import { captureServerException } from '@/lib/posthog/server';
+import { findInviteByToken, inviteHasExpired, markInviteExpired } from '@/server/team/invitations';
+import { resolveInviteContext } from '@/server/team/invite-context';
 
 import type { NextRequest } from 'next/server';
 
@@ -60,8 +56,9 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ to
       },
     });
   } catch (error) {
-    console.error('[api/team/invitations/token][GET] failed', error);
-    captureServerException(error, {
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    console.error('[api/team/invitations/token][GET] failed', normalizedError);
+    captureServerException(normalizedError, {
       properties: { source: 'api', kind: 'team-invitation' },
     });
     return NextResponse.json({ error: 'Unable to load invitation' }, { status: 500 });

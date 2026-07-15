@@ -30,7 +30,7 @@ vi.mock('@/server/emails/email-delivery-log', () => ({
   recordEmailDeliveryLog,
 }));
 
-vi.mock('@/server/team/invitations', () => ({
+vi.mock('@/server/team/invite-context', () => ({
   resolveInviteContext,
 }));
 

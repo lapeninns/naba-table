@@ -1,8 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true
+    "strict": true
   },
   "include": [
     "app/**/*.ts",

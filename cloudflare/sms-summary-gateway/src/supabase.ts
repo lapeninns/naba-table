@@ -29,6 +29,11 @@ type BookingRow = {
   party_size: number | null;
 };
 
+export const DAILY_SUMMARY_QUERY_BUDGET = {
+  listTargets: 1,
+  loadPreview: 2,
+} as const;
+
 function createSupabaseAdminClient(env: WorkerEnv) {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },

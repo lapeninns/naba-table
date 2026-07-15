@@ -1,0 +1,21 @@
+area:web:
+  - changed-files:
+      - any-glob-to-any-file: ['src/**', 'app/**', 'components/**', 'reserve/**']
+area:workers:
+  - changed-files:
+      - any-glob-to-any-file: ['cloudflare/**']
+area:database:
+  - changed-files:
+      - any-glob-to-any-file: ['supabase/**', '**/schema.sql', '**/state-schema.json']
+area:security:
+  - changed-files:
+      - any-glob-to-any-file:
+          [
+            '.github/workflows/*security*',
+            '.github/workflows/codeql.yml',
+            'lib/security/**',
+            'scripts/security/**',
+          ]
+area:documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['docs/**', '**/*.md', '**/openapi.yaml']

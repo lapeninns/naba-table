@@ -5,6 +5,9 @@ import { FlatCompat } from '@eslint/eslintrc';
 import nextConfig from 'eslint-config-next';
 import importPlugin from 'eslint-plugin-import';
 import reactHooks from 'eslint-plugin-react-hooks';
+import sonarjs from 'eslint-plugin-sonarjs';
+
+import workerBoundaryConfigs from './config/eslint/worker-boundaries.mjs';
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
@@ -92,6 +95,7 @@ export default [
   {
     plugins: {
       import: importPlugin,
+      sonarjs,
     },
     rules: {
       'import/order': [
@@ -102,6 +106,56 @@ export default [
           'newlines-between': 'always',
         },
       ],
+    },
+  },
+  {
+    files: [
+      'app/**/*.{ts,tsx}',
+      'components/**/*.{ts,tsx}',
+      'hooks/**/*.{ts,tsx}',
+      'lib/**/*.{ts,tsx}',
+      'reserve/**/*.{ts,tsx}',
+      'server/**/*.{ts,tsx}',
+      'src/**/*.{ts,tsx}',
+    ],
+    rules: {
+      // Existing domain orchestration is complex; this baseline prevents
+      // regressions while new/refactored Worker code uses the tighter limits below.
+      complexity: ['error', { max: 150 }],
+      'max-depth': ['error', 7],
+      'sonarjs/cognitive-complexity': ['error', 190],
+    },
+  },
+  {
+    files: ['cloudflare/**/*.{ts,tsx}'],
+    rules: {
+      complexity: ['error', { max: 30 }],
+      'max-depth': ['error', 5],
+      'sonarjs/cognitive-complexity': ['error', 35],
+      '@typescript-eslint/naming-convention': [
+        'error',
+        {
+          selector: 'variable',
+          format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
+          leadingUnderscore: 'allow',
+        },
+        {
+          selector: 'function',
+          format: ['camelCase', 'PascalCase'],
+          leadingUnderscore: 'allow',
+        },
+        {
+          selector: 'typeLike',
+          format: ['PascalCase'],
+        },
+      ],
+    },
+  },
+  ...workerBoundaryConfigs,
+  {
+    files: ['cloudflare/**/*.{ts,tsx}'],
+    rules: {
+      '@next/next/no-html-link-for-pages': 'off',
     },
   },
   {

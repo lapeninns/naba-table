@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "service": "email-queue-gateway",
+  "version": 2,
+  "durableObjects": [
+    {
+      "className": "EmailQueueState",
+      "migrationTag": "v1",
+      "storage": "sqlite",
+      "keyspaces": {
+        "job:{jobId}": "QueueJob",
+        "schedule:{epochMs}:{jobId}": "string",
+        "dlq:{jobId}": "QueueJob",
+        "meta": "QueueMeta"
+      }
+    },
+    {
+      "className": "RateLimitState",
+      "migrationTag": "v2",
+      "storage": "sqlite",
+      "keyspaces": {
+        "bucket": "{ count: number; windowStart: number; resetAt: number }"
+      }
+    },
+    {
+      "className": "CapacityVersionState",
+      "migrationTag": "v2",
+      "storage": "sqlite",
+      "keyspaces": {
+        "inv:{restaurantId}": "number",
+        "adj:{restaurantId}": "number"
+      }
+    }
+  ]
+}
