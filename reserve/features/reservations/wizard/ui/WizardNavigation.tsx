@@ -13,43 +13,29 @@ import type { WizardStepMeta, WizardSummary } from './WizardProgress';
 import type { StepAction } from '../model/reducer';
 import type { ActionRole } from '../utils/groupActions';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════════════════════
-
 export interface WizardNavigationProps {
-  /** Step metadata for the progress indicator */
   steps: WizardStepMeta[];
-  /** Current active step number (1-indexed) */
   currentStep: number;
-  /** Summary content (primary line, details, and labeled facts) */
   summary: WizardSummary;
-  /** Actions available for the current step */
   actions: StepAction[];
-  /** Whether the navigation is visible (default: true) */
   visible?: boolean;
-  /** Callback when the collapsed nav height changes (for scroll padding) */
   onHeightChange?: (height: number) => void;
-  /** Additional CSS classes */
   className?: string;
-  /** Jump back to a completed step (wayfinding). Omit to make steps inert (e.g. after confirmation). */
   onStepSelect?: (step: number) => void;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// HOOKS
-// ═══════════════════════════════════════════════════════════════════════════════
+const PANEL_ID = 'wizard-summary-sheet';
+const VARIANT_BY_ROLE: Record<ActionRole, 'guest-primary' | 'guest-outline' | 'guest-ghost'> = {
+  primary: 'guest-primary',
+  secondary: 'guest-outline',
+  support: 'guest-ghost',
+};
 
-/**
- * Tracks an element's height via ResizeObserver and reports changes so the page
- * can pad its scroll region. Takes an initial measurement even where
- * ResizeObserver is unavailable (legacy/SSR).
- */
 function useHeightObserver(
   ref: React.RefObject<HTMLElement | null>,
   visible: boolean,
   onHeightChange?: (height: number) => void,
-) {
+): void {
   React.useLayoutEffect(() => {
     if (!onHeightChange) return;
 
@@ -61,10 +47,7 @@ function useHeightObserver(
 
     const updateHeight = () => onHeightChange(node.getBoundingClientRect().height);
     updateHeight();
-
-    if (typeof ResizeObserver === 'undefined') {
-      return;
-    }
+    if (typeof ResizeObserver === 'undefined') return;
 
     const observer = new ResizeObserver(updateHeight);
     observer.observe(node);
@@ -72,39 +55,12 @@ function useHeightObserver(
       observer.disconnect();
       onHeightChange(0);
     };
-  }, [ref, visible, onHeightChange]);
+  }, [onHeightChange, ref, visible]);
 }
-
-/** Detects the user's reduced-motion preference. */
-function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(false);
-
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-    const handler = (event: MediaQueryListEvent) => setPrefersReducedMotion(event.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  return prefersReducedMotion;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ACTION BUTTON (shared shadcn primitive — guest-* variants)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const VARIANT_BY_ROLE: Record<ActionRole, 'guest-primary' | 'guest-outline' | 'guest-ghost'> = {
-  primary: 'guest-primary',
-  secondary: 'guest-outline',
-  support: 'guest-ghost',
-};
 
 function ActionButton({ action, role }: { action: StepAction; role: ActionRole }) {
   const Icon = action.icon ? (wizardIconMap[action.icon] ?? null) : null;
-  const isLoading = !!action.loading;
-  const isDisabled = !!action.disabled || isLoading;
-  const accessibleLabel = action.ariaLabel ?? action.srLabel ?? action.label;
+  const isLoading = action.loading === true;
 
   return (
     <Button
@@ -112,34 +68,26 @@ function ActionButton({ action, role }: { action: StepAction; role: ActionRole }
       variant={VARIANT_BY_ROLE[role]}
       size={role === 'support' ? 'guest-sm' : 'guest-lg'}
       onClick={action.onClick}
-      disabled={isDisabled}
-      aria-label={accessibleLabel}
+      disabled={action.disabled === true || isLoading}
+      aria-label={action.ariaLabel ?? action.srLabel ?? action.label}
       aria-busy={isLoading}
       data-testid={`wizard-action-${action.id}`}
       className={cn(
-        'pg-focus-ring',
-        // Primary: dominant (grows to fill, basis auto so a long second action wraps
-        // instead of clipping); full-width on mobile, auto-width from sm up (min 44px).
-        role === 'primary' && 'min-h-12 grow px-6 sm:min-h-11 sm:grow-0 sm:flex-none',
-        role === 'secondary' && 'min-h-12 flex-none px-4 sm:min-h-11',
-        role === 'support' && 'min-h-10 flex-none',
+        'pg-focus-ring min-h-11',
+        role === 'primary' && 'w-full px-6 sm:w-auto sm:flex-none',
+        role === 'secondary' && 'flex-none px-4',
+        role === 'support' && 'flex-none',
       )}
     >
       {isLoading ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+        <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
       ) : Icon ? (
-        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
       ) : null}
       <span>{action.label}</span>
     </Button>
   );
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT — "summary sheet"
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const PANEL_ID = 'wizard-summary-sheet';
 
 export function WizardNavigation({
   steps,
@@ -151,91 +99,20 @@ export function WizardNavigation({
   className,
   onStepSelect,
 }: WizardNavigationProps) {
-  const peekRef = React.useRef<HTMLDivElement | null>(null);
-  const reduced = usePrefersReducedMotion();
+  const railRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = React.useState(false);
-
-  // Report the always-present peek height (not the transient expanded panel).
-  useHeightObserver(peekRef, visible, onHeightChange);
+  useHeightObserver(railRef, visible, onHeightChange);
 
   const total = steps.length || 1;
   const current = Math.min(Math.max(currentStep, 1), total);
-  const fraction = current / total;
-  const stepLabel = steps[current - 1]?.label ?? `Step ${current}`;
   const line = (summary.details ?? []).filter(Boolean).join(' · ');
   const facts = summary.facts ?? [];
   const canExpand = facts.length > 0;
-
+  const isOpen = open && canExpand;
   const { primary, secondary, support } = React.useMemo(() => groupActions(actions), [actions]);
 
-  // Every step starts collapsed.
   React.useEffect(() => setOpen(false), [current]);
-  const isOpen = open && canExpand;
-
   if (!visible) return null;
-
-  const hasActions = primary.length > 0 || secondary.length > 0;
-  const dashOffset = 100 - Math.round(fraction * 100);
-
-  const peekBody = (
-    <>
-      {/* Circular step-progress indicator */}
-      <span
-        className="relative flex h-9 w-9 shrink-0 items-center justify-center"
-        aria-hidden="true"
-      >
-        <svg viewBox="0 0 36 36" className="size-9 -rotate-90">
-          <circle
-            cx="18"
-            cy="18"
-            r="16"
-            fill="none"
-            strokeWidth="3"
-            className="stroke-[color:var(--pg-bg-muted)]"
-          />
-          <circle
-            cx="18"
-            cy="18"
-            r="16"
-            fill="none"
-            strokeWidth="3"
-            strokeLinecap="round"
-            pathLength={100}
-            className={cn(
-              'stroke-[color:var(--pg-action)]',
-              !reduced && 'transition-[stroke-dashoffset] duration-500 ease-out',
-            )}
-            style={{ strokeDasharray: 100, strokeDashoffset: dashOffset }}
-          />
-        </svg>
-        <span className="absolute text-[11px] font-bold tabular-nums text-[color:var(--pg-text)]">
-          {current}/{total}
-        </span>
-      </span>
-
-      <span className="flex min-w-0 flex-col text-left">
-        <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
-          {stepLabel}
-        </span>
-        {line ? (
-          <span className="truncate text-xs text-[color:var(--pg-text-muted)]">{line}</span>
-        ) : null}
-      </span>
-
-      {canExpand ? (
-        <span className="ml-auto flex shrink-0">
-          <ChevronUp
-            className={cn(
-              'h-4 w-4 text-[color:var(--pg-text-muted)]',
-              !reduced && 'transition-transform duration-300 ease-out',
-              isOpen && 'rotate-180',
-            )}
-            aria-hidden="true"
-          />
-        </span>
-      ) : null}
-    </>
-  );
 
   return (
     <div
@@ -247,98 +124,82 @@ export function WizardNavigation({
       )}
     >
       <nav
-        role="navigation"
         aria-label="Booking wizard navigation"
         onKeyDown={(event) => {
           if (event.key === 'Escape' && isOpen) setOpen(false);
         }}
         className={cn(
-          'pointer-events-auto mx-auto w-full backdrop-blur-xl text-[color:var(--pg-text)]',
-          'pg-panel rounded-t-[var(--pg-radius-xl)] sm:max-w-3xl sm:rounded-[var(--pg-radius-xl)]',
-          !reduced && 'animate-slide-up',
+          'pg-panel pointer-events-auto mx-auto w-full text-[color:var(--pg-text)] backdrop-blur-xl',
+          'rounded-t-[var(--pg-radius-xl)] sm:max-w-3xl sm:rounded-[var(--pg-radius-xl)]',
           isOpen && 'shadow-[var(--pg-shadow-lg)]',
         )}
       >
-        {/* Mobile-only drag/expand affordance */}
-        {canExpand && (
-          <div className="flex justify-center pt-2 sm:hidden" aria-hidden="true">
-            <span className="h-1 w-9 rounded-full bg-[color:var(--pg-border)]" />
-          </div>
-        )}
-
-        {/* Expandable sheet (grid-rows 0fr→1fr height animation) */}
-        {canExpand && (
+        {canExpand ? (
           <div
             id={PANEL_ID}
             role="region"
             aria-label="Booking summary"
-            // Collapsed, the panel is only visually hidden (grid row 0fr); mark it
-            // inert so its buttons leave the tab order + a11y tree until expanded.
             inert={!isOpen}
             className={cn(
-              'grid px-4 sm:px-5',
-              !reduced && 'transition-[grid-template-rows] duration-300 ease-out',
-              isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+              'px-4 sm:px-5',
+              isOpen
+                ? 'max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain'
+                : 'max-h-0 overflow-hidden',
             )}
           >
-            <div className="overflow-hidden">
-              <div className="flex flex-col gap-3 pb-3 pt-1.5">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-                  {facts.map((fact) => (
-                    <div key={fact.label} className="flex flex-col gap-0.5">
-                      <dt className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--pg-text-muted)]">
-                        {fact.label}
-                      </dt>
-                      <dd className="text-sm font-semibold text-[color:var(--pg-text)]">
-                        {fact.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-
-                {/* Jump back to a completed step (preserved from the wizard-audit
-                    wayfinding fix). Rendered only when a handler is supplied — so
-                    steps are inert after confirmation. */}
-                {onStepSelect && current > 1 && (
-                  <nav
-                    aria-label="Go to a previous step"
-                    className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3"
-                  >
-                    {steps.slice(0, current - 1).map((step, index) => (
-                      <Button
-                        key={step.id ?? index + 1}
-                        type="button"
-                        variant="guest-ghost"
-                        size="guest-sm"
-                        onClick={() => onStepSelect(index + 1)}
-                        aria-label={`${step.label} (${index + 1} of ${total})`}
-                        className="pg-focus-ring min-h-10 gap-2"
-                      >
-                        <span className="flex size-5 items-center justify-center rounded-full bg-[color:var(--pg-action)] text-[10px] font-bold text-[color:var(--pg-action-contrast)]">
-                          {index + 1}
-                        </span>
-                        {step.label}
-                      </Button>
-                    ))}
-                  </nav>
-                )}
-
-                {support.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">
-                    {support.map((action) => (
-                      <ActionButton key={action.id} action={action} role="support" />
-                    ))}
+            <div className="flex flex-col gap-3 pb-3 pt-3">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+                {facts.map((fact) => (
+                  <div key={fact.label} className="flex flex-col gap-0.5">
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--pg-text-muted)]">
+                      {fact.label}
+                    </dt>
+                    <dd className="text-sm font-semibold text-[color:var(--pg-text)]">
+                      {fact.value}
+                    </dd>
                   </div>
-                )}
-              </div>
+                ))}
+              </dl>
+
+              {onStepSelect && current > 1 ? (
+                <nav
+                  aria-label="Go to a previous step"
+                  className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3"
+                >
+                  {steps.slice(0, current - 1).map((step, index) => (
+                    <Button
+                      key={step.id}
+                      type="button"
+                      variant="guest-ghost"
+                      size="guest-sm"
+                      onClick={() => onStepSelect(index + 1)}
+                      aria-label={`${step.label} (${index + 1} of ${total})`}
+                      className="pg-focus-ring min-h-11 gap-2"
+                    >
+                      <span className="flex size-5 items-center justify-center rounded-full bg-[color:var(--pg-action)] text-[10px] font-bold text-[color:var(--pg-action-contrast)]">
+                        {index + 1}
+                      </span>
+                      {step.label}
+                    </Button>
+                  ))}
+                </nav>
+              ) : null}
+
+              {support.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">
+                  {support.map((action) => (
+                    <ActionButton key={action.id} action={action} role="support" />
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Peek + actions: stacked on mobile, single row from sm up */}
         <div
-          ref={peekRef}
-          className="flex flex-col gap-2.5 px-4 pb-3 pt-2 sm:flex-row sm:items-center sm:gap-4 sm:px-5 sm:pt-2.5"
+          ref={railRef}
+          data-wizard-navigation-rail
+          className="flex flex-col gap-2.5 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
         >
           {canExpand ? (
             <Button
@@ -348,18 +209,37 @@ export function WizardNavigation({
               aria-expanded={isOpen}
               aria-controls={PANEL_ID}
               aria-label={isOpen ? 'Hide booking summary' : 'Show booking summary'}
-              className="pg-focus-ring -mx-1 flex h-auto w-full items-center justify-start gap-3 rounded-[var(--pg-radius-md)] px-1 py-1 font-normal sm:w-auto sm:flex-1"
+              className="pg-focus-ring -mx-1 min-h-11 w-full justify-start gap-3 rounded-[var(--pg-radius-md)] px-1 py-1 font-normal sm:flex-1"
             >
-              {peekBody}
+              <span className="flex min-w-0 flex-1 flex-col text-left">
+                <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
+                  {summary.primary}
+                </span>
+                {line ? (
+                  <span className="truncate text-xs text-[color:var(--pg-text-muted)]">{line}</span>
+                ) : null}
+              </span>
+              <ChevronUp
+                className={cn(
+                  'size-4 shrink-0 text-[color:var(--pg-text-muted)] transition-transform',
+                  isOpen && 'rotate-180',
+                )}
+                aria-hidden="true"
+              />
             </Button>
           ) : (
-            <div className="-mx-1 flex items-center gap-3 px-1 py-1 sm:flex-1">{peekBody}</div>
+            <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">
+              <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
+                {summary.primary}
+              </span>
+              {line ? (
+                <span className="truncate text-xs text-[color:var(--pg-text-muted)]">{line}</span>
+              ) : null}
+            </div>
           )}
 
-          {hasActions && (
+          {primary.length > 0 || secondary.length > 0 ? (
             <div
-              // flex-wrap so multi-action steps (e.g. the ops confirmation pair)
-              // stack instead of overflowing at 320px; single row from sm up.
               className="flex flex-wrap items-stretch justify-end gap-2 sm:w-auto sm:flex-nowrap sm:shrink-0"
               role="group"
               aria-label="Step actions"
@@ -371,10 +251,9 @@ export function WizardNavigation({
                 <ActionButton key={action.id} action={action} role="primary" />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Screen-reader step announcement */}
         <div className="sr-only" aria-live="polite">
           {`Step ${current} of ${total}. ${summary.srLabel ?? summary.primary}`}
         </div>

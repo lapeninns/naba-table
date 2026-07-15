@@ -42,61 +42,52 @@ export function WizardProgress({
   showStepList = false,
   onStepSelect,
 }: WizardProgressProps) {
+  const id = React.useId();
   const total = steps.length || 1;
   const clampedCurrent = Math.min(Math.max(currentStep, 1), total);
   const progressValue = total <= 1 ? 100 : ((clampedCurrent - 1) / (total - 1)) * 100;
   const ariaSummary = summary.srLabel ?? `${summary.primary}. ${summary.details?.join(', ') ?? ''}`;
-
-  // Use stable IDs to prevent hydration mismatch
-  const headingId = `wizard-progress-heading-${clampedCurrent}`;
-  const liveSummaryId = `wizard-progress-summary-${clampedCurrent}`;
-
+  const headingId = `${id}-heading`;
+  const liveSummaryId = `${id}-summary`;
   const currentStepData = steps[clampedCurrent - 1];
 
   return (
     <section
-      className={cn('flex flex-col gap-2', className)}
-      aria-labelledby={headingId}
+      data-wizard-progress
+      className={cn('flex flex-col gap-3 text-[color:var(--pg-text)]', className)}
+      aria-label="Booking steps"
       aria-describedby={liveSummaryId}
     >
-      {/* Compact header: Step X of Y + Progress bar */}
-      <div id={headingId} className="flex items-center gap-3">
-        {/* Step indicator pill */}
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground sm:h-8 sm:w-8 sm:text-sm">
-            {clampedCurrent}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
+        <div id={headingId} className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+          <span className="truncate text-sm font-semibold sm:text-base">
+            {currentStepData?.label ?? `Step ${clampedCurrent}`}
           </span>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-foreground sm:text-base">
-              {currentStepData?.label ?? `Step ${clampedCurrent}`}
-            </span>
-            <span className="text-xs text-muted-foreground">{`${clampedCurrent} of ${total}`}</span>
-          </div>
+          <span className="shrink-0 text-xs font-medium tabular-nums text-[color:var(--pg-text-muted)]">
+            {`${clampedCurrent} of ${total}`}
+          </span>
         </div>
 
-        {/* Progress bar - visible on all devices */}
-        <div className="flex flex-1 items-center gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-sm sm:gap-3">
           <Progress
             value={progressValue}
-            className="h-1.5 flex-1 rounded-full bg-muted"
+            className="h-1.5 flex-1 rounded-full bg-[color:var(--pg-bg-muted)] [&>div]:bg-[color:var(--pg-action)]"
             aria-label="Booking progress"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progressValue)}
             aria-valuetext={`Step ${clampedCurrent} of ${total}`}
           />
-          <span className="text-xs font-medium text-muted-foreground tabular-nums">
+          <span className="text-xs font-medium tabular-nums text-[color:var(--pg-text-muted)]">
             {`${Math.round(progressValue)}%`}
           </span>
         </div>
       </div>
 
-      {/* Screen reader live region */}
       <div id={liveSummaryId} className="sr-only">
         {`Step ${clampedCurrent} of ${total}. ${ariaSummary}`}
       </div>
 
-      {/* Optional: Full step list (only when showStepList is true) */}
       {showStepList && (
         <ol
           className="mt-2 grid grid-cols-4 gap-1 sm:mt-4 sm:flex sm:items-center sm:justify-between sm:gap-3"
@@ -111,10 +102,10 @@ export function WizardProgress({
                 className={cn(
                   'flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold transition-colors sm:h-9 sm:w-9 sm:text-sm',
                   isCurrent
-                    ? 'border-primary bg-primary text-primary-foreground'
+                    ? 'border-[color:var(--pg-action)] bg-[color:var(--pg-action)] text-[color:var(--pg-action-contrast)]'
                     : isComplete
-                      ? 'border-primary bg-primary/20 text-primary'
-                      : 'border-border bg-background text-muted-foreground',
+                      ? 'border-[color:var(--pg-action)] bg-[color:color-mix(in_srgb,var(--pg-action)_12%,transparent)] text-[color:var(--pg-action)]'
+                      : 'border-[color:var(--pg-border)] bg-[color:var(--pg-bg)] text-[color:var(--pg-text-muted)]',
                 )}
               >
                 {stepNumber}
@@ -122,9 +113,11 @@ export function WizardProgress({
             );
             const copy = (
               <div className="min-w-0 text-center sm:text-left">
-                <p className="truncate text-xs font-semibold text-foreground">{step.label}</p>
+                <p className="truncate text-xs font-semibold text-[color:var(--pg-text)]">
+                  {step.label}
+                </p>
                 {step.helper ? (
-                  <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
+                  <p className="hidden truncate text-[11px] text-[color:var(--pg-text-muted)] sm:block">
                     {step.helper}
                   </p>
                 ) : null}

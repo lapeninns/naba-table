@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import React from 'react';
 import userEvent from '@testing-library/user-event';
+import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { WizardProgress } from '@features/reservations/wizard/ui/WizardProgress';
@@ -17,6 +17,17 @@ const steps: WizardStepMeta[] = [
 const summary = { primary: 'Dinner', details: ['4 guests', '19:00'] };
 
 describe('WizardProgress', () => {
+  it('renders an accessible normal-flow progress region and live summary @contract @a11y', () => {
+    render(<WizardProgress steps={steps} currentStep={2} summary={summary} />);
+
+    expect(screen.getByRole('region', { name: 'Booking steps' })).toHaveAttribute(
+      'data-wizard-progress',
+    );
+    expect(screen.getByText('Step 2 of 4. Dinner. 4 guests, 19:00')).toHaveTextContent(
+      'Step 2 of 4. Dinner. 4 guests, 19:00',
+    );
+  });
+
   it('shows the current step label and completion percentage @contract @smoke', () => {
     render(<WizardProgress steps={steps} currentStep={2} summary={summary} />);
 

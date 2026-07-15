@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -59,6 +59,37 @@ describe('WizardNavigation summary sheet', () => {
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('@contract keeps progress out of the sticky summary and action rail', () => {
+    render(<WizardNavigation {...baseProps} />);
+
+    const navigation = screen.getByRole('navigation', { name: 'Booking wizard navigation' });
+    expect(navigation.querySelector('circle')).toBeNull();
+    expect(navigation).not.toHaveTextContent('2/4');
+  });
+
+  it('@contract wraps the mobile primary action at full width with 44px targets', () => {
+    render(
+      <WizardNavigation
+        {...baseProps}
+        actions={[
+          ...baseProps.actions,
+          { id: 'help', label: 'Get help', role: 'support', onClick: () => {} },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Back' })).toHaveClass('min-h-11');
+    expect(screen.getByRole('button', { name: 'Continue' })).toHaveClass(
+      'min-h-11',
+      'w-full',
+      'sm:w-auto',
+    );
+    expect(disclosure()).toHaveClass('min-h-11');
+
+    fireEvent.click(disclosure());
+    expect(screen.getByRole('button', { name: 'Get help' })).toHaveClass('min-h-11');
+  });
+
   it('@contract toggles the sheet open and closed on activation', () => {
     render(<WizardNavigation {...baseProps} />);
     fireEvent.click(disclosure());
@@ -86,8 +117,13 @@ describe('WizardNavigation summary sheet', () => {
   it('@contract exposes the booking facts in a labeled region when expanded', () => {
     render(<WizardNavigation {...baseProps} />);
     fireEvent.click(disclosure());
-    expect(screen.getByRole('region', { name: /booking summary/i })).toBeInTheDocument();
-    expect(screen.getByText('Dinner')).toBeInTheDocument();
+    const summaryRegion = screen.getByRole('region', { name: /booking summary/i });
+    expect(summaryRegion).toHaveClass(
+      'max-h-[min(60dvh,24rem)]',
+      'overflow-y-auto',
+      'overscroll-contain',
+    );
+    expect(within(summaryRegion).getByText('Dinner')).toBeInTheDocument();
   });
 
   it('@contract marks the collapsed summary panel inert so its controls leave the tab order', () => {
@@ -102,5 +138,21 @@ describe('WizardNavigation summary sheet', () => {
     render(<WizardNavigation {...baseProps} summary={{ primary: 'Dinner' }} />);
     expect(screen.queryByRole('button', { name: /booking summary/i })).toBeNull();
     expect(screen.queryByRole('region', { name: /booking summary/i })).toBeNull();
+  });
+
+  it('@contract selects completed steps only when wayfinding is enabled', () => {
+    const onStepSelect = vi.fn();
+    const { rerender } = render(
+      <WizardNavigation {...baseProps} currentStep={3} onStepSelect={onStepSelect} />,
+    );
+
+    fireEvent.click(disclosure());
+    fireEvent.click(screen.getByRole('button', { name: 'Plan (1 of 4)' }));
+    expect(onStepSelect).toHaveBeenCalledWith(1);
+    expect(screen.getByRole('button', { name: 'Details (2 of 4)' })).toHaveClass('min-h-11');
+
+    rerender(<WizardNavigation {...baseProps} currentStep={4} onStepSelect={undefined} />);
+    fireEvent.click(disclosure());
+    expect(screen.queryByRole('navigation', { name: 'Go to a previous step' })).toBeNull();
   });
 });
