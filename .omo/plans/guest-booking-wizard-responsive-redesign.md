@@ -158,7 +158,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-5/`.
      Commit: Y | `feat(booking): align wizard loading and offline states`
 
-- [ ] 6. Integrate the shared shell and production progress renderer
+- [x] 6. Integrate the shared shell and production progress renderer
      Task / method: Apply the disjoint shell commits, add RED integration assertions in Container/BookingWizard, mount `WizardProgress` in normal flow, pass surface/mode density deliberately, preserve sticky-height wiring and announcements, and update Storybook discovery so chrome stories actually build. Resolve only shell seams; return owned defects to their task.
      Knowledge and why: `WizardContainer` is the composition seam; production currently never renders `WizardProgress`; Storybook discovers only Plan stories.
      Owned / forbidden: `WizardContainer.tsx`, `BookingWizard.tsx`, their focused tests, `reserve/.storybook/main.ts`, and integration-only story wiring. No step/hook/model/API edits.
