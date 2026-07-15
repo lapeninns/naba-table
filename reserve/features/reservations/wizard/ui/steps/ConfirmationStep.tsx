@@ -12,7 +12,7 @@ import { BookingConfirmationActions } from '../BookingConfirmationActions';
 import { StepErrorBoundary } from '../ErrorBoundary';
 import { WizardStep } from '../WizardStep';
 
-import type { ConfirmationStepProps } from './confirmation-step/types';
+import type { ConfirmationStatus, ConfirmationStepProps } from './confirmation-step/types';
 
 const FEEDBACK_ICON_MAP = {
   success: CheckCircle2,
@@ -21,10 +21,17 @@ const FEEDBACK_ICON_MAP = {
   info: Info,
 } as const;
 
+const REFERENCE_HEADER_CLASSES = {
+  pending: 'border-b border-warning/40 bg-warning/10 px-4 py-4 sm:px-6',
+  confirmed: 'border-b border-primary/20 bg-primary/10 px-4 py-4 sm:px-6',
+  updated: 'border-b border-primary/20 bg-primary/10 px-4 py-4 sm:px-6',
+} as const satisfies Record<ConfirmationStatus, string>;
+
 export function ConfirmationStep(props: ConfirmationStepProps) {
   const controller = useConfirmationStep(props);
   const { status, reservationWindow } = controller;
   const { goToStep } = useWizardNavigation();
+  const referenceHeadingId = React.useId();
 
   const FeedbackIcon = useMemo(() => {
     if (!controller.feedback) return null;
@@ -52,8 +59,39 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
         contentClassName="space-y-6"
       >
         <div className="space-y-6">
+          <section
+            aria-labelledby={referenceHeadingId}
+            data-confirmation-status={status}
+            className="pg-panel motion-safe:animate-in overflow-hidden motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-700"
+          >
+            <div className={REFERENCE_HEADER_CLASSES[status]}>
+              <h3 id={referenceHeadingId} className="pg-kicker">
+                Booking reference
+              </h3>
+              <p className="mt-1 font-[var(--pg-font-mono)] text-2xl font-semibold tracking-tight text-foreground [overflow-wrap:anywhere] sm:text-3xl">
+                {controller.reference}
+              </p>
+            </div>
+            <dl className="grid gap-0 divide-y divide-border/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              {[
+                ['Guest', controller.guestName],
+                ['When', `${controller.summaryDate} · ${controller.summaryTime}`],
+                ['Size', controller.partyText],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0 px-4 py-4 sm:px-5 sm:py-5">
+                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    {label}
+                  </dt>
+                  <dd className="mt-1.5 break-words text-base font-semibold text-foreground">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
           {status !== 'pending' && reservationWindow && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 delay-200">
+            <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-700 motion-safe:delay-150">
               <BookingConfirmationActions
                 restaurantName={controller.venue.name}
                 restaurantAddress={controller.venue.address}
@@ -89,36 +127,13 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
                     variant="ghost"
                     size="sm"
                     onClick={controller.dismissFeedback}
-                    className="self-end sm:self-auto"
+                    className="min-h-11 self-stretch sm:self-auto"
                   >
                     Dismiss
                   </Button>
                 </div>
               </Alert>
             )}
-
-          <div className="pg-panel animate-in overflow-hidden fade-in slide-in-from-bottom-4 duration-700 delay-300">
-            <div className="border-b border-border/70 bg-muted/40 px-5 py-4 sm:px-6">
-              <p className="pg-kicker">Keep this reference</p>
-              <p className="mt-1 font-[var(--pg-font-mono)] text-2xl font-semibold tracking-tight text-foreground">
-                {controller.reference}
-              </p>
-            </div>
-            <dl className="grid gap-0 divide-y divide-border/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {[
-                ['Guest', controller.guestName],
-                ['When', `${controller.summaryDate} · ${controller.summaryTime}`],
-                ['Size', controller.partyText],
-              ].map(([label, value]) => (
-                <div key={label} className="p-5 sm:p-6">
-                  <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {label}
-                  </dt>
-                  <dd className="mt-2 text-base font-semibold text-foreground">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
 
           {status !== 'pending' && (
             <p className="rounded-[var(--pg-radius-md)] border border-border bg-muted/40 px-4 py-3 text-center text-xs text-muted-foreground">

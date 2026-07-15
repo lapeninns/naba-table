@@ -32,6 +32,7 @@ export function BookingConfirmationActions({
   bookingRef,
   onDownloadIcs,
 }: BookingConfirmationActionsProps) {
+  const headingId = React.useId();
   const eventDetails = {
     title: `Dinner at ${restaurantName}`,
     description: `Reservation Reference: ${bookingRef}\nParty Size: ${partySize}`,
@@ -62,13 +63,19 @@ export function BookingConfirmationActions({
   };
 
   return (
-    <div className="flex flex-wrap gap-3 rounded-[var(--pg-radius-md)] border border-border bg-muted/40 p-3">
+    <section
+      aria-labelledby={headingId}
+      className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+    >
+      <h3 id={headingId} className="pg-kicker col-span-full mb-1">
+        Booking actions
+      </h3>
       <Button
         variant="outline"
-        className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
+        className="pg-action min-h-11 w-full gap-2 rounded-[var(--pg-radius-md)] bg-background"
         onClick={handleGetDirections}
       >
-        <MapPinIcon className="size-4" />
+        <MapPinIcon className="size-4" aria-hidden />
         Directions
       </Button>
 
@@ -76,9 +83,9 @@ export function BookingConfirmationActions({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="pg-action flex-1 gap-2 rounded-full bg-background sm:flex-none"
+            className="pg-action min-h-11 w-full gap-2 rounded-[var(--pg-radius-md)] bg-background"
           >
-            <CalendarIcon className="size-4" />
+            <CalendarIcon className="size-4" aria-hidden />
             Add to Calendar
           </Button>
         </DropdownMenuTrigger>
@@ -117,18 +124,21 @@ export function BookingConfirmationActions({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="shrink-0 rounded-full">
-            <MoreHorizontalIcon className="size-4" />
-            <span className="sr-only">More actions</span>
+          <Button
+            variant="ghost"
+            className="min-h-11 w-full gap-2 rounded-[var(--pg-radius-md)] sm:size-11 sm:p-0"
+          >
+            <MoreHorizontalIcon className="size-4" aria-hidden />
+            <span className="sm:sr-only">More actions</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={handlePrint} className="gap-2">
-            <PrinterIcon className="size-4" />
+            <PrinterIcon className="size-4" aria-hidden />
             Print Confirmation
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+    </section>
   );
 }

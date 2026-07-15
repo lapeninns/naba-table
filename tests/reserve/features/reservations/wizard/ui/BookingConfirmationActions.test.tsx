@@ -34,6 +34,21 @@ afterEach(() => {
 });
 
 describe('BookingConfirmationActions', () => {
+  it('stacks full-width actions before the small-screen breakpoint @contract', () => {
+    renderActions();
+
+    const actions = screen.getByRole('region', { name: 'Booking actions' });
+    const directions = screen.getByRole('button', { name: 'Directions' });
+    const calendar = screen.getByRole('button', { name: 'Add to Calendar' });
+    const more = screen.getByRole('button', { name: 'More actions' });
+
+    expect(actions).toHaveClass('grid', 'grid-cols-1');
+    expect(actions).toHaveClass('sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]');
+    expect(directions).toHaveClass('min-h-11', 'w-full');
+    expect(calendar).toHaveClass('min-h-11', 'w-full');
+    expect(more).toHaveClass('min-h-11', 'w-full');
+  });
+
   it('opens Google Maps directions for the venue address @contract', async () => {
     const user = userEvent.setup();
     renderActions();
@@ -67,7 +82,9 @@ describe('BookingConfirmationActions', () => {
     const { onDownloadIcs } = renderActions();
 
     await user.click(screen.getByRole('button', { name: /Add to Calendar/ }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Download .ICS File (Outlook/iCal)' }));
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Download .ICS File (Outlook/iCal)' }),
+    );
 
     expect(onDownloadIcs).toHaveBeenCalledTimes(1);
     expect(openSpy).not.toHaveBeenCalled();

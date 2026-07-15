@@ -125,8 +125,23 @@ describe('ConfirmationStep', () => {
     expect(screen.getByText('Alex Guest')).toBeInTheDocument();
     expect(screen.getByText('Apr 14 2026 · 19:00')).toBeInTheDocument();
     expect(screen.getByText('4 guests')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Booking reference' })).toHaveAttribute(
+      'data-confirmation-status',
+      'confirmed',
+    );
     // Confirmed bookings expose calendar/directions actions.
     expect(screen.getByRole('button', { name: /Add to Calendar/ })).toBeInTheDocument();
+  });
+
+  it('places the booking reference before visit actions @contract', () => {
+    renderConfirmation(makeState());
+
+    const reference = screen.getByRole('region', { name: 'Booking reference' });
+    const actions = screen.getByRole('region', { name: 'Booking actions' });
+
+    expect(reference.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it('reports a pending booking without confirmation actions @contract', () => {
@@ -134,8 +149,14 @@ describe('ConfirmationStep', () => {
 
     expect(screen.getByRole('heading', { name: 'Booking pending' })).toBeInTheDocument();
     expect(
-      screen.getByText('Your request has been received. We will email alex@example.com when it is confirmed.'),
+      screen.getByText(
+        'Your request has been received. We will email alex@example.com when it is confirmed.',
+      ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Booking reference' })).toHaveAttribute(
+      'data-confirmation-status',
+      'pending',
+    );
     expect(screen.queryByRole('button', { name: /Add to Calendar/ })).not.toBeInTheDocument();
   });
 
@@ -144,8 +165,14 @@ describe('ConfirmationStep', () => {
 
     expect(screen.getByRole('heading', { name: 'Booking updated' })).toBeInTheDocument();
     expect(
-      screen.getByText('Your reservation was updated. A confirmation email has been sent to alex@example.com.'),
+      screen.getByText(
+        'Your reservation was updated. A confirmation email has been sent to alex@example.com.',
+      ),
     ).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Booking reference' })).toHaveAttribute(
+      'data-confirmation-status',
+      'updated',
+    );
   });
 
   it('publishes a new-booking primary action for guests @contract', () => {
@@ -158,6 +185,7 @@ describe('ConfirmationStep', () => {
 
     actions[0]?.onClick();
     expect(onNewBooking).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/thank-you/i)).not.toBeInTheDocument();
   });
 
   it('publishes return-to-bookings first for ops users @contract', () => {
