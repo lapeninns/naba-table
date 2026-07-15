@@ -1,7 +1,15 @@
 {
   "schema_version": 2,
-  "active_work_id": "whatsapp-review-production-release",
+  "active_work_id": "guest-booking-wizard-responsive-redesign",
   "works": {
+    "guest-booking-wizard-responsive-redesign": {
+      "work_id": "guest-booking-wizard-responsive-redesign",
+      "active_plan": ".omo/plans/guest-booking-wizard-responsive-redesign.md",
+      "plan_name": "guest-booking-wizard-responsive-redesign",
+      "session_ids": ["codex:019f6709-fd21-7dc0-9f26-3f1cc7529e68"],
+      "status": "active",
+      "worktree_path": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-booking-wizard-responsive-redesign-20260715"
+    },
     "whatsapp-review-production-release": {
       "work_id": "whatsapp-review-production-release",
       "active_plan": ".omo/plans/whatsapp-review-production-release.md",
