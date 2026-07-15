@@ -170,7 +170,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-6/`.
      Commit: Y | `feat(booking): integrate responsive wizard shell`
 
-- [ ] 7. Redesign Plan and its field internals under RED-GREEN-REFACTOR
+- [x] 7. Redesign Plan and its field internals under RED-GREEN-REFACTOR
      Task / method: Add RED layout/ARIA tests, then compose party -> date -> time -> notes vertically at 320/375, use an intentional party/date grouping at 768 where width permits, and bound wide-screen content. Increase stepper/slot targets and replace undefined field shadows with defined tokens.
      Knowledge and why: existing Plan is labeled bento and over-nests panels; previous old-branch work changed pending availability behavior and must not be ported.
      Owned / forbidden: `PlanStep.tsx`, `plan-step/**` production files/stories and their tests. No shell, hooks, services, availability logic, schemas, or occasion productionization.
@@ -181,7 +181,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-7/`.
      Commit: Y | `feat(booking): redesign plan selection layout`
 
-- [ ] 8. Redesign Details under RED-GREEN-REFACTOR
+- [x] 8. Redesign Details under RED-GREEN-REFACTOR
      Task / method: Add RED structural and target-size tests, then produce a bounded single-column contact/consent/preferences hierarchy that stays readable at 320px and preserves disabled/required/auth states.
      Knowledge and why: Details owns contact and consent-adjacent presentation, so behavior preservation must be executable rather than inferred visually.
      Owned / forbidden: `DetailsStep.tsx`, any new UI-only section extracted beside it, and `DetailsStep.test.tsx`. Do not edit schemas, hooks, consent persistence/versioning, reducers, API payloads, or auth logic.
@@ -192,7 +192,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-8/`.
      Commit: Y | `feat(booking): clarify guest details hierarchy`
 
-- [ ] 9. Redesign Review with direct component coverage under RED-GREEN-REFACTOR
+- [x] 9. Redesign Review with direct component coverage under RED-GREEN-REFACTOR
      Task / method: Create the missing `ReviewStep.test.tsx` RED suite for rendered summary, edit controls, pending submit, safe server error, and capacity alternatives; then implement a mobile-safe ticket/summary layout with semantic sections and >=44px Edit controls.
      Knowledge and why: hook coverage is broad but direct Review rendering/state coverage is missing.
      Owned / forbidden: `ReviewStep.tsx`, new direct component test, and UI-only nearby helpers. Do not edit `useReviewStep`, submission/API/capacity logic, selectors, or shell.
@@ -203,7 +203,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
      Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-9/`.
      Commit: Y | `feat(booking): redesign review summary`
 
-- [ ] 10. Redesign Confirmation and actions under RED-GREEN-REFACTOR
+- [x] 10. Redesign Confirmation and actions under RED-GREEN-REFACTOR
       Task / method: Add RED tests for reference-first hierarchy, narrow action wrapping, feedback, status variants, guest/ops actions, print/calendar/maps behavior, and terminal semantics. Implement presentation-only changes.
       Knowledge and why: current layout is actions-first; guest Confirmation is terminal while ops has different actions and may redirect in the shipped consumer.
       Owned / forbidden: `ConfirmationStep.tsx`, `BookingConfirmationActions.tsx`, and focused tests. Do not edit confirmation hook/controller, reducer, return path, redirects, API, or selectors.
@@ -214,7 +214,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
       Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-10/`.
       Commit: Y | `feat(booking): prioritize confirmation reference`
 
-- [ ] 11. Align the independently routed thank-you surface under RED-GREEN-REFACTOR
+- [x] 11. Align the independently routed thank-you surface under RED-GREEN-REFACTOR
       Task / method: Add RED page/card tests for the new visual structure, authenticated/unauthenticated exits, missing restaurant handling, and absence of any wizard transition coupling. Update the independently routed card/page using live guest tokens and bounded responsive layout.
       Knowledge and why: thank-you is a separate route/card; aligning it visually must not invent a Done transition.
       Owned / forbidden: `src/components/restaurants/PublicSections.tsx` only around `ReservationThankYouCard`, the thank-you `page.tsx`, and `tests/guest/public-booking-message-pages.test.tsx` or a focused route test. No wizard hook/reducer/route-proxy/API changes.
