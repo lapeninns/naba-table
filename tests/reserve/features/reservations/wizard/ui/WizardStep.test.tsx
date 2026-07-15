@@ -1,8 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import React from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WizardContainer } from '@features/reservations/wizard/ui/WizardContainer';
+import {
+  WizardPanel,
+  WizardPanelContent,
+  WizardPanelHeader,
+} from '@features/reservations/wizard/ui/WizardPanel';
 import { WizardStep } from '@features/reservations/wizard/ui/WizardStep';
 
 // WizardNavigation (rendered by WizardContainer) reads matchMedia; the global
@@ -21,6 +26,10 @@ beforeEach(() => {
       dispatchEvent: () => false,
     }),
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const steps = [
@@ -81,5 +90,50 @@ describe('WizardStep', () => {
       </WizardStep>,
     );
     expect(screen.queryByText(/Step 1 of/)).not.toBeInTheDocument();
+  });
+
+  it('renders one edge-elevated primary surface without undefined shadow aliases @contract', () => {
+    render(
+      <WizardStep step={1} title="Plan your table">
+        <p>body</p>
+      </WizardStep>,
+    );
+
+    const surface = document.querySelector('[data-slot="wizard-step-surface"]');
+    expect(surface).toHaveClass('shadow-[var(--pg-shadow-edge)]');
+    expect(surface?.className).not.toContain('--pg-shadow-floating');
+    expect(surface?.className).not.toContain('--pg-shadow-soft');
+  });
+
+  it('provides a type-safe ops density hook inherited by nested panels @contract', () => {
+    render(
+      <WizardStep step={1} title="Plan your table" surface="ops">
+        <WizardPanel aria-label="Availability section">
+          <WizardPanelHeader title="Availability" />
+          <WizardPanelContent>Open tables</WizardPanelContent>
+        </WizardPanel>
+      </WizardStep>,
+    );
+
+    const step = document.querySelector('section[data-step="1"]');
+    const panel = screen.getByRole('group', { name: 'Availability section' });
+    expect(step).toHaveAttribute('data-surface', 'ops');
+    expect(panel).toHaveAttribute('data-surface', 'ops');
+    expect(panel.querySelector('[data-slot="wizard-panel-header"]')).toHaveClass('p-3', 'sm:p-4');
+    expect(panel.querySelector('[data-slot="wizard-panel-content"]')).toHaveClass('p-3', 'sm:p-4');
+  });
+
+  it('keeps the active step programmatically focusable with a visible focus treatment @a11y', () => {
+    vi.useFakeTimers();
+    renderInContainer(1, 1);
+
+    const surface = document.querySelector<HTMLElement>('[data-slot="wizard-step-surface"]');
+    expect(surface).toHaveAttribute('tabindex', '-1');
+    expect(surface).toHaveClass('focus-visible:ring-2');
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(surface).toHaveFocus();
   });
 });
