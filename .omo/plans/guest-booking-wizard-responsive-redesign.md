@@ -225,7 +225,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
       Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-11/`.
       Commit: Y | `feat(booking): align restaurant thank-you surface`
 
-- [ ] 12. Integrate shipped guest, standalone Reserve, ops, and direct harness consumers
+- [x] 12. Integrate shipped guest, standalone Reserve, ops, and direct harness consumers
       Task / method: Apply step/thank-you commits, add RED integration assertions for explicit guest/ops surfaces and all live consumers, make only adapter-level changes needed to pass density/theme/layout props, and prove the direct Review/error/capacity and dev ops Confirmation harnesses. Orphan wrappers remain inspection-only unless a live importer is found.
       Knowledge and why: shared UI reaches three real consumers; shipped ops redirects after success, so its Confirmation actions are observable through the dev harness.
       Owned / forbidden: allowed adapter files and their tests only; integration test files. Step/shell defects return to owner. No route proxy, API, state, schema, services, global theme, or marketing shell edits.
