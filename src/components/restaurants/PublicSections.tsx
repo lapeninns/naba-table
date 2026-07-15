@@ -521,7 +521,7 @@ export function ReservationThankYouCard({
 
   return (
     <GuestPageFrame>
-      <section className="pg-section-tight">
+      <section className="pg-section-tight" aria-labelledby="reservation-thank-you-title">
         <div className="pg-container-sm">
           <GuestPanel className="overflow-hidden">
             <div className="border-b border-border/70 bg-muted/35 px-5 py-4 sm:px-6">
@@ -533,33 +533,68 @@ export function ReservationThankYouCard({
                 Back to {restaurant.name}
               </Link>
             </div>
-            <div className="px-5 py-8 text-center sm:px-8 sm:py-10">
-              <div className="mx-auto flex size-14 items-center justify-center rounded-full border border-primary/20 bg-primary/[0.08] text-primary">
-                <CheckCircle2 className="size-7" aria-hidden />
-              </div>
-              <div className="mx-auto mt-6 max-w-xl space-y-3">
-                <p className="pg-kicker">Request received</p>
-                <h1 className="pg-hero-title">Your table request is in.</h1>
-                <p className="pg-lead text-base">{content.description}</p>
-              </div>
-              <div className="mx-auto mt-8 grid max-w-lg gap-3 sm:grid-cols-2">
-                <Button
-                  variant="guest-primary"
-                  size="guest-lg"
-                  className="pg-action pg-touch"
-                  asChild
+            <div
+              className="grid min-w-0 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)]"
+              data-reservation-thank-you
+            >
+              <div className="min-w-0 px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
+                <div className="flex size-14 items-center justify-center rounded-full border border-primary/20 bg-primary/[0.08] text-primary shadow-[var(--pg-shadow-xs)]">
+                  <CheckCircle2 className="size-7" aria-hidden />
+                </div>
+                <div className="mt-6 max-w-xl space-y-3">
+                  <p className="pg-kicker">Request received</p>
+                  <h1 id="reservation-thank-you-title" className="pg-hero-title">
+                    Your table request is in.
+                  </h1>
+                  <p className="pg-lead text-base">{content.description}</p>
+                </div>
+                <nav
+                  className="mt-8 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap"
+                  aria-label="Thank-you actions"
                 >
-                  <Link href={content.primaryAction.href}>{content.primaryAction.label}</Link>
-                </Button>
-                <Button
-                  variant="guest-outline"
-                  size="guest-lg"
-                  className="pg-action pg-touch"
-                  asChild
-                >
-                  <Link href="/restaurants">Explore restaurants</Link>
-                </Button>
+                  <Button
+                    variant="guest-primary"
+                    size="guest-lg"
+                    className="pg-action pg-touch h-auto min-h-11 min-w-0 whitespace-normal py-3 text-center sm:flex-1"
+                    asChild
+                  >
+                    <Link href={content.primaryAction.href}>{content.primaryAction.label}</Link>
+                  </Button>
+                  <Button
+                    variant="guest-outline"
+                    size="guest-lg"
+                    className="pg-action pg-touch h-auto min-h-11 min-w-0 whitespace-normal py-3 text-center sm:flex-1"
+                    asChild
+                  >
+                    <Link href="/restaurants">Explore restaurants</Link>
+                  </Button>
+                </nav>
               </div>
+              <aside
+                className="min-w-0 border-t border-border/70 bg-muted/25 px-5 py-7 sm:px-8 lg:border-l lg:border-t-0 lg:px-7 lg:py-10"
+                aria-label="Request details"
+              >
+                <p className="pg-kicker">Request details</p>
+                <dl className="mt-5 divide-y divide-border/70 border-y border-border/70">
+                  <div className="grid min-w-0 gap-1 py-4">
+                    <dt className="pg-caption">Restaurant</dt>
+                    <dd className="pg-card-title min-w-0 break-words">{restaurant.name}</dd>
+                  </div>
+                  <div className="grid min-w-0 gap-1 py-4">
+                    <dt className="pg-caption">Status</dt>
+                    <dd className="flex min-w-0 items-center gap-2 font-medium text-foreground">
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-primary"
+                        aria-hidden="true"
+                      />
+                      Request received
+                    </dd>
+                  </div>
+                </dl>
+                <p className="pg-caption mt-5">
+                  You can safely leave this page. The restaurant has received your table request.
+                </p>
+              </aside>
             </div>
           </GuestPanel>
         </div>
