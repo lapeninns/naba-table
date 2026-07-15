@@ -1,4 +1,4 @@
-import { render as renderDom, screen } from '@testing-library/react';
+import { fireEvent, render as renderDom, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { useForm } from 'react-hook-form';
@@ -43,6 +43,25 @@ describe('PartySizeField', () => {
 
     await user.click(screen.getByRole('button', { name: 'Decrease guests' }));
     expect(onChange).toHaveBeenCalledWith('decrement');
+  });
+
+  it('cancels the pending animation timer when unmounted @contract', () => {
+    vi.useFakeTimers();
+    let pendingTimersAfterUnmount = -1;
+
+    try {
+      const view = render(<PartySizeField value={4} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Increase guests' }));
+      expect(vi.getTimerCount()).toBe(1);
+
+      view.unmount();
+      pendingTimersAfterUnmount = vi.getTimerCount();
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    }
+
+    expect(pendingTimersAfterUnmount).toBe(0);
   });
 
   it('blocks decrementing below the online minimum @contract', () => {

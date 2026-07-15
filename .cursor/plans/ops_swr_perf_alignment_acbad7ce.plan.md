@@ -29,8 +29,8 @@ isProject: false
 
 The files you had open mix two concerns:
 
-- **[`OpsBookingDialogDevHarness.tsx`](<src/app/(public)/__dev/ops-booking-dialog/ui/OpsBookingDialogDevHarness.tsx>)** — `__dev` harness for manual QA; not a shipped performance surface ([`AGENTS.md`](AGENTS.md): verify UI on a real shipped route).
-- **[`react-query-swr-ux.md`](docs/sdlc/react-query-swr-ux.md)** + **[`StaleBoundary.test.tsx`](tests/components/StaleBoundary.test.tsx)** — define the **canonical** stale-while-revalidate UX for **production** ops.
+- **[`OpsBookingDialogDevHarness.tsx`](<src/app/(public)/__dev/ops-booking-dialog/ui/OpsBookingDialogDevHarness.tsx>)** — `__dev` harness for manual QA; not a shipped performance surface. Verify UI on a real shipped route.
+- **[`react-query-swr-ux.md`](docs/technical/react-query-swr-ux.md)** + **[`StaleBoundary.test.tsx`](tests/components/StaleBoundary.test.tsx)** — define the **canonical** stale-while-revalidate UX for **production** ops.
 
 **Recommendation:** Treat **ops dashboard bookings** as the primary target: it is where date/filter-driven keys, `keepPreviousData` on [`useOpsDashboardData`](src/hooks/ops/useOpsDashboardData.ts), and user perception of “speed” intersect.
 
@@ -77,7 +77,7 @@ flowchart TB
 
 ## Phase B — Doc and audit hygiene (small)
 
-- Update [`docs/sdlc/react-query-swr-ux.md`](docs/sdlc/react-query-swr-ux.md) **Hooks audit status** to match grep reality, and add a short **“Feature adoption”** bullet: dashboard now uses `StaleBoundary` + `getSwrUiState` where applicable.
+- Update [`docs/technical/react-query-swr-ux.md`](docs/technical/react-query-swr-ux.md) **Hooks audit status** to match grep reality, and add a short **“Feature adoption”** bullet: dashboard now uses `StaleBoundary` + `getSwrUiState` where applicable.
 
 ## Phase C — `OpsBookingDialogDevHarness` (optional, low priority)
 
@@ -86,7 +86,7 @@ flowchart TB
 ## Phase D — Only if profiling shows a real bottleneck
 
 - **Prefetch:** `queryClient.prefetchQuery` on hover/focus for predictable next navigation (e.g. date cell in calendar) — add only after confirming network cost in DevTools.
-- **`staleTime` tuning:** per-hook in ops services where refetch frequency is measurable; avoid global defaults ([`AGENTS.md`](AGENTS.md) / doc: no global `placeholderData`).
+- **`staleTime` tuning:** per-hook in ops services where refetch frequency is measurable; avoid global `placeholderData` defaults.
 - **Bundle:** [`OpsDashboardDialogs`](src/components/features/dashboard/OpsDashboardDialogs.tsx) already uses `next/dynamic` for some dialogs; extend only if bundle analyzer points at a specific heavy import.
 
 ## Out of scope unless you expand the goal

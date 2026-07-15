@@ -1,0 +1,90 @@
+openapi: 3.1.0
+info:
+  title: Nabatable email queue gateway API
+  version: 1.0.0
+  description: Authenticated queue, rate-limit, and capacity-version operations.
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Gateway is healthy.
+  /messages:
+    post:
+      operationId: enqueueMessage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jobId, payload]
+      responses:
+        '201':
+          description: Message enqueued.
+        '409':
+          description: Duplicate job.
+  /messages/{jobId}:
+    delete:
+      operationId: deleteMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message removed.
+        '404':
+          description: Message not found.
+  /status:
+    get:
+      operationId: getQueueStatus
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current queue status.
+  /drain:
+    post:
+      operationId: drainQueue
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Due jobs processed.
+  /rate-limit/consume:
+    post:
+      operationId: consumeRateLimit
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rate-limit decision.
+  /capacity/versions/bump:
+    post:
+      operationId: bumpCapacityVersion
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Version incremented.
+  /capacity/versions/read:
+    post:
+      operationId: readCapacityVersions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Versions returned.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

@@ -7,3 +7,9 @@ repos:
         language: script
         pass_filenames: false
         stages: [commit, push]
+      - id: large-file-guard
+        name: Large file and source-line guard
+        entry: scripts/pre-commit/check-file-size.sh --staged
+        language: script
+        pass_filenames: false
+        stages: [commit, push]

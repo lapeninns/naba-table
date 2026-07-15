@@ -32,7 +32,7 @@ still has placeholder sections.
 
    Source material (read in this order, stop when you have enough):
    - `../README.md`
-   - any `AGENTS.md` / `CLAUDE.md` in `..`
+   - relevant repository documentation in `..`
    - `../package.json` (or `go.mod`, `pyproject.toml`, etc.)
    - 5–10 representative code files (entry points, auth helpers) — not
      a full code tour.

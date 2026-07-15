@@ -41,8 +41,6 @@ This primitive links to [Booking domain](../systems/booking-domain.md), [Capacit
 
 ## Entry points for modification
 
-Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
-
 ## Key source files
 
 | File                                           | Purpose              |

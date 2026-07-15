@@ -21,7 +21,7 @@ import { getSwrUiState } from '@/lib/query/swrUiState';
 import type { OpsEmailDeliveryState } from '@/components/features/email-delivery/useOpsEmailDeliveryState';
 
 export function OpsEmailDeliveryLogTab({ state }: { state: OpsEmailDeliveryState }) {
-  // Param-change stale state (filters/range/page) per docs/sdlc/react-query-swr-ux.md.
+  // Param-change stale state (filters/range/page) per docs/technical/react-query-swr-ux.md.
   const swr = getSwrUiState(state.dataState.feedQuery);
   return (
     <>

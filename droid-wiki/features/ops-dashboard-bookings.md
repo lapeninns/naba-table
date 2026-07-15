@@ -43,8 +43,6 @@ This topic links to [Capacity and table assignment](../systems/capacity-table-as
 
 ## Entry points for modification
 
-Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
-
 ## Key source files
 
 | File                                                   | Purpose           |

@@ -76,9 +76,9 @@
 3. **Promote to production**
    - Set `APP_ENV=production`, `NODE_ENV=production` in hosting provider.
    - Update production secrets and verify health.
-4. **Update repo artifacts**
+4. **Update repository configuration**
    - Refresh `.env.example` placeholders (never real secrets).
-   - Document hashes or metadata in `tasks/<slug>/artifacts/secret-rotation.md`.
+   - Record non-secret rotation metadata in the provider or incident-management system.
 5. **Purge leaked secrets from git history**
    - `brew install git-filter-repo` (or use BFG).
    - `git filter-repo --path .env.local --invert-paths` or target individual files containing leaked values.
@@ -87,4 +87,4 @@
    - `pnpm validate:env`
    - `pnpm db:status`
 
-If any provider restricts immediate rotation, capture the exception in `tasks/.../todo.md` and schedule a follow-up.
+If any provider restricts immediate rotation, record the exception in the provider or incident-management system and schedule a follow-up.

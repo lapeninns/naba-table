@@ -97,8 +97,8 @@ Add a new card above the existing `AvailabilityScheduleManager` in [`Availabilit
 - Mitigation: Update tests to assert the new sectioned structure and per-subform saves. Cover the relocated booking-rules fields with an Availability test.
 - Risk: Splitting one form into multiple subforms changes save semantics from "one big save" to "save per card".
 - Mitigation: This matches the existing Discovery section behavior; keep button labels explicit ("Save brand & identity", "Save contact details", etc.) and surface a single page-level dirty banner via `useRegisterOpsUnsavedChanges`.
-- Risk: Per AGENTS.md, this is medium-risk and would normally need a `tasks/<slug>-YYYYMMDD-HHMM>/` harness.
-- Mitigation: Create the task harness when execution starts.
+- Risk: This is a medium-risk change spanning multiple forms and save flows.
+- Mitigation: Sequence the implementation and record the verification results for each save flow.
 
 ### Validation
 

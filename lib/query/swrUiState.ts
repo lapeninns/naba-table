@@ -16,7 +16,7 @@
  * const isStaleUi = swr.isPlaceholderStale || isSummaryMismatch;
  * ```
  *
- * @see docs/sdlc/react-query-swr-ux.md
+ * @see docs/technical/react-query-swr-ux.md
  */
 
 import type { UseQueryResult } from '@tanstack/react-query';

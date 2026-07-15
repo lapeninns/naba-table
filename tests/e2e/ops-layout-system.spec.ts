@@ -3,8 +3,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
- * Browser proof for the layout-system slice
- * (tasks/layout-redesign-system-20260612-2202):
+ * Browser proof for the layout-system slice:
  * - email delivery log: attempt-card list below lg, sortable table at >=lg,
  *   retry parity on mobile (layout-system §8)
  * - customers: StaleBoundary on the guest list (param-change dimming, §9)
@@ -297,7 +296,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 }
 
-const ARTIFACT_DIR = 'tasks/layout-redesign-system-20260612-2202/artifacts';
+const ARTIFACT_DIR = 'test-results/browser-proof/layout-system';
 const EMAIL_DELIVERY_URL = `/email-delivery?restaurantId=${restaurantId}&tab=delivery-log`;
 
 test.describe('layout system — email delivery log responsive variants', () => {

@@ -235,7 +235,7 @@ function collectFiles(entry, files = []) {
       dirent.name === 'tests' ||
       dirent.name === '__tests__' ||
       dirent.name === '__stories__' ||
-      // Dev harnesses are supplemental, non-shipped surface (AGENTS.md: /dev/**,
+      // Dev harnesses are supplemental, non-shipped surface (dev harness paths,
       // __dev/**). They may use iframes / neutral chrome and are not held to the
       // shipped-UI shadcn primitive rule — same rationale as __stories__.
       dirent.name === 'dev' ||

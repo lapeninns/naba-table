@@ -1,15 +1,15 @@
 ---
 name: Shadcn primitive layer
-overview: 'Path to 100% shadcn primitive coverage across the whole repo (Ops + Guest + reserve/*), executed as 8 sequenced PRs under a tasks/<slug>-YYYYMMDD-HHMM/ harness per AGENTS.md. Color tokens stay out of scope.'
+overview: 'Path to 100% shadcn primitive coverage across the whole repo (Ops + Guest + reserve/*), executed as 8 sequenced PRs. Color tokens stay out of scope.'
 todos:
   - id: harness-bootstrap
-    content: 'PR #0 — Create tasks/shadcn-primitive-100-YYYYMMDD-HHMM/ harness (plan.md, verification.md, baseline.json) per AGENTS.md task-harness rule'
+    content: 'PR #0 — Capture the primitive baseline and verification checklist'
     status: completed
   - id: canonical-root
     content: "PR #1 — Collapse to a single shadcn UI root: move src/components/ui/{calendar,copy-button}.tsx into components/ui, delete components/ui/calendar.tsx.removed-20251003-163739, update ALLOWED_UI_ROOTS in scripts/check-no-shadcn.mjs to ['components/ui'] only"
     status: pending
   - id: primitives-only-mode
-    content: 'PR #2 — Add --primitives-only mode to scripts/check-no-shadcn.mjs (fails on banned-import + banned-ops-reachable-import + native-renderable + standalone-anchor; ignores ad-hoc-token); capture baseline counts into tasks/<slug>/baseline.json'
+    content: 'PR #2 — Add --primitives-only mode to scripts/check-no-shadcn.mjs (fails on banned-import + banned-ops-reachable-import + native-renderable + standalone-anchor; ignores ad-hoc-token); capture baseline counts in config/shadcn-primitives-baseline.json'
     status: pending
   - id: migrate-routeerror
     content: 'PR #3 — Replace single reserve/shared/ui consumer: switch reserve/pages/RouteError.tsx Icon import to a composed icon utility under @/components/ui/* or feature-local; verify the route renders'
@@ -24,7 +24,7 @@ todos:
     content: 'PR #6 — Extend SCAN_ROOTS in scripts/check-no-shadcn.mjs to cover src/app/(public), src/app/guest, src/components, components, reserve; promote BANNED_OPS_REACHABLE_IMPORT_PATTERNS to BANNED_REACHABLE_IMPORT_PATTERNS (repo-wide); refresh baseline'
     status: pending
   - id: ci-gate
-    content: 'PR #7 — Wire CI to run pnpm node scripts/check-no-shadcn.mjs --primitives-only on every PR; document the rule in AGENTS.md non-negotiables'
+    content: 'PR #7 — Wire CI to run pnpm node scripts/check-no-shadcn.mjs --primitives-only on every PR; document the rule in the repository README'
     status: pending
 isProject: false
 ---
@@ -78,16 +78,11 @@ flowchart LR
     primitives -.deleted.-> banned2[src/components/guest/ui/GuestPrimitives.tsx]
 ```
 
-## Execution: 8 sequenced PRs under tasks/ harness
+## Execution: 8 sequenced PRs
 
-Per AGENTS.md medium-risk rule, all PRs land under `tasks/shadcn-primitive-100-YYYYMMDD-HHMM/` with verification notes.
+### PR #0 — Baseline bootstrap
 
-### PR #0 — Harness bootstrap
-
-- Create `tasks/shadcn-primitive-100-YYYYMMDD-HHMM/` containing:
-  - `plan.md` — link back to this file
-  - `verification.md` — recording per-PR `pnpm run lint`, `pnpm run typecheck`, browser-route checks (per AGENTS.md UI verification rule)
-  - `baseline.json` — placeholder, populated in PR #2
+- Capture the current primitive findings and a verification checklist for the sequenced PRs.
 
 ### PR #1 — Single canonical UI root
 
@@ -107,15 +102,15 @@ In [scripts/check-no-shadcn.mjs](scripts/check-no-shadcn.mjs):
   - Keep `ad-hoc-token` advisory only.
   - Fail with non-zero exit if any non-color blocking finding exists.
 - Add `--baseline=<path>` writer that emits `{ blocking: { kind: count }, advisory: { kind: count } }` JSON.
-- Capture baseline into `tasks/<slug>/baseline.json`.
-- Verification: run all three modes (default, `--strict`, `--primitives-only`) and record outputs in `verification.md`.
+- Capture the baseline in `config/shadcn-primitives-baseline.json`.
+- Verification: run all three modes (default, `--strict`, `--primitives-only`) and record the outputs in the PR verification notes.
 
 ### PR #3 — Migrate the one `reserve/shared/ui` consumer
 
 - In [reserve/pages/RouteError.tsx](reserve/pages/RouteError.tsx) replace `import { Icon } from '@reserve/shared/ui/icons'` with either:
   - direct lucide-react icon import (preferred, used elsewhere), or
   - a composed icon helper under [src/components/shared/](src/components/shared) if multiple files need it.
-- Verification: render `RouteError` on a real shipped route (per AGENTS.md "real shipped route" rule), grep proves zero remaining `@reserve/shared/ui` or `@shared/ui` imports outside the directory itself.
+- Verification: render `RouteError` on a real shipped route; grep proves zero remaining `@reserve/shared/ui` or `@shared/ui` imports outside the directory itself.
 
 ### PR #4 — Delete parallel UI systems
 
@@ -133,7 +128,7 @@ For each file below, replace native HTML primitives with shadcn equivalents (`Bu
 - [reserve/pages/RouteError.tsx](reserve/pages/RouteError.tsx)
 - [src/components/restaurants/PublicSections.tsx](src/components/restaurants/PublicSections.tsx)
 
-Verification: per AGENTS.md, browser-verify each route (`/auth/signin` guest path, `/restaurants/[slug]`, error fallbacks via forced exception). Record screenshots/notes in `verification.md`.
+Verification: browser-verify each route (`/auth/signin` guest path, `/restaurants/[slug]`, error fallbacks via forced exception). Record screenshots and notes with the PR.
 
 ### PR #6 — Whole-repo scan + repo-wide bans
 
@@ -142,12 +137,12 @@ In [scripts/check-no-shadcn.mjs](scripts/check-no-shadcn.mjs):
 - Extend `SCAN_ROOTS` to include `src/app/(public)`, `src/app/guest`, `src/components`, `components`, `reserve`.
 - Rename `BANNED_OPS_REACHABLE_IMPORT_PATTERNS` to `BANNED_REACHABLE_IMPORT_PATTERNS` and apply to all reachable files (not just ops-reachable).
 - Exclude `tests/**` and `**/__stories__/**` from the primitives gate.
-- Refresh `tasks/<slug>/baseline.json` — must show 0 blocking findings under `--primitives-only`.
+- Refresh `config/shadcn-primitives-baseline.json` — it must show 0 blocking findings under `--primitives-only`.
 
-### PR #7 — CI gate + AGENTS.md doc
+### PR #7 — CI gate + repository documentation
 
 - Add CI step running `pnpm node scripts/check-no-shadcn.mjs --primitives-only` on every PR (likely in the existing GitHub Actions / lint workflow).
-- Add a non-negotiable line to [AGENTS.md](AGENTS.md):
+- Document the invariant in the repository README:
   > Shadcn primitive layer is single-rooted at `components/ui/*`. No native HTML primitives or parallel UI systems are allowed in app code; `pnpm node scripts/check-no-shadcn.mjs --primitives-only` is the gate.
 - Verification: open a deliberately-broken PR locally (e.g., add `<button>` somewhere) and confirm CI fails.
 
@@ -161,5 +156,5 @@ In [scripts/check-no-shadcn.mjs](scripts/check-no-shadcn.mjs):
 ## Out of scope
 
 - Ad-hoc color/token migration (kept advisory).
-- Ops/guest theme split (governed by AGENTS.md).
+- Ops/guest theme split.
 - Logic/state/data-layer refactors inside feature components.

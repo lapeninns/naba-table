@@ -26,7 +26,7 @@ src/app/api/ops/
 
 ## How it works
 
-Ops UI components should call hooks/services instead of hand-rolling fetch logic. Route handlers delegate to `server/ops/**`, `server/restaurants/**`, `server/capacity/**`, or integration modules. React Query SWR UX follows `docs/sdlc/react-query-swr-ux.md`.
+Ops UI components should call hooks/services instead of hand-rolling fetch logic. Route handlers delegate to `server/ops/**`, `server/restaurants/**`, `server/capacity/**`, or integration modules. React Query SWR UX follows `docs/technical/react-query-swr-ux.md`.
 
 ## Integration points
 
@@ -34,13 +34,11 @@ This topic links to [Ops API](../api/ops-api.md), [Ops dashboard and bookings](.
 
 ## Entry points for modification
 
-Start with the file closest to the behavior being changed, then follow imports to the route, hook, or domain module. For route, API, auth, proxy, Supabase, shared UI, or browser changes, follow `docs/sdlc/**` before editing.
-
 ## Key source files
 
-| File                              | Purpose             |
-| --------------------------------- | ------------------- |
-| `src/services/ops/bookings.ts`    | Booking service.    |
-| `src/services/ops/restaurants.ts` | Restaurant service. |
-| `src/services/ops/dual-sync.ts`   | Dual-sync service.  |
-| `docs/sdlc/react-query-swr-ux.md` | SWR UX contract.    |
+| File                                   | Purpose             |
+| -------------------------------------- | ------------------- |
+| `src/services/ops/bookings.ts`         | Booking service.    |
+| `src/services/ops/restaurants.ts`      | Restaurant service. |
+| `src/services/ops/dual-sync.ts`        | Dual-sync service.  |
+| `docs/technical/react-query-swr-ux.md` | SWR UX contract.    |

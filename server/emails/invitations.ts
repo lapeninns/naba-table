@@ -20,9 +20,9 @@ import {
   resolvePlatformReplyTo,
   resolvePlatformSupportSenderName,
 } from "@/server/emails/sender-policy";
-import { resolveInviteContext } from "@/server/team/invitations";
+import { resolveInviteContext } from "@/server/team/invite-context";
 
-import type { RestaurantInvite } from "@/server/team/invitations";
+import type { RestaurantInvite } from "@/server/team/invite-types";
 
 function formatExpiry(timestamp: string): { date: string; time: string } {
   const date = new Date(timestamp);

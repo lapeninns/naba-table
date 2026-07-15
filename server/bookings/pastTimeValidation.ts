@@ -3,8 +3,6 @@
  *
  * Prevents creation or modification of bookings with start times in the past.
  * Includes configurable grace period and admin override capability.
- *
- * @see tasks/prevent-past-bookings-20251015-1323/plan.md
  */
 
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';

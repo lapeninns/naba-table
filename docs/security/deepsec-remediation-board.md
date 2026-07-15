@@ -84,6 +84,6 @@ Generated from .deepsec/findings on 2026-05-05T12:30:58.507Z.
 ## Backlog Mapping
 
 - Full versioned CSV mapping: docs/security/deepsec-backlog.csv
-- Task evidence copy: tasks/security-sprint-0-20260505-1324/artifacts/deepsec-backlog.csv
+- Generated CSV copy: test-results/security/deepsec-backlog.csv
 - Finding counts: CRITICAL=5, HIGH=128, HIGH_BUG=98, MEDIUM=236, BUG=91
 - Every CRITICAL, HIGH, and HIGH_BUG finding is mapped to exactly one sprint and one root-cause epic in the CSV.

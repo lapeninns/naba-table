@@ -226,7 +226,7 @@ describe('remote-only database command inventory', () => {
     expect(scripts['db:pull']).toBe('tsx scripts/db/safe-run.ts pull');
     expect(scripts['db:check-drift']).toBe('tsx scripts/db/safe-run.ts check-drift');
     expect(scripts['format:db-safe-run']).toBe(
-      'prettier --check scripts/db/safe-run.ts scripts/db/check-drift.ts tests/scripts/db-safe-run.test.ts package.json README.md docs/environments.md docs/security.md micro-specs/00-foundation/03-remote-db-safe-run.md',
+      'prettier --check scripts/db/safe-run.ts scripts/db/check-drift.ts tests/scripts/db-safe-run.test.ts package.json README.md docs/environments.md docs/security.md',
     );
     expect(
       Object.keys(scripts).filter((name) => /db:(reset|seed-only|full-reset|wipe)/.test(name)),

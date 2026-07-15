@@ -18,6 +18,15 @@ function makeDb(row: Record<string, unknown> | null) {
 }
 
 describe('booking short-link storage', () => {
+  it('keeps the D1 query budget constant for token lookups (N+1 guard)', async () => {
+    const { db, prepare } = makeDb(null);
+    const repository = createShortLinkRepository({ db });
+
+    await repository.getLinkByToken('short-token');
+
+    expect(prepare).toHaveBeenCalledTimes(1);
+  });
+
   it('uses D1 revocation state instead of returning a stale cached active link', async () => {
     const revokedAt = '2026-05-16T12:00:00.000Z';
     const { db, prepare, first } = makeDb({

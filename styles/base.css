@@ -268,7 +268,7 @@
 
   /* ---------------------------------------------------------------------------
      FOCUS & INTERACTION STATES
-     Per AGENTS.md: visible focus rings, generous hit targets
+      visible focus rings, generous hit targets
      --------------------------------------------------------------------------- */
   /* Tap highlight for mobile */
   a[href],
@@ -282,7 +282,7 @@
     touch-action: manipulation;
   }
 
-  /* Minimum touch target 44px per AGENTS.md */
+  /* Minimum touch target 44px */
   button,
   [role='button'],
   input[type='checkbox'],
@@ -310,7 +310,7 @@
 
   /* ---------------------------------------------------------------------------
      FORMS & INPUTS
-     Per AGENTS.md: ≥16px font-size on mobile, autocomplete support
+      ≥16px font-size on mobile, autocomplete support
      --------------------------------------------------------------------------- */
   input,
   textarea,

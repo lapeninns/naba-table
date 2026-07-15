@@ -11,7 +11,7 @@ description: Required security workflows for Nab a Table
 2. Rotate in staging first, verify health, then promote to production.
 3. Update hosting + CI secrets plus `.env.example` placeholders. Never commit live values.
 4. Scrub prior secrets from git history via `git filter-repo`/BFG and coordinate a force-pull with collaborators.
-5. Capture evidence in `tasks/<slug>.../artifacts/secret-rotation.md`.
+5. Record the rotation in the provider or incident-management system without copying secrets.
 
 ## Migration drift detection
 

@@ -3,7 +3,7 @@ name: gbp settings ia audit
 overview: Audit and refactor /app/settings/restaurant/google-business-profile so the section stops competing with the page shell, the route description matches reality, and the orphaned Approval-Workflow scaffolding (LinkedSummaryCard, PreflightReviewDialog, PublishPasswordDialog, drift/sync-review libs, workflow hooks/routes, dead derive helpers) is removed.
 todos:
   - id: phase-0-write-findings
-    content: Create tasks/google-business-profile-ia-audit-20260502-1201/FINDINGS.md from the audit table above (Stage A artifact).
+    content: Record the Stage A findings table in this plan before beginning fixes.
     status: pending
   - id: phase-1-copy-cleanup
     content: "Phase 1: tighten route copy (drop 'review profile changes'), derive page metadata from routes.ts, delete F-09 orphan files, trim F-10/F-12/F-13/F-14 dead exports, add TODO breadcrumb on F-11 routes, rename Profile cross-link (X-01)."
@@ -25,7 +25,7 @@ isProject: false
 
 # GBP settings IA audit + cleanup
 
-Treat this plan as both Stage A (FINDINGS) and Stage B (sequenced fixes). The audit folder is `tasks/google-business-profile-ia-audit-20260502-1201/` and `FINDINGS.md` materialises the table below verbatim.
+Treat this plan as both Stage A (findings) and Stage B (sequenced fixes). Keep the findings table below as the audit record.
 
 ## Locked design calls
 
@@ -62,7 +62,7 @@ Severity: **B** = blocker, **U** = UX, **N** = noise.
 
 ### F-table (per-route findings)
 
-- **F-01 (B)** Duplicate h1 "Google Business Profile". Shell already renders one in [src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx](src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx) lines 63-80; section renders a second in [src/components/features/restaurant-settings/google-business-profile/components/PageHeader.tsx](src/components/features/restaurant-settings/google-business-profile/components/PageHeader.tsx) line 50. Violates AGENTS.md ("section MUST NOT render a competing CardTitle of the same name"). _Stale copy + duplicate title._
+- **F-01 (B)** Duplicate h1 "Google Business Profile". Shell already renders one in [src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx](src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx) lines 63-80; section renders a second in [src/components/features/restaurant-settings/google-business-profile/components/PageHeader.tsx](src/components/features/restaurant-settings/google-business-profile/components/PageHeader.tsx) line 50. The section must not render a competing title of the same name. _Stale copy + duplicate title._
 - **F-02 (B)** Dead UI affordance promised in route metadata. [src/components/features/restaurant-settings/routes.ts](src/components/features/restaurant-settings/routes.ts) line 23 says "...and review profile changes." but no review/approval workflow renders in [src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx](src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx). _Dead UI affordance._
 - **F-03 (B)** Three competing copy sources. routes.ts: "Connect Google, link a location, and review profile changes." vs page metadata in [src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx](<src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx>) line 7: "Connect a Google account and link the correct GBP location to this restaurant." vs section sub-meta strip "Last checked / Provider timezone". _Stale copy._
 - **F-04 (B)** Empty/loading/error variants drop chrome. [GoogleBusinessProfileSection.tsx](src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx) lines 33-43 (LoadingSkeleton), 110-119 (no-restaurant), 125-145 (error), 148-150 (return null on missing data). None of those render the action bar or related-settings footer; the page chrome shrinks/grows on restaurant switch. _Inconsistent shell framing._
@@ -134,7 +134,7 @@ Each phase is independently reviewable and references the F/X IDs above.
    - In [components/StatusBadge.tsx](src/components/features/restaurant-settings/google-business-profile/components/StatusBadge.tsx) remove `alignmentToneForMatch`.
    - In [googleBusinessProfileVerification.ts](src/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification.ts) remove `deriveOperatingHoursVerification`, `deriveServicePeriodsVerification`, `deriveOperatingHoursRowComparisons`, `deriveServicePeriodDayComparisons` and their helper-only call paths (`formatOperatingHoursSource`, `compareOperatingHoursRows`, `compareMealWindow`, `inferKitchenSplitWindow`, `inferServicePeriodsByDay`, `normalizationStatusToCoreStatus`, etc. that lose their last caller). Keep `deriveProfileVerification` and the types/helpers it depends on.
    - In [src/hooks/ops/useOpsGoogleBusinessProfile.ts](src/hooks/ops/useOpsGoogleBusinessProfile.ts) remove every workflow/draft/sync hook listed in F-10. Keep `useOpsGoogleBusinessProfileConnection`, `useOpsLinkGoogleBusinessProfileLocation`, `useOpsDisconnectGoogleBusinessProfile`.
-5. F-11: do NOT delete the API route handlers in this PR (per AGENTS.md "Data model and API surface are unchanged"). Add a TODO comment at the top of each unused route file pointing back to this audit so a follow-up task can decide. Do NOT touch any `schema.ts`.
+5. F-11: do NOT delete the API route handlers in this PR; the data model and API surface remain unchanged. Add a TODO comment at the top of each unused route file so a follow-up can decide. Do NOT touch any `schema.ts`.
 6. X-01: in [RestaurantProfileSection.tsx](src/components/features/restaurant-settings/RestaurantProfileSection.tsx) line 92-94 keep the link text "Review Google changes" or rename to "Manage Google connection" — pick whichever survives the new copy in step 1 (recommendation: rename to **Manage Google connection**, point at `${REVIEW_GBP_HREF}#gbp-connection`).
 
 ### Phase 2 - Layout (F-01, F-04, F-05, F-06, F-15)
@@ -160,7 +160,7 @@ Each phase is independently reviewable and references the F/X IDs above.
 4. Trim [tests/components/googleBusinessProfileVerification.test.ts](tests/components/googleBusinessProfileVerification.test.ts) to the `deriveProfileVerification`-only assertions; delete the operating-hours/service-periods cases (their subjects are deleted in Phase 1, F-12).
 5. Add a new test for the new shell that asserts: skeleton state shows the action bar + footer, error state shows the action bar + footer, no-restaurant state shows the action bar + footer, hash anchor `#gbp-connection` scrolls into view (jsdom: assert `getElementById('gbp-connection')` is present and `scrollIntoView` is called).
 
-## Constraints check (AGENTS.md)
+## Constraints check
 
 - Shadcn-first: only existing primitives from `@/components/ui/*` (`Button`, `Card`, `Alert`, `Skeleton`, `Select`, `DropdownMenu`, `StatusBadge`) plus shared helpers (`SettingsCard`, `SettingsSecondaryActions`, `SETTINGS_COMPACT_*`).
 - All internal links use `opsHref(...)`. The current hard-coded helper [src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx](src/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection.tsx) line 152 builds an external connect URL via `OPS_RESTAURANTS_BASE`; that is an API path, not an internal ops route, so leave it.

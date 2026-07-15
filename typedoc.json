@@ -1,0 +1,21 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "lib/logger.ts",
+    "lib/analytics/schema.ts",
+    "server/observability.ts",
+    "server/bookings.ts",
+    "server/capacity/metrics.ts",
+    "cloudflare/booking-short-links/src/contracts.ts",
+    "cloudflare/sms-summary-gateway/src/contracts.ts"
+  ],
+  "out": "docs/api",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "name": "Nabatable API reference",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "skipErrorChecking": false,
+  "categorizeByGroup": true
+}

@@ -65,9 +65,6 @@ const nextConfig = {
   images: {
     remotePatterns: imageRemotePatterns,
   },
-  outputFileTracingExcludes: {
-    '*': ['tasks/**/artifacts/**'],
-  },
   async redirects() {
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'nabatable.com';
 

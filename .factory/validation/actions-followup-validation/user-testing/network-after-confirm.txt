@@ -1,2 +1,0 @@
-POST http://app.localhost:3000/api/ops/email-delivery/retry (fetch)
-GET http://app.localhost:3000/api/ops/email-delivery?restaurantId=a050d1ad-1ee0-4ea0-abc2-22c3778aa52c&range=7d&page=1&pageSize=50&fixture=retry-actions (fetch)

@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: Nabatable SMS summary gateway API
+  version: 1.0.0
+  description: Daily manager summary dispatch gateway.
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Gateway is healthy.
+  /internal/dispatch-daily-summary:
+    post:
+      operationId: dispatchDailySummary
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [restaurantId]
+              properties:
+                restaurantId:
+                  type: string
+                  format: uuid
+                localDate:
+                  type: string
+                  format: date
+                dryRun:
+                  type: boolean
+                force:
+                  type: boolean
+      responses:
+        '202':
+          description: Summary queued.
+        '400':
+          description: Invalid request.
+        '401':
+          description: Invalid service token.
+        '404':
+          description: Restaurant summary target not found.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

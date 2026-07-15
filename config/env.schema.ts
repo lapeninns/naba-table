@@ -64,7 +64,7 @@ const baseEnvSchema = z
     ALLOW_MEMORY_RATE_LIMIT_IN_PROD: booleanStringOptional,
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-    /** Supabase read-replica API URL (same project keys). Service-role server client only; see supabase/AGENTS.md */
+    /** Supabase read-replica API URL (same project keys). Service-role server client only */
     SUPABASE_READ_REPLICA_URL: z.string().url().optional(),
     /** Optional banner text shown at the top of the Ops app (e.g. "Preview: production read replica"). */
     OPS_ENV_BANNER: z.string().max(500).optional(),
@@ -133,6 +133,12 @@ const baseEnvSchema = z
     POSTHOG_CLI_API_KEY: z.string().min(1).optional(),
     POSTHOG_CLI_PROJECT_ID: z.string().min(1).optional(),
     POSTHOG_SOURCEMAP_UPLOAD: booleanStringOptional,
+    ERROR_INSIGHT_RECEIVER_TOKEN: z.string().min(32).optional(),
+    ERROR_INSIGHT_GITHUB_TOKEN: z.string().min(1).optional(),
+    ERROR_INSIGHT_GITHUB_REPOSITORY: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u)
+      .optional(),
     OPENAI_API_KEY: z.string().optional(),
     GOOGLE_BUSINESS_CLIENT_ID: optionalString,
     GOOGLE_BUSINESS_CLIENT_SECRET: optionalString,

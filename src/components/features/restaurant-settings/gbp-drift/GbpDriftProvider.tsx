@@ -1,11 +1,12 @@
 'use client';
 
-import { createContext, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 
+import { GbpDriftContext } from './context';
 import { GbpCompareDialog } from './GbpCompareDialog';
 import {
   buildGbpDriftPublishRequest,
@@ -24,8 +25,6 @@ import type {
   GbpDriftProviderProps,
 } from './types';
 import type { DualSyncPublishRequest, DualSyncPublishResponse } from '@/services/ops/dual-sync';
-
-export const GbpDriftContext = createContext<GbpDriftContextValue | null>(null);
 
 export function GbpDriftProvider({ restaurantId, children }: GbpDriftProviderProps) {
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);

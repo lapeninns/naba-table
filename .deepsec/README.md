@@ -59,7 +59,6 @@ data/nabatableLP/
   files/                 One JSON per scanned source file (gitignored)
   runs/                  Run metadata (gitignored)
   reports/               Generated markdown reports (gitignored)
-AGENTS.md                Pointer for coding agents
 .env.local               Tokens (gitignored)
 ```
 

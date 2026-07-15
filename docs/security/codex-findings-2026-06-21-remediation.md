@@ -9,7 +9,7 @@ Full triage + evidence ledger: `.omo/evidence/security-findings-verify-fix/` (no
 ## Outcome (all 99 accounted — see `final-scanner-closure.md`)
 
 - **66 not_actionable** — vulnerable artifact removed/refactored/guarded at HEAD with cited counterevidence.
-- **11 fixed (local, TDD Red→Green)** — disclosure/cache/upload/UI: triage-039, 041, 042, 059, 063, 070, 079, 091, 093, 096, 099.
+- **11 fixed and regression-tested locally** — disclosure/cache/upload/UI: triage-039, 041, 042, 059, 063, 070, 079, 091, 093, 096, 099.
 - **10 RPC execute-hardened** — `supabase/migrations/20260621120000_harden_assignment_rpc_privileges.sql`
   (REVOKE PUBLIC/anon/authenticated + GRANT service_role for assign/booking-lifecycle SECURITY DEFINER RPCs):
   triage-003, 014, 015, 016, 019, 022, 025, 026, 029, 061. **Remote apply + `pnpm db:check-drift` = GATED.**

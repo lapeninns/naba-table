@@ -1,6 +1,6 @@
 # Routing host split
 
-`AGENTS.md`, `docs/sdlc/README.md`, and `src/proxy.ts` make the root-host/app-host split explicit.
+`src/proxy.ts` implements the root-host/app-host split.
 
 | Host context             | Surface                                                                                       | Source                                    |
 | ------------------------ | --------------------------------------------------------------------------------------------- | ----------------------------------------- |

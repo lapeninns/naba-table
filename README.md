@@ -117,11 +117,7 @@ Menu import threat model: menu source files are untrusted content. Import script
 
 ## Docs index
 
-- `docs/sdlc/README.md` — Nabatable SDLC operating system overview.
-- `docs/sdlc/risk-tier-workflow.md` — low/medium/high process model.
-- `docs/sdlc/task-harness.md` — task-folder artifact structure.
-- `docs/sdlc/verification.md` — verification matrix and evidence expectations.
-- `docs/sdlc/subagents.md` — planner/implementer/reviewer/UI-QA operating model.
+- `docs/technical/` — product and integration design notes.
 - `docs/environments.md` — environment profiles and safety flags.
 - Email Delivery dev/test validation fixtures:
   - Retry flow fixture: `/email-delivery?fixture=retry-actions`

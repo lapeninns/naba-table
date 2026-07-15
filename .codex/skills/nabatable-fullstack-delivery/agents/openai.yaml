@@ -1,4 +1,0 @@
-interface:
-  display_name: "Nabatable Fullstack Delivery"
-  short_description: "Deliver features, regressions, and proof cleanly"
-  default_prompt: "Use $nabatable-fullstack-delivery to implement or tighten a Nabatable full-stack change, choosing the right workflow for a net-new feature, a regression fix, or a test-only proof pass."

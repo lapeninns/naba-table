@@ -132,7 +132,7 @@ async function main(): Promise<void> {
   const connectionString = buildPgConnectionString();
   assertExactSupabaseProjectRef(connectionString, expectedProjectRef);
 
-  const taskDir = path.join(projectRoot, 'tasks/staging-perf-dataset-20260207-1647');
+  const taskDir = path.join(projectRoot, 'test-results/performance/staging-perf-dataset');
   const artifactsDir = path.join(taskDir, 'artifacts');
   fs.mkdirSync(artifactsDir, { recursive: true });
 

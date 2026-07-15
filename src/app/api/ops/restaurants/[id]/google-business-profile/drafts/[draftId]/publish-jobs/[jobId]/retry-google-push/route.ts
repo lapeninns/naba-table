@@ -1,4 +1,4 @@
-// TODO(gbp-ia-audit-20260502-1201): Orphan route handler; no client caller after the F-10 hook deletions. See tasks/google-business-profile-ia-audit-20260502-1201/FINDINGS.md (F-11). Decide whether to delete or rewire in a follow-up.
+// TODO(gbp-ia-audit-20260502-1201): Orphan route handler with no client caller after the F-10 hook deletions; decide whether to delete or rewire it.
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 

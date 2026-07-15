@@ -1,0 +1,12 @@
+{
+  "reviewedAt": "2026-07-15",
+  "owner": "platform-engineering",
+  "counts": {
+    "files": 104,
+    "dependencies": 10,
+    "devDependencies": 13,
+    "unlisted": 2,
+    "binaries": 2,
+    "cycles": 0
+  }
+}

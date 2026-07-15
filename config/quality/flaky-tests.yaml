@@ -1,0 +1,6 @@
+version: 1
+policy:
+  retriesAllowed: 0
+  requiredConsecutivePassesToRemove: 10
+  maximumQuarantineDays: 7
+quarantine: []

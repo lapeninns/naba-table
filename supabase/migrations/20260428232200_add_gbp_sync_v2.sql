@@ -1,5 +1,4 @@
--- Phase 1 of the GBP Dual-Sync V2 architecture (task harness:
--- tasks/gbp-dual-sync-architecture-v2-20260428-2319). Adds five additive
+-- Phase 1 of the GBP Dual-Sync V2 architecture. Adds five additive
 -- _v2 tables that back the new versioned engine. Legacy GBP tables stay live
 -- and unchanged. RLS is service_role-only to mirror the legacy approval
 -- workflow tables.

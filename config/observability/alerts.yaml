@@ -1,0 +1,39 @@
+version: 1
+owner: platform-engineering
+services:
+  nabatable-web:
+    availability:
+      condition: http_5xx_rate > 0.02 for 10m
+      severity: page
+      runbook: docs/runbooks/service-degradation.md
+    latency:
+      condition: http_p95_ms > 1500 for 15m
+      severity: ticket
+      runbook: docs/runbooks/service-degradation.md
+  booking-short-links:
+    availability:
+      condition: http_5xx_rate > 0.01 for 5m
+      severity: page
+      runbook: docs/runbooks/worker-degradation.md
+    circuitBreaker:
+      condition: circuit_open_count > 0 for 2m
+      severity: page
+      runbook: docs/runbooks/worker-degradation.md
+  email-queue-gateway:
+    queueHealth:
+      condition: dlq_depth > 0 or oldest_job_age_seconds > 900
+      severity: page
+      runbook: docs/runbooks/worker-degradation.md
+    availability:
+      condition: http_5xx_rate > 0.02 for 5m
+      severity: page
+      runbook: docs/runbooks/worker-degradation.md
+  sms-summary-gateway:
+    delivery:
+      condition: delivery_failure_rate > 0.05 for 10m
+      severity: page
+      runbook: docs/runbooks/worker-degradation.md
+    queueHealth:
+      condition: retry_rate > 0.10 for 10m
+      severity: ticket
+      runbook: docs/runbooks/worker-degradation.md

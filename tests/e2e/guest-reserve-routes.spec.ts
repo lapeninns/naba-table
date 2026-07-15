@@ -278,7 +278,7 @@ test.describe('reserve routes', () => {
       .poll(async () => notesContent.evaluate((element) => getComputedStyle(element).animationName))
       .not.toBe('none');
     await page.screenshot({
-      path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-plan-mobile.png',
+      path: 'test-results/browser-proof/reserve-wizard/after-plan-mobile.png',
       fullPage: true,
     });
 
@@ -320,7 +320,7 @@ test.describe('reserve routes', () => {
     await expect(phoneInput).toHaveCSS('height', '44px');
     await terms.check();
     await page.screenshot({
-      path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-details-mobile.png',
+      path: 'test-results/browser-proof/reserve-wizard/after-details-mobile.png',
       fullPage: true,
     });
     await page.getByRole('button', { name: 'Review booking' }).click();
@@ -331,7 +331,7 @@ test.describe('reserve routes', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
     await page.screenshot({
-      path: 'tasks/customer-booking-wizard-audit-20260712-1004/artifacts/after-review-desktop.png',
+      path: 'test-results/browser-proof/reserve-wizard/after-review-desktop.png',
       fullPage: true,
     });
 

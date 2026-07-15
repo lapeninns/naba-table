@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "service": "sms-summary-gateway",
+  "version": 1,
+  "durableObjects": [
+    {
+      "className": "DailyBookingSummaryState",
+      "migrationTag": "v1",
+      "storage": "sqlite",
+      "keyspaces": {
+        "state": "{ sentAt: string | null; providerMessageId: string | null; lockUntil: string | null; expiresAt: string | null }"
+      }
+    }
+  ]
+}

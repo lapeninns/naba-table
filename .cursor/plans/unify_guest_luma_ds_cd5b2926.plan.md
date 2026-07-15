@@ -15,7 +15,7 @@ todos:
     content: Sweep src/app/app and shared components for hardcoded non-Luma colors and pre-Luma patterns
     status: pending
   - id: docs-verify
-    content: Update AGENTS.md to state one Radix Luma system; browser-verify ops + guest; lint/typecheck
+    content: Update the design-system documentation to state one Radix Luma system; browser-verify ops + guest; lint/typecheck
     status: pending
 isProject: false
 ---
@@ -75,9 +75,9 @@ flowchart LR
 1. **Token consolidation** — Luma light + dark at global base; remove conflicting `:root` chart/sidebar/destructive values.
 2. **Remove ops-only density** — Keep ops spacing/type aligned to Luma tokens in `globals.css` and `public-guest.tokens.css`; if an app-only theme file is reintroduced, delete or rewrite it unless the spec explicitly defines multiple tiers.
 3. **Typography & utilities** — Ops shell uses Luma font stacks and spacing; audit [`src/app/app`](src/app/app) for `font-sajilo`, arbitrary Tailwind palette classes, and custom radii.
-4. **Docs** — [`AGENTS.md`](AGENTS.md): replace “Ops uses default shadcn theme…” with **Radix Luma everywhere**.
+4. **Docs** — Update the design-system documentation to state **Radix Luma everywhere**.
 5. **Verification** — Browser: shipped ops route + guest route; `pnpm run lint`, `pnpm run typecheck`.
 
 ## Risk / scope
 
-High-touch global CSS and layouts. Consider **`tasks/unify-luma-ds-YYYYMMDD-HHMM/`** per [`docs/sdlc/risk-tier-workflow.md`](docs/sdlc/risk-tier-workflow.md).
+High-touch global CSS and layouts. Sequence the rollout and record browser, lint, and typecheck evidence for each phase.

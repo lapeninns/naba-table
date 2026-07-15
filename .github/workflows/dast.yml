@@ -1,0 +1,45 @@
+name: DAST baseline
+
+on:
+  schedule:
+    - cron: '11 4 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: ZAP ${{ matrix.application }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - application: web
+            target: ${{ vars.DAST_WEB_URL }}
+          - application: booking-short-links
+            target: ${{ vars.DAST_BOOKING_LINKS_URL }}
+          - application: email-queue-gateway
+            target: ${{ vars.DAST_EMAIL_GATEWAY_URL }}
+          - application: sms-summary-gateway
+            target: ${{ vars.DAST_SMS_GATEWAY_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+      - name: Require an isolated staging target
+        if: matrix.target == ''
+        run: |
+          echo "Missing staging URL for ${{ matrix.application }}. Configure the documented DAST repository variable."
+          exit 1
+      - name: Run OWASP ZAP baseline
+        if: matrix.target != ''
+        uses: zaproxy/action-baseline@2b5fc7f98d837319798ab7f128ea50b7d40563b6
+        with:
+          target: ${{ matrix.target }}
+          allow_issue_writing: false
+          artifact_name: zap-${{ matrix.application }}
+          cmd_options: '-I -a'

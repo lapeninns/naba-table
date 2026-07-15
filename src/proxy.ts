@@ -1,217 +1,32 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
+import { applyHttpTraceHeaders, createHttpTraceContext } from '@/lib/observability/http-trace';
 import { buildCsrfCookieOptions, CSRF_COOKIE_NAME } from '@/lib/security/csrf';
-import { APP_REQUEST_PATH_HEADER, buildAppRequestPath } from '@/lib/url/app-request-path';
+import { buildAppRequestPath } from '@/lib/url/app-request-path';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
-import { requireOpsAuth } from '@/server/auth/ops-guard';
-import {
-  QA_OPS_AUTH_COOKIE_NAME,
-  QA_OPS_USER_ID,
-  isQaOpsAuthFixtureAllowed,
-} from '@/server/auth/qa-ops-session';
+import { QA_OPS_AUTH_COOKIE_NAME, isQaOpsAuthFixtureAllowed } from '@/server/auth/qa-ops-session';
 import { getMiddlewareSupabaseClient } from '@/server/supabase';
-
-import type { NextRequest } from 'next/server';
-
-const OPS_API_SERVICES = new Set([
-  'bookings',
-  'customers',
-  'dashboard',
-  'occasions',
-  'operations-hub',
-  'restaurants',
-  'settings',
-  'strategies',
-  'tables',
-  'team',
-  'zones',
-]);
-
-const PUBLIC_OPS_API_PATHS = new Set(['/api/ops/google-business-profile/callback']);
+import {
+  applySecurityHeaders,
+  buildHostWithPort,
+  buildRedirect,
+  buildRequestHeadersWithAppPath,
+  forwardRequest,
+  getOpsRewritePath,
+  getRootDomain,
+  isAppHost,
+  isPublicOpsApiPath,
+  isSingleHostMode,
+  isStaticOrFramework,
+  parseHost,
+  rewriteRequest,
+  runOpsAuthWithTrustedHeader,
+  stripLeadingAppPrefix,
+} from '@/src/proxy-routing-support';
 
 export const config = {
   matcher: ['/((?!_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)'],
 };
-
-function getRootDomain() {
-  return process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
-}
-
-function parseHost(req: NextRequest) {
-  const host = (req.headers.get('host') || req.nextUrl.host || '').toLowerCase();
-  const [hostname, port] = host.split(':');
-  return { host, hostname, port };
-}
-
-function getLocalAppHosts() {
-  const raw = process.env.NEXT_PUBLIC_LOCAL_APP_HOSTS ?? '';
-  const entries = raw
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-  return new Set(entries);
-}
-
-function isSingleHostMode(hostname: string, host: string) {
-  // Allow multi-host in development/preview if we want to test subdomains
-  // if (vercelEnv === "preview" || vercelEnv === "development") return true;
-
-  // if (rootDomain === "localhost") return true;
-
-  const localHosts = getLocalAppHosts();
-  return localHosts.has(host) || localHosts.has(hostname);
-}
-
-function isAppHost(hostname: string, rootDomain: string) {
-  if (!hostname) return false;
-  if (rootDomain === 'localhost') {
-    return hostname.startsWith('app.localhost');
-  }
-  return hostname === `app.${rootDomain}`;
-}
-
-function isStaticOrFramework(pathname: string) {
-  if (['/favicon.ico', '/robots.txt', '/sitemap.xml'].includes(pathname)) return true;
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/_static') ||
-    pathname.startsWith('/_vercel')
-  )
-    return true;
-  if (/\.[a-zA-Z0-9]+$/.test(pathname)) return true;
-  return false;
-}
-
-function applySecurityHeaders(response: NextResponse) {
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set(
-    'Content-Security-Policy',
-    "base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'",
-  );
-}
-
-function buildHostWithPort(hostname: string, port?: string) {
-  if (!port) return hostname;
-  return `${hostname}:${port}`;
-}
-
-function buildRedirect(
-  req: NextRequest,
-  targetHost: string,
-  pathname: string,
-  searchParams: string,
-  status = 308,
-) {
-  const base = `${req.nextUrl.protocol}//${targetHost}`;
-  const suffix = searchParams ? `?${searchParams}` : '';
-  const safePathname = normalizeProxyRedirectPath(pathname);
-  const destination = new URL(`${safePathname}${suffix}`, base).toString();
-  // Use an explicit Location header so Next does not rewrite cross-host redirects
-  // into same-host relative paths (which loops on app.localhost guest routes).
-  return new NextResponse(null, {
-    status,
-    headers: {
-      Location: destination,
-    },
-  });
-}
-
-function stripLeadingAppPrefix(pathname: string) {
-  const next = pathname.replace(/^\/app(\/|$)/, '/');
-  return normalizeProxyRedirectPath(next);
-}
-
-function normalizeProxyRedirectPath(pathname: string) {
-  if (!pathname || /\\|%5c/i.test(pathname)) return '/';
-  const normalized = pathname.startsWith('/') ? pathname.replace(/^\/+/, '/') : `/${pathname}`;
-  return normalized || '/';
-}
-
-function isPublicRestaurantSchedulePath(pathname: string) {
-  return /^\/api\/restaurants\/[^/]+\/(schedule|calendar-mask)(\/|$)/.test(pathname);
-}
-
-function getOpsRewritePath(pathname: string) {
-  if (!pathname.startsWith('/api/')) return null;
-  if (pathname.startsWith('/api/ops/')) return null;
-  if (isPublicRestaurantSchedulePath(pathname)) return null;
-
-  const segments = pathname.slice('/api/'.length).split('/').filter(Boolean);
-  const [service, ...rest] = segments;
-  if (!service || !OPS_API_SERVICES.has(service)) return null;
-  return `/api/ops/${service}${rest.length ? `/${rest.join('/')}` : ''}`;
-}
-
-function isPublicOpsApiPath(pathname: string) {
-  return (
-    PUBLIC_OPS_API_PATHS.has(pathname) ||
-    /^\/api\/ops\/restaurants\/[^/]+\/google-business\/callback$/.test(pathname)
-  );
-}
-
-const TRUSTED_OPS_USER_HEADER = 'x-ops-user-id';
-
-/**
- * Build a fresh Headers object with any client-supplied
- * `x-ops-user-id` removed. The middleware always re-sets this header from the
- * validated Supabase session before the request reaches a route handler, so
- * stripping the inbound value prevents spoofing.
- */
-function buildTrustedRequestHeaders(req: NextRequest): Headers {
-  const headers = new Headers(req.headers);
-  headers.delete(TRUSTED_OPS_USER_HEADER);
-  return headers;
-}
-
-function buildRequestHeadersWithAppPath(req: NextRequest, requestPath: string): Headers {
-  const headers = buildTrustedRequestHeaders(req);
-  headers.set(APP_REQUEST_PATH_HEADER, requestPath);
-  return headers;
-}
-
-/**
- * Copy any cookies set on the working response (e.g., refreshed Supabase auth
- * tokens written during `auth.getUser()`) onto the final response.
- */
-function copyCookies(from: NextResponse, to: NextResponse): void {
-  for (const cookie of from.cookies.getAll()) {
-    to.cookies.set(cookie);
-  }
-}
-
-/**
- * Run an ops auth guard while forwarding a trusted `x-ops-user-id` request
- * header to the downstream route handler. Returns the failure response when
- * auth fails, or the final response (built with the userId in the request
- * headers) when auth succeeds.
- */
-async function runOpsAuthWithTrustedHeader(
-  req: NextRequest,
-  buildResponse: (init: { request: { headers: Headers } }) => NextResponse,
-): Promise<NextResponse> {
-  const headers = buildTrustedRequestHeaders(req);
-  if (
-    isQaOpsAuthFixtureAllowed({
-      cookieValue: req.cookies.get(QA_OPS_AUTH_COOKIE_NAME)?.value,
-      host: req.headers.get('host') ?? req.nextUrl.host,
-    })
-  ) {
-    headers.set(TRUSTED_OPS_USER_HEADER, QA_OPS_USER_ID);
-    return buildResponse({ request: { headers } });
-  }
-
-  const workingResponse = buildResponse({ request: { headers } });
-  const guardResult = await requireOpsAuth(req, workingResponse);
-  if (guardResult instanceof NextResponse) {
-    return guardResult;
-  }
-  headers.set(TRUSTED_OPS_USER_HEADER, guardResult.userId);
-  const finalResponse = buildResponse({ request: { headers } });
-  copyCookies(workingResponse, finalResponse);
-  return finalResponse;
-}
 
 export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const url = req.nextUrl;
@@ -222,7 +37,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const isSingleHost = isSingleHostMode(hostname, host);
 
   if (isStaticOrFramework(url.pathname)) {
-    return NextResponse.next();
+    return forwardRequest(req);
   }
 
   const rootHost = buildHostWithPort(rootDomain, port);
@@ -241,7 +56,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
           `${url.pathname}${searchParams ? `?${searchParams}` : ''}`,
           req.url,
         );
-        return NextResponse.rewrite(rewriteUrl);
+        return rewriteRequest(req, rewriteUrl);
       }
       return buildRedirect(req, rootHost, url.pathname, searchParams);
     }
@@ -255,7 +70,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
             `${stripped}${searchParams ? `?${searchParams}` : ''}`,
             req.url,
           );
-          return NextResponse.rewrite(rewriteUrl);
+          return rewriteRequest(req, rewriteUrl);
         }
         return buildRedirect(req, rootHost, stripped, searchParams);
       }
@@ -281,14 +96,14 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
       // 3b. Direct /api/ops/* calls require auth guard
       if (url.pathname.startsWith('/api/ops/')) {
         if (isPublicOpsApiPath(url.pathname)) {
-          return NextResponse.next();
+          return forwardRequest(req);
         }
         return runOpsAuthWithTrustedHeader(req, (init) => NextResponse.next(init));
       }
 
       // 3c. All other APIs (auth, profile, restaurants, v1, etc.) pass through directly
       // These are shared APIs accessible from both guest and restaurant contexts
-      return NextResponse.next();
+      return forwardRequest(req);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -306,7 +121,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
     // 5. Auth pages pass through without rewrite (they exist at /app/auth/*)
     if (url.pathname.startsWith('/auth')) {
       const internalPath = `/app${url.pathname}${searchParams ? `?${searchParams}` : ''}`;
-      return NextResponse.rewrite(new URL(internalPath, req.url));
+      return rewriteRequest(req, new URL(internalPath, req.url));
     }
 
     // 6. All other page routes are restaurant pages - rewrite to /app/* and require auth
@@ -347,7 +162,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   // 1. Ops API calls from root domain still need auth guard
   if (url.pathname.startsWith('/api/ops')) {
     if (isPublicOpsApiPath(url.pathname)) {
-      return NextResponse.next();
+      return forwardRequest(req);
     }
     return runOpsAuthWithTrustedHeader(req, (init) => NextResponse.next(init));
   }
@@ -379,11 +194,17 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   }
 
   // 3. All other routes pass through (guest pages, public APIs, etc.)
-  return NextResponse.next();
+  return forwardRequest(req);
 }
 
 export default async function proxy(req: NextRequest) {
-  const response = await handleRouting(req);
+  const startedAt = performance.now();
+  const traceContext = createHttpTraceContext(req);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-request-id', traceContext.requestId);
+  requestHeaders.set('traceparent', traceContext.traceparent);
+  const tracedRequest = new NextRequest(req, { headers: requestHeaders });
+  const response = await handleRouting(tracedRequest);
   const rootDomain = getRootDomain();
 
   const csrfToken = req.cookies.get(CSRF_COOKIE_NAME)?.value;
@@ -400,6 +221,12 @@ export default async function proxy(req: NextRequest) {
     });
   }
 
+  applyHttpTraceHeaders(
+    response.headers,
+    traceContext,
+    Number((performance.now() - startedAt).toFixed(3)),
+    'proxy',
+  );
   applySecurityHeaders(response);
   return response;
 }

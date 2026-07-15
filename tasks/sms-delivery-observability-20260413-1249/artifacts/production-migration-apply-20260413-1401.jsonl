@@ -1,4 +1,0 @@
-{"name":"apply_sql","status":201,"body":"[]"}
-{"name":"record_migration","status":201,"body":"[]"}
-{"name":"verify","status":201,"body":"[{\"sms_delivery_log\":\"sms_delivery_log\",\"migration_recorded\":true}]"}
-{"name":"count_rows","status":201,"body":"[{\"count\":0}]"}

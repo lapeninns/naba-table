@@ -175,7 +175,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 }
 
-const ARTIFACT_DIR = 'tasks/uxui-redesign-foundation-20260612-2054/artifacts';
+const ARTIFACT_DIR = 'test-results/browser-proof/ops-mobile-redesign';
 
 test.describe('ops mobile redesign — bottom nav and bookings stale UX', () => {
   test.use({ baseURL: appHostBaseUrl });

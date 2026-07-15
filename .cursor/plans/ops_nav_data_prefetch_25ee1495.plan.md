@@ -40,7 +40,7 @@ isProject: false
 ## Verification
 
 - Run `pnpm run typecheck` and targeted tests if new helpers/tests are added.
-- Per [`AGENTS.md`](AGENTS.md): browser verification on a **real shipped ops route** (e.g. app host bookings/customers), not only `__dev` harnesses.
+- Browser verification on a **real shipped ops route** (e.g. app host bookings/customers), not only `__dev` harnesses.
 
 ## Files likely to change
 

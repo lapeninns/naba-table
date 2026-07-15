@@ -12,10 +12,7 @@ function coerceUtcDateTime(value: Date | string): DateTime {
   return DateTime.fromISO(value, { zone: 'utc' });
 }
 
-export function resolveDueDispatch(params: {
-  now: Date | string;
-  timezone: string;
-}): DueDispatch {
+export function resolveDueDispatch(params: { now: Date | string; timezone: string }): DueDispatch {
   const now = coerceUtcDateTime(params.now).setZone(params.timezone);
   const localDate = now.toISODate();
 

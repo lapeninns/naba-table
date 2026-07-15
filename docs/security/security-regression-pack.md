@@ -41,5 +41,5 @@ CI runs the pack from `.github/workflows/security-guards.yml` on pull requests t
 ## Evidence Rules
 
 - A pack row is reproducible only when the named test file is committed and included in `security:regression`.
-- Historical "failing before fix" evidence belongs in the remediation PR or task harness for the root-cause epic.
+- Historical "failing before fix" evidence belongs in the remediation PR or issue for the root cause.
 - Do not mark a scanner finding closed from this pack alone. Closure requires scanner rerun evidence or an explicit signed risk acceptance.
