@@ -27,6 +27,9 @@ interface WizardLayoutProps {
   onFocusCapture?: React.FocusEventHandler<HTMLElement>;
 }
 
+// The shared accordion height animation is 200ms; one frame of headroom captures final geometry.
+const FOCUS_TRANSITION_RECHECK_MS = 250;
+
 function getFocusVisibleBottom(stickyHeight: number) {
   const fallbackBoundary = window.innerHeight - stickyHeight;
   const navigation = document.querySelector<HTMLElement>('[data-booking-wizard-navigation]');
@@ -73,11 +76,15 @@ export function WizardLayout({
     ? 'var(--pg-grid-gap)'
     : 'calc(var(--pg-touch-target) * 3)';
   const focusRecheckFrame = React.useRef<number | null>(null);
+  const focusTransitionRecheckTimer = React.useRef<number | null>(null);
 
   React.useEffect(
     () => () => {
       if (focusRecheckFrame.current !== null) {
         window.cancelAnimationFrame(focusRecheckFrame.current);
+      }
+      if (focusTransitionRecheckTimer.current !== null) {
+        window.clearTimeout(focusTransitionRecheckTimer.current);
       }
     },
     [],
@@ -87,6 +94,10 @@ export function WizardLayout({
     if (focusRecheckFrame.current !== null) {
       window.cancelAnimationFrame(focusRecheckFrame.current);
       focusRecheckFrame.current = null;
+    }
+    if (focusTransitionRecheckTimer.current !== null) {
+      window.clearTimeout(focusTransitionRecheckTimer.current);
+      focusTransitionRecheckTimer.current = null;
     }
 
     onFocusCapture?.(event);
@@ -104,6 +115,13 @@ export function WizardLayout({
         scrollFocusedElementClearOfRail(focusedTarget, stickyHeight);
       }
     });
+
+    focusTransitionRecheckTimer.current = window.setTimeout(() => {
+      focusTransitionRecheckTimer.current = null;
+      if (focusedTarget.isConnected && document.activeElement === focusedTarget) {
+        scrollFocusedElementClearOfRail(focusedTarget, stickyHeight);
+      }
+    }, FOCUS_TRANSITION_RECHECK_MS);
   };
 
   return (
