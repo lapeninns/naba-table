@@ -136,7 +136,7 @@ export function ConfirmationStep(props: ConfirmationStepProps) {
             )}
 
           {status !== 'pending' && (
-            <p className="rounded-[var(--pg-radius-md)] border border-border bg-muted/40 px-4 py-3 text-center text-xs text-muted-foreground">
+            <p className="scroll-mb-48 rounded-[var(--pg-radius-md)] border border-border bg-muted/40 px-4 py-3 text-center text-xs text-muted-foreground sm:scroll-mb-32">
               Need to make changes? You can manage your booking via the link sent to your email.
             </p>
           )}

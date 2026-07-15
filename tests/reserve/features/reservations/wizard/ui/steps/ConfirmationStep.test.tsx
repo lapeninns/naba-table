@@ -144,6 +144,12 @@ describe('ConfirmationStep', () => {
     );
   });
 
+  it('keeps the final management note clear of the fixed action rail @contract', () => {
+    renderConfirmation(makeState());
+
+    expect(screen.getByText(/Need to make changes/)).toHaveClass('scroll-mb-48', 'sm:scroll-mb-32');
+  });
+
   it('reports a pending booking without confirmation actions @contract', () => {
     renderConfirmation(makeState({ lastConfirmed: makeBooking({ status: 'pending' }) }));
 
