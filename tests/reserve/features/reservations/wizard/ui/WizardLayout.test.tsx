@@ -1,10 +1,21 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { WizardLayout } from '@features/reservations/wizard/ui/WizardLayout';
 
+function mockFocusGeometry(element: HTMLElement, rect: DOMRect) {
+  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect);
+  const scrollIntoView = vi.fn();
+  element.scrollIntoView = scrollIntoView;
+  return scrollIntoView;
+}
+
 describe('WizardLayout', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renders children inside a main landmark by default @smoke', () => {
     render(
       <WizardLayout>
@@ -125,5 +136,76 @@ describe('WizardLayout', () => {
     expect(main.style.scrollPaddingBottom).toContain('safe-area-inset-bottom');
     expect(content?.getAttribute('style')).toContain('72px');
     expect(content?.getAttribute('style')).toContain('safe-area-inset-bottom');
+  });
+
+  it('scrolls a focused control above the sticky rail when it is covered below @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    render(
+      <WizardLayout stickyVisible stickyHeight={124}>
+        <textarea aria-label="Reservation notes" />
+      </WizardLayout>,
+    );
+    const notes = screen.getByRole('textbox', { name: 'Reservation notes' });
+    const scrollIntoView = mockFocusGeometry(notes, new DOMRect(24, 974, 327, 114));
+
+    // When
+    notes.focus();
+
+    // Then
+    expect(document.activeElement).toBe(notes);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+  });
+
+  it('scrolls a focused control into view when it is above the viewport @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    render(
+      <WizardLayout stickyVisible stickyHeight={124}>
+        <button type="button">Earlier field</button>
+      </WizardLayout>,
+    );
+    const button = screen.getByRole('button', { name: 'Earlier field' });
+    const scrollIntoView = mockFocusGeometry(button, new DOMRect(24, -52, 120, 44));
+
+    // When
+    button.focus();
+
+    // Then
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' });
+  });
+
+  it('does not scroll an already clear focused control on an embedded ops surface @contract', () => {
+    // Given
+    vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(812);
+    render(
+      <WizardLayout elementType="div" surface="ops" stickyVisible stickyHeight={124}>
+        <button type="button">Visible field</button>
+      </WizardLayout>,
+    );
+    const button = screen.getByRole('button', { name: 'Visible field' });
+    const scrollIntoView = mockFocusGeometry(button, new DOMRect(24, 320, 120, 44));
+
+    // When
+    button.focus();
+
+    // Then
+    expect(document.activeElement).toBe(button);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('preserves the supplied focus handler and safely ignores non-HTMLElement targets @contract', () => {
+    // Given
+    const onFocusCapture = vi.fn();
+    render(
+      <WizardLayout stickyVisible stickyHeight={124} onFocusCapture={onFocusCapture}>
+        <svg aria-label="Decorative focus target" tabIndex={0} />
+      </WizardLayout>,
+    );
+    const target = screen.getByLabelText('Decorative focus target');
+
+    // When / Then
+    expect(() => fireEvent.focus(target)).not.toThrow();
+    expect(onFocusCapture).toHaveBeenCalledTimes(1);
   });
 });

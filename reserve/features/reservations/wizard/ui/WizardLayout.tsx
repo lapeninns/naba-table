@@ -24,6 +24,7 @@ interface WizardLayoutProps {
   surface?: WizardLayoutSurface;
   className?: string;
   contentClassName?: string;
+  onFocusCapture?: React.FocusEventHandler<HTMLElement>;
 }
 
 export function WizardLayout({
@@ -39,10 +40,26 @@ export function WizardLayout({
   surface = 'guest',
   className,
   contentClassName,
+  onFocusCapture,
 }: WizardLayoutProps) {
   const Container = elementType === 'div' ? 'div' : 'main';
   const footerOffset = stickyVisible ? stickyHeight : 0;
   const isOpsSurface = surface === 'ops';
+  const handleFocusCapture: React.FocusEventHandler<HTMLElement> = (event) => {
+    onFocusCapture?.(event);
+
+    if (!stickyVisible || stickyHeight <= 0 || !(event.target instanceof HTMLElement)) {
+      return;
+    }
+
+    const focusedBounds = event.target.getBoundingClientRect();
+    const visibleBottom = window.innerHeight - stickyHeight;
+    const isFocusClear = focusedBounds.top >= 0 && focusedBounds.bottom <= visibleBottom;
+
+    if (!isFocusClear) {
+      event.target.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }
+  };
 
   return (
     <>
@@ -51,6 +68,7 @@ export function WizardLayout({
           paddingBottom: `calc(1.5rem + ${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
           scrollPaddingBottom: `calc(${footerOffset}px + env(safe-area-inset-bottom, 0px))`,
         }}
+        onFocusCapture={handleFocusCapture}
         className={cn(
           'w-full',
           isOpsSurface ? 'py-0' : 'pg-page py-[var(--pg-section-y-tight)]',
