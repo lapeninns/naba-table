@@ -32,6 +32,9 @@
       "new_sqlite_classes": ["RateLimitState", "CapacityVersionState"],
     },
   ],
+  "vars": {
+    "POSTHOG_HOST": "https://eu.i.posthog.com",
+  },
   "observability": {
     "enabled": true,
   },

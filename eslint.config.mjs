@@ -7,6 +7,8 @@ import importPlugin from 'eslint-plugin-import';
 import reactHooks from 'eslint-plugin-react-hooks';
 import sonarjs from 'eslint-plugin-sonarjs';
 
+import workerBoundaryConfigs from './config/eslint/worker-boundaries.mjs';
+
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 
 const compat = new FlatCompat({
@@ -149,6 +151,7 @@ export default [
       ],
     },
   },
+  ...workerBoundaryConfigs,
   {
     files: ['cloudflare/**/*.{ts,tsx}'],
     rules: {

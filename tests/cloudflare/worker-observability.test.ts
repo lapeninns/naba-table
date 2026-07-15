@@ -5,8 +5,52 @@ import {
   observeWorkerRequest,
   redactLogFields,
 } from '@/cloudflare/shared/observability';
+import { buildPostHogCaptureRequest, capturePostHogEvent } from '@/cloudflare/shared/posthog';
 
 describe('Cloudflare Worker observability', () => {
+  it('builds a PII-safe PostHog usage event with trace and deployment context', async () => {
+    const request = buildPostHogCaptureRequest({
+      apiKey: 'phc_project_key',
+      host: 'https://eu.i.posthog.com',
+      event: 'worker_http_request_completed',
+      distinctId: 'test-worker',
+      properties: {
+        service: 'test-worker',
+        traceId: 'trace-1',
+        deploySha: 'abc123',
+        email: 'guest@example.com',
+      },
+    });
+
+    expect(request.url).toBe('https://eu.i.posthog.com/capture/');
+    await expect(new Response(request.init.body).json()).resolves.toMatchObject({
+      api_key: 'phc_project_key',
+      event: 'worker_http_request_completed',
+      properties: {
+        distinct_id: 'test-worker',
+        service: 'test-worker',
+        traceId: 'trace-1',
+        deploySha: 'abc123',
+        email: '[REDACTED]',
+      },
+    });
+  });
+
+  it('surfaces rejected PostHog captures to the background-task boundary', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
+
+    await expect(
+      capturePostHogEvent({
+        apiKey: 'phc_project_key',
+        host: 'https://eu.i.posthog.com',
+        event: 'worker_http_request_completed',
+        distinctId: 'test-worker',
+        properties: { traceId: 'trace-1' },
+        fetcher,
+      }),
+    ).rejects.toThrow('PostHog capture returned 503.');
+  });
+
   it('builds a redacted error-to-insight webhook request', async () => {
     const request = buildErrorInsightRequest({
       url: 'https://insights.example.test/events',
@@ -71,5 +115,43 @@ describe('Cloudflare Worker observability', () => {
       status: 200,
       durationMs: 12,
     });
+  });
+
+  it('captures contextual Worker exceptions in PostHog without blocking the response', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    const backgroundTasks: Promise<unknown>[] = [];
+    vi.stubGlobal('fetch', fetcher);
+
+    try {
+      await expect(
+        observeWorkerRequest({
+          request: new Request('https://worker.test/internal/run'),
+          service: 'test-worker',
+          deploySha: 'abc123',
+          posthog: {
+            apiKey: 'phc_project_key',
+            host: 'https://eu.i.posthog.com',
+            waitUntil: (promise) => backgroundTasks.push(promise),
+          },
+          handler: async () => {
+            throw new Error('provider unavailable');
+          },
+        }),
+      ).rejects.toThrow('provider unavailable');
+
+      await Promise.all(backgroundTasks);
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      await expect(new Response(fetcher.mock.calls[0]?.[1]?.body).json()).resolves.toMatchObject({
+        event: '$exception',
+        properties: {
+          distinct_id: 'test-worker',
+          deploySha: 'abc123',
+          $exception_message: 'provider unavailable',
+          $exception_type: 'Error',
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -22,5 +22,7 @@ export type SmsSummaryWorkerEnv = {
   DEPLOY_SHA?: string;
   ERROR_INSIGHT_TOKEN?: string;
   ERROR_INSIGHT_WEBHOOK_URL?: string;
+  POSTHOG_PROJECT_API_KEY?: string;
+  POSTHOG_HOST?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 };

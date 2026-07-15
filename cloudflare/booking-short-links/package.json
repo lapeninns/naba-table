@@ -7,6 +7,7 @@
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev --local",
+    "profile": "mkdir -p ../../.profiles/booking-short-links && NODE_OPTIONS='--cpu-prof --cpu-prof-dir=../../.profiles/booking-short-links' wrangler dev --local --inspector-port 9231",
     "lint": "eslint --max-warnings=0 src tests vitest.config.ts",
     "test": "vitest run --config vitest.config.ts",
     "test:ci": "vitest run --coverage --config vitest.config.ts --reporter=default --reporter=junit --outputFile.junit=test-results/vitest/junit.xml --slowTestThreshold=500",

@@ -31,6 +31,8 @@ type WorkerEnv = {
   DEPLOY_SHA?: string;
   ERROR_INSIGHT_TOKEN?: string;
   ERROR_INSIGHT_WEBHOOK_URL?: string;
+  POSTHOG_PROJECT_API_KEY?: string;
+  POSTHOG_HOST?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
 };
 
@@ -196,6 +198,8 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
 const worker = {
   async fetch(request: Request, env: WorkerEnv, ctx?: ExecutionContext): Promise<Response> {
+    const waitUntil = (promise: Promise<unknown>): void => ctx?.waitUntil(promise);
+
     return observeWorkerRequest({
       request,
       service: SERVICE_NAME,
@@ -203,7 +207,12 @@ const worker = {
       errorInsight: {
         url: env.ERROR_INSIGHT_WEBHOOK_URL,
         token: env.ERROR_INSIGHT_TOKEN,
-        waitUntil: (promise) => ctx?.waitUntil(promise),
+        waitUntil,
+      },
+      posthog: {
+        apiKey: env.POSTHOG_PROJECT_API_KEY,
+        host: env.POSTHOG_HOST,
+        waitUntil,
       },
       handler: () => handleRequest(request, env),
     });

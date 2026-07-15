@@ -45,6 +45,7 @@ test-results/
 playwright-report/
 coverage/
 .jscpd-report/
+.profiles/
 docs/api/
 cloudflare/*/coverage/
 cloudflare/*/dist/

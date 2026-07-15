@@ -1,6 +1,13 @@
+import { capturePostHogEvent } from './posthog';
+import { redactLogFields } from './redaction';
+
+import type { LogFields } from './redaction';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogFields = Readonly<Record<string, unknown>>;
 export type LogSink = (serializedRecord: string) => void;
+
+export { redactLogFields } from './redaction';
+export type { LogFields } from './redaction';
 
 type RequestObservationInput = {
   readonly request: Request;
@@ -14,45 +21,15 @@ type RequestObservationInput = {
     readonly token?: string;
     readonly waitUntil?: (promise: Promise<unknown>) => void;
   };
+  readonly posthog?: {
+    readonly apiKey?: string;
+    readonly host?: string;
+    readonly waitUntil?: (promise: Promise<unknown>) => void;
+  };
 };
 
 const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/u;
 const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/u;
-const SENSITIVE_KEY_PATTERN =
-  /authorization|cookie|email|phone|recipient|password|secret|token|api[-_]?key/iu;
-
-function scrubString(value: string): string {
-  return value
-    .replace(/Bearer\s+[^\s]+/giu, 'Bearer [REDACTED]')
-    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/gu, '[REDACTED]')
-    .replace(/\+?\d[\d\s().-]{8,}\d/gu, '[REDACTED]');
-}
-
-function redactValue(value: unknown, key = ''): unknown {
-  if (SENSITIVE_KEY_PATTERN.test(key)) {
-    return '[REDACTED]';
-  }
-  if (typeof value === 'string') {
-    return scrubString(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => redactValue(entry));
-  }
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([entryKey, entryValue]) => [
-        entryKey,
-        redactValue(entryValue, entryKey),
-      ]),
-    );
-  }
-  return value;
-}
-
-export function redactLogFields(fields: LogFields): Record<string, unknown> {
-  return redactValue(fields) as Record<string, unknown>;
-}
-
 export function buildErrorInsightRequest(input: {
   readonly url: string;
   readonly token: string;
@@ -96,6 +73,25 @@ export async function reportErrorInsight(input: {
   });
   const response = await (input.fetcher ?? fetch)(request.url, request.init);
   if (!response.ok) throw new Error(`Error insight webhook returned ${response.status}.`);
+}
+
+function schedulePostHogCapture(
+  input: RequestObservationInput,
+  event: string,
+  properties: LogFields,
+): void {
+  const { apiKey, host, waitUntil } = input.posthog ?? {};
+  if (!apiKey || !host || !waitUntil) return;
+
+  waitUntil(
+    capturePostHogEvent({
+      apiKey,
+      host,
+      event,
+      distinctId: input.service,
+      properties,
+    }).catch(() => undefined),
+  );
 }
 
 function randomHex(length: number): string {
@@ -169,6 +165,16 @@ export async function observeWorkerRequest(input: RequestObservationInput): Prom
         durationMs,
       },
     });
+    schedulePostHogCapture(input, 'worker_http_request_completed', {
+      service: input.service,
+      requestId: context.requestId,
+      traceId: context.traceId,
+      deploySha: input.deploySha ?? 'unknown',
+      method: input.request.method,
+      path: new URL(input.request.url).pathname,
+      status: response.status,
+      durationMs,
+    });
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
@@ -198,6 +204,11 @@ export async function observeWorkerRequest(input: RequestObservationInput): Prom
       fields: errorFields,
     }).catch(() => undefined);
     input.errorInsight?.waitUntil?.(insight);
+    schedulePostHogCapture(input, '$exception', {
+      ...errorFields,
+      $exception_message: error instanceof Error ? error.message : String(error),
+      $exception_type: error instanceof Error ? error.name : 'UnknownError',
+    });
     throw error;
   }
 }

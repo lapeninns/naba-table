@@ -41,6 +41,9 @@
       "new_sqlite_classes": ["DailyBookingSummaryState"],
     },
   ],
+  "vars": {
+    "POSTHOG_HOST": "https://eu.i.posthog.com",
+  },
   "observability": {
     "enabled": true,
   },

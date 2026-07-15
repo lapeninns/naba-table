@@ -1,0 +1,71 @@
+name: Error to insight
+
+on:
+  repository_dispatch:
+    types: [posthog-error, worker-error]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Service that produced the error
+        required: true
+        type: string
+      trace_id:
+        description: Trace identifier for investigation
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-or-update-issue:
+    name: Create actionable error issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create or update deduplicated issue
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
+        with:
+          script: |
+            const payload = context.payload.client_payload ?? context.payload.inputs ?? {};
+            const safe = (value, fallback) => String(value ?? fallback).replace(/[\r\n]/g, ' ').slice(0, 160);
+            const service = safe(payload.service, 'unknown-service');
+            const traceId = safe(payload.trace_id, 'unavailable');
+            const deploySha = safe(payload.deploy_sha, 'unknown');
+            const fingerprint = safe(payload.fingerprint, traceId);
+            const title = `[automated error] ${service}: ${fingerprint}`;
+            const body = [
+              'An error telemetry rule created this issue automatically.',
+              '',
+              `- Service: ${service}`,
+              `- Trace ID: ${traceId}`,
+              `- Deployment: ${deploySha}`,
+              `- Source event: ${context.eventName}`,
+              '',
+              'Use the trace ID and deployment metadata to investigate in PostHog and service logs. Do not paste guest PII into this issue.',
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated',
+              per_page: 100,
+            });
+            const existing = issues.find((issue) => !issue.pull_request && issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['automated', 'type:bug', 'area:workers'],
+              });
+            }

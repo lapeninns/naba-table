@@ -13,6 +13,8 @@ const worker = {
     env: EmailQueueGatewayEnv,
     ctx?: ExecutionContext,
   ): Promise<Response> {
+    const waitUntil = (promise: Promise<unknown>): void => ctx?.waitUntil(promise);
+
     return observeWorkerRequest({
       request,
       service: 'email-queue-gateway',
@@ -20,7 +22,12 @@ const worker = {
       errorInsight: {
         url: env.ERROR_INSIGHT_WEBHOOK_URL,
         token: env.ERROR_INSIGHT_TOKEN,
-        waitUntil: (promise) => ctx?.waitUntil(promise),
+        waitUntil,
+      },
+      posthog: {
+        apiKey: env.POSTHOG_PROJECT_API_KEY,
+        host: env.POSTHOG_HOST,
+        waitUntil,
       },
       handler: () => routeGatewayRequest(request, env),
     });
