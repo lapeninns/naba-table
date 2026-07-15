@@ -187,11 +187,37 @@ describe('BookingWizard step routing', () => {
 
   it('keeps completed progress steps inert after confirmation @contract', async () => {
     installWizard(makeState({ step: 4 }));
-    render(<BookingWizard />);
+    const { container } = render(<BookingWizard />);
 
     expect(await screen.findByText('confirmation-step-stub')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-wizard-progress]')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Plan (1 of 4)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Review (3 of 4)' })).not.toBeInTheDocument();
+  });
+
+  it('passes the ops mode and surface into the shared shell @contract', async () => {
+    // Given
+    installWizard(makeState({ step: 1 }));
+
+    // When
+    render(<BookingWizard mode="ops" layoutSurface="ops" layoutElement="div" />);
+
+    // Then
+    await screen.findByText('plan-step-stub');
+    expect(screen.getByText('Plan')).toBeInTheDocument();
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+  });
+
+  it('keeps the navigation announcement singular while the shell is visible @contract @a11y', async () => {
+    // Given
+    installWizard(makeState({ step: 2 }));
+
+    // When
+    const { container } = render(<BookingWizard />);
+
+    // Then
+    await screen.findByText('details-step-stub');
+    expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1);
   });
 
   it('hydrates authenticated contacts through the consent-resetting action @contract', async () => {

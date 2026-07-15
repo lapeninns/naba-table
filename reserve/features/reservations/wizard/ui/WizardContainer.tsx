@@ -4,14 +4,17 @@ import * as React from 'react';
 
 import { WizardLayout, type WizardHeroRef, type WizardLayoutSurface } from './WizardLayout';
 import { WizardNavigation } from './WizardNavigation';
+import { WizardProgress } from './WizardProgress';
 
 import type { WizardStepMeta, WizardSummary } from './WizardProgress';
-import type { StepAction } from '../model/reducer';
+import type { BookingWizardMode, StepAction } from '../model/reducer';
 
 type WizardContextValue = {
   steps: WizardStepMeta[];
   currentStep: number;
   totalSteps: number;
+  mode: BookingWizardMode;
+  layoutSurface: WizardLayoutSurface;
 };
 
 const WizardContext = React.createContext<WizardContextValue | null>(null);
@@ -35,6 +38,7 @@ export interface WizardContainerProps {
   className?: string;
   contentClassName?: string;
   onStepSelect?: (step: number) => void;
+  mode?: BookingWizardMode;
 }
 
 export function WizardContainer({
@@ -55,13 +59,14 @@ export function WizardContainer({
   className,
   contentClassName,
   onStepSelect,
+  mode = 'customer',
 }: WizardContainerProps) {
   const totalSteps = steps.length || 1;
   const clampedStep = Math.min(Math.max(currentStep, 1), totalSteps);
 
   const providerValue = React.useMemo<WizardContextValue>(
-    () => ({ steps, currentStep: clampedStep, totalSteps }),
-    [steps, clampedStep, totalSteps],
+    () => ({ steps, currentStep: clampedStep, totalSteps, mode, layoutSurface }),
+    [steps, clampedStep, totalSteps, mode, layoutSurface],
   );
 
   const srAnnouncement = React.useMemo(() => {
@@ -82,6 +87,7 @@ export function WizardContainer({
         surface={layoutSurface}
         className={className}
         contentClassName={contentClassName}
+        progress={<WizardProgress steps={steps} currentStep={clampedStep} summary={summary} />}
         footer={
           <WizardNavigation
             steps={steps}
@@ -95,19 +101,27 @@ export function WizardContainer({
           />
         }
       >
-        <div className="sr-only" aria-live="polite">
-          {srAnnouncement}
-        </div>
+        {!stickyVisible ? (
+          <div className="sr-only" aria-live="polite">
+            {srAnnouncement}
+          </div>
+        ) : null}
         {children}
       </WizardLayout>
     </WizardContext.Provider>
   );
 }
 
-export function useWizardContext() {
+export function useWizardContext(): WizardContextValue {
   const context = React.useContext(WizardContext);
   if (!context) {
-    return { steps: [], currentStep: 1, totalSteps: 1 } as WizardContextValue;
+    return {
+      steps: [],
+      currentStep: 1,
+      totalSteps: 1,
+      mode: 'customer',
+      layoutSurface: 'guest',
+    };
   }
   return context;
 }

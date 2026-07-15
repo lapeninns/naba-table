@@ -7,7 +7,7 @@ import type { StorybookConfig } from '@storybook/react-vite';
 const storybookDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 const config: StorybookConfig = {
-  stories: ['../features/reservations/wizard/ui/steps/plan-step/**/*.stories.@(ts|tsx)'],
+  stories: ['../features/reservations/wizard/ui/**/*.stories.@(ts|tsx)'],
   addons: [],
   framework: {
     name: '@storybook/react-vite',

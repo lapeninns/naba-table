@@ -182,6 +182,7 @@ function BookingWizardContent({
         navigationClassName={navigationClassName}
         className={className}
         contentClassName={contentClassName}
+        mode={mode}
         onStepSelect={
           state.step < 4
             ? (step) => {

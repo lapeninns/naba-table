@@ -35,7 +35,7 @@ const steps = [
 function ContextProbe() {
   const context = useWizardContext();
   return (
-    <p>{`probe:${context.currentStep}/${context.totalSteps}:${context.steps.length} steps`}</p>
+    <p>{`probe:${context.currentStep}/${context.totalSteps}:${context.steps.length} steps:${context.mode}:${context.layoutSurface}`}</p>
   );
 }
 
@@ -47,7 +47,7 @@ describe('WizardContainer', () => {
       </WizardContainer>,
     );
 
-    expect(screen.getByText('probe:2/4:4 steps')).toBeInTheDocument();
+    expect(screen.getByText('probe:2/4:4 steps:customer:guest')).toBeInTheDocument();
   });
 
   it('clamps the current step into the declared range @contract', () => {
@@ -57,7 +57,7 @@ describe('WizardContainer', () => {
       </WizardContainer>,
     );
 
-    expect(screen.getByText('probe:4/4:4 steps')).toBeInTheDocument();
+    expect(screen.getByText('probe:4/4:4 steps:customer:guest')).toBeInTheDocument();
   });
 
   it('announces the step and summary for screen readers @contract @a11y', () => {
@@ -72,7 +72,8 @@ describe('WizardContainer', () => {
       </WizardContainer>,
     );
 
-    expect(screen.getByText('Step 2 of 4. Dinner. 4 guests, 19:00')).toBeInTheDocument();
+    const liveRegion = container.querySelector('[aria-live="polite"]');
+    expect(liveRegion).toHaveTextContent('Step 2 of 4. Dinner. 4 guests, 19:00');
     expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1);
   });
 
@@ -94,8 +95,94 @@ describe('WizardContainer', () => {
     expect(screen.getByText('offline banner')).toBeInTheDocument();
   });
 
+  it('renders exactly one normal-flow progress presentation before step content @contract @a11y', () => {
+    // Given / When
+    const { container } = render(
+      <WizardContainer
+        steps={steps}
+        currentStep={2}
+        actions={[]}
+        summary={{ primary: 'Dinner' }}
+        stickyVisible
+      >
+        <p>step content</p>
+      </WizardContainer>,
+    );
+
+    // Then
+    const progress = container.querySelector('[data-wizard-progress]');
+    const progressSlot = container.querySelector('[data-booking-wizard-progress-slot]');
+    const navigation = container.querySelector('[data-booking-wizard-navigation]');
+    const stepContent = screen.getByText('step content');
+
+    expect(container.querySelectorAll('[data-wizard-progress]')).toHaveLength(1);
+    expect(progressSlot).toContainElement(progress);
+    expect(navigation?.querySelector('[data-wizard-progress]')).toBeNull();
+    expect(progress?.compareDocumentPosition(stepContent) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it('provides the explicit ops surface and mode to shared descendants @contract', () => {
+    // Given / When
+    render(
+      <WizardContainer
+        steps={steps}
+        currentStep={1}
+        actions={[]}
+        summary={{ primary: 'Dinner' }}
+        layoutSurface="ops"
+        mode="ops"
+      >
+        <ContextProbe />
+      </WizardContainer>,
+    );
+
+    // Then
+    expect(screen.getByText('probe:1/4:4 steps:ops:ops')).toBeInTheDocument();
+  });
+
+  it('keeps one polite announcement source while the sticky rail is visible @contract @a11y', () => {
+    // Given / When
+    const { container } = render(
+      <WizardContainer
+        steps={steps}
+        currentStep={2}
+        actions={[]}
+        summary={{ primary: 'Dinner' }}
+        stickyVisible
+      >
+        <p>content</p>
+      </WizardContainer>,
+    );
+
+    // Then
+    expect(container.querySelectorAll('[aria-live="polite"]')).toHaveLength(1);
+  });
+
+  it('integrates measured navigation height into layout padding @contract', () => {
+    // Given / When
+    render(
+      <WizardContainer
+        steps={steps}
+        currentStep={1}
+        actions={[]}
+        summary={{ primary: 'Dinner' }}
+        stickyHeight={72}
+        stickyVisible
+      >
+        <p>content</p>
+      </WizardContainer>,
+    );
+
+    // Then
+    const main = screen.getByRole('main');
+    expect(main.style.paddingBottom).toContain('72px');
+    expect(main.style.scrollPaddingBottom).toContain('72px');
+  });
+
   it('falls back to a single-step context outside the provider @contract', () => {
     render(<ContextProbe />);
-    expect(screen.getByText('probe:1/1:0 steps')).toBeInTheDocument();
+    expect(screen.getByText('probe:1/1:0 steps:customer:guest')).toBeInTheDocument();
   });
 });
