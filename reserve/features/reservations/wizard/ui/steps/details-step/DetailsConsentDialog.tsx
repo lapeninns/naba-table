@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, ChevronDown, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import React, { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -53,12 +54,13 @@ function ConsentContent({
           <DetailsConsentPreferences controller={controller} restaurantName={restaurantName} />
           <p className="text-pretty px-1 text-xs text-muted-foreground">
             Read our{' '}
-            <a
-              href="/privacy"
-              className="inline-flex min-h-11 items-center font-medium text-foreground underline underline-offset-4"
+            <Button
+              asChild
+              variant="link"
+              className="h-auto min-h-11 p-0 font-medium text-foreground"
             >
-              privacy notice
-            </a>
+              <Link href="/privacy">privacy notice</Link>
+            </Button>
             .
           </p>
         </div>
@@ -135,12 +137,9 @@ function ConsentContent({
 
       <p className="text-center text-xs text-muted-foreground">
         By continuing, you accept our{' '}
-        <a
-          href="/privacy"
-          className="inline-flex min-h-11 items-center font-medium text-foreground underline underline-offset-4"
-        >
-          privacy notice
-        </a>
+        <Button asChild variant="link" className="h-auto min-h-11 p-0 font-medium text-foreground">
+          <Link href="/privacy">privacy notice</Link>
+        </Button>
         .
       </p>
     </div>
