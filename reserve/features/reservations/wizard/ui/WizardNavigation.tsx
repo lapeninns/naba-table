@@ -74,7 +74,8 @@ function ActionButton({ action, role }: { action: StepAction; role: ActionRole }
       data-testid={`wizard-action-${action.id}`}
       className={cn(
         'pg-focus-ring min-h-11',
-        role === 'primary' && 'w-full px-6 sm:w-auto sm:flex-none',
+        role === 'primary' &&
+          'w-full px-6 sm:w-auto sm:flex-none dark:[--pg-action:var(--pg-cobalt-hover)] dark:[--pg-action-hover:var(--pg-cobalt)] dark:[--pg-action-contrast:var(--pg-bg)]',
         role === 'secondary' && 'flex-none px-4',
         role === 'support' && 'flex-none',
       )}

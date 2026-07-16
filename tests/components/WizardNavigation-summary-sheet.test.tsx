@@ -90,6 +90,19 @@ describe('WizardNavigation summary sheet', () => {
     expect(screen.getByRole('button', { name: 'Get help' })).toHaveClass('min-h-11');
   });
 
+  it('@contract keeps the dark primary action on a locally contrasting semantic pair', () => {
+    render(<WizardNavigation {...baseProps} />);
+
+    expect(screen.getByRole('button', { name: 'Continue' })).toHaveClass(
+      'dark:[--pg-action:var(--pg-cobalt-hover)]',
+      'dark:[--pg-action-hover:var(--pg-cobalt)]',
+      'dark:[--pg-action-contrast:var(--pg-bg)]',
+    );
+    expect(screen.getByRole('button', { name: 'Back' })).not.toHaveClass(
+      'dark:[--pg-action:var(--pg-cobalt-hover)]',
+    );
+  });
+
   it('@contract toggles the sheet open and closed on activation', () => {
     render(<WizardNavigation {...baseProps} />);
     fireEvent.click(disclosure());
