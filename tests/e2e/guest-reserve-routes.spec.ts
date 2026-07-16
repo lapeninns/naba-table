@@ -435,11 +435,8 @@ test.describe('reserve routes', () => {
     await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
     await expect(page.getByText('Reserve Guest')).toBeVisible();
     await expect(page.getByText('reserve.guest@example.com')).toBeVisible();
-    await expect(
-      page.getByText(
-        'WhatsApp booking messages + one post-visit review request · SMS backup for booking messages',
-      ),
-    ).toBeVisible();
+    await expect(page.getByText('Preferences')).toBeVisible();
+    await expect(page.getByText('WhatsApp')).toBeVisible();
     await stickyNavigation.evaluate((element) => element.setAttribute('style', 'display: none'));
     await page.screenshot({
       path: '.omo/evidence/task-2-whatsapp-review-production-release-768.png',

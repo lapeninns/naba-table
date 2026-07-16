@@ -169,48 +169,54 @@ export function ReviewSummaryPanel({
             onEdit={onEditDetails}
             editLabel="Edit guest details"
           >
-            <dl className="grid min-w-0 gap-x-5 gap-y-5 sm:grid-cols-2">
-              <DetailItem
-                icon={<UserIcon className="size-4" />}
-                label="Full name"
-                value={details.name}
-              />
-              <DetailItem
-                icon={<MailIcon className="size-4" />}
-                label="Email"
-                value={emailDisplay}
-              />
-              <DetailItem
-                icon={<PhoneIcon className="size-4" />}
-                label="Phone"
-                value={phoneDisplay}
-              />
-              <DetailItem
-                icon={<MessageSquareIcon className="size-4" />}
-                label="Mobile messages"
-                value={
-                  details.whatsappOptIn
-                    ? 'WhatsApp booking messages + one post-visit review request · SMS backup for booking messages'
-                    : 'SMS'
-                }
-              />
-              {!isOpsMode ? (
+            <div className="space-y-5">
+              <dl className="grid min-w-0 gap-x-5 gap-y-5 sm:grid-cols-2">
                 <DetailItem
-                  icon={<BellIcon className="size-4" />}
-                  label="Marketing"
-                  value={details.marketingOptIn ? 'Subscribed' : 'Not subscribed'}
+                  icon={<UserIcon className="size-4" />}
+                  label="Full name"
+                  value={details.name}
                 />
-              ) : null}
+                <DetailItem
+                  icon={<MailIcon className="size-4" />}
+                  label="Email"
+                  value={emailDisplay}
+                />
+                <DetailItem
+                  icon={<PhoneIcon className="size-4" />}
+                  label="Phone"
+                  value={phoneDisplay}
+                />
+              </dl>
+
+              <div className="space-y-3 border-t border-border/60 pt-5">
+                <p className="text-xs font-medium text-muted-foreground">Preferences</p>
+                <dl className="grid min-w-0 gap-x-5 gap-y-5 sm:grid-cols-2">
+                  <DetailItem
+                    icon={<MessageSquareIcon className="size-4" />}
+                    label="Messages"
+                    value={details.whatsappOptIn ? 'WhatsApp' : 'SMS'}
+                  />
+                  {!isOpsMode ? (
+                    <DetailItem
+                      icon={<BellIcon className="size-4" />}
+                      label="Marketing"
+                      value={details.marketingOptIn ? 'On' : 'Off'}
+                    />
+                  ) : null}
+                </dl>
+              </div>
+
               {details.notes ? (
-                <DetailItem
-                  icon={<MessageSquareIcon className="size-4" />}
-                  label="Special requests"
-                  value={`“${details.notes}”`}
-                  className="sm:col-span-2"
-                  valueClassName="rounded-[var(--pg-radius-md)] bg-muted/45 p-3 font-normal"
-                />
+                <dl className="min-w-0">
+                  <DetailItem
+                    icon={<MessageSquareIcon className="size-4" />}
+                    label="Special requests"
+                    value={`“${details.notes}”`}
+                    valueClassName="rounded-[var(--pg-radius-md)] bg-muted/45 p-3 font-normal"
+                  />
+                </dl>
               ) : null}
-            </dl>
+            </div>
           </SummarySection>
         </WizardPanelContent>
 

@@ -85,7 +85,42 @@ describe('ReviewStep', () => {
     expect(screen.getByText('Dinner')).toBeVisible();
     expect(screen.getByText('Taylor Test')).toBeVisible();
     expect(screen.getByText('taylor@example.test')).toHaveClass('break-words');
+    expect(screen.getByText('07123456789')).toBeVisible();
+    expect(screen.getByText('Preferences')).toBeVisible();
+    expect(screen.getByText('WhatsApp')).toBeVisible();
+    expect(screen.getByText('Off')).toBeVisible();
+    expect(
+      screen.queryByText(
+        'WhatsApp booking messages + one post-visit review request · SMS backup for booking messages',
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/quiet table near the window/)).toHaveClass('break-words');
+  });
+
+  it('summarises messaging and marketing as short preference statuses @contract', () => {
+    renderReviewStep(
+      makeState({
+        ...getInitialState({
+          restaurantSlug: 'test-kitchen',
+          restaurantName: 'Test Kitchen',
+          date: '2026-04-14',
+          time: '19:00',
+          party: 2,
+          bookingType: 'dinner',
+          name: 'Alex Guest',
+          email: 'alex@example.test',
+          phone: '07999888777',
+          whatsappOptIn: false,
+          marketingOptIn: true,
+        }),
+        step: 3,
+      }),
+    );
+
+    expect(screen.getByText('Preferences')).toBeVisible();
+    expect(screen.getByText('SMS')).toBeVisible();
+    expect(screen.getByText('On')).toBeVisible();
+    expect(screen.queryByText('Subscribed')).not.toBeInTheDocument();
   });
 
   it('keeps both Edit controls at least 44px tall and routes them to the correct step @contract', async () => {
