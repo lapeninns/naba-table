@@ -42,6 +42,15 @@ export type ElementRailEvidence = {
   readonly overlap: number;
 };
 
+export type SettledAccessibilityEvidence = {
+  readonly minAncestorOpacity: number;
+  readonly activeAncestorAnimations: number;
+  readonly ariaBusy: string | null;
+  readonly hitTarget: string;
+  readonly hitVisibleTarget: boolean;
+  readonly passed: boolean;
+};
+
 type AxeFinding = {
   readonly id: string;
   readonly nodes: readonly {
@@ -298,6 +307,63 @@ export async function waitForSettledLocator(locator: Locator): Promise<void> {
       return settled;
     })
     .toBe(true);
+}
+
+async function collectSettledAccessibilityEvidence(
+  locator: Locator,
+): Promise<SettledAccessibilityEvidence> {
+  return locator.evaluate((element) => {
+    const ancestors: Element[] = [];
+    let current: Element | null = element;
+    while (current) {
+      ancestors.push(current);
+      current = current.parentElement;
+    }
+    const minAncestorOpacity = ancestors.reduce((minimum, ancestor) => {
+      const opacity = Number.parseFloat(getComputedStyle(ancestor).opacity);
+      if (!Number.isFinite(opacity)) throw new Error(`Invalid computed opacity: ${opacity}`);
+      return Math.min(minimum, opacity);
+    }, 1);
+    const activeAncestorAnimations = document.getAnimations().filter((animation) => {
+      if (animation.playState !== 'running' && animation.playState !== 'pending') return false;
+      const target =
+        animation.effect instanceof KeyframeEffect && animation.effect.target instanceof Element
+          ? animation.effect.target
+          : null;
+      return target !== null && (target === element || target.contains(element));
+    }).length;
+    const busyOwner = element.closest('[aria-busy]');
+    const ariaBusy = busyOwner?.getAttribute('aria-busy') ?? null;
+    const rect = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    const hitVisibleTarget = hit !== null && (hit === element || element.contains(hit));
+    const hitTarget = hit ? `${hit.tagName.toLowerCase()}${hit.id ? `#${hit.id}` : ''}` : 'none';
+    return {
+      minAncestorOpacity,
+      activeAncestorAnimations,
+      ariaBusy,
+      hitTarget,
+      hitVisibleTarget,
+      passed:
+        element.isConnected &&
+        rect.width > 0 &&
+        rect.height > 0 &&
+        minAncestorOpacity >= 0.999 &&
+        activeAncestorAnimations === 0 &&
+        ariaBusy !== 'true' &&
+        hitVisibleTarget,
+    };
+  });
+}
+
+export async function waitForSettledAccessibilityTarget(
+  locator: Locator,
+): Promise<SettledAccessibilityEvidence> {
+  await waitForSettledLocator(locator);
+  await expect
+    .poll(async () => (await collectSettledAccessibilityEvidence(locator)).passed)
+    .toBe(true);
+  return collectSettledAccessibilityEvidence(locator);
 }
 
 export async function assertElementAboveRail(
