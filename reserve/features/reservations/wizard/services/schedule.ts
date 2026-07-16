@@ -7,7 +7,8 @@ import type { OccasionDefinition, OccasionKey } from '@reserve/shared/occasions'
 export const scheduleQueryKey = (
   restaurantSlug: string | null | undefined,
   date: string | null | undefined,
-) => ['reservations', 'schedule', restaurantSlug ?? '', date ?? ''] as const;
+  partySize: number | null = null,
+) => ['reservations', 'schedule', restaurantSlug ?? '', date ?? '', partySize ?? 'raw'] as const;
 
 const DEFAULT_BOOKING_OPTION: BookingOption = 'lunch';
 const DEFAULT_SERVICE_AVAILABILITY: ServiceAvailability = {
@@ -33,6 +34,14 @@ const toNullableString = (value: unknown): string | null => {
 
 const toPositiveNumberOr = (value: unknown, fallback: number): number => {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+const toNonNegativeNumberOr = (value: unknown, fallback: number): number => {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+};
+
+const toOptionalPositiveNumber = (value: unknown): number | null => {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 };
 
 const normalizeBookingOption = (value: unknown): BookingOption => {
@@ -62,7 +71,10 @@ const normalizeServiceAvailability = (value: unknown): ServiceAvailability => {
   };
 };
 
-const normalizeScheduleSlot = (value: unknown): RawScheduleSlot | null => {
+const normalizeScheduleSlot = (
+  value: unknown,
+  defaultDurationMinutes: number,
+): RawScheduleSlot | null => {
   if (!isRecord(value)) {
     return null;
   }
@@ -84,6 +96,7 @@ const normalizeScheduleSlot = (value: unknown): RawScheduleSlot | null => {
     periodName: toNullableString(value.periodName),
     bookingOption,
     defaultBookingOption,
+    durationMinutes: toPositiveNumberOr(value.durationMinutes, defaultDurationMinutes),
     availability: normalizeServiceAvailability(value.availability),
     disabled: value.disabled === true,
   };
@@ -94,7 +107,7 @@ export function normalizeReservationSchedulePayload(payload: unknown): Reservati
   const defaultDurationMinutes = toPositiveNumberOr(record?.defaultDurationMinutes, 90);
   const rawSlots = Array.isArray(record?.slots) ? record.slots : [];
   const slots = rawSlots
-    .map((slot) => normalizeScheduleSlot(slot))
+    .map((slot) => normalizeScheduleSlot(slot, defaultDurationMinutes))
     .filter((slot): slot is RawScheduleSlot => slot !== null);
   const availableBookingOptions = Array.from(
     new Set(
@@ -109,15 +122,17 @@ export function normalizeReservationSchedulePayload(payload: unknown): Reservati
       ) as OccasionDefinition[])
     : [];
   const windowRecord = isRecord(record?.window) ? record.window : null;
+  const evaluatedPartySize = toOptionalPositiveNumber(record?.evaluatedPartySize);
 
   return {
     restaurantId: toStringOr(record?.restaurantId, ''),
+    ...(evaluatedPartySize === null ? {} : { evaluatedPartySize }),
     date: toStringOr(record?.date, ''),
     timezone: toStringOr(record?.timezone, 'UTC'),
     notes: toNullableString(record?.notes)?.trim() || null,
     intervalMinutes: toPositiveNumberOr(record?.intervalMinutes, 30),
     defaultDurationMinutes,
-    lastSeatingBufferMinutes: toPositiveNumberOr(
+    lastSeatingBufferMinutes: toNonNegativeNumberOr(
       record?.lastSeatingBufferMinutes,
       defaultDurationMinutes,
     ),
@@ -135,11 +150,17 @@ export function normalizeReservationSchedulePayload(payload: unknown): Reservati
 export async function fetchReservationSchedule(
   restaurantSlug: string,
   date: string | null | undefined,
-  signal?: AbortSignal,
+  options?: {
+    readonly partySize?: number;
+    readonly signal?: AbortSignal;
+  },
 ): Promise<ReservationSchedule> {
   const params = new URLSearchParams();
   if (date) {
     params.set('date', date);
+  }
+  if (options?.partySize !== undefined) {
+    params.set('party', String(options.partySize));
   }
 
   const encodedSlug = encodeURIComponent(restaurantSlug);
@@ -148,7 +169,7 @@ export async function fetchReservationSchedule(
       ? `/restaurants/${encodedSlug}/schedule?${params.toString()}`
       : `/restaurants/${encodedSlug}/schedule`;
 
-  const response = await apiClient.get<unknown>(path, { signal });
+  const response = await apiClient.get<unknown>(path, { signal: options?.signal });
   return normalizeReservationSchedulePayload(response);
 }
 

@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "734c0296-8fe9-43de-b9c2-e306688ed4b0",
+  "teamName": "resdiary-help-indexes",
+  "sessionName": "official-doc-discovery-20260716",
+  "sessionId": "team-d7a32c18",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:30:53.384Z",
+  "updatedAt": "2026-07-16T15:37:03.006Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d7a32c18/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d7a32c18",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d7a32c18/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d7a32c18/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d7a32c18/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "help-topology",
+      "focus": "Official ResDiary help-centre homepages, category indexes, article lists, sitemap/robots, search pages, breadcrumbs, and related links",
+      "lens": "area",
+      "deliverable": "Exhaustive URL/index map with labels, quotes under 20 words, access date, redirects/dead pages, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_help_topology",
+      "agentPath": "/root/resdiary_help_topology",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "duration-turn-time",
+      "focus": "Booking duration, expected duration, turn time, table return time and adjacent terminology in official ResDiary docs",
+      "lens": "ownership",
+      "deliverable": "All official pages/labels, exact short quotes, URLs, navigation provenance, redirects/dead slugs, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_duration_turn_time",
+      "agentPath": "/root/resdiary_duration_turn_time",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "closing-last-seating",
+      "focus": "Opening/closing hours, last booking/last seating, and whether booking duration may extend after restaurant/service closing",
+      "lens": "perspective",
+      "deliverable": "Evidence-first answer including explicit absence/counter-search, short quotes, official URLs, redirects/dead pages, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_closing_last_seating",
+      "agentPath": "/root/resdiary_closing_last_seating",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "pacing-availability",
+      "focus": "Pacing, slot interval, time slots, availability rules and limits in official ResDiary support pages",
+      "lens": "ownership",
+      "deliverable": "Exhaustive official-source findings with exact labels/quotes, URLs, category/breadcrumb/related provenance, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_pacing_availability",
+      "agentPath": "/root/resdiary_pacing_availability",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "services-lead-time",
+      "focus": "Services, sittings, shifts, online booking lead time, advance notice and cut-off controls",
+      "lens": "ownership",
+      "deliverable": "Complete official docs page inventory with quotes under 20 words, URLs, redirects/dead pages, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_services_lead_time",
+      "agentPath": "/root/resdiary_services_lead_time",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "archive-redirects",
+      "focus": "Likely legacy URL slugs, deleted/unavailable official help pages, redirects, cached index traces, and official sitemap history",
+      "lens": "perspective",
+      "deliverable": "Redirect/dead-page ledger and recovered official labels/content traces with URLs, access date, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_archive_redirects",
+      "agentPath": "/root/resdiary_archive_redirects",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:30:53.384Z",
+      "event": "created",
+      "detail": "team resdiary-help-indexes"
+    },
+    {
+      "ts": "2026-07-16T15:34:48.947Z",
+      "event": "add-member",
+      "detail": "member A (area): Official ResDiary help-centre homepages, category indexes, article lists, sitemap/robots, search pages, breadcrumbs, and related links"
+    },
+    {
+      "ts": "2026-07-16T15:35:17.811Z",
+      "event": "add-member",
+      "detail": "member B (ownership): Booking duration, expected duration, turn time, table return time and adjacent terminology in official ResDiary docs"
+    },
+    {
+      "ts": "2026-07-16T15:35:41.593Z",
+      "event": "add-member",
+      "detail": "member C (perspective): Opening/closing hours, last booking/last seating, and whether booking duration may extend after restaurant/service closing"
+    },
+    {
+      "ts": "2026-07-16T15:36:01.598Z",
+      "event": "add-member",
+      "detail": "member D (ownership): Pacing, slot interval, time slots, availability rules and limits in official ResDiary support pages"
+    },
+    {
+      "ts": "2026-07-16T15:36:38.077Z",
+      "event": "add-member",
+      "detail": "member E (ownership): Services, sittings, shifts, online booking lead time, advance notice and cut-off controls"
+    },
+    {
+      "ts": "2026-07-16T15:37:03.006Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Likely legacy URL slugs, deleted/unavailable official help pages, redirects, cached index traces, and official sitemap history"
+    }
+  ]
+}

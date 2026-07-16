@@ -183,19 +183,6 @@ function BookingWizardContent({
         className={className}
         contentClassName={contentClassName}
         mode={mode}
-        onStepSelect={
-          state.step < 4
-            ? (step) => {
-                switch (step) {
-                  case 1:
-                  case 2:
-                  case 3:
-                  case 4:
-                    actions.goToStep(step);
-                }
-              }
-            : undefined
-        }
       >
         <BookingWizardStepContent
           state={state}

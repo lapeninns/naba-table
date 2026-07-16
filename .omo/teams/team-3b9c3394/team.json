@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "662302a3-8938-4e1d-bdec-8e93c6bf71b5",
+  "teamName": "opentable-special-day-duration-sshh",
+  "sessionName": "opentable-special-day-duration-sshh-20260716-unique",
+  "sessionId": "team-3b9c3394",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:24:18.629Z",
+  "updatedAt": "2026-07-16T15:24:18.629Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3b9c3394/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3b9c3394",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3b9c3394/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3b9c3394/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3b9c3394/artifacts"
+  },
+  "members": [],
+  "log": [
+    {
+      "ts": "2026-07-16T15:24:18.629Z",
+      "event": "created",
+      "detail": "team opentable-special-day-duration-sshh"
+    }
+  ]
+}

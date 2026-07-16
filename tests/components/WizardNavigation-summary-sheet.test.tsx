@@ -164,19 +164,11 @@ describe('WizardNavigation summary sheet', () => {
     expect(screen.queryByRole('region', { name: /booking summary/i })).toBeNull();
   });
 
-  it('@contract selects completed steps only when wayfinding is enabled', () => {
-    const onStepSelect = vi.fn();
-    const { rerender } = render(
-      <WizardNavigation {...baseProps} currentStep={3} onStepSelect={onStepSelect} />,
-    );
+  it('@contract does not expose previous-step wayfinding in the summary sheet', () => {
+    render(<WizardNavigation {...baseProps} currentStep={3} />);
 
-    fireEvent.click(disclosure());
-    fireEvent.click(screen.getByRole('button', { name: 'Plan (1 of 4)' }));
-    expect(onStepSelect).toHaveBeenCalledWith(1);
-    expect(screen.getByRole('button', { name: 'Details (2 of 4)' })).toHaveClass('min-h-11');
-
-    rerender(<WizardNavigation {...baseProps} currentStep={4} onStepSelect={undefined} />);
     fireEvent.click(disclosure());
     expect(screen.queryByRole('navigation', { name: 'Go to a previous step' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Plan (1 of 4)' })).toBeNull();
   });
 });

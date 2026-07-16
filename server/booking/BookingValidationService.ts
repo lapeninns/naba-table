@@ -10,6 +10,7 @@ import {
 import { recordObservabilityEvent } from '@/server/observability';
 import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
 
+import { evaluateOnlineBookingWindow } from './online-booking-window';
 import { mapCapacityErrorCode } from './types';
 
 import type {
@@ -67,7 +68,6 @@ type OverrideResolution = {
 };
 
 const BOOKING_OVERRIDE_CAPABILITY = 'booking.override';
-const MAX_BOOKING_DURATION_MINUTES = 6 * 60;
 
 function ensureLogger(logger?: Logger): Logger {
   if (logger) {
@@ -398,72 +398,18 @@ export class BookingValidationService {
       );
     }
 
-    if (!Number.isFinite(input.durationMinutes) || input.durationMinutes <= 0) {
-      issues.push(
-        this.createError(
-          'INVALID_DURATION',
-          'Duration must be greater than zero.',
-          { durationMinutes: input.durationMinutes },
-          false,
-        ),
-      );
-    }
-
-    normalizedEndDateTime = normalizedStartDateTime.plus({ minutes: input.durationMinutes });
-    normalizedEndTime = normalizedEndDateTime.toFormat('HH:mm');
-
-    if (input.durationMinutes > MAX_BOOKING_DURATION_MINUTES) {
-      issues.push(
-        this.createError(
-          'INVALID_DURATION',
-          'Duration is longer than the online booking limit.',
-          {
-            durationMinutes: input.durationMinutes,
-            maxDurationMinutes: MAX_BOOKING_DURATION_MINUTES,
-          },
-          false,
-        ),
-      );
-    }
-
-    if (!normalizedEndDateTime.isValid || normalizedEndDateTime <= normalizedStartDateTime) {
-      issues.push(
-        this.createError(
-          'INVALID_DURATION',
-          'Booking end time must be after the start time.',
-          { durationMinutes: input.durationMinutes },
-          false,
-        ),
-      );
-    } else if (normalizedEndDateTime.toISODate() !== scheduleDate) {
-      issues.push(
-        this.createError(
-          'INVALID_DURATION',
-          'Online bookings must start and end on the same day.',
-          { durationMinutes: input.durationMinutes },
-          false,
-        ),
-      );
-    }
-
-    if (schedule.window.closesAt) {
-      const closesAtDateTime = DateTime.fromISO(`${scheduleDate}T${schedule.window.closesAt}`, {
-        zone: scheduleTimezone,
-      });
-      if (closesAtDateTime.isValid && normalizedEndDateTime > closesAtDateTime) {
-        issues.push(
-          this.createError(
-            'OUTSIDE_HOURS',
-            'Selected duration extends beyond closing hours.',
-            {
-              closingTime: schedule.window.closesAt,
-              endTime: normalizedEndTime,
-            },
-            false,
-          ),
-        );
-      }
-    }
+    const bookingWindow = evaluateOnlineBookingWindow({
+      closesAt: schedule.window.closesAt,
+      durationMinutes: input.durationMinutes,
+      lastSeatingBufferMinutes: schedule.lastSeatingBufferMinutes,
+      opensAt: schedule.window.opensAt,
+      scheduleDate,
+      startDateTime: normalizedStartDateTime,
+      startTime: normalizedStartTime,
+    });
+    normalizedEndDateTime = bookingWindow.endDateTime;
+    normalizedEndTime = bookingWindow.endTime;
+    issues.push(...bookingWindow.issues);
 
     if (ctx.flags.bookingPastTimeBlocking) {
       try {

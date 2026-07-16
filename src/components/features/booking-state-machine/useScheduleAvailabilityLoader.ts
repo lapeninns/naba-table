@@ -182,7 +182,7 @@ export function useScheduleAvailabilityLoader({
       try {
         const schedule = await queryClient.fetchQuery({
           queryKey: scheduleQueryKey(slug, dateKey),
-          queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, signal),
+          queryFn: ({ signal }) => fetchReservationSchedule(slug, dateKey, { signal }),
           staleTime: 60_000,
           meta: { persist: false },
         });
@@ -201,7 +201,10 @@ export function useScheduleAvailabilityLoader({
         updateUnavailableDate(dateKey, derivedReason);
         return enriched;
       } catch (error) {
-        console.error('[schedule-picker] failed to load schedule', error);
+        console.error(
+          '[schedule-picker] failed to load schedule',
+          error instanceof Error ? error.message : String(error),
+        );
         setScheduleStateByDate((prev) => {
           const next = new Map(prev);
           next.set(dateKey, {

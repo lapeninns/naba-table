@@ -22,13 +22,14 @@ vi.mock('@reserve/features/reservations/wizard/services/schedule', async (import
   };
 });
 
-const buildSlot = (value: string): RawScheduleSlot => ({
+const buildSlot = (value: string, durationMinutes = 120): RawScheduleSlot => ({
   value,
   display: value,
   periodId: 'dinner',
   periodName: 'Dinner',
   bookingOption: 'dinner',
   defaultBookingOption: 'dinner',
+  durationMinutes,
   availability: {
     services: { lunch: 'disabled', dinner: 'enabled' },
     labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
@@ -38,6 +39,7 @@ const buildSlot = (value: string): RawScheduleSlot => ({
 
 const buildSchedule = (date: string): ReservationSchedule => ({
   restaurantId: 'rest-1',
+  evaluatedPartySize: 2,
   date,
   timezone: 'Europe/London',
   notes: null,
@@ -122,5 +124,54 @@ describe('usePlanStepForm current-day availability recovery', () => {
       expect(actions.updateDetails).toHaveBeenCalledWith('date', '2026-07-10');
     });
     expect(result.current.dateChangeMessage).toContain('Friday, 10 July 2026');
+  });
+
+  it('uses the selected party-aware slot duration for confirmation timing', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-05-16T12:00:00+01:00'));
+
+    const queryClient = createTestQueryClient();
+    const QueryWrapper = createQueryWrapper(queryClient);
+    const { getInitialState } = await import('@features/reservations/wizard/model/reducer');
+    const { usePlanStepForm } = await import('@features/reservations/wizard/hooks/usePlanStepForm');
+    const { fetchReservationSchedule, fetchCalendarMask } =
+      await import('@reserve/features/reservations/wizard/services/schedule');
+    const mask: CalendarMask = {
+      timezone: 'Europe/London',
+      from: '2026-07-01',
+      to: '2026-07-31',
+      closedDaysOfWeek: [],
+      closedDates: [],
+    };
+    vi.mocked(fetchCalendarMask).mockResolvedValue(mask);
+    vi.mocked(fetchReservationSchedule).mockResolvedValue(buildSchedule('2026-07-07'));
+    const state: State = getInitialState({
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-old-crown-girton',
+      restaurantName: 'The Old Crown Girton',
+      restaurantTimezone: 'Europe/London',
+      reservationDurationMinutes: 90,
+      date: '2026-07-07',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+    });
+    const actions = buildActions();
+
+    renderHook(
+      () =>
+        usePlanStepForm({
+          state,
+          actions,
+          minDate: new Date('2026-07-01T00:00:00+01:00'),
+          initialCalendarMask: mask,
+          onActionsChange: vi.fn(),
+        }),
+      { wrapper: QueryWrapper },
+    );
+
+    await waitFor(() => {
+      expect(actions.updateDetails).toHaveBeenCalledWith('reservationDurationMinutes', 120);
+    });
   });
 });

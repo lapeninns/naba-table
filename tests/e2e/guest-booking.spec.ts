@@ -102,11 +102,13 @@ test('@p0 @browser @local-only @external-mock guest can complete a booking flow'
 
     if (url.pathname.endsWith('/schedule')) {
       const date = url.searchParams.get('date') ?? bookingDate;
+      expect(url.searchParams.get('party')).toBe('1');
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           restaurantId,
+          evaluatedPartySize: 1,
           date,
           timezone: 'Europe/London',
           intervalMinutes: 15,
@@ -123,6 +125,7 @@ test('@p0 @browser @local-only @external-mock guest can complete a booking flow'
               periodName: 'Lunch',
               bookingOption: 'lunch',
               defaultBookingOption: 'lunch',
+              durationMinutes: 90,
               availability: {
                 services: {},
                 labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },

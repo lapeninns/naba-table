@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { addUtcDays, safeDate } from '@/lib/api/query-params';
+import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
+import { getGuestBookingSchedule } from '@/server/restaurants/guestBookingSchedule';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -14,6 +16,7 @@ const querySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional()
     .or(z.literal('').transform((): undefined => undefined)),
+  party: z.coerce.number().int().min(MIN_ONLINE_PARTY_SIZE).max(MAX_ONLINE_PARTY_SIZE).optional(),
 });
 
 const RESTAURANT_SCHEDULE_MAX_HORIZON_DAYS = 370;
@@ -43,10 +46,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const url = new URL(request.url);
   const rawDate = url.searchParams.get('date');
+  const rawParty = url.searchParams.get('party');
   const queryDate =
     rawDate === null || rawDate.trim() === '' ? undefined : safeDate(url.searchParams, 'date');
   const parsed = querySchema.safeParse({
     date: queryDate ?? (rawDate ? '__invalid_date__' : undefined),
+    party: rawParty === null || rawParty.trim() === '' ? undefined : rawParty,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -88,9 +93,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return tenantRateLimitResponse;
     }
 
-    const schedule = await getRestaurantSchedule(restaurant.id, {
-      date: parsed.data.date,
-    });
+    const schedule =
+      parsed.data.party === undefined
+        ? await getRestaurantSchedule(restaurant.id, { date: parsed.data.date })
+        : await getGuestBookingSchedule(restaurant.id, {
+            date: parsed.data.date,
+            partySize: parsed.data.party,
+          });
 
     return NextResponse.json(schedule, {
       headers: {
@@ -98,7 +107,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('[restaurants][schedule] failed to load schedule', { slug, error });
+    console.error('[restaurants][schedule] failed to load schedule', {
+      slug,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: 'Unable to load schedule' }, { status: 500 });
   }
 }

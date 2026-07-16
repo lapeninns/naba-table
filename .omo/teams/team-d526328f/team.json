@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "59d55134-bc85-4525-ab19-8bbc6df65801",
+  "teamName": "thefork-help-periods",
+  "sessionName": "english-help-index",
+  "sessionId": "team-d526328f",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T14:53:43.087Z",
+  "updatedAt": "2026-07-16T14:55:52.477Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d526328f/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d526328f",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d526328f/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d526328f/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d526328f/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "ui-terminology",
+      "focus": "Exact English labels and helper wording for creating or editing bookable meal periods",
+      "lens": "ownership",
+      "deliverable": "10+ varied official-domain queries, full-page fetches, quotes under 20 words, URLs, CLAIMS and EXPAND tails",
+      "taskName": "thefork_ui_terms",
+      "agentPath": "/root/thefork_ui_terms",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "site-indexes",
+      "focus": "Official robots, sitemaps, help-center category indexes, and page enumeration for services/opening/booking availability",
+      "lens": "area",
+      "deliverable": "Index inventory, every relevant page fetched, query log, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "thefork_site_indexes",
+      "agentPath": "/root/thefork_site_indexes",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "term-countersearch",
+      "focus": "Alternate English terminology: service, shift, meal period, schedule, opening hours, closing time, reservation slots",
+      "lens": "perspective",
+      "deliverable": "10+ operator-varied counter-searches, terminology map, exact quotes, pages, CLAIMS and EXPAND tails",
+      "taskName": "thefork_term_countersearch",
+      "agentPath": "/root/thefork_term_countersearch",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "legacy-redirects",
+      "focus": "Legacy and alternate official TheFork/TheFork Manager English help domains, redirects, archived public paths, and login walls",
+      "lens": "area",
+      "deliverable": "10+ domain/path searches, redirect and access notes, full public pages, exact quotes, CLAIMS and EXPAND tails",
+      "taskName": "thefork_legacy_redirects",
+      "agentPath": "/root/thefork_legacy_redirects",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "closure-availability",
+      "focus": "Closing times, exceptional closures, booking availability, and meal-period boundary behavior in official help",
+      "lens": "area",
+      "deliverable": "10+ varied searches, relevant full pages, exact UI/helper text, blocked notes, CLAIMS and EXPAND tails",
+      "taskName": "thefork_closure_availability",
+      "agentPath": "/root/thefork_closure_availability",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "evidence-skeptic",
+      "focus": "Counter-search claimed labels/pages, identify contradictions, stale wording, snippets-only evidence, and unchecked leads",
+      "lens": "perspective",
+      "deliverable": "Independent 10+ query audit, source-quality verdicts, counterevidence, CLAIMS and EXPAND tails",
+      "taskName": "thefork_evidence_skeptic",
+      "agentPath": "/root/thefork_evidence_skeptic",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T14:53:43.087Z",
+      "event": "created",
+      "detail": "team thefork-help-periods"
+    },
+    {
+      "ts": "2026-07-16T14:55:42.805Z",
+      "event": "add-member",
+      "detail": "member A (ownership): Exact English labels and helper wording for creating or editing bookable meal periods"
+    },
+    {
+      "ts": "2026-07-16T14:55:44.946Z",
+      "event": "add-member",
+      "detail": "member B (area): Official robots, sitemaps, help-center category indexes, and page enumeration for services/opening/booking availability"
+    },
+    {
+      "ts": "2026-07-16T14:55:46.629Z",
+      "event": "add-member",
+      "detail": "member C (perspective): Alternate English terminology: service, shift, meal period, schedule, opening hours, closing time, reservation slots"
+    },
+    {
+      "ts": "2026-07-16T14:55:47.635Z",
+      "event": "add-member",
+      "detail": "member E (area): Legacy and alternate official TheFork/TheFork Manager English help domains, redirects, archived public paths, and login walls"
+    },
+    {
+      "ts": "2026-07-16T14:55:51.910Z",
+      "event": "add-member",
+      "detail": "member D (area): Closing times, exceptional closures, booking availability, and meal-period boundary behavior in official help"
+    },
+    {
+      "ts": "2026-07-16T14:55:52.477Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Counter-search claimed labels/pages, identify contradictions, stale wording, snippets-only evidence, and unchecked leads"
+    }
+  ]
+}

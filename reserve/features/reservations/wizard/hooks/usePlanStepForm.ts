@@ -514,6 +514,7 @@ function useUnavailableDateTracking({
 type PlanSlotDataArgs = {
   restaurantSlug: string | null | undefined;
   date: string | null | undefined;
+  partySize: number;
   time: string | null | undefined;
 };
 
@@ -529,7 +530,12 @@ type PlanSlotDataResult = {
   latestSelectableMinutes: number | null;
 };
 
-function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): PlanSlotDataResult {
+function usePlanSlotData({
+  restaurantSlug,
+  date,
+  partySize,
+  time,
+}: PlanSlotDataArgs): PlanSlotDataResult {
   const {
     slots,
     inferBookingOption,
@@ -539,6 +545,7 @@ function usePlanSlotData({ restaurantSlug, date, time }: PlanSlotDataArgs): Plan
   } = useTimeSlots({
     restaurantSlug,
     date,
+    partySize,
     selectedTime: time,
   });
 
@@ -683,6 +690,7 @@ export function usePlanStepForm({
   } = usePlanSlotData({
     restaurantSlug: state.details.restaurantSlug,
     date: state.details.date,
+    partySize: state.details.party ?? 1,
     time: state.details.time,
   });
 
@@ -988,7 +996,9 @@ export function usePlanStepForm({
   ]);
 
   useEffect(() => {
-    const duration = schedule?.defaultDurationMinutes;
+    const duration =
+      slots.find((slot) => slot.value === state.details.time)?.durationMinutes ??
+      schedule?.defaultDurationMinutes;
     if (!duration || duration <= 0) {
       return;
     }
@@ -996,7 +1006,13 @@ export function usePlanStepForm({
       return;
     }
     updateField('reservationDurationMinutes', duration);
-  }, [schedule?.defaultDurationMinutes, state.details.reservationDurationMinutes, updateField]);
+  }, [
+    schedule?.defaultDurationMinutes,
+    slots,
+    state.details.reservationDurationMinutes,
+    state.details.time,
+    updateField,
+  ]);
 
   useEffect(() => {
     const scheduleRestaurantId = schedule?.restaurantId?.trim();

@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "1abbf387-44df-4205-9948-e4f72b245f4b",
+  "teamName": "square-duration-services",
+  "sessionName": "square-duration-services-20260716",
+  "sessionId": "team-57aeba8d",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:08:12.291Z",
+  "updatedAt": "2026-07-16T15:21:11.555Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-57aeba8d/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-57aeba8d",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-57aeba8d/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-57aeba8d/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-57aeba8d/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "service-setup",
+      "focus": "Official Square help pages for service creation, duration, variations, pricing and duration fields",
+      "lens": "area",
+      "deliverable": "10+ query log, full-page citations, exact short quotes, UI labels/helper/validation copy, implications, CLAIMS and EXPAND",
+      "taskName": "sq_service_setup",
+      "agentPath": "/root/sq_service_setup",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "blocked-time",
+      "focus": "Official Square pages for blocking time, personal events, unavailable time, calendar blocks and availability effects",
+      "lens": "area",
+      "deliverable": "10+ query log, full-page citations, exact short quotes, UI labels/helper/validation copy, implications, CLAIMS and EXPAND",
+      "taskName": "sq_blocked_time",
+      "agentPath": "/root/sq_blocked_time",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "processing-time",
+      "focus": "Official Square pages documenting processing time, bookable segments, concurrent availability and service timing",
+      "lens": "area",
+      "deliverable": "10+ query log, full-page citations, exact short quotes, UI labels/helper/validation copy, implications, CLAIMS and EXPAND",
+      "taskName": "sq_processing_time",
+      "agentPath": "/root/sq_processing_time",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "sitemap-dev-ui",
+      "focus": "Official Square sitemap, product walkthroughs and developer docs exposing duration-related names, enums or UI terminology",
+      "lens": "perspective",
+      "deliverable": "10+ query log, full-page citations, exact short quotes, UI labels/helper/validation copy, implications, CLAIMS and EXPAND",
+      "taskName": "sq_sitemap_dev_ui",
+      "agentPath": "/root/sq_sitemap_dev_ui",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "booking-policies",
+      "focus": "Official Square booking policies and online booking timing constraints that interact with duration and availability",
+      "lens": "area",
+      "deliverable": "10+ query log, full-page citations, exact short quotes, UI labels/helper/validation copy, implications, CLAIMS and EXPAND",
+      "taskName": "sq_booking_policies",
+      "agentPath": "/root/sq_booking_policies",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "transition-buffers",
+      "focus": "Official Square pages for transition time, buffer time before or after appointments, setup and cleanup terminology",
+      "lens": "area",
+      "deliverable": "10+ query log, full-page citations, exact short quotes, UI labels/helper/validation copy, implications, CLAIMS and EXPAND",
+      "taskName": "sq_transition_buffers",
+      "agentPath": "/root/sq_transition_buffers",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:08:12.291Z",
+      "event": "created",
+      "detail": "team square-duration-services"
+    },
+    {
+      "ts": "2026-07-16T15:21:06.083Z",
+      "event": "add-member",
+      "detail": "member A (area): Official Square help pages for service creation, duration, variations, pricing and duration fields"
+    },
+    {
+      "ts": "2026-07-16T15:21:06.858Z",
+      "event": "add-member",
+      "detail": "member C (area): Official Square pages for blocking time, personal events, unavailable time, calendar blocks and availability effects"
+    },
+    {
+      "ts": "2026-07-16T15:21:07.487Z",
+      "event": "add-member",
+      "detail": "member B (area): Official Square pages documenting processing time, bookable segments, concurrent availability and service timing"
+    },
+    {
+      "ts": "2026-07-16T15:21:09.434Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Official Square sitemap, product walkthroughs and developer docs exposing duration-related names, enums or UI terminology"
+    },
+    {
+      "ts": "2026-07-16T15:21:10.563Z",
+      "event": "add-member",
+      "detail": "member E (area): Official Square booking policies and online booking timing constraints that interact with duration and availability"
+    },
+    {
+      "ts": "2026-07-16T15:21:11.555Z",
+      "event": "add-member",
+      "detail": "member D (area): Official Square pages for transition time, buffer time before or after appointments, setup and cleanup terminology"
+    }
+  ]
+}

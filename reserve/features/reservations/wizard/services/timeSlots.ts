@@ -28,12 +28,14 @@ export type RawScheduleSlot = {
   periodName: string | null;
   bookingOption: BookingOption;
   defaultBookingOption: BookingOption;
+  durationMinutes?: number;
   availability: ServiceAvailability;
   disabled: boolean;
 };
 
 export type ReservationSchedule = {
   restaurantId: string;
+  evaluatedPartySize?: number;
   date: string;
   timezone: string;
   notes: string | null;
@@ -56,6 +58,7 @@ export type TimeSlotDescriptor = {
   label: string;
   bookingOption: BookingOption;
   defaultBookingOption: BookingOption;
+  durationMinutes?: number;
   availability: ServiceAvailability;
   disabled: boolean;
   periodId: string | null;
@@ -74,6 +77,7 @@ export function toTimeSlotDescriptor(slot: RawScheduleSlot): TimeSlotDescriptor 
     label,
     bookingOption: slot.bookingOption,
     defaultBookingOption: slot.defaultBookingOption,
+    durationMinutes: slot.durationMinutes,
     availability: slot.availability,
     disabled: slot.disabled,
     periodId: slot.periodId,

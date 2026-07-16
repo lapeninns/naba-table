@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "0bb03727-8f5b-4b0b-9b62-ee157be47d61",
+  "teamName": "thefork-duration-end-index",
+  "sessionName": "official-english-help",
+  "sessionId": "team-0d4fdacf",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:29:37.520Z",
+  "updatedAt": "2026-07-16T15:54:26.723Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-0d4fdacf/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-0d4fdacf",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-0d4fdacf/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-0d4fdacf/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-0d4fdacf/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "search-phrases",
+      "focus": "English official-domain search-engine queries for duration/end-time terminology",
+      "lens": "area",
+      "deliverable": "10+ varied queries, full-page URLs, labels, quotes, related links, EXPAND and CLAIMS tails",
+      "taskName": "tf_search_phrases",
+      "agentPath": "/root/tf_search_phrases",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "sitemaps",
+      "focus": "Official TheFork sitemap, robots, locale, and help-center URL enumeration",
+      "lens": "area",
+      "deliverable": "Sitemap-derived relevant and adjacent URLs, locale codes, canonical metadata, EXPAND and CLAIMS tails",
+      "taskName": "tf_sitemaps",
+      "agentPath": "/root/tf_sitemaps",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "help-nav",
+      "focus": "TheFork Manager English help-center categories, article related links, and UI navigation",
+      "lens": "area",
+      "deliverable": "Full help article graph around reservation/meal/slot duration and closing/end time, exact labels and quotes, EXPAND and CLAIMS tails",
+      "taskName": "tf_help_nav",
+      "agentPath": "/root/tf_help_nav",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "redirects",
+      "focus": "Alias URL testing, redirects, language fallbacks, canonical and hreflang metadata",
+      "lens": "perspective",
+      "deliverable": "HTTP redirect chains and metadata for likely/known duration/end-time help URLs across English locales, EXPAND and CLAIMS tails",
+      "taskName": "tf_redirects",
+      "agentPath": "/root/tf_redirects",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "terminology",
+      "focus": "Exact phrase and synonym sweep: reservation duration, meal duration, slot duration, seating duration, closing time, end time",
+      "lens": "perspective",
+      "deliverable": "10+ query synonym matrix on official domains, relevant/adjacent pages, negative findings, exact labels/quotes, EXPAND and CLAIMS tails",
+      "taskName": "tf_terminology",
+      "agentPath": "/root/tf_terminology",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:29:37.520Z",
+      "event": "created",
+      "detail": "team thefork-duration-end-index"
+    },
+    {
+      "ts": "2026-07-16T15:41:13.644Z",
+      "event": "add-member",
+      "detail": "member A (area): English official-domain search-engine queries for duration/end-time terminology"
+    },
+    {
+      "ts": "2026-07-16T15:44:09.770Z",
+      "event": "add-member",
+      "detail": "member B (area): Official TheFork sitemap, robots, locale, and help-center URL enumeration"
+    },
+    {
+      "ts": "2026-07-16T15:47:26.182Z",
+      "event": "add-member",
+      "detail": "member C (area): TheFork Manager English help-center categories, article related links, and UI navigation"
+    },
+    {
+      "ts": "2026-07-16T15:51:06.531Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Alias URL testing, redirects, language fallbacks, canonical and hreflang metadata"
+    },
+    {
+      "ts": "2026-07-16T15:54:26.723Z",
+      "event": "add-member",
+      "detail": "member E (perspective): Exact phrase and synonym sweep: reservation duration, meal duration, slot duration, seating duration, closing time, end time"
+    }
+  ]
+}

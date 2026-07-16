@@ -37,7 +37,6 @@ export interface WizardContainerProps {
   navigationClassName?: string;
   className?: string;
   contentClassName?: string;
-  onStepSelect?: (step: number) => void;
   mode?: BookingWizardMode;
 }
 
@@ -58,7 +57,6 @@ export function WizardContainer({
   navigationClassName,
   className,
   contentClassName,
-  onStepSelect,
   mode = 'customer',
 }: WizardContainerProps) {
   const totalSteps = steps.length || 1;
@@ -97,7 +95,6 @@ export function WizardContainer({
             visible={stickyVisible}
             onHeightChange={onStickyHeightChange}
             className={navigationClassName}
-            onStepSelect={onStepSelect}
           />
         }
       >

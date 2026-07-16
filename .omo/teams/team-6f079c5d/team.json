@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "ce8a793b-7fe2-4604-8744-b97847ce8fa6",
+  "teamName": "resdiary-policy-research",
+  "sessionName": "default-booking-settings",
+  "sessionId": "team-6f079c5d",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:09:46.516Z",
+  "updatedAt": "2026-07-16T15:13:28.236Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-6f079c5d/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-6f079c5d",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-6f079c5d/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-6f079c5d/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-6f079c5d/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "booking-defaults",
+      "focus": "Official help pages for booking settings, defaults, and default booking duration UI",
+      "lens": "area",
+      "deliverable": "Exhaustive cited findings, exact labels/quotes under 20 words, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_booking_defaults",
+      "agentPath": "/root/resdiary_booking_defaults",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "services-shifts",
+      "focus": "Official help pages for services, shifts, sittings, and duration-related settings",
+      "lens": "area",
+      "deliverable": "Exhaustive cited findings, exact labels/quotes under 20 words, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_services_shifts",
+      "agentPath": "/root/resdiary_services_shifts",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "availability-slots",
+      "focus": "Official help pages for availability, time slots, slot length, and duration controls",
+      "lens": "area",
+      "deliverable": "Exhaustive cited findings, exact labels/quotes under 20 words, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_availability_slots",
+      "agentPath": "/root/resdiary_availability_slots",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "tables-turntimes",
+      "focus": "Official help pages for table settings, table joins, turn times, sitting or stay time",
+      "lens": "area",
+      "deliverable": "Exhaustive cited findings, exact labels/quotes under 20 words, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_tables_turntimes",
+      "agentPath": "/root/resdiary_tables_turntimes",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "sitemap-index",
+      "focus": "Official ResDiary sitemap, help-centre indexes, related-link discovery, and legacy official domains",
+      "lens": "area",
+      "deliverable": "Exhaustive relevant URL inventory, full-page evidence, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_sitemap_index",
+      "agentPath": "/root/resdiary_sitemap_index",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "terminology-skeptic",
+      "focus": "Counter-search renamed terminology and challenge whether default booking duration is explicit or inferred",
+      "lens": "perspective",
+      "deliverable": "Refutation-focused evidence, exact quotes, terminology mapping, dead ends, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_terminology_skeptic",
+      "agentPath": "/root/resdiary_terminology_skeptic",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:09:46.516Z",
+      "event": "created",
+      "detail": "team resdiary-policy-research"
+    },
+    {
+      "ts": "2026-07-16T15:12:24.674Z",
+      "event": "add-member",
+      "detail": "member A (area): Official help pages for booking settings, defaults, and default booking duration UI"
+    },
+    {
+      "ts": "2026-07-16T15:12:28.185Z",
+      "event": "add-member",
+      "detail": "member B (area): Official help pages for services, shifts, sittings, and duration-related settings"
+    },
+    {
+      "ts": "2026-07-16T15:12:29.071Z",
+      "event": "add-member",
+      "detail": "member C (area): Official help pages for availability, time slots, slot length, and duration controls"
+    },
+    {
+      "ts": "2026-07-16T15:13:25.734Z",
+      "event": "add-member",
+      "detail": "member D (area): Official help pages for table settings, table joins, turn times, sitting or stay time"
+    },
+    {
+      "ts": "2026-07-16T15:13:26.482Z",
+      "event": "add-member",
+      "detail": "member E (area): Official ResDiary sitemap, help-centre indexes, related-link discovery, and legacy official domains"
+    },
+    {
+      "ts": "2026-07-16T15:13:28.236Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Counter-search renamed terminology and challenge whether default booking duration is explicit or inferred"
+    }
+  ]
+}

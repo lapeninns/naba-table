@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "5e834316-19b9-4462-9e7d-3b8c0fd7d605",
+  "teamName": "w3c-capacity-models",
+  "sessionName": "w3c-sosa-ssn-capacity-research",
+  "sessionId": "team-3bbba54a",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:12:18.081Z",
+  "updatedAt": "2026-07-16T15:12:18.081Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3bbba54a/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3bbba54a",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3bbba54a/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3bbba54a/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-3bbba54a/artifacts"
+  },
+  "members": [],
+  "log": [
+    {
+      "ts": "2026-07-16T15:12:18.081Z",
+      "event": "created",
+      "detail": "team w3c-capacity-models"
+    }
+  ]
+}

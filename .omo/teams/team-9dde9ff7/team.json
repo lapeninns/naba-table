@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "bbd52776-9faf-4302-ba96-539edc534715",
+  "teamName": "thefork-official-duration",
+  "sessionName": "manuals-training",
+  "sessionId": "team-9dde9ff7",
+  "threadTitleConvention": null,
+  "status": "archived",
+  "createdAt": "2026-07-16T15:02:34.270Z",
+  "updatedAt": "2026-07-16T15:09:19.784Z",
+  "archivedAt": "2026-07-16T15:09:19.784Z",
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-9dde9ff7/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-9dde9ff7",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-9dde9ff7/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-9dde9ff7/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-9dde9ff7/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "help-manuals",
+      "focus": "Official TheFork Help Centre/manual articles on reservation duration, table plan, services, booking intervals, closing hours",
+      "lens": "area",
+      "deliverable": "10+ official-only queries; opened pages; quotes under 20 words; URLs/titles/access date; silence/counter-search; CLAIMS and EXPAND",
+      "taskName": "official_help_manuals",
+      "agentPath": "/root/official_help_manuals",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "B",
+      "name": "academy-training",
+      "focus": "Official TheFork Academy, blog, webinar, tutorial, video, training resources on reservation duration and service scheduling",
+      "lens": "area",
+      "deliverable": "10+ official-only queries; opened resources; quotes; URLs/titles/access date; dead ends; CLAIMS and EXPAND",
+      "taskName": "official_academy_training",
+      "agentPath": "/root/official_academy_training",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "C",
+      "name": "pdf-sitemap",
+      "focus": "Official TheFork PDFs, manuals, downloadable guides, sitemaps and indexed resource discovery",
+      "lens": "area",
+      "deliverable": "10+ official-only queries including filetype:pdf and sitemap; open PDFs/pages; quotes; URLs/titles/access date; dead ends; CLAIMS and EXPAND",
+      "taskName": "official_pdf_sitemap",
+      "agentPath": "/root/official_pdf_sitemap",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "D",
+      "name": "closing-countersearch",
+      "focus": "Official TheFork counter-search for whether reservation duration may extend past service or restaurant closing time; seek explicit statement or silence",
+      "lens": "perspective",
+      "deliverable": "10+ official-only queries; opened pages; explicit positive/negative evidence; quote limits; access date; query log and dead ends; CLAIMS and EXPAND",
+      "taskName": "official_closing_countersearch",
+      "agentPath": "/root/official_closing_countersearch",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:02:34.270Z",
+      "event": "created",
+      "detail": "team thefork-official-duration"
+    },
+    {
+      "ts": "2026-07-16T15:04:20.178Z",
+      "event": "add-member",
+      "detail": "member A (area): Official TheFork Help Centre/manual articles on reservation duration, table plan, services, booking intervals, closing hours"
+    },
+    {
+      "ts": "2026-07-16T15:04:20.844Z",
+      "event": "add-member",
+      "detail": "member B (area): Official TheFork Academy, blog, webinar, tutorial, video, training resources on reservation duration and service scheduling"
+    },
+    {
+      "ts": "2026-07-16T15:04:21.271Z",
+      "event": "add-member",
+      "detail": "member C (area): Official TheFork PDFs, manuals, downloadable guides, sitemaps and indexed resource discovery"
+    },
+    {
+      "ts": "2026-07-16T15:04:21.772Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Official TheFork counter-search for whether reservation duration may extend past service or restaurant closing time; seek explicit statement or silence"
+    },
+    {
+      "ts": "2026-07-16T15:09:19.784Z",
+      "event": "archive",
+      "detail": "No members bound: MultiAgentV2 spawn failed due environment agent-thread limit; research continued serially by leader."
+    }
+  ]
+}

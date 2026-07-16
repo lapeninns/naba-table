@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "9938a205-4e6b-4f9d-95cf-3e2f212e854d",
+  "teamName": "opentable-official-sitemaps",
+  "sessionName": "20260716-opentable-sitemaps",
+  "sessionId": "team-22f875ab",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:00:12.152Z",
+  "updatedAt": "2026-07-16T15:02:33.150Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-22f875ab/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-22f875ab",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-22f875ab/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-22f875ab/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-22f875ab/artifacts"
+  },
+  "members": [
+    {
+      "id": "B",
+      "name": "help-taxonomy",
+      "focus": "OpenTable official help center category/search indexes, pagination, related links, URL taxonomy",
+      "lens": "area",
+      "deliverable": "Complete help index and category/search URL taxonomy with statuses, region clues, query ledger, CLAIMS and EXPAND tails",
+      "taskName": "ot_help_taxonomy",
+      "agentPath": "/root/ot_help_taxonomy",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "schedule-service",
+      "focus": "Official operator documentation URLs for schedule, shifts, services, availability configuration",
+      "lens": "area",
+      "deliverable": "Every relevant official page with title/canonical/topic/region/status/access date, 10+ query ledger, CLAIMS and EXPAND tails",
+      "taskName": "ot_schedule_service",
+      "agentPath": "/root/ot_schedule_service",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "cutoff-endtime",
+      "focus": "Official operator documentation URLs for last seating, end time, booking cutoff, close reservations, advance booking windows",
+      "lens": "area",
+      "deliverable": "Every relevant official page with title/canonical/topic/region/status/access date, 10+ query ledger, CLAIMS and EXPAND tails",
+      "taskName": "ot_cutoff_endtime",
+      "agentPath": "/root/ot_cutoff_endtime",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "A",
+      "name": "robots-sitemaps",
+      "focus": "OpenTable official robots.txt, sitemap.xml, sitemap indexes, nested sitemap discovery, status and redirects",
+      "lens": "area",
+      "deliverable": "Complete official URL inventory with titles/status/redirects/access date, query ledger, CLAIMS and EXPAND tails",
+      "taskName": "ot_robots_sitemaps",
+      "agentPath": "/root/ot_robots_sitemaps",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "legacy-regions",
+      "focus": "Legacy, regional, localized, redirected, dead, or alternate OpenTable operator documentation paths and counter-searches for missing taxonomy",
+      "lens": "perspective",
+      "deliverable": "Legacy/region URL inventory with redirects/dead status, 10+ query ledger, CLAIMS and EXPAND tails",
+      "taskName": "ot_legacy_regions",
+      "agentPath": "/root/ot_legacy_regions",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "turn-pacing",
+      "focus": "Official operator documentation URLs for turn times, pacing, covers, intervals, availability controls",
+      "lens": "area",
+      "deliverable": "Every relevant official page with title/canonical/topic/region/status/access date, 10+ query ledger, CLAIMS and EXPAND tails",
+      "taskName": "ot_turn_pacing",
+      "agentPath": "/root/ot_turn_pacing",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:00:12.152Z",
+      "event": "created",
+      "detail": "team opentable-official-sitemaps"
+    },
+    {
+      "ts": "2026-07-16T15:02:30.089Z",
+      "event": "add-member",
+      "detail": "member B (area): OpenTable official help center category/search indexes, pagination, related links, URL taxonomy"
+    },
+    {
+      "ts": "2026-07-16T15:02:30.883Z",
+      "event": "add-member",
+      "detail": "member C (area): Official operator documentation URLs for schedule, shifts, services, availability configuration"
+    },
+    {
+      "ts": "2026-07-16T15:02:31.375Z",
+      "event": "add-member",
+      "detail": "member E (area): Official operator documentation URLs for last seating, end time, booking cutoff, close reservations, advance booking windows"
+    },
+    {
+      "ts": "2026-07-16T15:02:31.861Z",
+      "event": "add-member",
+      "detail": "member A (area): OpenTable official robots.txt, sitemap.xml, sitemap indexes, nested sitemap discovery, status and redirects"
+    },
+    {
+      "ts": "2026-07-16T15:02:32.300Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Legacy, regional, localized, redirected, dead, or alternate OpenTable operator documentation paths and counter-searches for missing taxonomy"
+    },
+    {
+      "ts": "2026-07-16T15:02:33.150Z",
+      "event": "add-member",
+      "detail": "member D (area): Official operator documentation URLs for turn times, pacing, covers, intervals, availability controls"
+    }
+  ]
+}

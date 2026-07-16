@@ -21,6 +21,19 @@ describe('normalizeReservationSchedulePayload', () => {
     expect(result.window).toEqual({ opensAt: null, closesAt: null });
   });
 
+  it('preserves an explicit zero last-seating buffer and does not invent party metadata', () => {
+    const result = normalizeReservationSchedulePayload({
+      restaurantId: 'restaurant-1',
+      date: '2026-04-14',
+      defaultDurationMinutes: 90,
+      lastSeatingBufferMinutes: 0,
+      slots: [],
+    });
+
+    expect(result.lastSeatingBufferMinutes).toBe(0);
+    expect(result.evaluatedPartySize).toBeUndefined();
+  });
+
   it('drops malformed slots and normalizes nullable nested fields', () => {
     const result = normalizeReservationSchedulePayload({
       restaurantId: 'rest-1',

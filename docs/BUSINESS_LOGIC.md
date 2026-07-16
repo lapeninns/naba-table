@@ -207,6 +207,37 @@ Restaurants can override turn bands per booking option using `restaurant_turn_ba
 - Overrides are stored by `(restaurant_id, booking_option, max_party_size)`.
 - When no overrides exist, defaults remain in effect.
 
+### Guest Latest-Seating Rules
+
+Guest schedules are projected from the raw configured schedule using the selected party size.
+Each candidate start resolves its canonical turn duration from the same restaurant turn-band policy
+used during booking creation.
+
+For an operating close `C`, resolved duration `D`, and configured last-seating buffer `B`:
+
+```text
+eligible start <= C - max(D, B)
+```
+
+This is equivalent to enforcing both rules independently:
+
+```text
+start + D <= C
+start + B <= C
+```
+
+- A booking ending exactly at operating close is valid.
+- A start exactly on the last-seating cutoff is valid.
+- Service-period end remains an exclusive start boundary; it is not automatically a dining-end
+  boundary.
+- Fixed slots are candidate starts and do not bypass duration or last-seating rules.
+- The raw restaurant schedule remains party-agnostic for Ops and capacity consumers.
+- Overnight operating windows currently fail closed for online guest eligibility until booking
+  timestamps can carry an unambiguous next-day offset end to end.
+
+**Sources**: `server/booking/online-booking-window.ts`,
+`server/restaurants/guestBookingSchedule.ts`
+
 ### Buffer Rules
 
 **Purpose**: Prevent back-to-back bookings, allow for cleanup/turnover

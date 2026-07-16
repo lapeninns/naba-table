@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "5bf114d1-1b30-49cb-b2dc-430714e75d5d",
+  "teamName": "tock-official-history",
+  "sessionName": "pacing-capacity-history",
+  "sessionId": "team-db342942",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:08:26.780Z",
+  "updatedAt": "2026-07-16T15:23:11.194Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-db342942/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-db342942",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-db342942/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-db342942/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-db342942/artifacts"
+  },
+  "members": [
+    {
+      "id": "D",
+      "name": "archives-redirects",
+      "focus": "Archived official Tock URLs, Wayback-discoverable official pages, redirects, deleted/gated pages, domain migrations, terminology renames and deprecations",
+      "lens": "perspective",
+      "deliverable": "At least 10 varied official-domain searches plus archive URL investigation; dead/blocked/redirect list; historical terminology and contradictions; query log, CLAIMS and EXPAND tails",
+      "taskName": "tock_archive_urls",
+      "agentPath": "/root/tock_archive_urls",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "A",
+      "name": "current-help-docs",
+      "focus": "Current official Tock help center, marketing, product pages, sitemap, and terminology for pacing/capacity controls",
+      "lens": "area",
+      "deliverable": "At least 10 distinct official-domain queries; open all relevant official pages; exact terminology, short quotes, dates, URLs, contradictions, blocked URLs, query log, CLAIMS and EXPAND tails",
+      "taskName": "tock_current_docs",
+      "agentPath": "/root/tock_current_docs",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "media-pdfs-videos",
+      "focus": "Official Tock PDFs, webinars, videos, transcripts, downloadable guides, embedded media, and official YouTube/Vimeo references about pacing and capacity controls",
+      "lens": "area",
+      "deliverable": "At least 10 distinct searches using filetype/inurl/intitle/exact/OR/date operators; open relevant official media; quotes, URLs, dates, behavior, blocked/gated items, query log, CLAIMS and EXPAND tails",
+      "taskName": "tock_media_pdfs",
+      "agentPath": "/root/tock_media_pdfs",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "blog-announcements",
+      "focus": "Official Tock blog posts, product announcements, release notes, newsroom, and marketing history mentioning pacing, intervals, cadence, covers, or capacity",
+      "lens": "area",
+      "deliverable": "At least 10 distinct official-domain queries; open all relevant official pages; chronology, exact terminology, quotes under 20 words, redirects/deletions, query log, CLAIMS and EXPAND tails",
+      "taskName": "tock_blog_history",
+      "agentPath": "/root/tock_blog_history",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "skeptic-countersearch",
+      "focus": "Counter-search official Tock sources for contradictions, alternate terminology, present-versus-historical behavior, and negative evidence",
+      "lens": "perspective",
+      "deliverable": "At least 10 distinct official-domain counter-queries; open all relevant official results; challenge likely claims, document unresolved contradictions, query/dead URL logs, CLAIMS and EXPAND tails",
+      "taskName": "tock_countersearch",
+      "agentPath": "/root/tock_countersearch",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:08:26.780Z",
+      "event": "created",
+      "detail": "team tock-official-history"
+    },
+    {
+      "ts": "2026-07-16T15:23:01.578Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Archived official Tock URLs, Wayback-discoverable official pages, redirects, deleted/gated pages, domain migrations, terminology renames and deprecations"
+    },
+    {
+      "ts": "2026-07-16T15:23:04.996Z",
+      "event": "add-member",
+      "detail": "member A (area): Current official Tock help center, marketing, product pages, sitemap, and terminology for pacing/capacity controls"
+    },
+    {
+      "ts": "2026-07-16T15:23:08.709Z",
+      "event": "add-member",
+      "detail": "member C (area): Official Tock PDFs, webinars, videos, transcripts, downloadable guides, embedded media, and official YouTube/Vimeo references about pacing and capacity controls"
+    },
+    {
+      "ts": "2026-07-16T15:23:10.458Z",
+      "event": "add-member",
+      "detail": "member B (area): Official Tock blog posts, product announcements, release notes, newsroom, and marketing history mentioning pacing, intervals, cadence, covers, or capacity"
+    },
+    {
+      "ts": "2026-07-16T15:23:11.194Z",
+      "event": "add-member",
+      "detail": "member E (perspective): Counter-search official Tock sources for contradictions, alternate terminology, present-versus-historical behavior, and negative evidence"
+    }
+  ]
+}

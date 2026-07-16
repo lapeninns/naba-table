@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "61dd9fea-685b-483d-bfc3-569b8ef3e779",
+  "teamName": "schema-reservation-core",
+  "sessionName": "schema-reservation-core",
+  "sessionId": "team-a33f3cf4",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T14:56:01.753Z",
+  "updatedAt": "2026-07-16T15:04:38.616Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a33f3cf4/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a33f3cf4",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a33f3cf4/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a33f3cf4/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a33f3cf4/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "type-hierarchy",
+      "focus": "Reservation, FoodEstablishmentReservation, ReservationPackage hierarchy and contrary reservation types",
+      "lens": "area",
+      "deliverable": "Official-source type semantics, exact URLs, >=10 query log, observations, claims, EXPAND tail",
+      "taskName": "schema_type_hierarchy",
+      "agentPath": "/root/schema_type_hierarchy",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "reservation-fields",
+      "focus": "partySize, underName, reservationFor domains, ranges, inverses, superseded status, and semantic classification",
+      "lens": "area",
+      "deliverable": "Official-source property semantics, exact URLs, >=10 query log, observations, claims, EXPAND tail",
+      "taskName": "schema_reservation_fields",
+      "agentPath": "/root/schema_reservation_fields",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "roles-relations",
+      "focus": "broker and provider property semantics, domain/range/inverse/superseded status, roles in reservation modeling",
+      "lens": "area",
+      "deliverable": "Official-source property semantics, exact URLs, >=10 query log, observations, claims, EXPAND tail",
+      "taskName": "schema_roles_relations",
+      "agentPath": "/root/schema_roles_relations",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "status-vocabulary",
+      "focus": "reservationStatus domain/range and ReservationStatusType enumeration semantics including countertypes",
+      "lens": "area",
+      "deliverable": "Official-source status semantics, exact URLs, >=10 query log, observations, claims, EXPAND tail",
+      "taskName": "schema_status_vocabulary",
+      "agentPath": "/root/schema_status_vocabulary",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T14:56:01.753Z",
+      "event": "created",
+      "detail": "team schema-reservation-core"
+    },
+    {
+      "ts": "2026-07-16T14:58:25.001Z",
+      "event": "add-member",
+      "detail": "member A (area): Reservation, FoodEstablishmentReservation, ReservationPackage hierarchy and contrary reservation types"
+    },
+    {
+      "ts": "2026-07-16T15:01:11.641Z",
+      "event": "add-member",
+      "detail": "member B (area): partySize, underName, reservationFor domains, ranges, inverses, superseded status, and semantic classification"
+    },
+    {
+      "ts": "2026-07-16T15:03:13.556Z",
+      "event": "add-member",
+      "detail": "member C (area): broker and provider property semantics, domain/range/inverse/superseded status, roles in reservation modeling"
+    },
+    {
+      "ts": "2026-07-16T15:04:38.616Z",
+      "event": "add-member",
+      "detail": "member D (area): reservationStatus domain/range and ReservationStatusType enumeration semantics including countertypes"
+    }
+  ]
+}

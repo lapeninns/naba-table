@@ -160,6 +160,42 @@ describe('BookingValidationService security guards', () => {
     );
   });
 
+  it('rejects starts inside the configured last-seating buffer', async () => {
+    const scheduleRepo: ScheduleRepository = {
+      getSchedule: vi.fn().mockResolvedValue({
+        ...schedule,
+        lastSeatingBufferMinutes: 90,
+        slots: [
+          ...schedule.slots,
+          {
+            ...schedule.slots[0],
+            value: '21:00',
+            display: '21:00',
+          },
+        ],
+      }),
+    };
+    const capacityService: CapacityService = {
+      checkAvailability: vi.fn().mockResolvedValue({ ok: true }),
+      createBooking: vi.fn(),
+      updateBooking: vi.fn(),
+    };
+    const service = new BookingValidationService(scheduleRepo, capacityService, {
+      timeProvider: { now: () => new Date('2026-05-16T12:00:00.000Z') },
+    });
+
+    const result = await service.validateCreate(
+      { ...baseInput, start: '2026-07-01T21:00:00', durationMinutes: 60 },
+      context,
+    );
+
+    expect(result.response.ok).toBe(false);
+    expect(result.response.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'OUTSIDE_HOURS' })]),
+    );
+    expect(capacityService.checkAvailability).not.toHaveBeenCalled();
+  });
+
   it('does not persist request actor ids as booking auth user ids', async () => {
     const { service, capacityService } = makeService();
 

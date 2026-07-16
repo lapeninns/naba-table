@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "d13a393d-7f5f-4108-a0d9-b8d74e465949",
+  "teamName": "booking-platform-terms",
+  "sessionName": "quandoo-thefork-official-terminology",
+  "sessionId": "team-de672a91",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T14:52:55.908Z",
+  "updatedAt": "2026-07-16T15:38:11.229Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-de672a91/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-de672a91",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-de672a91/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-de672a91/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-de672a91/artifacts"
+  },
+  "members": [
+    {
+      "id": "B",
+      "name": "thefork-cross-close",
+      "focus": "TheFork Manager official terminology for last reservation/seating, booking cutoff, duration, table occupancy, and reservations ending after venue/service close; red-team counterexamples",
+      "lens": "perspective",
+      "deliverable": "Run 10+ distinct English searches with counter-search variants; read all material official pages; separate documented behavior from inference/snippets/login gates; return exact labels, quotes, URLs, observation/claim candidates, then exact CLAIMS and EXPAND tails.",
+      "taskName": "thefork_cross_close",
+      "agentPath": "/root/thefork_cross_close",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": "/Users/amankumarshrestha/LapenInns Project/nabatableLP",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "active"
+    },
+    {
+      "id": "A",
+      "name": "thefork-index",
+      "focus": "TheFork Manager official English help/docs indexes, sitemap discovery, settings labels for opening/closing hours and service schedules",
+      "lens": "area",
+      "deliverable": "Run 10+ distinct English searches; read every material full official page; return exact labels, UI context, quotes under 20 words, URLs, observation/claim candidates, then exact CLAIMS and EXPAND tails.",
+      "taskName": "thefork_index",
+      "agentPath": "/root/thefork_index",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "blocked"
+    },
+    {
+      "id": "D",
+      "name": "quandoo-cross-close",
+      "focus": "Quandoo official terminology for last booking/seating, booking cutoff, duration/turn time, service end, and reservations ending after close; red-team counterexamples",
+      "lens": "perspective",
+      "deliverable": "Run 10+ distinct English searches with duration-crosses-close and allow-after-close variants; read all material official pages; separate facts/inference/snippets/login gates; return exact labels, quotes, URLs, observation/claim candidates, then exact CLAIMS and EXPAND tails.",
+      "taskName": "quandoo_cross_close",
+      "agentPath": "/root/quandoo_cross_close",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "blocked"
+    },
+    {
+      "id": "E",
+      "name": "variant-matrix",
+      "focus": "Cross-product terminology variant matrix: closing time, last seating/reservation, service period end, booking cutoff/lead time, hard finish, allow/over close, duration crosses close",
+      "lens": "perspective",
+      "deliverable": "Run 10+ varied official-domain searches across both products; exhaust synonyms and negative evidence; collect official labels/context/counterexamples/snippet-only evidence; return observation/claim candidates, exact CLAIMS and EXPAND tails.",
+      "taskName": "variant_matrix",
+      "agentPath": "/root/variant_matrix",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": "/Users/amankumarshrestha/LapenInns Project/nabatableLP",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "active"
+    },
+    {
+      "id": "F",
+      "name": "access-skeptic",
+      "focus": "Source-quality and access audit across official TheFork/Quandoo docs: dynamic pages, help indexes, sitemap/robots, login-gated content, snippets, ambiguous terms, contradictions",
+      "lens": "perspective",
+      "deliverable": "Run 10+ searches; attempt full-page access and document failures; verify whether claims actually mean venue close, service end, last seating, booking cutoff, or table duration; return counter-search findings, URLs/quotes, observation/claim candidates, then exact CLAIMS and EXPAND tails.",
+      "taskName": "access_skeptic",
+      "agentPath": "/root/access_skeptic",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "blocked"
+    },
+    {
+      "id": "C",
+      "name": "quandoo-index",
+      "focus": "Quandoo official English partner/help/docs indexes and sitemap discovery; settings labels for opening hours, closing hours, shifts and booking availability",
+      "lens": "area",
+      "deliverable": "Run 10+ distinct English searches; read every material full official page; capture exact labels, definitions, UI context, ambiguity, quotes under 20 words, URLs, observation/claim candidates, then exact CLAIMS and EXPAND tails.",
+      "taskName": "quandoo_index",
+      "agentPath": "/root/quandoo_index",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "blocked"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T14:52:55.908Z",
+      "event": "created",
+      "detail": "team booking-platform-terms"
+    },
+    {
+      "ts": "2026-07-16T15:01:49.099Z",
+      "event": "add-member",
+      "detail": "member B (perspective): TheFork Manager official terminology for last reservation/seating, booking cutoff, duration, table occupancy, and reservations ending after venue/service close; red-team counterexamples"
+    },
+    {
+      "ts": "2026-07-16T15:01:49.594Z",
+      "event": "add-member",
+      "detail": "member A (area): TheFork Manager official English help/docs indexes, sitemap discovery, settings labels for opening/closing hours and service schedules"
+    },
+    {
+      "ts": "2026-07-16T15:01:50.283Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Quandoo official terminology for last booking/seating, booking cutoff, duration/turn time, service end, and reservations ending after close; red-team counterexamples"
+    },
+    {
+      "ts": "2026-07-16T15:01:50.955Z",
+      "event": "add-member",
+      "detail": "member E (perspective): Cross-product terminology variant matrix: closing time, last seating/reservation, service period end, booking cutoff/lead time, hard finish, allow/over close, duration crosses close"
+    },
+    {
+      "ts": "2026-07-16T15:01:51.459Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Source-quality and access audit across official TheFork/Quandoo docs: dynamic pages, help indexes, sitemap/robots, login-gated content, snippets, ambiguous terms, contradictions"
+    },
+    {
+      "ts": "2026-07-16T15:01:51.983Z",
+      "event": "add-member",
+      "detail": "member C (area): Quandoo official English partner/help/docs indexes and sitemap discovery; settings labels for opening hours, closing hours, shifts and booking availability"
+    },
+    {
+      "ts": "2026-07-16T15:30:27.147Z",
+      "event": "set-status",
+      "detail": "member A -> blocked: Spawn refused: active-agent thread limit reached."
+    },
+    {
+      "ts": "2026-07-16T15:30:45.015Z",
+      "event": "set-status",
+      "detail": "member C -> blocked: Spawn refused: active-agent thread limit reached."
+    },
+    {
+      "ts": "2026-07-16T15:31:15.406Z",
+      "event": "set-status",
+      "detail": "member D -> blocked: Spawn refused: active-agent thread limit reached."
+    },
+    {
+      "ts": "2026-07-16T15:31:54.676Z",
+      "event": "set-status",
+      "detail": "member F -> blocked: Spawn refused: active-agent thread limit reached."
+    },
+    {
+      "ts": "2026-07-16T15:37:57.324Z",
+      "event": "bind-agent",
+      "detail": "member B -> agent /root/thefork_cross_close"
+    },
+    {
+      "ts": "2026-07-16T15:38:11.229Z",
+      "event": "bind-agent",
+      "detail": "member E -> agent /root/variant_matrix"
+    }
+  ]
+}

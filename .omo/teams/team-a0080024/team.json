@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "b5624b0c-6037-487d-b299-5422fe0a94cb",
+  "teamName": "platform-hard-finish",
+  "sessionName": "authoritative reservation end semantics",
+  "sessionId": "team-a0080024",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T14:37:11.834Z",
+  "updatedAt": "2026-07-16T14:37:31.600Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a0080024/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a0080024",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a0080024/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a0080024/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-a0080024/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "tock-configuration",
+      "focus": "Tock official docs for service hours, reservation end, last seating, pacing and duration",
+      "lens": "area",
+      "deliverable": "Primary URLs, quotes under 20 words, dates, query log, terminology, contradictions, policy implications, CLAIMS and EXPAND",
+      "taskName": "tock_configuration",
+      "agentPath": "/root/tock_configuration",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "opentable-resy",
+      "focus": "OpenTable and Resy official docs on shifts, booking windows, last seating, turn times and duration by party size",
+      "lens": "area",
+      "deliverable": "Primary URLs, quotes under 20 words, dates, query log, terminology, contradictions, policy implications, CLAIMS and EXPAND",
+      "taskName": "opentable_resy",
+      "agentPath": "/root/opentable_resy",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "tablein-configuration",
+      "focus": "Tablein official docs for opening hours, booking periods, last reservation, table turnover and duration",
+      "lens": "area",
+      "deliverable": "Primary URLs, quotes under 20 words, dates, query log, terminology, contradictions, policy implications, CLAIMS and EXPAND",
+      "taskName": "tablein_configuration",
+      "agentPath": "/root/tablein_configuration",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "thefork-others",
+      "focus": "TheFork, Quandoo, Hostme, Eat App and Yelp official docs on service/opening/reservation periods and turn duration",
+      "lens": "area",
+      "deliverable": "Primary URLs, quotes under 20 words, dates, query log, terminology, contradictions, policy implications, CLAIMS and EXPAND",
+      "taskName": "thefork_others",
+      "agentPath": "/root/thefork_others",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "terminology-skeptic",
+      "focus": "Cross-platform counter-search for documentation that treats end time as last booking rather than guest departure; terminology and evidence-quality audit",
+      "lens": "perspective",
+      "deliverable": "Contradiction matrix, authoritative counterevidence, dead ends, reliability grading, operator-policy implications, CLAIMS and EXPAND",
+      "taskName": "terminology_skeptic",
+      "agentPath": "/root/terminology_skeptic",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "sevenrooms-toast",
+      "focus": "SevenRooms and Toast Tables official docs on reservation hours, shifts, seating cutoffs, turn times and duration",
+      "lens": "area",
+      "deliverable": "Primary URLs, quotes under 20 words, dates, query log, terminology, contradictions, policy implications, CLAIMS and EXPAND",
+      "taskName": "sevenrooms_toast",
+      "agentPath": "/root/sevenrooms_toast",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T14:37:11.834Z",
+      "event": "created",
+      "detail": "team platform-hard-finish"
+    },
+    {
+      "ts": "2026-07-16T14:37:31.367Z",
+      "event": "add-member",
+      "detail": "member A (area): Tock official docs for service hours, reservation end, last seating, pacing and duration"
+    },
+    {
+      "ts": "2026-07-16T14:37:31.405Z",
+      "event": "add-member",
+      "detail": "member C (area): OpenTable and Resy official docs on shifts, booking windows, last seating, turn times and duration by party size"
+    },
+    {
+      "ts": "2026-07-16T14:37:31.461Z",
+      "event": "add-member",
+      "detail": "member B (area): Tablein official docs for opening hours, booking periods, last reservation, table turnover and duration"
+    },
+    {
+      "ts": "2026-07-16T14:37:31.505Z",
+      "event": "add-member",
+      "detail": "member E (area): TheFork, Quandoo, Hostme, Eat App and Yelp official docs on service/opening/reservation periods and turn duration"
+    },
+    {
+      "ts": "2026-07-16T14:37:31.551Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Cross-platform counter-search for documentation that treats end time as last booking rather than guest departure; terminology and evidence-quality audit"
+    },
+    {
+      "ts": "2026-07-16T14:37:31.600Z",
+      "event": "add-member",
+      "detail": "member D (area): SevenRooms and Toast Tables official docs on reservation hours, shifts, seating cutoffs, turn times and duration"
+    }
+  ]
+}

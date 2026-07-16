@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "de2419ab-14ab-4b32-bb2e-cade415abeb2",
+  "teamName": "thefork-locales",
+  "sessionName": "official-sitemap-redirects",
+  "sessionId": "team-4fd239f8",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T14:55:45.569Z",
+  "updatedAt": "2026-07-16T14:55:45.569Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-4fd239f8/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-4fd239f8",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-4fd239f8/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-4fd239f8/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-4fd239f8/artifacts"
+  },
+  "members": [],
+  "log": [
+    {
+      "ts": "2026-07-16T14:55:45.569Z",
+      "event": "created",
+      "detail": "team thefork-locales"
+    }
+  ]
+}

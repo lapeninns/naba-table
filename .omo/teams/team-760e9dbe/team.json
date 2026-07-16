@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "7d490504-6c85-47cf-b396-cfc7a9d3380e",
+  "teamName": "resdiary-sitemap-research",
+  "sessionName": "official taxonomy discovery",
+  "sessionId": "team-760e9dbe",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:09:16.001Z",
+  "updatedAt": "2026-07-16T15:25:45.315Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-760e9dbe/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-760e9dbe",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-760e9dbe/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-760e9dbe/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-760e9dbe/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "robots-sitemaps",
+      "focus": "Official ResDiary robots.txt, sitemap.xml, sitemap indexes, nested sitemap discovery and URL extraction",
+      "lens": "area",
+      "deliverable": "Complete official robots/sitemap inventory, parsed relevant URLs, query ledger, statuses, claims and EXPAND tail",
+      "taskName": "resdiary_robots_sitemaps",
+      "agentPath": "/root/resdiary_robots_sitemaps",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "help-taxonomy",
+      "focus": "Official ResDiary help-center home, category, collection, search, pagination, related-link and index taxonomy",
+      "lens": "area",
+      "deliverable": "Complete help index/category/search taxonomy with pagination and operator-rich URLs, query ledger, statuses, claims and EXPAND tail",
+      "taskName": "resdiary_help_taxonomy",
+      "agentPath": "/root/resdiary_help_taxonomy",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "schedule-services",
+      "focus": "Operator availability schedule, opening hours, services, shifts, sessions and availability configuration documentation",
+      "lens": "ownership",
+      "deliverable": "Official pages for schedule/services terminology and configuration, query ledger, region/version/status, claims and EXPAND tail",
+      "taskName": "resdiary_schedule_services",
+      "agentPath": "/root/resdiary_schedule_services",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "turn-end-time",
+      "focus": "Operator turn time, table duration, last seating, end time, close time, booking duration documentation",
+      "lens": "ownership",
+      "deliverable": "Official pages for turn-time and last-seating/end-time concepts, query ledger, status/redirect, claims and EXPAND tail",
+      "taskName": "resdiary_turn_end_time",
+      "agentPath": "/root/resdiary_turn_end_time",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "E",
+      "name": "pacing-cutoff",
+      "focus": "Operator pacing, covers per interval, booking interval, booking cutoff, minimum advance notice and lead-time documentation",
+      "lens": "ownership",
+      "deliverable": "Official pages for pacing and cutoff/lead-time configuration, query ledger, status/redirect, claims and EXPAND tail",
+      "taskName": "resdiary_pacing_cutoff",
+      "agentPath": "/root/resdiary_pacing_cutoff",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "legacy-region-skeptic",
+      "focus": "Legacy help sections, alternate official domains/subdomains, country/region/version clues, redirects/dead pages, missing-terminology counter-search",
+      "lens": "perspective",
+      "deliverable": "Skeptical completeness audit with official-only legacy/region URL taxonomy, redirect/dead status checks, 10+ counter-searches, claims and EXPAND tail",
+      "taskName": "resdiary_legacy_region",
+      "agentPath": "/root/resdiary_legacy_region",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:09:16.001Z",
+      "event": "created",
+      "detail": "team resdiary-sitemap-research"
+    },
+    {
+      "ts": "2026-07-16T15:24:36.497Z",
+      "event": "add-member",
+      "detail": "member A (area): Official ResDiary robots.txt, sitemap.xml, sitemap indexes, nested sitemap discovery and URL extraction"
+    },
+    {
+      "ts": "2026-07-16T15:24:45.180Z",
+      "event": "add-member",
+      "detail": "member B (area): Official ResDiary help-center home, category, collection, search, pagination, related-link and index taxonomy"
+    },
+    {
+      "ts": "2026-07-16T15:24:58.580Z",
+      "event": "add-member",
+      "detail": "member C (ownership): Operator availability schedule, opening hours, services, shifts, sessions and availability configuration documentation"
+    },
+    {
+      "ts": "2026-07-16T15:25:12.182Z",
+      "event": "add-member",
+      "detail": "member D (ownership): Operator turn time, table duration, last seating, end time, close time, booking duration documentation"
+    },
+    {
+      "ts": "2026-07-16T15:25:27.989Z",
+      "event": "add-member",
+      "detail": "member E (ownership): Operator pacing, covers per interval, booking interval, booking cutoff, minimum advance notice and lead-time documentation"
+    },
+    {
+      "ts": "2026-07-16T15:25:45.315Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Legacy help sections, alternate official domains/subdomains, country/region/version clues, redirects/dead pages, missing-terminology counter-search"
+    }
+  ]
+}

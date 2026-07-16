@@ -21,7 +21,6 @@ export interface WizardNavigationProps {
   visible?: boolean;
   onHeightChange?: (height: number) => void;
   className?: string;
-  onStepSelect?: (step: number) => void;
 }
 
 const PANEL_ID = 'wizard-summary-sheet';
@@ -98,7 +97,6 @@ export function WizardNavigation({
   visible = true,
   onHeightChange,
   className,
-  onStepSelect,
 }: WizardNavigationProps) {
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -167,30 +165,6 @@ export function WizardNavigation({
                   </div>
                 ))}
               </dl>
-
-              {onStepSelect && current > 1 ? (
-                <nav
-                  aria-label="Go to a previous step"
-                  className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3"
-                >
-                  {steps.slice(0, current - 1).map((step, index) => (
-                    <Button
-                      key={step.id}
-                      type="button"
-                      variant="guest-ghost"
-                      size="guest-sm"
-                      onClick={() => onStepSelect(index + 1)}
-                      aria-label={`${step.label} (${index + 1} of ${total})`}
-                      className="pg-focus-ring min-h-11 gap-2"
-                    >
-                      <span className="flex size-5 items-center justify-center rounded-full bg-[color:var(--pg-action)] text-[10px] font-bold text-[color:var(--pg-action-contrast)]">
-                        {index + 1}
-                      </span>
-                      {step.label}
-                    </Button>
-                  ))}
-                </nav>
-              ) : null}
 
               {support.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">

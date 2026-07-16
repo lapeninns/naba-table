@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "c8e6b0f2-1af1-4c58-9a7d-627eabd95118",
+  "teamName": "resdiary-corpus-map",
+  "sessionName": "robots-xml-sitemap-recursion",
+  "sessionId": "team-eb360673",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:07:30.364Z",
+  "updatedAt": "2026-07-16T15:10:01.497Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-eb360673/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-eb360673",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-eb360673/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-eb360673/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-eb360673/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "root-directives",
+      "focus": "Direct robots.txt, sitemap.xml, sitemap-index resources and sitemap-declared hostnames on resdiary.com and obvious official subdomains",
+      "lens": "area",
+      "deliverable": "Fetched resource inventory with status, declarations, nested leads, relevant URL matches, blocked/dead resources, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_root_directives",
+      "agentPath": "/root/resdiary_root_directives",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "xml-recursion",
+      "focus": "Recursively fetch every XML sitemap/index lead and enumerate duration, sittings, sessions, opening/closing, last-seating, turn-time and time-slot URLs",
+      "lens": "ownership",
+      "deliverable": "Recursive sitemap tree, matched URLs, full-page verification, dead/blocked nodes, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_xml_recursion",
+      "agentPath": "/root/resdiary_xml_recursion",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "legacy-hosts",
+      "focus": "Counter-search legacy terminology and official subdomains, including knowledge/help/support/blog/widget domains and historic sitemap resource patterns",
+      "lens": "perspective",
+      "deliverable": "Official-host corpus map, legacy/counter-term search log, relevant full-page evidence, dead/blocked resources, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_legacy_hosts",
+      "agentPath": "/root/resdiary_legacy_hosts",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "operator-terms",
+      "focus": "At least 10 varied official-domain English searches for booking/table duration, turn times, sittings, sessions, time slots, opening/closing and last booking terms",
+      "lens": "perspective",
+      "deliverable": "Search log, full relevant pages with titles/canonicals/short quotes/access date, discovery-vs-content classification, CLAIMS and EXPAND tails",
+      "taskName": "resdiary_operator_terms",
+      "agentPath": "/root/resdiary_operator_terms",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:07:30.364Z",
+      "event": "created",
+      "detail": "team resdiary-corpus-map"
+    },
+    {
+      "ts": "2026-07-16T15:09:59.956Z",
+      "event": "add-member",
+      "detail": "member A (area): Direct robots.txt, sitemap.xml, sitemap-index resources and sitemap-declared hostnames on resdiary.com and obvious official subdomains"
+    },
+    {
+      "ts": "2026-07-16T15:10:00.288Z",
+      "event": "add-member",
+      "detail": "member B (ownership): Recursively fetch every XML sitemap/index lead and enumerate duration, sittings, sessions, opening/closing, last-seating, turn-time and time-slot URLs"
+    },
+    {
+      "ts": "2026-07-16T15:10:00.959Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Counter-search legacy terminology and official subdomains, including knowledge/help/support/blog/widget domains and historic sitemap resource patterns"
+    },
+    {
+      "ts": "2026-07-16T15:10:01.497Z",
+      "event": "add-member",
+      "detail": "member C (perspective): At least 10 varied official-domain English searches for booking/table duration, turn times, sittings, sessions, time slots, opening/closing and last booking terms"
+    }
+  ]
+}

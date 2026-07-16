@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "8276a043-a2a5-446a-ae45-c5611a2928d6",
+  "teamName": "quandoo-partner-corpus",
+  "sessionName": "duration-close-availability",
+  "sessionId": "team-d662aa41",
+  "threadTitleConvention": null,
+  "status": "archived",
+  "createdAt": "2026-07-16T15:29:51.518Z",
+  "updatedAt": "2026-07-16T15:54:14.988Z",
+  "archivedAt": "2026-07-16T15:54:14.988Z",
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d662aa41/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d662aa41",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d662aa41/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d662aa41/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-d662aa41/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "partner-product-pages",
+      "focus": "Official partner.quandoo.com and business product/help pages for reservation duration, table occupancy, shifts, availability, capacity, seating plans, closing time",
+      "lens": "area",
+      "deliverable": "10+ distinct official-only searches, opened resources, short quotes, live/snippet/dead classification, query log, claims and expand tail",
+      "taskName": "partner_product_pages",
+      "agentPath": "/root/partner_product_pages",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "B",
+      "name": "business-blog",
+      "focus": "Official Quandoo for Restaurateurs/business blog and guides about table management, turnover, occupancy, shifts, capacity, booking slots, closing hours",
+      "lens": "area",
+      "deliverable": "10+ official-only searches, full-page opens, quotes under 20 words, URLs/titles/access date, query log/dead ends, claims and expand tail",
+      "taskName": "business_blog",
+      "agentPath": "/root/business_blog",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "C",
+      "name": "sitemap-archive",
+      "focus": "Official Quandoo sitemaps, robots, locale variants, redirects, indexed snippets and dead/removed partner pages relevant to duration and closing time",
+      "lens": "ownership",
+      "deliverable": "10+ distinct searches plus sitemap traversal, classify live/snippet/dead, preserve exact URLs/titles/access date, query log/dead ends, claims and expand tail",
+      "taskName": "sitemap_archive",
+      "agentPath": "/root/sitemap_archive",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "D",
+      "name": "hard-finish-counter",
+      "focus": "Skeptical official-only search for explicit hard finish at restaurant close, end-time enforcement, reservation-duration caps, and counterevidence showing only start-time/slot controls",
+      "lens": "perspective",
+      "deliverable": "10+ adversarial official searches, opened evidence, short quotes, positive/negative findings, live/snippet/dead, query log, claims and expand tail",
+      "taskName": "hard_finish_counter",
+      "agentPath": "/root/hard_finish_counter",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:29:51.518Z",
+      "event": "created",
+      "detail": "team quandoo-partner-corpus"
+    },
+    {
+      "ts": "2026-07-16T15:33:20.160Z",
+      "event": "add-member",
+      "detail": "member A (area): Official partner.quandoo.com and business product/help pages for reservation duration, table occupancy, shifts, availability, capacity, seating plans, closing time"
+    },
+    {
+      "ts": "2026-07-16T15:36:28.088Z",
+      "event": "add-member",
+      "detail": "member B (area): Official Quandoo for Restaurateurs/business blog and guides about table management, turnover, occupancy, shifts, capacity, booking slots, closing hours"
+    },
+    {
+      "ts": "2026-07-16T15:39:55.398Z",
+      "event": "add-member",
+      "detail": "member C (ownership): Official Quandoo sitemaps, robots, locale variants, redirects, indexed snippets and dead/removed partner pages relevant to duration and closing time"
+    },
+    {
+      "ts": "2026-07-16T15:43:22.536Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Skeptical official-only search for explicit hard finish at restaurant close, end-time enforcement, reservation-duration caps, and counterevidence showing only start-time/slot controls"
+    },
+    {
+      "ts": "2026-07-16T15:54:14.988Z",
+      "event": "archive",
+      "detail": "No members bound: MultiAgentV2 spawn failed because the active-agent limit was reached; research continued serially."
+    }
+  ]
+}

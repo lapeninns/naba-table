@@ -92,7 +92,7 @@ export const FIELD_TOOLTIPS = {
   reservationDuration:
     'Default table time that pre-fills new reservations. Staff can override per booking if needed.',
   lastSeatingBuffer:
-    'Minutes before closing when you stop seating guests so everyone can finish before the kitchen closes.',
+    'Minimum time before operating close when the final party may be seated. Longer party-size table times can make the last available slot earlier.',
   lifecycleGrace:
     'Minutes after the reservation end time when staff can still check out or mark no-shows.',
   bookingPolicy:

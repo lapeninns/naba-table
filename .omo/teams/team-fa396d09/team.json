@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "f87d6a35-b4ef-4f1f-89ed-d18cb5b3c01e",
+  "teamName": "opentable-help-taxonomy",
+  "sessionName": "official-help-cartography",
+  "sessionId": "team-fa396d09",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T14:49:17.850Z",
+  "updatedAt": "2026-07-16T15:07:14.906Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-fa396d09/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-fa396d09",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-fa396d09/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-fa396d09/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-fa396d09/artifacts"
+  },
+  "members": [
+    {
+      "id": "C",
+      "name": "locales",
+      "focus": "Locale variants, language selectors, alternate host/path patterns, translated taxonomy and locale redirects for operator scheduling terms",
+      "lens": "area",
+      "deliverable": "Locale matrix with canonical/redirect/dead/auth states, nav labels, quotes, related links, CLAIMS and EXPAND",
+      "taskName": "help_locales",
+      "agentPath": "/root/help_locales",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": "/Users/amankumarshrestha/LapenInns Project/nabatableLP",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "active"
+    },
+    {
+      "id": "A",
+      "name": "hierarchy",
+      "focus": "Official English Help Center home pages, category indexes, and section indexes relevant to operator availability terminology",
+      "lens": "area",
+      "deliverable": "Exhaustive URL/title/nav/helper-text map with quotes, status, access date, CLAIMS and EXPAND tails",
+      "taskName": "help_hierarchy",
+      "agentPath": "/root/help_hierarchy",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": "/Users/amankumarshrestha/LapenInns Project/nabatableLP",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "active"
+    },
+    {
+      "id": "B",
+      "name": "search-indexes",
+      "focus": "Official OpenTable Help search result indexes and at least 10 varied English site/inurl/intitle/exact/OR queries",
+      "lens": "area",
+      "deliverable": "Every relevant official result opened; URL/title/snippet/nav/status/quotes plus query log, CLAIMS and EXPAND",
+      "taskName": "help_search_indexes",
+      "agentPath": "/root/help_search_indexes",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": "/Users/amankumarshrestha/LapenInns Project/nabatableLP",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "active"
+    },
+    {
+      "id": "D",
+      "name": "related-trails",
+      "focus": "Internal related-article, breadcrumb, category and section trails from scheduling/availability/hours/closures/last seating/turn time/dining duration articles",
+      "lens": "area",
+      "deliverable": "Trail graph with source and destination URLs/titles/link labels/status/quotes, CLAIMS and EXPAND",
+      "taskName": "help_related_trails",
+      "agentPath": "/root/help_related_trails",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": "/Users/amankumarshrestha/LapenInns Project/nabatableLP",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "active"
+    },
+    {
+      "id": "E",
+      "name": "sitemap-ids",
+      "focus": "Official robots/sitemaps and Zendesk-style category/section/article numeric IDs, slugs, canonical URLs and archived/dead URL patterns",
+      "lens": "area",
+      "deliverable": "Discovered sitemap/index endpoints and ID/slug taxonomy leads with fetch status, titles, quotes, CLAIMS and EXPAND",
+      "taskName": "help_sitemap_ids",
+      "agentPath": "/root/help_sitemap_ids",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "F",
+      "name": "access-state",
+      "focus": "Authentication gates, redirects, dead pages, dynamic rendering, search query parameters and regional host access behavior across relevant Help pages",
+      "lens": "perspective",
+      "deliverable": "Access-state ledger with original/final URL, status classification, visible helper/nav text, quotes, CLAIMS and EXPAND",
+      "taskName": "help_access_state",
+      "agentPath": "/root/help_access_state",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T14:49:17.850Z",
+      "event": "created",
+      "detail": "team opentable-help-taxonomy"
+    },
+    {
+      "ts": "2026-07-16T14:51:06.260Z",
+      "event": "add-member",
+      "detail": "member C (area): Locale variants, language selectors, alternate host/path patterns, translated taxonomy and locale redirects for operator scheduling terms"
+    },
+    {
+      "ts": "2026-07-16T14:51:06.795Z",
+      "event": "add-member",
+      "detail": "member A (area): Official English Help Center home pages, category indexes, and section indexes relevant to operator availability terminology"
+    },
+    {
+      "ts": "2026-07-16T14:51:07.219Z",
+      "event": "add-member",
+      "detail": "member B (area): Official OpenTable Help search result indexes and at least 10 varied English site/inurl/intitle/exact/OR queries"
+    },
+    {
+      "ts": "2026-07-16T14:51:07.552Z",
+      "event": "add-member",
+      "detail": "member D (area): Internal related-article, breadcrumb, category and section trails from scheduling/availability/hours/closures/last seating/turn time/dining duration articles"
+    },
+    {
+      "ts": "2026-07-16T14:51:07.810Z",
+      "event": "add-member",
+      "detail": "member E (area): Official robots/sitemaps and Zendesk-style category/section/article numeric IDs, slugs, canonical URLs and archived/dead URL patterns"
+    },
+    {
+      "ts": "2026-07-16T14:51:08.017Z",
+      "event": "add-member",
+      "detail": "member F (perspective): Authentication gates, redirects, dead pages, dynamic rendering, search query parameters and regional host access behavior across relevant Help pages"
+    },
+    {
+      "ts": "2026-07-16T15:07:05.461Z",
+      "event": "bind-agent",
+      "detail": "member A -> agent /root/help_hierarchy"
+    },
+    {
+      "ts": "2026-07-16T15:07:08.795Z",
+      "event": "bind-agent",
+      "detail": "member B -> agent /root/help_search_indexes"
+    },
+    {
+      "ts": "2026-07-16T15:07:11.815Z",
+      "event": "bind-agent",
+      "detail": "member C -> agent /root/help_locales"
+    },
+    {
+      "ts": "2026-07-16T15:07:14.906Z",
+      "event": "bind-agent",
+      "detail": "member D -> agent /root/help_related_trails"
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 3,
+  "transport": "multi_agent_v2",
+  "teamId": "a3b8c792-9510-4f22-a480-5ec9d8f7668b",
+  "teamName": "opentable-closing-time",
+  "sessionName": "official-docs-20260716",
+  "sessionId": "team-b7d88cd7",
+  "threadTitleConvention": null,
+  "status": "active",
+  "createdAt": "2026-07-16T15:15:06.290Z",
+  "updatedAt": "2026-07-16T15:19:00.805Z",
+  "archivedAt": null,
+  "leader": {
+    "kind": "main-session",
+    "sessionId": null,
+    "agentPath": "/root"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "dev",
+    "root": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-b7d88cd7/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-b7d88cd7",
+    "team": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-b7d88cd7/team.json",
+    "guide": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-b7d88cd7/guide.md",
+    "artifacts": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/teams/team-b7d88cd7/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "duration-turn-rules",
+      "focus": "Official OpenTable duration, turn-time, pacing, padding, and service-period documentation",
+      "lens": "area",
+      "deliverable": "10+ varied official-domain searches, full-page findings, labels/quotes/URLs, claims and expand tail",
+      "taskName": "duration_turn_rules",
+      "agentPath": "/root/duration_turn_rules",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "B",
+      "name": "shift-availability",
+      "focus": "Official OpenTable shifts, last seating, availability generation, closing-time and end-of-shift behavior",
+      "lens": "area",
+      "deliverable": "10+ varied official-domain searches, full-page findings, labels/quotes/URLs, claims and expand tail",
+      "taskName": "shift_availability",
+      "agentPath": "/root/shift_availability",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "C",
+      "name": "special-days",
+      "focus": "Official OpenTable special days, holiday schedules, date-specific overrides, exceptions and precedence",
+      "lens": "area",
+      "deliverable": "10+ varied official-domain searches, full-page findings, labels/quotes/URLs, claims and expand tail",
+      "taskName": "special_days",
+      "agentPath": "/root/special_days",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    },
+    {
+      "id": "D",
+      "name": "skeptic-countersearch",
+      "focus": "Counter-search official OpenTable domains for contradictions, legacy GuestCenter/ERB terminology, validation and undocumented gaps",
+      "lens": "perspective",
+      "deliverable": "10+ varied official-domain counter-searches, contradictions, confidence, claims and expand tail",
+      "taskName": "skeptic_countersearch",
+      "agentPath": "/root/skeptic_countersearch",
+      "threadId": null,
+      "threadTitle": null,
+      "cwd": null,
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "pending"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-16T15:15:06.290Z",
+      "event": "created",
+      "detail": "team opentable-closing-time"
+    },
+    {
+      "ts": "2026-07-16T15:18:54.546Z",
+      "event": "add-member",
+      "detail": "member A (area): Official OpenTable duration, turn-time, pacing, padding, and service-period documentation"
+    },
+    {
+      "ts": "2026-07-16T15:18:57.068Z",
+      "event": "add-member",
+      "detail": "member B (area): Official OpenTable shifts, last seating, availability generation, closing-time and end-of-shift behavior"
+    },
+    {
+      "ts": "2026-07-16T15:18:59.788Z",
+      "event": "add-member",
+      "detail": "member C (area): Official OpenTable special days, holiday schedules, date-specific overrides, exceptions and precedence"
+    },
+    {
+      "ts": "2026-07-16T15:19:00.805Z",
+      "event": "add-member",
+      "detail": "member D (perspective): Counter-search official OpenTable domains for contradictions, legacy GuestCenter/ERB terminology, validation and undocumented gaps"
+    }
+  ]
+}
