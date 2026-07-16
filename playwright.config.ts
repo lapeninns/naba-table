@@ -35,7 +35,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `NEXT_PUBLIC_SUPABASE_URL=http://localhost NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key NEXT_PUBLIC_SITE_URL=${reserveBaseUrl} VITE_RESERVE_ROUTER_BASE_PATH=/ VITE_DISABLE_QUERY_DEVTOOLS=1 pnpm reserve:dev -- --host 127.0.0.1 --port ${reservePort}`,
+      command: `NEXT_PUBLIC_SUPABASE_URL=http://localhost NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key NEXT_PUBLIC_SITE_URL=${reserveBaseUrl} VITE_RESERVE_ROUTER_BASE_PATH=/ VITE_DISABLE_QUERY_DEVTOOLS=1 pnpm reserve:dev --host 127.0.0.1 --port ${reservePort}`,
       url: reserveBaseUrl,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
