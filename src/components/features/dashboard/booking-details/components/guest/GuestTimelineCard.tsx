@@ -71,12 +71,8 @@ export function GuestTimelineCard({ status, booking, timezone }: GuestTimelineCa
 
   return (
     <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
-      <CardContent className="space-y-4 p-3">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-          Operation History
-        </div>
-
-        <div className="space-y-1">
+      <CardContent className="p-3">
+        <div className="flex flex-col gap-1">
           {steps.map((step, index) => {
             const Icon = step.icon;
             const isLast = index === steps.length - 1;

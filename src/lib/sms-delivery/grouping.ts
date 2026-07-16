@@ -7,6 +7,9 @@ export type SmsDeliveryGroup = {
   currentStatus: SmsDeliveryStatus;
   currentOccurredAt: string | null;
   events: SmsDeliveryEventDTO[];
+  channel?: SmsDeliveryEventDTO['channel'];
+  fallbackForAttemptId?: string | null;
+  logicalNotificationId?: string | null;
 };
 
 function parseIsoMs(value: string): number | null {
@@ -62,6 +65,9 @@ export function groupSmsDeliveryEvents(events: readonly SmsDeliveryEventDTO[]): 
       currentStatus: current.status,
       currentOccurredAt: current.occurredAt ?? null,
       events: sortedAsc,
+      channel: current.channel,
+      fallbackForAttemptId: current.fallbackForAttemptId ?? null,
+      logicalNotificationId: current.logicalNotificationId ?? null,
     });
   }
 

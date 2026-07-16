@@ -93,11 +93,30 @@ describe('SmsDeliveryPanel', () => {
 
     renderPanel();
 
-    expect(screen.getByText('SMS Observability')).toBeInTheDocument();
+    expect(screen.getByText('Messages')).toBeInTheDocument();
+    expect(screen.getByText('SMS')).toBeInTheDocument();
 
     const trigger = screen.getByRole('button', { name: /confirmation/i });
     await user.click(trigger);
 
     expect(await screen.findByText(/\+447700900123/)).toBeInTheDocument();
+  });
+
+  it('@contract badges WhatsApp attempts including fallback', () => {
+    mockQuery({
+      events: [
+        makeEvent({
+          id: 'wa-1',
+          messageSid: 'MM123',
+          channel: 'whatsapp',
+          fallbackForAttemptId: 'attempt-parent',
+          smsType: 'booking_confirmation',
+        }),
+      ],
+    });
+
+    renderPanel();
+
+    expect(screen.getByText('WhatsApp fallback')).toBeInTheDocument();
   });
 });

@@ -103,7 +103,7 @@ describe('EmailDeliveryPanel', () => {
 
     renderPanel();
 
-    expect(screen.getByText('Email Observability')).toBeInTheDocument();
+    expect(screen.getByText('Email')).toBeInTheDocument();
     expect(screen.getByText('booking_confirmation')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /booking_confirmation/ }));

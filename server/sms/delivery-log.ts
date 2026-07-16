@@ -93,6 +93,32 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
+type MobileAttemptReadRow = {
+  id: string;
+  channel: 'whatsapp' | 'sms';
+  fallback_for_attempt_id: string | null;
+  provider: SmsDeliveryProvider;
+  provider_message_id: string | null;
+  recipient_phone: string;
+  status: string;
+  updated_at: string;
+  mobile_notifications: {
+    id: string;
+    booking_id: string | null;
+    notification_type: string;
+    restaurant_id: string;
+  };
+};
+
+function normalizeMobileStatus(status: string): SmsDeliveryStatus {
+  if (status === 'read') return 'delivered';
+  if (status === 'accepted' || status === 'claimed') return 'queued';
+  if (SMS_DELIVERY_STATUS_VALUES.includes(status as SmsDeliveryStatus)) {
+    return status as SmsDeliveryStatus;
+  }
+  return 'queued';
+}
+
 function toEntryDto(row: SmsDeliveryLogRow): SmsDeliveryLogEntry {
   return {
     id: row.id,
@@ -106,6 +132,26 @@ function toEntryDto(row: SmsDeliveryLogRow): SmsDeliveryLogEntry {
     occurredAt: row.occurred_at,
     error: row.error ?? null,
     metadata: row.metadata ?? null,
+    channel: 'sms',
+  };
+}
+
+function toMobileAttemptEventDto(row: MobileAttemptReadRow): SmsDeliveryEventDTO {
+  return {
+    id: row.id,
+    bookingId: row.mobile_notifications.booking_id,
+    restaurantId: row.mobile_notifications.restaurant_id,
+    smsType: row.mobile_notifications.notification_type,
+    recipientPhone: row.recipient_phone,
+    messageSid: row.provider_message_id ?? `attempt:${row.id}`,
+    status: normalizeMobileStatus(row.status),
+    provider: row.provider,
+    occurredAt: row.updated_at,
+    error: null,
+    metadata: null,
+    channel: row.channel,
+    fallbackForAttemptId: row.fallback_for_attempt_id,
+    logicalNotificationId: row.mobile_notifications.id,
   };
 }
 
@@ -315,7 +361,27 @@ export async function listSmsDeliveryEventsForBooking(params: {
     throw new Error(`Failed to load SMS delivery events (${error.code ?? 'unknown'}).`);
   }
 
-  return (data ?? []).map((row) => toEntryDto(row as SmsDeliveryLogRow));
+  const events: SmsDeliveryEventDTO[] = (data ?? []).map((row) =>
+    toEntryDto(row as SmsDeliveryLogRow),
+  );
+
+  const { data: mobileRows, error: mobileError } = await supabase
+    .from('mobile_notification_attempts')
+    .select(
+      'id,channel,fallback_for_attempt_id,provider,provider_message_id,recipient_phone,status,updated_at,mobile_notifications!inner(id,booking_id,notification_type,restaurant_id)',
+    )
+    .eq('mobile_notifications.booking_id', params.bookingId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (!mobileError) {
+    for (const row of (mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []) {
+      events.push(toMobileAttemptEventDto(row));
+    }
+  }
+
+  events.sort((a, b) => parseIsoMs(b.occurredAt) - parseIsoMs(a.occurredAt));
+  return events.slice(0, limit);
 }
 
 type BookingSnapshotRow = {
@@ -350,32 +416,6 @@ type SmsAttemptAggregate = {
   logicalNotificationId?: string | null;
   fallbackForAttemptId?: string | null;
 };
-
-type MobileAttemptReadRow = {
-  id: string;
-  channel: 'whatsapp' | 'sms';
-  fallback_for_attempt_id: string | null;
-  provider: SmsDeliveryProvider;
-  provider_message_id: string | null;
-  recipient_phone: string;
-  status: string;
-  updated_at: string;
-  mobile_notifications: {
-    id: string;
-    booking_id: string | null;
-    notification_type: string;
-    restaurant_id: string;
-  };
-};
-
-function normalizeMobileStatus(status: string): SmsDeliveryStatus {
-  if (status === 'read') return 'delivered';
-  if (status === 'accepted' || status === 'claimed') return 'queued';
-  if (SMS_DELIVERY_STATUS_VALUES.includes(status as SmsDeliveryStatus)) {
-    return status as SmsDeliveryStatus;
-  }
-  return 'queued';
-}
 
 function resolveRangeStartIso(range: OpsSmsDeliveryRange): string {
   const now = Date.now();

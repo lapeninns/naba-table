@@ -10,6 +10,8 @@ export const SMS_DELIVERY_STATUS_VALUES = [
 
 export type SmsDeliveryProvider = 'twilio' | 'mock';
 
+export type SmsDeliveryChannel = 'whatsapp' | 'sms';
+
 export type SmsDeliveryEventDTO = {
   id: string;
   bookingId: string | null;
@@ -22,6 +24,10 @@ export type SmsDeliveryEventDTO = {
   occurredAt: string;
   error: string | null;
   metadata: unknown | null;
+  /** Present for mobile ledger rows and tagged SMS log events. */
+  channel?: SmsDeliveryChannel;
+  fallbackForAttemptId?: string | null;
+  logicalNotificationId?: string | null;
 };
 
 export type BookingSmsDeliveryResponse =

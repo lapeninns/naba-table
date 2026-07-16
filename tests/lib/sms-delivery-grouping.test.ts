@@ -41,4 +41,33 @@ describe('groupSmsDeliveryEvents', () => {
     });
     expect(groups[0]?.events.map((event) => event.status)).toEqual(['queued', 'delivered']);
   });
+
+  it('preserves WhatsApp channel and fallback metadata on the group', () => {
+    const groups = groupSmsDeliveryEvents([
+      {
+        id: 'attempt-wa-1',
+        bookingId: 'booking-1',
+        restaurantId: 'rest-1',
+        smsType: 'booking_confirmation',
+        recipientPhone: '+447700900123',
+        messageSid: 'MM123',
+        provider: 'twilio',
+        status: 'delivered',
+        occurredAt: '2026-04-13T13:02:00.000Z',
+        error: null,
+        metadata: null,
+        channel: 'whatsapp',
+        fallbackForAttemptId: 'attempt-parent',
+        logicalNotificationId: 'notif-1',
+      },
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      channel: 'whatsapp',
+      fallbackForAttemptId: 'attempt-parent',
+      logicalNotificationId: 'notif-1',
+      currentStatus: 'delivered',
+    });
+  });
 });

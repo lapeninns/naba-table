@@ -11,7 +11,7 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
 
-import { hasRecentSmsDelivery, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
+import { hasRecentSmsDelivery, listSmsDeliveryEventsForBooking, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 
 function createRecentDeliveryQuery(result: {
   data: Array<{ id: string }> | null;
@@ -250,6 +250,140 @@ describe('recordSmsDeliveryLog', () => {
           error: 'database unavailable',
         }),
       }),
+    );
+  });
+});
+
+function createBookingDeliveryListClient(params: {
+  smsResult: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  };
+  mobileResult: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  };
+}) {
+  function createListBuilder(result: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  }) {
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      limit: vi.fn(() => Promise.resolve(result)),
+    };
+    return builder;
+  }
+
+  const smsBuilder = createListBuilder(params.smsResult);
+  const mobileBuilder = createListBuilder(params.mobileResult);
+  const from = vi.fn((table: string) => {
+    if (table === 'sms_delivery_log') return smsBuilder;
+    if (table === 'mobile_notification_attempts') return mobileBuilder;
+    throw new Error(`Unexpected table ${table}`);
+  });
+
+  return { client: { from }, spies: { from, smsBuilder, mobileBuilder } };
+}
+
+describe('listSmsDeliveryEventsForBooking', () => {
+  beforeEach(() => {
+    getServiceSupabaseClientMock.mockReset();
+  });
+
+  it('merges WhatsApp mobile attempts with SMS log events and sorts newest first', async () => {
+    const { client, spies } = createBookingDeliveryListClient({
+      smsResult: {
+        data: [
+          {
+            ...SAMPLE_SMS_ROW,
+            id: 'sms-evt-1',
+            message_sid: 'SM-SMS',
+            occurred_at: '2026-05-10T09:00:00.000Z',
+            status: 'delivered',
+          },
+        ],
+        error: null,
+      },
+      mobileResult: {
+        data: [
+          {
+            id: 'attempt-wa-1',
+            channel: 'whatsapp',
+            fallback_for_attempt_id: null,
+            provider: 'twilio',
+            provider_message_id: 'MM-WA',
+            recipient_phone: '447700900000',
+            status: 'delivered',
+            updated_at: '2026-05-10T10:00:00.000Z',
+            mobile_notifications: {
+              id: 'notif-1',
+              booking_id: 'booking-1',
+              notification_type: 'booking_confirmation',
+              restaurant_id: 'restaurant-1',
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    const events = await listSmsDeliveryEventsForBooking({ bookingId: 'booking-1', limit: 20 });
+
+    expect(spies.from).toHaveBeenCalledWith('sms_delivery_log');
+    expect(spies.from).toHaveBeenCalledWith('mobile_notification_attempts');
+    expect(spies.mobileBuilder.eq).toHaveBeenCalledWith(
+      'mobile_notifications.booking_id',
+      'booking-1',
+    );
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      id: 'attempt-wa-1',
+      channel: 'whatsapp',
+      messageSid: 'MM-WA',
+      logicalNotificationId: 'notif-1',
+    });
+    expect(events[1]).toMatchObject({
+      id: 'sms-evt-1',
+      channel: 'sms',
+      messageSid: 'SM-SMS',
+    });
+  });
+
+  it('keeps SMS log events when the mobile ledger query fails', async () => {
+    const { client } = createBookingDeliveryListClient({
+      smsResult: {
+        data: [SAMPLE_SMS_ROW],
+        error: null,
+      },
+      mobileResult: {
+        data: null,
+        error: { message: 'relation does not exist' },
+      },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    const events = await listSmsDeliveryEventsForBooking({ bookingId: 'booking-1' });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ id: 'evt-1', channel: 'sms', messageSid: 'SM123' });
+  });
+
+  it('throws SmsDeliveryLogUnavailableError when the SMS delivery log is missing', async () => {
+    const { client } = createBookingDeliveryListClient({
+      smsResult: {
+        data: null,
+        error: { code: '42P01', message: 'relation "sms_delivery_log" does not exist' },
+      },
+      mobileResult: { data: [], error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    await expect(listSmsDeliveryEventsForBooking({ bookingId: 'booking-1' })).rejects.toMatchObject(
+      { name: 'SmsDeliveryLogUnavailableError' },
     );
   });
 });

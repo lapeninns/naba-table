@@ -24,5 +24,8 @@ export function sanitizeOpsSmsDeliveryEvents(
     recipientPhone: maskSmsRecipientPhone(event.recipientPhone),
     error: null,
     metadata: null,
+    channel: event.channel,
+    fallbackForAttemptId: event.fallbackForAttemptId ?? null,
+    logicalNotificationId: event.logicalNotificationId ?? null,
   }));
 }

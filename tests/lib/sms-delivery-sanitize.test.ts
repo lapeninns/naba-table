@@ -97,6 +97,9 @@ describe('sanitizeOpsSmsDeliveryAttempts', () => {
           accountSid: 'AC123',
           errorCode: '30007',
         },
+        channel: 'whatsapp',
+        fallbackForAttemptId: 'attempt-parent',
+        logicalNotificationId: 'notif-1',
       },
     ]);
 
@@ -106,6 +109,9 @@ describe('sanitizeOpsSmsDeliveryAttempts', () => {
         recipientPhone: '+********0123',
         error: null,
         metadata: null,
+        channel: 'whatsapp',
+        fallbackForAttemptId: 'attempt-parent',
+        logicalNotificationId: 'notif-1',
       }),
     ]);
   });

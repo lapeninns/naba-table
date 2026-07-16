@@ -23,13 +23,15 @@ import {
 
 import type { EmailDeliveryGroup } from '@/src/lib/email-delivery/grouping';
 import type { EmailDeliveryStatus } from '@/types/emailDelivery';
-import type { CSSProperties, ReactElement } from 'react';
+import type { CSSProperties, ReactElement, ReactNode } from 'react';
 
 export type EmailDeliveryPanelProps = {
   bookingId: string;
   timezone: string;
   limit?: number;
   enabled?: boolean;
+  /** When true, omit the outer card chrome (parent provides a shared shell). */
+  embedded?: boolean;
 };
 
 function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
@@ -47,41 +49,60 @@ function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
   );
 }
 
-function DeliveryStateCard({
+function DeliveryStateBody({
   title,
   description,
   tone = 'neutral',
+  quiet = false,
 }: {
   title: string;
   description: string;
   tone?: 'neutral' | 'danger';
+  /** Flat empty copy for the shared delivery shell (no nested box). */
+  quiet?: boolean;
 }) {
+  if (quiet) {
+    return <p className="text-xs leading-relaxed text-muted-foreground/80">{description}</p>;
+  }
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-2.5',
+        tone === 'danger'
+          ? 'border-destructive/20 bg-destructive/5 text-destructive'
+          : 'border-border/40 bg-muted/20 text-muted-foreground',
+      )}
+    >
+      <div className="text-[10px] font-bold uppercase tracking-widest">{title}</div>
+      <div className="mt-1 text-xs leading-relaxed">{description}</div>
+    </div>
+  );
+}
+
+function PanelShell({
+  embedded,
+  icon,
+  children,
+}: {
+  embedded: boolean;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  if (embedded) {
+    return <div className="flex flex-col gap-3">{children}</div>;
+  }
+
   return (
     <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
-      <CardContent className="space-y-3 p-3">
+      <CardContent className="flex flex-col gap-3 p-3">
         <div className="flex items-center justify-between">
           <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-            Email Observability
+            Email
           </div>
-          <MailWarning
-            className={cn(
-              'size-3',
-              tone === 'danger' ? 'text-destructive' : 'text-muted-foreground/50',
-            )}
-            aria-hidden
-          />
+          {icon}
         </div>
-        <div
-          className={cn(
-            'rounded border p-2.5',
-            tone === 'danger'
-              ? 'border-destructive/20 bg-destructive/5 text-destructive'
-              : 'border-border/40 bg-muted/20 text-muted-foreground',
-          )}
-        >
-          <div className="text-[10px] font-bold uppercase tracking-widest">{title}</div>
-          <div className="mt-1 text-xs leading-relaxed">{description}</div>
-        </div>
+        {children}
       </CardContent>
     </Card>
   );
@@ -102,7 +123,7 @@ function GroupHeader({ group, timezone }: { group: EmailDeliveryGroup; timezone:
           {subject}
         </div>
       </div>
-      <div className="shrink-0 text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">
+      <div className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">
         {when}
       </div>
     </div>
@@ -114,6 +135,7 @@ export function EmailDeliveryPanel({
   timezone,
   limit = 20,
   enabled = true,
+  embedded = false,
 }: EmailDeliveryPanelProps) {
   const query = useOpsBookingEmailDeliveryLog(bookingId, { limit, enabled });
   const heavyPanelStyle = {
@@ -129,116 +151,136 @@ export function EmailDeliveryPanel({
 
   if (query.isLoading) {
     return wrapCard(
-      <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
-        <CardContent className="space-y-3 p-3">
-          <Skeleton className="h-4 w-24" />
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        </CardContent>
-      </Card>,
+      <PanelShell
+        embedded={embedded}
+        icon={<MailWarning className="size-3 text-muted-foreground/50" aria-hidden />}
+      >
+        <Skeleton className="h-4 w-24" />
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      </PanelShell>,
     );
   }
 
   if (query.unavailable) {
     return wrapCard(
-      <DeliveryStateCard
-        title="Tracking unavailable"
-        description="This environment is not currently recording or exposing delivery events. Email sending can still work normally."
-      />,
+      <PanelShell
+        embedded={embedded}
+        icon={<MailWarning className="size-3 text-muted-foreground/50" aria-hidden />}
+      >
+        <DeliveryStateBody
+          title="Tracking unavailable"
+          description="This environment is not currently recording or exposing delivery events. Email sending can still work normally."
+        />
+      </PanelShell>,
     );
   }
 
   if (query.apiError) {
     return wrapCard(
-      <DeliveryStateCard
-        title="Unable to load events"
-        description={query.apiError.error}
-        tone="danger"
-      />,
+      <PanelShell
+        embedded={embedded}
+        icon={<MailWarning className="size-3 text-destructive" aria-hidden />}
+      >
+        <DeliveryStateBody
+          title="Unable to load events"
+          description={query.apiError.error}
+          tone="danger"
+        />
+      </PanelShell>,
     );
   }
 
   if (query.error) {
     return wrapCard(
-      <DeliveryStateCard
-        title="Unexpected delivery error"
-        description={query.error.message}
-        tone="danger"
-      />,
+      <PanelShell
+        embedded={embedded}
+        icon={<MailWarning className="size-3 text-destructive" aria-hidden />}
+      >
+        <DeliveryStateBody
+          title="Unexpected delivery error"
+          description={query.error.message}
+          tone="danger"
+        />
+      </PanelShell>,
     );
   }
 
   if (groups.length === 0) {
     return wrapCard(
-      <DeliveryStateCard
-        title="No email events"
-        description="No delivery events have been recorded for this booking yet."
-      />,
+      <PanelShell
+        embedded={embedded}
+        icon={<MailWarning className="size-3 text-muted-foreground/50" aria-hidden />}
+      >
+        <DeliveryStateBody
+          title="No email events"
+          description={
+            embedded
+              ? 'No email events recorded yet.'
+              : 'No delivery events have been recorded for this booking yet.'
+          }
+          quiet={embedded}
+        />
+      </PanelShell>,
     );
   }
 
   return wrapCard(
-    <Card className="border-border/50 bg-background shadow-sm ring-1 ring-border/5">
-      <CardContent className="space-y-3 p-3">
-        <div className="flex items-center justify-between">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
-            Email Observability
-          </div>
-          <MailCheck className="size-3 text-muted-foreground/50" aria-hidden />
-        </div>
-
-        <Accordion type="multiple" className="w-full space-y-1.5">
-          {groups.map((group) => {
-            const key = `${group.messageId}__${group.recipientEmail.toLowerCase()}`;
-            return (
-              <AccordionItem
-                key={key}
-                value={key}
-                className="rounded border border-border/40 bg-muted/5"
-              >
-                <AccordionTrigger className="px-2.5 py-2 hover:no-underline">
-                  <GroupHeader group={group} timezone={timezone} />
-                </AccordionTrigger>
-                <AccordionContent className="px-2.5 pb-2.5">
-                  <div className="space-y-2 border-t border-border/40 pt-2">
-                    <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
-                      Recipient: {group.recipientEmail}
-                    </div>
-                    <div className="space-y-1.5">
-                      {group.events.map((event) => {
-                        const eventKey = `${event.id}`;
-                        const when =
-                          formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ??
-                          event.occurredAt;
-                        return (
-                          <div key={eventKey} className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <StatusBadge status={event.status} />
-                              <span className="text-[10px] font-medium text-muted-foreground/60">
-                                {when}
-                              </span>
-                            </div>
-                            {event.error && (
-                              <span
-                                className="truncate text-[10px] font-bold text-destructive/80 uppercase tracking-tighter"
-                                title={event.error}
-                              >
-                                {event.error}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+    <PanelShell
+      embedded={embedded}
+      icon={<MailCheck className="size-3 text-muted-foreground/50" aria-hidden />}
+    >
+      <Accordion type="multiple" className="flex w-full flex-col gap-1.5">
+        {groups.map((group) => {
+          const key = `${group.messageId}__${group.recipientEmail.toLowerCase()}`;
+          return (
+            <AccordionItem
+              key={key}
+              value={key}
+              className="rounded border border-border/40 bg-muted/5"
+            >
+              <AccordionTrigger className="px-2.5 py-2 hover:no-underline">
+                <GroupHeader group={group} timezone={timezone} />
+              </AccordionTrigger>
+              <AccordionContent className="px-2.5 pb-2.5">
+                <div className="flex flex-col gap-2 border-t border-border/40 pt-2">
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                    Recipient: {group.recipientEmail}
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
-      </CardContent>
-    </Card>,
+                  <div className="flex flex-col gap-1.5">
+                    {group.events.map((event) => {
+                      const eventKey = `${event.id}`;
+                      const when =
+                        formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ??
+                        event.occurredAt;
+                      return (
+                        <div key={eventKey} className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={event.status} />
+                            <span className="text-[10px] font-medium text-muted-foreground/60">
+                              {when}
+                            </span>
+                          </div>
+                          {event.error && (
+                            <span
+                              className="truncate text-[10px] font-bold uppercase tracking-tighter text-destructive/80"
+                              title={event.error}
+                            >
+                              {event.error}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </PanelShell>,
   );
 }

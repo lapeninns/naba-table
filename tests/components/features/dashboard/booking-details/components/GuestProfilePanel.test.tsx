@@ -2,11 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/components/features/dashboard/booking-details/components/EmailDeliveryPanel', () => ({
-  EmailDeliveryPanel: () => <div data-testid="email-delivery-panel" />,
-}));
-vi.mock('@/components/features/dashboard/booking-details/components/SmsDeliveryPanel', () => ({
-  SmsDeliveryPanel: () => <div data-testid="sms-delivery-panel" />,
+vi.mock('@/components/features/dashboard/booking-details/components/BookingDeliveryPanel', () => ({
+  BookingDeliveryPanel: () => <div data-testid="booking-delivery-panel" />,
 }));
 
 import { GuestProfilePanel } from '@/components/features/dashboard/booking-details/components/GuestProfilePanel';
@@ -51,7 +48,8 @@ describe('GuestProfilePanel', () => {
     expect(screen.getByRole('heading', { name: 'Alex Example' })).toBeInTheDocument();
     expect(screen.getByText('4 guests')).toBeInTheDocument();
     expect(screen.getByText('T1')).toBeInTheDocument();
-    expect(screen.getByText('Operation History')).toBeInTheDocument();
+    expect(screen.getByText('Timeline')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delivery' })).toBeInTheDocument();
     expect(screen.queryByText('Dietary Requirements')).not.toBeInTheDocument();
     expect(screen.queryByText(/Notes & Preferences/)).not.toBeInTheDocument();
   });
@@ -88,15 +86,18 @@ describe('GuestProfilePanel', () => {
     expect(screen.getByText('VIP regular')).toBeInTheDocument();
   });
 
-  it('@contract mounts the delivery panels only after expanding the timeline section', async () => {
+  it('@contract mounts delivery content only after expanding the Delivery section', async () => {
     const user = userEvent.setup();
     render(<GuestProfilePanel {...makeProps()} />);
 
-    expect(screen.queryByTestId('email-delivery-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('booking-delivery-panel')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Timeline & Delivery/ }));
+    await user.click(screen.getByRole('button', { name: 'Delivery' }));
 
-    expect(screen.getByTestId('email-delivery-panel')).toBeInTheDocument();
-    expect(screen.getByTestId('sms-delivery-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('booking-delivery-panel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delivery' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
   });
 });

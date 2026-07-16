@@ -8,13 +8,12 @@ import { cn } from '@/lib/utils';
 
 import { resolveGuestProfileFacts } from '../guestProfilePanelDomain';
 import { ArrivalCountdown } from './ArrivalCountdown';
-import { EmailDeliveryPanel } from './EmailDeliveryPanel';
+import { BookingDeliveryPanel } from './BookingDeliveryPanel';
 import { GuestDietaryBadge } from './guest/GuestDietaryBadge';
 import { GuestSeatingCard } from './guest/GuestSeatingCard';
 import { GuestTimelineCard } from './guest/GuestTimelineCard';
 import { GuestProfileIdentitySection } from './GuestProfileIdentitySection';
 import { GuestProfileStatsGrid } from './GuestProfileStatsGrid';
-import { SmsDeliveryPanel } from './SmsDeliveryPanel';
 
 import type { FlattenedTable } from '../utils';
 import type { OpsBookingStatus, OpsTodayBooking } from '@/types/ops';
@@ -141,35 +140,54 @@ export function GuestProfilePanel({
         />
       </section>
 
-      {/* ── 7. Timeline & Delivery Logs ─────────────────────────────────── */}
-      <section className="flex flex-col gap-3 border-t border-border/30 pt-6">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setDeliveryOpen((prev) => !prev)}
-          className="h-auto w-full justify-between rounded-lg px-1 py-1 text-left hover:bg-muted/30"
-          aria-expanded={deliveryOpen}
-        >
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-            Timeline &amp; Delivery
+      {/* ── 7. Timeline ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-6 border-t border-border/30 pt-6">
+        <section className="flex flex-col gap-3" aria-labelledby="guest-timeline-heading">
+          <h3
+            id="guest-timeline-heading"
+            className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70"
+          >
+            Timeline
           </h3>
-          <ChevronDown
-            data-icon="inline-end"
-            className={cn(
-              'text-muted-foreground/70 transition-transform',
-              deliveryOpen && 'rotate-180',
-            )}
-            aria-hidden
-          />
-        </Button>
-        <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
-        {deliveryOpen ? (
-          <>
-            <EmailDeliveryPanel bookingId={booking.id} timezone={timezone} enabled={deliveryOpen} />
-            <SmsDeliveryPanel bookingId={booking.id} timezone={timezone} enabled={deliveryOpen} />
-          </>
-        ) : null}
-      </section>
+          <GuestTimelineCard status={status} booking={booking} timezone={timezone} />
+        </section>
+
+        {/* ── 8. Delivery (lazy) ─────────────────────────────────────────── */}
+        <section className="flex flex-col gap-3" aria-labelledby="guest-delivery-heading">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setDeliveryOpen((prev) => !prev)}
+            className="h-auto w-full justify-between rounded-lg px-0 py-1 text-left hover:bg-transparent hover:text-foreground"
+            aria-expanded={deliveryOpen}
+            aria-controls="guest-delivery-panel"
+          >
+            <span
+              id="guest-delivery-heading"
+              className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70"
+            >
+              Delivery
+            </span>
+            <ChevronDown
+              data-icon="inline-end"
+              className={cn(
+                'text-muted-foreground/70 transition-transform',
+                deliveryOpen && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </Button>
+          {deliveryOpen ? (
+            <div id="guest-delivery-panel">
+              <BookingDeliveryPanel
+                bookingId={booking.id}
+                timezone={timezone}
+                enabled={deliveryOpen}
+              />
+            </div>
+          ) : null}
+        </section>
+      </div>
     </div>
   );
 }

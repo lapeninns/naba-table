@@ -18,7 +18,6 @@ describe('GuestTimelineCard', () => {
       />,
     );
 
-    expect(screen.getByText('Operation History')).toBeInTheDocument();
     for (const label of ['Booked', 'Confirmed', 'Arrived', 'Finished']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
