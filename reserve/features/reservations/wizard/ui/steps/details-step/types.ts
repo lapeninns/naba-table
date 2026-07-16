@@ -18,9 +18,15 @@ export interface DetailsStepProps {
 export type DetailsStepController = {
   form: UseFormReturn<DetailsFormInputValues, unknown, DetailsFormValues>;
   handleBack: () => void;
+  handleReview: () => void;
+  handleConfirmConsent: () => void;
+  handleConsentOpenChange: (open: boolean) => void;
+  handleAcceptAllAndContinue: () => void;
   handleSubmit: (values: DetailsFormValues) => void;
   handleError: (errors: Record<string, unknown>) => void;
+  consentOpen: boolean;
   isSubmitting: boolean;
+  isContactValid: boolean;
   isValid: boolean;
   handlers: {
     changeName: (value: string) => void;

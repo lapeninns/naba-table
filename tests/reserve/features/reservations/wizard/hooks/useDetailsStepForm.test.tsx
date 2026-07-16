@@ -126,6 +126,87 @@ describe('useDetailsStepForm', () => {
     expect(published[1]?.role).toBe('primary');
   });
 
+  it('enables guest review with valid contacts before terms are accepted @contract', async () => {
+    const { result, onActionsChange } = renderDetailsForm(
+      makeState({ agree: false }),
+      createActions(),
+    );
+
+    await waitFor(() => {
+      expect(onActionsChange.mock.lastCall?.[0]?.[1]?.disabled).toBe(false);
+    });
+
+    act(() => {
+      onActionsChange.mock.lastCall?.[0]?.[1]?.onClick();
+    });
+
+    expect(result.current.consentOpen).toBe(true);
+  });
+
+  it('requires full guest consent before advancing from the overlay @contract', async () => {
+    const actions = createActions();
+    const { result } = renderDetailsForm(makeState({ agree: false }), actions);
+
+    act(() => {
+      result.current.handleReview();
+    });
+    expect(result.current.consentOpen).toBe(true);
+
+    await act(async () => {
+      result.current.handleConfirmConsent();
+    });
+
+    expect(actions.goToStep).not.toHaveBeenCalledWith(3);
+    expect(result.current.form.formState.errors.agree?.message).toBe(
+      'Please accept the terms to continue.',
+    );
+  });
+
+  it('accepts every eligible preference and advances in one action @contract', async () => {
+    const actions = createActions();
+    const { result } = renderDetailsForm(
+      makeState({
+        agree: false,
+        rememberDetails: false,
+        marketingOptIn: false,
+        whatsappOptIn: false,
+      }),
+      actions,
+    );
+
+    await act(async () => {
+      result.current.handleAcceptAllAndContinue();
+    });
+
+    expect(actions.updateDetails).toHaveBeenCalledWith('agree', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('rememberDetails', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('marketingOptIn', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('whatsappOptIn', true);
+    expect(actions.goToStep).toHaveBeenCalledWith(3);
+  });
+
+  it('keeps ops review on the direct submit path without opening consent @contract', async () => {
+    const actions = createActions();
+    const state = makeState({ agree: false });
+    const onActionsChange = vi.fn<(actions: StepAction[]) => void>();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <WizardProvider state={state} actions={actions}>
+        {children}
+      </WizardProvider>
+    );
+    const { result } = renderHook(
+      () => useDetailsStepForm({ onActionsChange, onTrack: vi.fn(), mode: 'ops' }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      result.current.handleReview();
+    });
+
+    expect(result.current.consentOpen).toBe(false);
+    expect(actions.goToStep).toHaveBeenCalledWith(3);
+  });
+
   it('changing the phone number revokes a granted WhatsApp opt-in @contract', async () => {
     const actions = createActions();
     const { result } = renderDetailsForm(makeState({ whatsappOptIn: true }), actions);

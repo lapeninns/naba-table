@@ -282,11 +282,15 @@ test.describe('reserve routes', () => {
       fullPage: true,
     });
 
-    // When the guest reaches Details and activates the privacy notice
+    // When the guest reaches Details and opens consent preferences
     await chooseDefaultRestaurantSlot(page);
+    await page.getByLabel('Full name').fill('Privacy Guest');
+    await page.getByLabel('Email address').fill('privacy.guest@example.com');
+    await page.getByRole('button', { name: 'Review booking' }).click();
     const privacyLink = page.getByRole('link', { name: /privacy notice/i });
 
-    // Then it is a normal cross-surface link and changes the browser location
+    // Then privacy is available from the mobile consent sheet and navigates normally
+    await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
     await expect(privacyLink).toHaveAttribute('href', '/privacy');
     await privacyLink.click();
     await expect(page).toHaveURL(/\/privacy$/);
@@ -303,13 +307,9 @@ test.describe('reserve routes', () => {
     await page.emulateMedia({ colorScheme: 'light' });
     await expect(page.locator('html')).not.toHaveClass(/dark/);
 
-    const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
-    await expect(terms).toBeVisible();
-    await expect(terms).not.toBeChecked();
-    await expect(page.getByRole('button', { name: /Preferences/ })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    await expect(page.getByRole('checkbox', { name: /I agree to the terms/ })).toHaveCount(0);
+    await expect(page.getByRole('checkbox', { name: /WhatsApp/ })).toHaveCount(0);
+    await expect(page.getByText('Save contact details for next time')).toHaveCount(0);
 
     await page.getByLabel('Full name').fill('Email Only Guest');
     await page.getByLabel('Email address').fill('email.only@example.com');
@@ -318,12 +318,26 @@ test.describe('reserve routes', () => {
     await expect(page.getByLabel('Full name')).toHaveCSS('height', '44px');
     await expect(page.getByLabel('Email address')).toHaveCSS('height', '44px');
     await expect(phoneInput).toHaveCSS('height', '44px');
-    await terms.check();
+    await page.getByRole('button', { name: 'Review booking' }).click();
+    await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
+    await expect(page.getByText('Booking messages')).toBeVisible();
+    await expect(page.getByText(/WhatsApp when available/)).toBeVisible();
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /privacy notice/i })).toHaveAttribute(
+      'href',
+      '/privacy',
+    );
+    await page.getByRole('button', { name: 'Choose preferences' }).click();
+    const terms = page.getByRole('checkbox', { name: /Terms & privacy/ });
+    const whatsappPreference = page.getByRole('checkbox', { name: /Booking messages/ });
+    await expect(whatsappPreference).toBeDisabled();
+    await expect(terms).not.toBeChecked();
+    await page.getByRole('button', { name: 'Back' }).click();
     await page.screenshot({
       path: 'test-results/browser-proof/reserve-wizard/after-details-mobile.png',
       fullPage: true,
     });
-    await page.getByRole('button', { name: 'Review booking' }).click();
+    await page.getByRole('button', { name: 'Accept all & review booking' }).click();
 
     await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
     await expect(page.getByText('Email Only Guest')).toBeVisible();
@@ -380,21 +394,14 @@ test.describe('reserve routes', () => {
     const phoneInput = page.getByRole('textbox', { name: 'UK phone number' });
     await phoneInput.fill('12345');
     await expect(page.getByText(/Please enter a valid UK phone number/)).toBeVisible();
-    const whatsappPreference = page.getByRole('checkbox', {
-      name: /Use WhatsApp for booking messages and one review request/,
-    });
-    await expect(whatsappPreference).toBeDisabled();
-
     await phoneInput.fill('07123 456789');
+    await page.getByRole('button', { name: 'Review booking' }).click();
+    await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
+    await page.getByRole('button', { name: 'Choose preferences' }).click();
+    const whatsappPreference = page.getByRole('checkbox', { name: /Booking messages/ });
     await expect(whatsappPreference).toBeEnabled();
-    await expect(page.getByText('Booking confirmation and updates')).toBeVisible();
-    await expect(page.getByText('Guest or venue cancellations')).toBeVisible();
-    await expect(page.getByText('One post-visit review request')).toBeVisible();
-    await expect(page.getByText(/from Nabatable on behalf of The Fox/)).toBeVisible();
-    await expect(page.getByText(/Review requests never fall back to SMS/)).toBeVisible();
-    await phoneInput.focus();
-    await page.keyboard.press('Tab');
-    await expect(whatsappPreference).toBeFocused();
+    await expect(page.getByText('WhatsApp updates from The Fox')).toBeVisible();
+    await expect(page.getByText('Booking confirmation and updates')).toHaveCount(0);
     const checkboxBox = await whatsappPreference.boundingBox();
     expect(checkboxBox?.width).toBeGreaterThanOrEqual(44);
     expect(checkboxBox?.height).toBeGreaterThanOrEqual(44);
@@ -407,19 +414,23 @@ test.describe('reserve routes', () => {
     await stickyNavigation.evaluate((element) => element.removeAttribute('style'));
 
     await expect(whatsappPreference).not.toBeChecked();
-    await page.keyboard.press('Space');
+    await whatsappPreference.check();
     await expect(whatsappPreference).toBeChecked();
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: 'Back' }).click();
     await phoneInput.fill('07123 456780');
-    await expect(whatsappPreference).not.toBeChecked();
+    await page.getByRole('button', { name: 'Review booking' }).click();
+    await page.getByRole('button', { name: 'Choose preferences' }).click();
+    await expect(page.getByRole('checkbox', { name: /Booking messages/ })).not.toBeChecked();
     await whatsappPreference.check();
     await page.setViewportSize({ width: 768, height: 900 });
     await expect(whatsappPreference).toBeVisible();
 
-    const terms = page.getByRole('checkbox', { name: /I agree to the terms/ });
+    const terms = page.getByRole('checkbox', { name: /Terms & privacy/ });
     await expect(terms).not.toBeChecked();
     await terms.check();
 
-    await page.getByRole('button', { name: 'Review booking' }).click();
+    await page.getByRole('button', { name: 'Continue with my choices' }).click();
 
     await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
     await expect(page.getByText('Reserve Guest')).toBeVisible();

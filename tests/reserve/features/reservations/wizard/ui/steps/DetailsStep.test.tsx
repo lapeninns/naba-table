@@ -77,25 +77,18 @@ function renderDetailsStep(
 }
 
 describe('DetailsStep', () => {
-  it('orders one bounded contact, consent, and preferences hierarchy @contract', () => {
+  it('keeps only contact details inline for guests @contract', () => {
     renderDetailsStep(makeState(), createActions());
 
     const form = document.querySelector('[data-slot="details-form"]');
     const contact = screen.getByRole('region', { name: 'Contact details' });
-    const consent = screen.getByRole('region', { name: 'Booking consent' });
-    const preferences = screen.getByRole('region', { name: 'Preferences' });
 
     expect(form).toHaveClass('mx-auto', 'w-full', 'max-w-2xl');
     expect(form?.querySelectorAll('[data-slot="wizard-panel"]')).toHaveLength(1);
-    expect(
-      contact.compareDocumentPosition(consent) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      consent.compareDocumentPosition(preferences) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
     expect(contact).toHaveClass('min-w-0');
-    expect(consent).toHaveClass('min-w-0');
-    expect(preferences).toHaveClass('min-w-0');
+    expect(screen.queryByRole('region', { name: 'Booking consent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Preferences' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /WhatsApp/ })).not.toBeInTheDocument();
   });
 
   it('replaces the characterized booking-only WhatsApp consent copy @contract', () => {
@@ -109,19 +102,17 @@ describe('DetailsStep', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('names every WhatsApp lifecycle purpose and one post-visit review request @contract', () => {
-    renderDetailsStep(makeState(), createActions());
+  it('summarises WhatsApp without exposing the detailed lifecycle copy by default @contract', async () => {
+    const { captured } = renderDetailsStep(makeState({ agree: false }), createActions());
 
-    expect(
-      screen.getByRole('checkbox', {
-        name: /Use WhatsApp for booking messages and one review request/,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Booking confirmation and updates')).toBeVisible();
-    expect(screen.getByText('Guest or venue cancellations')).toBeVisible();
-    expect(screen.getByText('One post-visit review request')).toBeVisible();
-    expect(screen.getByText(/from Nabatable on behalf of The Old Crown/)).toBeVisible();
-    expect(screen.getByText(/Review requests never fall back to SMS/)).toBeVisible();
+    await waitFor(() => expect(captured.actions).not.toHaveLength(0));
+    captured.actions.find((action) => action.id === 'details-review')?.onClick();
+
+    expect(await screen.findByText('Booking messages')).toBeVisible();
+    expect(screen.getByText(/WhatsApp when available/)).toBeVisible();
+    expect(screen.queryByText('Booking confirmation and updates')).not.toBeInTheDocument();
+    expect(screen.queryByText('Guest or venue cancellations')).not.toBeInTheDocument();
+    expect(screen.queryByText('One post-visit review request')).not.toBeInTheDocument();
   });
 
   it('uses explicit consent-v2 wording for staff-created bookings @contract', () => {
@@ -148,39 +139,63 @@ describe('DetailsStep', () => {
     expect(screen.getByLabelText(/UK phone number/)).toHaveValue('07123456789');
   });
 
-  it('keeps fresh legal acceptance visible outside collapsed optional preferences @contract', () => {
-    renderDetailsStep(makeState({ agree: false }), createActions());
-
-    expect(
-      screen.getByRole('checkbox', { name: /I agree to the terms and privacy notice/ }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole('checkbox', { name: /I agree to the terms and privacy notice/ }),
-    ).not.toBeChecked();
-    expect(screen.getByRole('button', { name: /Preferences/ })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(screen.queryByText('Save contact details for next time')).not.toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /I agree/ }).closest('label')).not.toHaveClass(
-      'border-destructive/40',
-    );
-    expect(screen.getByRole('checkbox', { name: /I agree/ }).closest('label')).toHaveTextContent(
-      /privacy notice Required to confirm/,
-    );
-  });
-
-  it('uses destructive consent styling only after validation reports an error @contract', async () => {
+  it('keeps individual consent controls hidden until preferences are expanded @contract', async () => {
     const { captured } = renderDetailsStep(makeState({ agree: false }), createActions());
+
+    expect(
+      screen.queryByRole('checkbox', { name: /I agree to the terms and privacy notice/ }),
+    ).not.toBeInTheDocument();
 
     await waitFor(() => expect(captured.actions).not.toHaveLength(0));
     captured.actions.find((action) => action.id === 'details-review')?.onClick();
 
-    await waitFor(() =>
-      expect(screen.getByRole('checkbox', { name: /I agree/ }).closest('label')).toHaveClass(
-        'border-destructive/40',
-      ),
+    expect(
+      await screen.findByRole('button', { name: 'Accept all & review booking' }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('checkbox', { name: /I agree to the terms and privacy notice/ }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Choose preferences' }));
+    expect(screen.getByRole('checkbox', { name: /Terms & privacy/ })).toBeVisible();
+  });
+
+  it('accepts every eligible preference and advances in one click @contract', async () => {
+    const actions = createActions();
+    const { captured } = renderDetailsStep(
+      makeState({
+        agree: false,
+        rememberDetails: false,
+        marketingOptIn: false,
+        whatsappOptIn: false,
+      }),
+      actions,
     );
+
+    await waitFor(() => expect(captured.actions).not.toHaveLength(0));
+    captured.actions.find((action) => action.id === 'details-review')?.onClick();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Accept all & review booking' }),
+    );
+
+    await waitFor(() => expect(actions.goToStep).toHaveBeenCalledWith(3));
+    expect(actions.updateDetails).toHaveBeenCalledWith('agree', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('whatsappOptIn', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('rememberDetails', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('marketingOptIn', true);
+  });
+
+  it('keeps the overlay open and reports terms validation on confirm @contract', async () => {
+    const { captured } = renderDetailsStep(makeState({ agree: false }), createActions());
+
+    await waitFor(() => expect(captured.actions).not.toHaveLength(0));
+    captured.actions.find((action) => action.id === 'details-review')?.onClick();
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose preferences' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continue with my choices' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Please accept the terms to continue.',
+    );
+    expect(screen.getByRole('heading', { name: 'One last step' })).toBeVisible();
   });
 
   it('places the concise usage caption with the contact fields instead of a separate card @contract', () => {
@@ -192,7 +207,7 @@ describe('DetailsStep', () => {
     expect(caption.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('enables Review once the prefilled details validate, then advances @contract', async () => {
+  it('opens consent and advances only after overlay confirmation @contract', async () => {
     const actions = createActions();
     const { captured, track } = renderDetailsStep(makeState(), actions);
 
@@ -204,10 +219,13 @@ describe('DetailsStep', () => {
     const review = captured.actions.find((action) => action.id === 'details-review');
     review?.onClick();
 
+    expect(await screen.findByRole('heading', { name: 'One last step' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Accept all & review booking' }));
+
     await waitFor(() => expect(actions.goToStep).toHaveBeenCalledWith(3));
     expect(actions.updateDetails).toHaveBeenCalledWith('name', 'Alex Guest');
     expect(track).toHaveBeenCalledWith('details_submit', {
-      marketing_opt_in: 0,
+      marketing_opt_in: 1,
       terms_checked: 1,
     });
   });
@@ -216,7 +234,10 @@ describe('DetailsStep', () => {
     ['email only', { email: 'alex@example.com', phone: '' }],
     ['phone only', { email: '', phone: '07123456789' }],
   ])('keeps Review available with %s @contract', async (_scenario, details) => {
-    const { captured } = renderDetailsStep(makeState(details), createActions());
+    const { captured } = renderDetailsStep(
+      makeState({ ...details, agree: false }),
+      createActions(),
+    );
 
     await waitFor(() => {
       expect(captured.actions.find((action) => action.id === 'details-review')?.disabled).toBe(
@@ -255,37 +276,40 @@ describe('DetailsStep', () => {
     expect(actions.goToStep).toHaveBeenCalledWith(1);
   });
 
-  it('disables the WhatsApp opt-in until a phone number exists @contract', () => {
-    renderDetailsStep(makeState({ phone: '' }), createActions());
-    expect(screen.getByRole('checkbox', { name: /WhatsApp/ })).toBeDisabled();
-    expect(
-      screen.getByText('Add a valid UK phone number to enable WhatsApp updates.'),
-    ).toBeVisible();
+  it('disables the overlay WhatsApp opt-in until a phone number exists @contract', async () => {
+    const { captured } = renderDetailsStep(makeState({ phone: '', agree: false }), createActions());
+    await waitFor(() => expect(captured.actions).not.toHaveLength(0));
+    captured.actions.find((action) => action.id === 'details-review')?.onClick();
+    await userEvent.click(await screen.findByRole('button', { name: 'Choose preferences' }));
+    expect(await screen.findByRole('checkbox', { name: /Booking messages/ })).toBeDisabled();
+    expect(screen.getByText('Add a UK phone number to use WhatsApp')).toBeVisible();
   });
 
-  it('keeps WhatsApp disabled while a populated phone number is invalid @contract', () => {
-    renderDetailsStep(makeState({ phone: '12345', whatsappOptIn: false }), createActions());
+  it('keeps Review disabled while a populated phone number is invalid @contract', async () => {
+    const { captured } = renderDetailsStep(
+      makeState({ email: 'alex@example.com', phone: '12345', whatsappOptIn: false, agree: false }),
+      createActions(),
+    );
 
-    expect(screen.getByRole('checkbox', { name: /WhatsApp/ })).toBeDisabled();
-    expect(
-      screen.getByText('Add a valid UK phone number to enable WhatsApp updates.'),
-    ).toBeVisible();
+    await waitFor(() =>
+      expect(captured.actions.find((action) => action.id === 'details-review')?.disabled).toBe(
+        true,
+      ),
+    );
+    expect(screen.queryByRole('checkbox', { name: /WhatsApp/ })).not.toBeInTheDocument();
   });
 
-  it('clears WhatsApp consent when the phone number changes @contract', async () => {
+  it('clears consent state when the phone number changes @contract', async () => {
     const user = userEvent.setup();
     const actions = createActions();
     renderDetailsStep(makeState({ whatsappOptIn: true }), actions);
 
-    const whatsapp = screen.getByRole('checkbox', { name: /WhatsApp/ });
-    expect(whatsapp).toBeChecked();
     await user.type(screen.getByLabelText(/UK phone number/), '0');
 
-    expect(whatsapp).not.toBeChecked();
     expect(actions.updateDetails).toHaveBeenCalledWith('whatsappOptIn', false);
   });
 
-  it('explains customer requirements and why Review is unavailable @contract', async () => {
+  it('explains contact requirements without mentioning terms before the overlay @contract', async () => {
     const { captured } = renderDetailsStep(
       makeState({ name: '', email: '', phone: '', agree: false }),
       createActions(),
@@ -294,12 +318,8 @@ describe('DetailsStep', () => {
     expect(screen.getByText('Required fields are marked *')).toBeVisible();
     expect(screen.getByText('Add at least one: email address or UK phone number.')).toBeVisible();
     expect(screen.getByLabelText(/Full name/)).toBeRequired();
-    expect(screen.getByRole('checkbox', { name: /I agree/ })).toHaveAttribute(
-      'aria-required',
-      'true',
-    );
     expect(
-      screen.getByText('Complete the required fields and accept the terms to review your booking.'),
+      screen.getByText('Complete the required contact fields to review your booking.'),
     ).toBeVisible();
     await waitFor(() =>
       expect(captured.actions.find((action) => action.id === 'details-review')?.disabled).toBe(
@@ -308,17 +328,20 @@ describe('DetailsStep', () => {
     );
   });
 
-  it('uses Details-scoped minimum 44px interaction targets @contract', () => {
-    renderDetailsStep(makeState(), createActions());
+  it('uses Details-scoped minimum 44px interaction targets @contract', async () => {
+    const { captured } = renderDetailsStep(makeState(), createActions());
 
     expect(screen.getByLabelText(/Full name/)).toHaveClass('h-11');
     expect(screen.getByLabelText(/Email address/)).toHaveClass('h-11');
     expect(screen.getByLabelText(/UK phone number/)).toHaveClass('h-11');
-    expect(screen.getByRole('button', { name: /Preferences/ })).toHaveClass('min-h-11');
-    expect(screen.getByRole('checkbox', { name: /I agree/ }).closest('label')).toHaveClass(
+    await waitFor(() => expect(captured.actions).not.toHaveLength(0));
+    captured.actions.find((action) => action.id === 'details-review')?.onClick();
+    await screen.findByRole('heading', { name: 'One last step' });
+    await userEvent.click(screen.getByRole('button', { name: 'Choose preferences' }));
+    expect(screen.getByRole('checkbox', { name: /Terms & privacy/ }).closest('label')).toHaveClass(
       'min-h-11',
     );
-    expect(screen.getByRole('checkbox', { name: /WhatsApp/ }).closest('label')).toHaveClass(
+    expect(screen.getByRole('checkbox', { name: /Booking messages/ }).closest('label')).toHaveClass(
       'min-h-11',
     );
     expect(screen.getByRole('link', { name: 'privacy notice' })).toHaveClass('min-h-11');

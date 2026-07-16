@@ -1,8 +1,39 @@
 import { describe, expect, it } from 'vitest';
 
-import { createDetailsFormSchema } from '@features/reservations/wizard/model/schemas';
+import {
+  createDetailsContactSchema,
+  createDetailsFormSchema,
+} from '@features/reservations/wizard/model/schemas';
 
 describe('createDetailsFormSchema', () => {
+  it('accepts valid guest contacts before terms are accepted @contract', () => {
+    expect(
+      createDetailsContactSchema().safeParse({
+        name: 'Guest Booker',
+        email: 'guest@example.com',
+        phone: '',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('keeps contact requirements in the contact-only schema @contract', () => {
+    const result = createDetailsContactSchema().safeParse({
+      name: 'G',
+      email: '',
+      phone: '',
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected contact validation to fail.');
+    }
+
+    const fieldErrors = result.error.flatten().fieldErrors;
+    expect(fieldErrors.name?.[0]).toBe('Please enter at least two characters.');
+    expect(fieldErrors.email?.[0]).toBe('Add an email address or phone number.');
+    expect(fieldErrors.phone?.[0]).toBe('Add an email address or phone number.');
+  });
+
   it('keeps guest terms and contact requirements @contract', () => {
     const result = createDetailsFormSchema('customer').safeParse({
       name: 'Guest Booker',

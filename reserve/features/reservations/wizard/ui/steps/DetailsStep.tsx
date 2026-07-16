@@ -11,8 +11,8 @@ import { useDetailsStepForm } from '../../hooks/useDetailsStepForm';
 import { StepErrorBoundary } from '../ErrorBoundary';
 import { WizardPanel } from '../WizardPanel';
 import { WizardStep } from '../WizardStep';
+import { DetailsConsentDialog } from './details-step/DetailsConsentDialog';
 import { DetailsContactSection } from './details-step/DetailsContactSection';
-import { DetailsGuestSections } from './details-step/DetailsGuestSections';
 
 import type { DetailsStepProps } from './details-step/types';
 
@@ -25,7 +25,7 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
     mode,
     onTrack: props.onTrack ?? analytics.track,
   });
-  const { form, handleSubmit, handleError, handlers, isValid } = controller;
+  const { form, handleReview, handlers, isContactValid } = controller;
   const isOpsMode = mode === 'ops';
   const restaurantName =
     props.state?.details.restaurantName || contextState?.details.restaurantName || 'the restaurant';
@@ -50,7 +50,10 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
           <FormRoot
             data-slot="details-form"
             className="mx-auto w-full max-w-2xl space-y-4"
-            onSubmit={form.handleSubmit(handleSubmit, handleError)}
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleReview();
+            }}
             noValidate
           >
             <Button type="submit" className="hidden" aria-hidden />
@@ -63,15 +66,17 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                 isOpsMode={isOpsMode}
                 restaurantName={restaurantName}
               />
-              {!isOpsMode ? <DetailsGuestSections form={form} handlers={handlers} /> : null}
             </WizardPanel>
 
-            {!isOpsMode && !isValid ? (
+            {!isOpsMode && !isContactValid ? (
               <p className="text-pretty text-sm text-muted-foreground" role="status">
-                Complete the required fields and accept the terms to review your booking.
+                Complete the required contact fields to review your booking.
               </p>
             ) : null}
           </FormRoot>
+          {!isOpsMode ? (
+            <DetailsConsentDialog controller={controller} restaurantName={restaurantName} />
+          ) : null}
         </Form>
       </WizardStep>
     </StepErrorBoundary>

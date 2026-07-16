@@ -78,16 +78,12 @@ const buildAgreeSchema = (mode: BookingWizardMode) => {
   });
 };
 
-export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
+export const createDetailsContactSchema = () =>
   z
     .object({
       name: nameSchema,
       email: buildEmailSchema(),
       phone: buildPhoneSchema(),
-      rememberDetails: z.boolean().default(mode !== 'ops'),
-      marketingOptIn: z.boolean().default(mode !== 'ops'),
-      whatsappOptIn: z.boolean().default(false),
-      agree: buildAgreeSchema(mode),
     })
     .superRefine((values, ctx) => {
       const hasEmail = values.email.trim().length > 0;
@@ -109,6 +105,16 @@ export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
         message,
       });
     });
+
+export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
+  createDetailsContactSchema().and(
+    z.object({
+      rememberDetails: z.boolean().default(mode !== 'ops'),
+      marketingOptIn: z.boolean().default(mode !== 'ops'),
+      whatsappOptIn: z.boolean().default(false),
+      agree: buildAgreeSchema(mode),
+    }),
+  );
 
 export const detailsFormSchema = createDetailsFormSchema('customer');
 

@@ -1,13 +1,16 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 
+import { isUKPhone } from '@reserve/shared/validation';
 import { track } from '@shared/lib/analytics';
 
 import { useWizardActions, useWizardState } from '../context/WizardContext';
+import { buildAcceptedDetailsValues } from '../model/detailsConsent';
 import {
+  createDetailsContactSchema,
   createDetailsFormSchema,
   type DetailsFormInputValues,
   type DetailsFormValues,
@@ -32,6 +35,8 @@ export function useDetailsStepForm({
       'useDetailsStepForm requires explicit state/actions props or a WizardProvider ancestor.',
     );
   }
+  const [consentOpen, setConsentOpen] = useState(false);
+  const contactSchema = useMemo(() => createDetailsContactSchema(), []);
   const schema = useMemo(() => createDetailsFormSchema(mode), [mode]);
   const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
     resolver: zodResolver(schema),
@@ -141,10 +146,63 @@ export function useDetailsStepForm({
   );
 
   const { isSubmitting, isValid } = form.formState;
+  const [name, email, phone] = useWatch({
+    control: form.control,
+    name: ['name', 'email', 'phone'],
+  });
+  const isContactValid = contactSchema.safeParse({ name, email, phone }).success;
 
   const handleReview = useCallback(() => {
+    if (mode === 'ops') {
+      form.handleSubmit(handleSubmit, handleError)();
+      return;
+    }
+
+    const result = contactSchema.safeParse(form.getValues());
+    form.clearErrors(['name', 'email', 'phone']);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      const nameError = errors.name?.[0];
+      const emailError = errors.email?.[0];
+      const phoneError = errors.phone?.[0];
+      if (nameError) {
+        form.setError('name', { message: nameError });
+        form.setFocus('name', { shouldSelect: true });
+      }
+      if (emailError) {
+        form.setError('email', { message: emailError });
+        if (!nameError) {
+          form.setFocus('email', { shouldSelect: true });
+        }
+      }
+      if (phoneError) {
+        form.setError('phone', { message: phoneError });
+        if (!nameError && !emailError) {
+          form.setFocus('phone', { shouldSelect: true });
+        }
+      }
+      return;
+    }
+
+    setConsentOpen(true);
+  }, [contactSchema, form, handleError, handleSubmit, mode]);
+
+  const handleConfirmConsent = useCallback(() => {
     form.handleSubmit(handleSubmit, handleError)();
   }, [form, handleError, handleSubmit]);
+
+  const handleAcceptAllAndContinue = useCallback(() => {
+    const hasValidWhatsAppPhone = isUKPhone(form.getValues('phone').trim());
+    const acceptedValues = buildAcceptedDetailsValues(form.getValues(), hasValidWhatsAppPhone);
+
+    form.setValue('agree', acceptedValues.agree, { shouldDirty: true });
+    form.setValue('rememberDetails', acceptedValues.rememberDetails, { shouldDirty: true });
+    form.setValue('marketingOptIn', acceptedValues.marketingOptIn, { shouldDirty: true });
+    form.setValue('whatsappOptIn', hasValidWhatsAppPhone, {
+      shouldDirty: true,
+    });
+    handleSubmit(acceptedValues);
+  }, [form, handleSubmit]);
 
   const handlePhoneChange = useCallback(
     (value: string) => {
@@ -176,13 +234,13 @@ export function useDetailsStepForm({
         label: 'Review booking',
         icon: 'Check',
         variant: 'default',
-        disabled: isSubmitting || !isValid,
+        disabled: isSubmitting || (mode === 'ops' ? !isValid : !isContactValid),
         loading: isSubmitting,
         onClick: handleReview,
         role: 'primary',
       },
     ],
-    [handleBack, handleReview, isSubmitting, isValid],
+    [handleBack, handleReview, isContactValid, isSubmitting, isValid, mode],
   );
 
   useEffect(() => {
@@ -192,9 +250,15 @@ export function useDetailsStepForm({
   return {
     form,
     handleBack,
+    handleReview,
+    handleConfirmConsent,
+    handleConsentOpenChange: setConsentOpen,
+    handleAcceptAllAndContinue,
     handleSubmit,
     handleError,
+    consentOpen,
     isSubmitting,
+    isContactValid,
     isValid,
     handlers: {
       changeName: (value: string) => updateField('name', value),
