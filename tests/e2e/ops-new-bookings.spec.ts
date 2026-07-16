@@ -69,7 +69,10 @@ async function installOpsApiMocks(page: Page) {
   });
 }
 
-async function installPublicAvailabilityMocks(page: Page, options?: { noSlots?: boolean }) {
+async function installPublicAvailabilityMocks(
+  page: Page,
+  options?: { noSlots?: boolean; slotDurationMinutes?: number },
+) {
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
 
@@ -113,7 +116,7 @@ async function installPublicAvailabilityMocks(page: Page, options?: { noSlots?: 
                   periodName: 'Lunch',
                   bookingOption: 'lunch',
                   defaultBookingOption: 'lunch',
-                  durationMinutes: 90,
+                  durationMinutes: options?.slotDurationMinutes ?? 90,
                   availability: {
                     services: {},
                     labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
@@ -256,6 +259,24 @@ test.describe('ops new-bookings authenticated view', () => {
 
     await expect(page.getByRole('region', { name: 'Plan your table' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Time' })).toHaveValue('');
+    await expect(page.getByText('Trouble loading Plan your visit')).toHaveCount(0);
+    expect(pageErrors.join('\n')).not.toContain('Maximum update depth exceeded');
+  });
+
+  test('new-bookings accepts a slot duration that differs from the profile default @p1 @browser @regression @local-only', async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.unroute('**/api/restaurants/**');
+    await installPublicAvailabilityMocks(page, { slotDurationMinutes: 60 });
+
+    await page.goto(`/new-bookings?date=${wizardFallbackDate}&partySize=2`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect(page.getByRole('region', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Time' })).toContainText(wizardTimeLabel);
     await expect(page.getByText('Trouble loading Plan your visit')).toHaveCount(0);
     expect(pageErrors.join('\n')).not.toContain('Maximum update depth exceeded');
   });

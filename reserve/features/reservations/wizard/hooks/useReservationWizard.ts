@@ -250,27 +250,16 @@ export function useReservationWizard(
       nextMetadata.restaurantTimezone = initialDetails.restaurantTimezone;
     }
 
-    if (
-      typeof initialDetails?.reservationDurationMinutes === 'number' &&
-      Number.isFinite(initialDetails.reservationDurationMinutes) &&
-      initialDetails.reservationDurationMinutes > 0 &&
-      initialDetails.reservationDurationMinutes !== state.details.reservationDurationMinutes
-    ) {
-      nextMetadata.reservationDurationMinutes = initialDetails.reservationDurationMinutes;
-    }
-
     if (Object.keys(nextMetadata).length > 0) {
       actions.hydrateDetails(nextMetadata);
     }
   }, [
     actions,
-    initialDetails?.reservationDurationMinutes,
     initialDetails?.restaurantAddress,
     initialDetails?.restaurantId,
     initialDetails?.restaurantName,
     initialDetails?.restaurantSlug,
     initialDetails?.restaurantTimezone,
-    state.details.reservationDurationMinutes,
     state.details.restaurantAddress,
     state.details.restaurantId,
     state.details.restaurantName,
