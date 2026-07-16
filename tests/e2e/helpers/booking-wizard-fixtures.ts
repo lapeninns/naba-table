@@ -135,6 +135,8 @@ export async function installBookingWizardMocks(
   page: Page,
   state: BookingMockState,
 ): Promise<void> {
+  await page.context().setOffline(false);
+
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/calendar-mask')) {
