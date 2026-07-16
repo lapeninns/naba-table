@@ -8,7 +8,7 @@
       "plan_name": "guest-booking-wizard-responsive-redesign",
       "session_ids": ["codex:019f6709-fd21-7dc0-9f26-3f1cc7529e68"],
       "status": "active",
-      "worktree_path": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-booking-wizard-responsive-redesign-20260715"
+      "worktree_path": "<REDACTED_LOCAL_WORKTREE>/nabatableLP-guest-booking-wizard-responsive-redesign-20260715"
     },
     "whatsapp-review-production-release": {
       "work_id": "whatsapp-review-production-release",
@@ -16,7 +16,7 @@
       "plan_name": "whatsapp-review-production-release",
       "session_ids": ["codex:whatsapp-review-production-release-20260712"],
       "status": "active",
-      "worktree_path": "/Users/amankumarshrestha/LapenInns Project/nabatableLP-whatsapp-review-production"
+      "worktree_path": "<REDACTED_LOCAL_WORKTREE>/nabatableLP-whatsapp-review-production"
     }
   }
 }

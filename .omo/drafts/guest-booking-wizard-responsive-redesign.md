@@ -10,7 +10,7 @@ approach: Isolate from live origin/main, preserve behavior, redesign shared UI i
 
 ## Ground truth
 
-- Execution base is `origin/main` at `878ee13611a0500ea0e154957075953efc18b009` in `/Users/amankumarshrestha/LapenInns Project/nabatableLP-guest-booking-wizard-responsive-redesign-20260715` on `codex/guest-booking-wizard-responsive-redesign-20260715`.
+- Execution base is `origin/main` at `878ee13611a0500ea0e154957075953efc18b009` in isolated worktree `<REDACTED_LOCAL_WORKTREE>/nabatableLP-guest-booking-wizard-responsive-redesign-20260715` on `codex/guest-booking-wizard-responsive-redesign-20260715`.
 - The old `booking-redesign-804f94d3` and `booking-redesign-clean-integration-804f94d3` worktrees are divergent, dirty, and contain stale or behavior-changing work. They are research-only; do not merge or cherry-pick them wholesale and do not trust their evidence.
 - The unrelated `whatsapp-review-production-release` Boulder record and worktree remain intact. This task may add its own work record only inside the isolated feature worktree.
 
