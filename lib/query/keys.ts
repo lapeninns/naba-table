@@ -1,5 +1,5 @@
 import type { RestaurantFilters } from '@/lib/restaurants/types';
-import type { OpsSmsDeliveryRange, SmsDeliveryStatus } from '@/types/smsDelivery';
+import type { OpsSmsDeliveryRange, SmsDeliveryChannelFilter, SmsDeliveryStatus } from '@/types/smsDelivery';
 
 export const queryKeys = {
   bookings: {
@@ -71,6 +71,7 @@ export const queryKeys = {
       page: number;
       pageSize: number;
       statuses: readonly SmsDeliveryStatus[];
+      channel?: SmsDeliveryChannelFilter;
     }) =>
       [
         'ops',
@@ -81,6 +82,7 @@ export const queryKeys = {
         params.page,
         params.pageSize,
         params.statuses.join(','),
+        params.channel ?? 'all',
       ] as const,
     bookingLog: (bookingId: string, limit: number) =>
       ['ops', 'sms-delivery', 'booking-log', bookingId, limit] as const,

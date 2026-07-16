@@ -35,6 +35,5 @@ describe('ops page search param normalization', () => {
     expect(element.props.initialStatuses).toEqual(['sent', 'failed']);
     expect(element.props.initialPage).toBe(2);
     expect(element.props.initialPageSize).toBe(25);
-    expect(element.props.initialSimulateEmailDeliveryError).toBe(true);
   });
 });

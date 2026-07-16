@@ -59,12 +59,14 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     expect(settingsItem?.match?.('/app/settings/restaurant/team')).toBe(true);
   });
 
-  it('marks Message Delivery as active-admin navigation', () => {
+  it('marks Communications Delivery as active-admin navigation', () => {
     const guestInsights = OPS_NAV_SECTIONS.find((section) => section.label === 'Guest & Insights');
-    const smsItem = guestInsights?.items.find((item) => item.title === 'Message Delivery');
+    const communicationsItem = guestInsights?.items.find(
+      (item) => item.title === 'Communications Delivery',
+    );
 
-    expect(smsItem).toMatchObject({
-      href: '/app/sms-delivery',
+    expect(communicationsItem).toMatchObject({
+      href: '/app/communications-delivery',
       requiresActiveAdmin: true,
     });
   });
@@ -75,8 +77,8 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     });
     const titles = filtered.flatMap((section) => section.items.map((item) => item.title));
 
-    expect(titles).not.toContain('SMS Delivery');
-    expect(titles).toContain('Email Delivery');
+    expect(titles).not.toContain('Communications Delivery');
+    expect(titles).toContain('Email Templates');
   });
 
   it('keeps active-admin navigation for admin active memberships', () => {
@@ -85,6 +87,6 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     });
     const titles = filtered.flatMap((section) => section.items.map((item) => item.title));
 
-    expect(titles).toContain('Message Delivery');
+    expect(titles).toContain('Communications Delivery');
   });
 });

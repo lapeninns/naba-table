@@ -246,6 +246,7 @@ type ListEmailDeliveryAttemptsParams = {
   bookingRef?: string;
   templateType?: string;
   emailType?: string;
+  stuckOnly?: boolean;
 };
 
 type AttemptAggregate = {
@@ -545,7 +546,7 @@ async function listEmailDeliveryAttemptsWithQueryFallback(
   }
 
   const now = Date.now();
-  const attempts: OpsEmailDeliveryAttemptDTO[] = pageAggregates.map((attempt) =>
+  let attempts: OpsEmailDeliveryAttemptDTO[] = pageAggregates.map((attempt) =>
     decorateAttemptWithStaleness(
       {
         id: attempt.currentEventId,
@@ -568,6 +569,10 @@ async function listEmailDeliveryAttemptsWithQueryFallback(
       now,
     ),
   );
+
+  if (params.stuckOnly) {
+    attempts = attempts.filter((attempt) => attempt.isStale === true);
+  }
 
   return { attempts, hasNext, page, pageSize };
 }
@@ -642,6 +647,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   bookingRef?: string;
   templateType?: string;
   emailType?: string;
+  stuckOnly?: boolean;
 }): Promise<{
   attempts: OpsEmailDeliveryAttemptDTO[];
   hasNext: boolean;
@@ -650,6 +656,10 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
 }> {
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
+  const statuses =
+    params.stuckOnly && (!params.statuses || params.statuses.length === 0)
+      ? EMAIL_DELIVERY_IN_FLIGHT_STATUSES
+      : params.statuses;
 
   const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase.rpc('ops_email_delivery_attempts_feed', {
@@ -657,7 +667,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
     p_range: params.range,
     p_page: page,
     p_page_size: pageSize,
-    p_statuses: params.statuses?.length ? (params.statuses as string[]) : undefined,
+    p_statuses: statuses?.length ? (statuses as string[]) : undefined,
     p_recipient_email: normalizeOptionalString(params.recipientEmail),
     p_message_id: normalizeOptionalString(params.messageId),
     p_booking_ref: normalizeOptionalStringUpper(params.bookingRef),
@@ -682,7 +692,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
         restaurantId: params.restaurantId,
       });
 
-      return listEmailDeliveryAttemptsWithQueryFallback(params);
+      return listEmailDeliveryAttemptsWithQueryFallback({ ...params, statuses });
     }
     throw new Error(`Failed to load email delivery attempts (${error.code ?? 'unknown'}).`);
   }
@@ -692,7 +702,7 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
   const pageRows = hasNext ? rows.slice(0, pageSize) : rows;
 
   const now = Date.now();
-  const attempts: OpsEmailDeliveryAttemptDTO[] = pageRows.map((row) =>
+  let attempts: OpsEmailDeliveryAttemptDTO[] = pageRows.map((row) =>
     decorateAttemptWithStaleness(
       {
         id: typeof row.id === 'string' ? row.id : undefined,
@@ -714,23 +724,35 @@ export async function listEmailDeliveryAttemptsForRestaurant(params: {
     ),
   );
 
+  if (params.stuckOnly) {
+    attempts = attempts.filter((attempt) => attempt.isStale === true);
+  }
+
   return { attempts, hasNext, page, pageSize };
 }
 
 export async function getEmailDeliveryLogEntryById(
   deliveryLogId: string,
+  options?: { restaurantId?: string | null },
 ): Promise<EmailDeliveryLogEntry | null> {
   const normalizedId = normalizeOptionalString(deliveryLogId);
   if (!normalizedId) return null;
 
+  const restaurantId = normalizeOptionalString(options?.restaurantId ?? null);
+
   const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('email_delivery_log')
     .select(
       'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
     )
-    .eq('id', normalizedId)
-    .maybeSingle();
+    .eq('id', normalizedId);
+
+  if (restaurantId) {
+    query = query.eq('restaurant_id', restaurantId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     if (isDeliveryLogUnavailable(error)) {
@@ -744,13 +766,16 @@ export async function getEmailDeliveryLogEntryById(
 
 export async function retryEmailDeliveryLogEntry(params: {
   deliveryLogId: string;
+  restaurantId: string;
   resendBookingEmail: (
     bookingId: string,
     emailType: string | null,
     templateType: string | null,
   ) => Promise<EmailDeliveryLogEntry | null>;
 }): Promise<EmailDeliveryLogEntry> {
-  const entry = await getEmailDeliveryLogEntryById(params.deliveryLogId);
+  const entry = await getEmailDeliveryLogEntryById(params.deliveryLogId, {
+    restaurantId: params.restaurantId,
+  });
 
   if (!entry) {
     throw new EmailDeliveryRetryError('NOT_FOUND', 'Email delivery log entry not found.');
@@ -900,23 +925,31 @@ export async function getEmailDeliveryAttemptsSummary(params: {
     throw new Error(`Failed to load email delivery summary (${error.code ?? 'unknown'}).`);
   }
 
-  let stuckInFlight = 0;
-  try {
-    stuckInFlight = await countStuckInFlightEmailAttempts({
-      restaurantId: params.restaurantId,
-      range: params.range,
-    });
-  } catch (stuckError) {
-    if (stuckError instanceof EmailDeliveryLogUnavailableError) {
-      throw stuckError;
+  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null | undefined;
+
+  let stuckInFlight =
+    typeof row?.stuckInFlight === 'number' && Number.isFinite(row.stuckInFlight)
+      ? Number(row.stuckInFlight)
+      : null;
+
+  if (stuckInFlight === null) {
+    try {
+      stuckInFlight = await countStuckInFlightEmailAttempts({
+        restaurantId: params.restaurantId,
+        range: params.range,
+      });
+    } catch (stuckError) {
+      if (stuckError instanceof EmailDeliveryLogUnavailableError) {
+        throw stuckError;
+      }
+      // Non-fatal; summary is still returned with stuckInFlight defaulted to 0.
+      console.warn('[email][delivery-log] stuck-count computation failed', {
+        message: stuckError instanceof Error ? stuckError.message : String(stuckError),
+      });
+      stuckInFlight = 0;
     }
-    // Non-fatal; summary is still returned with stuckInFlight defaulted to 0.
-    console.warn('[email][delivery-log] stuck-count computation failed', {
-      message: stuckError instanceof Error ? stuckError.message : String(stuckError),
-    });
   }
 
-  const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | null | undefined;
   if (!row) {
     return {
       total: 0,

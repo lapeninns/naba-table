@@ -46,7 +46,20 @@ describe('useOpsRestaurantSmsDeliveryFeed', () => {
       page: 1,
       pageSize: 25,
       status: undefined,
+      channel: 'all',
     });
+  });
+
+  it('@contract forwards an explicit channel filter', async () => {
+    bookingService.getRestaurantSmsDeliveryFeed.mockResolvedValue({ ok: true, attempts: [] });
+
+    setup({ restaurantId: 'rest-1', ...baseParams, channel: 'whatsapp' });
+
+    await waitFor(() =>
+      expect(bookingService.getRestaurantSmsDeliveryFeed).toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'whatsapp' }),
+      ),
+    );
   });
 
   it('@contract normalises statuses to the canonical order and drops unknown values', async () => {

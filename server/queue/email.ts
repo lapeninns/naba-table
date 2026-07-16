@@ -2,8 +2,10 @@ import { isCloudflareGatewayConfigured } from '@/server/cloudflare/gateway';
 
 import {
   cancelEmailIntentByDedupeKey,
+  cancelEmailIntentForRestaurant,
   drainDueEmailIntents,
   getEmailQueueStatusFromIntents,
+  requeueFailedEmailIntentForRestaurant,
   scheduleEmailIntent,
 } from './email-intents';
 export {
@@ -71,6 +73,26 @@ export async function removeEmailJob(jobId: string): Promise<boolean> {
     });
     return false;
   }
+}
+
+export async function cancelRestaurantEmailQueueJob(params: {
+  jobId: string;
+  restaurantId: string;
+}): Promise<'cancelled' | 'not_found'> {
+  return cancelEmailIntentForRestaurant({
+    dedupeKey: params.jobId,
+    restaurantId: params.restaurantId,
+  });
+}
+
+export async function requeueRestaurantEmailQueueJob(params: {
+  jobId: string;
+  restaurantId: string;
+}): Promise<'requeued' | 'not_found' | 'not_requeueable'> {
+  return requeueFailedEmailIntentForRestaurant({
+    dedupeKey: params.jobId,
+    restaurantId: params.restaurantId,
+  });
 }
 
 export async function getEmailQueueStatus(

@@ -55,6 +55,7 @@ vi.mock('@/server/bookings/duration', () => ({
 
 vi.mock('@/server/customers', () => ({
   normalizeEmail: (value: string) => value.trim().toLowerCase(),
+  normalizePhone: (value: string | null | undefined) => value ?? null,
   upsertCustomer: upsertCustomerMock,
 }));
 
@@ -187,6 +188,7 @@ describe('POST /api/ops/bookings', () => {
           email: 'alex@example.com',
           phone: null,
           marketingOptIn: false,
+          whatsappOptIn: false,
         }),
       }),
     );
@@ -231,6 +233,7 @@ describe('POST /api/ops/bookings', () => {
           email: 'x",id.not.is.null,email_normalized.eq."y@z.co',
           phone: null,
           marketingOptIn: false,
+          whatsappOptIn: false,
         }),
       }),
     );

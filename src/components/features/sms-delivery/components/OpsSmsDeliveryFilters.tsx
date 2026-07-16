@@ -11,19 +11,26 @@ import {
 } from '@/components/ui/select';
 
 import {
+  OPS_SMS_DELIVERY_CHANNEL_OPTIONS,
   OPS_SMS_DELIVERY_PAGE_SIZE_OPTIONS,
   OPS_SMS_DELIVERY_RANGE_OPTIONS,
   OPS_SMS_DELIVERY_STATUS_FILTERS,
 } from '../opsSmsDeliveryDomain';
 
-import type { OpsSmsDeliveryRange, SmsDeliveryStatus } from '@/types/smsDelivery';
+import type {
+  OpsSmsDeliveryRange,
+  SmsDeliveryChannelFilter,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 
 export type OpsSmsDeliveryFiltersProps = {
   range: OpsSmsDeliveryRange;
   pageSize: number;
+  channel: SmsDeliveryChannelFilter;
   selectedStatuses: SmsDeliveryStatus[];
   onRangeChange: (range: OpsSmsDeliveryRange) => void;
   onPageSizeChange: (pageSize: number) => void;
+  onChannelChange: (channel: SmsDeliveryChannelFilter) => void;
   onClearStatuses: () => void;
   onToggleStatus: (status: SmsDeliveryStatus) => void;
 };
@@ -31,9 +38,11 @@ export type OpsSmsDeliveryFiltersProps = {
 export function OpsSmsDeliveryFilters({
   range,
   pageSize,
+  channel,
   selectedStatuses,
   onRangeChange,
   onPageSizeChange,
+  onChannelChange,
   onClearStatuses,
   onToggleStatus,
 }: OpsSmsDeliveryFiltersProps) {
@@ -42,6 +51,21 @@ export function OpsSmsDeliveryFilters({
       sticky={false}
       filters={
         <>
+          <Select
+            value={channel}
+            onValueChange={(value) => onChannelChange(value as SmsDeliveryChannelFilter)}
+          >
+            <SelectTrigger className="h-9 w-full sm:w-[170px]" aria-label="Select channel">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OPS_SMS_DELIVERY_CHANNEL_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select
             value={range}
             onValueChange={(value) => onRangeChange(value as OpsSmsDeliveryRange)}

@@ -1,6 +1,6 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
+import { MailCheck, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -24,7 +24,11 @@ import {
   OpsSmsDeliverySummaryCards,
 } from './components';
 
-import type { OpsSmsDeliveryRange, SmsDeliveryStatus } from '@/types/smsDelivery';
+import type {
+  OpsSmsDeliveryRange,
+  SmsDeliveryChannelFilter,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 
 type OpsSmsDeliveryClientProps = {
   initialRestaurantId?: string | null;
@@ -32,6 +36,7 @@ type OpsSmsDeliveryClientProps = {
   initialPage?: number;
   initialPageSize?: number;
   initialStatuses?: SmsDeliveryStatus[];
+  initialChannel?: SmsDeliveryChannelFilter;
 };
 
 export function OpsSmsDeliveryClient({
@@ -40,6 +45,7 @@ export function OpsSmsDeliveryClient({
   initialPage = 1,
   initialPageSize = 50,
   initialStatuses = [],
+  initialChannel = 'all',
 }: OpsSmsDeliveryClientProps) {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const { restaurantService } = useOpsServices();
@@ -56,6 +62,7 @@ export function OpsSmsDeliveryClient({
   const [page, setPage] = useState<number>(Math.max(1, initialPage));
   const [pageSize, setPageSize] = useState<number>(Math.max(1, Math.min(200, initialPageSize)));
   const [selectedStatuses, setSelectedStatuses] = useState<SmsDeliveryStatus[]>(initialStatuses);
+  const [channel, setChannel] = useState<SmsDeliveryChannelFilter>(initialChannel);
   const [availableRestaurants, setAvailableRestaurants] = useState<
     Array<{ id: string; name: string; timezone?: string | null }>
   >([]);
@@ -113,6 +120,7 @@ export function OpsSmsDeliveryClient({
     page,
     pageSize,
     statuses: selectedStatuses,
+    channel,
   });
 
   const { feed, unavailable, apiError } = feedQuery;
@@ -142,7 +150,7 @@ export function OpsSmsDeliveryClient({
     <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
       <OpsPageHeader
         title="Message Delivery"
-        subtitle="Track queued/sent/delivered/failed booking SMS in one place."
+        subtitle="Track queued/sent/delivered/failed booking SMS and WhatsApp in one place."
         meta={
           <OpsSmsDeliveryHeaderMeta
             availableRestaurants={availableRestaurants}
@@ -156,22 +164,30 @@ export function OpsSmsDeliveryClient({
           />
         }
         secondaryActions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void feedQuery.refetch();
-            }}
-            disabled={feedQuery.isFetching}
-          >
-            <RefreshCw
-              data-icon="inline-start"
-              className={cn(feedQuery.isFetching && 'animate-spin')}
-              aria-hidden
-            />
-            Refresh
-          </Button>
+          <>
+            <Button asChild variant="outline" size="sm">
+              <Link href={opsHref('/communications-delivery/email')} prefetch={false}>
+                <MailCheck data-icon="inline-start" aria-hidden />
+                Email Delivery
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void feedQuery.refetch();
+              }}
+              disabled={feedQuery.isFetching}
+            >
+              <RefreshCw
+                data-icon="inline-start"
+                className={cn(feedQuery.isFetching && 'animate-spin')}
+                aria-hidden
+              />
+              Refresh
+            </Button>
+          </>
         }
       />
 
@@ -182,6 +198,7 @@ export function OpsSmsDeliveryClient({
       <OpsSmsDeliveryFilters
         range={range}
         pageSize={pageSize}
+        channel={channel}
         selectedStatuses={selectedStatuses}
         onRangeChange={(nextRange) => {
           setRange(nextRange);
@@ -189,6 +206,10 @@ export function OpsSmsDeliveryClient({
         }}
         onPageSizeChange={(nextPageSize) => {
           setPageSize(nextPageSize);
+          setPage(1);
+        }}
+        onChannelChange={(nextChannel) => {
+          setChannel(nextChannel);
           setPage(1);
         }}
         onClearStatuses={() => {

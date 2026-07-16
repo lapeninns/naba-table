@@ -95,7 +95,7 @@ describe('OpsSidebarPanel', () => {
       'Bookings',
       'New Bookings',
       'Guests',
-      'Email Delivery',
+      'Communications Delivery',
       'Email Templates',
       'Settings',
     ]) {
@@ -108,20 +108,20 @@ describe('OpsSidebarPanel', () => {
 
   it('@contract shows admin-gated items to admins and hides them from non-admin roles', () => {
     const { unmount } = renderPanel('owner');
-    expect(screen.getByRole('link', { name: 'Message Delivery' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Communications Delivery' })).toBeInTheDocument();
     unmount();
 
     renderPanel('host');
-    expect(screen.queryByRole('link', { name: 'Message Delivery' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Communications Delivery' })).not.toBeInTheDocument();
     // Non-gated items are unaffected.
-    expect(screen.getByRole('link', { name: 'Email Delivery' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Email Templates' })).toBeInTheDocument();
   });
 
   it('@contract @a11y marks the nav item matching the current pathname as the current page', () => {
-    pathnameMock.mockReturnValue('/app/email-delivery');
+    pathnameMock.mockReturnValue('/app/communications-delivery/email');
     renderPanel('owner');
 
-    expect(screen.getByRole('link', { name: 'Email Delivery' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Communications Delivery' })).toHaveAttribute(
       'aria-current',
       'page',
     );

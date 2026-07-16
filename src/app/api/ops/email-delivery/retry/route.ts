@@ -2,18 +2,18 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { captureServerEvent, captureServerException } from '@/lib/posthog/server';
-import {
-  GuardError,
-  listUserRestaurantMemberships,
-  requireRestaurantMember,
-  requireSession,
-} from '@/server/auth/guards';
+import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 import { resendBookingEmailFromDeliveryLog } from '@/server/emails/bookings';
 import {
   EmailDeliveryLogUnavailableError,
   EmailDeliveryRetryError,
   retryEmailDeliveryLogEntry,
 } from '@/server/emails/email-delivery-log';
+import {
+  buildOpsEmailDeliveryFixtureRetrySuccessEntry,
+  isOpsEmailDeliveryFaultInjectionEnabled,
+  OPS_EMAIL_DELIVERY_RETRY_FIXTURE_ENTRIES,
+} from '@/server/emails/ops-email-delivery-dev-fixtures';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -24,70 +24,17 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const RETRY_ACTION_FIXTURE_ENTRIES: Record<
-  string,
-  {
-    bookingId: string;
-    restaurantId?: string;
-    emailType: string;
-    templateType: string;
-    recipientEmail: string;
-    subject: string;
-  }
-> = {
-  '11111111-1111-4111-8111-111111111111': {
-    bookingId: 'booking-fixture-failed',
-    emailType: 'created',
-    templateType: 'booking_confirmation',
-    recipientEmail: 'retry.failed@example.com',
-    subject: 'Fixture failed retry candidate',
-  },
-  '22222222-2222-4222-8222-222222222222': {
-    bookingId: 'booking-fixture-bounced',
-    emailType: 'review_request',
-    templateType: 'review_request',
-    recipientEmail: 'retry.bounced@example.com',
-    subject: 'Fixture bounced retry candidate',
-  },
-};
-
-function buildFixtureRetrySuccessEntry({
-  deliveryLogId,
-  fixtureEntry,
-  restaurantId,
-}: {
-  deliveryLogId: string;
-  fixtureEntry: (typeof RETRY_ACTION_FIXTURE_ENTRIES)[string];
-  restaurantId: string | null;
-}) {
-  const occurredAt = new Date().toISOString();
-
-  return {
-    id: deliveryLogId,
-    bookingId: fixtureEntry.bookingId,
-    restaurantId,
-    emailType: fixtureEntry.emailType,
-    templateType: fixtureEntry.templateType,
-    recipientEmail: fixtureEntry.recipientEmail,
-    messageId: `${deliveryLogId}:fixture-retry-success`,
-    status: 'sent',
-    provider: 'fixture',
-    error: null,
-    occurredAt,
-    metadata: {
-      subject: fixtureEntry.subject,
-      fixtureRetryRefetched: true,
-      fixtureSyntheticSuccess: true,
-    },
-  };
-}
-
 const bodySchema = z.object({
+  restaurantId: z.string().uuid(),
   deliveryLogId: z
     .string()
-    .refine((value) => z.uuid().safeParse(value).success || value in RETRY_ACTION_FIXTURE_ENTRIES, {
-      message: 'Invalid delivery log id.',
-    }),
+    .refine(
+      (value) =>
+        z.uuid().safeParse(value).success || value in OPS_EMAIL_DELIVERY_RETRY_FIXTURE_ENTRIES,
+      {
+        message: 'Invalid delivery log id.',
+      },
+    ),
   simulateError: z.boolean().optional(),
 });
 
@@ -103,12 +50,8 @@ function jsonError(status: number, code: string, message: string) {
   );
 }
 
-function isDevOrTestFaultInjectionEnabled() {
-  return (
-    process.env.NODE_ENV !== 'production' ||
-    process.env.APP_ENV === 'development' ||
-    process.env.APP_ENV === 'test'
-  );
+function notFoundError() {
+  return jsonError(404, 'NOT_FOUND', 'Email delivery log entry not found.');
 }
 
 export async function POST(request: NextRequest) {
@@ -136,7 +79,7 @@ async function postEmailDeliveryRetry(request: NextRequest) {
       request,
       scope: 'ops-email-delivery:retry',
       userId: user.id,
-      parts: [parsedBody.deliveryLogId],
+      parts: [parsedBody.restaurantId, parsedBody.deliveryLogId],
       limit: 5,
       windowMs: 60_000,
       message: 'Too many email retry attempts. Please try again later.',
@@ -145,7 +88,7 @@ async function postEmailDeliveryRetry(request: NextRequest) {
       return rateLimit;
     }
 
-    if (parsedBody.simulateError && isDevOrTestFaultInjectionEnabled()) {
+    if (parsedBody.simulateError && isOpsEmailDeliveryFaultInjectionEnabled()) {
       return jsonError(
         500,
         'SIMULATED_RETRY_ERROR',
@@ -153,15 +96,24 @@ async function postEmailDeliveryRetry(request: NextRequest) {
       );
     }
 
-    const memberships = await listUserRestaurantMemberships(supabase, user.id);
-    const fallbackRestaurantId =
-      memberships.find(
-        (membership) =>
-          typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0,
-      )?.restaurant_id ?? null;
+    try {
+      await requireRestaurantMember({
+        supabase,
+        userId: user.id,
+        restaurantId: parsedBody.restaurantId,
+      });
+    } catch (error) {
+      if (error instanceof GuardError) {
+        if (error.code === 'UNAUTHENTICATED') {
+          return jsonError(401, 'UNAUTHENTICATED', error.message);
+        }
+        return notFoundError();
+      }
+      throw error;
+    }
 
-    const fixtureEntry = isDevOrTestFaultInjectionEnabled()
-      ? RETRY_ACTION_FIXTURE_ENTRIES[parsedBody.deliveryLogId]
+    const fixtureEntry = isOpsEmailDeliveryFaultInjectionEnabled()
+      ? OPS_EMAIL_DELIVERY_RETRY_FIXTURE_ENTRIES[parsedBody.deliveryLogId]
       : undefined;
 
     const resendBookingEmail = async (
@@ -170,24 +122,10 @@ async function postEmailDeliveryRetry(request: NextRequest) {
       templateType: string | null,
     ) => {
       if (fixtureEntry) {
-        const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
-        if (!fixtureRestaurantId) {
-          throw new EmailDeliveryRetryError(
-            'MISSING_BOOKING',
-            'No restaurant access is available for this retry.',
-          );
-        }
-
-        await requireRestaurantMember({
-          supabase,
-          userId: user.id,
-          restaurantId: fixtureRestaurantId,
-        });
-
         return resendBookingEmailFromDeliveryLog({
           booking: {
             id: bookingId,
-            restaurant_id: fixtureRestaurantId,
+            restaurant_id: parsedBody.restaurantId,
           } as BookingRecord,
           emailType,
           templateType,
@@ -199,6 +137,7 @@ async function postEmailDeliveryRetry(request: NextRequest) {
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
+        .eq('restaurant_id', parsedBody.restaurantId)
         .maybeSingle();
 
       if (error) {
@@ -213,20 +152,6 @@ async function postEmailDeliveryRetry(request: NextRequest) {
         );
       }
 
-      const restaurantId = booking.restaurant_id ?? fallbackRestaurantId;
-      if (!restaurantId) {
-        throw new EmailDeliveryRetryError(
-          'MISSING_BOOKING',
-          'No restaurant access is available for this retry.',
-        );
-      }
-
-      await requireRestaurantMember({
-        supabase,
-        userId: user.id,
-        restaurantId,
-      });
-
       return resendBookingEmailFromDeliveryLog({
         booking,
         emailType,
@@ -235,29 +160,14 @@ async function postEmailDeliveryRetry(request: NextRequest) {
     };
 
     const retriedEntry = fixtureEntry
-      ? await (async () => {
-          const fixtureRestaurantId = fixtureEntry.restaurantId ?? fallbackRestaurantId;
-          if (!fixtureRestaurantId) {
-            throw new EmailDeliveryRetryError(
-              'MISSING_BOOKING',
-              'No restaurant access is available for this retry.',
-            );
-          }
-
-          await requireRestaurantMember({
-            supabase,
-            userId: user.id,
-            restaurantId: fixtureRestaurantId,
-          });
-
-          return buildFixtureRetrySuccessEntry({
-            deliveryLogId: parsedBody.deliveryLogId,
-            fixtureEntry,
-            restaurantId: fixtureRestaurantId,
-          });
-        })()
+      ? buildOpsEmailDeliveryFixtureRetrySuccessEntry({
+          deliveryLogId: parsedBody.deliveryLogId,
+          fixtureEntry,
+          restaurantId: parsedBody.restaurantId,
+        })
       : await retryEmailDeliveryLogEntry({
           deliveryLogId: parsedBody.deliveryLogId,
+          restaurantId: parsedBody.restaurantId,
           resendBookingEmail,
         });
 
@@ -274,14 +184,16 @@ async function postEmailDeliveryRetry(request: NextRequest) {
         return jsonError(401, 'UNAUTHENTICATED', error.message);
       }
 
-      if (error.code === 'FORBIDDEN') {
-        return jsonError(403, 'FORBIDDEN', error.message);
-      }
-
-      return jsonError(error.status, 'INTERNAL', error.message);
+      return notFoundError();
     }
 
     if (error instanceof EmailDeliveryRetryError) {
+      if (error.code === 'NOT_FOUND') {
+        return notFoundError();
+      }
+      if (error.code === 'NOT_RETRYABLE') {
+        return jsonError(409, error.code, error.message);
+      }
       return jsonError(400, error.code, error.message);
     }
 

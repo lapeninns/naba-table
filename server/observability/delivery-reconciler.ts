@@ -172,7 +172,7 @@ async function reconcileEmails(): Promise<{ stuck: number; scanned: number; erro
       severity: 'warning',
       context: {
         messageId: row.message_id,
-        recipientEmail: row.recipient_email,
+        recipientEmail: '[redacted-email]',
         ageMs: Date.now() - parseIsoMs(row.occurred_at),
       },
       restaurantId: row.restaurant_id ?? undefined,

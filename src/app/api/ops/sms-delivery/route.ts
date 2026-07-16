@@ -16,6 +16,7 @@ import {
 } from '@/server/sms/delivery-log';
 import { sanitizeOpsSmsDeliveryAttempts } from '@/src/lib/sms-delivery/sanitize';
 import {
+  OPS_SMS_DELIVERY_CHANNEL_VALUES,
   OPS_SMS_DELIVERY_RANGE_VALUES,
   SMS_DELIVERY_STATUS_VALUES,
   type OpsSmsDeliveryFeedResponse,
@@ -32,6 +33,7 @@ const querySchema = z.object({
   range: z.enum(OPS_SMS_DELIVERY_RANGE_VALUES).default('7d'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
+  channel: z.enum(OPS_SMS_DELIVERY_CHANNEL_VALUES).default('all'),
 });
 
 function jsonError(
@@ -99,12 +101,14 @@ export async function GET(request: NextRequest) {
       page: parsedQuery.data.page,
       pageSize: parsedQuery.data.pageSize,
       statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
+      channel: parsedQuery.data.channel,
     });
 
     const summary = await getSmsDeliveryAttemptsSummary({
       restaurantId,
       range: parsedQuery.data.range,
       statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
+      channel: parsedQuery.data.channel,
     });
 
     return NextResponse.json(

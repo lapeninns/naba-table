@@ -3,6 +3,7 @@ import { SMS_DELIVERY_STATUS_LABELS } from '@/src/lib/sms-delivery/presentation'
 import type {
   OpsSmsDeliveryRange,
   OpsSmsDeliverySummary,
+  SmsDeliveryChannelFilter,
   SmsDeliveryStatus,
 } from '@/types/smsDelivery';
 
@@ -25,6 +26,15 @@ export const OPS_SMS_DELIVERY_STATUS_FILTERS: Array<{
   label: SMS_DELIVERY_STATUS_LABELS[value],
 }));
 
+export const OPS_SMS_DELIVERY_CHANNEL_OPTIONS: Array<{
+  value: SmsDeliveryChannelFilter;
+  label: string;
+}> = [
+  { value: 'all', label: 'All channels' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'sms', label: 'SMS' },
+];
+
 export function formatSmsStuckForHint(stuckForMs: number | null | undefined): string | null {
   if (typeof stuckForMs !== 'number' || !Number.isFinite(stuckForMs) || stuckForMs <= 0) {
     return null;
@@ -44,4 +54,13 @@ export function getSmsDeliveryFailureCount(summary: OpsSmsDeliverySummary): numb
 export function getSmsDeliveryRatePercent(rate: number): number {
   if (!Number.isFinite(rate)) return 0;
   return Math.round(rate * 100);
+}
+
+export function getSmsDeliveryChannelSplitLabel(summary: OpsSmsDeliverySummary): string | null {
+  const whatsapp = summary.whatsappCount;
+  const sms = summary.smsCount;
+  if (typeof whatsapp !== 'number' && typeof sms !== 'number') return null;
+  const fallback = summary.fallbackCount ?? 0;
+  const fallbackSuffix = fallback > 0 ? ` (${fallback} fallback)` : '';
+  return `${whatsapp ?? 0} WhatsApp · ${sms ?? 0} SMS${fallbackSuffix}`;
 }

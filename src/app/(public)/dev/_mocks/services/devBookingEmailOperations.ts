@@ -91,8 +91,22 @@ export class DevBookingEmailOperations extends DevBookingAssignments {
     };
   }
 
-  async retryEmailDelivery(): Promise<{ ok: true; deliveryLogEntry: unknown }> {
-    throw new Error('[dev][bookingService] retryEmailDelivery is not implemented');
+  async retryEmailDelivery(input: {
+    restaurantId: string;
+    deliveryLogId: string;
+    simulateError?: boolean;
+  }): Promise<{ ok: true; deliveryLogEntry: unknown }> {
+    if (input.simulateError) {
+      throw new Error('Forced retry mutation error for dev/test validation.');
+    }
+    return {
+      ok: true,
+      deliveryLogEntry: {
+        id: input.deliveryLogId,
+        restaurantId: input.restaurantId,
+        status: 'sent',
+      },
+    };
   }
 
   async getRestaurantEmailQueue(params: {
@@ -171,6 +185,28 @@ export class DevBookingEmailOperations extends DevBookingAssignments {
       },
       jobs: filtered.slice(offset, offset + pageSize),
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  async cancelEmailQueueJob(input: {
+    restaurantId: string;
+    jobId: string;
+  }): Promise<{ ok: true; jobId: string; action: 'cancelled' }> {
+    return {
+      ok: true,
+      jobId: input.jobId,
+      action: 'cancelled',
+    };
+  }
+
+  async requeueEmailQueueJob(input: {
+    restaurantId: string;
+    jobId: string;
+  }): Promise<{ ok: true; jobId: string; action: 'requeued' }> {
+    return {
+      ok: true,
+      jobId: input.jobId,
+      action: 'requeued',
     };
   }
 }

@@ -73,6 +73,7 @@ describe.runIf(mod !== null)('OpsDashboardHeader', () => {
     expect(screen.getByText('2 seated')).toBeInTheDocument();
     expect(screen.getByText('8 bookings')).toBeInTheDocument();
     expect(screen.getByText('21 covers')).toBeInTheDocument();
+    expect(screen.queryByText(/cancelled$/)).not.toBeInTheDocument();
   });
 
   it('@contract singularizes the badges for one booking and one cover', () => {
@@ -86,6 +87,18 @@ describe.runIf(mod !== null)('OpsDashboardHeader', () => {
     expect(screen.getByText('1 cover')).toBeInTheDocument();
   });
 
+  it('@contract shows a cancelled badge when the service date has cancellations', () => {
+    render(
+      <OpsDashboardHeader
+        {...makeProps({
+          summary: makeSummary({ totals: makeTotals({ total: 8, covers: 21, cancelled: 3 }) }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText('3 cancelled')).toBeInTheDocument();
+  });
+
   it('@contract shows the No bookings badge when the day is empty', () => {
     render(
       <OpsDashboardHeader
@@ -95,6 +108,7 @@ describe.runIf(mod !== null)('OpsDashboardHeader', () => {
 
     expect(screen.getByText('No bookings')).toBeInTheDocument();
     expect(screen.queryByText(/covers$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cancelled$/)).not.toBeInTheDocument();
   });
 
   it('@contract replaces stats and service badges with skeletons while the summary loads', () => {

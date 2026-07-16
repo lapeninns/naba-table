@@ -9,6 +9,7 @@ import {
   SMS_DELIVERY_STATUS_VALUES,
   type OpsSmsDeliveryFeedResponse,
   type OpsSmsDeliveryRange,
+  type SmsDeliveryChannelFilter,
   type SmsDeliveryStatus,
 } from '@/types/smsDelivery';
 
@@ -20,6 +21,7 @@ type UseOpsRestaurantSmsDeliveryFeedParams = {
   page: number;
   pageSize: number;
   statuses?: readonly SmsDeliveryStatus[];
+  channel?: SmsDeliveryChannelFilter;
 };
 
 export type OpsRestaurantSmsDeliveryFeedState = {
@@ -43,6 +45,7 @@ export function useOpsRestaurantSmsDeliveryFeed({
   page,
   pageSize,
   statuses,
+  channel = 'all',
 }: UseOpsRestaurantSmsDeliveryFeedParams): UseQueryResult<OpsSmsDeliveryFeedResponse, HttpError> &
   OpsRestaurantSmsDeliveryFeedState {
   const bookingService = useBookingService();
@@ -57,6 +60,7 @@ export function useOpsRestaurantSmsDeliveryFeed({
       page,
       pageSize,
       statuses: normalizedStatuses,
+      channel,
     }),
     queryFn: () =>
       bookingService.getRestaurantSmsDeliveryFeed({
@@ -65,6 +69,7 @@ export function useOpsRestaurantSmsDeliveryFeed({
         page,
         pageSize,
         status: normalizedStatuses.length > 0 ? normalizedStatuses : undefined,
+        channel,
       }),
     enabled,
     staleTime: 30_000,

@@ -38,6 +38,10 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsEmailDeliveryFeed.ts',
       ),
+      '@/hooks/ops/useOpsEmailDeliverySummary': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsEmailDeliverySummary.ts',
+      ),
       '@/hooks/ops/useOpsRestaurantDetails': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsRestaurantDetails.ts',
@@ -71,6 +75,10 @@ export default defineConfig({
       '@/hooks/ops/useOpsEmailQueueFeed': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsEmailQueueFeed.ts',
+      ),
+      '@/hooks/ops/useOpsRestaurantSmsDeliveryFeed': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsRestaurantSmsDeliveryFeed.ts',
       ),
       '@/hooks/ops/useOpsDrinksMenu': path.resolve(rootDir, 'src/hooks/ops/useOpsDrinksMenu.ts'),
       '@/hooks/ops/useOpsGoogleBusinessProfile': path.resolve(

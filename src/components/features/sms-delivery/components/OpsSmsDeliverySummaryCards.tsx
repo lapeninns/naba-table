@@ -17,6 +17,14 @@ export type OpsSmsDeliverySummaryCardsProps = {
   summary: OpsSmsDeliverySummary | null;
 };
 
+function formatChannelSplit(summary: OpsSmsDeliverySummary): string {
+  const whatsapp = summary.whatsappCount ?? 0;
+  const sms = summary.smsCount ?? 0;
+  const fallback = summary.fallbackCount ?? 0;
+  const fallbackSuffix = fallback > 0 ? ` (${fallback} fallback)` : '';
+  return `${whatsapp} WA · ${sms} SMS${fallbackSuffix}`;
+}
+
 export function OpsSmsDeliverySummaryCards({
   isLoading,
   summary,
@@ -24,6 +32,7 @@ export function OpsSmsDeliverySummaryCards({
   const metrics = summary
     ? [
         { label: 'Total attempts', value: String(summary.total) },
+        { label: 'Channel split', value: formatChannelSplit(summary) },
         { label: 'Delivered rate', value: `${getSmsDeliveryRatePercent(summary.deliveredRate)}%` },
         { label: 'Failures', value: String(getSmsDeliveryFailureCount(summary)) },
         { label: 'Unique recipients', value: String(summary.uniqueRecipients) },
@@ -31,9 +40,9 @@ export function OpsSmsDeliverySummaryCards({
     : null;
 
   return (
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {isLoading || !metrics
-        ? Array.from({ length: 4 }).map((_, index) => (
+        ? Array.from({ length: 5 }).map((_, index) => (
             <Card key={index} className={OPS_CARD_CLASS}>
               <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
                 <Skeleton className="h-12 w-full" />

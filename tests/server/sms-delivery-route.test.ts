@@ -153,4 +153,50 @@ describe('GET /api/ops/sms-delivery', () => {
     expect(listSmsDeliveryAttemptsForRestaurantMock).not.toHaveBeenCalled();
     expect(getSmsDeliveryAttemptsSummaryMock).not.toHaveBeenCalled();
   });
+
+  it('forwards channel=whatsapp to list and summary loaders', async () => {
+    const response = await GET(
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}&channel=whatsapp`,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(listSmsDeliveryAttemptsForRestaurantMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId,
+        channel: 'whatsapp',
+      }),
+    );
+    expect(getSmsDeliveryAttemptsSummaryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId,
+        channel: 'whatsapp',
+      }),
+    );
+  });
+
+  it('rejects an invalid channel filter', async () => {
+    const response = await GET(
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}&channel=telegram`,
+      ),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({ ok: false, error: 'Invalid query' });
+    expect(listSmsDeliveryAttemptsForRestaurantMock).not.toHaveBeenCalled();
+  });
+
+  it('defaults channel to all when omitted', async () => {
+    const response = await GET(
+      new NextRequest(`https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`),
+    );
+
+    expect(response.status).toBe(200);
+    expect(listSmsDeliveryAttemptsForRestaurantMock).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'all' }),
+    );
+  });
 });

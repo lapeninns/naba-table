@@ -4,7 +4,6 @@ import {
   CircleHelp,
   DoorOpen,
   Mail,
-  MailCheck,
   MessageSquare,
   Settings2,
   Users,
@@ -71,18 +70,15 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname.startsWith(path('/customers')),
       },
       {
-        title: 'Email Delivery',
-        description: 'Track sent/delivered/bounced email status',
-        href: path('/email-delivery'),
-        icon: MailCheck,
-        match: (pathname) => pathname.startsWith(path('/email-delivery')),
-      },
-      {
-        title: 'Message Delivery',
-        description: 'Track queued/sent/delivered/failed SMS status',
-        href: path('/sms-delivery'),
+        title: 'Communications Delivery',
+        description: 'Monitor email, SMS, and WhatsApp delivery health',
+        href: path('/communications-delivery'),
         icon: MessageSquare,
-        match: (pathname) => pathname.startsWith(path('/sms-delivery')),
+        match: (pathname) =>
+          pathname.startsWith(path('/communications-delivery')) ||
+          pathname.startsWith(path('/email-delivery')) ||
+          pathname.startsWith(path('/sms-delivery')) ||
+          pathname.startsWith(path('/message-delivery')),
         requiresActiveAdmin: true,
       },
       {

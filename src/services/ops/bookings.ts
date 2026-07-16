@@ -1,4 +1,4 @@
-import { HttpError, normalizeError } from '@/lib/http/errors';
+import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 
 import type {
@@ -25,6 +25,7 @@ import type {
   BookingSmsDeliveryResponse,
   OpsSmsDeliveryFeedResponse,
   OpsSmsDeliveryRange,
+  SmsDeliveryChannelFilter,
   SmsDeliveryStatus,
 } from '@/types/smsDelivery';
 import type { Tables } from '@/types/supabase';
@@ -466,6 +467,7 @@ export interface BookingService {
     page?: number;
     pageSize?: number;
     status?: SmsDeliveryStatus[];
+    channel?: SmsDeliveryChannelFilter;
   }): Promise<OpsSmsDeliveryFeedResponse>;
   getRestaurantEmailDeliveryFeed(params: {
     restaurantId?: string;
@@ -498,7 +500,19 @@ export interface BookingService {
     status?: OpsEmailQueueJobStatus;
     fixture?: string;
   }): Promise<OpsEmailQueueFeedResponse>;
-  retryEmailDelivery(input: { deliveryLogId: string; simulateError?: boolean }): Promise<{
+  cancelEmailQueueJob(input: {
+    restaurantId: string;
+    jobId: string;
+  }): Promise<{ ok: true; jobId: string; action: 'cancelled' }>;
+  requeueEmailQueueJob(input: {
+    restaurantId: string;
+    jobId: string;
+  }): Promise<{ ok: true; jobId: string; action: 'requeued' }>;
+  retryEmailDelivery(input: {
+    restaurantId: string;
+    deliveryLogId: string;
+    simulateError?: boolean;
+  }): Promise<{
     ok: true;
     deliveryLogEntry: unknown;
   }>;
@@ -785,6 +799,9 @@ export function createBrowserBookingService(): BookingService {
       if (params.status && params.status.length > 0) {
         search.set('status', params.status.join(','));
       }
+      if (params.channel && params.channel !== 'all') {
+        search.set('channel', params.channel);
+      }
 
       const url = `/api/ops/sms-delivery?${search.toString()}`;
       try {
@@ -860,10 +877,6 @@ export function createBrowserBookingService(): BookingService {
       const search = new URLSearchParams();
       if (params.restaurantId) search.set('restaurantId', params.restaurantId);
       search.set('range', range);
-      search.set('page', '1');
-      search.set('pageSize', '1');
-      search.set('summaryOnly', '1');
-
       if (params.simulateEmailDeliveryError) search.set('simulateEmailDeliveryError', '1');
       if (params.recipientEmail) search.set('recipientEmail', params.recipientEmail.trim());
       if (params.messageId) search.set('messageId', params.messageId.trim());
@@ -871,7 +884,7 @@ export function createBrowserBookingService(): BookingService {
       if (params.templateType) search.set('templateType', params.templateType.trim());
       if (params.emailType) search.set('emailType', params.emailType.trim());
 
-      const url = `/api/ops/email-delivery?${search.toString()}`;
+      const url = `/api/ops/email-delivery/summary?${search.toString()}`;
 
       try {
         return await fetchJson<OpsEmailDeliverySummaryResponse>(url);
@@ -892,50 +905,16 @@ export function createBrowserBookingService(): BookingService {
         throw error;
       }
     },
-    async retryEmailDelivery({ deliveryLogId, simulateError }) {
-      try {
-        const response = await fetch('/api/ops/email-delivery/retry', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            deliveryLogId,
-            ...(simulateError ? { simulateError: true } : {}),
-          }),
-          credentials: 'include',
-        });
-
-        const text = await response.text();
-        const parsed = text ? (JSON.parse(text) as unknown) : undefined;
-
-        if (!response.ok) {
-          const errorBody =
-            typeof parsed === 'object' && parsed !== null
-              ? (parsed as Record<string, unknown>)
-              : undefined;
-          throw normalizeError({
-            status: response.status,
-            statusText: response.statusText,
-            body: errorBody,
-          });
-        }
-
-        return (
-          (parsed as { ok: true; deliveryLogEntry: unknown }) ?? {
-            ok: true,
-            deliveryLogEntry: null,
-          }
-        );
-      } catch (error) {
-        if (error instanceof HttpError) {
-          throw error;
-        }
-        throw new HttpError({
-          message: error instanceof Error ? error.message : 'Failed to retry email delivery',
-          status: 500,
-          code: 'INTERNAL',
-          cause: error,
-        });
-      }
+    async retryEmailDelivery({ restaurantId, deliveryLogId, simulateError }) {
+      return fetchJson<{ ok: true; deliveryLogEntry: unknown }>('/api/ops/email-delivery/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurantId,
+          deliveryLogId,
+          ...(simulateError ? { simulateError: true } : {}),
+        }),
+      });
     },
     async getRestaurantEmailQueue(params) {
       const rawPage =
@@ -970,6 +949,26 @@ export function createBrowserBookingService(): BookingService {
         }
         throw error;
       }
+    },
+    async cancelEmailQueueJob({ restaurantId, jobId }) {
+      return fetchJson<{ ok: true; jobId: string; action: 'cancelled' }>(
+        `/api/ops/email-queue/${encodeURIComponent(jobId)}/cancel`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurantId }),
+        },
+      );
+    },
+    async requeueEmailQueueJob({ restaurantId, jobId }) {
+      return fetchJson<{ ok: true; jobId: string; action: 'requeued' }>(
+        `/api/ops/email-queue/${encodeURIComponent(jobId)}/requeue`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ restaurantId }),
+        },
+      );
     },
     async cancelBooking({ id }) {
       return fetchJson<{ id: string; status: string }>(`${OPS_BOOKINGS_BASE}/${id}`, {
@@ -1192,6 +1191,14 @@ export class NotImplementedBookingService implements BookingService {
 
   getRestaurantEmailQueue(): Promise<OpsEmailQueueFeedResponse> {
     this.error('getRestaurantEmailQueue not implemented');
+  }
+
+  cancelEmailQueueJob(): Promise<{ ok: true; jobId: string; action: 'cancelled' }> {
+    this.error('cancelEmailQueueJob not implemented');
+  }
+
+  requeueEmailQueueJob(): Promise<{ ok: true; jobId: string; action: 'requeued' }> {
+    this.error('requeueEmailQueueJob not implemented');
   }
 
   retryEmailDelivery(): Promise<{ ok: true; deliveryLogEntry: unknown }> {

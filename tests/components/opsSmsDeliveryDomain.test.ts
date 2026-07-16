@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatSmsStuckForHint,
+  getSmsDeliveryChannelSplitLabel,
   getSmsDeliveryFailureCount,
   getSmsDeliveryRatePercent,
+  OPS_SMS_DELIVERY_CHANNEL_OPTIONS,
   OPS_SMS_DELIVERY_PAGE_SIZE_OPTIONS,
   OPS_SMS_DELIVERY_RANGE_OPTIONS,
   OPS_SMS_DELIVERY_STATUS_FILTERS,
@@ -23,6 +25,11 @@ describe('opsSmsDeliveryDomain', () => {
       'delivered',
       'undelivered',
       'failed',
+    ]);
+    expect(OPS_SMS_DELIVERY_CHANNEL_OPTIONS.map((option) => option.value)).toEqual([
+      'all',
+      'whatsapp',
+      'sms',
     ]);
   });
 
@@ -51,5 +58,22 @@ describe('opsSmsDeliveryDomain', () => {
     ).toBe(3);
     expect(getSmsDeliveryRatePercent(0.751)).toBe(75);
     expect(getSmsDeliveryRatePercent(Number.NaN)).toBe(0);
+    expect(
+      getSmsDeliveryChannelSplitLabel({
+        total: 3,
+        queued: 0,
+        sent: 0,
+        delivered: 3,
+        undelivered: 0,
+        failed: 0,
+        deliveredRate: 1,
+        failureRate: 0,
+        uniqueRecipients: 2,
+        uniqueBookings: 2,
+        whatsappCount: 1,
+        smsCount: 2,
+        fallbackCount: 1,
+      }),
+    ).toBe('1 WhatsApp · 2 SMS (1 fallback)');
   });
 });

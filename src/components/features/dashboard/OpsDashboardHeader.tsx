@@ -95,20 +95,22 @@ export function OpsDashboardHeader({
     (() => {
       const totalBookings = summary.totals.total;
       const totalCovers = summary.totals.covers;
+      const cancelledBookings = summary.totals.cancelled;
+      const serviceBadgeClassName =
+        'gap-1.5 px-2.5 py-1 text-[11px] font-semibold transition-[transform,box-shadow] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs';
       return totalBookings > 0 ? (
         <>
-          <Badge
-            variant="secondary"
-            className="gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-primary transition-[transform,box-shadow] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs"
-          >
+          <Badge variant="secondary" className={cn(serviceBadgeClassName, 'text-primary')}>
             {totalBookings} {totalBookings === 1 ? 'booking' : 'bookings'}
           </Badge>
-          <Badge
-            variant="secondary"
-            className="gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-primary transition-[transform,box-shadow] duration-200 ease-out hover:scale-105 hover:shadow-md active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100 sm:px-3 sm:py-1.5 sm:text-xs"
-          >
+          <Badge variant="secondary" className={cn(serviceBadgeClassName, 'text-primary')}>
             {totalCovers} {totalCovers === 1 ? 'cover' : 'covers'}
           </Badge>
+          {cancelledBookings > 0 ? (
+            <Badge variant="status-cancelled" className={serviceBadgeClassName}>
+              {cancelledBookings} cancelled
+            </Badge>
+          ) : null}
         </>
       ) : (
         <Badge

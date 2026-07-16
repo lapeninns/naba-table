@@ -91,9 +91,38 @@ export class DevBookingDeliveryLogs extends DevBookingQueries {
     page = 1,
     pageSize = 50,
     status,
+    channel = 'all',
   }) => {
     if (!restaurantId) {
       throw new Error('[dev][bookingService] restaurantId is required');
+    }
+
+    // Dev fixtures only simulate plain SMS attempts today; WhatsApp is excluded
+    // from the feed when the channel filter is narrowed to 'whatsapp'.
+    if (channel === 'whatsapp') {
+      return {
+        ok: true,
+        restaurantId,
+        range,
+        pageInfo: { page, pageSize, hasNext: false },
+        attempts: [],
+        summary: {
+          total: 0,
+          queued: 0,
+          sent: 0,
+          delivered: 0,
+          undelivered: 0,
+          failed: 0,
+          deliveredRate: 0,
+          failureRate: 0,
+          uniqueRecipients: 0,
+          uniqueBookings: 0,
+          stuckInFlight: 0,
+          whatsappCount: 0,
+          smsCount: 0,
+          fallbackCount: 0,
+        },
+      };
     }
 
     const filterStatuses = status?.length ? new Set(status) : null;
@@ -171,6 +200,9 @@ export class DevBookingDeliveryLogs extends DevBookingQueries {
         uniqueRecipients: new Set(attempts.map((attempt) => attempt.recipientPhone)).size,
         uniqueBookings: new Set(attempts.map((attempt) => attempt.bookingId).filter(Boolean)).size,
         stuckInFlight: 0,
+        whatsappCount: 0,
+        smsCount: attempts.length,
+        fallbackCount: 0,
       },
     };
   };

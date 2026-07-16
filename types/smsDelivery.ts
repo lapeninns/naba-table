@@ -12,6 +12,15 @@ export type SmsDeliveryProvider = 'twilio' | 'mock';
 
 export type SmsDeliveryChannel = 'whatsapp' | 'sms';
 
+/** Channel filter accepted by ops message-delivery reads. `all` applies no filter. */
+export type SmsDeliveryChannelFilter = 'all' | SmsDeliveryChannel;
+
+export const OPS_SMS_DELIVERY_CHANNEL_VALUES = [
+  'all',
+  'whatsapp',
+  'sms',
+] as const satisfies ReadonlyArray<SmsDeliveryChannelFilter>;
+
 export type SmsDeliveryEventDTO = {
   id: string;
   bookingId: string | null;
@@ -28,6 +37,13 @@ export type SmsDeliveryEventDTO = {
   channel?: SmsDeliveryChannel;
   fallbackForAttemptId?: string | null;
   logicalNotificationId?: string | null;
+  /**
+   * Raw provider/ledger status before normalization into {@link SmsDeliveryStatus}.
+   * WhatsApp ledger rows can be `claimed`, `accepted`, or `read`, which the
+   * normalized `status` collapses into `queued`/`delivered` for filtering.
+   * Kept optional so legacy SMS-only rows can omit it without a migration.
+   */
+  providerStatus?: string | null;
 };
 
 export type BookingSmsDeliveryResponse =
@@ -75,6 +91,8 @@ export type OpsSmsDeliveryAttemptDTO = {
   channel?: 'whatsapp' | 'sms';
   logicalNotificationId?: string | null;
   fallbackForAttemptId?: string | null;
+  /** Raw provider/ledger status for the current attempt. See {@link SmsDeliveryEventDTO.providerStatus}. */
+  currentProviderStatus?: string | null;
   /**
    * True when the attempt is still in a non-terminal state (queued / sent)
    * after the stale threshold has passed. Derived on the read path; not
@@ -113,6 +131,12 @@ export type OpsSmsDeliverySummary = {
    * {@link SMS_DELIVERY_STALE_THRESHOLD_MINUTES} threshold. Derived server-side.
    */
   stuckInFlight?: number;
+  /** Attempts sent (or attempted) over the WhatsApp channel. */
+  whatsappCount?: number;
+  /** Attempts sent over the plain SMS channel, including WhatsApp fallbacks. */
+  smsCount?: number;
+  /** SMS attempts claimed as a fallback after a failed WhatsApp attempt. */
+  fallbackCount?: number;
 };
 
 export type OpsSmsDeliveryFeedResponse =

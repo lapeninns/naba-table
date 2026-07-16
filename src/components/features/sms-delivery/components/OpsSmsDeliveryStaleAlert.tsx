@@ -13,10 +13,10 @@ export function OpsSmsDeliveryStaleAlert({ stuckInFlight }: OpsSmsDeliveryStaleA
   return (
     <Alert className="mt-4 border-border bg-muted/40 text-foreground">
       <AlertTitle className="text-sm font-semibold">
-        {stuckInFlight} SMS still awaiting terminal status
+        {stuckInFlight} messages still awaiting terminal status
       </AlertTitle>
       <AlertDescription className="text-xs">
-        These SMS attempts are still at <code>queued</code> or <code>sent</code> more than{' '}
+        These SMS/WhatsApp attempts are still at <code>queued</code> or <code>sent</code> more than{' '}
         {SMS_DELIVERY_STALE_THRESHOLD_HOURS}h after Twilio accepted them. Twilio recommends polling
         the Message resource when a message has not reached <code>delivered</code> or{' '}
         <code>undelivered</code> within that window because a status callback may have been missed.

@@ -527,6 +527,85 @@ export async function cancelEmailIntentByDedupeKey(dedupeKey: string): Promise<b
   return Boolean(data?.id);
 }
 
+export async function cancelEmailIntentForRestaurant(params: {
+  dedupeKey: string;
+  restaurantId: string;
+}): Promise<'cancelled' | 'not_found'> {
+  const supabase = getServiceSupabaseClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('email_dispatch_intents')
+    .update({
+      status: 'cancelled',
+      cancelled_at: now,
+      processed_at: now,
+      claimed_at: null,
+      updated_at: now,
+    })
+    .eq('dedupe_key', sanitizeEmailJobId(params.dedupeKey))
+    .eq('restaurant_id', params.restaurantId)
+    .in('status', ['pending', 'processing'])
+    .is('cancelled_at', null)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.id ? 'cancelled' : 'not_found';
+}
+
+export async function requeueFailedEmailIntentForRestaurant(params: {
+  dedupeKey: string;
+  restaurantId: string;
+}): Promise<'requeued' | 'not_found' | 'not_requeueable'> {
+  const supabase = getServiceSupabaseClient();
+  const dedupeKey = sanitizeEmailJobId(params.dedupeKey);
+
+  const { data: existing, error: loadError } = await supabase
+    .from('email_dispatch_intents')
+    .select('id, status')
+    .eq('dedupe_key', dedupeKey)
+    .eq('restaurant_id', params.restaurantId)
+    .maybeSingle();
+
+  if (loadError) {
+    throw new Error(loadError.message);
+  }
+
+  if (!existing) {
+    return 'not_found';
+  }
+
+  if (existing.status !== 'failed') {
+    return 'not_requeueable';
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('email_dispatch_intents')
+    .update({
+      status: 'pending',
+      scheduled_for: now,
+      cancelled_at: null,
+      processed_at: null,
+      claimed_at: null,
+      last_error: null,
+      updated_at: now,
+    })
+    .eq('id', existing.id)
+    .eq('status', 'failed')
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.id ? 'requeued' : 'not_found';
+}
+
 export async function getEmailQueueStatusFromIntents(
   includeJobs = false,
   options?: EmailQueueStatusOptions,

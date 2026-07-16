@@ -12,6 +12,7 @@ export function sanitizeOpsSmsDeliveryAttempts(
   return attempts.map((attempt) => ({
     ...attempt,
     recipientPhone: maskSmsRecipientPhone(attempt.recipientPhone),
+    currentProviderStatus: attempt.currentProviderStatus ?? null,
     events: sanitizeOpsSmsDeliveryEvents(attempt.events),
   }));
 }
@@ -27,5 +28,6 @@ export function sanitizeOpsSmsDeliveryEvents(
     channel: event.channel,
     fallbackForAttemptId: event.fallbackForAttemptId ?? null,
     logicalNotificationId: event.logicalNotificationId ?? null,
+    providerStatus: event.providerStatus ?? null,
   }));
 }

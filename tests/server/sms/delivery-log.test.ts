@@ -11,7 +11,13 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
 
-import { hasRecentSmsDelivery, listSmsDeliveryEventsForBooking, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
+import {
+  getSmsDeliveryAttemptsSummary,
+  hasRecentSmsDelivery,
+  listSmsDeliveryAttemptsForRestaurant,
+  listSmsDeliveryEventsForBooking,
+  recordSmsDeliveryLog,
+} from '@/server/sms/delivery-log';
 
 function createRecentDeliveryQuery(result: {
   data: Array<{ id: string }> | null;
@@ -385,5 +391,254 @@ describe('listSmsDeliveryEventsForBooking', () => {
     await expect(listSmsDeliveryEventsForBooking({ bookingId: 'booking-1' })).rejects.toMatchObject(
       { name: 'SmsDeliveryLogUnavailableError' },
     );
+  });
+
+  it('preserves WhatsApp providerStatus and synthesizes a claimed→current timeline', async () => {
+    const { client } = createBookingDeliveryListClient({
+      smsResult: { data: [], error: null },
+      mobileResult: {
+        data: [
+          {
+            id: 'attempt-wa-read',
+            channel: 'whatsapp',
+            fallback_for_attempt_id: null,
+            provider: 'twilio',
+            provider_message_id: 'MM-READ',
+            recipient_phone: '447700900000',
+            status: 'read',
+            occurred_at: '2026-05-10T09:00:00.000Z',
+            updated_at: '2026-05-10T10:00:00.000Z',
+            mobile_notifications: {
+              id: 'notif-read',
+              booking_id: 'booking-1',
+              notification_type: 'booking_confirmation',
+              restaurant_id: 'restaurant-1',
+            },
+          },
+        ],
+        error: null,
+      },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    const events = await listSmsDeliveryEventsForBooking({ bookingId: 'booking-1' });
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      id: 'attempt-wa-read',
+      status: 'delivered',
+      providerStatus: 'read',
+      occurredAt: '2026-05-10T10:00:00.000Z',
+    });
+    expect(events[1]).toMatchObject({
+      id: 'attempt-wa-read:claimed',
+      status: 'queued',
+      providerStatus: 'claimed',
+      occurredAt: '2026-05-10T09:00:00.000Z',
+    });
+  });
+});
+
+function createRestaurantFeedClient(params: {
+  smsResult: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  };
+  mobileResult: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  };
+  bookingsResult?: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  };
+}) {
+  function createSmsBuilder(result: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  }) {
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      gte: vi.fn(() => builder),
+      order: vi.fn(() => builder),
+      limit: vi.fn(() => Promise.resolve(result)),
+    };
+    return builder;
+  }
+
+  function createMobileBuilder(result: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  }) {
+    const builder = {
+      select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
+      gte: vi.fn(() => builder),
+      limit: vi.fn(() => Promise.resolve(result)),
+    };
+    return builder;
+  }
+
+  function createBookingsBuilder(result: {
+    data: Array<Record<string, unknown>> | null;
+    error: { code?: string; message: string } | null;
+  }) {
+    const builder = {
+      select: vi.fn(() => builder),
+      in: vi.fn(() => Promise.resolve(result)),
+    };
+    return builder;
+  }
+
+  const smsBuilder = createSmsBuilder(params.smsResult);
+  const mobileBuilder = createMobileBuilder(params.mobileResult);
+  const bookingsBuilder = createBookingsBuilder(
+    params.bookingsResult ?? { data: [], error: null },
+  );
+  const from = vi.fn((table: string) => {
+    if (table === 'sms_delivery_log') return smsBuilder;
+    if (table === 'mobile_notification_attempts') return mobileBuilder;
+    if (table === 'bookings') return bookingsBuilder;
+    throw new Error(`Unexpected table ${table}`);
+  });
+
+  return { client: { from }, spies: { from, smsBuilder, mobileBuilder, bookingsBuilder } };
+}
+
+describe('listSmsDeliveryAttemptsForRestaurant + summary', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-10T12:00:00.000Z'));
+    getServiceSupabaseClientMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const mobileWhatsAppRow = {
+    id: 'attempt-wa-1',
+    channel: 'whatsapp',
+    fallback_for_attempt_id: null,
+    provider: 'twilio',
+    provider_message_id: 'MM-WA',
+    recipient_phone: '+447700900001',
+    status: 'read',
+    occurred_at: '2026-05-10T09:00:00.000Z',
+    updated_at: '2026-05-10T10:00:00.000Z',
+    mobile_notifications: {
+      id: 'notif-1',
+      booking_id: 'booking-wa',
+      notification_type: 'booking_confirmation',
+      restaurant_id: 'restaurant-1',
+    },
+  };
+
+  const mobileFallbackRow = {
+    id: 'attempt-sms-fallback',
+    channel: 'sms',
+    fallback_for_attempt_id: 'attempt-wa-failed',
+    provider: 'twilio',
+    provider_message_id: 'SM-FALLBACK',
+    recipient_phone: '+447700900002',
+    status: 'delivered',
+    occurred_at: '2026-05-10T09:30:00.000Z',
+    updated_at: '2026-05-10T09:45:00.000Z',
+    mobile_notifications: {
+      id: 'notif-2',
+      booking_id: 'booking-fb',
+      notification_type: 'booking_confirmation',
+      restaurant_id: 'restaurant-1',
+    },
+  };
+
+  it('populates mobile timeline events and exposes providerStatus for WhatsApp read', async () => {
+    const { client } = createRestaurantFeedClient({
+      smsResult: { data: [], error: null },
+      mobileResult: { data: [mobileWhatsAppRow], error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    const result = await listSmsDeliveryAttemptsForRestaurant({
+      restaurantId: 'restaurant-1',
+      range: '7d',
+    });
+
+    expect(result.attempts).toHaveLength(1);
+    expect(result.attempts[0]).toMatchObject({
+      channel: 'whatsapp',
+      currentStatus: 'delivered',
+      currentProviderStatus: 'read',
+      messageSid: 'MM-WA',
+    });
+    expect(result.attempts[0]?.events).toHaveLength(2);
+    expect(result.attempts[0]?.events.map((event) => event.providerStatus)).toEqual([
+      'claimed',
+      'read',
+    ]);
+  });
+
+  it('filters restaurant feed by channel=whatsapp', async () => {
+    const { client } = createRestaurantFeedClient({
+      smsResult: {
+        data: [
+          {
+            ...SAMPLE_SMS_ROW,
+            id: 'sms-1',
+            message_sid: 'SM-PLAIN',
+            recipient_phone: '+447700900099',
+            status: 'delivered',
+            occurred_at: '2026-05-10T11:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      mobileResult: { data: [mobileWhatsAppRow, mobileFallbackRow], error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    const result = await listSmsDeliveryAttemptsForRestaurant({
+      restaurantId: 'restaurant-1',
+      range: '7d',
+      channel: 'whatsapp',
+    });
+
+    expect(result.attempts).toHaveLength(1);
+    expect(result.attempts[0]?.channel).toBe('whatsapp');
+  });
+
+  it('splits summary counts across WhatsApp, SMS, and fallbacks', async () => {
+    const { client } = createRestaurantFeedClient({
+      smsResult: {
+        data: [
+          {
+            ...SAMPLE_SMS_ROW,
+            id: 'sms-1',
+            message_sid: 'SM-PLAIN',
+            recipient_phone: '+447700900099',
+            status: 'sent',
+            occurred_at: '2026-05-10T11:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      mobileResult: { data: [mobileWhatsAppRow, mobileFallbackRow], error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+
+    const summary = await getSmsDeliveryAttemptsSummary({
+      restaurantId: 'restaurant-1',
+      range: '7d',
+    });
+
+    expect(summary).toMatchObject({
+      total: 3,
+      whatsappCount: 1,
+      smsCount: 2,
+      fallbackCount: 1,
+      delivered: 2,
+      sent: 1,
+    });
   });
 });

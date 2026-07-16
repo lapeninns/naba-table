@@ -10,6 +10,39 @@ export const SMS_DELIVERY_STATUS_LABELS: Record<SmsDeliveryStatus, string> = {
   failed: 'Failed',
 };
 
+/**
+ * Labels for the raw provider/ledger status, including WhatsApp-only states
+ * (`claimed`, `accepted`, `read`) that {@link SMS_DELIVERY_STATUS_LABELS}
+ * collapses for filtering purposes.
+ */
+const PROVIDER_STATUS_LABELS: Record<string, string> = {
+  claimed: 'Claimed',
+  accepted: 'Accepted',
+  queued: 'Queued',
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+  undelivered: 'Undelivered',
+  failed: 'Failed',
+};
+
+export function formatSmsProviderStatusLabel(providerStatus: string | null | undefined): string | null {
+  if (!providerStatus) return null;
+  return PROVIDER_STATUS_LABELS[providerStatus] ?? providerStatus;
+}
+
+/**
+ * True when the raw provider status carries more detail than the normalized
+ * status (e.g. WhatsApp `read` vs. normalized `delivered`).
+ */
+export function isSmsProviderStatusMoreSpecific(
+  status: SmsDeliveryStatus,
+  providerStatus: string | null | undefined,
+): boolean {
+  if (!providerStatus) return false;
+  return providerStatus !== status;
+}
+
 export function formatSmsDeliveryOccurredAt(iso: string | null, timezone: string): string | null {
   if (!iso) return null;
   const dt = DateTime.fromISO(iso, { zone: timezone });

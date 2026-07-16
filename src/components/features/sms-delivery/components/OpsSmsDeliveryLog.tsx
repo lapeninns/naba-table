@@ -14,8 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   formatSmsDeliveryOccurredAt,
+  formatSmsProviderStatusLabel,
   formatSmsTypeLabel,
   getSmsDeliveryStatusBadgeTone,
+  isSmsProviderStatusMoreSpecific,
   SMS_DELIVERY_STATUS_LABELS,
 } from '@/src/lib/sms-delivery/presentation';
 
@@ -48,6 +50,12 @@ function SmsDeliveryAttemptRow({
 }) {
   const isStale = attempt.isStale === true;
   const stuckHint = isStale ? formatSmsStuckForHint(attempt.stuckForMs) : null;
+  const providerStatusLabel = isSmsProviderStatusMoreSpecific(
+    attempt.currentStatus,
+    attempt.currentProviderStatus,
+  )
+    ? formatSmsProviderStatusLabel(attempt.currentProviderStatus)
+    : null;
 
   return (
     <div
@@ -61,6 +69,15 @@ function SmsDeliveryAttemptRow({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
             <SmsStatusBadge status={attempt.currentStatus} />
+            {providerStatusLabel ? (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-medium normal-case text-muted-foreground"
+                title="Raw provider status, more specific than the normalized status above"
+              >
+                {providerStatusLabel}
+              </Badge>
+            ) : null}
             <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wide">
               {attempt.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'}
               {attempt.fallbackForAttemptId ? ' fallback' : ''}
@@ -88,11 +105,29 @@ function SmsDeliveryAttemptRow({
         </p>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {attempt.events.map((event) => (
-          <Badge key={event.id} variant="outline" className="text-[10px]">
-            {SMS_DELIVERY_STATUS_LABELS[event.status]}
-          </Badge>
-        ))}
+        {attempt.events.length === 0 ? (
+          <span className="text-[11px] text-muted-foreground">No timeline events recorded.</span>
+        ) : (
+          attempt.events.map((event) => {
+            const eventProviderLabel = isSmsProviderStatusMoreSpecific(
+              event.status,
+              event.providerStatus,
+            )
+              ? formatSmsProviderStatusLabel(event.providerStatus)
+              : null;
+            const eventTime = formatSmsDeliveryOccurredAt(event.occurredAt, timezone);
+            return (
+              <Badge
+                key={event.id}
+                variant="outline"
+                className="text-[10px]"
+                title={eventTime ?? undefined}
+              >
+                {eventProviderLabel ?? SMS_DELIVERY_STATUS_LABELS[event.status]}
+              </Badge>
+            );
+          })
+        )}
       </div>
     </div>
   );
