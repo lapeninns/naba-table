@@ -236,7 +236,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
       Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-12/`.
       Commit: Y | `feat(booking): integrate responsive wizard consumers`
 
-- [ ] 13. Prove the full browser, responsive, accessibility, and state matrix from one owner
+- [x] 13. Prove the full browser, responsive, accessibility, and state matrix from one owner
       Task / method: Extend existing booking E2E routes/helpers rather than duplicating mocks. Use deterministic synthetic restaurant/availability/create-booking fixtures. Run full shipped guest Plan -> Details -> Review -> terminal Confirmation at 375x812; representative Plan/Details/Review/Confirmation and independent thank-you checks at 320x568, 768x1024, 1440x900; ops and Reserve checks; loading/offline/empty/validation/server-error/capacity/recovery; keyboard-only completion; reduced motion; axe; light/dark according to real consumer support; actual Chrome 200% zoom with recorded readback.
       Knowledge and why: existing shipped journey has no viewport; existing screenshots hide Navigation; no current 320, 1440, real zoom, routed thank-you, or sticky geometry proof.
       Owned / forbidden: booking-specific `tests/e2e/**` specs/helpers and task evidence only. No production code. One server/matrix owner.
@@ -247,7 +247,7 @@ Your next move: execution is approved by the active goal. Pause and re-plan only
       Evidence: `test-results/booking-wizard-responsive-redesign/<head>/task-13/` with manifest and checksums.
       Commit: Y only for E2E/helper changes | `test(booking): prove responsive wizard matrix`
 
-- [ ] 14. Run final cleanup, diff allowlist, builds, guards, and repository verification
+- [x] 14. Run final cleanup, diff allowlist, builds, guards, and repository verification
       Task / method: Remove task-generated runtime output except the declared evidence root, regenerate the final manifest from HEAD, prove changed paths against the allowlist, and run all focused and broad gates serially. Do not fix unrelated baseline failures or broaden cleanup; attribute them and re-plan if they block truthful proof.
       Knowledge and why: root lint excludes Reserve, format:check excludes wizard files, and `pnpm verify` omits builds, Storybook, Playwright, Luma strict, and security regression.
       Owned / forbidden: test/evidence cleanup and narrowly scoped test/config fixes only. Product defects return to their owner. Preserve unrelated worktrees and Boulder record.

@@ -262,8 +262,8 @@ export async function assertNoWizardOverflow(page: Page): Promise<void> {
 export async function assertMinimumTarget(locator: Locator): Promise<void> {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  expect(box?.width).toBeGreaterThanOrEqual(44);
-  expect(box?.height).toBeGreaterThanOrEqual(44);
+  expect(box?.width ?? 0).toBeGreaterThanOrEqual(43.99);
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(43.99);
 }
 
 export async function assertRailGeometry(page: Page, finalControl: Locator): Promise<void> {

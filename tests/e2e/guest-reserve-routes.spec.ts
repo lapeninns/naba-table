@@ -396,11 +396,9 @@ test.describe('reserve routes', () => {
     await page.keyboard.press('Tab');
     await expect(whatsappPreference).toBeFocused();
     const checkboxBox = await whatsappPreference.boundingBox();
-    expect(checkboxBox?.width).toBeLessThanOrEqual(20);
-    expect(checkboxBox?.height).toBeLessThanOrEqual(20);
-    const preferenceLabelBox = await page.locator('label[for="whatsapp-opt-in"]').boundingBox();
-    expect(preferenceLabelBox?.height).toBeGreaterThanOrEqual(44);
-    await page.locator('label[for="whatsapp-opt-in"]').scrollIntoViewIfNeeded();
+    expect(checkboxBox?.width).toBeGreaterThanOrEqual(44);
+    expect(checkboxBox?.height).toBeGreaterThanOrEqual(44);
+    await whatsappPreference.scrollIntoViewIfNeeded();
     const stickyNavigation = page.locator('[data-booking-wizard-navigation]');
     await stickyNavigation.evaluate((element) => element.setAttribute('style', 'display: none'));
     await page.screenshot({
