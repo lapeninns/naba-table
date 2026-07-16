@@ -94,7 +94,7 @@ export function PartySizeField({ value, onChange, error }: PartySizeFieldProps) 
           >
             {value}
           </span>
-          <span className="text-xs font-medium leading-none text-muted-foreground sm:text-sm">
+          <span className="text-xs font-medium leading-none text-foreground/70 sm:text-sm">
             {partyLabel}
           </span>
         </div>
