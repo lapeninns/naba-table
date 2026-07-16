@@ -6,6 +6,7 @@ import {
   mapTwilioMessageStatusToDeliveryStatus,
   validateTwilioWebhookSignature,
 } from '@/lib/twilio/sms';
+import { processSmsStatusCallback } from '@/server/notifications/sms-status';
 import { findLatestSmsDeliveryByMessageSid, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 
 import type { NextRequest } from 'next/server';
@@ -65,10 +66,7 @@ function buildTwilioSignatureValidationUrls(req: NextRequest): string[] {
 
 function hasExpectedTwilioContentType(value: string | null): boolean {
   if (!value) return false;
-  return value
-    .split(';', 1)[0]
-    ?.trim()
-    .toLowerCase() === EXPECTED_TWILIO_CONTENT_TYPE;
+  return value.split(';', 1)[0]?.trim().toLowerCase() === EXPECTED_TWILIO_CONTENT_TYPE;
 }
 
 function parseContentLength(value: string | null): number | null {
@@ -150,6 +148,10 @@ export async function POST(req: NextRequest) {
   if (!mappedStatus) {
     return NextResponse.json({ ok: true, ignored: true }, { status: 200 });
   }
+  const attemptId = req.nextUrl.searchParams.get('attempt')?.trim() ?? '';
+  if (attemptId && !UUID_PATTERN.test(attemptId)) {
+    return NextResponse.json({ error: 'Invalid attempt correlation' }, { status: 400 });
+  }
 
   const linkage = await findLatestSmsDeliveryByMessageSid({
     messageSid,
@@ -175,6 +177,13 @@ export async function POST(req: NextRequest) {
         from: form.get('From')?.trim() || null,
         accountSid: form.get('AccountSid')?.trim() || null,
       },
+    });
+    await processSmsStatusCallback({
+      ...(attemptId ? { attemptId } : {}),
+      errorCode: form.get('ErrorCode')?.trim() || null,
+      messageSid,
+      providerStatus,
+      recipientPhone,
     });
   } catch (error) {
     captureServerException(error, {

@@ -78,6 +78,24 @@ function makeSmsTerminalQuery() {
   };
 }
 
+function makeMobileInflightQuery() {
+  return {
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        gte: vi.fn(() => ({
+          lte: vi.fn(() => ({
+            in: vi.fn(() => ({
+              order: vi.fn(() => ({
+                limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+              })),
+            })),
+          })),
+        })),
+      })),
+    })),
+  };
+}
+
 describe('reconcileDeliveryAnomalies SMS observability', () => {
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
@@ -92,6 +110,7 @@ describe('reconcileDeliveryAnomalies SMS observability', () => {
           smsDeliveryLogCalls += 1;
           return smsDeliveryLogCalls === 1 ? makeSmsInflightQuery() : makeSmsTerminalQuery();
         }
+        if (table === 'mobile_notification_attempts') return makeMobileInflightQuery();
         throw new Error(`Unexpected table ${table}`);
       }),
     });
@@ -101,6 +120,7 @@ describe('reconcileDeliveryAnomalies SMS observability', () => {
     const report = await reconcileDeliveryAnomalies();
 
     expect(report.stuckSmsAttempts).toBe(1);
+    expect(report.errors).toEqual([]);
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'delivery.reconciler',

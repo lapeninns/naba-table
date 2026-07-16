@@ -104,7 +104,7 @@ export type MobileNotificationDependencies = {
     to: string;
     variables: Readonly<Record<string, string>>;
   }) => Promise<ProviderSendResult>;
-  sendSms: () => Promise<ProviderSendResult | null>;
+  sendSms: (attemptId?: string) => Promise<ProviderSendResult | null>;
 };
 
 type WhatsAppAttemptFinalization = {
@@ -147,7 +147,38 @@ export async function finalizeMobileWhatsAppAttempt(
   if (error || !data) {
     throw new Error('Failed to finalize mobile WhatsApp attempt.');
   }
-  return data as MobileAttemptStatus;
+  return parsePersistedMobileAttemptStatus(data);
+}
+
+export async function finalizeMobileSmsAttempt(
+  input: WhatsAppAttemptFinalization,
+): Promise<MobileAttemptStatus> {
+  const client = getServiceSupabaseClient();
+  const { data, error } = await client.rpc('finalize_mobile_sms_attempt', {
+    p_attempt_id: input.attemptId,
+    p_error_code: input.errorCode,
+    p_provider_message_id: input.providerMessageId,
+    p_status: input.status,
+  });
+  if (error || !data) {
+    throw new Error('Failed to finalize mobile SMS attempt.');
+  }
+  return parsePersistedMobileAttemptStatus(data);
+}
+
+function parsePersistedMobileAttemptStatus(status: string): MobileAttemptStatus {
+  switch (status) {
+    case 'claimed':
+    case 'accepted':
+    case 'queued':
+    case 'sent':
+    case 'delivered':
+    case 'read':
+    case 'undelivered':
+    case 'failed':
+      return status;
+  }
+  throw new Error('Mobile attempt status is unsupported.');
 }
 
 export function mapProviderMobileStatus(status: string | null | undefined): MobileAttemptStatus {
@@ -175,7 +206,7 @@ async function sendClaimedSmsAttempt(
   dependencies: Pick<MobileNotificationDependencies, 'sendSms' | 'updateAttempt'>,
 ): Promise<void> {
   try {
-    const result = await dependencies.sendSms();
+    const result = await dependencies.sendSms(attemptId);
     if (!result || (!result.messageSid && !result.status)) {
       await dependencies.updateAttempt({ attemptId, status: 'failed' });
       return;
@@ -366,7 +397,7 @@ export async function dispatchMobileNotificationWithDependencies(
 export async function dispatchMobileNotification(
   input: MobileNotificationInput,
   options: {
-    sendSms: () => Promise<ProviderSendResult | null>;
+    sendSms: (attemptId?: string) => Promise<ProviderSendResult | null>;
     fetchImpl?: typeof fetch;
   },
 ): Promise<MobileDispatchResult> {
@@ -415,18 +446,12 @@ export async function dispatchMobileNotification(
       return data.id;
     },
     updateAttempt: async ({ attemptId, errorCode, providerMessageId, status }) => {
-      const { error } = await client
-        .from('mobile_notification_attempts')
-        .update({
-          error_code: errorCode,
-          provider_message_id: providerMessageId,
-          status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', attemptId);
-      if (error) {
-        throw new Error('Failed to update mobile notification attempt.');
-      }
+      await finalizeMobileSmsAttempt({
+        attemptId,
+        errorCode: errorCode ?? null,
+        providerMessageId: providerMessageId ?? null,
+        status,
+      });
     },
     finalizeWhatsAppAttempt: finalizeMobileWhatsAppAttempt,
     claimFallback: async ({

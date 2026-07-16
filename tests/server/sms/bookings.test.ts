@@ -53,13 +53,14 @@ describe('booking SMS builders', () => {
   it('builds a signed-context status callback url for Twilio delivery events', () => {
     const url = buildSmsStatusCallbackUrl({
       appUrl: 'https://app.nabatable.com',
+      attemptId: '33333333-3333-4333-8333-333333333333',
       bookingId: '11111111-1111-4111-8111-111111111111',
       restaurantId: '22222222-2222-4222-8222-222222222222',
       smsType: 'booking_confirmation',
     });
 
     expect(url).toBe(
-      'https://app.nabatable.com/api/webhook/twilio/sms-status?bookingId=11111111-1111-4111-8111-111111111111&restaurantId=22222222-2222-4222-8222-222222222222&smsType=booking_confirmation',
+      'https://app.nabatable.com/api/webhook/twilio/sms-status?bookingId=11111111-1111-4111-8111-111111111111&restaurantId=22222222-2222-4222-8222-222222222222&smsType=booking_confirmation&attempt=33333333-3333-4333-8333-333333333333',
     );
   });
 

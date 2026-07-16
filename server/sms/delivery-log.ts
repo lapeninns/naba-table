@@ -1,5 +1,10 @@
 import { normalizePhone } from '@/server/customers';
 import { recordObservabilityEvent } from '@/server/observability';
+import {
+  aggregateSmsDeliveryAttempts,
+  type MobileDeliveryAttemptCandidate,
+  type SmsDeliveryAttemptAggregate,
+} from '@/server/sms/delivery-attempt-domain';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import {
   SMS_DELIVERY_IN_FLIGHT_STATUSES,
@@ -182,6 +187,29 @@ function buildMobileAttemptEvents(row: MobileAttemptReadRow): SmsDeliveryEventDT
     occurredAt: row.occurred_at,
   };
   return [claimed, current];
+}
+
+function toMobileAttemptCandidate(row: MobileAttemptReadRow): MobileDeliveryAttemptCandidate {
+  const currentStatus = normalizeMobileStatus(row.status);
+  return {
+    attemptId: row.id,
+    providerMessageId: row.provider_message_id,
+    aggregate: {
+      bookingId: row.mobile_notifications.booking_id,
+      channel: row.channel,
+      currentEventId: row.id,
+      currentOccurredAt: row.updated_at,
+      currentProviderStatus: row.status,
+      currentStatus,
+      events: buildMobileAttemptEvents(row),
+      fallbackForAttemptId: row.fallback_for_attempt_id,
+      logicalNotificationId: row.mobile_notifications.id,
+      messageSid: row.provider_message_id ?? `attempt:${row.id}`,
+      provider: row.provider,
+      recipientPhone: row.recipient_phone,
+      smsType: row.mobile_notifications.notification_type,
+    },
+  };
 }
 
 async function findExistingSmsDeliveryLogEvent(params: {
@@ -390,7 +418,7 @@ export async function listSmsDeliveryEventsForBooking(params: {
     throw new Error(`Failed to load SMS delivery events (${error.code ?? 'unknown'}).`);
   }
 
-  const events: SmsDeliveryEventDTO[] = (data ?? []).map((row) =>
+  const smsLogEvents: SmsDeliveryEventDTO[] = (data ?? []).map((row) =>
     toEntryDto(row as SmsDeliveryLogRow),
   );
 
@@ -401,11 +429,14 @@ export async function listSmsDeliveryEventsForBooking(params: {
     .order('updated_at', { ascending: false })
     .limit(limit);
 
-  if (!mobileError) {
-    for (const row of (mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []) {
-      events.push(...buildMobileAttemptEvents(row));
-    }
-  }
+  const mobileAttempts = mobileError
+    ? []
+    : ((mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []).map(
+        toMobileAttemptCandidate,
+      );
+  const events = aggregateSmsDeliveryAttempts({ mobileAttempts, smsLogEvents }).flatMap(
+    (attempt) => attempt.events,
+  );
 
   events.sort((a, b) => parseIsoMs(b.occurredAt) - parseIsoMs(a.occurredAt));
   return events.slice(0, limit);
@@ -428,22 +459,6 @@ type ListSmsDeliveryAttemptsForRestaurantParams = {
   pageSize?: number;
   statuses?: ReadonlyArray<SmsDeliveryStatus>;
   channel?: SmsDeliveryChannelFilter;
-};
-
-type SmsAttemptAggregate = {
-  messageSid: string;
-  recipientPhone: string;
-  bookingId: string | null;
-  smsType: string | null;
-  provider: SmsDeliveryProvider | null;
-  currentStatus: SmsDeliveryStatus;
-  currentProviderStatus: string | null;
-  currentOccurredAt: string | null;
-  currentEventId: string;
-  events: SmsDeliveryEventDTO[];
-  channel: 'whatsapp' | 'sms';
-  logicalNotificationId?: string | null;
-  fallbackForAttemptId?: string | null;
 };
 
 function resolveChannelFilter(
@@ -477,13 +492,6 @@ function parseIsoMs(value: string | null | undefined): number {
   if (!value) return 0;
   const ms = new Date(value).getTime();
   return Number.isFinite(ms) ? ms : 0;
-}
-
-function isNewerEvent(candidate: SmsDeliveryEventDTO, current: SmsAttemptAggregate): boolean {
-  const candidateMs = parseIsoMs(candidate.occurredAt);
-  const currentMs = parseIsoMs(current.currentOccurredAt);
-  if (candidateMs !== currentMs) return candidateMs > currentMs;
-  return candidate.id > current.currentEventId;
 }
 
 function toBookingDto(row: BookingSnapshotRow): NonNullable<OpsSmsDeliveryAttemptDTO['booking']> {
@@ -542,7 +550,7 @@ function decorateSmsAttemptWithStaleness(
 async function fetchSmsAttemptAggregates(params: {
   restaurantId: string;
   sinceIso: string;
-}): Promise<SmsAttemptAggregate[]> {
+}): Promise<SmsDeliveryAttemptAggregate[]> {
   const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase
     .from('sms_delivery_log')
@@ -560,38 +568,7 @@ async function fetchSmsAttemptAggregates(params: {
     throw new Error(`Failed to load SMS delivery attempts (${error.code ?? 'unknown'}).`);
   }
 
-  const buckets = new Map<string, SmsAttemptAggregate>();
-  for (const row of (data as SmsDeliveryLogRow[] | null | undefined) ?? []) {
-    const event = toEntryDto(row);
-    const key = `${event.messageSid}__${event.recipientPhone}`;
-    const current = buckets.get(key);
-    if (!current) {
-      buckets.set(key, {
-        messageSid: event.messageSid,
-        recipientPhone: event.recipientPhone,
-        bookingId: event.bookingId,
-        smsType: event.smsType,
-        provider: event.provider,
-        currentStatus: event.status,
-        currentProviderStatus: event.providerStatus ?? event.status,
-        currentOccurredAt: event.occurredAt,
-        currentEventId: event.id,
-        events: [event],
-        channel: 'sms',
-      });
-      continue;
-    }
-    current.events.push(event);
-    if (isNewerEvent(event, current)) {
-      current.bookingId = event.bookingId ?? current.bookingId;
-      current.smsType = event.smsType ?? current.smsType;
-      current.provider = event.provider ?? current.provider;
-      current.currentStatus = event.status;
-      current.currentProviderStatus = event.providerStatus ?? event.status;
-      current.currentOccurredAt = event.occurredAt;
-      current.currentEventId = event.id;
-    }
-  }
+  const smsLogEvents = ((data as SmsDeliveryLogRow[] | null | undefined) ?? []).map(toEntryDto);
 
   const { data: mobileRows, error: mobileError } = await supabase
     .from('mobile_notification_attempts')
@@ -599,29 +576,13 @@ async function fetchSmsAttemptAggregates(params: {
     .eq('mobile_notifications.restaurant_id', params.restaurantId)
     .gte('updated_at', params.sinceIso)
     .limit(10_000);
-  if (!mobileError) {
-    for (const row of (mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []) {
-      const currentStatus = normalizeMobileStatus(row.status);
-      const messageSid = row.provider_message_id ?? `attempt:${row.id}`;
-      buckets.set(`mobile:${row.id}`, {
-        bookingId: row.mobile_notifications.booking_id,
-        channel: row.channel,
-        currentEventId: row.id,
-        currentOccurredAt: row.updated_at,
-        currentProviderStatus: row.status,
-        currentStatus,
-        events: buildMobileAttemptEvents(row),
-        fallbackForAttemptId: row.fallback_for_attempt_id,
-        logicalNotificationId: row.mobile_notifications.id,
-        messageSid,
-        provider: row.provider,
-        recipientPhone: row.recipient_phone,
-        smsType: row.mobile_notifications.notification_type,
-      });
-    }
-  }
+  const mobileAttempts = mobileError
+    ? []
+    : ((mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []).map(
+        toMobileAttemptCandidate,
+      );
 
-  return Array.from(buckets.values());
+  return aggregateSmsDeliveryAttempts({ mobileAttempts, smsLogEvents });
 }
 
 export async function listSmsDeliveryAttemptsForRestaurant(
@@ -753,6 +714,8 @@ export async function getSmsDeliveryAttemptsSummary(params: {
     return isStale ? count + 1 : count;
   }, 0);
 
+  const terminalAttempts = delivered + undelivered + failed;
+
   return {
     total,
     queued,
@@ -760,8 +723,8 @@ export async function getSmsDeliveryAttemptsSummary(params: {
     delivered,
     undelivered,
     failed,
-    deliveredRate: total > 0 ? delivered / total : 0,
-    failureRate: total > 0 ? (undelivered + failed) / total : 0,
+    deliveredRate: terminalAttempts > 0 ? delivered / terminalAttempts : 0,
+    failureRate: terminalAttempts > 0 ? (undelivered + failed) / terminalAttempts : 0,
     uniqueRecipients,
     uniqueBookings,
     stuckInFlight,

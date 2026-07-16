@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const findLatestSmsDeliveryByMessageSidMock = vi.hoisted(() => vi.fn());
+const processSmsStatusCallbackMock = vi.hoisted(() => vi.fn());
 const recordSmsDeliveryLogMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
@@ -19,6 +20,10 @@ vi.mock('@/lib/env', () => ({
 vi.mock('@/server/sms/delivery-log', () => ({
   findLatestSmsDeliveryByMessageSid: findLatestSmsDeliveryByMessageSidMock,
   recordSmsDeliveryLog: recordSmsDeliveryLogMock,
+}));
+
+vi.mock('@/server/notifications/sms-status', () => ({
+  processSmsStatusCallback: processSmsStatusCallbackMock,
 }));
 
 import { POST } from '@/src/app/api/webhook/twilio/sms-status/route';
@@ -86,6 +91,7 @@ function buildUnreadableBodyRequest(headers: HeadersInit) {
 describe('POST /api/webhook/twilio/sms-status', () => {
   beforeEach(() => {
     findLatestSmsDeliveryByMessageSidMock.mockReset();
+    processSmsStatusCallbackMock.mockReset();
     recordSmsDeliveryLogMock.mockReset();
     findLatestSmsDeliveryByMessageSidMock.mockResolvedValue({
       bookingId: 'booking-1',
@@ -93,6 +99,7 @@ describe('POST /api/webhook/twilio/sms-status', () => {
       smsType: 'booking_confirmation',
     });
     recordSmsDeliveryLogMock.mockResolvedValue({ id: 'log-1' });
+    processSmsStatusCallbackMock.mockResolvedValue({ ignored: false, status: 'delivered' });
   });
 
   it('accepts a valid signature based on the forwarded public host', async () => {
@@ -121,6 +128,12 @@ describe('POST /api/webhook/twilio/sms-status', () => {
         provider: 'twilio',
       }),
     );
+    expect(processSmsStatusCallbackMock).toHaveBeenCalledWith({
+      errorCode: null,
+      messageSid: 'SM123',
+      providerStatus: 'delivered',
+      recipientPhone: '+447700900123',
+    });
   });
 
   it('falls back to the configured app url when the request url is internal', async () => {
@@ -197,6 +210,20 @@ describe('POST /api/webhook/twilio/sms-status', () => {
         smsType: null,
       }),
     );
+  });
+
+  it('rejects invalid signed attempt correlation before writing either ledger', async () => {
+    const query = '?attempt=not-a-uuid';
+    const response = await POST(
+      buildSignedRequest({
+        requestUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+        signedUrl: `https://app.nabatable.com/api/webhook/twilio/sms-status${query}`,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+    expect(processSmsStatusCallbackMock).not.toHaveBeenCalled();
   });
 
   it('rejects invalid signatures', async () => {

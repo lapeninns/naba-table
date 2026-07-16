@@ -9,6 +9,7 @@ import { buildBookingWhatsAppActionContent } from '@/server/notifications/bookin
 import {
   completeClaimedSmsAttempt,
   dispatchMobileNotification,
+  finalizeMobileSmsAttempt,
 } from '@/server/notifications/mobile';
 import { recordObservabilityEvent } from '@/server/observability';
 import { recordSmsDeliveryLog } from '@/server/sms/delivery-log';
@@ -136,6 +137,7 @@ export function hasGuestConfirmationSmsConfig(): boolean {
 
 export function buildSmsStatusCallbackUrl(params: {
   appUrl: string;
+  attemptId?: string;
   bookingId: string;
   restaurantId: string;
   smsType: SmsDeliveryType;
@@ -144,6 +146,9 @@ export function buildSmsStatusCallbackUrl(params: {
   url.searchParams.set('bookingId', params.bookingId);
   url.searchParams.set('restaurantId', params.restaurantId);
   url.searchParams.set('smsType', params.smsType);
+  if (params.attemptId) {
+    url.searchParams.set('attempt', params.attemptId);
+  }
   return url.toString();
 }
 
@@ -201,6 +206,7 @@ export function buildGuestBookingCancellationSms(params: {
 }
 
 async function sendGuestBookingSmsOnly(params: {
+  attemptId?: string;
   booking: BookingRecord;
   body: string;
   source: string;
@@ -220,6 +226,7 @@ async function sendGuestBookingSmsOnly(params: {
     env.twilio.authToken && env.app.url
       ? buildSmsStatusCallbackUrl({
           appUrl: env.app.url,
+          attemptId: params.attemptId,
           bookingId: params.booking.id,
           restaurantId: params.booking.restaurant_id,
           smsType: params.smsType,
@@ -344,8 +351,8 @@ async function sendGuestBookingMobileMessage(params: {
     },
     {
       fetchImpl: params.fetchImpl,
-      sendSms: async () => {
-        smsResult = await sendGuestBookingSmsOnly(params);
+      sendSms: async (attemptId) => {
+        smsResult = await sendGuestBookingSmsOnly({ ...params, attemptId });
         return smsResult;
       },
     },
@@ -522,8 +529,9 @@ export async function sendClaimedBookingSmsFallback({
   }
 
   await completeClaimedSmsAttempt(attemptId, {
-    sendSms: () =>
+    sendSms: (claimedAttemptId) =>
       sendGuestBookingSmsOnly({
+        attemptId: claimedAttemptId,
         booking,
         body,
         fetchImpl,
@@ -536,18 +544,12 @@ export async function sendClaimedBookingSmsFallback({
       providerMessageId,
       status,
     }) => {
-      const { error } = await client
-        .from('mobile_notification_attempts')
-        .update({
-          error_code: errorCode,
-          provider_message_id: providerMessageId,
-          status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', claimedAttemptId);
-      if (error) {
-        throw new Error('Failed to update claimed SMS fallback attempt.');
-      }
+      await finalizeMobileSmsAttempt({
+        attemptId: claimedAttemptId,
+        errorCode: errorCode ?? null,
+        providerMessageId: providerMessageId ?? null,
+        status,
+      });
     },
   });
   return true;

@@ -5858,6 +5858,15 @@ export type Database = {
         };
         Returns: string | null;
       };
+      finalize_mobile_sms_attempt: {
+        Args: {
+          p_attempt_id: string;
+          p_error_code: string | null;
+          p_provider_message_id: string | null;
+          p_status: string;
+        };
+        Returns: string | null;
+      };
       finalize_mobile_whatsapp_attempt: {
         Args: {
           p_attempt_id: string;

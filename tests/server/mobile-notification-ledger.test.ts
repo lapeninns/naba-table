@@ -14,6 +14,14 @@ const reviewProofPath = join(
   process.cwd(),
   'supabase/tests/whatsapp_review_notification_ledger.sql',
 );
+const smsFinalizationMigrationPath = join(
+  process.cwd(),
+  'supabase/migrations/20260716210000_finalize_mobile_sms_attempt.sql',
+);
+const smsFinalizationProofPath = join(
+  process.cwd(),
+  'supabase/tests/mobile_sms_attempt_finalization.sql',
+);
 
 function readMigration(): string {
   return readFileSync(migrationPath, 'utf8');
@@ -27,7 +35,29 @@ function readReviewProof(): string {
   return readFileSync(reviewProofPath, 'utf8');
 }
 
+function readSmsFinalizationMigration(): string {
+  return readFileSync(smsFinalizationMigrationPath, 'utf8');
+}
+
+function readSmsFinalizationProof(): string {
+  return readFileSync(smsFinalizationProofPath, 'utf8');
+}
+
 describe('WhatsApp-first mobile notification ledger migration', () => {
+  it('finalizes mobile SMS attempts monotonically with service-only execution @contract @security @local-only', () => {
+    const source = readSmsFinalizationMigration();
+    const proof = readSmsFinalizationProof();
+
+    expect(source).toContain('CREATE OR REPLACE FUNCTION public.finalize_mobile_sms_attempt');
+    expect(source).toContain("attempt.channel = 'sms'");
+    expect(source).toContain("attempt.provider = 'twilio'");
+    expect(source).toContain('COALESCE(attempt.provider_message_id, p_provider_message_id)');
+    expect(source).toContain('TO service_role');
+    expect(source).toContain('FROM authenticated');
+    expect(proof).toContain('Delayed SMS finalization regressed terminal callback truth');
+    expect(proof).toContain('SMS attempt accepted a conflicting provider SID');
+  });
+
   it('stores versioned booking and manager consent against the approved phone snapshot @contract @local-only', () => {
     const source = readMigration();
 
