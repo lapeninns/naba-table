@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
+import { hideLocalDevIndicators, waitForSettledLocator } from './helpers/booking-wizard-assertions';
 import {
   bookingFixture,
   installBookingWizardMocks,
@@ -53,7 +54,7 @@ test('keyboard focus keeps Notes trigger and textarea above the rail', async ({ 
     await page.keyboard.press('Tab');
     const geometry = await readFocusGeometry(page);
     if (geometry.activeText.includes('Add dietary, access, or occasion notes')) {
-      await page.waitForTimeout(500);
+      await waitForSettledLocator(page.locator(':focus'));
       triggerGeometry = await readFocusGeometry(page);
       break;
     }
@@ -66,11 +67,13 @@ test('keyboard focus keeps Notes trigger and textarea above the rail', async ({ 
     await page.keyboard.press('Tab');
     if ((await readFocusGeometry(page)).activeName === 'reservation-notes') break;
   }
-  await page.waitForTimeout(500);
+  await waitForSettledLocator(page.locator(':focus'));
   const textareaGeometry = await readFocusGeometry(page);
   console.log(
     `[keyboard-focus] ${JSON.stringify({ trigger: triggerGeometry, textarea: textareaGeometry })}`,
   );
+  await hideLocalDevIndicators(page);
+  await waitForSettledLocator(page.locator(':focus'));
   await page.screenshot({
     path: path.join(evidenceDir, 'chromium-plan-notes-keyboard-focus-375x812.png'),
   });
@@ -131,6 +134,8 @@ test('Escape, reduced motion, and 320px safe-area actions remain usable', async 
   expect(geometry.actionLeft).toBeGreaterThanOrEqual(0);
   expect(geometry.actionRight).toBeLessThanOrEqual(geometry.viewportWidth);
   expect(geometry.actionBottom).toBeLessThanOrEqual(568);
+  await hideLocalDevIndicators(page);
+  await waitForSettledLocator(page.getByRole('heading', { name: 'Plan your table' }));
   await page.screenshot({
     path: path.join(evidenceDir, 'chromium-plan-reduced-motion-safe-area-320x568.png'),
   });

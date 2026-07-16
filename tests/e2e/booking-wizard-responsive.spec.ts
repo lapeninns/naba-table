@@ -8,6 +8,8 @@ import {
   assertNoWizardOverflow,
   assertRailGeometry,
   clickClientControl,
+  hideLocalDevIndicators,
+  waitForSettledLocator,
 } from './helpers/booking-wizard-assertions';
 import {
   bookingFixture,
@@ -26,7 +28,14 @@ const viewports = [
   { name: '1440x900', width: 1440, height: 900 },
 ] as const;
 
-async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+async function capture(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+  anchor: ReturnType<Page['locator']>,
+): Promise<void> {
+  await hideLocalDevIndicators(page);
+  await waitForSettledLocator(anchor);
   await page.screenshot({
     path: path.join(evidenceDir, `${testInfo.project.name || 'chromium'}-${name}.png`),
     fullPage: false,
@@ -64,7 +73,12 @@ test.describe('booking wizard responsive evidence matrix', () => {
       await assertMinimumTarget(increaseGuests);
       await assertStep(page, notes);
       await assertNoSeriousAxeViolations(page);
-      await capture(page, testInfo, `guest-plan-${viewport.name}`);
+      await capture(
+        page,
+        testInfo,
+        `guest-plan-${viewport.name}`,
+        page.getByRole('heading', { name: 'Plan your table' }),
+      );
       console.log(`[matrix] ${viewport.name} plan`);
 
       await expect(page.getByRole('combobox', { name: 'Time' })).toContainText(
@@ -74,7 +88,12 @@ test.describe('booking wizard responsive evidence matrix', () => {
       await expect(page.getByRole('heading', { name: 'Tell us how to reach you' })).toBeVisible();
       const terms = page.getByRole('checkbox', { name: /I agree to the terms/i });
       await assertStep(page, terms);
-      await capture(page, testInfo, `guest-details-${viewport.name}`);
+      await capture(
+        page,
+        testInfo,
+        `guest-details-${viewport.name}`,
+        page.getByRole('heading', { name: 'Tell us how to reach you' }),
+      );
       console.log(`[matrix] ${viewport.name} details`);
 
       await completeDetails(page);
@@ -85,7 +104,12 @@ test.describe('booking wizard responsive evidence matrix', () => {
       await assertMinimumTarget(editPlan);
       await assertMinimumTarget(editGuest);
       await assertStep(page, editGuest);
-      await capture(page, testInfo, `guest-review-${viewport.name}`);
+      await capture(
+        page,
+        testInfo,
+        `guest-review-${viewport.name}`,
+        page.getByRole('heading', { name: 'Review the booking' }),
+      );
       console.log(`[matrix] ${viewport.name} review`);
 
       await clickClientControl(page.getByTestId('wizard-action-review-confirm'));
@@ -96,7 +120,7 @@ test.describe('booking wizard responsive evidence matrix', () => {
           .getByText(bookingFixture.bookingReference),
       ).toBeVisible();
       await assertStep(page, page.getByRole('button', { name: 'More actions' }));
-      await page.waitForTimeout(500);
+      await waitForSettledLocator(page.getByRole('heading', { name: 'Booking confirmed' }));
       let moreActionsFocused = false;
       for (let index = 0; index < 40; index += 1) {
         await page.keyboard.press('Tab');
@@ -106,7 +130,7 @@ test.describe('booking wizard responsive evidence matrix', () => {
         if (moreActionsFocused) break;
       }
       expect(moreActionsFocused).toBe(true);
-      await page.waitForTimeout(500);
+      await waitForSettledLocator(page.locator(':focus'));
       const confirmationFocusGap = await page.evaluate(() => {
         const active = document.activeElement;
         const rail = document.querySelector('[data-booking-wizard-navigation]');
@@ -116,7 +140,12 @@ test.describe('booking wizard responsive evidence matrix', () => {
       expect(confirmationFocusGap).not.toBeNull();
       expect(confirmationFocusGap ?? -1).toBeGreaterThanOrEqual(0);
       await assertNoSeriousAxeViolations(page);
-      await capture(page, testInfo, `guest-confirmation-${viewport.name}`);
+      await capture(
+        page,
+        testInfo,
+        `guest-confirmation-${viewport.name}`,
+        page.getByRole('heading', { name: 'Booking confirmed' }),
+      );
       console.log(`[matrix] ${viewport.name} confirmation`);
       await expect(page.getByRole('button', { name: 'Plan (1 of 4)' })).toHaveCount(0);
 
@@ -124,7 +153,12 @@ test.describe('booking wizard responsive evidence matrix', () => {
       await expect(page.getByRole('heading', { name: 'Your table request is in.' })).toBeVisible();
       await assertNoWizardOverflow(page);
       await assertNoSeriousAxeViolations(page);
-      await capture(page, testInfo, `guest-thank-you-${viewport.name}`);
+      await capture(
+        page,
+        testInfo,
+        `guest-thank-you-${viewport.name}`,
+        page.getByRole('heading', { name: 'Your table request is in.' }),
+      );
       console.log(`[matrix] ${viewport.name} thank-you`);
     });
   }
