@@ -34,4 +34,11 @@ describe('ops walk-in booking schema', () => {
       marketingOptIn: false,
     });
   });
+
+  it('defaults marketing and WhatsApp opt-in to true when omitted', () => {
+    expect(opsWalkInBookingSchema.parse(validWalkInPayload)).toMatchObject({
+      marketingOptIn: true,
+      whatsappOptIn: true,
+    });
+  });
 });

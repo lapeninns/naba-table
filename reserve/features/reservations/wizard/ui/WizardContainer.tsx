@@ -94,6 +94,7 @@ export function WizardContainer({
             actions={actions}
             visible={stickyVisible}
             onHeightChange={onStickyHeightChange}
+            surface={layoutSurface}
             className={navigationClassName}
           />
         }

@@ -64,7 +64,6 @@ export function DetailsStep({ mode = 'customer', ...props }: DetailsStepProps) {
                 handlers={handlers}
                 contactLocks={props.contactLocks}
                 isOpsMode={isOpsMode}
-                restaurantName={restaurantName}
               />
             </WizardPanel>
 

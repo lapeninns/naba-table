@@ -9,6 +9,7 @@ import { cn } from '@shared/lib/cn';
 import { wizardIconMap } from './wizardIcons';
 import { groupActions } from '../utils/groupActions';
 
+import type { WizardLayoutSurface } from './WizardLayout';
 import type { WizardStepMeta, WizardSummary } from './WizardProgress';
 import type { StepAction } from '../model/reducer';
 import type { ActionRole } from '../utils/groupActions';
@@ -20,6 +21,8 @@ export interface WizardNavigationProps {
   actions: StepAction[];
   visible?: boolean;
   onHeightChange?: (height: number) => void;
+  /** When `ops`, pin and center within the OpsPageShell column instead of the full viewport. */
+  surface?: WizardLayoutSurface;
   className?: string;
 }
 
@@ -96,11 +99,13 @@ export function WizardNavigation({
   actions,
   visible = true,
   onHeightChange,
+  surface = 'guest',
   className,
 }: WizardNavigationProps) {
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = React.useState(false);
   useHeightObserver(railRef, visible, onHeightChange);
+  const isOpsSurface = surface === 'ops';
 
   const total = steps.length || 1;
   const current = Math.min(Math.max(currentStep, 1), total);
@@ -125,120 +130,132 @@ export function WizardNavigation({
   return (
     <div
       data-booking-wizard-navigation
+      data-wizard-navigation-surface={surface}
       className={cn(
-        'pointer-events-none fixed inset-x-0 bottom-0 z-50',
-        'pb-[env(safe-area-inset-bottom,0px)] sm:px-[var(--pg-gutter)] sm:pb-4',
+        'pointer-events-none fixed bottom-0 z-50',
+        isOpsSurface
+          ? [
+              // Align to SidebarInset (not the full viewport, which includes the sidebar).
+              'inset-x-0 md:left-[var(--sidebar-width)]',
+              'group-has-data-[collapsible=icon]/sidebar-wrapper:md:left-[var(--sidebar-width-icon)]',
+              'pb-[env(safe-area-inset-bottom,0px)] sm:pb-4',
+            ]
+          : ['inset-x-0', 'pb-[env(safe-area-inset-bottom,0px)] sm:px-[var(--pg-gutter)] sm:pb-4'],
         className,
       )}
     >
-      <nav
-        aria-label="Booking wizard navigation"
-        className={cn(
-          'pg-panel pointer-events-auto mx-auto w-full text-[color:var(--pg-text)] backdrop-blur-xl',
-          'rounded-t-[var(--pg-radius-xl)] sm:max-w-3xl sm:rounded-[var(--pg-radius-xl)]',
-          isOpen && 'shadow-[var(--pg-shadow-lg)]',
-        )}
-      >
-        {canExpand ? (
-          <div
-            id={PANEL_ID}
-            role="region"
-            aria-label="Booking summary"
-            inert={!isOpen}
-            className={cn(
-              'px-4 sm:px-5',
-              isOpen
-                ? 'max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain'
-                : 'max-h-0 overflow-hidden',
-            )}
-          >
-            <div className="flex flex-col gap-3 pb-3 pt-3">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-                {facts.map((fact) => (
-                  <div key={fact.label} className="flex flex-col gap-0.5">
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--pg-text-muted)]">
-                      {fact.label}
-                    </dt>
-                    <dd className="text-sm font-semibold text-[color:var(--pg-text)]">
-                      {fact.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-
-              {support.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">
-                  {support.map((action) => (
-                    <ActionButton key={action.id} action={action} role="support" />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        <div
-          ref={railRef}
-          data-wizard-navigation-rail
-          className="flex flex-col gap-2.5 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+      <div className={cn(isOpsSurface && 'mx-auto w-full max-w-[1200px] px-[var(--pg-gutter)]')}>
+        <nav
+          aria-label="Booking wizard navigation"
+          className={cn(
+            'pg-panel pointer-events-auto mx-auto w-full text-[color:var(--pg-text)] backdrop-blur-xl',
+            'rounded-t-[var(--pg-radius-xl)] sm:max-w-3xl sm:rounded-[var(--pg-radius-xl)]',
+            isOpen && 'shadow-[var(--pg-shadow-lg)]',
+          )}
         >
           {canExpand ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen((value) => !value)}
-              aria-expanded={isOpen}
-              aria-controls={PANEL_ID}
-              aria-label={isOpen ? 'Hide booking summary' : 'Show booking summary'}
-              className="pg-focus-ring -mx-1 min-h-11 w-full justify-start gap-3 rounded-[var(--pg-radius-md)] px-1 py-1 font-normal sm:flex-1"
+            <div
+              id={PANEL_ID}
+              role="region"
+              aria-label="Booking summary"
+              inert={!isOpen}
+              className={cn(
+                'px-4 sm:px-5',
+                isOpen
+                  ? 'max-h-[min(60dvh,24rem)] overflow-y-auto overscroll-contain'
+                  : 'max-h-0 overflow-hidden',
+              )}
             >
-              <span className="flex min-w-0 flex-1 flex-col text-left">
+              <div className="flex flex-col gap-3 pb-3 pt-3">
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+                  {facts.map((fact) => (
+                    <div key={fact.label} className="flex flex-col gap-0.5">
+                      <dt className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--pg-text-muted)]">
+                        {fact.label}
+                      </dt>
+                      <dd className="text-sm font-semibold text-[color:var(--pg-text)]">
+                        {fact.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+
+                {support.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 border-t border-[color:var(--pg-border)] pt-3">
+                    {support.map((action) => (
+                      <ActionButton key={action.id} action={action} role="support" />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            ref={railRef}
+            data-wizard-navigation-rail
+            className="flex flex-col gap-2.5 px-4 pb-3 pt-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+          >
+            {canExpand ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={isOpen}
+                aria-controls={PANEL_ID}
+                aria-label={isOpen ? 'Hide booking summary' : 'Show booking summary'}
+                className="pg-focus-ring -mx-1 min-h-11 w-full justify-start gap-3 rounded-[var(--pg-radius-md)] px-1 py-1 font-normal sm:flex-1"
+              >
+                <span className="flex min-w-0 flex-1 flex-col text-left">
+                  <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
+                    {summary.primary}
+                  </span>
+                  {line ? (
+                    <span className="truncate text-xs text-[color:var(--pg-text-muted)]">
+                      {line}
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronUp
+                  className={cn(
+                    'size-4 shrink-0 text-[color:var(--pg-text-muted)] transition-transform',
+                    isOpen && 'rotate-180',
+                  )}
+                  aria-hidden="true"
+                />
+              </Button>
+            ) : (
+              <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">
                 <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
                   {summary.primary}
                 </span>
                 {line ? (
                   <span className="truncate text-xs text-[color:var(--pg-text-muted)]">{line}</span>
                 ) : null}
-              </span>
-              <ChevronUp
-                className={cn(
-                  'size-4 shrink-0 text-[color:var(--pg-text-muted)] transition-transform',
-                  isOpen && 'rotate-180',
-                )}
-                aria-hidden="true"
-              />
-            </Button>
-          ) : (
-            <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">
-              <span className="truncate text-sm font-semibold text-[color:var(--pg-text)]">
-                {summary.primary}
-              </span>
-              {line ? (
-                <span className="truncate text-xs text-[color:var(--pg-text-muted)]">{line}</span>
-              ) : null}
-            </div>
-          )}
+              </div>
+            )}
 
-          {primary.length > 0 || secondary.length > 0 ? (
-            <div
-              className="flex flex-wrap items-stretch justify-end gap-2 sm:w-auto sm:flex-nowrap sm:shrink-0"
-              role="group"
-              aria-label="Step actions"
-            >
-              {secondary.map((action) => (
-                <ActionButton key={action.id} action={action} role="secondary" />
-              ))}
-              {primary.map((action) => (
-                <ActionButton key={action.id} action={action} role="primary" />
-              ))}
-            </div>
-          ) : null}
-        </div>
+            {primary.length > 0 || secondary.length > 0 ? (
+              <div
+                className="flex flex-wrap items-stretch justify-end gap-2 sm:w-auto sm:flex-nowrap sm:shrink-0"
+                role="group"
+                aria-label="Step actions"
+              >
+                {secondary.map((action) => (
+                  <ActionButton key={action.id} action={action} role="secondary" />
+                ))}
+                {primary.map((action) => (
+                  <ActionButton key={action.id} action={action} role="primary" />
+                ))}
+              </div>
+            ) : null}
+          </div>
 
-        <div className="sr-only" aria-live="polite">
-          {`Step ${current} of ${total}. ${summary.srLabel ?? summary.primary}`}
-        </div>
-      </nav>
+          <div className="sr-only" aria-live="polite">
+            {`Step ${current} of ${total}. ${summary.srLabel ?? summary.primary}`}
+          </div>
+        </nav>
+      </div>
     </div>
   );
 }

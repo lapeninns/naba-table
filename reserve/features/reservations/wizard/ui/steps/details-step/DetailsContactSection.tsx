@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 
-import { WhatsAppPreferenceField } from './WhatsAppPreferenceField';
 import { WizardPanelContent, WizardPanelHeader } from '../../WizardPanel';
 
 import type { DetailsContactLocks, DetailsStepController } from './types';
@@ -23,7 +22,6 @@ type DetailsContactSectionProps = {
   handlers: DetailsStepController['handlers'];
   contactLocks?: DetailsContactLocks;
   isOpsMode: boolean;
-  restaurantName: string;
 };
 
 export function DetailsContactSection({
@@ -31,7 +29,6 @@ export function DetailsContactSection({
   handlers,
   contactLocks = {},
   isOpsMode,
-  restaurantName,
 }: DetailsContactSectionProps) {
   const { errors } = form.formState;
   const isNameLocked = Boolean(contactLocks.name);
@@ -165,16 +162,6 @@ export function DetailsContactSection({
             )}
           />
         </div>
-
-        {isOpsMode ? (
-          <WhatsAppPreferenceField
-            form={form}
-            handlers={handlers}
-            isOpsMode
-            restaurantName={restaurantName}
-            separated
-          />
-        ) : null}
       </WizardPanelContent>
     </section>
   );

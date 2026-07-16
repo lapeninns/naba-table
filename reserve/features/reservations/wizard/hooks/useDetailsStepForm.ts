@@ -38,6 +38,8 @@ export function useDetailsStepForm({
   const [consentOpen, setConsentOpen] = useState(false);
   const contactSchema = useMemo(() => createDetailsContactSchema(), []);
   const schema = useMemo(() => createDetailsFormSchema(mode), [mode]);
+  const isOpsMode = mode === 'ops';
+  const resolveOpsWhatsAppOptIn = useCallback((phone: string) => isUKPhone(phone.trim()), []);
   const form = useForm<DetailsFormInputValues, unknown, DetailsFormValues>({
     resolver: zodResolver(schema),
     mode: 'onChange',
@@ -47,9 +49,11 @@ export function useDetailsStepForm({
       email: state.details.email ?? '',
       phone: state.details.phone ?? '',
       rememberDetails: state.details.rememberDetails ?? false,
-      marketingOptIn: state.details.marketingOptIn ?? false,
-      whatsappOptIn: state.details.whatsappOptIn ?? false,
-      agree: state.details.agree ?? false,
+      marketingOptIn: isOpsMode ? true : (state.details.marketingOptIn ?? false),
+      whatsappOptIn: isOpsMode
+        ? resolveOpsWhatsAppOptIn(state.details.phone ?? '')
+        : (state.details.whatsappOptIn ?? false),
+      agree: isOpsMode ? true : (state.details.agree ?? false),
     },
   });
 
@@ -71,9 +75,11 @@ export function useDetailsStepForm({
       email: state.details.email ?? '',
       phone: state.details.phone ?? '',
       rememberDetails: state.details.rememberDetails ?? false,
-      marketingOptIn: state.details.marketingOptIn ?? false,
-      whatsappOptIn: state.details.whatsappOptIn ?? false,
-      agree: state.details.agree ?? false,
+      marketingOptIn: isOpsMode ? true : (state.details.marketingOptIn ?? false),
+      whatsappOptIn: isOpsMode
+        ? resolveOpsWhatsAppOptIn(state.details.phone ?? '')
+        : (state.details.whatsappOptIn ?? false),
+      agree: isOpsMode ? true : (state.details.agree ?? false),
     };
     const next = normalizeValues(nextInput);
 
@@ -90,7 +96,9 @@ export function useDetailsStepForm({
     }
   }, [
     form,
+    isOpsMode,
     normalizeValues,
+    resolveOpsWhatsAppOptIn,
     state.details.agree,
     state.details.email,
     state.details.marketingOptIn,
@@ -126,23 +134,28 @@ export function useDetailsStepForm({
       const trimmedName = values.name.trim();
       const trimmedEmail = values.email.trim();
       const trimmedPhone = values.phone.trim();
+      const marketingOptIn = isOpsMode ? true : values.marketingOptIn;
+      const whatsappOptIn = isOpsMode
+        ? resolveOpsWhatsAppOptIn(trimmedPhone)
+        : values.whatsappOptIn;
+      const agree = isOpsMode ? true : values.agree;
 
       updateField('name', trimmedName);
       updateField('email', trimmedEmail);
       updateField('phone', trimmedPhone);
       updateField('rememberDetails', values.rememberDetails);
-      updateField('marketingOptIn', values.marketingOptIn);
-      updateField('whatsappOptIn', values.whatsappOptIn);
-      updateField('agree', values.agree);
+      updateField('marketingOptIn', marketingOptIn);
+      updateField('whatsappOptIn', whatsappOptIn);
+      updateField('agree', agree);
 
       onTrack('details_submit', {
-        marketing_opt_in: values.marketingOptIn ? 1 : 0,
-        terms_checked: values.agree ? 1 : 0,
+        marketing_opt_in: marketingOptIn ? 1 : 0,
+        terms_checked: agree ? 1 : 0,
       });
 
       actions.goToStep(3);
     },
-    [actions, onTrack, updateField],
+    [actions, isOpsMode, onTrack, resolveOpsWhatsAppOptIn, updateField],
   );
 
   const { isSubmitting, isValid } = form.formState;
@@ -206,7 +219,20 @@ export function useDetailsStepForm({
 
   const handlePhoneChange = useCallback(
     (value: string) => {
-      if (value !== state.details.phone && form.getValues('whatsappOptIn')) {
+      if (isOpsMode) {
+        const nextWhatsAppOptIn = resolveOpsWhatsAppOptIn(value);
+        if (form.getValues('whatsappOptIn') !== nextWhatsAppOptIn) {
+          form.setValue('whatsappOptIn', nextWhatsAppOptIn, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+          updateField('whatsappOptIn', nextWhatsAppOptIn);
+        }
+        if (!form.getValues('marketingOptIn')) {
+          form.setValue('marketingOptIn', true, { shouldDirty: true, shouldValidate: true });
+          updateField('marketingOptIn', true);
+        }
+      } else if (value !== state.details.phone && form.getValues('whatsappOptIn')) {
         form.setValue('whatsappOptIn', false, {
           shouldDirty: true,
           shouldValidate: true,
@@ -215,7 +241,7 @@ export function useDetailsStepForm({
       }
       updateField('phone', value);
     },
-    [form, state.details.phone, updateField],
+    [form, isOpsMode, resolveOpsWhatsAppOptIn, state.details.phone, updateField],
   );
 
   const detailsActions = useMemo<StepAction[]>(

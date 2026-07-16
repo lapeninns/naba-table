@@ -67,6 +67,17 @@ describe('WizardNavigation summary sheet', () => {
     expect(navigation).not.toHaveTextContent('2/4');
   });
 
+  it('@contract aligns ops navigation to the OpsPageShell column @contract', () => {
+    const { container } = render(<WizardNavigation {...baseProps} surface="ops" />);
+    const shell = container.querySelector('[data-booking-wizard-navigation]');
+    const aligner = shell?.firstElementChild;
+
+    expect(shell).toHaveAttribute('data-wizard-navigation-surface', 'ops');
+    expect(shell?.className).toContain('md:left-[var(--sidebar-width)]');
+    expect(aligner?.className).toContain('max-w-[1200px]');
+    expect(aligner?.className).toContain('px-[var(--pg-gutter)]');
+  });
+
   it('@contract wraps the mobile primary action at full width with 44px targets', () => {
     render(
       <WizardNavigation

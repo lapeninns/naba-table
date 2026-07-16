@@ -70,7 +70,7 @@ const buildPhoneSchema = () =>
 
 const buildAgreeSchema = (mode: BookingWizardMode) => {
   if (mode === 'ops') {
-    return z.boolean().default(false);
+    return z.boolean().default(true);
   }
 
   return z.boolean().refine((value) => value, {
@@ -110,8 +110,9 @@ export const createDetailsFormSchema = (mode: BookingWizardMode = 'customer') =>
   createDetailsContactSchema().and(
     z.object({
       rememberDetails: z.boolean().default(mode !== 'ops'),
-      marketingOptIn: z.boolean().default(mode !== 'ops'),
-      whatsappOptIn: z.boolean().default(false),
+      // Ops bookings are staff-created on behalf of the guest: consent defaults on.
+      marketingOptIn: z.boolean().default(true),
+      whatsappOptIn: z.boolean().default(mode === 'ops'),
       agree: buildAgreeSchema(mode),
     }),
   );

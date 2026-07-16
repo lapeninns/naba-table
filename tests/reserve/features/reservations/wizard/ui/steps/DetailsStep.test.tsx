@@ -115,19 +115,36 @@ describe('DetailsStep', () => {
     expect(screen.queryByText('One post-visit review request')).not.toBeInTheDocument();
   });
 
-  it('uses explicit consent-v2 wording for staff-created bookings @contract', () => {
-    renderDetailsStep(makeState(), createActions(), { mode: 'ops' });
+  it('defaults WhatsApp and marketing on for staff-created bookings without a consent checkbox @contract', async () => {
+    const actions = createActions();
+    const { captured } = renderDetailsStep(
+      makeState({
+        marketingOptIn: false,
+        whatsappOptIn: false,
+        agree: false,
+      }),
+      actions,
+      { mode: 'ops' },
+    );
 
     expect(
-      screen.getByRole('checkbox', {
+      screen.queryByRole('checkbox', {
         name: /Guest agreed to WhatsApp booking messages and one review request/,
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText(
         /the guest agrees to receive these messages from Nabatable on behalf of The Old Crown/,
       ),
-    ).toBeVisible();
+    ).not.toBeInTheDocument();
+
+    await waitFor(() => expect(captured.actions).not.toHaveLength(0));
+    captured.actions.find((action) => action.id === 'details-review')?.onClick();
+
+    await waitFor(() => expect(actions.goToStep).toHaveBeenCalledWith(3));
+    expect(actions.updateDetails).toHaveBeenCalledWith('marketingOptIn', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('whatsappOptIn', true);
+    expect(actions.updateDetails).toHaveBeenCalledWith('agree', true);
   });
 
   it('renders the contact form prefilled from the wizard state @smoke', () => {

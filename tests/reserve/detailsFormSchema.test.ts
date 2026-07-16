@@ -132,4 +132,16 @@ describe('createDetailsFormSchema', () => {
 
     expect(result.whatsappOptIn).toBe(false);
   });
+
+  it('defaults WhatsApp and marketing opt-in on for staff-created bookings @contract', () => {
+    const result = createDetailsFormSchema('ops').parse({
+      name: 'Walk In Guest',
+      email: 'guest@example.com',
+      phone: '07123 456789',
+    });
+
+    expect(result.whatsappOptIn).toBe(true);
+    expect(result.marketingOptIn).toBe(true);
+    expect(result.agree).toBe(true);
+  });
 });
