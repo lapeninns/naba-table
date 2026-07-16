@@ -7,6 +7,7 @@ import {
   assertNoSeriousAxeViolations,
   assertNoWizardOverflow,
   assertRailGeometry,
+  assertTopCaptureFraming,
   clickClientControl,
   hideLocalDevIndicators,
   waitForSettledLocator,
@@ -28,6 +29,56 @@ const viewports = [
   { name: '1440x900', width: 1440, height: 900 },
 ] as const;
 
+type PageCaptureFramingEvidence = {
+  readonly label: string;
+  readonly top: number;
+  readonly bottom: number;
+  readonly topBoundary: number;
+  readonly scrollY: number;
+};
+
+async function assertPageTopCaptureFraming(
+  page: Page,
+  anchor: ReturnType<Page['locator']>,
+  label: string,
+): Promise<PageCaptureFramingEvidence> {
+  await waitForSettledLocator(anchor);
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await waitForSettledLocator(anchor);
+  const geometry = await anchor.evaluate((element, evidenceLabel) => {
+    const box = element.getBoundingClientRect();
+    const topBoundary = Array.from(document.querySelectorAll('body *'))
+      .filter((candidate) => {
+        const style = getComputedStyle(candidate);
+        const candidateBox = candidate.getBoundingClientRect();
+        return (
+          (style.position === 'fixed' || style.position === 'sticky') &&
+          candidateBox.top <= 0.5 &&
+          candidateBox.bottom > 0 &&
+          candidateBox.height < innerHeight / 2
+        );
+      })
+      .reduce((boundary, candidate) => {
+        return Math.max(boundary, candidate.getBoundingClientRect().bottom);
+      }, 0);
+    return {
+      label: evidenceLabel,
+      top: box.top,
+      bottom: box.bottom,
+      topBoundary,
+      scrollY,
+    };
+  }, label);
+  expect(geometry.top).toBeGreaterThanOrEqual(geometry.topBoundary);
+  expect(geometry.scrollY).toBe(0);
+  await expect(anchor).toBeInViewport({ ratio: 1 });
+  return geometry;
+}
+
 async function capture(
   page: Page,
   testInfo: TestInfo,
@@ -35,7 +86,14 @@ async function capture(
   anchor: ReturnType<Page['locator']>,
 ): Promise<void> {
   await hideLocalDevIndicators(page);
-  await waitForSettledLocator(anchor);
+  const hasRail = (await page.locator('[data-booking-wizard-navigation]').count()) > 0;
+  const geometry = hasRail
+    ? {
+        ...(await assertTopCaptureFraming(page, anchor, name)),
+        scrollY: await page.evaluate(() => window.scrollY),
+      }
+    : await assertPageTopCaptureFraming(page, anchor, name);
+  console.log(`[responsive-geometry] ${JSON.stringify({ ...geometry, hasRail })}`);
   await page.screenshot({
     path: path.join(evidenceDir, `${testInfo.project.name || 'chromium'}-${name}.png`),
     fullPage: false,

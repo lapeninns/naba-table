@@ -389,6 +389,8 @@ export async function assertTopCaptureFraming(
     window.scrollTo({ top: 0, behavior: 'auto' });
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await waitForSettledLocator(heading);
+  await waitForSettledLocator(page.locator('[data-booking-wizard-navigation]'));
   const evidence = await assertElementAboveRail(page, heading, label, false, false);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   return evidence;
