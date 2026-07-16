@@ -6,6 +6,7 @@ import {
   buildTwilioSmsRequest,
   sendTwilioSmsMessage,
 } from '@/cloudflare/sms-summary-gateway/src/twilio';
+import { sendDailySummaryViaWhatsApp } from '@/cloudflare/sms-summary-gateway/src/job';
 
 describe('twilio sms delivery', () => {
   it('builds the expected Twilio SMS payload @worker @contract', () => {
@@ -64,5 +65,38 @@ describe('twilio sms delivery', () => {
           ),
       }),
     ).rejects.toBeInstanceOf(TerminalDispatchError);
+  });
+
+  it('registers the manager WhatsApp status callback with Twilio @worker @contract', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ sid: 'MM123', status: 'accepted' }), { status: 201 }),
+      );
+
+    await sendDailySummaryViaWhatsApp({
+      env: {
+        TWILIO_ACCOUNT_SID: 'AC123',
+        TWILIO_API_KEY_SID: 'SK123',
+        TWILIO_API_KEY_SECRET: 'secret',
+        TWILIO_WHATSAPP_SENDER: '+14155238886',
+        TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: 'HX123',
+        SMS_SUMMARY_GATEWAY_PUBLIC_URL: 'https://summary.example',
+      },
+      restaurantId: '11111111-1111-4111-8111-111111111111',
+      localDate: '2026-07-17',
+      callbackToken: '22222222-2222-4222-8222-222222222222',
+      recipient: '+447700900000',
+      message: 'Today 2 bookings and 6 covers.',
+      fetchImpl,
+    });
+
+    const request = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const body = request.body as URLSearchParams;
+    expect(body.get('StatusCallback')).toBe(
+      'https://summary.example/webhook/twilio/manager-whatsapp-status' +
+        '?restaurantId=11111111-1111-4111-8111-111111111111&localDate=2026-07-17' +
+        '&callbackToken=22222222-2222-4222-8222-222222222222',
+    );
   });
 });

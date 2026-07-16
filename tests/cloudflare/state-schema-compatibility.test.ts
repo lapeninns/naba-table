@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 type StateSchema = {
   service: string;
   version: number;
+  migrationTags?: string[];
   durableObjects: Array<{
     className: string;
     migrationTag: string;
@@ -23,7 +24,7 @@ const CASES = [
   {
     directory: 'cloudflare/sms-summary-gateway',
     classes: ['DailyBookingSummaryState'],
-    tags: ['v1'],
+    tags: ['v1', 'v2'],
   },
 ] as const;
 
@@ -46,9 +47,10 @@ describe.each(CASES)('$directory Durable Object state schema', ({ directory, cla
   });
 
   it('keeps migration tags append-only and represented in Wrangler', () => {
-    expect([...new Set(schema.durableObjects.map((object) => object.migrationTag))].sort()).toEqual(
-      [...tags].sort(),
-    );
+    const documentedTags =
+      schema.migrationTags ??
+      [...new Set(schema.durableObjects.map((object) => object.migrationTag))].sort();
+    expect(documentedTags).toEqual([...tags]);
     for (const tag of tags) expect(wrangler).toContain(`"tag": "${tag}"`);
   });
 });

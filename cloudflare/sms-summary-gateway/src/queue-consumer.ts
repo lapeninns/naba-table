@@ -34,6 +34,9 @@ async function handleQueueMessage(
     sendWhatsApp: (params) =>
       sendDailySummaryViaWhatsApp({
         env,
+        callbackToken: params.callbackToken,
+        restaurantId: payload.restaurantId,
+        localDate: payload.localDate,
         recipient: params.recipient,
         message: params.message,
       }),

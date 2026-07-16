@@ -2,7 +2,10 @@ import type { DailySummaryQueueMessage } from './contracts';
 import type { IdempotencyClient } from './job';
 import type { SmsSummaryWorkerEnv } from './worker-env';
 
-function buildIdempotencyName(payload: DailySummaryQueueMessage): string {
+type SummaryLocator = Pick<DailySummaryQueueMessage, 'restaurantId' | 'localDate' | 'recipient'>;
+type IdempotencyEnv = Pick<SmsSummaryWorkerEnv, 'DAILY_BOOKING_SUMMARY_STATE'>;
+
+function buildIdempotencyName(payload: SummaryLocator): string {
   return `daily-booking-summary:${payload.restaurantId}:${payload.localDate}:${payload.recipient}`;
 }
 
@@ -13,8 +16,8 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 }
 
 async function requestIdempotency(
-  env: SmsSummaryWorkerEnv,
-  payload: DailySummaryQueueMessage,
+  env: IdempotencyEnv,
+  payload: SummaryLocator,
   path: string,
   init: RequestInit = {},
 ): Promise<Record<string, unknown> | null> {
@@ -55,11 +58,18 @@ export function getIdempotencyClient(
       }
       return { status: 'claimed' };
     },
-    markSent: async (providerMessageId: string | null) => {
+    prepareWhatsApp: async ({ callbackToken, message, recipient }) => {
+      await requestIdempotency(env, payload, '/prepare-whatsapp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ callbackToken, message, recipient }),
+      });
+    },
+    markSent: async ({ channel, message, providerMessageId, recipient }) => {
       await requestIdempotency(env, payload, '/complete', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ providerMessageId }),
+        body: JSON.stringify({ channel, message, providerMessageId, recipient }),
       });
     },
     release: async () => {
@@ -69,5 +79,44 @@ export function getIdempotencyClient(
       await requestIdempotency(env, payload, '/reset', { method: 'POST' });
     },
     status: async () => requestIdempotency(env, payload, '/status'),
+  };
+}
+
+export function getManagerFallbackClient(
+  env: IdempotencyEnv,
+  payload: SummaryLocator,
+): {
+  claimFallback: (input: {
+    callbackToken: string;
+    providerMessageId: string;
+    recipient: string;
+  }) => Promise<Record<string, unknown> | null>;
+  completeFallback: (input: {
+    smsMessageSid: string | null;
+    whatsappMessageSid: string;
+  }) => Promise<void>;
+  releaseFallback: (input: { whatsappMessageSid: string }) => Promise<void>;
+} {
+  return {
+    claimFallback: (input) =>
+      requestIdempotency(env, payload, '/claim-fallback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    completeFallback: async (input) => {
+      await requestIdempotency(env, payload, '/complete-fallback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+    },
+    releaseFallback: async (input) => {
+      await requestIdempotency(env, payload, '/release-fallback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+    },
   };
 }

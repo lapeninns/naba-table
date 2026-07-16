@@ -184,6 +184,7 @@ export function useReservationWizard(
 
   // Seed party/time from stored preferences on first load if unset
   useEffect(() => {
+    if (mode !== 'customer') return;
     if (!preferences) return;
     if (draftHydratedRef.current) return;
 
@@ -201,7 +202,7 @@ export function useReservationWizard(
     if (Object.keys(updates).length > 0) {
       actions.hydrateDetails(updates);
     }
-  }, [actions, preferences, state.details.party, state.details.time]);
+  }, [actions, mode, preferences, state.details.party, state.details.time]);
 
   const wizardRestaurantSlug = useMemo(() => {
     const provided = initialDetails?.restaurantSlug?.trim();
@@ -279,6 +280,7 @@ export function useReservationWizard(
 
   // Persist preferences when party/time change
   useEffect(() => {
+    if (mode !== 'customer') return;
     const party = state.details.party;
     const time = state.details.time;
     if (party > 0 || (time && time.length > 0)) {
@@ -287,7 +289,7 @@ export function useReservationWizard(
         preferredTime: time && time.length > 0 ? time : undefined,
       });
     }
-  }, [savePreferences, state.details.party, state.details.time]);
+  }, [mode, savePreferences, state.details.party, state.details.time]);
 
   useEffect(() => {
     const slug = state.details.restaurantSlug?.trim();

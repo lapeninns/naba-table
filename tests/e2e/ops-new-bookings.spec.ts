@@ -69,7 +69,7 @@ async function installOpsApiMocks(page: Page) {
   });
 }
 
-async function installPublicAvailabilityMocks(page: Page) {
+async function installPublicAvailabilityMocks(page: Page, options?: { noSlots?: boolean }) {
   await page.route('**/api/restaurants/**', async (route) => {
     const url = new URL(route.request().url());
 
@@ -90,9 +90,11 @@ async function installPublicAvailabilityMocks(page: Page) {
 
     if (url.pathname.endsWith('/schedule')) {
       const date = url.searchParams.get('date') ?? wizardFallbackDate;
+      const evaluatedPartySize = Number(url.searchParams.get('party') ?? 1);
       await route.fulfill({
         json: {
           restaurantId,
+          evaluatedPartySize,
           date,
           timezone: 'Europe/London',
           intervalMinutes: 15,
@@ -101,21 +103,24 @@ async function installPublicAvailabilityMocks(page: Page) {
           window: { opensAt: '12:00', closesAt: '22:00' },
           isClosed: false,
           availableBookingOptions: ['lunch'],
-          slots: [
-            {
-              value: wizardTime,
-              display: wizardTimeLabel,
-              periodId: null,
-              periodName: 'Lunch',
-              bookingOption: 'lunch',
-              defaultBookingOption: 'lunch',
-              availability: {
-                services: {},
-                labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
-              },
-              disabled: false,
-            },
-          ],
+          slots: options?.noSlots
+            ? []
+            : [
+                {
+                  value: wizardTime,
+                  display: wizardTimeLabel,
+                  periodId: null,
+                  periodName: 'Lunch',
+                  bookingOption: 'lunch',
+                  defaultBookingOption: 'lunch',
+                  durationMinutes: 90,
+                  availability: {
+                    services: {},
+                    labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
+                  },
+                  disabled: false,
+                },
+              ],
           occasionCatalog: [],
         },
       });
@@ -229,5 +234,29 @@ test.describe('ops new-bookings authenticated view', () => {
       path: testInfo.outputPath('ops-new-bookings-authenticated-desktop.png'),
       fullPage: true,
     });
+  });
+
+  test('new-bookings does not restore a filtered-out 20:00 guest preference in ops mode @p1 @browser @regression @local-only', async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'guest.preferences',
+        JSON.stringify({ preferredPartySize: 6, preferredTime: '20:00' }),
+      );
+    });
+    await page.unroute('**/api/restaurants/**');
+    await installPublicAvailabilityMocks(page, { noSlots: true });
+
+    await page.goto(`/new-bookings?date=${wizardFallbackDate}&time=20:00&partySize=2`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect(page.getByRole('region', { name: 'Plan your table' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Time' })).toHaveValue('');
+    await expect(page.getByText('Trouble loading Plan your visit')).toHaveCount(0);
+    expect(pageErrors.join('\n')).not.toContain('Maximum update depth exceeded');
   });
 });

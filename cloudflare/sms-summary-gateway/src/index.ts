@@ -1,5 +1,6 @@
 import { SERVICE_NAME } from './contracts';
 import { json } from './gateway-http';
+import { handleManagerWhatsAppStatus } from './manager-whatsapp-status';
 import { handleManualDispatch } from './manual-dispatch';
 import { processQueueBatch } from './queue-consumer';
 import { selectDueDispatches } from './scheduling';
@@ -40,6 +41,12 @@ const worker = {
         }
         if (request.method === 'POST' && url.pathname === '/internal/dispatch-daily-summary') {
           return handleManualDispatch(request, env);
+        }
+        if (
+          request.method === 'POST' &&
+          url.pathname === '/webhook/twilio/manager-whatsapp-status'
+        ) {
+          return handleManagerWhatsAppStatus(request, env);
         }
         return json({ error: 'Not found' }, { status: 404 });
       },

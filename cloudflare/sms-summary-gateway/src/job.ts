@@ -14,7 +14,17 @@ type ClaimResult =
 
 export type IdempotencyClient = {
   claim: () => Promise<ClaimResult>;
-  markSent: (providerMessageId: string | null) => Promise<void>;
+  prepareWhatsApp: (input: {
+    callbackToken: string;
+    message: string;
+    recipient: string;
+  }) => Promise<void>;
+  markSent: (input: {
+    channel: 'whatsapp' | 'sms';
+    message: string;
+    providerMessageId: string | null;
+    recipient: string;
+  }) => Promise<void>;
   release: () => Promise<void>;
 };
 
@@ -27,6 +37,7 @@ export async function processDailySummaryDispatch(params: {
     message: string;
   }) => Promise<{ messageSid: string | null }>;
   sendWhatsApp?: (params: {
+    callbackToken: string;
     recipient: string;
     message: string;
   }) => Promise<{ messageSid: string | null }>;
@@ -71,7 +82,14 @@ export async function processDailySummaryDispatch(params: {
     let sent: { messageSid: string | null };
     if (params.payload.whatsappFirst && params.sendWhatsApp) {
       try {
+        const callbackToken = crypto.randomUUID();
+        await params.idempotency.prepareWhatsApp({
+          callbackToken,
+          recipient: params.payload.recipient,
+          message: preview.message,
+        });
         sent = await params.sendWhatsApp({
+          callbackToken,
           recipient: params.payload.recipient,
           message: preview.message,
         });
@@ -90,7 +108,12 @@ export async function processDailySummaryDispatch(params: {
     }
     sendCompleted = true;
 
-    await params.idempotency.markSent(sent.messageSid);
+    await params.idempotency.markSent({
+      channel,
+      message: preview.message,
+      providerMessageId: sent.messageSid,
+      recipient: params.payload.recipient,
+    });
 
     return {
       status: 'sent',
@@ -119,11 +142,23 @@ export async function sendDailySummaryViaWhatsApp(params: {
     TWILIO_API_KEY_SECRET: string;
     TWILIO_WHATSAPP_SENDER: string;
     TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: string;
+    SMS_SUMMARY_GATEWAY_PUBLIC_URL: string;
   };
+  restaurantId: string;
+  localDate: string;
+  callbackToken: string;
   recipient: string;
   message: string;
   fetchImpl?: typeof fetch;
 }): Promise<{ messageSid: string | null }> {
+  const statusCallback = new URL(
+    '/webhook/twilio/manager-whatsapp-status',
+    params.env.SMS_SUMMARY_GATEWAY_PUBLIC_URL,
+  );
+  statusCallback.searchParams.set('restaurantId', params.restaurantId);
+  statusCallback.searchParams.set('localDate', params.localDate);
+  statusCallback.searchParams.set('callbackToken', params.callbackToken);
+
   const result = await sendTwilioWhatsAppMessage({
     accountSid: params.env.TWILIO_ACCOUNT_SID,
     apiKeySid: params.env.TWILIO_API_KEY_SID,
@@ -132,6 +167,7 @@ export async function sendDailySummaryViaWhatsApp(params: {
     to: params.recipient,
     contentSid: params.env.TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID,
     contentVariables: { '1': params.message },
+    statusCallback: statusCallback.toString(),
     fetchImpl: params.fetchImpl,
   });
   return { messageSid: result.messageSid };

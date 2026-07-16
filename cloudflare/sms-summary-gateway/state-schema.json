@@ -1,14 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "service": "sms-summary-gateway",
-  "version": 1,
+  "version": 2,
+  "migrationTags": ["v1", "v2"],
   "durableObjects": [
     {
       "className": "DailyBookingSummaryState",
-      "migrationTag": "v1",
+      "migrationTag": "v2",
       "storage": "sqlite",
       "keyspaces": {
-        "state": "{ sentAt: string | null; providerMessageId: string | null; lockUntil: string | null; expiresAt: string | null }"
+        "state": "{ sentAt: string | null; providerMessageId: string | null; channel: 'whatsapp' | 'sms' | null; callbackToken: string | null; recipient: string | null; message: string | null; lockUntil: string | null; fallbackLockUntil: string | null; fallbackWhatsappMessageId: string | null; fallbackSentAt: string | null; fallbackProviderMessageId: string | null; expiresAt: string | null }"
       }
     }
   ]

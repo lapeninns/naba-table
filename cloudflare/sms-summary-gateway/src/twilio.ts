@@ -2,6 +2,7 @@ export {
   RetryableDispatchError,
   TerminalDispatchError,
   buildTwilioSmsRequest,
+  fetchTwilioMessage,
   isRetryableTwilioStatus,
   sendTwilioSmsMessage,
   sendTwilioWhatsAppMessage,

@@ -27,6 +27,7 @@ describe('daily summary queue consumer', () => {
   it('uses WhatsApp first and only falls back to SMS when provider acceptance fails @worker', async () => {
     const idempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
+      prepareWhatsApp: vi.fn().mockResolvedValue(undefined),
       markSent: vi.fn().mockResolvedValue(undefined),
       release: vi.fn().mockResolvedValue(undefined),
     };
@@ -50,6 +51,19 @@ describe('daily summary queue consumer', () => {
 
     expect(sent).toMatchObject({ channel: 'whatsapp', messageSid: 'MM123', status: 'sent' });
     expect(sendSms).not.toHaveBeenCalled();
+    expect(idempotency.prepareWhatsApp).toHaveBeenCalledWith({
+      callbackToken: expect.any(String),
+      message: preview.message,
+      recipient: '+447700900000',
+    });
+    expect(sendWhatsApp).toHaveBeenCalledWith({
+      callbackToken: idempotency.prepareWhatsApp.mock.calls[0]?.[0].callbackToken,
+      message: preview.message,
+      recipient: '+447700900000',
+    });
+    expect(idempotency.prepareWhatsApp.mock.invocationCallOrder[0]).toBeLessThan(
+      sendWhatsApp.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
 
     idempotency.claim.mockResolvedValueOnce({ status: 'claimed' });
     sendWhatsApp.mockRejectedValueOnce(new Error('WhatsApp unavailable'));
@@ -76,6 +90,7 @@ describe('daily summary queue consumer', () => {
   it('marks successful sends and skips duplicates @worker', async () => {
     const idempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
+      prepareWhatsApp: vi.fn().mockResolvedValue(undefined),
       markSent: vi.fn().mockResolvedValue(undefined),
       release: vi.fn().mockResolvedValue(undefined),
     };
@@ -94,7 +109,12 @@ describe('daily summary queue consumer', () => {
     });
 
     expect(sent).toMatchObject({ status: 'sent', messageSid: 'SM123' });
-    expect(idempotency.markSent).toHaveBeenCalledWith('SM123');
+    expect(idempotency.markSent).toHaveBeenCalledWith({
+      channel: 'sms',
+      message: preview.message,
+      providerMessageId: 'SM123',
+      recipient: '+447700900000',
+    });
     expect(idempotency.release).not.toHaveBeenCalled();
 
     const duplicate = await processDailySummaryDispatch({
@@ -111,6 +131,7 @@ describe('daily summary queue consumer', () => {
           providerMessageId: 'SM123',
           sentAt: '2026-04-11T09:00:00.000Z',
         }),
+        prepareWhatsApp: vi.fn(),
         markSent: vi.fn(),
         release: vi.fn(),
       },
@@ -128,6 +149,7 @@ describe('daily summary queue consumer', () => {
   it('releases the lock on transient send failures and leaves hard send state untouched after success @worker', async () => {
     const transientIdempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
+      prepareWhatsApp: vi.fn().mockResolvedValue(undefined),
       markSent: vi.fn(),
       release: vi.fn().mockResolvedValue(undefined),
     };
@@ -152,6 +174,7 @@ describe('daily summary queue consumer', () => {
 
     const postSendIdempotency = {
       claim: vi.fn().mockResolvedValue({ status: 'claimed' }),
+      prepareWhatsApp: vi.fn().mockResolvedValue(undefined),
       markSent: vi.fn().mockRejectedValue(new Error('storage unavailable')),
       release: vi.fn().mockResolvedValue(undefined),
     };

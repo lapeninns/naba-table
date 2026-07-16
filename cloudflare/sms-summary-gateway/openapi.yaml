@@ -43,6 +43,52 @@ paths:
           description: Invalid service token.
         '404':
           description: Restaurant summary target not found.
+  /webhook/twilio/manager-whatsapp-status:
+    post:
+      operationId: reconcileManagerWhatsAppStatus
+      description: Receives correlated Twilio delivery callbacks, verifies the current message status through the Twilio API, and sends an SMS fallback for terminal WhatsApp failures.
+      parameters:
+        - in: query
+          name: restaurantId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: localDate
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: callbackToken
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [MessageSid, MessageStatus, To]
+              properties:
+                ErrorCode:
+                  type: string
+                MessageSid:
+                  type: string
+                MessageStatus:
+                  type: string
+                To:
+                  type: string
+      responses:
+        '200':
+          description: Callback reconciled or safely ignored.
+        '400':
+          description: Invalid callback payload or correlation.
+        '503':
+          description: Provider verification or fallback is retryable, or reconciliation is required.
 components:
   securitySchemes:
     bearerAuth:
