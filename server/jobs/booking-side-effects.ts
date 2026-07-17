@@ -649,6 +649,7 @@ async function processBookingCreatedSideEffects(
 async function processBookingUpdatedSideEffects(
   payload: BookingUpdatedSideEffectsPayload,
   _supabase?: SupabaseLike,
+  options: { readonly skipGuestUpdateNotifications?: boolean } = {},
 ) {
   const { current, previous, restaurantId } = payload;
   const prefs = await fetchRestaurantEmailPrefs(restaurantId, resolveSupabase(_supabase));
@@ -675,6 +676,38 @@ async function processBookingUpdatedSideEffects(
       bookingId: current.id,
       types: ['review_request'],
     });
+  }
+
+  const confirmedStartChanged =
+    prevStatus === 'confirmed' &&
+    currStatus === 'confirmed' &&
+    previous.start_at !== current.start_at;
+
+  if (confirmedStartChanged) {
+    await cancelEmailIntents({
+      bookingId: current.id,
+      types: ['reminder_24h', 'reminder_short'],
+    });
+
+    if (!SUPPRESS_EMAILS && isValidEmail(current.customer_email)) {
+      const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
+      await scheduleReminderJob(
+        current as BookingRecord,
+        restaurantId,
+        'reminder_24h',
+        REMINDER_24H_MINUTES,
+        prefs,
+        timezone,
+      );
+      await scheduleReminderJob(
+        current as BookingRecord,
+        restaurantId,
+        'reminder_short',
+        REMINDER_SHORT_MINUTES,
+        prefs,
+        timezone,
+      );
+    }
   }
 
   if (
@@ -714,7 +747,12 @@ async function processBookingUpdatedSideEffects(
     return;
   }
 
-  if (!SUPPRESS_EMAILS && current.customer_email && current.customer_email.trim().length > 0) {
+  if (
+    !options.skipGuestUpdateNotifications &&
+    !SUPPRESS_EMAILS &&
+    current.customer_email &&
+    current.customer_email.trim().length > 0
+  ) {
     try {
       await sendBookingUpdateEmail(current as BookingRecord);
     } catch (error) {
@@ -722,7 +760,7 @@ async function processBookingUpdatedSideEffects(
     }
   }
 
-  if (hasValidSmsRecipient(current.customer_phone)) {
+  if (!options.skipGuestUpdateNotifications && hasValidSmsRecipient(current.customer_phone)) {
     try {
       await sendGuestBookingUpdateSms(current as BookingRecord);
     } catch (error) {
@@ -825,21 +863,15 @@ export async function enqueueBookingUpdatedSideEffects(
 ) {
   if (options?.skipEmail) {
     console.log(
-      '[jobs][booking.updated] Skipping side effects - modification flow already handled emails',
+      '[jobs][booking.updated] Skipping guest update notifications - modification flow already handled email',
       {
         bookingId: payload.current.id,
       },
     );
-    // When skipEmail is true, we skip the entire processBookingUpdatedSideEffects call.
-    // This is intentional: skipEmail is only set when table realignment succeeds inline
-    // during modification flow, which means:
-    // - The booking status hasn't changed (still confirmed) → no new reminders needed
-    // - A "Changes Confirmed" email was already sent → no duplicate update email
-    // - Analytics for updates are not tracked here (only in created/cancelled)
-    // - Review requests only trigger on completion → not applicable
-    return { queued: false } as const;
   }
-  await processBookingUpdatedSideEffects(payload, options?.supabase);
+  await processBookingUpdatedSideEffects(payload, options?.supabase, {
+    skipGuestUpdateNotifications: options?.skipEmail,
+  });
   return { queued: false } as const;
 }
 

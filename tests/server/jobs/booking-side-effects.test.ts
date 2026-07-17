@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const recordBookingCreatedEventMock = vi.hoisted(() => vi.fn());
 const sendFirstBookingConfirmationNotificationsMock = vi.hoisted(() => vi.fn());
@@ -6,6 +6,7 @@ const sendBookingConfirmationEmailMock = vi.hoisted(() => vi.fn());
 const sendGuestBookingUpdateSmsMock = vi.hoisted(() => vi.fn());
 const sendGuestBookingCancellationSmsMock = vi.hoisted(() => vi.fn());
 const enqueueEmailJobMock = vi.hoisted(() => vi.fn());
+const cancelEmailIntentsMock = vi.hoisted(() => vi.fn());
 const emailQueueEnabled = vi.hoisted(() => ({ value: false }));
 
 vi.mock('@/server/analytics', () => ({
@@ -40,7 +41,7 @@ vi.mock('@/server/queue/email', () => ({
 }));
 
 vi.mock('@/server/queue/email-intents', () => ({
-  cancelEmailIntents: vi.fn(),
+  cancelEmailIntents: cancelEmailIntentsMock,
 }));
 
 vi.mock('@/server/observability', () => ({
@@ -76,6 +77,10 @@ const pendingBooking = {
   reference: 'TESTREF',
 } as const;
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('processBookingCreatedSideEffects', () => {
   beforeEach(() => {
     recordBookingCreatedEventMock.mockReset();
@@ -84,6 +89,7 @@ describe('processBookingCreatedSideEffects', () => {
     sendGuestBookingUpdateSmsMock.mockReset();
     sendGuestBookingCancellationSmsMock.mockReset();
     enqueueEmailJobMock.mockReset();
+    cancelEmailIntentsMock.mockReset();
     emailQueueEnabled.value = false;
     recordBookingCreatedEventMock.mockResolvedValue(undefined);
     sendFirstBookingConfirmationNotificationsMock.mockResolvedValue({
@@ -98,6 +104,7 @@ describe('processBookingCreatedSideEffects', () => {
       status: 'sent',
     });
     enqueueEmailJobMock.mockResolvedValue(undefined);
+    cancelEmailIntentsMock.mockResolvedValue(0);
   });
 
   it('durably schedules a completed review job without a valid guest email @contract', async () => {
@@ -410,6 +417,73 @@ describe('processBookingCreatedSideEffects', () => {
     );
 
     expect(sendGuestBookingUpdateSmsMock).toHaveBeenCalledWith(current);
+  });
+
+  it('replaces reminder intents when a confirmed booking start changes @contract', async () => {
+    // Given
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime('2026-07-17T11:19:40.000Z');
+    emailQueueEnabled.value = true;
+    const previous = {
+      ...pendingBooking,
+      status: 'confirmed',
+      booking_date: '2026-07-17',
+      start_at: '2026-07-17T19:00:00.000Z',
+      end_at: '2026-07-17T20:15:00.000Z',
+    };
+    const current = {
+      ...previous,
+      booking_date: '2026-07-22',
+      start_at: '2026-07-22T19:00:00.000Z',
+      end_at: '2026-07-22T20:15:00.000Z',
+      updated_at: '2026-07-17T11:19:40.000Z',
+    };
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { email_send_review_request: true, timezone: 'Europe/London' },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueBookingUpdatedSideEffects(
+      {
+        previous: previous as never,
+        current: current as never,
+        restaurantId: current.restaurant_id,
+      },
+      { skipEmail: true, supabase: client as never },
+    );
+
+    // Then
+    expect(cancelEmailIntentsMock).toHaveBeenCalledWith({
+      bookingId: current.id,
+      types: ['reminder_24h', 'reminder_short'],
+    });
+    expect(enqueueEmailJobMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        bookingId: current.id,
+        type: 'reminder_24h',
+        scheduledFor: expect.stringContaining('2026-07-21'),
+      }),
+      expect.objectContaining({ jobId: `reminder_24h:${current.id}` }),
+    );
+    expect(enqueueEmailJobMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        bookingId: current.id,
+        type: 'reminder_short',
+        scheduledFor: expect.stringContaining('2026-07-22'),
+      }),
+      expect.objectContaining({ jobId: `reminder_short:${current.id}` }),
+    );
   });
 
   it('sends a cancellation SMS for guest cancellations', async () => {
