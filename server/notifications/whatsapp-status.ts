@@ -212,24 +212,20 @@ export async function processWhatsAppStatusCallback(
         status,
       };
     },
-    updateAttempt: async ({ attemptId, currentStatus, errorCode, providerMessageId, status }) => {
-      const { data: updated, error } = await client
-        .from('mobile_notification_attempts')
-        .update({
-          error_code: errorCode,
-          provider_message_id: providerMessageId,
-          status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', attemptId)
-        .eq('status', currentStatus)
-        .or(`provider_message_id.is.null,provider_message_id.eq.${providerMessageId}`)
-        .select('id')
-        .maybeSingle();
+    updateAttempt: async ({ attemptId, errorCode, providerMessageId, status }) => {
+      const { data: persistedStatus, error } = await client.rpc(
+        'finalize_mobile_whatsapp_attempt',
+        {
+          p_attempt_id: attemptId,
+          p_error_code: errorCode,
+          p_provider_message_id: providerMessageId,
+          p_status: status,
+        },
+      );
       if (error) {
         throw new Error('Failed to update WhatsApp delivery status.');
       }
-      return Boolean(updated);
+      return persistedStatus === status;
     },
     claimFallback: async ({ notificationId, recipientPhone, restaurantId, whatsappAttemptId }) => {
       const { data, error } = await client.rpc('claim_mobile_notification_fallback', {
