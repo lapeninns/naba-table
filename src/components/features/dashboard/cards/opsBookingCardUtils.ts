@@ -48,7 +48,6 @@ export type OpsBookingCardHeaderViewModel = {
   timeRangeLabel: string;
   isDone: boolean;
   hasNotes: boolean;
-  isSundayRoast: boolean;
   urgency: UrgencyBadge | null;
 };
 
@@ -304,9 +303,6 @@ export function buildOpsBookingCardViewModel(params: {
     timeRangeLabel: meta.timeRangeLabel,
     isDone: meta.isDone,
     hasNotes: Boolean(normalizedBooking.notes),
-    isSundayRoast:
-      normalizedBooking.details?.sunday_roast === true ||
-      normalizedBooking.details?.occasion === 'Sunday Roast',
     urgency,
   };
   const details: OpsBookingCardDetailsViewModel = {

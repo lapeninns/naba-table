@@ -43,7 +43,6 @@ export type RestaurantListItem = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
-  sundayRoastEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';
@@ -158,7 +157,6 @@ export async function listRestaurantsForOps(
       reservationLastSeatingBufferMinutes: row.reservation_last_seating_buffer_minutes,
       reservationLifecycleGraceMinutes:
         row.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
-      sundayRoastEnabled: row.sunday_roast_enabled ?? false,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       role,

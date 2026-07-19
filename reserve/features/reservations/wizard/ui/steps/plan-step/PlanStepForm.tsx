@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, UtensilsCrossed } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import React, { useCallback, useMemo } from 'react';
 import { useController } from 'react-hook-form';
 
@@ -12,9 +12,7 @@ import {
 } from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormField, FormRoot } from '@/components/ui/form';
-import { Label } from '@/components/ui/label';
 import { formatDateForInput } from '@reserve/shared/formatting/booking';
 
 import { Calendar24Date, Calendar24Time, NotesField, PartySizeField } from './components';
@@ -155,44 +153,6 @@ function PlanStepFormContent({ state }: PlanStepFormContentProps) {
             isTimeLoading={state.isScheduleFetching || state.isScheduleLoading}
           />
         </section>
-
-        {state.sundayRoastEligible ? (
-          <section
-            aria-label="Sunday Roast selection"
-            data-plan-field="sunday-roast"
-            className="border-b border-border/70 py-5 md:col-span-2"
-          >
-            <FormField
-              control={control}
-              name="sundayRoast"
-              render={({ field }) => (
-                <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
-                  <Checkbox
-                    id="booking-sunday-roast"
-                    checked={field.value}
-                    onCheckedChange={(checked) =>
-                      state.handlers.changeSundayRoast(checked === true)
-                    }
-                    aria-describedby="booking-sunday-roast-help"
-                    className="mt-0.5"
-                  />
-                  <div className="min-w-0 space-y-1">
-                    <Label
-                      htmlFor="booking-sunday-roast"
-                      className="flex cursor-pointer items-center gap-2 font-semibold"
-                    >
-                      <UtensilsCrossed className="size-4 text-primary" aria-hidden />
-                      This booking is for Sunday Roast
-                    </Label>
-                    <p id="booking-sunday-roast-help" className="text-sm text-muted-foreground">
-                      We’ll highlight this for the venue team with your reservation.
-                    </p>
-                  </div>
-                </div>
-              )}
-            />
-          </section>
-        ) : null}
 
         <section
           aria-label="Additional booking notes"

@@ -19,8 +19,6 @@ const reservationMetadataSchema = z
       .optional(),
     rescheduledFrom: z.string().datetime({ offset: true }).nullable().optional(),
     rescheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
-    occasion: z.string().nullable().optional(),
-    sundayRoast: z.boolean().optional(),
   })
   .partial()
   .nullable();

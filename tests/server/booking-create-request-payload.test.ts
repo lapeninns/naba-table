@@ -28,15 +28,7 @@ describe('booking create request payload parser', () => {
         party: 4,
         marketingOptIn: true,
         whatsappOptIn: false,
-        sundayRoast: false,
       },
-    });
-  });
-
-  it('accepts an explicit Sunday Roast selection', () => {
-    expect(parseBookingCreateRequestPayload({ ...validPayload, sundayRoast: true })).toMatchObject({
-      kind: 'request',
-      request: { sundayRoast: true },
     });
   });
 

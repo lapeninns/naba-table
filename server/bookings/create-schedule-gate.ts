@@ -34,7 +34,6 @@ export type BookingCreateScheduleGateResult =
       startTime: string;
       bookingType: BookingType;
       scheduleTimezone: string;
-      sundayRoastEnabled: boolean;
     }
   | {
       kind: 'response';
@@ -103,7 +102,6 @@ export async function runBookingCreateScheduleGate(args: {
       startTime: scheduleSelection.startTime,
       bookingType: scheduleSelection.bookingType,
       scheduleTimezone: scheduleSelection.scheduleTimezone,
-      sundayRoastEnabled: schedule.sundayRoastEnabled,
     };
   } catch (validationError) {
     if (validationError instanceof OperatingHoursError) {

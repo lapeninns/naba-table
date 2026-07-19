@@ -44,11 +44,6 @@ const harnessCases = [
     heading: 'Guest Booking Plan Alert',
     proof: 'Operating-hours note',
   },
-  {
-    path: '/dev/guest-booking-sunday-roast',
-    heading: 'Sunday roast booking prototype',
-    proof: 'This booking is for Sunday roast',
-  },
 ];
 
 test.describe('guest dev harnesses', () => {
@@ -62,26 +57,4 @@ test.describe('guest dev harnesses', () => {
       await expect(page.getByText(proof, { exact: false }).first()).toBeVisible();
     });
   }
-
-  test('/dev/guest-booking-sunday-roast updates the staff preview', async ({ page }) => {
-    await page.goto('/dev/guest-booking-sunday-roast', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('sunday-roast-harness')).toHaveAttribute('data-hydrated', 'true');
-
-    const roastCheckbox = page.getByRole('checkbox', {
-      name: 'This booking is for Sunday roast',
-    });
-    await roastCheckbox.click();
-    await expect(roastCheckbox).toHaveAttribute('aria-checked', 'true');
-
-    const staffPreview = page.getByRole('complementary', { name: 'Staff preview' });
-    await expect(staffPreview.getByText('Sunday Roast', { exact: true }).first()).toBeVisible();
-    await expect(
-      staffPreview.getByText('Roast covers').locator('..').getByText('4', { exact: true }),
-    ).toBeVisible();
-
-    await page.getByRole('radio', { name: 'Weekday' }).click();
-    await expect(
-      page.getByText('The Sunday roast control stays hidden in the real booking flow.'),
-    ).toBeVisible();
-  });
 });

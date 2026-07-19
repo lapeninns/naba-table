@@ -8,7 +8,6 @@ import { useForm } from 'react-hook-form';
 
 import { emit } from '@/lib/analytics/emit';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
-import { isSundayBookingDate } from '@/lib/bookings/sunday-roast';
 import { useTimeSlots } from '@reserve/features/reservations/wizard/services';
 import {
   fetchCalendarMask,
@@ -608,7 +607,6 @@ export function usePlanStepForm({
       time: state.details.time ?? '',
       party: state.details.party ?? 1,
       bookingType: state.details.bookingType,
-      sundayRoast: state.details.sundayRoast,
       notes: state.details.notes ?? '',
     },
   });
@@ -701,11 +699,6 @@ export function usePlanStepForm({
     () => derivePlanDateAdvisory(state.details.date, overrideDates, schedule?.notes),
     [overrideDates, schedule?.notes, state.details.date],
   );
-  const sundayRoastEligible = Boolean(
-    schedule?.date === state.details.date &&
-    schedule.sundayRoastEnabled &&
-    isSundayBookingDate(state.details.date),
-  );
 
   const lastValidDateRef = useRef<string | null>(state.details.date ?? null);
   const detailsRef = useRef(state.details);
@@ -721,7 +714,6 @@ export function usePlanStepForm({
         time: state.details.time ?? enabledSlots[0]?.value ?? '',
         party: state.details.party ?? 1,
         bookingType: state.details.bookingType,
-        sundayRoast: state.details.sundayRoast,
         notes: state.details.notes ?? '',
       },
       { keepDirty: false, keepTouched: false },
@@ -732,7 +724,6 @@ export function usePlanStepForm({
     state.details.time,
     state.details.party,
     state.details.bookingType,
-    state.details.sundayRoast,
     state.details.notes,
     enabledSlots,
   ]);
@@ -783,7 +774,6 @@ export function usePlanStepForm({
       updateField('time', normalizedTime);
       updateField('party', values.party);
       updateField('bookingType', bookingTypeValue);
-      updateField('sundayRoast', sundayRoastEligible ? values.sundayRoast : false);
       updateField('notes', values.notes ?? '');
       form.setValue('bookingType', bookingTypeValue, {
         shouldDirty: false,
@@ -799,7 +789,6 @@ export function usePlanStepForm({
       normalizeToInterval,
       schedule,
       state.details.bookingType,
-      sundayRoastEligible,
       updateField,
     ],
   );
@@ -826,10 +815,6 @@ export function usePlanStepForm({
       if (!formatted) {
         form.setValue('time', '', { shouldDirty: true, shouldValidate: true });
         updateField('time', '');
-      }
-      if (!isSundayBookingDate(formatted)) {
-        form.setValue('sundayRoast', false, { shouldDirty: true, shouldValidate: true });
-        updateField('sundayRoast', false);
       }
     },
     [form, onTrack, updateField],
@@ -899,34 +884,6 @@ export function usePlanStepForm({
     },
     [form, onTrack, updateField],
   );
-
-  const changeSundayRoast = useCallback(
-    (value: boolean) => {
-      const nextValue = sundayRoastEligible ? value : false;
-      form.setValue('sundayRoast', nextValue, { shouldDirty: true, shouldValidate: true });
-      updateField('sundayRoast', nextValue);
-    },
-    [form, sundayRoastEligible, updateField],
-  );
-
-  useEffect(() => {
-    const scheduleMatchesDate = schedule?.date === state.details.date;
-    const selectionIsInvalid =
-      !isSundayBookingDate(state.details.date) ||
-      (scheduleMatchesDate && schedule?.sundayRoastEnabled !== true);
-    if (!selectionIsInvalid || !state.details.sundayRoast) {
-      return;
-    }
-    form.setValue('sundayRoast', false, { shouldDirty: false, shouldValidate: true });
-    updateField('sundayRoast', false);
-  }, [
-    form,
-    schedule?.date,
-    schedule?.sundayRoastEnabled,
-    state.details.date,
-    state.details.sundayRoast,
-    updateField,
-  ]);
 
   const commitNotes = useCallback(
     (value: string) => {
@@ -1108,7 +1065,6 @@ export function usePlanStepForm({
       selectDate,
       selectTime,
       changeParty,
-      changeSundayRoast,
       commitNotes,
       prefetchMonth,
     },
@@ -1120,7 +1076,6 @@ export function usePlanStepForm({
     isScheduleLoading,
     isScheduleFetching,
     schedule,
-    sundayRoastEligible,
     currentUnavailabilityReason,
     advisoryMessage,
     dateChangeMessage,

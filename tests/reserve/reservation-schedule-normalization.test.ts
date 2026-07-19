@@ -19,16 +19,6 @@ describe('normalizeReservationSchedulePayload', () => {
     expect(result.occasionCatalog).toEqual([]);
     expect(result.notes).toBeNull();
     expect(result.window).toEqual({ opensAt: null, closesAt: null });
-    expect(result.sundayRoastEnabled).toBe(false);
-  });
-
-  it('exposes Sunday Roast only when the schedule explicitly enables it', () => {
-    expect(
-      normalizeReservationSchedulePayload({ sundayRoastEnabled: true }).sundayRoastEnabled,
-    ).toBe(true);
-    expect(
-      normalizeReservationSchedulePayload({ sundayRoastEnabled: 'true' }).sundayRoastEnabled,
-    ).toBe(false);
   });
 
   it('preserves an explicit zero last-seating buffer and does not invent party metadata', () => {

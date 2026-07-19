@@ -5154,7 +5154,6 @@ export type Database = {
           reservation_last_seating_buffer_minutes: number;
           reservation_lifecycle_grace_minutes: number | null;
           slug: string;
-          sunday_roast_enabled: boolean;
           timezone: string;
           updated_at: string;
         };
@@ -5189,7 +5188,6 @@ export type Database = {
           reservation_last_seating_buffer_minutes?: number;
           reservation_lifecycle_grace_minutes?: number | null;
           slug: string;
-          sunday_roast_enabled?: boolean;
           timezone?: string;
           updated_at?: string;
         };
@@ -5224,7 +5222,6 @@ export type Database = {
           reservation_last_seating_buffer_minutes?: number;
           reservation_lifecycle_grace_minutes?: number | null;
           slug?: string;
-          sunday_roast_enabled?: boolean;
           timezone?: string;
           updated_at?: string;
         };

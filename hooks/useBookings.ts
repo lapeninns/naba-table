@@ -44,7 +44,6 @@ export type BookingDTO = {
   // Ops-enriched fields (optional for guest flows)
   reference?: string | null;
   source?: string | null;
-  details?: Record<string, unknown> | null;
   seatingPreference?: string | null;
   allergies?: string[] | null;
   dietaryRestrictions?: string[] | null;

@@ -6,7 +6,6 @@ import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
@@ -34,24 +33,15 @@ export function BookingRulesSubform({
   onDraftChange,
   onResetDraftChange,
 }: RestaurantDetailsSubformProps) {
-  const {
-    state,
-    errors,
-    status,
-    isSubmitting,
-    isDirty,
-    handleChange,
-    handleToggle,
-    resetDraft,
-    submitPartial,
-  } = useRestaurantDetailsSubform({
-    initialValues,
-    fields: BOOKING_RULE_FIELDS,
-    analyticsSection: 'booking_rules',
-    onDirtyChange,
-    onDraftChange,
-    restaurantId,
-  });
+  const { state, errors, status, isSubmitting, isDirty, handleChange, resetDraft, submitPartial } =
+    useRestaurantDetailsSubform({
+      initialValues,
+      fields: BOOKING_RULE_FIELDS,
+      analyticsSection: 'booking_rules',
+      onDirtyChange,
+      onDraftChange,
+      restaurantId,
+    });
   useResetDraftRegistration(onResetDraftChange, resetDraft);
 
   return (
@@ -70,7 +60,6 @@ export function BookingRulesSubform({
                 reservationDefaultDurationMinutes: payload.reservationDefaultDurationMinutes,
                 reservationLastSeatingBufferMinutes: payload.reservationLastSeatingBufferMinutes,
                 reservationLifecycleGraceMinutes: payload.reservationLifecycleGraceMinutes,
-                sundayRoastEnabled: payload.sundayRoastEnabled,
               };
             },
             'BookingRulesSubform',
@@ -275,32 +264,6 @@ export function BookingRulesSubform({
               </p>
             ) : null}
           </div>
-        </div>
-
-        <Separator />
-
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 p-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1">
-              <Label htmlFor="restaurant-sunday-roast-enabled">Sunday Roast bookings</Label>
-              <HelpTooltip
-                description={FIELD_TOOLTIPS.sundayRoastEnabled}
-                ariaLabel="Sunday Roast booking details"
-              />
-            </div>
-            <p
-              id="restaurant-sunday-roast-help"
-              className="text-xs leading-5 text-muted-foreground"
-            >
-              Show guests a Sunday Roast checkbox when they book a Sunday. This is off by default.
-            </p>
-          </div>
-          <Switch
-            id="restaurant-sunday-roast-enabled"
-            checked={state.sundayRoastEnabled}
-            onCheckedChange={(checked) => handleToggle('sundayRoastEnabled', checked)}
-            aria-describedby="restaurant-sunday-roast-help"
-          />
         </div>
 
         <div className="flex flex-col gap-1.5">

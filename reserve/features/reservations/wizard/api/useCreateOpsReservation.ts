@@ -42,7 +42,6 @@ export function buildOpsBookingPayload(draft: ReservationDraft) {
     time: draft.time,
     party: draft.party,
     bookingType: draft.bookingType,
-    sundayRoast: draft.sundayRoast,
     seating: DEFAULT_OPS_SEATING_PREFERENCE,
     notes: draft.notes ?? undefined,
     name: draft.name,

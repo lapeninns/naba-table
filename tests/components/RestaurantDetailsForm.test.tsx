@@ -59,7 +59,6 @@ describe('RestaurantDetailsForm subforms', () => {
     reservationDefaultDurationMinutes: 90,
     reservationLastSeatingBufferMinutes: 15,
     reservationLifecycleGraceMinutes: 15,
-    sundayRoastEnabled: false,
   } satisfies RestaurantDetailsFormValues;
 
   beforeEach(() => {
@@ -257,7 +256,6 @@ describe('RestaurantDetailsForm subforms', () => {
       screen.getByRole('textbox', { name: /booking policy/i }),
       '  Cancel up to 24 hours before arrival.  ',
     );
-    await user.click(screen.getByRole('switch', { name: /sunday roast bookings/i }));
     await user.click(screen.getByRole('button', { name: /save booking rules/i }));
 
     await waitFor(() =>
@@ -267,7 +265,6 @@ describe('RestaurantDetailsForm subforms', () => {
         reservationDefaultDurationMinutes: 90,
         reservationLastSeatingBufferMinutes: 15,
         reservationLifecycleGraceMinutes: 15,
-        sundayRoastEnabled: true,
       }),
     );
   });
