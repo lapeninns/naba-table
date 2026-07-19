@@ -51,6 +51,7 @@ function buildRestaurantSnapshot(
     reservationDefaultDurationMinutes: overrides.reservationDefaultDurationMinutes ?? 90,
     reservationLastSeatingBufferMinutes: overrides.reservationLastSeatingBufferMinutes ?? 15,
     reservationLifecycleGraceMinutes: overrides.reservationLifecycleGraceMinutes ?? 15,
+    sundayRoastEnabled: overrides.sundayRoastEnabled ?? false,
   };
   const hours: OperatingHoursSnapshot = {
     weekly: [

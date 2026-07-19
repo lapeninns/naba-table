@@ -34,6 +34,7 @@ export const EMPTY_PROFILE_VALUES: RestaurantDetailsFormValues = {
   reservationDefaultDurationMinutes: 90,
   reservationLastSeatingBufferMinutes: 15,
   reservationLifecycleGraceMinutes: 15,
+  sundayRoastEnabled: false,
 };
 
 export function buildProfileValues(
@@ -62,6 +63,7 @@ export function buildProfileValues(
     reservationDefaultDurationMinutes: profile.reservationDefaultDurationMinutes,
     reservationLastSeatingBufferMinutes: profile.reservationLastSeatingBufferMinutes,
     reservationLifecycleGraceMinutes: profile.reservationLifecycleGraceMinutes,
+    sundayRoastEnabled: profile.sundayRoastEnabled,
   };
 }
 

@@ -148,6 +148,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
       reservationLifecycleGraceMinutes:
         restaurantRow.reservation_lifecycle_grace_minutes ??
         DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+      sundayRoastEnabled: restaurantRow.sunday_roast_enabled ?? false,
       createdAt: restaurantRow.created_at,
       updatedAt: restaurantRow.updated_at,
       role: membershipRole,
@@ -251,6 +252,7 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
         reservationDefaultDurationMinutes: input.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: input.reservationLastSeatingBufferMinutes,
         reservationLifecycleGraceMinutes: input.reservationLifecycleGraceMinutes,
+        sundayRoastEnabled: input.sundayRoastEnabled,
         emailSendReminder24h: input.emailSendReminder24h,
         emailSendReminderShort: input.emailSendReminderShort,
         emailSendReviewRequest: input.emailSendReviewRequest,
@@ -293,6 +295,7 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
         reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
         reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
         reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
+        sundayRoastEnabled: restaurant.sundayRoastEnabled,
         createdAt: restaurant.createdAt,
         updatedAt: restaurant.updatedAt,
         role: membershipRole,

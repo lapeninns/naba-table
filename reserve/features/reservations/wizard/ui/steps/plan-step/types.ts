@@ -25,6 +25,7 @@ export type PlanStepFormHandlers = {
   selectDate: (value: Date | undefined | null) => void;
   selectTime: (value: string, options?: { commit?: boolean }) => void;
   changeParty: (direction: 'decrement' | 'increment') => void;
+  changeSundayRoast: (value: boolean) => void;
   commitNotes: (value: string) => void;
   prefetchMonth: (month: Date) => void;
 };
@@ -43,6 +44,7 @@ export type PlanStepFormState = {
   isScheduleLoading: boolean;
   isScheduleFetching: boolean;
   schedule: ReservationSchedule | null;
+  sundayRoastEligible: boolean;
   currentUnavailabilityReason: PlanStepUnavailableReason | null;
   advisoryMessage: string | null;
   dateChangeMessage: string | null;

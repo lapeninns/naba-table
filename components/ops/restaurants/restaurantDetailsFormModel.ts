@@ -27,6 +27,7 @@ export type RestaurantDetailsFormValues = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
+  sundayRoastEnabled: boolean;
 };
 
 export type RestaurantDetailsDraftValues = Partial<RestaurantDetailsFormValues>;
@@ -50,6 +51,7 @@ export type FormState = {
   reservationDefaultDurationMinutes: string;
   reservationLastSeatingBufferMinutes: string;
   reservationLifecycleGraceMinutes: string;
+  sundayRoastEnabled: boolean;
 };
 
 export type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -95,6 +97,8 @@ export const FIELD_TOOLTIPS = {
     'Minimum time before operating close when the final party may be seated. Longer party-size table times can make the last available slot earlier.',
   lifecycleGrace:
     'Minutes after the reservation end time when staff can still check out or mark no-shows.',
+  sundayRoastEnabled:
+    'When enabled, guests booking a Sunday can mark their reservation as a Sunday Roast booking.',
   bookingPolicy:
     'Optional message shown to guests during booking and in confirmations (e.g., grace periods, large-party policies).',
   managerName:
@@ -263,6 +267,7 @@ export function mapInitialValues(values: RestaurantDetailsFormValues): FormState
       values.reservationLifecycleGraceMinutes !== null
         ? String(values.reservationLifecycleGraceMinutes)
         : '',
+    sundayRoastEnabled: values.sundayRoastEnabled ?? false,
     googleMapUrl: values.googleMapUrl ?? '',
     googleReviewUrl: values.googleReviewUrl ?? '',
   };
@@ -290,6 +295,7 @@ export function mapRestaurantProfileValues(
     reservationDefaultDurationMinutes: profile.reservationDefaultDurationMinutes,
     reservationLastSeatingBufferMinutes: profile.reservationLastSeatingBufferMinutes,
     reservationLifecycleGraceMinutes: profile.reservationLifecycleGraceMinutes,
+    sundayRoastEnabled: profile.sundayRoastEnabled,
   };
 }
 
@@ -332,6 +338,7 @@ export function sanitizePayload(state: FormState): UpdateRestaurantInput {
     reservationDefaultDurationMinutes: defaultDurationMinutes,
     reservationLastSeatingBufferMinutes: lastSeatingBufferMinutes,
     reservationLifecycleGraceMinutes: lifecycleGraceMinutes,
+    sundayRoastEnabled: state.sundayRoastEnabled,
     emailSendReminder24h: true,
     emailSendReminderShort: true,
     emailSendReviewRequest: true,

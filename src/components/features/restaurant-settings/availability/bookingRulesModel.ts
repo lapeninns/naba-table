@@ -23,6 +23,7 @@ type BookingRulesDetails = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
+  sundayRoastEnabled: boolean;
 };
 
 const EMPTY_VALUES: RestaurantDetailsFormValues = {
@@ -44,6 +45,7 @@ const EMPTY_VALUES: RestaurantDetailsFormValues = {
   reservationDefaultDurationMinutes: 90,
   reservationLastSeatingBufferMinutes: 15,
   reservationLifecycleGraceMinutes: 15,
+  sundayRoastEnabled: false,
 };
 
 export function toBookingRulesFormValues(
@@ -73,5 +75,6 @@ export function toBookingRulesFormValues(
     reservationDefaultDurationMinutes: data.reservationDefaultDurationMinutes,
     reservationLastSeatingBufferMinutes: data.reservationLastSeatingBufferMinutes,
     reservationLifecycleGraceMinutes: data.reservationLifecycleGraceMinutes,
+    sundayRoastEnabled: data.sundayRoastEnabled,
   };
 }

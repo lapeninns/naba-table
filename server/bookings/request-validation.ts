@@ -79,6 +79,7 @@ export const bookingCreateRequestSchema = z
     phone: optionalCreatePhoneSchema,
     marketingOptIn: explicitBooleanSchema.optional().default(false),
     whatsappOptIn: explicitBooleanSchema.optional().default(false),
+    sundayRoast: explicitBooleanSchema.optional().default(false),
   })
   .superRefine((value, ctx) => {
     if (!value.email && !value.phone) {

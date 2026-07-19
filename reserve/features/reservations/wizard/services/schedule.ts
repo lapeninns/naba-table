@@ -126,6 +126,7 @@ export function normalizeReservationSchedulePayload(payload: unknown): Reservati
 
   return {
     restaurantId: toStringOr(record?.restaurantId, ''),
+    sundayRoastEnabled: record?.sundayRoastEnabled === true,
     ...(evaluatedPartySize === null ? {} : { evaluatedPartySize }),
     date: toStringOr(record?.date, ''),
     timezone: toStringOr(record?.timezone, 'UTC'),

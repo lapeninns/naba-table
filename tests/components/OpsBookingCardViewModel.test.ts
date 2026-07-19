@@ -93,6 +93,19 @@ describe('buildOpsBookingCardViewModel', () => {
     expect(viewModel.header.initials).toBe('JD');
   });
 
+  it('marks structured Sunday Roast bookings for a visible staff chip', () => {
+    const viewModel = buildOpsBookingCardViewModel({
+      booking: createBooking({
+        details: { occasion: 'Sunday Roast', sunday_roast: true },
+      }),
+      timezone: 'UTC',
+      now: new Date('2026-03-29T17:30:00.000Z'),
+      actionsDisabled: false,
+    });
+
+    expect(viewModel.header.isSundayRoast).toBe(true);
+  });
+
   it('falls back to walk-in defaults and strips blank optional fields', () => {
     const booking = createBooking({
       customerName: '   ',

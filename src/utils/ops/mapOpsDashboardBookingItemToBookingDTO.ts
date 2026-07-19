@@ -33,6 +33,7 @@ export function mapOpsDashboardBookingItemToBookingDTO(
     customerPhone: booking.customerPhone ?? null,
     reference: booking.reference ?? null,
     source: booking.source ?? null,
+    details: booking.details ?? null,
     seatingPreference: booking.seatingPreference ?? null,
     allergies: booking.allergies ?? null,
     dietaryRestrictions: booking.dietaryRestrictions ?? null,

@@ -70,6 +70,7 @@ type RestaurantResponse = {
     reservationDefaultDurationMinutes: number | null;
     reservationLastSeatingBufferMinutes: number | null;
     reservationLifecycleGraceMinutes: number | null;
+    sundayRoastEnabled: boolean;
     createdAt: string;
     updatedAt: string;
     role: RestaurantRole;
@@ -809,6 +810,7 @@ export type RestaurantProfile = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
+  sundayRoastEnabled: boolean;
   updatedAt?: string | null;
 };
 
@@ -1240,6 +1242,7 @@ function mapRestaurant(dto: RestaurantResponse['restaurant']): RestaurantProfile
     reservationLastSeatingBufferMinutes: dto.reservationLastSeatingBufferMinutes ?? 15,
     reservationLifecycleGraceMinutes:
       dto.reservationLifecycleGraceMinutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+    sundayRoastEnabled: dto.sundayRoastEnabled ?? false,
     updatedAt: dto.updatedAt ?? null,
   };
 }

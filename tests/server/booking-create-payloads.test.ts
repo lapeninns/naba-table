@@ -199,7 +199,12 @@ describe('booking create payload builders', () => {
       source: 'api',
       client_request_id: 'request-1',
       idempotency_key: 'idem-1',
-      details: { fallback: 'missing_rpc_booking_record' },
+      details: {
+        channel: 'ops.walkin',
+        created_by: 'ops.walkin',
+        staff_request_id: 'request-1',
+        fallback: 'missing_rpc_booking_record',
+      },
     });
   });
 

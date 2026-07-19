@@ -92,6 +92,7 @@ export type CreatedRestaurant = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
+  sundayRoastEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -254,6 +255,7 @@ export async function createRestaurant(
     reservationLastSeatingBufferMinutes: restaurant.reservation_last_seating_buffer_minutes,
     reservationLifecycleGraceMinutes:
       restaurant.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+    sundayRoastEnabled: restaurant.sunday_roast_enabled ?? false,
     createdAt: restaurant.created_at,
     updatedAt: restaurant.updated_at,
   };
