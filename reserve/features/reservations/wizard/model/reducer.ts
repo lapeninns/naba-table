@@ -21,10 +21,6 @@ export type ApiBooking = {
   customer_email: string;
   customer_phone: string;
   notes: string | null;
-  details?: {
-    occasion?: string | null;
-    sunday_roast?: boolean;
-  } | null;
   source: string;
   marketing_opt_in: boolean;
   whatsapp_opt_in: boolean;
@@ -59,7 +55,6 @@ export type BookingDetails = {
   time: string;
   party: number;
   bookingType: BookingOption;
-  sundayRoast: boolean;
   notes: string;
   name: string;
   email: string;
@@ -128,7 +123,6 @@ export type ReservationDraft = {
   time: string;
   party: number;
   bookingType: BookingOption;
-  sundayRoast: boolean;
   notes?: string | null;
   name: string;
   email: string | null;
@@ -158,7 +152,6 @@ export const getInitialDetails = (overrides?: Partial<BookingDetails>): BookingD
     time: '',
     party: 1,
     bookingType: BOOKING_TYPES_UI[0],
-    sundayRoast: false,
     notes: '',
     name: '',
     email: '',
@@ -239,9 +232,6 @@ export function reducer(state: State, action: Action): State {
           : state.details.time,
         party: booking ? booking.party_size : state.details.party,
         bookingType: booking ? toBookingOption(booking.booking_type) : state.details.bookingType,
-        sundayRoast: booking
-          ? booking.details?.sunday_roast === true || booking.details?.occasion === 'Sunday Roast'
-          : state.details.sundayRoast,
         notes: booking?.notes ?? state.details.notes,
         marketingOptIn: booking ? booking.marketing_opt_in : state.details.marketingOptIn,
         whatsappOptIn: booking ? booking.whatsapp_opt_in : state.details.whatsappOptIn,
@@ -283,8 +273,6 @@ export function reducer(state: State, action: Action): State {
           time: normalizeTime(booking.start_time) ?? state.details.time,
           party: booking.party_size,
           bookingType: toBookingOption(booking.booking_type),
-          sundayRoast:
-            booking.details?.sunday_roast === true || booking.details?.occasion === 'Sunday Roast',
           notes: booking.notes ?? '',
           name: booking.customer_name,
           email: booking.customer_email,

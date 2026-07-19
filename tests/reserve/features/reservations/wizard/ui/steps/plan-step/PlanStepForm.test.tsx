@@ -20,7 +20,6 @@ const harness = vi.hoisted(() => ({
     selectDate: vi.fn(),
     selectTime: vi.fn(),
     changeParty: vi.fn(),
-    changeSundayRoast: vi.fn(),
     commitNotes: vi.fn(),
     prefetchMonth: vi.fn(),
   },
@@ -36,7 +35,6 @@ vi.mock('@features/reservations/wizard/hooks/usePlanStepForm', async () => {
           time: '19:00',
           party: 2,
           bookingType: 'dinner',
-          sundayRoast: false,
           notes: '',
         },
       });
@@ -52,7 +50,6 @@ vi.mock('@features/reservations/wizard/hooks/usePlanStepForm', async () => {
         isScheduleLoading: false,
         isScheduleFetching: false,
         schedule: null,
-        sundayRoastEligible: false,
         currentUnavailabilityReason: null,
         advisoryMessage: null,
         dateChangeMessage: null,
@@ -126,33 +123,6 @@ describe('PlanStepForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Increase guests' }));
     expect(harness.handlers.changeParty).toHaveBeenCalledWith('increment');
-  });
-
-  it('shows the opt-in only for eligible Sundays and routes the selection', async () => {
-    const user = userEvent.setup();
-    harness.overrides = { sundayRoastEligible: true };
-    renderForm();
-
-    const checkbox = screen.getByRole('checkbox', {
-      name: 'This booking is for Sunday Roast',
-    });
-    const fields = screen.getByRole('group', { name: 'Booking plan' });
-    expect(
-      Array.from(fields.querySelectorAll<HTMLElement>(':scope > [data-plan-field]')).map(
-        (region) => region.dataset.planField,
-      ),
-    ).toEqual(['party', 'date', 'time', 'sunday-roast', 'notes']);
-    await user.click(checkbox);
-
-    expect(harness.handlers.changeSundayRoast).toHaveBeenCalledWith(true);
-  });
-
-  it('hides the Sunday Roast opt-in when the venue or date is ineligible', () => {
-    renderForm();
-
-    expect(
-      screen.queryByRole('checkbox', { name: 'This booking is for Sunday Roast' }),
-    ).not.toBeInTheDocument();
   });
 
   it('explains closed dates and disables the time field @contract', () => {

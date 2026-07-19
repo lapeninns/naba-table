@@ -12,7 +12,6 @@ import {
   SparklesIcon,
   UserIcon,
   UsersIcon,
-  UtensilsCrossedIcon,
 } from 'lucide-react';
 import React from 'react';
 
@@ -159,13 +158,6 @@ export function ReviewSummaryPanel({
                 label="Booking type"
                 value={formatBookingLabel(details.bookingType)}
               />
-              {details.sundayRoast ? (
-                <DetailItem
-                  icon={<UtensilsCrossedIcon className="size-4" />}
-                  label="Occasion"
-                  value="Sunday Roast"
-                />
-              ) : null}
             </dl>
           </SummarySection>
 

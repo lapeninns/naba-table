@@ -35,7 +35,6 @@ export type RawScheduleSlot = {
 
 export type ReservationSchedule = {
   restaurantId: string;
-  sundayRoastEnabled: boolean;
   evaluatedPartySize?: number;
   date: string;
   timezone: string;

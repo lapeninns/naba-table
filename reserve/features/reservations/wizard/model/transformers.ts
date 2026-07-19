@@ -60,7 +60,6 @@ export const buildReservationDraft = (
       time: normalizedTime,
       party: Math.max(1, details.party),
       bookingType,
-      sundayRoast: details.sundayRoast,
       notes: details.notes ? details.notes : null,
       name: details.name.trim(),
       email: normalizeContactValue(details.email, false),
@@ -86,12 +85,6 @@ export const reservationToApiBooking = (reservation: Reservation): ApiBooking =>
   customer_email: reservation.customerEmail,
   customer_phone: reservation.customerPhone,
   notes: reservation.notes ?? null,
-  details: reservation.metadata
-    ? {
-        occasion: reservation.metadata.occasion ?? null,
-        sunday_roast: reservation.metadata.sundayRoast === true,
-      }
-    : null,
   source: 'app',
   marketing_opt_in: buildMarketingOptIn(reservation.marketingOptIn),
   whatsapp_opt_in: reservation.whatsappOptIn,

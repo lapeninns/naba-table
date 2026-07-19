@@ -1,6 +1,6 @@
 'use client';
 
-import { Armchair, Calendar, Clock, FileText, Users, UtensilsCrossed } from 'lucide-react';
+import { Armchair, Calendar, Clock, FileText, Users } from 'lucide-react';
 import { memo } from 'react';
 
 import { BookingStatusBadge } from '@/components/features/booking-state-machine';
@@ -39,7 +39,6 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
     timeRangeLabel,
     isDone,
     hasNotes,
-    isSundayRoast,
     urgency,
   } = header;
 
@@ -99,7 +98,7 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
       </div>
 
       {/* ── Row 3: Operational chips (table + urgency + notes pill) ──── */}
-      {(table || urgency || isSundayRoast || (!isOpen && hasNotes)) && (
+      {(table || urgency || (!isOpen && hasNotes)) && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[calc(2rem+0.625rem)] sm:pl-[calc(2.25rem+0.625rem)]">
           {/* Table chip — visible even before expanding */}
           {table && (
@@ -128,13 +127,6 @@ export const OpsBookingCardHeader = memo(function OpsBookingCardHeader({
               <Clock className="mr-1 size-3" aria-hidden /> {urgency.label}
             </Badge>
           )}
-
-          {isSundayRoast ? (
-            <Badge variant="secondary" className="py-0.5 text-[10px] sm:text-[11px]">
-              <UtensilsCrossed className="mr-1 size-3" aria-hidden />
-              Sunday Roast
-            </Badge>
-          ) : null}
 
           {/* Notes passive signal — visible when collapsed */}
           {!isOpen && hasNotes && (

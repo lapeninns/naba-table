@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-import { isSundayBookingDate } from '@/lib/bookings/sunday-roast';
 import { deriveEndTimeFromDuration, inferMealTypeFromTime } from '@/server/bookings';
 import { runBookingCreateCapacityPrecheck } from '@/server/bookings/capacity-failure-response';
 import { resolveBookingCreateCustomerContext } from '@/server/bookings/create-customer-context';
@@ -106,22 +105,6 @@ export async function runBookingCreatePrecommitContext({
   startTime = scheduleGate.startTime;
   bookingType = scheduleGate.bookingType;
   scheduleTimezone = scheduleGate.scheduleTimezone;
-
-  if (
-    request.sundayRoast &&
-    (!scheduleGate.sundayRoastEnabled || !isSundayBookingDate(request.date))
-  ) {
-    return {
-      kind: 'response',
-      response: NextResponse.json(
-        {
-          error: 'Sunday Roast is not available for this reservation.',
-          code: 'SUNDAY_ROAST_UNAVAILABLE',
-        },
-        { status: 400 },
-      ),
-    };
-  }
 
   const { durationMinutes } = await durationResolver({
     restaurantId,

@@ -82,7 +82,6 @@ export const opsWalkInBookingSchema = z
     phone: optionalPhoneSchema,
     marketingOptIn: explicitBooleanSchema.optional().default(true),
     whatsappOptIn: explicitBooleanSchema.optional().default(true),
-    sundayRoast: explicitBooleanSchema.optional().default(false),
     override: overrideSchema.optional(),
   })
   .superRefine((data, ctx) => {

@@ -56,7 +56,6 @@ describe('booking request validation', () => {
         ...validBookingRequest,
         marketingOptIn: false,
         whatsappOptIn: false,
-        sundayRoast: false,
       });
       expect(DEFAULT_SEATING_PREFERENCE).toBe('any');
     });

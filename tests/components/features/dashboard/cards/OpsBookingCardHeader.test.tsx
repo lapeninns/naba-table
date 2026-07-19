@@ -118,14 +118,4 @@ describe('OpsBookingCardHeader', () => {
     expect(viewModel.header.urgency).not.toBeNull();
     expect(screen.getByText('20m late')).toBeInTheDocument();
   });
-
-  it('@contract surfaces Sunday Roast bookings without expanding the card', () => {
-    const viewModel = buildViewModel({
-      details: { occasion: 'Sunday Roast', sunday_roast: true },
-    });
-
-    render(<OpsBookingCardHeader header={viewModel.header} isOpen={false} />);
-
-    expect(screen.getByText('Sunday Roast')).toBeInTheDocument();
-  });
 });

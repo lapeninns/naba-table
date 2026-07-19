@@ -53,26 +53,4 @@ describe('reservationAdapter', () => {
     expect(reservation.startAt).toBe('2026-07-02T18:30:00.000Z');
     expect(reservation.endAt).toBe('2026-07-02T20:00:00.000Z');
   });
-
-  it('normalizes structured Sunday Roast booking details', () => {
-    const reservation = reservationAdapter({
-      id: '11111111-1111-4111-8111-111111111111',
-      restaurant_id: '22222222-2222-4222-8222-222222222222',
-      booking_date: '2026-07-05',
-      start_time: '12:30',
-      end_time: '14:00',
-      booking_type: 'lunch',
-      status: 'confirmed',
-      party_size: 4,
-      customer_name: 'Alex Example',
-      customer_email: 'alex@example.com',
-      customer_phone: '+447700900123',
-      details: { occasion: 'Sunday Roast', sunday_roast: true },
-    });
-
-    expect(reservation.metadata).toMatchObject({
-      occasion: 'Sunday Roast',
-      sundayRoast: true,
-    });
-  });
 });

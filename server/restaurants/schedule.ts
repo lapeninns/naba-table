@@ -43,7 +43,6 @@ export type RestaurantScheduleSlot = {
 
 export type RestaurantSchedule = {
   restaurantId: string;
-  sundayRoastEnabled: boolean;
   date: string;
   timezone: string;
   notes: string | null;
@@ -493,7 +492,7 @@ export async function getRestaurantSchedule(
   const { data: restaurant, error: restaurantError } = await client
     .from('restaurants')
     .select(
-      'id, timezone, sunday_roast_enabled, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes',
+      'id, timezone, reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes',
     )
     .eq('id', restaurantId)
     .maybeSingle();
@@ -622,7 +621,6 @@ export async function getRestaurantSchedule(
 
   return {
     restaurantId: restaurant.id,
-    sundayRoastEnabled: restaurant.sunday_roast_enabled ?? false,
     date,
     timezone: restaurant.timezone,
     notes: effectiveHours?.notes?.trim() || null,

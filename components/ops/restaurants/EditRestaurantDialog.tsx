@@ -70,7 +70,6 @@ export function EditRestaurantDialog({
             reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
             reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
             reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
-            sundayRoastEnabled: restaurant.sundayRoastEnabled,
           }}
           onSubmit={handleSubmit}
           onCancel={() => onOpenChange(false)}

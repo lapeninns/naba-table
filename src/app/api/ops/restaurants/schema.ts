@@ -270,7 +270,6 @@ export const updateRestaurantSchema = z.object({
   reservationDefaultDurationMinutes: DURATION_SCHEMA.optional(),
   reservationLastSeatingBufferMinutes: DURATION_SCHEMA.optional(),
   reservationLifecycleGraceMinutes: GRACE_SCHEMA.optional(),
-  sundayRoastEnabled: z.boolean().optional(),
   managerName: z
     .string()
     .trim()
@@ -311,7 +310,6 @@ export type RestaurantDTO = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
-  sundayRoastEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   role: 'owner' | 'admin' | 'staff' | 'viewer';

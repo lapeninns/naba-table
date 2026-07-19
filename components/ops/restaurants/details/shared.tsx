@@ -260,10 +260,7 @@ export function useRestaurantDetailsSubform({
   };
 
   const handleToggle = (
-    field: keyof Pick<
-      FormState,
-      'managerDailySummaryEnabled' | 'managerWhatsappEnabled' | 'sundayRoastEnabled'
-    >,
+    field: keyof Pick<FormState, 'managerDailySummaryEnabled' | 'managerWhatsappEnabled'>,
     value: boolean,
   ) => {
     setState((prev) => ({ ...prev, [field]: value }));
@@ -442,5 +439,4 @@ export const BOOKING_RULE_FIELDS = [
   'reservationDefaultDurationMinutes',
   'reservationLastSeatingBufferMinutes',
   'reservationLifecycleGraceMinutes',
-  'sundayRoastEnabled',
 ] as const satisfies readonly DetailsField[];
