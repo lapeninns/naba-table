@@ -1,3 +1,4 @@
+import { withFallbackBookingDetail } from '@/lib/bookings/sunday-roast';
 import {
   buildBookingAuditSnapshot,
   logAuditEvent,
@@ -154,7 +155,7 @@ export function buildFallbackInsertBookingPayload(
     source: 'api',
     client_request_id: params.clientRequestId,
     idempotency_key: params.idempotencyKey ?? null,
-    details: { fallback: 'missing_rpc_booking_record' },
+    details: withFallbackBookingDetail(params.bookingDetails),
   };
 }
 

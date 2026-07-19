@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
+import { isSundayBookingDate, withSundayRoastDetails } from '@/lib/bookings/sunday-roast';
 import { isBookingType } from '@/lib/enums';
 import { env } from '@/lib/env';
 import { HttpError } from '@/lib/http/errors';
@@ -15,6 +16,7 @@ import {
   type ValidationContext,
 } from '@/server/booking';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
+import { buildBookingWhatsAppConsentPatch } from '@/server/booking/whatsapp-consent';
 import {
   BOOKING_TYPES,
   buildBookingAuditSnapshot,
@@ -73,7 +75,6 @@ import {
   CUSTOMER_PHONE_LENGTH_MIN,
   isUKPhone,
 } from '@reserve/shared/validation';
-import { buildBookingWhatsAppConsentPatch } from '@/server/booking/whatsapp-consent';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -108,6 +109,7 @@ const updateSchema = z.object({
     }),
   marketingOptIn: explicitBooleanSchema.optional().default(false),
   whatsappOptIn: explicitBooleanSchema.optional(),
+  sundayRoast: explicitBooleanSchema.optional(),
 });
 
 // Dashboard update schema for minimal booking updates (used by EditBookingDialog)
@@ -1499,6 +1501,21 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       throw validationError;
     }
 
+    if (data.sundayRoast && (!schedule.sundayRoastEnabled || !isSundayBookingDate(data.date))) {
+      return NextResponse.json(
+        {
+          error: 'Sunday Roast is not available for this reservation.',
+          code: 'SUNDAY_ROAST_UNAVAILABLE',
+        },
+        { status: 400 },
+      );
+    }
+
+    const bookingDetails =
+      data.sundayRoast === undefined
+        ? existingBooking.details
+        : withSundayRoastDetails(existingBooking.details, data.sundayRoast);
+
     const { durationMinutes } = await resolveBookingDurationMinutes({
       restaurantId,
       bookingDate: data.date,
@@ -1574,6 +1591,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             ...whatsappConsentPatch,
             notes: data.notes ?? null,
             marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+            details: bookingDetails,
           },
         })
       : await updateBookingRecord(
@@ -1594,6 +1612,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
             ...whatsappConsentPatch,
             notes: data.notes ?? null,
             marketing_opt_in: data.marketingOptIn ?? existingBooking.marketing_opt_in,
+            details: bookingDetails,
           },
           { restaurantId },
         );

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { withSundayRoastDetails } from '@/lib/bookings/sunday-roast';
 import { runBookingCreateLegacyCapacityCreate } from '@/server/bookings/legacy-capacity-create';
 import { runBookingCreateUnifiedValidation } from '@/server/bookings/unified-validation-create';
 
@@ -85,7 +86,7 @@ export async function runBookingCreatePersistence({
     bookingSource: requestContext.bookingSource,
     idempotencyKey: precommit.idempotencyKey,
     clientRequestId: requestContext.clientRequestId,
-    bookingDetails: requestContext.bookingDetails,
+    bookingDetails: withSundayRoastDetails(requestContext.bookingDetails, request.sundayRoast),
   };
 
   if (useUnifiedValidation) {

@@ -2,6 +2,7 @@ const RESTAURANT_BASE_COLUMNS = [
   'id',
   'name',
   'slug',
+  'sunday_roast_enabled',
   'timezone',
   'capacity',
   'contact_email',

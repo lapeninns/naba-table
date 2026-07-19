@@ -2,9 +2,10 @@ import { createHash, randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { isSundayBookingDate, withSundayRoastDetails } from '@/lib/bookings/sunday-roast';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
@@ -12,8 +13,8 @@ import {
   type BookingInput,
   type ValidationContext,
 } from '@/server/booking';
-import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
+import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import {
   deriveEndTimeFromDuration,
   fetchBookingsForContact,
@@ -23,18 +24,18 @@ import {
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import {
-  getBookingPastTimeGraceMinutes,
-  getInlineAutoAssignTimeoutMs,
-  isAutoAssignOnBookingEnabled,
-  isBookingPastTimeBlockingEnabled,
-} from '@/server/runtime-policy';
-import {
   enqueueBookingCreatedSideEffects,
   safeBookingPayload,
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import {
+  getBookingPastTimeGraceMinutes,
+  getInlineAutoAssignTimeoutMs,
+  isAutoAssignOnBookingEnabled,
+  isBookingPastTimeBlockingEnabled,
+} from '@/server/runtime-policy';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
@@ -785,6 +786,16 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     client: service,
   });
 
+  if (payload.sundayRoast && (!schedule.sundayRoastEnabled || !isSundayBookingDate(payload.date))) {
+    return NextResponse.json(
+      {
+        error: 'Sunday Roast is not available for this reservation.',
+        code: 'SUNDAY_ROAST_UNAVAILABLE',
+      },
+      { status: 400 },
+    );
+  }
+
   const startDateTime = DateTime.fromISO(`${payload.date}T${payload.time}`, {
     zone: schedule.timezone ?? undefined,
   });
@@ -901,6 +912,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     source: OPS_WALK_IN_SOURCE,
     idempotencyKey: normalizedIdempotencyKey ?? null,
     override: overrideRequest,
+    details: withSundayRoastDetails(null, payload.sundayRoast),
   };
 
   const context: ValidationContext = {

@@ -42,6 +42,7 @@ export type UpdateRestaurantInput = {
   reservationDefaultDurationMinutes?: number;
   reservationLastSeatingBufferMinutes?: number;
   reservationLifecycleGraceMinutes?: number;
+  sundayRoastEnabled?: boolean;
 };
 
 export type UpdatedRestaurant = {
@@ -69,6 +70,7 @@ export type UpdatedRestaurant = {
   reservationDefaultDurationMinutes: number;
   reservationLastSeatingBufferMinutes: number;
   reservationLifecycleGraceMinutes: number;
+  sundayRoastEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -251,6 +253,10 @@ export async function updateRestaurant(
     updateData.reservation_lifecycle_grace_minutes = value;
   }
 
+  if (input.sundayRoastEnabled !== undefined) {
+    updateData.sunday_roast_enabled = input.sundayRoastEnabled;
+  }
+
   if (input.emailSendReminder24h !== undefined) {
     updateData.email_send_reminder_24h = input.emailSendReminder24h;
   }
@@ -316,6 +322,7 @@ export async function updateRestaurant(
     reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,
     reservationLifecycleGraceMinutes:
       data.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+    sundayRoastEnabled: data.sunday_roast_enabled ?? false,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };

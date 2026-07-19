@@ -148,6 +148,9 @@ const parseMetadata = (details: unknown): ReservationMetadata => {
     metadata.rescheduledAt = record.rescheduled_at;
   }
 
+  metadata.occasion = typeof record.occasion === 'string' ? record.occasion : null;
+  metadata.sundayRoast = record.sunday_roast === true || record.occasion === 'Sunday Roast';
+
   return metadata;
 };
 

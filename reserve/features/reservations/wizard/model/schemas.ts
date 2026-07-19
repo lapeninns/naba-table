@@ -24,6 +24,7 @@ export const planFormSchema = z.object({
     .min(1, { message: 'Minimum of one guest required.' })
     .max(MAX_ONLINE_PARTY_SIZE, { message: ONLINE_PARTY_SIZE_LIMIT_COPY }),
   bookingType: z.string().optional(),
+  sundayRoast: z.boolean(),
   notes: z.string().max(500, { message: 'Notes must be 500 characters or fewer.' }).optional(),
 });
 
