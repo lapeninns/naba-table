@@ -1,7 +1,5 @@
-import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -29,19 +27,6 @@ type GuestSectionHeaderProps = {
   className?: string;
 };
 
-type GuestActionCardProps = {
-  icon: LucideIcon;
-  eyebrow?: string;
-  title: ReactNode;
-  description: ReactNode;
-  href?: string;
-  actionLabel?: string;
-  actions?: ReactNode;
-  children?: ReactNode;
-  className?: string;
-  featured?: boolean;
-};
-
 type GuestMetricCardProps = {
   icon?: LucideIcon;
   label: string;
@@ -63,26 +48,6 @@ type GuestDetailItem = {
   label: string;
   value: ReactNode;
   detail?: ReactNode;
-};
-
-type GuestRouteCardProps = {
-  icon: LucideIcon;
-  title: ReactNode;
-  description: ReactNode;
-  href: string;
-  actionLabel: string;
-  eyebrow?: ReactNode;
-  featured?: boolean;
-  meta?: ReactNode;
-  onAction?: () => void;
-  className?: string;
-};
-
-type GuestJourneyStep = {
-  label: string;
-  title: ReactNode;
-  description: ReactNode;
-  href?: string;
 };
 
 export function GuestPageFrame({
@@ -295,159 +260,6 @@ export function GuestInsetCard({
   );
 }
 
-export function GuestActionCard({
-  icon: Icon,
-  eyebrow,
-  title,
-  description,
-  href,
-  actionLabel,
-  actions,
-  children,
-  className,
-  featured = false,
-}: GuestActionCardProps) {
-  return (
-    <GuestPanel
-      interactive={Boolean(href)}
-      className={cn(
-        'flex h-full flex-col gap-5 p-5 sm:p-6',
-        featured && 'border-primary/25 bg-primary/[0.04]',
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-          <Icon className="size-5" aria-hidden />
-        </span>
-        {eyebrow ? (
-          <Badge variant="guest-chip" className="pg-chip">
-            {eyebrow}
-          </Badge>
-        ) : null}
-      </div>
-
-      <div className="space-y-2.5">
-        <h3 className="pg-card-title">{title}</h3>
-        <p className="pg-body text-sm">{description}</p>
-      </div>
-
-      {children ? (
-        <div className="rounded-[var(--pg-radius-md)] border border-border/70 bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-          {children}
-        </div>
-      ) : null}
-
-      <div className="mt-auto flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {href && actionLabel ? (
-          <GuestPrimaryButton href={href}>{actionLabel}</GuestPrimaryButton>
-        ) : null}
-        {actions}
-      </div>
-    </GuestPanel>
-  );
-}
-
-export function GuestRouteCard({
-  icon: Icon,
-  title,
-  description,
-  href,
-  actionLabel,
-  eyebrow,
-  featured = false,
-  meta,
-  onAction,
-  className,
-}: GuestRouteCardProps) {
-  return (
-    <GuestPanel
-      interactive
-      className={cn(
-        'group flex h-full flex-col gap-5 p-5 sm:p-6',
-        featured && 'border-primary/25 bg-primary/[0.04]',
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-[var(--pg-radius-md)] border border-border/80 bg-background text-primary shadow-[var(--pg-shadow-xs)]">
-          <Icon className="size-5" aria-hidden />
-        </span>
-        {eyebrow ? (
-          <Badge variant="guest-chip-outline" className="pg-chip">
-            {eyebrow}
-          </Badge>
-        ) : null}
-      </div>
-
-      <div className="flex flex-1 flex-col gap-3">
-        <h3 className="pg-card-title">{title}</h3>
-        <p className="pg-body text-sm">{description}</p>
-        {meta ? (
-          <div className="rounded-[var(--pg-radius-md)] border border-border/70 bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-            {meta}
-          </div>
-        ) : null}
-      </div>
-
-      <Button
-        asChild
-        variant={featured ? 'guest-primary' : 'guest-outline'}
-        size="guest-lg"
-        className="pg-action pg-focus-ring pg-touch mt-auto w-full justify-between"
-      >
-        <Link href={href} onClick={onAction}>
-          {actionLabel}
-          <ArrowRight aria-hidden data-icon="inline-end" />
-        </Link>
-      </Button>
-    </GuestPanel>
-  );
-}
-
-export function GuestJourneyMap({
-  steps,
-  className,
-}: {
-  steps: readonly GuestJourneyStep[];
-  className?: string;
-}) {
-  return (
-    <ol className={cn('grid gap-3 md:grid-cols-2 xl:grid-cols-4', className)}>
-      {steps.map((step, index) => {
-        const content = (
-          <div className="flex h-full flex-col gap-3 rounded-[var(--pg-radius-md)] border border-border/75 bg-background/85 p-4 shadow-[var(--pg-shadow-xs)]">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-[var(--pg-font-mono)] text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                {step.label}
-              </span>
-              <span className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                {index + 1}
-              </span>
-            </div>
-            <div className="flex flex-1 flex-col gap-1.5">
-              <p className="text-sm font-semibold text-foreground">{step.title}</p>
-              <p className="text-sm leading-6 text-muted-foreground">{step.description}</p>
-            </div>
-          </div>
-        );
-
-        return (
-          <li key={step.label} className="min-w-0">
-            {step.href ? (
-              <Link href={step.href} className="pg-focus-ring block rounded-[var(--pg-radius-md)]">
-                {content}
-              </Link>
-            ) : (
-              content
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 export function GuestMetricCard({
   icon: Icon,
   label,
@@ -586,27 +398,6 @@ export function GuestSecondaryButton({
       asChild
       size="guest-lg"
       variant="guest-outline"
-      className={cn('pg-action pg-focus-ring pg-touch', className)}
-    >
-      <Link href={href}>{children}</Link>
-    </Button>
-  );
-}
-
-export function GuestGhostButton({
-  href,
-  children,
-  className,
-}: {
-  href: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <Button
-      asChild
-      size="guest-lg"
-      variant="guest-ghost"
       className={cn('pg-action pg-focus-ring pg-touch', className)}
     >
       <Link href={href}>{children}</Link>
