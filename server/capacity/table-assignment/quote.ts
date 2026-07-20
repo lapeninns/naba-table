@@ -25,6 +25,7 @@ import {
   type RankedTablePlan,
   type CandidateDiagnostics,
 } from '@/server/capacity/selector';
+import { getRestaurantServiceWindows } from '@/server/capacity/service-windows';
 import { loadStrategicConfig } from '@/server/capacity/strategic-config';
 import {
   emitHoldStrictConflict,
@@ -343,10 +344,14 @@ export async function quoteTablesForBooking(
       : null) ??
     restaurantTimezoneLookup ??
     getVenuePolicy().timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const [turnBandsByOption, serviceWindows] = await Promise.all([
+    getRestaurantTurnBands(booking.restaurant_id, supabase),
+    getRestaurantServiceWindows(booking.restaurant_id, supabase),
+  ]);
   const policy = getVenuePolicy({
     timezone: restaurantTimezone ?? undefined,
     turnBandsByOption,
+    serviceWindows,
   });
   const policyVersion = hashPolicyVersion(policy);
   const {
@@ -360,6 +365,7 @@ export async function quoteTablesForBooking(
     partySize: booking.party_size,
     bookingOption: booking.booking_type ?? null,
     policy,
+    restaurantId: booking.restaurant_id,
   });
   const shouldEmitPlannerStats = shouldEmitCapacityPlannerStats();
   const attachPlannerStats = (result: QuoteTablesResult, stats?: QuotePlannerStats | null) => {
@@ -1126,11 +1132,15 @@ export async function findSuitableTables(options: {
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     defaultPolicy.timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
-  const policy =
-    restaurantTimezone === defaultPolicy.timezone
-      ? getVenuePolicy({ timezone: defaultPolicy.timezone, turnBandsByOption })
-      : getVenuePolicy({ timezone: restaurantTimezone ?? undefined, turnBandsByOption });
+  const [turnBandsByOption, serviceWindows] = await Promise.all([
+    getRestaurantTurnBands(booking.restaurant_id, supabase),
+    getRestaurantServiceWindows(booking.restaurant_id, supabase),
+  ]);
+  const policy = getVenuePolicy({
+    timezone: restaurantTimezone ?? defaultPolicy.timezone,
+    turnBandsByOption,
+    serviceWindows,
+  });
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
     bookingDate: booking.booking_date,
@@ -1138,6 +1148,7 @@ export async function findSuitableTables(options: {
     partySize: booking.party_size,
     bookingOption: booking.booking_type ?? null,
     policy,
+    restaurantId: booking.restaurant_id,
   });
 
   const computeCapacity = (list: Table[]) =>

@@ -65,6 +65,46 @@ export function isAllocatorServiceFailHard(): boolean {
   return false;
 }
 
+export type CapacityServiceFallbackMode = 'off' | 'bounded';
+
+export type CapacityServiceFallbackConfig = {
+  mode: CapacityServiceFallbackMode;
+  maxExtensionMinutes: number;
+};
+
+const SERVICE_FALLBACK_DEFAULT_EXTENSION_MINUTES = 60;
+const SERVICE_FALLBACK_MAX_EXTENSION_MINUTES = 180;
+
+/**
+ * Runtime setting for the ServiceNotFoundError fallback in
+ * `computeBookingWindowWithFallback`.
+ *
+ * - `CAPACITY_SERVICE_FALLBACK=off` disables the fallback entirely: bookings
+ *   outside every policy service window fail with a controlled
+ *   OUTSIDE_SERVICE_HOURS response instead of being force-fitted.
+ * - `CAPACITY_SERVICE_FALLBACK=bounded` (default) allows the fallback only
+ *   when the booking explicitly names a configured service (serviceHint or
+ *   bookingOption) AND starts within `maxExtensionMinutes` of that service's
+ *   configured window. The previous behavior of silently guessing the first
+ *   service in `serviceOrder` and expanding it without bounds is removed.
+ * - `CAPACITY_SERVICE_FALLBACK_MAX_EXTENSION_MINUTES` (0–180, default 60)
+ *   bounds how far outside the service window a fallback may reach.
+ */
+export function getCapacityServiceFallbackConfig(): CapacityServiceFallbackConfig {
+  const rawMode = (process.env.CAPACITY_SERVICE_FALLBACK ?? 'bounded').trim().toLowerCase();
+  const mode: CapacityServiceFallbackMode = rawMode === 'off' ? 'off' : 'bounded';
+
+  const rawExtension = Number.parseInt(
+    process.env.CAPACITY_SERVICE_FALLBACK_MAX_EXTENSION_MINUTES ?? '',
+    10,
+  );
+  const maxExtensionMinutes = Number.isInteger(rawExtension)
+    ? Math.min(Math.max(rawExtension, 0), SERVICE_FALLBACK_MAX_EXTENSION_MINUTES)
+    : SERVICE_FALLBACK_DEFAULT_EXTENSION_MINUTES;
+
+  return { mode, maxExtensionMinutes };
+}
+
 export function getAllocatorKMax(): number {
   return 5;
 }

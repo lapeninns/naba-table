@@ -112,9 +112,69 @@ describe('useCreateReservation', () => {
     await expect(result.current.mutateAsync({ draft })).rejects.toThrow('Failed to fetch');
     await result.current.mutateAsync({ draft });
 
-    const firstOptions = vi.mocked(apiClient.post).mock.calls[0]?.[2];
-    const secondOptions = vi.mocked(apiClient.post).mock.calls[1]?.[2];
-    expect(firstOptions?.headers).toEqual(secondOptions?.headers);
+    const firstHeaders = vi.mocked(apiClient.post).mock.calls[0]?.[2]?.headers as Record<
+      string,
+      string
+    >;
+    const secondHeaders = vi.mocked(apiClient.post).mock.calls[1]?.[2]?.headers as Record<
+      string,
+      string
+    >;
+    // The idempotency key and attempt id stay stable across retries of one
+    // logical submission; the attempt counter increments so analytics can
+    // distinguish retries from independent failures.
+    expect(firstHeaders['Idempotency-Key']).toEqual(secondHeaders['Idempotency-Key']);
+    expect(firstHeaders['X-Booking-Attempt-Id']).toEqual(secondHeaders['X-Booking-Attempt-Id']);
+    expect(firstHeaders['X-Booking-Attempt']).toBe('1');
+    expect(secondHeaders['X-Booking-Attempt']).toBe('2');
+  });
+
+  it('emits only the canonical wizard_submit_failed event with attempt correlation', async () => {
+    const { track } = await import('@shared/lib/analytics');
+    const { emit } = await import('@/lib/analytics/emit');
+    vi.mocked(track).mockClear();
+    vi.mocked(emit).mockClear();
+
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const draft: ReservationDraft = {
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-fox',
+      date: '2026-02-10',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      notes: null,
+      name: 'Guest Booker',
+      email: 'guest@example.com',
+      phone: '+441234567890',
+      marketingOptIn: false,
+    };
+
+    vi.mocked(apiClient.post).mockRejectedValueOnce(
+      Object.assign(new Error('boom'), { code: 'INTERNAL', status: 500 }),
+    );
+
+    const { result } = renderHook(() => useCreateReservation(), { wrapper });
+    await expect(result.current.mutateAsync({ draft })).rejects.toThrow('boom');
+
+    const trackedEvents = vi.mocked(track).mock.calls.map(([event]) => event);
+    expect(trackedEvents).toEqual(['wizard_submit_failed']);
+    expect(trackedEvents).not.toContain('reserve_submit_failed');
+
+    const [, payload] = vi.mocked(track).mock.calls[0]!;
+    expect(payload).toMatchObject({
+      code: 'INTERNAL',
+      status: 500,
+      context: 'customer',
+      attemptId: expect.any(String),
+      attempt: 1,
+    });
+    expect(vi.mocked(emit)).toHaveBeenCalledWith(
+      'wizard_submit_failed',
+      expect.objectContaining({ attempt: 1, attemptId: expect.any(String) }),
+    );
   });
 
   it('uses the update path when a booking id is provided', async () => {

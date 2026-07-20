@@ -2,16 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
+const captureServerEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/security/api-rate-limit', () => ({
   requireApiRateLimit: requireApiRateLimitMock,
 }));
 
+vi.mock('@/lib/posthog/server', () => ({
+  captureServerEvent: captureServerEventMock,
+}));
+
 import { POST } from '@/src/app/api/client-error/route';
+import { resetClientErrorRouteStateForTests } from '@/src/app/api/client-error/report-handling';
 
 describe('client error route', () => {
   beforeEach(() => {
     requireApiRateLimitMock.mockReset().mockResolvedValue(null);
+    captureServerEventMock.mockReset();
+    resetClientErrorRouteStateForTests();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -170,5 +178,148 @@ describe('client error route', () => {
     );
 
     expect(response.status).toBe(413);
+  });
+
+  const acceptedReport = (overrides: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      type: 'error',
+      path: '/guest/dashboard',
+      message: 'TypeError: boom',
+      stack: 'TypeError: boom\n    at render (/app/page.js:1:1)',
+      userId: '0f1e2d3c-4b5a-4678-9abc-def012345678',
+      bookingId: null,
+      ...overrides,
+    });
+
+  it('captures the analytics event server-side only after acceptance on production', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await POST(
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: acceptedReport(),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(captureServerEventMock).toHaveBeenCalledTimes(1);
+    const [eventName, props, options] = captureServerEventMock.mock.calls[0]!;
+    expect(eventName).toBe('client_error_reported');
+    expect(props).toEqual({
+      type: 'error',
+      path: '/guest/dashboard',
+      fingerprint: expect.stringMatching(/^f[0-9a-f]+$/),
+    });
+    expect(options).toMatchObject({ distinctId: '0f1e2d3c-4b5a-4678-9abc-def012345678' });
+  });
+
+  it('suppresses duplicate analytics events for the same fingerprint', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const makeRequest = () =>
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: acceptedReport(),
+      });
+
+    await POST(makeRequest());
+    await POST(makeRequest());
+    await POST(makeRequest());
+
+    expect(captureServerEventMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('never captures analytics for non-production deployments', async () => {
+    // NODE_ENV=test → deployment environment is not production.
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await POST(
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: acceptedReport(),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(captureServerEventMock).not.toHaveBeenCalled();
+  });
+
+  it('never captures analytics for localhost traffic even on production deployments', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const response = await POST(
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
+        body: acceptedReport(),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(captureServerEventMock).not.toHaveBeenCalled();
+    // The structured log record is still written for the report itself.
+    expect(JSON.stringify(errorSpy.mock.calls)).toContain('client error report');
+  });
+
+  it('logs generic Script error reports at warn level without analytics', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const response = await POST(
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: acceptedReport({ message: 'Script error.', stack: null }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(captureServerEventMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(warnSpy.mock.calls)).toContain('generic script error');
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('client error report');
+  });
+
+  it('retains analytics for Script error reports that carry an actionable stack', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await POST(
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: acceptedReport({
+          message: 'Script error.',
+          stack: 'Error: Script error.\n    at widget (/app/embed.js:5:1)',
+        }),
+      }),
+    );
+
+    expect(captureServerEventMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores invalid userId values for the analytics distinct id', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await POST(
+      new NextRequest('https://www.nabatable.com/api/client-error', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: acceptedReport({ userId: 'not a user id!' }),
+      }),
+    );
+
+    expect(captureServerEventMock).toHaveBeenCalledTimes(1);
+    expect(captureServerEventMock.mock.calls[0]![2]).toMatchObject({ distinctId: undefined });
   });
 });

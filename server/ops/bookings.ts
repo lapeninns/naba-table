@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import { sampleRoutineLog } from '@/lib/observability/log-sampling';
 import { computeServiceBreakdown } from '@/lib/ops/daily-booking-summary';
 import { getDateInTimezone } from '@/lib/utils/datetime';
 import { LruCache } from '@/server/capacity/lru-cache';
@@ -19,6 +20,8 @@ type DbClient = SupabaseClient<Database>;
 const CANCELLED_STATUSES: Tables<'bookings'>['status'][] = ['cancelled', 'no_show'];
 
 const opsCacheConfig = env.opsCache;
+const SUMMARY_FETCH_SAMPLE_RATE = 10;
+const SUMMARY_SLOW_FETCH_THRESHOLD_MS = 1_000;
 const SUMMARY_CACHE_TTL_MS = opsCacheConfig.summaryTtlMs;
 const CHANGES_CACHE_TTL_MS = opsCacheConfig.changesTtlMs;
 const RESTAURANT_META_CACHE_TTL_MS = opsCacheConfig.restaurantMetaTtlMs;
@@ -544,13 +547,26 @@ export async function getTodayBookingsSummary(
     } satisfies TodayBookingsSummary;
 
     const durationMs = Date.now() - start;
-    opsLogger.info('ops.summary.fetch', {
+    const summaryTimingPayload = {
       restaurantId,
       reportDate,
       duration_ms: durationMs,
       bookings: summaryBookings.length,
       source: 'db',
-    });
+    };
+    // Healthy fetches sample 1-in-10 (this was the single largest info-log
+    // source); slow fetches always log so the latency tail stays visible.
+    if (
+      durationMs >= SUMMARY_SLOW_FETCH_THRESHOLD_MS ||
+      sampleRoutineLog('ops.summary.fetch', SUMMARY_FETCH_SAMPLE_RATE)
+    ) {
+      opsLogger.info('ops.summary.fetch', {
+        ...summaryTimingPayload,
+        ...(durationMs >= SUMMARY_SLOW_FETCH_THRESHOLD_MS ? { slow: true } : {}),
+      });
+    } else {
+      opsLogger.debug('ops.summary.fetch', summaryTimingPayload);
+    }
 
     if (summaryCacheEnabled) {
       summaryCache.set(cacheKey, result, SUMMARY_CACHE_TTL_MS);

@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 
 import { getVenuePolicy } from '@/server/capacity/policy';
+import { getRestaurantServiceWindowsSafe } from '@/server/capacity/service-windows';
 import { buildBusyMaps } from '@/server/capacity/table-assignment/availability';
 import { computeBookingWindowWithFallback } from '@/server/capacity/table-assignment/booking-window';
 import { loadActiveHoldsForDate } from '@/server/capacity/table-assignment/supabase';
@@ -100,6 +101,7 @@ export async function getTableAvailabilityTimeline({
   const supabase = client ?? getServiceSupabaseClient();
   const schedulePromise = getRestaurantSchedule(restaurantId, { date: date ?? undefined, client: supabase });
   const turnBandsPromise = getRestaurantTurnBands(restaurantId, supabase);
+  const serviceWindowsPromise = getRestaurantServiceWindowsSafe(restaurantId, supabase);
 
   // Tables and bookings can start loading before we compute policy.
   const tablesPromise = includeSummary
@@ -110,9 +112,10 @@ export async function getTableAvailabilityTimeline({
 
   const bookingsPromise = loadTimelineBookings(supabase, restaurantId, schedule.date);
 
-  const [tablesResult, turnBandsByOption, bookingsResult] = await Promise.all([
+  const [tablesResult, turnBandsByOption, serviceWindows, bookingsResult] = await Promise.all([
     tablesPromise,
     turnBandsPromise,
+    serviceWindowsPromise,
     bookingsPromise,
   ]);
 
@@ -132,9 +135,10 @@ export async function getTableAvailabilityTimeline({
   const policy = getVenuePolicy({
     timezone: schedule.timezone,
     turnBandsByOption,
+    serviceWindows,
   });
 
-  const { contextRows, bookingMeta } = enrichBookings(bookingsResult, policy);
+  const { contextRows, bookingMeta } = enrichBookings(bookingsResult, policy, restaurantId);
   const holds = await loadHolds(supabase, restaurantId, schedule.date, policy);
   const busyMap = buildBusyMaps({
     targetBookingId: '__timeline__',
@@ -214,7 +218,11 @@ async function loadTimelineBookings(
   return (data ?? []) as TimelineBookingRow[];
 }
 
-function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeof getVenuePolicy>) {
+function enrichBookings(
+  bookings: TimelineBookingRow[],
+  policy: ReturnType<typeof getVenuePolicy>,
+  restaurantId?: string,
+) {
   const bookingMeta = new Map<string, BookingMeta>();
   const contextRows: ContextBookingRow[] = [];
 
@@ -241,6 +249,7 @@ function enrichBookings(bookings: TimelineBookingRow[], policy: ReturnType<typeo
         partySize: booking.party_size ?? 0,
         bookingOption: booking.booking_type ?? null,
         policy,
+        restaurantId: restaurantId ?? null,
       });
 
       // Collect assigned table IDs

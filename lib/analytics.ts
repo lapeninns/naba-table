@@ -80,7 +80,6 @@ export const ANALYTICS_EVENTS = [
   'gbp_publish_completed',
   'gbp_publish_failed',
   'reserve_step_viewed',
-  'reserve_submit_failed',
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

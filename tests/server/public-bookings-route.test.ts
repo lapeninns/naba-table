@@ -114,10 +114,14 @@ vi.mock('@/server/capacity', () => ({
   createBookingWithCapacityCheck: createBookingWithCapacityCheckMock,
 }));
 
-vi.mock('@/server/customers', () => ({
-  normalizeEmail: vi.fn((value: string) => value.trim().toLowerCase()),
-  upsertCustomer: upsertCustomerMock,
-}));
+vi.mock('@/server/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/server/customers')>();
+  return {
+    ...actual,
+    normalizeEmail: vi.fn((value: string) => value.trim().toLowerCase()),
+    upsertCustomer: upsertCustomerMock,
+  };
+});
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
   enqueueBookingCreatedSideEffects: enqueueBookingCreatedSideEffectsMock,

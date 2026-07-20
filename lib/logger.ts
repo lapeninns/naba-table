@@ -124,6 +124,15 @@ function sanitizeString(value: string): string {
   );
 }
 
+/**
+ * Applies the logger's string redactions (query strings, secrets, emails,
+ * phone numbers) to arbitrary text. Exported for callers that ship free-form
+ * text (error messages, stack traces) to external telemetry sinks.
+ */
+export function sanitizeLogText(value: string): string {
+  return sanitizeString(value);
+}
+
 function serializeError(error: unknown, redactKeys: string[]): Record<string, unknown> {
   if (error instanceof Error) {
     return sanitizeMetadata(

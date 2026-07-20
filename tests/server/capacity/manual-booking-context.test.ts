@@ -50,13 +50,15 @@ describe('manual booking context', () => {
   it('projects booking fields into booking-window arguments', () => {
     const policy = getVenuePolicy({ timezone: 'Europe/London' });
 
-    expect(buildManualBookingWindowArgs({ booking: makeBooking(), policy })).toEqual({
+    const booking = makeBooking();
+    expect(buildManualBookingWindowArgs({ booking, policy })).toEqual({
       startISO: '2026-05-23T18:00:00.000Z',
       bookingDate: '2026-05-23',
       startTime: '18:00',
       partySize: 4,
       bookingOption: 'dinner',
       policy,
+      restaurantId: booking.restaurant_id,
     });
   });
 

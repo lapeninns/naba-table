@@ -1,3 +1,4 @@
+import { CustomerContactStorageError } from '@/server/customer-contact-errors';
 import {
   CUSTOMER_PHONE_LENGTH_MAX,
   CUSTOMER_PHONE_LENGTH_MIN,
@@ -7,6 +8,8 @@ import {
 
 import type { Database, Tables, TablesInsert, TablesUpdate } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+export { CustomerContactStorageError } from '@/server/customer-contact-errors';
 
 const CUSTOMER_COLUMNS =
   'id,restaurant_id,email,phone,full_name,marketing_opt_in,created_at,updated_at,email_normalized,phone_normalized,auth_user_id,user_profile_id,notes';
@@ -265,11 +268,17 @@ export async function upsertCustomer(
     }
   } else {
     console.log(`[upsertCustomer] No existing customer found, inserting new.`);
-    // 3. Insert new customer
+    // 3. Insert new customer. An absent phone is stored as NULL, never '': the
+    // customers_phone_check length constraint rejects the empty string (this
+    // was the top production booking-500 cause), while NULL passes the CHECK
+    // on schemas where the column is nullable. Where the column is still NOT
+    // NULL (production until the optional-contact migration applies), the
+    // 23502 below surfaces as a controlled PHONE_REQUIRED failure instead of
+    // an opaque 500.
     const insertPayload: TablesInsert<'customers'> = {
       restaurant_id: params.restaurantId,
       email: normalizedEmail,
-      phone: phoneForStorage,
+      phone: (phoneForStorage || null) as TablesInsert<'customers'>['phone'],
       full_name: params.name || '',
       marketing_opt_in: marketingOptIn,
     };
@@ -288,6 +297,17 @@ export async function upsertCustomer(
         `[upsertCustomer] Insert error`,
         dbErrorSummaryForLog(insertError),
       );
+      // Contact-shape rejections (NOT NULL / CHECK) become controlled,
+      // customer-safe failures rather than INTERNAL_SERVER_ERROR.
+      if (insertError.code === '23502' || insertError.code === '23514') {
+        throw new CustomerContactStorageError(
+          normalizedPhone ? 'INVALID_CONTACT' : 'PHONE_REQUIRED',
+          normalizedPhone
+            ? 'The provided contact details could not be stored.'
+            : 'A phone number is required to complete this booking.',
+          insertError,
+        );
+      }
       // Final fallback for race conditions
       if (insertError.code === '23505') {
         const constraint = uniqueConstraintNameForLog(insertError);

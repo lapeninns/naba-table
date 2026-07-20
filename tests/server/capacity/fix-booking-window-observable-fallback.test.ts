@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getVenuePolicy } from '@/server/capacity/policy';
-import { computeBookingWindowWithFallback } from '@/server/capacity/table-assignment/booking-window';
+import {
+  computeBookingWindowWithFallback,
+  resetBookingWindowFallbackWarningsForTests,
+} from '@/server/capacity/table-assignment/booking-window';
 
 // 22:15 London is past dinner service end (22:00) -> ServiceNotFoundError -> fallback.
 const FALLBACK_START_ISO = '2026-05-07T22:15:00.000+01:00';
@@ -12,6 +15,7 @@ describe('#10 booking-window fallback is observable via the structured logger', 
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    resetBookingWindowFallbackWarningsForTests();
     // The structured logger funnels warn() through console.warn as a single
     // JSON string argument, so spying here lets us assert the structured path.
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
