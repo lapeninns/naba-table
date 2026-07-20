@@ -129,6 +129,9 @@ type UnifiedOpsUpdateParams = {
   };
   user: AuthenticatedUser;
   serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
+  memberships: Awaited<ReturnType<typeof fetchUserMemberships>>;
+  timezone: string;
+  timing: ReturnType<typeof createOpsBookingApiTiming>;
 };
 
 const BOOKING_OVERRIDE_CAPABILITY = 'booking.override';
@@ -294,16 +297,22 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return timing.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let authorizedRestaurantIds: string[];
+  let memberships: Awaited<ReturnType<typeof fetchUserMemberships>>;
   try {
-    authorizedRestaurantIds = await timing.measure(
-      'memberships',
-      loadAuthorizedRestaurantIds(user.id, tenantSupabase),
-    );
+    // Fetched once as full rows: the unified update and the legacy past-time
+    // check below reuse them instead of re-querying memberships per stage.
+    memberships = await timing.measure('memberships', fetchUserMemberships(user.id, tenantSupabase));
   } catch (membershipError) {
     console.error('[ops/bookings][PATCH] failed to load memberships', membershipError);
     return timing.json({ error: 'Unable to verify access' }, { status: 500 });
   }
+
+  const authorizedRestaurantIds = memberships
+    .map((membership) => membership.restaurant_id)
+    .filter(
+      (restaurantId): restaurantId is string =>
+        typeof restaurantId === 'string' && restaurantId.length > 0,
+    );
 
   if (authorizedRestaurantIds.length === 0) {
     return timing.json({ error: 'Booking not found' }, { status: 404 });
@@ -404,6 +413,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const needsScheduleForDuration = isTimeChanged || !explicitEndIso;
   const needsScheduleForPastCheck = isBookingPastTimeBlockingEnabled() && isTimeChanged;
 
+  // Turn bands are independent of the schedule; start both together instead of
+  // fetching them back-to-back.
+  const turnBandsPromise = needsScheduleForDuration
+    ? timing.measure('turn_bands', getRestaurantTurnBands(restaurantId, serviceSupabase))
+    : Promise.resolve(null);
+  void turnBandsPromise.catch(() => undefined);
+
   let schedule: Awaited<ReturnType<typeof getRestaurantSchedule>> | null = null;
   if (needsScheduleForDuration || needsScheduleForPastCheck) {
     schedule = await timing.measure(
@@ -465,9 +481,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
   }
 
-  const turnBandsPromise = needsScheduleForDuration
-    ? timing.measure('turn_bands', getRestaurantTurnBands(restaurantId, serviceSupabase))
-    : Promise.resolve(null);
   const bookingOption =
     typeof existingBooking.booking_type === 'string' &&
     existingBooking.booking_type.trim().length > 0
@@ -555,6 +568,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         existingBooking,
         user: userForContext,
         serviceSupabase,
+        memberships,
+        timezone: scheduleTimezone,
+        timing,
       }),
       { path: 'unified' },
     );
@@ -565,11 +581,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const allowPastParam = req.nextUrl.searchParams.get('allow_past');
     const allowOverride = allowPastParam === 'true';
 
-    // Get user's role for the restaurant
-    const memberships = await timing.measure(
-      'past_check_memberships',
-      fetchUserMemberships(user.id, serviceSupabase),
-    );
+    // Get user's role for the restaurant (memberships already loaded above).
     const membership = memberships.find((m) => m.restaurant_id === existingBooking.restaurant_id);
     const userRole = membership?.role as RestaurantRole | null;
 
@@ -689,13 +701,16 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       ...buildBookingAuditSnapshot(existingBooking, updated),
     } as Json;
 
-    await logAuditEvent(tenantClient, {
-      action: 'booking.updated',
-      entity: 'booking',
-      entityId: bookingId,
-      metadata: auditMetadata,
-      actor: user.email ?? user.id ?? 'ops',
-    });
+    await timing.measure(
+      'unified_audit',
+      logAuditEvent(tenantClient, {
+        action: 'booking.updated',
+        entity: 'booking',
+        entityId: bookingId,
+        metadata: auditMetadata,
+        actor: user.email ?? user.id ?? 'ops',
+      }),
+    );
 
     try {
       await enqueueBookingUpdatedSideEffects(
@@ -803,21 +818,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   const {
     bookingId,
-    bookingDate,
     durationMinutes,
     instantFields,
     payload,
     existingBooking,
     user,
-    serviceSupabase,
+    memberships,
+    timezone,
+    timing,
   } = params;
 
-  const schedule = await getRestaurantSchedule(existingBooking.restaurant_id ?? '', {
-    date: bookingDate,
-    client: serviceSupabase,
-  });
-
-  const memberships = await fetchUserMemberships(user.id, serviceSupabase);
+  // The restaurant timezone and membership rows were already resolved by the
+  // PATCH handler; re-fetching them here previously added two sequential
+  // queries to every unified update.
   const membership =
     memberships.find((entry) => entry.restaurant_id === existingBooking.restaurant_id) ?? null;
   const userRole = (membership?.role as RestaurantRole | undefined) ?? null;
@@ -856,7 +869,7 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
     actorId: user.id,
     actorRoles,
     actorCapabilities,
-    tz: schedule.timezone,
+    tz: timezone,
     flags: {
       bookingPastTimeBlocking: isBookingPastTimeBlockingEnabled(),
       bookingPastTimeGraceMinutes: getBookingPastTimeGraceMinutes(),
@@ -868,10 +881,13 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   };
 
   try {
-    const commit = await validationService.updateWithEnforcement(
-      existingBooking as unknown as BookingRecord,
-      bookingInput,
-      context,
+    const commit = await timing.measure(
+      'unified_validation',
+      validationService.updateWithEnforcement(
+        existingBooking as unknown as BookingRecord,
+        bookingInput,
+        context,
+      ),
     );
     let updated = commit.booking as Tables<'bookings'>;
     if (updated.start_at !== instantFields.start_at || updated.end_at !== instantFields.end_at) {
@@ -893,13 +909,16 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       (auditMetadata as Record<string, unknown>).override_applied = true;
     }
 
-    await logAuditEvent(tenantClient, {
-      action: 'booking.updated',
-      entity: 'booking',
-      entityId: bookingId,
-      metadata: auditMetadata,
-      actor: user.email ?? user.id ?? 'ops',
-    });
+    await timing.measure(
+      'unified_audit',
+      logAuditEvent(tenantClient, {
+        action: 'booking.updated',
+        entity: 'booking',
+        entityId: bookingId,
+        metadata: auditMetadata,
+        actor: user.email ?? user.id ?? 'ops',
+      }),
+    );
 
     try {
       await enqueueBookingUpdatedSideEffects(

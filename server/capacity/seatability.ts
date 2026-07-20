@@ -1,5 +1,6 @@
 import { getVenuePolicy, getSelectorScoringConfig } from '@/server/capacity/policy';
 import { buildScoredTablePlans } from '@/server/capacity/selector';
+import { getRestaurantServiceWindowsSafe } from '@/server/capacity/service-windows';
 import {
   buildBusyMaps,
   filterAvailableTables,
@@ -42,6 +43,7 @@ type SeatabilityCheckParams = {
 export type SeatabilityPreloadedContext = {
   restaurantTimezone?: string | null;
   turnBandsByOption?: Awaited<ReturnType<typeof getRestaurantTurnBands>>;
+  serviceWindows?: Awaited<ReturnType<typeof getRestaurantServiceWindowsSafe>>;
   holdsForDay?: Awaited<ReturnType<typeof loadActiveHoldsForDate>>;
   tables?: Awaited<ReturnType<typeof loadTablesForRestaurant>>;
   adjacency?: Awaited<ReturnType<typeof loadAdjacency>>;
@@ -101,13 +103,18 @@ export async function checkRequestSeatability(
           console.warn('[capacity.seatability] turn-band load failed; using empty bands', error);
           return {};
         });
+  const serviceWindowsPromise =
+    preloaded?.serviceWindows !== undefined
+      ? Promise.resolve(preloaded.serviceWindows)
+      : getRestaurantServiceWindowsSafe(params.restaurantId, supabase);
   const tablesPromise =
     preloaded?.tables !== undefined
       ? Promise.resolve(preloaded.tables)
       : loadTablesForRestaurant(params.restaurantId, supabase);
-  const [restaurantTimezone, turnBandsByOption, tables] = await Promise.all([
+  const [restaurantTimezone, turnBandsByOption, serviceWindows, tables] = await Promise.all([
     timezonePromise,
     turnBandsPromise,
+    serviceWindowsPromise,
     tablesPromise,
   ]);
 
@@ -126,6 +133,7 @@ export async function checkRequestSeatability(
   const policy = getVenuePolicy({
     timezone: restaurantTimezone ?? undefined,
     turnBandsByOption,
+    serviceWindows,
   });
 
   const { window, usedFallback, fallbackService } = computeBookingWindowWithFallback({
@@ -134,6 +142,7 @@ export async function checkRequestSeatability(
     partySize: params.partySize,
     bookingOption: params.bookingOption ?? null,
     policy,
+    restaurantId: params.restaurantId,
     serviceHint:
       params.bookingOption === 'lunch' || params.bookingOption === 'dinner'
         ? params.bookingOption

@@ -21,9 +21,11 @@ import {
 import { AssignTablesRpcError } from '@/server/capacity/holds';
 import {
   getVenuePolicy,
+  ServiceNotFoundError,
   ServiceOverrunError,
   type TurnBandsByOption,
 } from '@/server/capacity/policy';
+import { getRestaurantServiceWindows } from '@/server/capacity/service-windows';
 import { deriveTableRules } from '@/server/capacity/table-rules';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 import { getAllocatorAdjacencyMode } from '@/server/runtime-policy';
@@ -410,10 +412,14 @@ export async function assignTablesDirectly(
 
   // === STEP 5: Compute Booking Window ===
   const restaurantTimezoneForPolicy = restaurantTimezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const [turnBandsByOption, serviceWindows] = await Promise.all([
+    getRestaurantTurnBands(booking.restaurant_id, supabase),
+    getRestaurantServiceWindows(booking.restaurant_id, supabase),
+  ]);
   const policy = getVenuePolicy({
     timezone: restaurantTimezoneForPolicy ?? undefined,
     turnBandsByOption,
+    serviceWindows,
   });
 
   let window: BookingWindow;
@@ -425,10 +431,18 @@ export async function assignTablesDirectly(
       partySize: booking.party_size,
       bookingOption: booking.booking_type ?? null,
       policy,
+      restaurantId: booking.restaurant_id,
     }));
   } catch (error) {
     if (error instanceof ServiceOverrunError) {
       throw new DirectAssignmentError(error.message, 'SERVICE_OVERRUN', 422);
+    }
+    if (error instanceof ServiceNotFoundError) {
+      throw new DirectAssignmentError(
+        'Booking time is outside every configured service window',
+        'OUTSIDE_SERVICE_HOURS',
+        422,
+      );
     }
     throw error;
   }

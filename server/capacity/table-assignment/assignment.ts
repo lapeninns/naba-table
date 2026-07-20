@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 
 import { AssignTablesRpcError, HoldNotFoundError } from '@/server/capacity/holds';
 import { getVenuePolicy } from '@/server/capacity/policy';
+import { getRestaurantServiceWindows } from '@/server/capacity/service-windows';
 import { emitRpcConflict } from '@/server/capacity/telemetry';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
@@ -675,10 +676,14 @@ export async function confirmHoldAssignment(
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const [turnBandsByOption, serviceWindows] = await Promise.all([
+    getRestaurantTurnBands(booking.restaurant_id, supabase),
+    getRestaurantServiceWindows(booking.restaurant_id, supabase),
+  ]);
   const policy = getVenuePolicy({
     timezone: restaurantTimezone ?? undefined,
     turnBandsByOption,
+    serviceWindows,
   });
   const policyVersion = hashPolicyVersion(policy);
   const holdPolicyVersion =
@@ -704,6 +709,7 @@ export async function confirmHoldAssignment(
     partySize: booking.party_size,
     bookingOption: booking.booking_type ?? null,
     policy,
+    restaurantId: booking.restaurant_id,
   });
   const holdRequireAdjacency =
     typeof holdMetadata?.requireAdjacency === 'boolean' ? holdMetadata.requireAdjacency : undefined;
@@ -1184,10 +1190,14 @@ export async function assignTableToBooking(
       : null) ??
     (await loadRestaurantTimezone(booking.restaurant_id, supabase)) ??
     getVenuePolicy().timezone;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, supabase);
+  const [turnBandsByOption, serviceWindows] = await Promise.all([
+    getRestaurantTurnBands(booking.restaurant_id, supabase),
+    getRestaurantServiceWindows(booking.restaurant_id, supabase),
+  ]);
   const policy = getVenuePolicy({
     timezone: restaurantTimezone ?? undefined,
     turnBandsByOption,
+    serviceWindows,
   });
   const { window } = computeBookingWindowWithFallback({
     startISO: booking.start_at,
@@ -1196,6 +1206,7 @@ export async function assignTableToBooking(
     partySize: booking.party_size,
     bookingOption: booking.booking_type ?? null,
     policy,
+    restaurantId: booking.restaurant_id,
   });
   const startIso = toIsoUtc(window.block.start);
   const endIso = toIsoUtc(window.block.end);

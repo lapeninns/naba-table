@@ -219,7 +219,7 @@ export function isUuid(value: string | null | undefined): value is string {
 
 export async function withOpsMutation(
   req: NextRequest,
-  options: { csrf?: boolean } = {},
+  options: { csrf?: boolean; existingClient?: TenantClient } = {},
 ): Promise<RouteGuardResult> {
   if (options.csrf || isUnsafeMutationMethod(req.method)) {
     const csrfFailure = validateCsrfProtectedMutation(req);
@@ -232,7 +232,7 @@ export async function withOpsMutation(
   }
 
   try {
-    const { supabase, user } = await requireSession();
+    const { supabase, user } = await requireSession(options.existingClient);
     return { ok: true, supabase, user };
   } catch (error) {
     if (error instanceof GuardError) {
@@ -298,16 +298,29 @@ export async function withBookingAuthorization(
     return { ok: false, response: errorResponse('Booking not found', 404, 'BOOKING_NOT_FOUND') };
   }
 
-  const guarded = await withOpsMutation(req);
+  // getUser() and the RLS booking lookup are independent round trips on the
+  // same cookie-authenticated client; running them concurrently removes one
+  // full round trip from every booking-scoped ops route (the sequential chain
+  // was p50 ~380ms in production timing marks). Auth failures still win: the
+  // booking result is discarded when the session guard rejects, and RLS gives
+  // the lookup identical visibility either way.
+  const supabase = await getRouteHandlerSupabaseClient();
+  const bookingQueryPromise = supabase
+    .from('bookings')
+    .select('id, restaurant_id')
+    .eq('id', bookingId)
+    .maybeSingle()
+    .then(
+      (result) => result,
+      (error) => ({ data: null, error }) as never,
+    );
+
+  const guarded = await withOpsMutation(req, { existingClient: supabase });
   if (!guarded.ok) {
     return guarded;
   }
 
-  const bookingQuery = await guarded.supabase
-    .from('bookings')
-    .select('id, restaurant_id')
-    .eq('id', bookingId)
-    .maybeSingle();
+  const bookingQuery = await bookingQueryPromise;
 
   if (bookingQuery.error) {
     console.error('[auth:route] booking lookup failed', {

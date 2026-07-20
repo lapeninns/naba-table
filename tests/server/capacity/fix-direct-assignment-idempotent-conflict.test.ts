@@ -26,6 +26,11 @@ vi.mock('@/server/restaurants/turnBands', () => ({
   getRestaurantTurnBands: getRestaurantTurnBandsMock,
 }));
 
+vi.mock('@/server/capacity/service-windows', () => ({
+  getRestaurantServiceWindows: vi.fn(async () => ({})),
+  getRestaurantServiceWindowsSafe: vi.fn(async () => ({})),
+}));
+
 vi.mock('@/lib/ops/table-assignment-policy', () => ({
   isTableAssignmentAllowed: vi.fn(() => true),
 }));

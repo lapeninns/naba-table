@@ -47,7 +47,6 @@ export const ANALYTICS_EVENTS = [
   'client_error_reported',
   'user_signed_up',
   'reserve_step_viewed',
-  'reserve_submit_failed',
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];

@@ -27,9 +27,21 @@ function isTerminalCreateError(error: ApiError | null | undefined): boolean {
   );
 }
 
+function generateClientId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function useCreateReservation() {
   const queryClient = useQueryClient();
   const idempotencyKeyRef = useRef<string | null>(null);
+  // Privacy-safe correlation: attemptId is a random UUID stable across retries
+  // of one logical submission; attemptCount distinguishes retries. Both are
+  // sent as headers so server booking_create_* events can be joined to the
+  // client wizard_submit_failed event.
+  const attemptIdRef = useRef<string | null>(null);
+  const attemptCountRef = useRef(0);
 
   return useMutation<
     ReservationSubmissionResult,
@@ -57,17 +69,20 @@ export function useCreateReservation() {
       const path = bookingId ? `/bookings/${bookingId}` : '/bookings';
       const method = bookingId ? apiClient.put : apiClient.post;
       const submissionTimeoutMs = Math.max(env.API_TIMEOUT_MS * 2, 30_000);
-      const idempotencyKey =
-        idempotencyKeyRef.current ??
-        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      const idempotencyKey = idempotencyKeyRef.current ?? generateClientId();
       idempotencyKeyRef.current = idempotencyKey;
+      const attemptId = attemptIdRef.current ?? generateClientId();
+      attemptIdRef.current = attemptId;
+      attemptCountRef.current += 1;
       const response = await method<{
         booking?: unknown;
         bookings?: unknown;
       }>(path, payload, {
-        headers: { 'Idempotency-Key': idempotencyKey },
+        headers: {
+          'Idempotency-Key': idempotencyKey,
+          'X-Booking-Attempt-Id': attemptId,
+          'X-Booking-Attempt': String(attemptCountRef.current),
+        },
         timeoutMs: submissionTimeoutMs,
       });
 
@@ -81,27 +96,38 @@ export function useCreateReservation() {
     },
     onSuccess: (result) => {
       idempotencyKeyRef.current = null;
+      attemptIdRef.current = null;
+      attemptCountRef.current = 0;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
     },
     onError: (error, variables) => {
+      const attemptId = attemptIdRef.current;
+      const attempt = attemptCountRef.current;
       if (isTerminalCreateError(error)) {
         idempotencyKeyRef.current = null;
+        attemptIdRef.current = null;
+        attemptCountRef.current = 0;
       }
       if (error?.code === 'REQUEST_ABORTED') {
         return;
       }
+      // wizard_submit_failed is the single canonical client failure event for a
+      // customer submission (the retired reserve_submit_failed duplicated it);
+      // the server emits booking_create_failed as the canonical outcome, joined
+      // via attemptId.
       const payload = {
         code: error?.code ?? 'UNKNOWN',
         status: error?.status,
         bookingId: variables?.bookingId ?? null,
         context: 'customer' as const,
+        ...(attemptId ? { attemptId } : {}),
+        ...(attempt > 0 ? { attempt } : {}),
       };
       track('wizard_submit_failed', payload);
       emit('wizard_submit_failed', payload);
-      track('reserve_submit_failed', { reason: payload.code });
     },
   });
 }

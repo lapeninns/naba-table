@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/logger';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
   buildBookingCreateFailureObservabilityEvent,
@@ -9,30 +10,35 @@ import { recordObservabilityEvent } from '@/server/observability';
 
 import type { BookingCreateRequest } from '@/server/bookings/request-validation';
 
+const bookingCreateLogger = logger.child({ module: 'api.bookings.create' });
+
 export type BookingCreateFailureLogger = (
   message: string,
-  context: {
-    message: string;
-    code: string;
-    stack?: string;
-    debugInfo: {
-      restaurantId?: string;
-      date: string;
-      party: number;
-      email: string | null;
-    };
-  },
+  context: Record<string, unknown>,
 ) => void;
+
+export type BookingCreateAttemptContext = {
+  attemptId: string | null;
+  attemptNumber: number | null;
+};
 
 export type BookingCreateFailureEventRecorder = typeof recordObservabilityEvent;
 
+const defaultFailureLogger: BookingCreateFailureLogger = (message, context) => {
+  bookingCreateLogger.error(message, context);
+};
+
 export function buildBookingCreateFailureResponse({
+  attempt = null,
+  correlationId = null,
   error,
   eventRecorder = recordObservabilityEvent,
-  logger = console.error,
+  logger: failureLogger = defaultFailureLogger,
   request,
   restaurantId,
 }: {
+  attempt?: BookingCreateAttemptContext | null;
+  correlationId?: string | null;
   error: unknown;
   eventRecorder?: BookingCreateFailureEventRecorder;
   logger?: BookingCreateFailureLogger;
@@ -40,17 +46,23 @@ export function buildBookingCreateFailureResponse({
   restaurantId: string;
 }): NextResponse {
   const apiError = mapBookingApiError(error);
+  const attemptId = attempt?.attemptId ?? null;
+  const attemptNumber = attempt?.attemptNumber ?? null;
 
-  logger('[bookings][POST] Error finishing booking:', {
-    message: error instanceof Error ? error.message : String(error),
+  // Structured (PostHog Logs-exported) record: no email/phone, error object is
+  // redacted by the logger, and the correlation id joins this log to the
+  // matching booking_create_failed event and $exception.
+  failureLogger('booking create failed', {
     code: apiError.body.code,
-    stack: error instanceof Error ? error.stack : undefined,
-    debugInfo: {
-      restaurantId: request.restaurantId,
-      date: request.date,
-      party: request.party,
-      email: maskEmailForBookingCreateLog(request.email),
-    },
+    status: apiError.status,
+    route: '/api/bookings',
+    restaurantId: request.restaurantId ?? restaurantId,
+    date: request.date,
+    party: request.party,
+    ...(correlationId ? { correlationId } : {}),
+    ...(attemptId ? { attemptId } : {}),
+    ...(attemptNumber !== null ? { attempt: attemptNumber } : {}),
+    error,
   });
 
   void eventRecorder(
@@ -65,21 +77,26 @@ export function buildBookingCreateFailureResponse({
 
   captureRestaurantServerEvent('booking_create_failed', {
     restaurantId,
-    props: { code: apiError.body.code, status: apiError.status, source: 'api' },
+    correlationId,
+    props: {
+      code: apiError.body.code,
+      status: apiError.status,
+      source: 'api',
+      ...(attemptId ? { attemptId } : {}),
+      ...(attemptNumber !== null ? { attempt: attemptNumber } : {}),
+    },
   });
   captureServerException(error, {
     groups: restaurantId ? { restaurant: restaurantId } : undefined,
+    correlationId,
     properties: {
       restaurantId,
       code: apiError.body.code,
       path: '/api/bookings',
       source: 'api',
+      ...(attemptId ? { attemptId } : {}),
     },
   });
 
   return NextResponse.json(apiError.body, { status: apiError.status });
-}
-
-export function maskEmailForBookingCreateLog(email: string): string | null {
-  return `${email.split('@')[0].slice(0, 3)}...`;
 }

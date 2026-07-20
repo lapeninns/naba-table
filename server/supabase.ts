@@ -211,7 +211,17 @@ export function getServiceSupabaseClient(): SupabaseClient<Database> {
             if (!strictHoldEnforcementActive) {
               supabaseLogger.error('strict hold enforcement not honored by server (GUC off)');
             } else {
-              supabaseLogger.info('strict hold enforcement active');
+              // The healthy steady state used to log info once per serverless
+              // cold start (~27% of all exported logs). Keep it at debug; the
+              // failure branches above stay loud. The globalThis guard also
+              // dedupes across duplicated module instances within a process.
+              const globalState = globalThis as typeof globalThis & {
+                __nabatableStrictHoldActiveLogged?: boolean;
+              };
+              if (!globalState.__nabatableStrictHoldActiveLogged) {
+                globalState.__nabatableStrictHoldActiveLogged = true;
+                supabaseLogger.debug('strict hold enforcement active');
+              }
             }
           }
         } catch (err) {

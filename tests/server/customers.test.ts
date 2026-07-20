@@ -140,6 +140,128 @@ describe('server/customers', () => {
     );
   });
 
+  it('stores NULL (never the empty string) for email-only customers', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const lookupBuilder = {
+      select: vi.fn(() => lookupBuilder),
+      eq: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const insertSingle = vi.fn().mockResolvedValue({
+      data: {
+        id: 'customer-3',
+        restaurant_id: 'rest-1',
+        email: 'guest@example.com',
+        phone: null,
+        full_name: 'Email Only',
+        marketing_opt_in: false,
+        created_at: '2026-07-20T15:00:00Z',
+        updated_at: '2026-07-20T15:00:00Z',
+        email_normalized: 'guest@example.com',
+        phone_normalized: null,
+        auth_user_id: null,
+        user_profile_id: null,
+        notes: null,
+      },
+      error: null,
+    });
+    const insertBuilder = {
+      insert: vi.fn(() => insertBuilder),
+      select: vi.fn(() => insertBuilder),
+      single: insertSingle,
+    };
+    const from = vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(insertBuilder);
+
+    await upsertCustomer({ from } as unknown as DbClient, {
+      restaurantId: 'rest-1',
+      email: 'guest@example.com',
+      phone: null,
+      name: 'Email Only',
+    });
+
+    // The '' phone insert violated customers_phone_check (length >= 7) and was
+    // the top production booking-500 cause; NULL passes the CHECK.
+    expect(insertBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'guest@example.com', phone: null }),
+    );
+    const payload = (insertBuilder.insert.mock.calls[0] as unknown[])[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload.phone).not.toBe('');
+  });
+
+  it('maps NOT NULL contact rejections to a controlled PHONE_REQUIRED error', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const lookupBuilder = {
+      select: vi.fn(() => lookupBuilder),
+      eq: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const insertBuilder = {
+      insert: vi.fn(() => insertBuilder),
+      select: vi.fn(() => insertBuilder),
+      single: vi.fn().mockResolvedValue({
+        data: null,
+        error: {
+          code: '23502',
+          message: 'null value in column "phone" of relation "customers"',
+        },
+      }),
+    };
+    const from = vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(insertBuilder);
+
+    await expect(
+      upsertCustomer({ from } as unknown as DbClient, {
+        restaurantId: 'rest-1',
+        email: 'guest@example.com',
+        phone: null,
+        name: 'Email Only',
+      }),
+    ).rejects.toMatchObject({
+      name: 'CustomerContactStorageError',
+      code: 'PHONE_REQUIRED',
+    });
+  });
+
+  it('maps CHECK violations with a submitted phone to INVALID_CONTACT', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const lookupBuilder = {
+      select: vi.fn(() => lookupBuilder),
+      eq: vi.fn(() => lookupBuilder),
+      or: vi.fn(() => lookupBuilder),
+      order: vi.fn(() => lookupBuilder),
+      limit: vi.fn(() => lookupBuilder),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const insertBuilder = {
+      insert: vi.fn(() => insertBuilder),
+      select: vi.fn(() => insertBuilder),
+      single: vi.fn().mockResolvedValue({
+        data: null,
+        error: {
+          code: '23514',
+          message: 'new row for relation "customers" violates check constraint "customers_phone_check"',
+        },
+      }),
+    };
+    const from = vi.fn().mockReturnValueOnce(lookupBuilder).mockReturnValueOnce(insertBuilder);
+
+    await expect(
+      upsertCustomer({ from } as unknown as DbClient, {
+        restaurantId: 'rest-1',
+        email: 'guest@example.com',
+        phone: '07000 000000',
+        name: 'Guest',
+      }),
+    ).rejects.toMatchObject({
+      name: 'CustomerContactStorageError',
+      code: 'INVALID_CONTACT',
+    });
+  });
+
   it('does not fall back to a single email match after a strict public insert conflict', async () => {
     const infoSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
