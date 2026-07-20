@@ -22,8 +22,7 @@ export { OpsStatusBadge } from "../src/components/features/ops-shell/patterns/Op
 export { SidebarCollapsedRailToggle } from "../src/components/features/ops-shell/patterns/SidebarCollapsedRailToggle";
 export { SidebarCollapseTrigger } from "../src/components/features/ops-shell/patterns/SidebarCollapseTrigger";
 export { GuestStatus, GuestEmpty, GuestError } from "../src/components/guest/ui/GuestFeedback";
-export { GuestPageFrame, GuestContent, GuestHero, GuestSectionHeader, GuestPanel, GuestPanelHeader, GuestInsetCard, GuestActionCard, GuestRouteCard, GuestMetricCard, GuestDetailList, GuestSplitPanel, GuestReferenceStrip, GuestPrimaryButton, GuestSecondaryButton, GuestGhostButton } from "../src/components/guest/ui/GuestPageShell";
-export { GuestSection } from "../src/components/guest/ui/GuestPrimitives";
+export { GuestPageFrame, GuestContent, GuestHero, GuestSectionHeader, GuestPanel, GuestPanelHeader, GuestInsetCard, GuestMetricCard, GuestDetailList, GuestSplitPanel, GuestReferenceStrip, GuestPrimaryButton, GuestSecondaryButton } from "../src/components/guest/ui/GuestPageShell";
 export { BrandIcon } from "../src/components/shared/BrandIcon";
 export { BrandLogo } from "../src/components/shared/BrandLogo";
 export { FeatureCard } from "../src/components/shared/FeatureCard";
