@@ -45,6 +45,8 @@ jobs:
         run: pnpm agents:validate && pnpm openapi:validate
       - name: Validate repository governance
         run: pnpm check:feature-flags && pnpm check:large-files
+      - name: Radix Luma token ratchet
+        run: pnpm guard:luma:strict
       - name: Lint every application
         run: pnpm lint && pnpm lint:workspaces
       - name: Strict typecheck every application
