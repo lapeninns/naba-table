@@ -9,6 +9,7 @@ import {
   History,
   Languages,
   Laptop,
+  LogOut,
   MapPin,
   MonitorSmartphone,
   Pencil,
@@ -18,9 +19,21 @@ import {
   Tablet,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { OpsStatusBadge } from '@/components/features/ops-shell/patterns/OpsStatusBadge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -35,7 +48,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAccountSessions, useRenameAccountDevice } from '@/hooks/useAccountSessions';
+import {
+  useAccountSessions,
+  useLogOutOtherAccountSessions,
+  useRenameAccountDevice,
+} from '@/hooks/useAccountSessions';
 import { cn } from '@/lib/utils';
 
 import type { AccountSession } from '@/lib/account/session-schema';
@@ -150,6 +167,82 @@ function RenameDeviceDialog({ session }: { session: AccountSession }) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function LogOutOtherSessions({ sessionCount }: { sessionCount: number }) {
+  const [open, setOpen] = useState(false);
+  const logOutMutation = useLogOutOtherAccountSessions();
+  const hasOtherSessions = sessionCount > 0;
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (logOutMutation.isPending) return;
+    setOpen(nextOpen);
+    if (nextOpen) logOutMutation.reset();
+  };
+
+  const handleConfirm = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    logOutMutation.mutate(undefined, {
+      onSuccess: () => {
+        setOpen(false);
+        toast.success('Other sessions logged out');
+      },
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-foreground">Other sessions</p>
+        <p className="text-sm text-muted-foreground">
+          {hasOtherSessions
+            ? `${sessionCount} other active ${sessionCount === 1 ? 'session is' : 'sessions are'} connected.`
+            : 'No other active sessions are connected.'}
+        </p>
+      </div>
+
+      <AlertDialog open={open} onOpenChange={handleOpenChange}>
+        <AlertDialogTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 text-destructive hover:text-destructive"
+            disabled={!hasOtherSessions}
+          >
+            <LogOut className="size-4" aria-hidden />
+            Log out other sessions
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out other sessions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will end{' '}
+              {sessionCount === 1
+                ? 'the other active session'
+                : `all ${sessionCount} other active sessions`}
+              . You’ll stay signed in on this device.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {logOutMutation.isError ? (
+            <p className="text-sm text-destructive" role="alert">
+              Couldn’t log out your other sessions. Try again.
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={logOutMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={logOutMutation.isPending}
+              onClick={handleConfirm}
+            >
+              {logOutMutation.isPending ? 'Logging out…' : 'Log out'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
@@ -388,6 +481,7 @@ export function AccountSessionsPanel({ className }: AccountSessionsPanelProps) {
 
   const activeSessions = sessionsQuery.data.filter((session) => session.isActive);
   const endedSessions = sessionsQuery.data.filter((session) => !session.isActive);
+  const otherActiveSessionCount = activeSessions.filter((session) => !session.isCurrent).length;
 
   if (sessionsQuery.data.length === 0) {
     return (
@@ -404,6 +498,7 @@ export function AccountSessionsPanel({ className }: AccountSessionsPanelProps) {
 
   return (
     <div className={cn('space-y-4', className)}>
+      <LogOutOtherSessions sessionCount={otherActiveSessionCount} />
       <SessionGroup
         title="Connected devices"
         description="Sessions that can currently access this account."

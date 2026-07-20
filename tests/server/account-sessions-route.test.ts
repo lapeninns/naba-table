@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const getUserMock = vi.hoisted(() => vi.fn());
+const signOutMock = vi.hoisted(() => vi.fn());
 const rpcMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() =>
   vi.fn(async () => ({
-    auth: { getUser: getUserMock },
+    auth: { getUser: getUserMock, signOut: signOutMock },
     rpc: rpcMock,
   })),
 );
@@ -20,12 +21,13 @@ vi.mock('@/server/security/csrf', () => ({
   ),
 }));
 
-import { GET, PATCH, POST } from '@/src/app/api/account/sessions/route';
+import { DELETE, GET, PATCH, POST } from '@/src/app/api/account/sessions/route';
 
 describe('account sessions route', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     getUserMock.mockReset();
+    signOutMock.mockReset();
     rpcMock.mockReset();
     getRouteHandlerSupabaseClientMock.mockClear();
   });
@@ -195,5 +197,33 @@ describe('account sessions route', () => {
       p_device_id: '88888888-8888-4888-8888-000000000001',
       p_name: 'Reception iPad',
     });
+  });
+
+  it('logs out every other session while preserving the current session', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+    signOutMock.mockResolvedValue({ error: null });
+
+    const response = await DELETE(
+      new NextRequest('http://localhost:3000/api/account/sessions', {
+        method: 'DELETE',
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ status: 'ok' });
+    expect(signOutMock).toHaveBeenCalledWith({ scope: 'others' });
+  });
+
+  it('does not revoke other sessions for an unauthenticated request', async () => {
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+
+    const response = await DELETE(
+      new NextRequest('http://localhost:3000/api/account/sessions', {
+        method: 'DELETE',
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(signOutMock).not.toHaveBeenCalled();
   });
 });

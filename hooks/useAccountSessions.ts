@@ -36,3 +36,17 @@ export function useRenameAccountDevice() {
     },
   });
 }
+
+export function useLogOutOtherAccountSessions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () =>
+      fetchJson<{ status: 'ok' }>('/api/account/sessions', {
+        method: 'DELETE',
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.account.sessions() });
+    },
+  });
+}
