@@ -33,7 +33,6 @@ export default [
       '**/build/',
       '*.config.js',
       '*.config.mjs',
-      'tailwind.config.js',
       'postcss.config.js',
       'next.config.js',
       'next-sitemap.config.js',
