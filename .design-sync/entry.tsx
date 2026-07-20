@@ -25,9 +25,6 @@ export { GuestStatus, GuestEmpty, GuestError } from "../src/components/guest/ui/
 export { GuestPageFrame, GuestContent, GuestHero, GuestSectionHeader, GuestPanel, GuestPanelHeader, GuestInsetCard, GuestMetricCard, GuestDetailList, GuestSplitPanel, GuestReferenceStrip, GuestPrimaryButton, GuestSecondaryButton } from "../src/components/guest/ui/GuestPageShell";
 export { BrandIcon } from "../src/components/shared/BrandIcon";
 export { BrandLogo } from "../src/components/shared/BrandLogo";
-export { FeatureCard } from "../src/components/shared/FeatureCard";
-export { PageHero } from "../src/components/shared/PageHero";
-export { PageSection } from "../src/components/shared/PageSection";
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "../components/ui/accordion";
 export { AlertDialog, AlertDialogPortal, AlertDialogOverlay, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "../components/ui/alert-dialog";
 export { Alert, AlertTitle, AlertDescription, AlertIcon } from "../components/ui/alert";
