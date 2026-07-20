@@ -18,11 +18,11 @@ export const accountDeviceRenameSchema = z.object({
 
 export const accountSessionSchema = z.object({
   id: z.string().uuid(),
-  signedInAt: z.string().datetime(),
-  lastActiveAt: z.string().datetime(),
-  signedOutAt: z.string().datetime().nullable(),
-  refreshedAt: z.string().datetime().nullable(),
-  expiresAt: z.string().datetime().nullable(),
+  signedInAt: z.string().datetime({ offset: true }),
+  lastActiveAt: z.string().datetime({ offset: true }),
+  signedOutAt: z.string().datetime({ offset: true }).nullable(),
+  refreshedAt: z.string().datetime({ offset: true }).nullable(),
+  expiresAt: z.string().datetime({ offset: true }).nullable(),
   ipAddress: z.string().nullable(),
   assuranceLevel: accountAssuranceLevelSchema.nullable(),
   approximateLocation: z
@@ -37,7 +37,7 @@ export const accountSessionSchema = z.object({
   device: z.object({
     id: z.string().uuid().nullable(),
     name: z.string().nullable(),
-    firstSeenAt: z.string().datetime().nullable(),
+    firstSeenAt: z.string().datetime({ offset: true }).nullable(),
     sessionCount: z.number().int().nonnegative(),
     timeZone: nullableShortText,
     locale: z.string().max(35).nullable(),
