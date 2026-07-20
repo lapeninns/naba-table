@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, type DefaultOptions } from '@tanstack
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { SessionActivityReporter } from '@/components/features/account-sessions/SessionActivityReporter';
 import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
 import { PostHogProvider } from '@/lib/posthog/provider';
@@ -107,6 +108,7 @@ function QueryLayer({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SessionActivityReporter />
       {children}
       {showDevtools ? (
         <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />

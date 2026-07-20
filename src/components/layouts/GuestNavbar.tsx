@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Calendar, LayoutDashboard, LogOut, Menu, User } from 'lucide-react';
+import { Calendar, LayoutDashboard, LogOut, Menu, ShieldCheck, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -56,6 +56,7 @@ const ACCOUNT_LINKS: AccountLink[] = [
   { href: '/guest/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/guest/bookings', label: 'My bookings', icon: Calendar },
   { href: '/guest/profile', label: 'Manage profile', icon: User },
+  { href: '/guest/profile/security', label: 'Devices & sessions', icon: ShieldCheck },
 ];
 
 type Tone = 'light' | 'dark';

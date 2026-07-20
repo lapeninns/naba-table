@@ -1,6 +1,7 @@
 'use client';
 
-import { LogOut, Loader2 } from 'lucide-react';
+import { Loader2, LogOut, MonitorSmartphone } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 
 import {
@@ -53,6 +54,14 @@ function OpsAccountActions() {
       <SidebarGroupLabel>Account</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="View devices and sessions">
+              <Link href="/app/account/security">
+                <MonitorSmartphone className="size-4" aria-hidden />
+                <span className="truncate">Devices & sessions</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               type="button"

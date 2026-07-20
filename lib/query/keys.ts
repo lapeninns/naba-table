@@ -2,6 +2,9 @@ import type { RestaurantFilters } from '@/lib/restaurants/types';
 import type { OpsSmsDeliveryRange, SmsDeliveryChannelFilter, SmsDeliveryStatus } from '@/types/smsDelivery';
 
 export const queryKeys = {
+  account: {
+    sessions: () => ['account', 'sessions'] as const,
+  },
   bookings: {
     all: ['bookings'] as const,
     list: (params: Record<string, unknown> = {}) => ['bookings', 'list', params] as const,
@@ -111,6 +114,7 @@ export const queryKeys = {
 };
 
 export type QueryKey =
+  | ReturnType<(typeof queryKeys)['account']['sessions']>
   | ReturnType<(typeof queryKeys)['bookings']['list']>
   | ReturnType<(typeof queryKeys)['bookings']['detail']>
   | ReturnType<(typeof queryKeys)['bookings']['history']>

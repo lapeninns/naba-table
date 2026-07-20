@@ -129,7 +129,12 @@ export function GuestProfileClient({
               Keep your name and phone number current for reservation updates and arrival checks.
             </p>
           </div>
-          <GuestSecondaryButton href="/guest/bookings">View bookings</GuestSecondaryButton>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <GuestSecondaryButton href="/guest/profile/security">
+              Devices & sessions
+            </GuestSecondaryButton>
+            <GuestSecondaryButton href="/guest/bookings">View bookings</GuestSecondaryButton>
+          </div>
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[7fr_5fr] lg:items-start lg:gap-8">

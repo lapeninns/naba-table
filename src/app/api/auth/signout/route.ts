@@ -76,6 +76,29 @@ async function postSignOut() {
     },
   });
 
+  // Preserve an exact end time in the user's own session history before the
+  // Supabase Auth row and cookies are invalidated.
+  try {
+    const { error: historyError } = await (
+      supabase as unknown as {
+        rpc: (
+          name: 'end_my_account_session',
+        ) => Promise<{ error: { message?: string } | null }>;
+      }
+    ).rpc('end_my_account_session');
+    if (historyError) {
+      console.warn(
+        '[auth/signout] Session history update warning:',
+        historyError.message ?? 'unknown error',
+      );
+    }
+  } catch (error) {
+    console.warn(
+      '[auth/signout] Session history update warning:',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
   // Sign out - this will trigger cookie deletion via setAll
   const { error } = await supabase.auth.signOut();
 
