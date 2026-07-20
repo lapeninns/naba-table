@@ -14,6 +14,21 @@
     "docs/auth-design-system.md"
   ],
   "overrides": {
+    "Table": {
+      "cardMode": "column"
+    },
+    "GuestContent": {
+      "cardMode": "column"
+    },
+    "GuestPanel": {
+      "cardMode": "column"
+    },
+    "CategoryTab": {
+      "cardMode": "column"
+    },
+    "OpsPageShell": {
+      "cardMode": "column"
+    },
     "Dialog": {
       "cardMode": "single",
       "viewport": "560x460"
