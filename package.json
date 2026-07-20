@@ -77,6 +77,7 @@
     "security:guard:service-role": "node scripts/security/check-service-role-routes.mjs",
     "guard:no-shadcn": "node scripts/check-no-shadcn.mjs",
     "guard:no-shadcn:strict": "node scripts/check-no-shadcn.mjs --strict",
+    "guard:no-shadow-roots": "node scripts/check-no-shadow-roots.mjs",
     "guard:luma": "node scripts/check-luma-compliance.mjs --baseline=config/qa/luma-baseline.json",
     "guard:luma:strict": "node scripts/check-luma-compliance.mjs --fail-on=exception --baseline=config/qa/luma-baseline.json",
     "guard:luma:update-baseline": "node scripts/check-luma-compliance.mjs --baseline=config/qa/luma-baseline.json --update-baseline",
