@@ -29,5 +29,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check shadcn primitive coverage
-        run: pnpm node scripts/check-no-shadcn.mjs --primitives-only
+      - name: Check shadcn primitive coverage (baseline ratchet)
+        run: pnpm run guard:no-shadcn:ci
+
+      - name: Check for cross-root component shadowing
+        run: pnpm run guard:no-shadow-roots

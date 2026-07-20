@@ -110,6 +110,24 @@ Menu import threat model: menu source files are untrusted content. Import script
 - `pnpm secret:scan` — gitleaks + trufflehog
 - `pnpm audit --prod --audit-level=high` — dependency audit
 
+## Design-system invariants (CI-enforced)
+
+The UI is a single Radix Luma design system. Three guards keep it from drifting; all
+run on every PR (`shadcn-primitives.yml`, and `quality-gates.yml` via `pnpm lint`):
+
+- **One primitive root.** shadcn primitives live only in `components/ui/*`. App code must
+  not import `@radix-ui/*` (or other banned UI libs) or render native `<button> <input>
+  <form> <select> <textarea> <label> <table> …` outside that root. Enforced by
+  `pnpm guard:no-shadcn:ci` — a baseline ratchet (`config/shadcn-primitives-baseline.json`)
+  that blocks new violations while tolerating pinned known debt. After clearing debt, re-pin
+  with `pnpm guard:no-shadcn:update-baseline`.
+- **No cross-root shadowing.** `@/components/*` resolves `components/` before `src/components/`,
+  so the same relative path must never exist in both (the shadowed copy silently forks).
+  Enforced by `pnpm guard:no-shadow-roots`.
+- **Semantic tokens only.** Prefer Luma semantic tokens over ad-hoc palette utilities; new
+  exception-level violations are blocked by `pnpm guard:luma:strict` (baseline:
+  `config/qa/luma-baseline.json`, re-pin with `pnpm guard:luma:update-baseline`).
+
 ## Security notes
 
 - Never commit `.env*`; templates only (`.env.example`, `.env.local.example`).

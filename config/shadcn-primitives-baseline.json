@@ -1,0 +1,8 @@
+{
+  "blocking": {
+    "native-renderable": 1
+  },
+  "advisory": {
+    "ad-hoc-token": 6
+  }
+}
