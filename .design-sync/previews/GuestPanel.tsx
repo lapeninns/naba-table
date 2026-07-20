@@ -1,4 +1,4 @@
-import { GuestPanel, GuestPanelHeader, GuestPrimaryButton, GuestGhostButton } from 'nabatable-platform';
+import { GuestPanel, GuestPanelHeader, GuestPrimaryButton, GuestSecondaryButton } from 'nabatable-platform';
 import { CalendarDays, Users, Clock } from 'lucide-react';
 
 export const BookingSummary = () => (
@@ -29,7 +29,7 @@ export const BookingSummary = () => (
       </div>
       <div className="flex flex-wrap gap-2 border-t border-border/60 px-6 py-4">
         <GuestPrimaryButton href="/bookings/BR-4821/edit">Change booking</GuestPrimaryButton>
-        <GuestGhostButton href="/bookings/BR-4821/cancel">Cancel</GuestGhostButton>
+        <GuestSecondaryButton href="/bookings/BR-4821/cancel">Cancel</GuestSecondaryButton>
       </div>
     </GuestPanel>
   </div>
