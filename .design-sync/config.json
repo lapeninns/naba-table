@@ -48,8 +48,8 @@
   },
   "readmeHeader": ".design-sync/conventions.md",
   "componentSrcMap": {
-    "Calendar": "./src/components/ui/calendar.tsx",
-    "CopyButton": "./src/components/ui/copy-button.tsx",
+    "Calendar": "./components/ui/calendar.tsx",
+    "CopyButton": "./components/ui/copy-button.tsx",
     "Field": "./reserve/shared/ui/Field.tsx",
     "Icon": "./reserve/shared/ui/icons.tsx",
     "OpsMobileBottomNav": "./src/components/features/ops-shell/OpsMobileBottomNav.tsx",
