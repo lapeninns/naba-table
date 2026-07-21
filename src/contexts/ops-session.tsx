@@ -28,6 +28,7 @@ export type OpsSessionContextValue = {
   accountSnapshot: OpsAccountSnapshot;
   permissions: OpsPermissionSet;
   setActiveRestaurantId: (restaurantId: string | null) => void;
+  syncActiveRestaurantIdFromRoute: (restaurantId: string | null) => void;
   resetRestaurantSelection: () => void;
 };
 
@@ -88,6 +89,7 @@ export function OpsSessionProvider({
   }, [initialRestaurantId, membershipRestaurantIds]);
 
   const initialisedRef = useRef(false);
+  const lastSyncedRouteRestaurantIdRef = useRef<string | null | undefined>(undefined);
   const [activeRestaurantId, setActiveRestaurantIdState] = useState<string | null>(
     fallbackRestaurantId,
   );
@@ -207,6 +209,27 @@ export function OpsSessionProvider({
     [membershipIds],
   );
 
+  const syncActiveRestaurantIdFromRoute = useCallback(
+    (restaurantId: string | null) => {
+      // The ops content remounts after a restaurant switch. Keep this marker in the
+      // session provider so a stale server route prop cannot restore the previous restaurant.
+      if (lastSyncedRouteRestaurantIdRef.current === restaurantId) {
+        return;
+      }
+
+      lastSyncedRouteRestaurantIdRef.current = restaurantId;
+
+      if (!restaurantId || !membershipIds.has(restaurantId)) {
+        return;
+      }
+
+      setActiveRestaurantIdState((currentRestaurantId) =>
+        currentRestaurantId === restaurantId ? currentRestaurantId : restaurantId,
+      );
+    },
+    [membershipIds],
+  );
+
   const resetRestaurantSelection = useCallback(() => {
     setActiveRestaurantIdState(fallbackRestaurantId ?? null);
   }, [fallbackRestaurantId]);
@@ -220,6 +243,7 @@ export function OpsSessionProvider({
       accountSnapshot,
       permissions,
       setActiveRestaurantId,
+      syncActiveRestaurantIdFromRoute,
       resetRestaurantSelection,
     }),
     [
@@ -230,6 +254,7 @@ export function OpsSessionProvider({
       accountSnapshot,
       permissions,
       setActiveRestaurantId,
+      syncActiveRestaurantIdFromRoute,
       resetRestaurantSelection,
     ],
   );

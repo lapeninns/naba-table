@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { OPS_LISTABLE_STATUSES } from '@/components/features/bookings/opsBookingsConstants';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
@@ -13,13 +13,13 @@ import { DEFAULT_OPS_BOOKINGS_WINDOW_MINUTES } from '@/utils/ops/bookings';
 import { buildOpsBookingsCardRows } from './opsBookingsSelectors';
 import { useOpsBookingsDataState } from './useOpsBookingsDataState';
 import { useOpsBookingsQueryState } from './useOpsBookingsQueryState';
+import { useOpsBookingsRestaurantSync } from './useOpsBookingsRestaurantSync';
 
 import type { OpsBookingsClientStateParams } from './opsBookingsTypes';
 import type { BookingDTO } from '@/hooks/useBookings';
 
 export function useOpsBookingsState(params: OpsBookingsClientStateParams) {
-  const { memberships, activeRestaurantId, accountSnapshot, setActiveRestaurantId } =
-    useOpsSession();
+  const { memberships, activeRestaurantId, accountSnapshot } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   const restaurantDetails = useOpsRestaurantDetails(activeRestaurantId ?? null);
   const isOnline = useOnlineStatus();
@@ -27,11 +27,9 @@ export function useOpsBookingsState(params: OpsBookingsClientStateParams) {
   const restaurantTimezone = restaurantDetails.data?.timezone ?? null;
   const restaurantSlug = restaurantDetails.data?.slug ?? activeMembership?.restaurantSlug ?? null;
 
-  useEffect(() => {
-    if (params.initialRestaurantId && params.initialRestaurantId !== activeRestaurantId) {
-      setActiveRestaurantId(params.initialRestaurantId);
-    }
-  }, [activeRestaurantId, params.initialRestaurantId, setActiveRestaurantId]);
+  useOpsBookingsRestaurantSync({
+    initialRestaurantId: params.initialRestaurantId,
+  });
 
   const queryState = useOpsBookingsQueryState({
     ...params,
