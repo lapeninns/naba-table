@@ -1,7 +1,7 @@
 'use client';
 
-import { StatusFilterGroup } from '@/components/dashboard/StatusFilterGroup';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { StatusFilterGroup } from '@/components/features/dashboard/bookings-table/StatusFilterGroup';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';

@@ -10,7 +10,7 @@ const { cancelDialogSpy, editDialogSpy, detailsWrapperSpy } = vi.hoisted(() => (
 vi.mock('@/components/features/bookings/components/OpsCancelBookingAlertDialog', () => ({
   OpsCancelBookingAlertDialog: cancelDialogSpy,
 }));
-vi.mock('@/components/dashboard/EditBookingDialog', () => ({
+vi.mock('@/components/features/dashboard/bookings-table/EditBookingDialog', () => ({
   EditBookingDialog: editDialogSpy,
 }));
 vi.mock('@/components/features/bookings/BookingDetailsDialogWrapper', () => ({

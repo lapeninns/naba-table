@@ -15,7 +15,7 @@ const OpsCancelBookingAlertDialog = dynamic(
 );
 
 const EditBookingDialog = dynamic(
-  () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
+  () => import('@/components/features/dashboard/bookings-table/EditBookingDialog').then((m) => m.EditBookingDialog),
   {
     loading: () => <div className="h-10" />,
   },

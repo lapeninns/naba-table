@@ -3,8 +3,8 @@
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
-import { Pagination } from '@/components/dashboard/Pagination';
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/features/dashboard/bookings-table/constants';
+import { Pagination } from '@/components/features/dashboard/bookings-table/Pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
