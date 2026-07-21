@@ -302,6 +302,15 @@
     --pg-density-control-h: 2.25rem;
   }
 
+  /* The ops card horizontal padding grows one step at sm+ (preserving the prior
+     px-4 → sm:px-5 the card consts hard-coded), baked into the density token so
+     the ops card classes in opsDensityClasses.ts stay branch-free. */
+  @media (min-width: 640px) {
+    [data-theme='app'] {
+      --pg-density-card-px: 1.25rem;
+    }
+  }
+
   .dark,
   :root.dark,
   [data-theme='guest'].dark,
