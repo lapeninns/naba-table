@@ -86,15 +86,15 @@ Everything below serves one of those three.
 
 ## 4. Aesthetic decisions
 
-Each of these changes the brand's felt identity, so they belong to the product owner. Two are now **decided and shipped**; three remain open for a future 2.0 pass.
+Each of these changes the brand's felt identity, so they belong to the product owner. **All five are now decided and shipped** (2026-07-21).
 
 1. **Palette — DECIDED: full semantic palette.** ✅ Distinct hues per state (success = green, warning = amber, info = blue, danger = red; neutral = cobalt, muted = gray), for maximum state clarity. Applied across the status system and the booking lifecycle (§3.1). The calm two-hue and restrained-semantic alternatives were not taken.
 2. **Serif reach — DECIDED: keep ops all-sans.** ✅ Merriweather stays a guest/marketing display signature; ops headings remain Inter for density. No code change required — this ratifies today's behaviour.
-3. **Density tokens — OPEN.** Ops is "compact" by convention, not by token. Introduce a `--density` scale (comfortable/compact) as a first-class control?
-4. **Motion language — OPEN.** `motion` is a dependency but there's no systematised enter/exit/hover vocabulary. Define one (durations, easings, reduced-motion) as part of 2.0?
-5. **Radius identity — OPEN.** Keep the restrained 14px ceiling, or soften toward a warmer 16–20px on guest surfaces only?
+3. **Density tokens — DECIDED + shipped.** ✅ A surface-scoped `--pg-density-*` scale (gap, gap-tight, card-px/py, control-h): comfortable by default, compact under `[data-theme='app']`. The canonical `OPS_PAGE_CONTENT_STACK_CLASS` consumes it (non-regressing). Adoption target next: the responsive card-padding consts.
+4. **Motion language — DECIDED + shipped.** ✅ Semantic `--pg-transition-hover/panel/emphasis` shorthands composed from the durations + `--pg-ease-out/spring/snap`; used via arbitrary values (`ease-[var(--pg-ease-spring)]`, `transition-[var(--pg-transition-panel)]`). Reduced-motion is neutralised globally. Kept as tokens (one source for the whole app); `--guest-transition-*` already consumes them.
+5. **Radius identity — DECIDED: keep restrained.** ✅ The `--radius-*` scale (ceiling 1.25rem/20px, components ≤ `rounded-2xl`/14px in practice) is ratified as the identity — no warmer-guest divergence. Documented in `globals.css` `@theme`.
 
-§6 sequences the remaining work.
+All five §4 forks are now resolved; the remaining out-of-pass items are the reserve typography package (§3.4) and the legacy-root migration (§3.5).
 
 ---
 
@@ -113,10 +113,10 @@ Remaining open aesthetic forks (§4.3–4.5: density, motion, radius) and the re
 
 ## 6. Rollout sequence
 
-1. **Now (pre-merge, safe-set):** §3.1 status consolidation + §3.6 doc refresh. Verified locally, stacked on the Phase 2 branch.
-2. **Gate:** merge PR #106 + fix GitHub Actions billing → the ~20 stacked commits get CI-validated; re-sync the DS catalog.
-3. **Decide:** product owner answers §4 (the five forks). One short working session.
-4. **Implement 2.0 aesthetics (§4 outcomes):** token-level changes flow through `--pg-*` / `@theme`, so most of the app inherits them for free; audit the arbitrary-value holdouts.
+1. **DONE — status consolidation + doc refresh** (§3.1, §3.6). Verified locally, on the branch.
+2. **DONE — §4 decisions + implementation**: full semantic palette, ops-all-sans, density scale, motion language, restrained radius. Token-level, so most of the app inherits them through `--pg-*` / `@theme`.
+3. **GATE (pending, user-owned):** merge PR #106 + fix GitHub Actions billing → the ~25 stacked commits get CI-validated; re-sync the DS catalog.
+4. **Broaden token adoption:** migrate the responsive card-padding consts to `--pg-density-*`; apply the motion shorthands to remaining ad-hoc transitions; audit arbitrary-value holdouts.
 5. **Reserve + legacy root (§3.4, §3.5):** shared typography package, then the `components/dashboard/` migration.
 6. **Re-sync DS + refresh baselines:** update the guard baselines to the 2.0 numbers; dual-mode (light/dark) e2e snapshots.
 
