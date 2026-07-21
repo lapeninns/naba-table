@@ -114,34 +114,15 @@
     --pg-accent-hover: var(--pg-cobalt-hover);
     --pg-accent-soft: var(--pg-cobalt-soft);
 
-    /* Legacy aliases consumed by existing guest pages. */
-    --color-primary-50: #eff6ff;
-    --color-primary-100: #dbeafe;
-    --color-primary-200: #bfdbfe;
-    --color-primary-500: #1447e6;
-    --color-primary-700: #1240cf;
-    --color-primary-900: #193cb8;
-    --color-accent-50: #f4f4f5;
-    --color-accent-100: #e4e4e7;
-    --color-accent-500: #1447e6;
-    --color-accent-700: #1240cf;
-    --color-interactive: var(--pg-action);
-    --color-interactive-hover: var(--pg-action-hover);
-    --color-interactive-active: #193cb8;
+    /* Legacy aliases still consumed by a few guest/mobile components. The
+       23 unreferenced members of this block (--color-primary-*, --color-accent-*,
+       --color-interactive*, --color-surface-warm/elevated/muted, --text-heading,
+       …) were removed 2026-07-21 after a repo-wide grep; only these four remain
+       in use. Migrate them to the pg-token and shadcn semantics to retire it. */
     --color-primary: hsl(var(--primary));
-    --color-primary-pressed: var(--pg-action-hover);
-    --color-accent: hsl(var(--accent));
     --color-text-primary: hsl(var(--foreground));
     --color-text-secondary: hsl(var(--muted-foreground));
-    --color-on-primary: hsl(var(--primary-foreground));
     --color-surface: hsl(var(--card));
-    --color-background: hsl(var(--background));
-    --color-border: hsl(var(--border));
-    --color-surface-warm: #ffffff;
-    --color-surface-elevated: #ffffff;
-    --color-surface-muted: #f4f4f5;
-    --text-body-warm: hsl(var(--muted-foreground));
-    --text-heading: hsl(var(--foreground));
 
     /* Type scale. */
     --pg-font-display: var(--font-radix-luma-display, Merriweather), Georgia, serif;
@@ -191,6 +172,8 @@
     --pg-radius-lg: 0.75rem;
     --pg-radius-xl: 1rem;
     --pg-radius-pill: 999px;
+    /* Full/pill radius alias — referenced by pill inputs (e.g. mobile SearchBar). */
+    --radius-full: 9999px;
 
     --shadow-sm: 0 1px 2px rgb(9 9 11 / 0.05);
     --shadow: 0 1px 3px rgb(9 9 11 / 0.1), 0 1px 2px rgb(9 9 11 / 0.06);
@@ -208,6 +191,10 @@
     --pg-shadow-button: 0 10px 15px -3px rgb(20 71 230 / 0.15);
     --pg-shadow-popover: 0 10px 38px -10px rgb(9 9 11 / 0.35), 0 10px 20px -15px rgb(9 9 11 / 0.2);
     --pg-shadow-edge: inset 0 1px 0 rgb(255 255 255 / 0.65);
+    /* Semantic elevation aliases — referenced by landing panels and floating
+       overlays; alias the scale so both adapt in dark mode. */
+    --pg-shadow-soft: var(--pg-shadow-sm);
+    --pg-shadow-floating: var(--pg-shadow-popover);
 
     /* Purposeful motion. */
     --duration-fast: 150ms;
