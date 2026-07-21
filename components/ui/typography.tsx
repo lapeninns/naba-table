@@ -75,6 +75,10 @@ const textVariants = cva('', {
         'text-[color:var(--pg-text-muted)] text-[length:var(--pg-text-kicker)] font-semibold uppercase leading-[1.333] tracking-[var(--pg-tracking-wide)]',
       label:
         'text-[color:var(--pg-text)] text-[length:var(--pg-text-caption)] font-medium leading-[1.45]',
+      /** Compact emphasized title — the sans, semibold, foreground role used for
+       *  card sub-headers and inline section labels (below the Heading scale). */
+      subheading:
+        'text-[color:var(--pg-text)] text-[length:var(--pg-text-caption)] font-semibold leading-[1.35]',
       mono: 'font-[family-name:var(--pg-font-mono)] text-[length:var(--pg-text-caption)] leading-[1.333] tabular-nums',
     },
   },
@@ -83,8 +87,9 @@ const textVariants = cva('', {
 
 type TextProps = React.HTMLAttributes<HTMLElement> &
   VariantProps<typeof textVariants> & {
-    /** Override the rendered element (defaults to <p>; use "span" for inline). */
-    as?: 'p' | 'span' | 'div' | 'label' | 'dd' | 'dt' | 'figcaption';
+    /** Override the rendered element (defaults to <p>; use "span" for inline,
+     *  or "h3"–"h6" with variant="subheading" for a semantic compact heading). */
+    as?: 'p' | 'span' | 'div' | 'label' | 'dd' | 'dt' | 'figcaption' | 'h3' | 'h4' | 'h5' | 'h6';
   };
 
 const Text = React.forwardRef<HTMLElement, TextProps>(

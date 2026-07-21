@@ -42,6 +42,17 @@ describe('ui/typography', () => {
     expect(mono.className).toContain('tabular-nums');
   });
 
+  it('@smoke renders the subheading variant as a semibold compact heading', () => {
+    render(
+      <Text variant="subheading" as="h3">
+        Booking policies
+      </Text>,
+    );
+    const el = screen.getByRole('heading', { level: 3, name: 'Booking policies' });
+    expect(el.className).toContain('font-semibold');
+    expect(el.className).toContain('text-[length:var(--pg-text-caption)]');
+  });
+
   it('@smoke passes className through and merges without dropping variant styles', () => {
     render(
       <Text variant="caption" className="mt-4">
