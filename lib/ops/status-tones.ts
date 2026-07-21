@@ -42,13 +42,21 @@ export const OPS_STATUS_TONE_VARIANT: Record<OpsStatusTone, BadgeProps['variant'
  *
  * Applied via the `OpsStatusBadge` component in
  * `src/components/features/ops-shell/patterns/OpsStatusBadge.tsx`.
+ *
+ * Luma 2.0 — full semantic palette. Each state carries its own hue
+ * (success = green, warning = amber, info = blue, danger = red) rather than
+ * the previous calm two-hue (cobalt + red) treatment, for clearer state
+ * signalling. `neutral` keeps the cobalt brand accent; `muted` stays gray.
+ * All hues resolve from the shared `--success` / `--warning` / `--info` /
+ * `--destructive` tokens (light + dark, both surfaces), mirroring the
+ * semantic tint pattern already used by the Badge and Alert primitives.
  */
 export const OPS_STATUS_TONE_CLASSES: Record<OpsStatusTone, string> = {
   neutral: 'bg-primary/10 text-primary border-primary/20',
-  success: 'bg-primary/10 text-primary border-primary/30',
-  warning: 'bg-primary/10 text-primary border-primary/30',
+  success: 'bg-success/10 text-success border-success/30',
+  warning: 'bg-warning/10 text-warning border-warning/40',
   danger: 'bg-destructive/10 text-destructive border-destructive/20',
-  info: 'bg-primary/10 text-primary border-primary/30',
+  info: 'bg-info/10 text-info border-info/30',
   muted: 'bg-muted text-muted-foreground border-border/60',
 };
 
