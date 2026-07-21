@@ -23,7 +23,7 @@ This document is the **decision register** for that step. Each section states wh
 | **Typography API** | `Heading` / `Text` primitives bound to `--pg-*` tokens (render on every surface); `subheading` variant for compact bold titles | `components/ui/typography.tsx`                 |
 | **Drift gates**    | `guard:no-shadcn` (baseline ratchet), `guard:no-shadow-roots`, `guard:typography-scale`, `check-luma-compliance`               | `package.json`, `scripts/`                     |
 
-**The calm-palette fact.** `OPS_STATUS_TONE_CLASSES` maps `success`, `warning`, `info`, and `neutral` **all to cobalt** (`bg-primary/10 text-primary`); only `danger` is red and `muted` is gray (`lib/ops/status-tones.ts:46`). This is deliberate — a calm, two-hue ops surface, not a rainbow of state colors. Any 2.0 change here is an aesthetic decision, **not** a bug fix.
+**The calm-palette fact (SUPERSEDED by the §4.1 decision).** `OPS_STATUS_TONE_CLASSES` used to map `success`, `warning`, `info`, and `neutral` **all to cobalt**; only `danger` was red and `muted` gray. That calm two-hue treatment has been **replaced** — the product owner chose the full semantic palette (§4.1), so each state now carries its own hue (success = green, warning = amber, info = blue, danger = red; neutral keeps cobalt, muted stays gray). The hues resolve from the shared `--success`/`--warning`/`--info` tokens, which were already defined (light + dark, both surfaces) and wired into `@theme` — so this was a routing change, not new infrastructure.
 
 ---
 
@@ -41,9 +41,11 @@ Everything below serves one of those three.
 
 ## 3. Decision register
 
-### 3.1 Status badges — **CONSOLIDATE** (safe, no aesthetic call required)
+### 3.1 Status badges — **DONE** ✅ (consolidated + semantic)
 
-**Today:** six implementations, three tone vocabularies:
+**Shipped.** `OpsStatusBadge` is now icon-capable and routes to the full semantic palette; the google-business `StatusBadge` was folded onto it (its verified/drift/error/pending vocabulary is now a domain mapper → success/warning/danger/info) and the dual-sync operation badge's icon now inherits its semantic tone. Booking statuses (§below) also moved to the semantic lifecycle palette. Every status hue is now driven by the shared semantic tokens, verified in-browser (light + dark). Remaining bespoke badge: `BookingStatusBadge` stays (it is the booking-domain component, already semantic via `lib/ops/booking-status.ts`).
+
+**Was:** six implementations, three tone vocabularies:
 
 | Implementation                        | Tone vocabulary                             | Spec                             |
 | ------------------------------------- | ------------------------------------------- | -------------------------------- |
@@ -82,30 +84,30 @@ Everything below serves one of those three.
 
 ---
 
-## 4. Aesthetic decisions that need the product owner
+## 4. Aesthetic decisions
 
-These are the **only** parts of 2.0 that I will not decide unilaterally — each changes the brand's felt identity:
+Each of these changes the brand's felt identity, so they belong to the product owner. Two are now **decided and shipped**; three remain open for a future 2.0 pass.
 
-1. **Calm vs semantic palette.** Keep the two-hue cobalt+red ops surface, or introduce _restrained_ success-green / warning-amber (still muted, Zinc-adjacent)? This is the single biggest 2.0 fork.
-2. **Serif reach.** Merriweather is guest-display only today. Does 2.0 pull the serif into ops headings for brand cohesion, or keep ops all-sans for density?
-3. **Density tokens.** Ops is "compact" by convention, not by token. Introduce a `--density` scale (comfortable/compact) as a first-class control?
-4. **Motion language.** `motion` is a dependency but there's no systematised enter/exit/hover vocabulary. Define one (durations, easings, reduced-motion) as part of 2.0?
-5. **Radius identity.** Keep the restrained 14px ceiling, or soften toward a warmer 16–20px on guest surfaces only?
+1. **Palette — DECIDED: full semantic palette.** ✅ Distinct hues per state (success = green, warning = amber, info = blue, danger = red; neutral = cobalt, muted = gray), for maximum state clarity. Applied across the status system and the booking lifecycle (§3.1). The calm two-hue and restrained-semantic alternatives were not taken.
+2. **Serif reach — DECIDED: keep ops all-sans.** ✅ Merriweather stays a guest/marketing display signature; ops headings remain Inter for density. No code change required — this ratifies today's behaviour.
+3. **Density tokens — OPEN.** Ops is "compact" by convention, not by token. Introduce a `--density` scale (comfortable/compact) as a first-class control?
+4. **Motion language — OPEN.** `motion` is a dependency but there's no systematised enter/exit/hover vocabulary. Define one (durations, easings, reduced-motion) as part of 2.0?
+5. **Radius identity — OPEN.** Keep the restrained 14px ceiling, or soften toward a warmer 16–20px on guest surfaces only?
 
-§6 sequences the work around these.
+§6 sequences the remaining work.
 
 ---
 
 ## 5. What lands without waiting for anything
 
-Safe-set — no aesthetic call, reuses existing tokens, verifiable by local typecheck/test/guard even while CI billing is blocked:
+Safe-set — verifiable by local typecheck/test/guard even while CI billing is blocked. **All shipped:**
 
-- [ ] **Status-badge consolidation** (§3.1): icon-capable `OpsStatusBadge` + 4 domain mappers; delete the 3 dual-sync + 1 google-business bespoke badges.
-- [ ] **Doc refresh** (§3.6): update `design-system.md` / `DESIGN_TOKENS.md`, link this spec.
-- [ ] **`subheading` coverage** (done): 16 mini-titles migrated.
-- [ ] Pill-shape reconciliation decision (the one sub-call in §3.1) — recommend `rounded-full`.
+- [x] **Semantic palette + status consolidation** (§3.1, §4.1): icon-capable `OpsStatusBadge` routed to semantic tones; google-business badge folded onto it; dual-sync operation icon inherits its tone; booking lifecycle recoloured. Verified in-browser (light + dark).
+- [x] **Doc refresh** (§3.6): `design-system.md` / `DESIGN_TOKENS.md` bannered and pointed at the real sources + this spec.
+- [x] **`subheading` coverage**: 16 mini-titles migrated.
+- [x] **Serif reach ratified** (§4.2): ops stays all-sans; no change needed.
 
-Open aesthetic forks (§4) and the reserve/legacy-root items (§3.4, §3.5) are explicitly **out** of the safe-set.
+Remaining open aesthetic forks (§4.3–4.5: density, motion, radius) and the reserve/legacy-root items (§3.4, §3.5) are **out** of this pass and tracked for later.
 
 ---
 
