@@ -361,7 +361,10 @@ function MobileMenu({
         className="flex h-full flex-col gap-0 px-0 pb-0 pt-0 sm:max-w-md"
       >
         <SheetHeader className="border-b border-border/70 px-6 py-5 text-left">
-          <BrandMark tone="light" />
+          <div className="flex items-center justify-between">
+            <BrandMark tone="light" />
+            <ThemeToggle />
+          </div>
           <SheetTitle className="mt-5 text-2xl font-semibold tracking-tight">
             Guest navigation
           </SheetTitle>
