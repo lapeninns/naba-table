@@ -127,6 +127,11 @@ run on every PR (`shadcn-primitives.yml`, and `quality-gates.yml` via `pnpm lint
 - **Semantic tokens only.** Prefer Luma semantic tokens over ad-hoc palette utilities; new
   exception-level violations are blocked by `pnpm guard:luma:strict` (baseline:
   `config/qa/luma-baseline.json`, re-pin with `pnpm guard:luma:update-baseline`).
+- **Headings use the primitive.** Render headings through `<Heading>`
+  (`components/ui/typography.tsx`), not raw `text-2xl`/`text-3xl`/… utilities. `pnpm
+guard:typography-scale` ratchets raw heading-scale usage outside `components/ui`
+  (baseline: `config/qa/typography-scale-baseline.json`; re-pin after clearing debt with
+  `pnpm guard:typography-scale:update-baseline`).
 
 ## Security notes
 
