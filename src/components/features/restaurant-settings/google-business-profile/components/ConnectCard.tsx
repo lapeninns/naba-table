@@ -134,9 +134,9 @@ export function ConnectCard({
                   )}
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-semibold text-sm tracking-tight text-foreground">
+                  <Text variant="subheading" as="h4" className="tracking-tight">
                     {step.title}
-                  </h4>
+                  </Text>
                   <Text variant="caption">
                     {step.description}
                   </Text>

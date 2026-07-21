@@ -2,6 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import { type ItemFormState } from './menuHierarchyDomain';
 import { Field } from './menuHierarchyFormControls';
@@ -16,7 +17,7 @@ export function ImportMetadataFields({
 }) {
   return (
     <div className="rounded-md border p-4">
-      <h3 className="text-sm font-semibold">Import metadata</h3>
+      <Text variant="subheading" as="h3">Import metadata</Text>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <Field label="Source system">
           <Input

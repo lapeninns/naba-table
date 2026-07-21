@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 import { formatGoogleFoodMenuEnumLabel as formatEnumLabel } from '@/lib/google-food-menu-labels';
 
 import {
@@ -107,7 +108,7 @@ export function OptionGoogleAttributeFields({
 }) {
   return (
     <div className="rounded-md border p-4">
-      <h3 className="text-sm font-semibold">Option Google attributes</h3>
+      <Text variant="subheading" as="h3">Option Google attributes</Text>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="Spiciness">
           <Select
@@ -195,7 +196,7 @@ export function OptionMediaFields({
 }) {
   return (
     <div className="rounded-md border p-4">
-      <h3 className="text-sm font-semibold">Option media keys</h3>
+      <Text variant="subheading" as="h3">Option media keys</Text>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="GBP media keys">
           <Textarea

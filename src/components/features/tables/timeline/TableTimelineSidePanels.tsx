@@ -23,7 +23,7 @@ function ActionRequiredPanel() {
     <Card>
       <CardContent className="p-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Action Required</h3>
+          <Text variant="subheading" as="h3">Action Required</Text>
           <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
             — Alerts
           </span>
@@ -43,7 +43,7 @@ function CapacityBreakdownPanel() {
   return (
     <Card>
       <CardContent className="p-5">
-        <h3 className="text-sm font-semibold">Capacity Breakdown</h3>
+        <Text variant="subheading" as="h3">Capacity Breakdown</Text>
         <Text variant="caption" className="mt-2">
           Breakdown will be computed from table inventory and bookings.
         </Text>

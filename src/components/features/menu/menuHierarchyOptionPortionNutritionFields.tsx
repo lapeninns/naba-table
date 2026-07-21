@@ -2,6 +2,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import { NUTRITION_UNITS, type OptionFormState } from './menuHierarchyDomain';
 import { Field, NutritionRangeInputs } from './menuHierarchyFormControls';
@@ -23,7 +24,7 @@ export function OptionPortionNutritionFields({
 }) {
   return (
     <div className="rounded-md border bg-muted/20 p-3">
-      <h3 className="text-sm font-semibold">Option portion and nutrition</h3>
+      <Text variant="subheading" as="h3">Option portion and nutrition</Text>
       <div className="mt-4 grid gap-3 md:grid-cols-4">
         <Field label="Portion quantity">
           <Input

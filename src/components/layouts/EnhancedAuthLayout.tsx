@@ -97,7 +97,7 @@ function EnhancedAuthLayoutContent({
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Product</h3>
+              <Text variant="subheading" as="h3">Product</Text>
               <ul className="space-y-2 text-sm">
                 <li>
                   <Link
@@ -127,7 +127,7 @@ function EnhancedAuthLayoutContent({
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Help</h3>
+              <Text variant="subheading" as="h3">Help</Text>
               <ul className="space-y-2 text-sm">
                 <li>
                   <Link

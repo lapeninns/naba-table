@@ -42,7 +42,7 @@ export function GoogleItemPublishingFields({
     <div className="rounded-md border p-4">
       <div className="flex items-center gap-2">
         <ImageIcon className="size-4 text-muted-foreground" aria-hidden />
-        <h3 className="text-sm font-semibold">Google publishing</h3>
+        <Text variant="subheading" as="h3">Google publishing</Text>
       </div>
       <Text variant="caption" className="mt-1">
         Select or paste GBP media keys for publishing. Local image URLs stay Nabatable-only.

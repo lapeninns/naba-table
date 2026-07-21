@@ -128,9 +128,9 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
             <article key={invite.id} className="rounded-lg border bg-card p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="break-all text-sm font-semibold text-foreground">
+                  <Text variant="subheading" as="h3" className="break-all">
                     {invite.email}
-                  </h3>
+                  </Text>
                   <Text variant="caption" className="mt-1">
                     {formatTeamRole(invite.role)}
                   </Text>

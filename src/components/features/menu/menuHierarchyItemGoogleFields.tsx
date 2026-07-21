@@ -45,7 +45,7 @@ export function GoogleItemEssentialsFields({
     <div className="rounded-md border p-4">
       <div className="flex items-center gap-2">
         <Globe2 className="size-4 text-muted-foreground" aria-hidden />
-        <h3 className="text-sm font-semibold">Essentials</h3>
+        <Text variant="subheading" as="h3">Essentials</Text>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="Item name">
