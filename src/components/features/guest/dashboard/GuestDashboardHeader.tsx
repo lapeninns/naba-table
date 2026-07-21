@@ -1,4 +1,5 @@
 import { GuestPrimaryButton, GuestSecondaryButton } from '@/components/guest/ui';
+import { Heading } from '@/components/ui/typography';
 import { getGreeting } from '@/guest/lib/formatters';
 
 export function GuestDashboardHeader({ firstName }: { firstName: string }) {
@@ -8,9 +9,9 @@ export function GuestDashboardHeader({ firstName }: { firstName: string }) {
         <p className="pg-kicker">
           {getGreeting()}, {firstName}
         </p>
-        <h1 className="font-[var(--pg-font-display)] text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+        <Heading variant="section" as="h1">
           Your bookings
-        </h1>
+        </Heading>
         <p className="pg-body max-w-[58ch]">
           Manage upcoming reservations, open receipts, and update the profile details used for
           future bookings.

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Heading, Text } from '@/components/ui/typography';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
@@ -297,10 +298,10 @@ export function OpsSignInForm({ redirectedFrom }: OpsSignInFormProps) {
   return (
     <div id="ops-signin-form" className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 text-center">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">Restaurant operations</h2>
-        <p className="text-sm text-muted-foreground">
+        <Heading variant="section" as="h2">Restaurant operations</Heading>
+        <Text variant="caption">
           Sign in with a magic link or password to access your console
-        </p>
+        </Text>
       </div>
 
       <Tabs value={mode} onValueChange={(value) => setMode(value as AuthMode)} className="w-full">

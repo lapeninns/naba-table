@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Text } from '@/components/ui/typography';
 import { hasRedirectedFrom } from '@/lib/auth/signin-redirect-guard';
 import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { ensureCsrfCookie } from '@/server/security/csrf';
@@ -162,10 +163,10 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
                 Streamline your restaurant operations
               </h1>
 
-              <p className="text-lg text-muted-foreground">
+              <Text variant="lead">
                 Access your operations console to manage bookings, optimize seating, and keep your
                 team aligned—all in real-time.
-              </p>
+              </Text>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -231,9 +232,9 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
               </CardContent>
 
               <CardFooter className="flex flex-col gap-3 bg-muted/35 p-6">
-                <p className="text-center text-sm text-muted-foreground">
+                <Text variant="caption" className="text-center">
                   Looking to make a reservation?
-                </p>
+                </Text>
                 <Button asChild variant="outline" className="w-full">
                   <a href={guestSignInUrl}>
                     Sign in as a guest
@@ -243,12 +244,12 @@ export default async function OpsAuthSignInPage({ searchParams }: OpsLoginPagePr
               </CardFooter>
             </Card>
 
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+            <Text variant="caption" className="mt-6 text-center">
               Need help?{' '}
               <Button asChild variant="link" className="h-auto p-0 align-baseline">
                 <a href="mailto:support@sajiloreserve.com">Contact support</a>
               </Button>
-            </p>
+            </Text>
           </section>
         </div>
       </div>

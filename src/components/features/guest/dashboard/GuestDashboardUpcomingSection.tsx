@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { GuestPanel } from '@/components/guest/ui';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 
 import { buildGuestDashboardUpcomingBookingDisplay } from './booking-derivations';
 
@@ -86,12 +87,15 @@ function UpcomingBookingCard({ booking }: { booking: BookingDTO }) {
           <p className="truncate text-sm font-semibold text-foreground sm:text-base">
             {booking.restaurantName}
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <Text
+            variant="caption"
+            className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+          >
             <Clock className="size-3.5" aria-hidden />
             <span>{timeLabel}</span>
             <span aria-hidden>·</span>
             <span>{partyLabel}</span>
-          </p>
+          </Text>
         </div>
         <ChevronRight
           className="size-5 text-muted-foreground transition group-hover:text-foreground"

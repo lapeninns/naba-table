@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import {
@@ -79,10 +80,10 @@ function BookingCard({ booking, isPast = false }: { booking: BookingDTO; isPast?
               <h3 className="pg-card-title truncate">{booking.restaurantName}</h3>
               <StatusBadge status={booking.status} isPast={isPast} />
             </div>
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Text variant="caption" className="flex items-center gap-2">
               <MapPin className="size-4 shrink-0" aria-hidden />
               <span className="truncate">{booking.restaurantSlug ?? 'Restaurant details'}</span>
-            </p>
+            </Text>
           </div>
           <BookingCardMenu booking={booking} isPast={isPast} restaurantHref={restaurantHref} />
         </div>

@@ -14,6 +14,7 @@ import { motion } from 'motion/react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 
 type ConnectCardProps = {
   onConnect: () => void;
@@ -136,9 +137,9 @@ export function ConnectCard({
                   <h4 className="font-semibold text-sm tracking-tight text-foreground">
                     {step.title}
                   </h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <Text variant="caption">
                     {step.description}
-                  </p>
+                  </Text>
                 </div>
               </motion.div>
             );

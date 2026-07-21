@@ -1,3 +1,5 @@
+import { Text } from '@/components/ui/typography';
+
 export function SummaryCard({
   label,
   value,
@@ -9,9 +11,9 @@ export function SummaryCard({
 }) {
   return (
     <div className="rounded-lg border bg-card p-4 shadow-sm">
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <Text variant="caption">{label}</Text>
       <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
-      {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
+      {description ? <Text variant="caption" className="mt-1">{description}</Text> : null}
     </div>
   );
 }

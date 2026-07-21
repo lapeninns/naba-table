@@ -6,6 +6,7 @@ import {
 } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { CommunicationsDeliveryOverviewMetric } from '../communicationsDeliveryTypes';
@@ -32,12 +33,10 @@ export function CommunicationsDeliveryOverviewCards({
         : metrics.map((metric) => (
             <Card key={metric.label} className={OPS_CARD_CLASS}>
               <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'space-y-1 pt-4')}>
-                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  {metric.label}
-                </p>
+                <Text variant="eyebrow">{metric.label}</Text>
                 <p className="text-2xl font-semibold text-foreground">{metric.value}</p>
                 {metric.hint ? (
-                  <p className="text-sm text-muted-foreground">{metric.hint}</p>
+                  <Text variant="caption">{metric.hint}</Text>
                 ) : (
                   <div className="h-5" />
                 )}

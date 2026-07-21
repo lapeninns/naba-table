@@ -19,6 +19,7 @@ import {
   FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/typography';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 
@@ -139,9 +140,9 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
               />
 
               {errorMessage ? (
-                <p className="text-sm text-destructive" role="alert">
+                <Text variant="caption" className="text-destructive" role="alert">
                   {errorMessage}
-                </p>
+                </Text>
               ) : null}
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>

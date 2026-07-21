@@ -30,6 +30,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useProfile } from '@/hooks/useProfile';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { buildQueryStorageKey, clearPersistedQueryCache } from '@/lib/query/persist';
@@ -405,9 +406,9 @@ function MobileMenu({
             </div>
           ) : (
             <div className="rounded-[var(--pg-radius-lg)] border border-border/70 bg-muted/35 p-4">
-              <p className="text-sm text-muted-foreground">
+              <Text variant="caption">
                 Sign in to sync bookings, dietary notes, and saved occasions.
-              </p>
+              </Text>
             </div>
           )}
 
@@ -420,9 +421,9 @@ function MobileMenu({
                 className="flex flex-col gap-3"
                 aria-label={section.title}
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <Text variant="eyebrow">
                   {section.title}
-                </p>
+                </Text>
                 <div className="flex flex-col gap-2">
                   {section.links.map((link) => (
                     <SheetClose asChild key={link.href}>
