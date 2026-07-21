@@ -73,7 +73,7 @@ function WizardVenueSkeleton() {
         <LoadingSkeleton className="h-3 w-20" />
         <LoadingSkeleton className="h-7 w-56 max-w-full" />
       </div>
-      <LoadingSkeleton className="h-8 w-40 max-w-full rounded-[var(--pg-radius-full)]" />
+      <LoadingSkeleton className="h-8 w-40 max-w-full rounded-[var(--pg-radius-pill)]" />
     </header>
   );
 }
@@ -90,7 +90,7 @@ function WizardProgressSkeleton() {
           <LoadingSkeleton className="h-4 w-28" />
           <LoadingSkeleton className="h-3 w-12" />
         </div>
-        <LoadingSkeleton className="h-2 w-full rounded-[var(--pg-radius-full)]" />
+        <LoadingSkeleton className="h-2 w-full rounded-[var(--pg-radius-pill)]" />
       </div>
     </section>
   );
