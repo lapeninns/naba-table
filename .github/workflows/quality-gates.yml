@@ -82,7 +82,7 @@ jobs:
         run: pnpm test:ci:workspaces
       - name: Upload test evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: test-evidence
           path: |
@@ -123,7 +123,7 @@ jobs:
           mkdir -p test-results/build
           printf '{"durationSeconds":%s,"commit":"%s"}\n' "$((end-start))" "$GITHUB_SHA" > test-results/build/timing.json
       - name: Upload build evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: build-evidence
           path: |
