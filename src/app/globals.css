@@ -525,6 +525,17 @@
   --radius-3xl: 1rem;
   --radius-4xl: 1.25rem;
 
+  /* Luma 2.0 radius identity — DECIDED: keep the restrained scale. The steps
+     above are the whole vocabulary (defined ceiling 1.25rem/20px; components
+     use ≤ rounded-2xl / 14px in practice, no rounded-[3-9]xl sprawl). Guest and
+     ops share it — the --guest-radius-* aliases map back into these steps.
+
+     Luma 2.0 motion easings live in the token layer as --pg-ease-out / -spring /
+     -snap (public-guest.tokens.css) and compose into the --pg-transition-hover /
+     -panel / -emphasis shorthands; use them via arbitrary values, e.g.
+     `ease-[var(--pg-ease-spring)]` or `transition-[var(--pg-transition-panel)]`.
+     Kept as tokens (not @theme utilities) so the whole app shares one source. */
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
