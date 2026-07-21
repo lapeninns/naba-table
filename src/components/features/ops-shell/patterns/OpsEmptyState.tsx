@@ -1,6 +1,7 @@
 'use client';
 
 import { Card } from '@/components/ui/card';
+import { Heading, Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { ReactNode } from 'react';
@@ -27,8 +28,10 @@ export function OpsEmptyState({ title, description, icon, action, className }: O
         </div>
       ) : null}
       <div className="space-y-1">
-        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        <Heading variant="title" as="h3" className="text-foreground">
+          {title}
+        </Heading>
+        {description ? <Text variant="caption">{description}</Text> : null}
       </div>
       {action ? <div className="pt-1">{action}</div> : null}
     </Card>

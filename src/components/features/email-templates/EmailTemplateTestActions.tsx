@@ -3,6 +3,7 @@ import { RotateCcw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 
 import type { RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
 import type { RestaurantEmailTemplate } from '@/services/ops/restaurants';
@@ -59,10 +60,10 @@ export function EmailTemplateTestActions({
               <span>{isSendingTest ? 'Sending...' : 'Send test'}</span>
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <Text variant="caption">
             System shell, booking facts, and destination URLs stay locked. Delivery copy, subject,
             and preheader change here.
-          </p>
+          </Text>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 import {
   formatSmsDeliveryOccurredAt,
@@ -91,18 +92,18 @@ function SmsDeliveryAttemptRow({
                 Stuck{stuckHint ? ` · ${stuckHint}` : ''}
               </Badge>
             ) : null}
-            <span className="text-sm font-medium text-foreground">
+            <Text as="span" variant="label">
               {formatSmsTypeLabel(attempt.smsType)}
-            </span>
+            </Text>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <Text variant="caption">
             {attempt.recipientPhone} ·{' '}
             {attempt.booking?.reference ? `Ref ${attempt.booking.reference}` : 'No booking link'}
-          </p>
+          </Text>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <Text variant="caption">
           {formatSmsDeliveryOccurredAt(attempt.currentOccurredAt, timezone) ?? 'Unknown time'}
-        </p>
+        </Text>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {attempt.events.length === 0 ? (
@@ -185,9 +186,9 @@ export function OpsSmsDeliveryLog({
           </CardHeader>
           <CardContent className={OPS_CARD_CONTENT_CLASS}>
             {feed.attempts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <Text variant="caption">
                 No message attempts found for this range/filter.
-              </p>
+              </Text>
             ) : (
               <div className="flex flex-col gap-3">
                 {feed.attempts.map((attempt) => (
@@ -201,7 +202,7 @@ export function OpsSmsDeliveryLog({
             )}
 
             <div className="mt-4 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Page {feed.pageInfo.page}</p>
+              <Text variant="caption">Page {feed.pageInfo.page}</Text>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"

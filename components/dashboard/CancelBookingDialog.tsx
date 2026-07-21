@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Text } from '@/components/ui/typography';
 import { useCancelBooking } from '@/hooks/useCancelBooking';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -67,10 +68,10 @@ export function CancelBookingDialog({ booking, open, onOpenChange }: CancelBooki
               : 'Are you sure you want to cancel this booking?'}
           </DialogDescription>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
+        <Text variant="caption">
           This action cannot be undone. The venue will be notified and the table will be released to other guests.
-        </p>
-        {errorMessage ? <p className="text-sm text-destructive" role="alert">{errorMessage}</p> : null}
+        </Text>
+        {errorMessage ? <Text variant="caption" className="text-destructive" role="alert">{errorMessage}</Text> : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
             Keep booking

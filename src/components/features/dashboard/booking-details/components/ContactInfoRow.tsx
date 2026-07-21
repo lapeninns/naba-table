@@ -7,6 +7,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import { ClickToCopy } from './ClickToCopy';
 
@@ -46,7 +47,7 @@ export function ContactInfoRow({
       <a href={href}>{value}</a>
     </Button>
   ) : (
-    <span className="text-sm text-muted-foreground">{value}</span>
+    <Text as="span" variant="caption">{value}</Text>
   );
 
   return (
@@ -55,9 +56,9 @@ export function ContactInfoRow({
         <Icon className="size-4 text-muted-foreground" />
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <Text as="span" variant="eyebrow">
           {label}
-        </span>
+        </Text>
         {content}
       </div>
       {resolvedActions.length > 0 && (

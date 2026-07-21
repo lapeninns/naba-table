@@ -5,6 +5,7 @@ import { Building2, CheckCircle2 } from 'lucide-react';
 import { GuestNavbar } from '@/components/layouts/GuestNavbar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 
 import { OnboardingProgress } from './OnboardingProgress';
 
@@ -54,12 +55,12 @@ export function OnboardingShell({
                     <Building2 className="size-5" aria-hidden />
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">
+                    <Text variant="label" className="font-semibold">
                       {currentStep?.title ?? 'Onboarding'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
+                    </Text>
+                    <Text variant="caption">
                       {currentStep?.description ?? 'Continue the setup flow.'}
-                    </p>
+                    </Text>
                   </div>
                 </div>
                 <div className="grid gap-2">

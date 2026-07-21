@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Heading, Text } from '@/components/ui/typography';
 import { fetchJson } from '@/lib/http/fetchJson';
 
 import { useOnboarding } from './context/OnboardingContext';
@@ -190,8 +191,10 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
       <FormRoot className="space-y-4" onSubmit={save}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Service windows</h3>
-            <p className="text-sm text-muted-foreground">Add lunch, dinner, or custom services.</p>
+            <Heading variant="title" as="h3">
+              Service windows
+            </Heading>
+            <Text variant="caption">Add lunch, dinner, or custom services.</Text>
           </div>
           <Button type="button" variant="outline" onClick={addPeriod}>
             <Plus className="size-4" />

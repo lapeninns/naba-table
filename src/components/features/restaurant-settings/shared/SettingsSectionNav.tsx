@@ -14,6 +14,7 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { useRestaurantSettingsSectionNavSlot } from '../RestaurantSettingsSectionNavSlot';
@@ -187,9 +188,9 @@ export function SettingsSectionNav({
             className="flex flex-col gap-1 border-b border-border/60 px-4 py-2.5 sm:px-6"
             initial={false}
           >
-            <p className="text-sm font-medium text-foreground">{title}</p>
+            <Text variant="label">{title}</Text>
             {description ? (
-              <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+              <Text variant="caption">{description}</Text>
             ) : null}
           </motion.div>
         ) : (
@@ -205,9 +206,9 @@ export function SettingsSectionNav({
           </div>
         ) : null}
         {footer ? (
-          <p className="border-t border-border/60 px-4 py-1.5 text-xs leading-5 text-muted-foreground sm:px-6">
+          <Text variant="caption" className="border-t border-border/60 px-4 py-1.5 sm:px-6">
             {footer}
-          </p>
+          </Text>
         ) : null}
       </nav>
     ),

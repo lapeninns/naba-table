@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react';
 import { type Dispatch, type SetStateAction } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import {
   addAvailabilityRuleDraft,
@@ -82,10 +83,10 @@ export function AvailabilityOccasionRulesSection({
     <div className="flex flex-col gap-3 rounded-lg border border-border/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Availability rules</p>
-          <p className="text-sm text-muted-foreground">
+          <Text variant="label">Availability rules</Text>
+          <Text variant="caption">
             Describe when guests should be able to choose this occasion.
-          </p>
+          </Text>
         </div>
         <Button
           type="button"
@@ -121,14 +122,14 @@ export function AvailabilityOccasionRulesSection({
       </div>
 
       {formErrors.availability ? (
-        <p className="text-xs text-destructive">{formErrors.availability}</p>
+        <Text variant="caption" className="text-destructive">{formErrors.availability}</Text>
       ) : null}
 
       <div className="rounded-md border border-dashed border-border/70 bg-background/80 p-3">
-        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        <Text variant="eyebrow">
           Guest-facing summary
-        </p>
-        <p className="mt-1 text-sm text-foreground">{availabilityPreview}</p>
+        </Text>
+        <Text variant="caption" className="mt-1 text-foreground">{availabilityPreview}</Text>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 
 import { getLinkRemoveLabel, getLinkRowTitle, LINK_TEXT_FIELDS } from './linksPanelDomain';
 import { LINK_TYPE_OPTIONS, makeFieldId, type LinkEditor } from '../../businessContextModel';
@@ -31,7 +32,9 @@ export function LinkRow({
     <div className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{getLinkRowTitle(row)}</p>
+          <Text variant="label" className="truncate font-semibold">
+            {getLinkRowTitle(row)}
+          </Text>
         </div>
         <Button
           type="button"

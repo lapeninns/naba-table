@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { OpsBookingCardActionsViewModel } from './opsBookingCardActionPolicy';
@@ -205,9 +206,9 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
         </div>
       </div>
       {actionError ? (
-        <p className="mt-2 text-xs font-medium text-destructive" role="alert">
+        <Text variant="label" className="mt-2 text-destructive" role="alert">
           {actionError}
-        </p>
+        </Text>
       ) : null}
 
       <AlertDialog open={isNoShowOpen} onOpenChange={setIsNoShowOpen}>
@@ -229,9 +230,9 @@ export const OpsBookingCardActions = memo(function OpsBookingCardActions({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {actionError ? (
-            <p className="text-xs font-medium text-destructive" role="alert">
+            <Text variant="label" className="text-destructive" role="alert">
               {actionError}
-            </p>
+            </Text>
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actions.noShowConfirmation.disabled || isNoShowPending}>

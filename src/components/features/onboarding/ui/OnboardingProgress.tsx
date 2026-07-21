@@ -2,6 +2,7 @@
 
 import { CheckCircle2, Circle } from 'lucide-react';
 
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { OnboardingStep } from '../types';
@@ -37,7 +38,7 @@ export function OnboardingProgress({ steps, current }: OnboardingProgressProps) 
             </span>
             <div className="flex flex-col gap-1">
               <p className="text-sm font-semibold leading-tight text-foreground">{step.title}</p>
-              <p className="text-xs text-muted-foreground leading-snug">{step.description}</p>
+              <Text variant="caption">{step.description}</Text>
             </div>
             <span className="sr-only">
               {isActive ? 'Current step' : isComplete ? 'Completed' : 'Upcoming'}

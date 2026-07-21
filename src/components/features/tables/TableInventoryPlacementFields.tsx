@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 
 import type { TableZone } from './tableInventoryModel';
 
@@ -35,9 +36,9 @@ export function TableInventoryPlacementFields({
     <>
       <div>
         <p className="text-sm font-semibold text-foreground">Placement</p>
-        <p className="text-xs leading-5 text-muted-foreground">
+        <Text variant="caption">
           Put the table in a zone and decide whether it is active for service.
-        </p>
+        </Text>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="zoneId">Zone</Label>
@@ -67,14 +68,14 @@ export function TableInventoryPlacementFields({
           </SelectContent>
         </Select>
         {selectedZone && selectedZone.active === false ? (
-          <p className="text-xs text-primary">
+          <Text variant="caption" className="text-primary">
             Zone is inactive. Reactivate it to bring these tables back into service.
-          </p>
+          </Text>
         ) : null}
         {!selectedZone ? (
-          <p className="text-xs text-muted-foreground">
+          <Text variant="caption">
             Choose the service area this table belongs to. Add more zones later if needed.
-          </p>
+          </Text>
         ) : null}
       </div>
 

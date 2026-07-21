@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 
@@ -38,9 +39,9 @@ export function BookingRulesCard({ restaurantId }: BookingRulesCardProps) {
         title="Booking rules"
         description="Select a restaurant to manage reservation timing rules and booking policy."
       >
-        <p className="text-sm text-muted-foreground">
+        <Text variant="caption">
           Choose a restaurant using the sidebar switcher to update booking rules.
-        </p>
+        </Text>
       </SettingsCard>
     );
   }

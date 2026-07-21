@@ -10,6 +10,7 @@ import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import { buildPublicBookingUrl } from '@/lib/site-url';
 import { cn } from '@/lib/utils';
 
@@ -106,42 +107,42 @@ export function AdvancedIdentitySubform({
             aria-describedby={errors.slug ? 'restaurant-slug-error' : 'restaurant-slug-help'}
             className={cn(errors.slug && 'border-destructive focus-visible:ring-destructive/60')}
           />
-          <p id="restaurant-slug-help" className="text-xs text-muted-foreground">
+          <Text variant="caption" id="restaurant-slug-help">
             {FIELD_TOOLTIPS.slug}
-          </p>
+          </Text>
           {errors.slug ? (
-            <p id="restaurant-slug-error" className="text-xs text-destructive" role="alert">
+            <Text variant="caption" id="restaurant-slug-error" className="text-destructive" role="alert">
               {errors.slug}
-            </p>
+            </Text>
           ) : null}
         </div>
 
         <div className="rounded-md border border-border/70 bg-muted/20 p-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Public booking preview</p>
+              <Text variant="label">Public booking preview</Text>
               <div className="mt-2 space-y-2">
                 <div>
-                  <p className="text-xs font-medium text-foreground">Relative path</p>
-                  <p className="mt-1 break-all font-mono text-xs tabular-nums text-muted-foreground">
+                  <Text variant="label">Relative path</Text>
+                  <Text variant="mono" className="mt-1 break-all text-muted-foreground">
                     {bookingPath ?? 'Add a slug to generate the public booking path.'}
-                  </p>
+                  </Text>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-foreground">Full URL</p>
-                  <p className="mt-1 break-all font-mono text-xs tabular-nums text-muted-foreground">
+                  <Text variant="label">Full URL</Text>
+                  <Text variant="mono" className="mt-1 break-all text-muted-foreground">
                     {bookingUrl ?? 'Add a slug to generate the full public booking URL.'}
-                  </p>
+                  </Text>
                 </div>
               </div>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              <Text variant="caption" className="mt-2">
                 Change this only when the public guest link should change across menus, QR codes,
                 and saved browser bookmarks.
-              </p>
+              </Text>
               {copyStatus ? (
-                <p role="status" className="mt-2 text-xs text-muted-foreground">
+                <Text variant="caption" role="status" className="mt-2">
                   {copyStatus}
-                </p>
+                </Text>
               ) : null}
             </div>
             <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">

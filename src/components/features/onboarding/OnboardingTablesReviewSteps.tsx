@@ -18,6 +18,7 @@ import {
   FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Heading, Text } from '@/components/ui/typography';
 import { fetchJson } from '@/lib/http/fetchJson';
 
 import { useOnboarding } from './context/OnboardingContext';
@@ -100,8 +101,8 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Zones</h3>
-          <p className="text-sm text-muted-foreground">Group tables by dining areas.</p>
+          <Heading variant="title" as="h3">Zones</Heading>
+          <Text variant="caption">Group tables by dining areas.</Text>
         </div>
         <Button
           type="button"

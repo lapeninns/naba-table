@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Info, XCircle } fr
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { ManualSelectionCheck } from '@/services/ops/bookings';
@@ -111,14 +112,16 @@ export function ValidationChecks({ checks, className }: ValidationChecksProps) {
                 <Icon className={cn('h-4 w-4 mt-0.5 flex-shrink-0', config.color)} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={cn('text-sm font-medium', config.color)}>{label}</span>
+                    <Text variant="label" as="span" className={config.color}>
+                      {label}
+                    </Text>
                     {check.status === 'ok' && (
                       <span className="text-xs text-muted-foreground">✓</span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
+                  <Text variant="caption" className="leading-relaxed">
                     {check.message}
-                  </p>
+                  </Text>
                   {check.details && Object.keys(check.details).length > 0 && (
                     <div className="mt-2 pt-2 border-t border-current/10">
                       <code className="text-xs text-muted-foreground/80">

@@ -1,5 +1,6 @@
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Text } from '@/components/ui/typography';
 
 import { GbpDriftBadge } from '../gbpDriftBadges';
 
@@ -23,9 +24,9 @@ export function DiscoveryAccordionSection({
             {section.dirty ? <Badge variant="secondary">Unsaved changes</Badge> : null}
             {section.hasError ? <Badge variant="destructive">Needs attention</Badge> : null}
           </span>
-          <span className="text-sm font-normal leading-5 text-muted-foreground">
+          <Text variant="caption" as="span">
             {section.description}
-          </span>
+          </Text>
         </span>
       </AccordionTrigger>
       <AccordionContent>{children}</AccordionContent>

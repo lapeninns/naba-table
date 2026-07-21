@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { RestaurantSettingsDatePickerField } from './RestaurantSettingsDatePickerField';
@@ -31,10 +32,10 @@ export function AvailabilityOverridesEditor({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Holiday and one-off overrides</p>
-          <p className="text-sm text-muted-foreground">
+          <Text variant="label">Holiday and one-off overrides</Text>
+          <Text variant="caption">
             Add closures, shortened service, or extended trading for specific dates.
-          </p>
+          </Text>
         </div>
         <Button type="button" variant="outline" onClick={onAdd}>
           <Plus className="size-4" />
@@ -58,10 +59,10 @@ export function AvailabilityOverridesEditor({
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-foreground">Override {index + 1}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <Text variant="label">Override {index + 1}</Text>
+                  <Text variant="caption">
                     Override the default schedule for one calendar date.
-                  </p>
+                  </Text>
                 </div>
                 <div className="flex items-center gap-2">
                   <Label

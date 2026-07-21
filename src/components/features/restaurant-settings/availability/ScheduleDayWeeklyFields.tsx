@@ -2,6 +2,7 @@ import { CalendarDays, Clock3 } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { WeeklyErrors, WeeklyRow } from '../types';
@@ -47,7 +48,9 @@ export function ScheduleDayWeeklyFields({
               )}
             />
             {rowErrors?.opensAt ? (
-              <p className="mt-1 text-xs text-destructive">{rowErrors.opensAt}</p>
+              <Text variant="caption" className="mt-1 text-destructive">
+                {rowErrors.opensAt}
+              </Text>
             ) : null}
           </div>
           <div>
@@ -70,7 +73,9 @@ export function ScheduleDayWeeklyFields({
               )}
             />
             {rowErrors?.closesAt ? (
-              <p className="mt-1 text-xs text-destructive">{rowErrors.closesAt}</p>
+              <Text variant="caption" className="mt-1 text-destructive">
+                {rowErrors.closesAt}
+              </Text>
             ) : null}
           </div>
         </div>
@@ -110,9 +115,9 @@ export function ScheduleDayWeeklyFields({
               )}
             />
             {rowErrors?.reservationIntervalMinutes ? (
-              <p className="mt-1 text-xs text-destructive">
+              <Text variant="caption" className="mt-1 text-destructive">
                 {rowErrors.reservationIntervalMinutes}
-              </p>
+              </Text>
             ) : null}
           </div>
           <div>
@@ -139,7 +144,9 @@ export function ScheduleDayWeeklyFields({
               )}
             />
             {rowErrors?.reservationSlotTimes ? (
-              <p className="mt-1 text-xs text-destructive">{rowErrors.reservationSlotTimes}</p>
+              <Text variant="caption" className="mt-1 text-destructive">
+                {rowErrors.reservationSlotTimes}
+              </Text>
             ) : (
               <p className="mt-1 text-[10px] text-muted-foreground leading-normal">
                 Optional comma-separated fixed slots (e.g. 11:00, 11:30).

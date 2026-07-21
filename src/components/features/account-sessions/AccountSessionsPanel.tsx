@@ -48,6 +48,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import {
   useAccountSessions,
   useLogOutOtherAccountSessions,
@@ -148,7 +149,7 @@ function RenameDeviceDialog({ session }: { session: AccountSession }) {
               autoFocus
             />
             {renameMutation.isError ? (
-              <p className="text-sm text-destructive">Couldn’t rename this device. Try again.</p>
+              <Text variant="caption" className="text-destructive">Couldn’t rename this device. Try again.</Text>
             ) : null}
           </div>
           <DialogFooter>
@@ -195,11 +196,11 @@ function LogOutOtherSessions({ sessionCount }: { sessionCount: number }) {
     <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
         <p className="text-sm font-semibold text-foreground">Other sessions</p>
-        <p className="text-sm text-muted-foreground">
+        <Text variant="caption">
           {hasOtherSessions
             ? `${sessionCount} other active ${sessionCount === 1 ? 'session is' : 'sessions are'} connected.`
             : 'No other active sessions are connected.'}
-        </p>
+        </Text>
       </div>
 
       <AlertDialog open={open} onOpenChange={handleOpenChange}>
@@ -226,9 +227,9 @@ function LogOutOtherSessions({ sessionCount }: { sessionCount: number }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           {logOutMutation.isError ? (
-            <p className="text-sm text-destructive" role="alert">
+            <Text variant="caption" className="text-destructive" role="alert">
               Couldn’t log out your other sessions. Try again.
-            </p>
+            </Text>
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={logOutMutation.isPending}>Cancel</AlertDialogCancel>
@@ -276,7 +277,7 @@ function SessionRow({ session }: { session: AccountSession }) {
         </div>
 
         {session.device.name ? (
-          <p className="text-sm text-muted-foreground">{session.device.label}</p>
+          <Text variant="caption">{session.device.label}</Text>
         ) : null}
 
         <dl className="grid gap-x-6 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
@@ -415,7 +416,7 @@ function SessionGroup({
     <Card className="overflow-hidden border-border/70 shadow-none">
       <CardHeader className="border-b border-border/70 bg-muted/25 px-4 py-4 sm:px-5">
         <CardTitle className="text-base font-semibold">{title}</CardTitle>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <Text variant="caption">{description}</Text>
       </CardHeader>
       <CardContent className="p-0">
         <ul className="divide-y divide-border/70">
@@ -509,10 +510,10 @@ export function AccountSessionsPanel({ className }: AccountSessionsPanelProps) {
         description="Signed-out and expired sessions, ordered by their last activity."
         sessions={endedSessions}
       />
-      <p className="px-1 text-xs leading-relaxed text-muted-foreground">
+      <Text variant="caption" className="px-1 leading-relaxed">
         Activity updates while the app is open. Device names are estimated from the browser, and
         session history starts when this feature is enabled.
-      </p>
+      </Text>
     </div>
   );
 }

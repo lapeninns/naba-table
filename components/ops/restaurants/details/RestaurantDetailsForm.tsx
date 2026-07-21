@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
@@ -146,11 +147,11 @@ export function RestaurantDetailsForm({
             id="profile-identity"
             className="scroll-mt-28 sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4"
           >
-            <p className="text-sm font-medium text-foreground">Restaurant identity</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <Text variant="label">Restaurant identity</Text>
+            <Text variant="caption" className="mt-1">
               Keep the guest-facing details, timezone, and contact information aligned with what
               staff actually manage day to day.
-            </p>
+            </Text>
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
@@ -173,13 +174,18 @@ export function RestaurantDetailsForm({
               className={cn(errors.name && 'border-destructive focus-visible:ring-destructive/60')}
               autoFocus
             />
-            <p id="restaurant-name-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-name-help">
               {FIELD_TOOLTIPS.name}
-            </p>
+            </Text>
             {errors.name && (
-              <p id="restaurant-name-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-name-error"
+                role="alert"
+              >
                 {errors.name}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -212,17 +218,18 @@ export function RestaurantDetailsForm({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-business-description-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-business-description-help">
               {FIELD_TOOLTIPS.businessDescription}
-            </p>
+            </Text>
             {errors.businessDescription && (
-              <p
+              <Text
+                variant="caption"
+                className="text-destructive"
                 id="restaurant-business-description-error"
-                className="text-xs text-destructive"
                 role="alert"
               >
                 {errors.businessDescription}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -300,22 +307,27 @@ export function RestaurantDetailsForm({
                         </Button>
                       ))}
                       {filteredTimezones.length === 0 ? (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">
+                        <Text variant="caption" className="px-3 py-2">
                           No matching timezones found.
-                        </p>
+                        </Text>
                       ) : null}
                     </div>
                   </ScrollArea>
                 </div>
               </PopoverContent>
             </Popover>
-            <p id="restaurant-timezone-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-timezone-help">
               {FIELD_TOOLTIPS.timezone}
-            </p>
+            </Text>
             {errors.timezone && (
-              <p id="restaurant-timezone-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-timezone-error"
+                role="alert"
+              >
                 {errors.timezone}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -337,13 +349,18 @@ export function RestaurantDetailsForm({
                 errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-email-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-email-help">
               {FIELD_TOOLTIPS.contactEmail}
-            </p>
+            </Text>
             {errors.contactEmail && (
-              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-email-error"
+                role="alert"
+              >
                 {errors.contactEmail}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -369,13 +386,18 @@ export function RestaurantDetailsForm({
                 errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-phone-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-phone-help">
               {FIELD_TOOLTIPS.contactPhone}
-            </p>
+            </Text>
             {errors.contactPhone && (
-              <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-phone-error"
+                role="alert"
+              >
                 {errors.contactPhone}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -394,19 +416,19 @@ export function RestaurantDetailsForm({
               onChange={(event) => handleChange('address', event.target.value)}
               aria-describedby="restaurant-address-help"
             />
-            <p id="restaurant-address-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-address-help">
               {FIELD_TOOLTIPS.address}
-            </p>
+            </Text>
           </div>
 
           <div
             id="profile-booking"
             className="scroll-mt-28 sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4"
           >
-            <p className="text-sm font-medium text-foreground">Guest booking experience</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <Text variant="label">Guest booking experience</Text>
+            <Text variant="caption" className="mt-1">
               These rules shape what guests see during booking and in follow-up communications.
-            </p>
+            </Text>
           </div>
 
           <div className="space-y-1.5">
@@ -440,13 +462,18 @@ export function RestaurantDetailsForm({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-interval-help">
               {FIELD_TOOLTIPS.reservationInterval}
-            </p>
+            </Text>
             {errors.reservationIntervalMinutes && (
-              <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-interval-error"
+                role="alert"
+              >
                 {errors.reservationIntervalMinutes}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -483,13 +510,18 @@ export function RestaurantDetailsForm({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-duration-help">
               {FIELD_TOOLTIPS.reservationDuration}
-            </p>
+            </Text>
             {errors.reservationDefaultDurationMinutes && (
-              <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-duration-error"
+                role="alert"
+              >
                 {errors.reservationDefaultDurationMinutes}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -526,17 +558,18 @@ export function RestaurantDetailsForm({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-last-seating-help">
               {FIELD_TOOLTIPS.lastSeatingBuffer}
-            </p>
+            </Text>
             {errors.reservationLastSeatingBufferMinutes && (
-              <p
+              <Text
+                variant="caption"
+                className="text-destructive"
                 id="restaurant-last-seating-error"
-                className="text-xs text-destructive"
                 role="alert"
               >
                 {errors.reservationLastSeatingBufferMinutes}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -576,17 +609,18 @@ export function RestaurantDetailsForm({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-lifecycle-grace-help">
               {FIELD_TOOLTIPS.lifecycleGrace}
-            </p>
+            </Text>
             {errors.reservationLifecycleGraceMinutes && (
-              <p
+              <Text
+                variant="caption"
+                className="text-destructive"
                 id="restaurant-lifecycle-grace-error"
-                className="text-xs text-destructive"
                 role="alert"
               >
                 {errors.reservationLifecycleGraceMinutes}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -620,17 +654,18 @@ export function RestaurantDetailsForm({
                 errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-google-review-help">
               {FIELD_TOOLTIPS.googleReviewUrl}
-            </p>
+            </Text>
             {errors.googleReviewUrl && (
-              <p
+              <Text
+                variant="caption"
+                className="text-destructive"
                 id="restaurant-google-review-error"
-                className="text-xs text-destructive"
                 role="alert"
               >
                 {errors.googleReviewUrl}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -662,13 +697,18 @@ export function RestaurantDetailsForm({
                 errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-google-map-help">
               {FIELD_TOOLTIPS.googleMapUrl}
-            </p>
+            </Text>
             {errors.googleMapUrl && (
-              <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-google-map-error"
+                role="alert"
+              >
                 {errors.googleMapUrl}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -688,20 +728,20 @@ export function RestaurantDetailsForm({
               rows={3}
               aria-describedby="restaurant-policy-help"
             />
-            <p id="restaurant-policy-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-policy-help">
               {FIELD_TOOLTIPS.bookingPolicy}
-            </p>
+            </Text>
           </div>
 
           <div
             id="profile-notifications"
             className="scroll-mt-28 sm:col-span-2 rounded-lg border border-border/70 bg-muted/20 p-4"
           >
-            <p className="text-sm font-medium text-foreground">Staff notifications</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <Text variant="label">Staff notifications</Text>
+            <Text variant="caption" className="mt-1">
               Daily manager summaries can be configured here. Guest reminder and review emails are
               always on for every restaurant, so staff do not need to manage them individually.
-            </p>
+            </Text>
           </div>
 
           <div className="space-y-1.5">
@@ -739,20 +779,18 @@ export function RestaurantDetailsForm({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p
-              id="restaurant-manager-notification-phone-help"
-              className="text-xs text-muted-foreground"
-            >
+            <Text variant="caption" id="restaurant-manager-notification-phone-help">
               {FIELD_TOOLTIPS.managerNotificationPhone}
-            </p>
+            </Text>
             {errors.managerNotificationPhone && (
-              <p
+              <Text
+                variant="caption"
+                className="text-destructive"
                 id="restaurant-manager-notification-phone-error"
-                className="text-xs text-destructive"
                 role="alert"
               >
                 {errors.managerNotificationPhone}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -772,12 +810,9 @@ export function RestaurantDetailsForm({
                     ariaLabel="What does the daily manager SMS summary toggle do?"
                   />
                 </div>
-                <p
-                  id="restaurant-manager-daily-summary-enabled-help"
-                  className="text-xs text-muted-foreground"
-                >
+                <Text variant="caption" id="restaurant-manager-daily-summary-enabled-help">
                   {FIELD_TOOLTIPS.managerDailySummaryEnabled}
-                </p>
+                </Text>
               </div>
               <Switch
                 id="restaurant-manager-daily-summary-enabled"
@@ -794,13 +829,10 @@ export function RestaurantDetailsForm({
                 <Label htmlFor="restaurant-manager-whatsapp-enabled">
                   Send daily summary via WhatsApp first
                 </Label>
-                <p
-                  id="restaurant-manager-whatsapp-enabled-help"
-                  className="text-xs text-muted-foreground"
-                >
+                <Text variant="caption" id="restaurant-manager-whatsapp-enabled-help">
                   Nabatable sends on behalf of the restaurant to this manager number. If WhatsApp is
                   unavailable, we’ll send the summary by SMS instead.
-                </p>
+                </Text>
               </div>
               <Switch
                 id="restaurant-manager-whatsapp-enabled"
@@ -844,17 +876,18 @@ export function RestaurantDetailsForm({
                         errors.slug && 'border-destructive focus-visible:ring-destructive/60',
                       )}
                     />
-                    <p id="restaurant-slug-help" className="text-xs text-muted-foreground">
+                    <Text variant="caption" id="restaurant-slug-help">
                       {FIELD_TOOLTIPS.slug}
-                    </p>
+                    </Text>
                     {errors.slug && (
-                      <p
+                      <Text
+                        variant="caption"
+                        className="text-destructive"
                         id="restaurant-slug-error"
-                        className="text-xs text-destructive"
                         role="alert"
                       >
                         {errors.slug}
-                      </p>
+                      </Text>
                     )}
                   </div>
                 </AccordionContent>

@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import { AVAILABILITY_ANCHORS } from './availabilityAnchors';
 import { AvailabilityOccasionDialog } from './AvailabilityOccasionDialog';
@@ -153,10 +154,10 @@ export function AvailabilityOccasionsEditor({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">Booking types</p>
-          <p className="text-sm text-muted-foreground">
+          <Text variant="label">Booking types</Text>
+          <Text variant="caption">
             Control the guest-facing booking types without leaving the availability workflow.
-          </p>
+          </Text>
         </div>
         <Button type="button" onClick={openForCreate}>
           New booking type

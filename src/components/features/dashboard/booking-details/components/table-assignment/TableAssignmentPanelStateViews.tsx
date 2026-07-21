@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 
 export function TableAssignmentLoadingState() {
   return (
@@ -47,10 +48,10 @@ export function TableAssignmentEmptyState() {
     <Card className="border-dashed">
       <CardContent className="flex flex-col items-center justify-center gap-2 p-6 text-center">
         <Grid3X3 className="size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">No tables available right now.</p>
-        <p className="text-xs text-muted-foreground">
+        <Text variant="caption">No tables available right now.</Text>
+        <Text variant="caption">
           Try adjusting the booking time or split the party.
-        </p>
+        </Text>
       </CardContent>
     </Card>
   );

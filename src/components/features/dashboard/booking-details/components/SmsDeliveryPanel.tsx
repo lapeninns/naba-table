@@ -12,6 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useOpsBookingSmsDeliveryLog } from '@/hooks/ops/useOpsBookingSmsDeliveryLog';
 import { cn } from '@/lib/utils';
 import { groupSmsDeliveryEvents } from '@/src/lib/sms-delivery/grouping';
@@ -63,7 +64,11 @@ function DeliveryStateBody({
   quiet?: boolean;
 }) {
   if (quiet) {
-    return <p className="text-xs leading-relaxed text-muted-foreground/80">{description}</p>;
+    return (
+      <Text variant="caption" className="leading-relaxed text-muted-foreground/80">
+        {description}
+      </Text>
+    );
   }
 
   return (

@@ -10,6 +10,7 @@ import {
   GuestSectionHeader,
 } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import appConfig from '@/config/app.config';
 
 import type { Metadata } from 'next';
@@ -127,7 +128,7 @@ export default function PrivacyPolicyPage() {
               ]}
             />
             <GuestPanel className="sticky top-24 hidden p-5 lg:block">
-              <p className="text-sm font-semibold text-foreground">Sections</p>
+              <Text variant="label">Sections</Text>
               <nav aria-label="Privacy policy sections" className="mt-3 grid gap-2 text-sm">
                 {sections.map((section) => (
                   <Button

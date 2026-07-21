@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 
 import { DEV_RESTAURANT_ID } from '../../_mocks/devIds';
 import { createOpsDevServiceFactories } from '../../_mocks/services/devFactories';
@@ -40,10 +41,10 @@ export function OpsRestaurantSettingsDevHarness() {
         eyebrow="Dev"
       >
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
+          <Text variant="caption">
             View selector is local to this harness; the left subnav is rendered for responsive
             layout verification but links to authenticated routes.
-          </p>
+          </Text>
           <div className="w-full space-y-2 sm:w-[260px]">
             <Label htmlFor="ops-restaurant-settings-view" className="sr-only">
               Select a restaurant settings view

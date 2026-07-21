@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Text } from '@/components/ui/typography';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
@@ -204,7 +205,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
                   Auto-refresh {formatRefreshLabel(queryState.refresh)}
                 </Badge>
               ) : (
-                <span className="text-sm text-muted-foreground">Auto-refresh is off.</span>
+                <Text as="span" variant="caption">Auto-refresh is off.</Text>
               )}
               <Button
                 type="button"

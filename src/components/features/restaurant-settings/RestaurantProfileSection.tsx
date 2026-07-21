@@ -5,6 +5,7 @@ import { useCallback, useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import {
   useOpsRestaurantDetails,
@@ -156,10 +157,10 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
             title="Select a restaurant"
             description="Pick a restaurant from the sidebar switcher to manage what guests and staff see."
           >
-            <p className="text-sm text-muted-foreground">
+            <Text variant="caption">
               Choose a restaurant using the sidebar switcher to update its public details and team
               alerts.
-            </p>
+            </Text>
           </SettingsCard>
         </ProfileShell>
       }

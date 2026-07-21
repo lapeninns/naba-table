@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { GbpDriftBadge } from '../gbpDriftBadges';
@@ -44,9 +45,9 @@ export function ScheduleDayCardHeader({
           </Badge>
           <GbpDriftBadge fields={[weeklyDriftField, ...serviceDriftFields]} />
         </div>
-        <p className="text-xs text-muted-foreground max-w-lg">
+        <Text variant="caption" className="max-w-lg">
           Configure day boundary operating constraints, slot rules, and meal periods.
-        </p>
+        </Text>
       </div>
 
       <div className="flex items-center gap-3 bg-background/40 border border-primary/5 rounded-xl px-3.5 py-1.5 backdrop-blur-sm">

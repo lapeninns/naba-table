@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Text } from '@/components/ui/typography';
 import { useIsMobileState } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import {
@@ -152,9 +153,9 @@ export function OpsEmailDeliveryLog({
       ) : rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-background p-8 text-center">
           <p className="text-base font-semibold text-foreground">No email deliveries found</p>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <Text variant="caption" className="mt-2">
             Adjust the filters or try a wider date range to see more results.
-          </p>
+          </Text>
         </div>
       ) : isBelowLg === undefined ? (
         <div
@@ -324,14 +325,14 @@ export function OpsEmailDeliveryLog({
       {shouldShowPagination ? (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-foreground">
+            <Text variant="label">
               Showing {startResult}-{endResult} of {totalResults} results
-            </p>
-            <p className="text-xs text-muted-foreground">Page {currentPage}</p>
+            </Text>
+            <Text variant="caption">Page {currentPage}</Text>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Rows per page</span>
+              <Text as="span" variant="caption">Rows per page</Text>
               <Select
                 value={String(currentPageSize)}
                 onValueChange={(value) => {
@@ -356,9 +357,9 @@ export function OpsEmailDeliveryLog({
                 <ChevronLeft data-icon="inline-start" aria-hidden />
                 Prev
               </Button>
-              <span className="min-w-16 text-center text-xs text-muted-foreground">
+              <Text as="span" variant="caption" className="min-w-16 text-center">
                 Page {currentPage}
-              </span>
+              </Text>
               <Button variant="outline" size="sm" onClick={onNext} disabled={!hasNextPage}>
                 Next
                 <ChevronRight data-icon="inline-end" aria-hidden />

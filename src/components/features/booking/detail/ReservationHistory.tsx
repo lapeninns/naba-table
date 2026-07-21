@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useBookingHistory } from '@/hooks/useBookingHistory';
 import { cn } from '@/lib/utils';
 import {
@@ -174,7 +175,7 @@ export function ReservationHistory({
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No changes recorded yet.</p>
+          <Text variant="caption">No changes recorded yet.</Text>
         ) : (
           <ul className="space-y-4">
             {events.map((event) => {
@@ -188,7 +189,7 @@ export function ReservationHistory({
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{event.summary}</p>
-                      <p className="text-xs text-muted-foreground">{changedAtLabel}</p>
+                      <Text variant="caption">{changedAtLabel}</Text>
                     </div>
                     <Badge variant="outline" className="text-xs font-medium">
                       {actorDisplay}
@@ -199,9 +200,9 @@ export function ReservationHistory({
                     <dl className="space-y-2">
                       {event.changes.map((change) => (
                         <div key={`${event.versionId}-${change.field}`} className="grid gap-3 sm:grid-cols-[180px,1fr]">
-                          <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          <Text as="dt" variant="eyebrow">
                             {change.label}
-                          </dt>
+                          </Text>
                           <dd className="text-sm text-foreground">
                             <span
                               className={cn(
@@ -218,7 +219,7 @@ export function ReservationHistory({
                       ))}
                     </dl>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No notable field changes recorded.</p>
+                    <Text variant="caption">No notable field changes recorded.</Text>
                   )}
                 </li>
               );

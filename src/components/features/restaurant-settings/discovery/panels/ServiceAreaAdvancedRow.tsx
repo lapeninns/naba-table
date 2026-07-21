@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import {
   getServiceAreaAdvancedSubtitle,
@@ -31,7 +32,7 @@ export function ServiceAreaAdvancedRow({
     <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{label}</p>
+          <Text variant="label" className="truncate">{label}</Text>
           <p className="text-xs text-muted-foreground">{getServiceAreaAdvancedSubtitle(row)}</p>
         </div>
         <Button

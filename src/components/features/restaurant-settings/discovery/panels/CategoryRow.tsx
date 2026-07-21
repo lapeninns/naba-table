@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 
 import {
   CATEGORY_TEXT_FIELDS,
@@ -62,12 +63,12 @@ export function CategoryRow({
               onChange={(event) => editor.updateCategory(row.id, field, event.target.value)}
             />
             {helpText ? (
-              <p
+              <Text
+                variant="caption"
                 id={makeFieldId('categories', row.id, `${field}-help`)}
-                className="text-xs leading-5 text-muted-foreground"
               >
                 {helpText}
-              </p>
+              </Text>
             ) : null}
           </div>
         ))}
@@ -86,10 +87,10 @@ export function CategoryRow({
           >
             Primary category
           </Label>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             This is the main category guests and profile providers should see first. Only one
             category can be primary.
-          </p>
+          </Text>
         </div>
       </div>
       <div className="space-y-3 border-t border-border/60 pt-4">
@@ -124,9 +125,9 @@ export function CategoryRow({
               })}
             </div>
           ) : (
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               No extra hours types are listed for this category.
-            </p>
+            </Text>
           )}
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input
@@ -158,9 +159,9 @@ export function CategoryRow({
               Add type
             </Button>
           </div>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             Add labels such as kitchen hours or happy hour when this category needs related hours.
-          </p>
+          </Text>
         </div>
       </div>
     </div>

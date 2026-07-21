@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { TimeSlotDescriptor } from '@reserve/features/reservations/wizard/services/timeSlots';
@@ -190,14 +191,14 @@ export function ScheduleTimeControl({
         </div>
 
         {!showSuggestions ? (
-          <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+          <Text variant="caption" className="px-1" aria-live="polite">
             {unavailableMessage ?? 'No available times for the selected date.'}
-          </p>
+          </Text>
         ) : null}
       </div>
-      <p id={timeDescriptionId} className="px-1 text-xs text-muted-foreground">
+      <Text variant="caption" id={timeDescriptionId} className="px-1">
         {TIME_DESCRIPTION}
-      </p>
+      </Text>
       {error ? (
         <p
           id={timeErrorId}

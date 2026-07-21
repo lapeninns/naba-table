@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Text } from '@/components/ui/typography';
 import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
 
 import {
@@ -102,9 +103,9 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
       }
       footer={
         isFetching ? (
-          <p className="text-xs text-muted-foreground" role="status">
+          <Text variant="caption" role="status">
             Refreshing…
-          </p>
+          </Text>
         ) : undefined
       }
     >
@@ -130,18 +131,18 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
                   <h3 className="break-all text-sm font-semibold text-foreground">
                     {invite.email}
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <Text variant="caption" className="mt-1">
                     {formatTeamRole(invite.role)}
-                  </p>
+                  </Text>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <StatusBadge invite={invite} />
                   {isExpiredPending ? <Badge variant="outline">Expired by date</Badge> : null}
                 </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <Text variant="caption" className="mt-3">
                 Sent {createdLabel} · Expires {expiresLabel}
-              </p>
+              </Text>
               {invite.status === 'pending' && canManage ? (
                 <Button
                   type="button"

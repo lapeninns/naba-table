@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Text } from '@/components/ui/typography';
 
 import { itemDescription, moneyLabel, primaryLabel } from './menuHierarchyDomain';
 import { ItemActions, ItemThumbnail } from './menuHierarchyItemRows';
@@ -63,9 +64,9 @@ export function DesktopItemTable({
                       {primaryLabel(item, 'Menu item')}
                     </Button>
                     <GbpDriftBadge fields={getItemGbpDriftFields(item)} />
-                    <p className="mt-1 line-clamp-2 max-w-xl text-sm leading-5 text-muted-foreground text-pretty">
+                    <Text variant="caption" className="mt-1 line-clamp-2 max-w-xl leading-5 text-pretty">
                       {itemDescription(item)}
-                    </p>
+                    </Text>
                     <div className="mt-2">
                       <MenuItemOptions
                         item={item}

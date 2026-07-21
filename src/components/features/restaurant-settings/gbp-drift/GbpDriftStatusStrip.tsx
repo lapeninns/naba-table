@@ -4,6 +4,7 @@ import { GitCompareArrows } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import { useGbpDrift } from './useGbpDrift';
 import { openSettingsCompare } from '../gbp/openSettingsCompare';
@@ -22,13 +23,13 @@ export function GbpDriftStatusStrip({ compact = false }: GbpDriftStatusStripProp
   if (compact) {
     return (
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 sm:px-4">
-        <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+        <Text variant="caption" className="min-w-0">
           {isLoading
             ? 'Checking Google comparison…'
             : totalDriftCount > 0
               ? `${totalDriftCount} field${totalDriftCount === 1 ? '' : 's'} differ from Google.`
               : 'In sync with Google for comparable fields.'}
-        </p>
+        </Text>
         <Button
           type="button"
           variant={totalDriftCount > 0 ? 'default' : 'outline'}
@@ -57,13 +58,13 @@ export function GbpDriftStatusStrip({ compact = false }: GbpDriftStatusStripProp
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/30 px-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">Google comparison</p>
-        <p className="text-xs leading-5 text-muted-foreground">
+        <Text variant="caption">
           {isLoading
             ? 'Loading Google comparison state.'
             : totalDriftCount > 0
               ? `${totalDriftCount} field${totalDriftCount === 1 ? '' : 's'} need review.`
               : 'Nabatable and Google are in sync for comparable fields.'}
-        </p>
+        </Text>
       </div>
       <Button
         type="button"

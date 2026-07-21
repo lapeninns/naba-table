@@ -6,6 +6,7 @@ import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmpty
 import { GbpDriftBadge } from '@/components/features/restaurant-settings/gbpDriftBadges';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 
 import { itemDescription, moneyLabel, primaryLabel } from './menuHierarchyDomain';
 import { DesktopItemTable } from './menuHierarchyItemDesktopTable';
@@ -72,14 +73,14 @@ function MobileItemList({
             <ItemThumbnail item={item} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-sm font-medium">
+                <Text as="span" variant="label" className="truncate">
                   {primaryLabel(item, 'Menu item')}
-                </span>
+                </Text>
                 <GbpDriftBadge fields={getItemGbpDriftFields(item)} />
               </div>
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground text-pretty">
+              <Text variant="caption" className="mt-1 line-clamp-2 text-pretty">
                 {itemDescription(item)}
-              </p>
+              </Text>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="tabular-nums">{moneyLabel(item.attributes)}</span>
                 <ItemHealthBadge item={item} />
@@ -100,7 +101,9 @@ function MobileItemList({
             <AvailabilityBadges item={item} />
           </div>
           <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 p-3">
-            <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
+            <Text as="span" variant="eyebrow">
+              Status
+            </Text>
             <Switch
               checked={item.active}
               disabled={itemPatchPending}

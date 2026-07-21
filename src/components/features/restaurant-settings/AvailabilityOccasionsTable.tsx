@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Text } from '@/components/ui/typography';
 
 import { formatAvailabilitySummary, isServiceWindowOccasion } from './availabilityOccasionsModel';
 import { describeTurnBands } from './turnBandsDomain';
@@ -62,9 +63,9 @@ export function AvailabilityOccasionsTable({
                     ) : null}
                     {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
                   </div>
-                  <p className="mt-1 text-xs font-normal text-muted-foreground">
+                  <Text variant="caption" className="mt-1">
                     {occasion.shortLabel}
-                  </p>
+                  </Text>
                 </div>
                 <Switch
                   id={`occasion-${occasion.key}-active-mobile`}
@@ -150,9 +151,9 @@ export function AvailabilityOccasionsTable({
                         ) : null}
                         {occasion.isBuiltin ? <Badge variant="secondary">Builtin</Badge> : null}
                       </div>
-                      <p className="text-xs font-normal text-muted-foreground">
+                      <Text variant="caption">
                         {occasion.shortLabel}
-                      </p>
+                      </Text>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
@@ -166,9 +167,9 @@ export function AvailabilityOccasionsTable({
                         checked={occasion.isActive}
                         onCheckedChange={(checked) => onToggleActive(occasion.key, checked)}
                       />
-                      <span className="text-sm text-muted-foreground">
+                      <Text as="span" variant="caption">
                         {occasion.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      </Text>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">

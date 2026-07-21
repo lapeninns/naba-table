@@ -1,3 +1,5 @@
+import { Text } from '@/components/ui/typography';
+
 import { formatDualSyncFieldPreview } from './dualSyncFieldValuePreviewDomain';
 
 export interface DualSyncFieldValuePreviewProps {
@@ -8,8 +10,8 @@ export interface DualSyncFieldValuePreviewProps {
 export function DualSyncFieldValuePreview({ label, value }: DualSyncFieldValuePreviewProps) {
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</p>
-      <p className="break-words font-mono text-xs">{formatDualSyncFieldPreview(value)}</p>
+      <Text variant="eyebrow">{label}</Text>
+      <Text variant="mono" className="break-words">{formatDualSyncFieldPreview(value)}</Text>
     </div>
   );
 }

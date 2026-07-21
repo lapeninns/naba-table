@@ -1,5 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 
 import type { TableInventory } from '@/services/ops/tables';
 
@@ -8,9 +9,9 @@ export function TableInventoryCapacityFields({ table }: { readonly table: TableI
     <>
       <div>
         <p className="text-sm font-semibold text-foreground">Capacity</p>
-        <p className="text-xs leading-5 text-muted-foreground">
+        <Text variant="caption" className="leading-5">
           Start with the table number, covers, and accepted party-size range.
-        </p>
+        </Text>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="tableNumber">Table number *</Label>

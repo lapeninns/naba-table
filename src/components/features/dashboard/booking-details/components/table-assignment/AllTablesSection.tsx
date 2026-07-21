@@ -1,6 +1,7 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Text } from '@/components/ui/typography';
 
 import {
   AllTablesConflictBadge,
@@ -92,9 +93,9 @@ export function AllTablesSection({
                 <div key={section} className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                      <Text variant="eyebrow" as="span" className="text-foreground">
                         {section}
-                      </span>
+                      </Text>
                       <span className="text-xs text-muted-foreground">
                         ({sectionTables.length})
                       </span>

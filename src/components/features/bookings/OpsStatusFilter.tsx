@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { OPS_BOOKING_STATUS_ORDER, getOpsBookingStatusUi } from '@/lib/ops/booking-status';
 import { cn } from '@/lib/utils';
 
@@ -86,9 +87,9 @@ export function OpsStatusFilter({
           </PopoverTrigger>
           <PopoverContent className="w-64 space-y-3 p-3" align="start">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <Text variant="eyebrow">
                 Filter by status
-              </p>
+              </Text>
               <Button
                 type="button"
                 variant="ghost"

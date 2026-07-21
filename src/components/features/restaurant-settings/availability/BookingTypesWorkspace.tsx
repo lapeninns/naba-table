@@ -2,6 +2,7 @@ import { UtensilsCrossed } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
 import { AvailabilityOccasionsEditor } from '../AvailabilityOccasionsEditor';
@@ -59,15 +60,15 @@ export function BookingTypesWorkspace({
       <div id={AVAILABILITY_ANCHORS.bookingOccasions} className="flex scroll-mt-28 flex-col gap-4">
         <div>
           <p className="text-sm font-semibold text-foreground">Booking types</p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             Name the guest choices that appear in the booking flow.
-          </p>
+          </Text>
         </div>
         <div>
           <p className="text-sm font-semibold text-foreground">Turn times by party size</p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             Set how long each party-size band blocks tables for each booking type.
-          </p>
+          </Text>
         </div>
         <AvailabilityOccasionsEditor
           occasions={occasionDrafts}

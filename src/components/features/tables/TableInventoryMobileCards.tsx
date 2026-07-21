@@ -2,6 +2,7 @@ import { Edit, Loader2, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import {
@@ -94,9 +95,9 @@ function TableInventoryMobileCard({
           <h3 className="truncate text-base font-semibold text-foreground">
             Table {table.tableNumber}
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <Text variant="caption" className="mt-1">
             {table.zoneName ?? 'No zone'} · {table.capacity} covers
-          </p>
+          </Text>
         </div>
         <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
           {formatTableStatus(table.status)}
@@ -150,7 +151,7 @@ function TableInventoryMobileStat({
 }) {
   return (
     <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <Text as="dt" variant="caption">{label}</Text>
       <dd className={cn('font-medium text-foreground', capitalize && 'capitalize')}>{value}</dd>
     </div>
   );

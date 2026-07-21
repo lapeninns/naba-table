@@ -2,6 +2,7 @@
 
 import { type ReactNode } from 'react';
 
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { ScheduleDateControl } from './ScheduleDateControl';
@@ -60,9 +61,11 @@ export function ScheduleAwareTimestampPicker({
     <div className={cn('flex flex-col gap-6', className)}>
       <div className="flex flex-col gap-3">
         {label ? (
-          <span className="text-xs font-semibold uppercase text-muted-foreground">{label}</span>
+          <Text as="span" variant="eyebrow">
+            {label}
+          </Text>
         ) : null}
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        {description ? <Text variant="caption">{description}</Text> : null}
 
         <div className="rounded-2xl border border-border/70 bg-background/70 shadow-sm">
           <div className="grid gap-4 p-4 sm:grid-cols-2">

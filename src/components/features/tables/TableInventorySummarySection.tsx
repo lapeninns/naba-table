@@ -6,6 +6,7 @@ import {
 } from '@/components/features/restaurant-settings/availabilityAnchors';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
@@ -47,10 +48,10 @@ export function TableInventorySummarySection({
       )}
       <div className="rounded-lg border border-border/70 bg-muted/20 p-4 sm:col-span-2 xl:col-span-4">
         <p className="text-sm font-semibold text-foreground">Capacity depends on setup nearby</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        <Text variant="caption" className="mt-1">
           Covers per service depend on turn times and booking types. Keep public address details
           aligned when planning the dining room.
-        </p>
+        </Text>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
             <Link

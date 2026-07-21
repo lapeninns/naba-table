@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 
 import { AMENITY_ATTRIBUTE_GROUPS, makeFieldId, type FamilyKey } from '../../businessContextModel';
 import { FamilyActions, FamilyError, FamilyStatus } from '../DiscoveryPanelChrome';
@@ -42,8 +43,8 @@ export function AttributesPanel({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{group.title}</p>
-                  <p className="text-xs leading-5 text-muted-foreground">{group.description}</p>
+                  <Text variant="label">{group.title}</Text>
+                  <Text variant="caption">{group.description}</Text>
                 </div>
                 <Badge variant="outline">
                   {selectedCount}/{group.keys.length}
@@ -108,7 +109,7 @@ export function AttributesPanel({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No attribute rows yet.</p>
+            <Text variant="caption">No attribute rows yet.</Text>
           )}
         </CollapsibleContent>
       </Collapsible>

@@ -6,6 +6,7 @@ import { useMemo, useState, type ComponentProps } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Text } from '@/components/ui/typography';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { cn } from '@/lib/utils';
 import {
@@ -102,9 +103,9 @@ export function HeatmapCalendar({
             >
               <ChevronLeft aria-hidden />
             </Button>
-            <span className="text-sm font-medium text-foreground">
+            <Text variant="label" as="span">
               {formatDateReadable(selectedDate, summary.timezone)}
-            </span>
+            </Text>
             <Button
               type="button"
               variant="ghost"

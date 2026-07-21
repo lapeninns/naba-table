@@ -8,6 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 type TimestampValue = string | Date | null;
@@ -191,9 +192,9 @@ export function TimestampPicker({
         </span>
       ) : null}
       {description ? (
-        <p id={descriptionId} className="text-xs text-muted-foreground">
+        <Text variant="caption" id={descriptionId}>
           {description}
-        </p>
+        </Text>
       ) : null}
       <Popover open={open} onOpenChange={handleClose}>
         <PopoverTrigger asChild>
@@ -269,7 +270,11 @@ export function TimestampPicker({
               ))}
             </div>
           ) : null}
-          {activeError ? <p className="text-xs text-destructive">{activeError}</p> : null}
+          {activeError ? (
+            <Text variant="caption" className="text-destructive">
+              {activeError}
+            </Text>
+          ) : null}
           <div className="flex items-center justify-end gap-2">
             <Button
               type="button"
@@ -293,9 +298,9 @@ export function TimestampPicker({
         </PopoverContent>
       </Popover>
       {!open && activeError ? (
-        <p className="text-xs text-destructive" id={errorId}>
+        <Text variant="caption" className="text-destructive" id={errorId}>
           {activeError}
-        </p>
+        </Text>
       ) : null}
     </div>
   );

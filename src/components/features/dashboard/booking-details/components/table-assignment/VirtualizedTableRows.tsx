@@ -1,5 +1,7 @@
 'use client';
 
+import { Text } from '@/components/ui/typography';
+
 import {
   resolveVirtualizedTableKeyboardAction,
   resolveVirtualizedTableTabIndex,
@@ -168,9 +170,9 @@ function VirtualizedTableSectionHeader({
   return (
     <div className="flex items-center justify-between py-1">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+        <Text as="span" variant="eyebrow" className="text-foreground">
           {item.section}
-        </span>
+        </Text>
         <span className="text-xs text-muted-foreground">({item.tableCount})</span>
       </div>
       <AllTablesConflictBadge count={item.conflictCount} />

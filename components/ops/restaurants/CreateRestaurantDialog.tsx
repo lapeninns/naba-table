@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 import { useCreateRestaurant } from '@/hooks/ops/useCreateRestaurant';
 import { cn } from '@/lib/utils';
 
@@ -235,13 +236,14 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 autoFocus
               />
               {errors.name && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-name-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.name}
-                </p>
+                </Text>
               )}
             </div>
 
@@ -261,18 +263,19 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 )}
               />
               {errors.slug && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-slug-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.slug}
-                </p>
+                </Text>
               )}
               {!errors.slug && (
-                <p className="text-xs text-muted-foreground">
+                <Text variant="caption">
                   Auto-generated from name. Can be customized.
-                </p>
+                </Text>
               )}
             </div>
 
@@ -305,13 +308,14 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 </SelectContent>
               </Select>
               {errors.timezone && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-timezone-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.timezone}
-                </p>
+                </Text>
               )}
             </div>
 
@@ -331,13 +335,14 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 )}
               />
               {errors.capacity && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-capacity-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.capacity}
-                </p>
+                </Text>
               )}
             </div>
 
@@ -356,13 +361,14 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 )}
               />
               {errors.contactEmail && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-email-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.contactEmail}
-                </p>
+                </Text>
               )}
             </div>
 
@@ -381,13 +387,14 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                 )}
               />
               {errors.contactPhone && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-phone-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.contactPhone}
-                </p>
+                </Text>
               )}
             </div>
 
@@ -418,17 +425,18 @@ export function CreateRestaurantDialog({ open, onOpenChange }: CreateRestaurantD
                   errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
                 )}
               />
-              <p id="create-restaurant-map-help" className="text-xs text-muted-foreground">
+              <Text variant="caption" id="create-restaurant-map-help">
                 Optional link shared in guest emails for directions.
-              </p>
+              </Text>
               {errors.googleMapUrl && (
-                <p
+                <Text
+                  variant="caption"
                   id="create-restaurant-map-error"
-                  className="text-xs text-destructive"
+                  className="text-destructive"
                   role="alert"
                 >
                   {errors.googleMapUrl}
-                </p>
+                </Text>
               )}
             </div>
 

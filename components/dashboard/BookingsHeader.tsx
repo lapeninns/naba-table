@@ -1,6 +1,7 @@
 'use client';
 
 import { OpsBookingsSearchInput } from '@/components/features/bookings/components/OpsBookingsSearchInput';
+import { Heading, Text } from '@/components/ui/typography';
 
 import { StatusFilterGroup, type StatusOption } from './StatusFilterGroup';
 
@@ -38,12 +39,12 @@ export function BookingsHeader({
       {showTitle ? (
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+            <Heading variant="title" as="h2">{title}</Heading>
             {countLabel ? (
               <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{countLabel}</span>
             ) : null}
           </div>
-          {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+          {subtitle ? <Text variant="caption">{subtitle}</Text> : null}
         </div>
       ) : countLabel ? (
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{countLabel}</span>

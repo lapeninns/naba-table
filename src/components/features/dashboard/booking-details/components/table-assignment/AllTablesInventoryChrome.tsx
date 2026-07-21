@@ -2,6 +2,7 @@ import { Clock, MapPin } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 type AllTablesInventoryShellProps = {
@@ -35,9 +36,13 @@ export function AllTablesInventoryHeader({ className, totalCount }: AllTablesInv
     >
       <div className="flex items-center gap-2">
         <MapPin className="size-4 text-muted-foreground" aria-hidden />
-        <span className="text-sm font-semibold text-foreground">Full Inventory</span>
+        <Text as="span" variant="label" className="font-semibold">
+          Full Inventory
+        </Text>
       </div>
-      <span className="text-xs text-muted-foreground">{totalCount} tables</span>
+      <Text as="span" variant="caption">
+        {totalCount} tables
+      </Text>
     </div>
   );
 }

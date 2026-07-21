@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { FIELD_TOOLTIPS, sanitizePayload } from '../restaurantDetailsFormModel';
@@ -75,23 +76,23 @@ export function ManagerNotificationsSubform({
       >
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)]">
           <div className="rounded-md bg-muted/30 px-3 py-2">
-            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Text variant="label" className="flex items-center gap-2">
               <ShieldCheck className="size-4 text-primary" aria-hidden />
               Staff-only setting
-            </p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            </Text>
+            <Text variant="caption" className="mt-1">
               Guests never see this number. It only controls manager booking-summary delivery.
-            </p>
+            </Text>
           </div>
           <div className="rounded-md bg-muted/30 px-3 py-2">
-            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Text variant="label" className="flex items-center gap-2">
               <Clock3 className="size-4 text-primary" aria-hidden />
               10:00 local summary
-            </p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            </Text>
+            <Text variant="caption" className="mt-1">
               Current state: <span className="text-foreground">{summaryState}</span>. A valid E.164
               phone number is required when it is on.
-            </p>
+            </Text>
           </div>
         </div>
 
@@ -121,14 +122,19 @@ export function ManagerNotificationsSubform({
               errors.managerName && 'border-destructive focus-visible:ring-destructive/60',
             )}
           />
-          <p id="restaurant-manager-name-help" className="text-xs text-muted-foreground">
+          <Text variant="caption" id="restaurant-manager-name-help">
             Guests see this as the sender of review-request emails — for example, “Sam from The Old
             Crown”. Leave blank to send as the venue name.
-          </p>
+          </Text>
           {errors.managerName ? (
-            <p id="restaurant-manager-name-error" className="text-xs text-destructive" role="alert">
+            <Text
+              variant="caption"
+              id="restaurant-manager-name-error"
+              className="text-destructive"
+              role="alert"
+            >
               {errors.managerName}
-            </p>
+            </Text>
           ) : null}
         </div>
 
@@ -168,20 +174,18 @@ export function ManagerNotificationsSubform({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p
-              id="restaurant-manager-notification-phone-help"
-              className="text-xs text-muted-foreground"
-            >
+            <Text variant="caption" id="restaurant-manager-notification-phone-help">
               {FIELD_TOOLTIPS.managerNotificationPhone}
-            </p>
+            </Text>
             {errors.managerNotificationPhone ? (
-              <p
+              <Text
+                variant="caption"
                 id="restaurant-manager-notification-phone-error"
-                className="text-xs text-destructive"
+                className="text-destructive"
                 role="alert"
               >
                 {errors.managerNotificationPhone}
-              </p>
+              </Text>
             ) : null}
           </div>
 
@@ -201,12 +205,9 @@ export function ManagerNotificationsSubform({
                     ariaLabel="What does the daily manager SMS summary toggle do?"
                   />
                 </div>
-                <p
-                  id="restaurant-manager-daily-summary-enabled-help"
-                  className="text-xs text-muted-foreground"
-                >
+                <Text variant="caption" id="restaurant-manager-daily-summary-enabled-help">
                   {FIELD_TOOLTIPS.managerDailySummaryEnabled}
-                </p>
+                </Text>
               </div>
               <Switch
                 id="restaurant-manager-daily-summary-enabled"
@@ -223,13 +224,10 @@ export function ManagerNotificationsSubform({
                 <Label htmlFor="restaurant-manager-whatsapp-enabled">
                   Send daily summary via WhatsApp first
                 </Label>
-                <p
-                  id="restaurant-manager-whatsapp-enabled-help"
-                  className="text-xs text-muted-foreground"
-                >
+                <Text variant="caption" id="restaurant-manager-whatsapp-enabled-help">
                   Nabatable sends on behalf of the restaurant to the manager number above. If
                   WhatsApp is unavailable, we’ll send the summary by SMS instead.
-                </p>
+                </Text>
               </div>
               <Switch
                 id="restaurant-manager-whatsapp-enabled"

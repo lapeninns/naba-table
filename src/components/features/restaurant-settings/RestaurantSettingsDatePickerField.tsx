@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 type RestaurantSettingsDatePickerFieldProps = {
@@ -122,14 +123,14 @@ export function RestaurantSettingsDatePickerField({
         </PopoverContent>
       </Popover>
       {description ? (
-        <p id={descriptionId} className="mt-1 text-xs leading-5 text-muted-foreground">
+        <Text variant="caption" id={descriptionId} className="mt-1">
           {description}
-        </p>
+        </Text>
       ) : null}
       {error ? (
-        <p id={errorId} className="mt-1 text-xs text-destructive">
+        <Text variant="caption" id={errorId} className="mt-1 text-destructive">
           {error}
-        </p>
+        </Text>
       ) : null}
     </div>
   );

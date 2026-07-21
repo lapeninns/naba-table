@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import {
   CATEGORY_OPTIONS,
@@ -96,9 +97,9 @@ export function TableInventoryClassificationFields({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <Text variant="caption">
                 For organizational purposes only. Does not affect allocation.
-              </p>
+              </Text>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="seatingType">Seating</Label>
@@ -156,9 +157,9 @@ export function TableInventoryClassificationFields({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <Text variant="caption">
                 &apos;Out of service&apos; blocks assignments. Other statuses are informational.
-              </p>
+              </Text>
             </div>
           </div>
 

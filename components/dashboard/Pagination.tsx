@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 export type PaginationProps = {
@@ -24,7 +25,7 @@ export function Pagination({ page, pageSize, total, isLoading = false, onPageCha
       className="flex items-center justify-between gap-4 border-t border-border pt-4"
       aria-label="Bookings pagination"
     >
-      <p className="text-sm text-muted-foreground" aria-live="polite" aria-atomic="true">
+      <Text variant="caption" aria-live="polite" aria-atomic="true">
         {total === 0 ? (
           <>
             Showing <span className="font-medium text-foreground">0</span> of{' '}
@@ -40,7 +41,7 @@ export function Pagination({ page, pageSize, total, isLoading = false, onPageCha
           </>
         )}
         {isLoading ? ' (updating…)' : ''}
-      </p>
+      </Text>
       <div className="flex items-center gap-2">
         <Button
           type="button"
