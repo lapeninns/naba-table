@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -182,6 +183,10 @@ function DesktopActions({
 }) {
   return (
     <div className="hidden items-center gap-3 md:flex">
+      <ThemeToggle
+        className={cn(tone === 'dark' && DARK_GLASS_CONTROL_CLASSES)}
+      />
+
       {isLoading ? <Skeleton className="size-10 rounded-full" /> : null}
 
       {!isLoading && !isAuthenticated ? (
