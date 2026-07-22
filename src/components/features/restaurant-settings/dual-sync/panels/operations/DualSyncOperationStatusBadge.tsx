@@ -1,7 +1,6 @@
 import { CheckCircle2, CircleDashed, Clock, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 
 import {
   DUAL_SYNC_OPERATION_STATUS_LABEL,
@@ -17,7 +16,6 @@ type DualSyncOperationStatusBadgeProps = {
 
 export function DualSyncOperationStatusBadge({ status }: DualSyncOperationStatusBadgeProps) {
   const iconKey = getOperationStatusIconKey(status);
-  const iconClassName = 'h-3.5 w-3.5';
   const Icon =
     iconKey === 'success'
       ? CheckCircle2
@@ -26,19 +24,16 @@ export function DualSyncOperationStatusBadge({ status }: DualSyncOperationStatus
         : iconKey === 'skipped'
           ? CircleDashed
           : Clock;
-  const toneClassName =
-    iconKey === 'failure'
-      ? 'text-destructive'
-      : iconKey === 'skipped'
-        ? 'text-muted-foreground'
-        : 'text-primary';
 
+  // The icon inherits the Badge variant's semantic text color (green/amber/
+  // red/gray) rather than overriding success + pending to cobalt — matching the
+  // sibling queue-job/publish-job badges and the full 2.0 semantic palette.
   return (
     <Badge
       variant={DUAL_SYNC_OPERATION_STATUS_VARIANT[status]}
       className="inline-flex items-center gap-1 font-mono text-[10px]"
     >
-      <Icon className={cn(iconClassName, toneClassName)} />
+      <Icon className="h-3.5 w-3.5" />
       {DUAL_SYNC_OPERATION_STATUS_LABEL[status]}
     </Badge>
   );

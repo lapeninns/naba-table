@@ -1,5 +1,6 @@
 import { BOOKING_BLOCKING_STATUSES } from "@/lib/enums";
 import { getVenuePolicy } from "@/server/capacity/policy";
+import { getRestaurantServiceWindowsSafe } from "@/server/capacity/service-windows";
 import {
   loadActiveHoldsForDate,
   loadAdjacency,
@@ -364,15 +365,17 @@ export async function findAlternativeSlots(
   //   - timezone + turn bands + tables + adjacency: restaurant-scoped
   //   - active holds: restaurant + date scoped
   // Only context bookings stay per-candidate because they are window-specific.
-  const [preloadTimezone, preloadTurnBands, preloadTables] = await Promise.all([
-    // Fail CLOSED on a timezone load error: a wrong timezone yields wrong
-    // alternative-slot times, so let the error propagate rather than silently
-    // degrading to the default zone — consistent with checkRequestSeatability. A
-    // genuinely unset timezone still resolves to null and falls back below. (#9)
-    loadRestaurantTimezone(params.restaurantId, supabase),
-    getRestaurantTurnBands(params.restaurantId, supabase).catch(() => ({})),
-    loadTablesForRestaurant(params.restaurantId, supabase),
-  ]);
+  const [preloadTimezone, preloadTurnBands, preloadServiceWindows, preloadTables] =
+    await Promise.all([
+      // Fail CLOSED on a timezone load error: a wrong timezone yields wrong
+      // alternative-slot times, so let the error propagate rather than silently
+      // degrading to the default zone — consistent with checkRequestSeatability. A
+      // genuinely unset timezone still resolves to null and falls back below. (#9)
+      loadRestaurantTimezone(params.restaurantId, supabase),
+      getRestaurantTurnBands(params.restaurantId, supabase).catch(() => ({})),
+      getRestaurantServiceWindowsSafe(params.restaurantId, supabase),
+      loadTablesForRestaurant(params.restaurantId, supabase),
+    ]);
   const preloadAdjacency = await loadAdjacency(
     params.restaurantId,
     preloadTables.map((table) => table.id),
@@ -381,6 +384,7 @@ export async function findAlternativeSlots(
   const preloadPolicy = getVenuePolicy({
     timezone: preloadTimezone ?? undefined,
     turnBandsByOption: preloadTurnBands,
+    serviceWindows: preloadServiceWindows,
   });
   const preloadHolds: SeatabilityPreloadedContext['holdsForDay'] = isHoldsEnabled()
     ? await loadActiveHoldsForDate(params.restaurantId, params.date, preloadPolicy, supabase).catch(
@@ -390,6 +394,7 @@ export async function findAlternativeSlots(
   const seatabilityPreloaded: SeatabilityPreloadedContext = {
     restaurantTimezone: preloadTimezone,
     turnBandsByOption: preloadTurnBands,
+    serviceWindows: preloadServiceWindows,
     holdsForDay: preloadHolds,
     tables: preloadTables,
     adjacency: preloadAdjacency,

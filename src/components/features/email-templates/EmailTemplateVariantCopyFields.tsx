@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import {
@@ -111,9 +112,9 @@ function VariantNameAndStatus({
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-sm font-medium text-foreground">Status</div>
-            <p className="text-xs text-muted-foreground">
+            <Text variant="caption">
               {currentVariant.isActive ? 'Active in rotation' : 'Paused for sends'}
-            </p>
+            </Text>
           </div>
           <Switch
             id={`variant-active-${currentVariant.id}`}
@@ -286,7 +287,12 @@ function FieldHelp({
 }) {
   const warningText = formatUnknownTemplateTokens(warnings);
 
-  if (warningText) return <p className="text-xs text-destructive">{warningText}</p>;
+  if (warningText)
+    return (
+      <Text variant="caption" className="text-destructive">
+        {warningText}
+      </Text>
+    );
 
-  return helpText ? <p className="text-xs text-muted-foreground">{helpText}</p> : null;
+  return helpText ? <Text variant="caption">{helpText}</Text> : null;
 }

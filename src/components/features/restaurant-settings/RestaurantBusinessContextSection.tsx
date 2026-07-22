@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { DISCOVERY_SECTION_ORDER, TAB_LABELS, type FamilyKey } from './businessContextModel';
@@ -111,10 +112,10 @@ export function RestaurantBusinessContextSection({
           title="Public discovery"
           description="Select a restaurant to manage categories, online links, and public discovery details."
         >
-          <p className="text-sm text-muted-foreground">
+          <Text variant="caption">
             Choose a restaurant using the sidebar switcher to manage how guests find and understand
             it.
-          </p>
+          </Text>
         </DiscoveryFrame>
       }
       loading={
@@ -161,7 +162,7 @@ export function RestaurantBusinessContextSection({
         >
           <div className="space-y-6">
             {embedded ? (
-              <p className="text-xs leading-5 text-muted-foreground">
+              <Text variant="caption">
                 Google suggestions are optional; compare the latest source data in the{' '}
                 <Link
                   href={opsHref('/settings/restaurant/google-business-profile')}
@@ -170,7 +171,7 @@ export function RestaurantBusinessContextSection({
                   Google Business Profile page
                 </Link>
                 .
-              </p>
+              </Text>
             ) : (
               <Alert>
                 <AlertTitle>About Google suggestions</AlertTitle>

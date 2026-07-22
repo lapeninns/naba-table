@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 
+import { Text } from '@/components/ui/typography';
 import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
 import { WizardDependenciesProvider } from '@features/reservations/wizard/di';
 import { useWizardStore } from '@features/reservations/wizard/model/store';
@@ -85,10 +86,10 @@ function GuestBookingCapacityReviewHarness() {
                     key={slot.time}
                     className="flex items-center justify-between rounded-lg border border-border/70 bg-background px-3 py-2"
                   >
-                    <span className="text-sm font-medium text-foreground">{slot.time}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <Text as="span" variant="label">{slot.time}</Text>
+                    <Text as="span" variant="caption">
                       {slot.utilizationPercent}% full
-                    </span>
+                    </Text>
                   </li>
                 ))}
               </ul>
@@ -105,12 +106,12 @@ function GuestBookingCapacityReviewHarness() {
                     className="rounded-lg border border-border/70 bg-background px-3 py-3"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-medium text-foreground">
+                      <Text as="span" variant="label">
                         {table.table} · {table.seats} seats
-                      </span>
-                      <span className="text-xs text-muted-foreground">{table.status}</span>
+                      </Text>
+                      <Text as="span" variant="caption">{table.status}</Text>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{table.note}</p>
+                    <Text variant="caption" className="mt-1">{table.note}</Text>
                   </li>
                 ))}
               </ul>

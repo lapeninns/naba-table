@@ -3,6 +3,19 @@
 > Reverse-engineered from the [SajiloReserveX](https://github.com/lapeninns/nabatable) repository.
 > All claims cite source files. "Unknown" is used where evidence is absent.
 
+> [!WARNING]
+> **This is a pre-consolidation snapshot and is partially stale.** It predates the Phase 1 token
+> consolidation. Several files cited below (`styles/base.css`, `styles/tokens.css`,
+> `styles/themes/guest.css`, `styles/themes/app.css`, `styles/guest-design-system.css`,
+> `tailwind.config.js`) have been **removed or merged**. The token layer now lives in:
+>
+> - **`src/app/globals.css`** — the `@theme inline` layer (Tailwind v4) + semantic `.dark` tokens
+> - **`styles/design-system/public-guest.tokens.css`** — the `--pg-*` palette/type/shape tokens and per-surface (`[data-theme='guest'|'app']`) + `.dark` overrides
+> - **`styles/design-system/public-guest.utilities.css`** — the `.pg-*` utility bridge
+>
+> For the current state and the forward plan, read **[`design/luma-2.0-spec.md`](design/luma-2.0-spec.md)**.
+> The colour/type/shape _values_ below are mostly still accurate; the _file map_ is not.
+
 ---
 
 ## Overview

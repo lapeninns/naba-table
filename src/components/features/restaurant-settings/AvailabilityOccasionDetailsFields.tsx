@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import type { OccasionFormErrors, OccasionFormState } from './availabilityOccasionsModel';
 
@@ -32,7 +33,11 @@ export function AvailabilityOccasionDetailsFields({
             placeholder="e.g., birthday"
             aria-invalid={Boolean(formErrors.key)}
           />
-          {formErrors.key ? <p className="text-xs text-destructive">{formErrors.key}</p> : null}
+          {formErrors.key ? (
+            <Text variant="caption" className="text-destructive">
+              {formErrors.key}
+            </Text>
+          ) : null}
         </div>
       ) : null}
 
@@ -45,7 +50,11 @@ export function AvailabilityOccasionDetailsFields({
             onChange={(event) => onFormChange((prev) => ({ ...prev, label: event.target.value }))}
             aria-invalid={Boolean(formErrors.label)}
           />
-          {formErrors.label ? <p className="text-xs text-destructive">{formErrors.label}</p> : null}
+          {formErrors.label ? (
+            <Text variant="caption" className="text-destructive">
+              {formErrors.label}
+            </Text>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1">

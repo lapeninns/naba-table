@@ -1,3 +1,5 @@
+import { Heading, Text } from '@/components/ui/typography';
+
 import { enforceDevOnly } from '../_shared/enforceDevOnly';
 
 export const metadata = {
@@ -11,20 +13,20 @@ export default function GuestProfileDevPage() {
     <main className="guest-theme min-h-dvh bg-background px-4 py-8 text-foreground">
       <section className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <header className="space-y-2 border-b border-border pb-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Guest profile harness
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight">Profile details</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
+          <Text variant="eyebrow">Guest profile harness</Text>
+          <Heading variant="section" as="h1">
+            Profile details
+          </Heading>
+          <Text variant="caption" className="max-w-2xl">
             Local-only proof for editable guest contact information.
-          </p>
+          </Text>
         </header>
 
         <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Editable
-          </p>
-          <h2 className="mt-2 text-xl font-semibold">Contact details</h2>
+          <Text variant="eyebrow">Editable</Text>
+          <Heading variant="card" as="h2" className="mt-2">
+            Contact details
+          </Heading>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">Full name</dt>

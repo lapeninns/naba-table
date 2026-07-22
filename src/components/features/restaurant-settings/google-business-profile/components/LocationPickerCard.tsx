@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 
 import {
   buildGoogleMapsPlaceHref,
@@ -43,7 +44,7 @@ type LocationPickerCardProps = {
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <Text variant="eyebrow">{label}</Text>
       <p className="text-sm text-foreground">{value}</p>
     </div>
   );

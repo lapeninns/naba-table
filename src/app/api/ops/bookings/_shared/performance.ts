@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 
 import { logger } from '@/lib/logger';
+import { sampleRoutineLog } from '@/lib/observability/log-sampling';
 
 const timingLogger = logger.child({ module: 'api.ops.bookings.performance' });
+
+// Healthy, fast requests are sampled 1-in-10 to keep a representative latency
+// baseline without one info log per request; slow requests and non-2xx/3xx
+// responses always log so incidents and the latency tail stay fully visible.
+const ROUTINE_TIMING_SAMPLE_RATE = 10;
+const SLOW_REQUEST_THRESHOLD_MS = 1_200;
 
 type TimingMark = {
   name: string;
@@ -43,13 +50,26 @@ export function createOpsBookingApiTiming(route: string) {
   const log = (status: number, meta?: Record<string, unknown>) => {
     if (logged) return;
     logged = true;
-    timingLogger.info('ops.booking_api.timing', {
+    const totalMs = durationMs();
+    const payload = {
       route,
       status,
-      duration_ms: durationMs(),
+      duration_ms: totalMs,
       marks: Object.fromEntries(marks.map((mark) => [mark.name, mark.durationMs])),
       ...(meta ?? {}),
-    });
+    };
+
+    const isFailure = status >= 400;
+    const isSlow = totalMs >= SLOW_REQUEST_THRESHOLD_MS;
+    if (isFailure) {
+      timingLogger.warn('ops.booking_api.timing', payload);
+      return;
+    }
+    if (isSlow || sampleRoutineLog(`ops.booking_api.timing:${route}`, ROUTINE_TIMING_SAMPLE_RATE)) {
+      timingLogger.info('ops.booking_api.timing', { ...payload, ...(isSlow ? { slow: true } : {}) });
+      return;
+    }
+    timingLogger.debug('ops.booking_api.timing', payload);
   };
 
   return {

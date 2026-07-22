@@ -1,5 +1,7 @@
 import { PastBookingError } from '@/server/bookings/pastTimeValidation';
 import { OperatingHoursError } from '@/server/bookings/timeValidation';
+import { ServiceNotFoundError, ServiceOverrunError } from '@/server/capacity/policy';
+import { CustomerContactStorageError } from '@/server/customer-contact-errors';
 
 import type { Json } from '@/types/supabase';
 
@@ -47,6 +49,33 @@ export function mapBookingApiError(error: unknown): BookingApiError {
         error: error.message,
         code: error.code,
         details: error.details,
+      },
+    };
+  }
+
+  // Contact storage rejected by the customers table (NOT NULL / CHECK):
+  // customer-safe 422 with an actionable message instead of the former
+  // INTERNAL_SERVER_ERROR (July 2026 booking-500 cluster).
+  if (error instanceof CustomerContactStorageError) {
+    return {
+      status: 422,
+      body: {
+        error: error.message,
+        code: error.code,
+      },
+    };
+  }
+
+  // Controlled availability failure: a time outside every service window (or
+  // one that cannot fit before service ends) is a customer-safe 422, never a
+  // 500 and never a silently force-fitted booking.
+  if (error instanceof ServiceNotFoundError || error instanceof ServiceOverrunError) {
+    return {
+      status: 422,
+      body: {
+        error:
+          'The selected time is outside the bookable service hours for this restaurant. Please choose a different time.',
+        code: 'OUTSIDE_SERVICE_HOURS',
       },
     };
   }

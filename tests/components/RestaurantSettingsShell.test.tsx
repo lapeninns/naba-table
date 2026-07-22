@@ -286,7 +286,8 @@ describe('OpsRestaurantSettingsClient', () => {
 
     expect(screen.getByTestId('settings-view-profile').parentElement).toHaveClass(
       'restaurant-settings-dense',
-      'gap-4',
+      // Luma 2.0: ops content stack is density-token-driven (compact ops = 1rem, = the prior gap-4).
+      'gap-[var(--pg-density-gap-tight)]',
     );
   });
 

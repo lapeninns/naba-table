@@ -1,3 +1,5 @@
+import { Heading, Text } from '@/components/ui/typography';
+
 import { enforceDevOnly } from '../_shared/enforceDevOnly';
 
 export const metadata = {
@@ -11,17 +13,17 @@ export default function GuestBookingActionsDevPage() {
     <main className="guest-theme min-h-dvh bg-background px-4 py-8 text-foreground">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <header className="space-y-2 border-b border-border pb-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <Text variant="eyebrow">
             Booking actions harness
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight">Old Crown Girton</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
+          </Text>
+          <Heading variant="section" as="h1">Old Crown Girton</Heading>
+          <Text variant="body" className="max-w-2xl">
             Local-only proof for guest manage and contact action panels.
-          </p>
+          </Text>
         </header>
 
         <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="text-xl font-semibold">Guest Information</h2>
+          <Heading variant="title" as="h2">Guest Information</Heading>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
             <div>
               <dt className="text-muted-foreground">Primary Guest</dt>

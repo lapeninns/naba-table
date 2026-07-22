@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Text } from '@/components/ui/typography';
 import { getOpsBookingStatusUi } from '@/lib/ops/booking-status';
 
 import type { ConflictPayload } from './BookingErrorBoundary';
@@ -77,10 +78,10 @@ export function ConflictResolver({ conflict, onClose }: ConflictResolverProps) {
             </Badge>
           </div>
           {conflict.updatedAt ? (
-            <p className="text-xs text-muted-foreground">
+            <Text variant="caption">
               Last updated at{' '}
               <span className="font-medium">{new Date(conflict.updatedAt).toLocaleString()}</span>
-            </p>
+            </Text>
           ) : null}
         </div>
 

@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 
 import { DualSyncFieldFreshnessIndicator } from './DualSyncFieldFreshnessIndicator';
 import { DualSyncStateBadge } from './DualSyncStateBadge';
@@ -27,7 +28,7 @@ export function DualSyncFieldRowHeader({ model }: { readonly model: DualSyncFiel
           ))}
         </div>
         {model.helpText ? (
-          <p className="text-muted-foreground text-xs leading-snug">{model.helpText}</p>
+          <Text variant="caption">{model.helpText}</Text>
         ) : null}
       </div>
       <DualSyncFieldFreshnessIndicator freshness={model.freshness} />

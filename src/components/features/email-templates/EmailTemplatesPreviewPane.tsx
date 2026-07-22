@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Iframe } from '@/components/ui/iframe';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { EmailTemplatesPreviewDevice } from '@/hooks/ops/useOpsEmailTemplatesPageState';
@@ -124,9 +125,9 @@ export function EmailTemplatesPreviewPane({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-foreground">Delivery summary</div>
-                      <p className="text-xs text-muted-foreground">
+                      <Text variant="caption">
                         Exactly what the inbox and recipient will see.
-                      </p>
+                      </Text>
                     </div>
                     <Badge
                       variant="outline"
@@ -146,9 +147,9 @@ export function EmailTemplatesPreviewPane({
 
                 <div className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
                   <div className="text-sm font-semibold text-foreground">Plain text fallback</div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <Text variant="caption" className="mt-1">
                     Used by clients that block HTML or for deliverability spot checks.
-                  </p>
+                  </Text>
                   <pre className="mt-4 max-h-48 overflow-auto rounded-2xl border border-border bg-muted/40 p-4 text-xs leading-6 whitespace-pre-wrap text-muted-foreground">
                     {preview.text}
                   </pre>

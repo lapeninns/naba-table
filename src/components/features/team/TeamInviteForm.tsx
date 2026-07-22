@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 import { useOpsCreateTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
 
 import {
@@ -94,9 +95,9 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
         >
           <div className="md:col-span-3">
             <p className="text-sm font-semibold text-foreground">Who to invite</p>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Send access to one teammate at a time.
-            </p>
+            </Text>
           </div>
           <FormField
             control={form.control}
@@ -123,10 +124,10 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
               <p className="text-sm font-semibold text-foreground">Access scope</p>
               <Badge variant="outline">Restaurant only</Badge>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Role controls this restaurant&apos;s bookings, guest communication, and settings
               access.
-            </p>
+            </Text>
           </div>
 
           <FormField
@@ -151,10 +152,10 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <Text variant="caption">
                   Hosts can manage bookings and guest communication. Use manager access only for
                   trusted staff who should manage settings.
-                </p>
+                </Text>
                 <FormMessage />
               </FormItem>
             )}
@@ -174,9 +175,9 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
               'Send invite'
             )}
           </Button>
-          <p className="text-xs leading-5 text-muted-foreground md:col-span-3">
+          <Text variant="caption" className="md:col-span-3">
             {formatSaveScopeMessage('team')}
-          </p>
+          </Text>
         </FormRoot>
       </Form>
 

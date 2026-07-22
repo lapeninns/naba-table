@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Heading, Text } from '@/components/ui/typography';
 import { useOpsActiveMembership } from '@/contexts/ops-session';
 import { useOpsTodaySummary } from '@/hooks/ops/useOpsTodaySummary';
 import { formatDateReadable } from '@/lib/utils/datetime';
@@ -83,10 +84,10 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="max-w-md space-y-2">
-          <h1 className="text-lg font-semibold text-foreground">No restaurant access</h1>
-          <p className="text-sm text-muted-foreground">
+          <Heading variant="title" as="h1">No restaurant access</Heading>
+          <Text variant="caption">
             Sign in with an account that has ops access.
-          </p>
+          </Text>
         </div>
       </div>
     );
@@ -96,10 +97,10 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="max-w-md space-y-2">
-          <h1 className="text-lg font-semibold text-foreground">Preparing print view…</h1>
-          <p className="text-sm text-muted-foreground">
+          <Heading variant="title" as="h1">Preparing print view…</Heading>
+          <Text variant="caption">
             Fetching bookings{targetDate ? ` for ${targetDate}` : ''}.
-          </p>
+          </Text>
         </div>
       </div>
     );
@@ -109,10 +110,10 @@ export function OpsBookingsPrintView({ params }: OpsBookingsPrintViewProps) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
         <div className="max-w-md space-y-2">
-          <h1 className="text-lg font-semibold text-foreground">Unable to load bookings</h1>
-          <p className="text-sm text-muted-foreground">
+          <Heading variant="title" as="h1">Unable to load bookings</Heading>
+          <Text variant="caption">
             Please refresh the page and try again{targetDate ? ` for ${targetDate}` : ''}.
-          </p>
+          </Text>
         </div>
       </div>
     );

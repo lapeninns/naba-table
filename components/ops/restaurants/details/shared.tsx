@@ -8,6 +8,7 @@ import { useOptionalGbpDrift } from '@/components/features/restaurant-settings/g
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import { useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
@@ -371,11 +372,11 @@ export function SubformActions({
         <p className="text-muted-foreground">
           {isDirty ? 'Unsaved changes in this section.' : 'No changes to save.'}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <Text variant="caption">
           {submitInStickyBar
             ? 'Use the sticky profile bar to save this section.'
             : (saveScopeMessage ?? 'Saves this section only.')}
-        </p>
+        </Text>
         {status ? (
           <p
             role={status.tone === 'error' ? 'alert' : 'status'}

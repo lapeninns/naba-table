@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import {
   buildDualSyncBulkActionIntent,
@@ -37,11 +38,13 @@ export function DualSyncBulkActionBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
       <div className="flex flex-col gap-0.5">
-        <p className="text-xs font-semibold tracking-wide uppercase">Bulk select</p>
-        <p className="text-xs text-muted-foreground">
+        <Text variant="eyebrow" className="text-foreground">
+          Bulk select
+        </Text>
+        <Text variant="caption">
           Apply one draft action to fields in this section that need an operator choice. In-sync
           rows are left unchanged.
-        </p>
+        </Text>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {actionButtons.map((button) => (

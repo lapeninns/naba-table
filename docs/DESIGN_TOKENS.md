@@ -5,6 +5,13 @@
 > This document provides a quick reference for all design tokens available in the system.
 > All tokens are defined in CSS custom properties and mapped to Tailwind utilities.
 
+> [!NOTE]
+> **Authoritative token sources** (post Phase 1 consolidation): the `--pg-*` palette, type, and
+> shape tokens live in **`styles/design-system/public-guest.tokens.css`**, and the Tailwind v4
+> `@theme inline` mapping lives in **`src/app/globals.css`**. Where a token below no longer resolves,
+> check those two files. The Luma 2.0 direction (status vocabulary, primitives, open aesthetic
+> decisions) is specified in **[`design/luma-2.0-spec.md`](design/luma-2.0-spec.md)**.
+
 ---
 
 ## Table of Contents

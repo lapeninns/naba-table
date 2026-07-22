@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import { getServiceItemRowTitle, SERVICE_ITEM_MAIN_FIELDS } from './serviceItemsPanelDomain';
 import { makeFieldId, type ServiceItemEditor } from '../../businessContextModel';
@@ -23,7 +24,7 @@ export function ServiceItemRow({
   return (
     <div className="space-y-4 rounded-xl border border-border/60 p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-foreground">{getServiceItemRowTitle(row)}</p>
+        <Text variant="label">{getServiceItemRowTitle(row)}</Text>
         <Button
           type="button"
           variant="ghost"

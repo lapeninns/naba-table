@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 
 import {
   LAST_VISIT_OPTIONS,
@@ -189,15 +190,15 @@ export function OpsCustomersFilterToolbar({
             </Badge>
           ))
         ) : (
-          <span className="text-xs text-muted-foreground">
+          <Text as="span" variant="caption">
             Tip: search + min bookings to surface VIP guests fast.
-          </span>
+          </Text>
         )}
 
         {isRefreshing ? (
-          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Text as="span" variant="caption" className="flex items-center gap-2">
             <Loader2 className="size-3.5 animate-spin" aria-hidden /> Updating results…
-          </span>
+          </Text>
         ) : null}
       </div>
     </OpsPageToolbar>

@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks';
 import { opsHref } from '@/lib/url/opsHref';
@@ -130,7 +131,7 @@ export function OpsGuestBookingWizard() {
     return (
       <Card className="flex min-h-[40vh] flex-col items-center justify-center gap-3 border-dashed text-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">Preparing your restaurant context...</p>
+        <Text variant="caption">Preparing your restaurant context...</Text>
       </Card>
     );
   }
@@ -139,7 +140,7 @@ export function OpsGuestBookingWizard() {
     return (
       <Card className="flex min-h-[40vh] flex-col items-center justify-center gap-3 border-dashed text-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">Loading restaurant details...</p>
+        <Text variant="caption">Loading restaurant details...</Text>
       </Card>
     );
   }

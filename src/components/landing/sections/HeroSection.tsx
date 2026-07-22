@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { LiveFeedCard } from '../shared/LiveFeedCard';
@@ -60,7 +61,9 @@ export function HeroSection() {
                 <p className="font-[var(--pg-font-mono)] text-xl font-semibold tabular-nums text-primary">
                   {value}
                 </p>
-                <p className="mt-1 text-sm leading-snug text-muted-foreground">{label}</p>
+                <Text variant="caption" className="mt-1">
+                  {label}
+                </Text>
               </div>
             ))}
           </div>

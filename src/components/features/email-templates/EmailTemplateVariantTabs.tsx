@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
@@ -32,9 +33,9 @@ export function EmailTemplateVariantTabs({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-foreground">Variants</div>
-          <p className="text-xs text-muted-foreground">
+          <Text variant="caption">
             Tabs keep each test branch isolated while you edit one version at a time.
-          </p>
+          </Text>
         </div>
         <Button
           type="button"

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react';
 
 import { Accordion } from '@/components/ui/accordion';
+import { Text } from '@/components/ui/typography';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { DISCOVERY_SECTION_ORDER, type FamilyKey } from '../businessContextModel';
@@ -57,7 +58,7 @@ export function DiscoveryPanelsFrame({
             </DiscoveryEmbeddedSectionCard>
           );
         })}
-        <p className="px-1 text-xs text-muted-foreground">
+        <Text variant="caption" className="px-1">
           Google suggestions can pre-fill empty sections; compare source data in the{' '}
           <Link
             href={opsHref('/settings/restaurant/google-business-profile')}
@@ -66,7 +67,7 @@ export function DiscoveryPanelsFrame({
             GBP workspace
           </Link>
           .
-        </p>
+        </Text>
       </div>
     );
   }
@@ -103,12 +104,12 @@ export function DiscoveryPanelsFrame({
           );
         })}
       </Accordion>
-      <p className="px-1 text-xs text-muted-foreground">
+      <Text variant="caption" className="px-1">
         See “About Google suggestions” above for import details.{' '}
         <Link href={opsHref('/settings/restaurant/google-business-profile')} className="underline">
           GBP workspace
         </Link>
-      </p>
+      </Text>
     </div>
   );
 }

@@ -2,9 +2,10 @@ import { createHash, randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
+
 
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import {
   createBookingValidationService,
@@ -12,8 +13,8 @@ import {
   type BookingInput,
   type ValidationContext,
 } from '@/server/booking';
-import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
+import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import {
   deriveEndTimeFromDuration,
   fetchBookingsForContact,
@@ -23,18 +24,18 @@ import {
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import {
-  getBookingPastTimeGraceMinutes,
-  getInlineAutoAssignTimeoutMs,
-  isAutoAssignOnBookingEnabled,
-  isBookingPastTimeBlockingEnabled,
-} from '@/server/runtime-policy';
-import {
   enqueueBookingCreatedSideEffects,
   safeBookingPayload,
 } from '@/server/jobs/booking-side-effects';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
+import {
+  getBookingPastTimeGraceMinutes,
+  getInlineAutoAssignTimeoutMs,
+  isAutoAssignOnBookingEnabled,
+  isBookingPastTimeBlockingEnabled,
+} from '@/server/runtime-policy';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
@@ -389,6 +390,12 @@ export async function GET(req: NextRequest) {
   }
 
   const clientIp = extractClientIp(req);
+  // The rate-limit check and the membership lookup both key on user.id only and
+  // are independent; running them concurrently removes a full sequential round
+  // trip (rate_limit alone was p50 ~415ms in production timing marks). The 429
+  // path returns before the membership result is ever used.
+  const membershipsPromise = timing.measure('memberships', fetchUserMemberships(user.id, supabase));
+  void membershipsPromise.catch(() => undefined);
   const listRateResult = await timing.measure(
     'rate_limit',
     consumeRateLimit({
@@ -452,7 +459,7 @@ export async function GET(req: NextRequest) {
 
   let memberships: Awaited<ReturnType<typeof fetchUserMemberships>>;
   try {
-    memberships = await timing.measure('memberships', fetchUserMemberships(user.id, supabase));
+    memberships = await membershipsPromise;
   } catch (error) {
     console.error('[ops/bookings][GET] membership lookup failed', error);
     captureServerException(error, {

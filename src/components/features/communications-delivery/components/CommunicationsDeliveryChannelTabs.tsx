@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 type Tab = {
@@ -65,7 +66,7 @@ export function CommunicationsDeliveryChannelTabs({
               </Badge>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{tab.description}</p>
+          <Text variant="caption" className="mt-1">{tab.description}</Text>
         </Link>
       ))}
     </section>

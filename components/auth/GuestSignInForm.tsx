@@ -19,6 +19,7 @@ import {
   FormRoot,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/typography';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { HttpError } from '@/lib/http/errors';
@@ -364,7 +365,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         </FormRoot>
       </Form>
 
-      <p className="text-center text-xs leading-relaxed text-muted-foreground">
+      <Text variant="caption" className="text-center leading-relaxed">
         By signing in, you agree to receive secure sign-in emails and to our{' '}
         <Button
           variant="link"
@@ -373,7 +374,7 @@ export function GuestSignInForm({ redirectedFrom }: GuestSignInFormProps) {
         >
           <a href="/privacy">Privacy Policy</a>
         </Button>
-      </p>
+      </Text>
     </div>
   );
 }

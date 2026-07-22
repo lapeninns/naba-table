@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/typography';
 
 import { type FamilyKey } from '../../businessContextModel';
 import { FamilyActions, FamilyError, FamilyStatus } from '../DiscoveryPanelChrome';
@@ -29,10 +30,10 @@ export function ServiceAreasPanel({
 
       <div className="flex flex-col gap-4 rounded-lg border border-border/60 p-4">
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-foreground">Service areas</p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="label">Service areas</Text>
+          <Text variant="caption" className="leading-5">
             Add the places or regions guests can reasonably associate with this restaurant.
-          </p>
+          </Text>
         </div>
 
         {editor.serviceAreas.length > 0 ? (
@@ -61,7 +62,7 @@ export function ServiceAreasPanel({
             })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No service areas have been added.</p>
+          <Text variant="caption">No service areas have been added.</Text>
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row">

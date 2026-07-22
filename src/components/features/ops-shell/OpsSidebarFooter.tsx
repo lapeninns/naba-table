@@ -1,9 +1,10 @@
 'use client';
 
-import { Loader2, LogOut, MonitorSmartphone } from 'lucide-react';
+import { Loader2, LogOut, Moon, MonitorSmartphone, Sun } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { useColorMode } from '@/components/theme/useColorMode';
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -54,6 +55,7 @@ function OpsAccountActions() {
       <SidebarGroupLabel>Account</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
+          <OpsAppearanceToggleItem />
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="View devices and sessions">
               <Link href="/app/account/security">
@@ -81,6 +83,27 @@ function OpsAccountActions() {
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
+  );
+}
+
+function OpsAppearanceToggleItem() {
+  const { isDark, toggle } = useColorMode();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const dark = mounted && isDark;
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        type="button"
+        tooltip={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+        onClick={toggle}
+        aria-pressed={mounted ? isDark : undefined}
+      >
+        {dark ? <Moon className="size-4" aria-hidden /> : <Sun className="size-4" aria-hidden />}
+        <span className="truncate">{dark ? 'Dark mode' : 'Light mode'}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 }
 

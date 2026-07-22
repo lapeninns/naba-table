@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { GuestContent, GuestPageFrame, GuestPanel } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 export default function GuestError({
   error,
@@ -44,7 +45,7 @@ export default function GuestError({
             </Button>
           </div>
           {process.env.NODE_ENV !== 'production' && error?.digest ? (
-            <p className="text-xs text-muted-foreground">Error ID: {error.digest}</p>
+            <Text variant="caption">Error ID: {error.digest}</Text>
           ) : null}
         </GuestPanel>
       </GuestContent>

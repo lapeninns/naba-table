@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 
 import {
   BUSINESS_DETAILS_OPENING_DATE_FIELD,
@@ -63,9 +64,9 @@ export function BusinessDetailsForm({ editor }: { editor: RestaurantBusinessCont
               </SelectGroup>
             </SelectContent>
           </Select>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             {BUSINESS_DETAILS_STATUS_FIELD.helperText}
-          </p>
+          </Text>
         </div>
       </div>
 
@@ -81,9 +82,9 @@ export function BusinessDetailsForm({ editor }: { editor: RestaurantBusinessCont
           <Label htmlFor={BUSINESS_DETAILS_SERVICE_AREA_FIELD.id}>
             {BUSINESS_DETAILS_SERVICE_AREA_FIELD.label}
           </Label>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             {BUSINESS_DETAILS_SERVICE_AREA_FIELD.helperText}
-          </p>
+          </Text>
         </div>
       </div>
     </div>

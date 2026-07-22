@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { formatGbpDriftPreview } from './fieldDisplay';
@@ -39,7 +40,7 @@ export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
             </Badge>
           </div>
           {view.helpText ? (
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">{view.helpText}</p>
+            <Text variant="caption" className="mt-1">{view.helpText}</Text>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -87,9 +88,9 @@ export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
       </div>
 
       {!view.canImport && isDrifted && view.field.capability.blockedReasons.length > 0 ? (
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        <Text variant="caption" className="mt-2">
           {view.field.capability.blockedReasons.join(' ')}
-        </p>
+        </Text>
       ) : null}
     </div>
   );

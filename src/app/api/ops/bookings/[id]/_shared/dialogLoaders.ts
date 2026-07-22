@@ -11,6 +11,7 @@ import { DateTime } from 'luxon';
 
 import { getTenantServiceSupabaseClient } from '@/server/supabase';
 
+import type { BookingWindow } from '@/server/capacity/table-assignment/types';
 import type { getServiceSupabaseClient } from '@/server/supabase';
 import type { AssignmentContext } from '@/services/ops/bookings';
 import type { Database } from '@/types/supabase';
@@ -303,19 +304,50 @@ export async function loadAssignmentContextPayload(params: {
     : (booking.restaurants?.timezone ?? null);
 
   const policy = getVenuePolicy({ timezone: restaurantTimezone ?? undefined });
-  const { window } = computeBookingWindowWithFallback({
-    startISO: booking.start_at,
-    bookingDate: booking.booking_date,
-    startTime: booking.start_time,
-    partySize: booking.party_size,
-    bookingOption: booking.booking_type ?? null,
-    policy,
-  });
+  let bookingWindow: BookingWindow;
+  try {
+    ({ window: bookingWindow } = computeBookingWindowWithFallback({
+      startISO: booking.start_at,
+      bookingDate: booking.booking_date,
+      startTime: booking.start_time,
+      partySize: booking.party_size,
+      bookingOption: booking.booking_type ?? null,
+      policy,
+      restaurantId,
+    }));
+  } catch {
+    // Read path resilience: a booking that no policy service can map (e.g.
+    // legacy rows outside every window when the bounded fallback declines)
+    // still needs a context window so ops can view and fix it. Approximate a
+    // nominal window from the raw start; the ± padding keeps the context
+    // query tolerant.
+    const approximateStart = booking.start_at
+      ? DateTime.fromISO(booking.start_at).setZone(policy.timezone, { keepLocalTime: false })
+      : DateTime.fromISO(`${booking.booking_date}T${booking.start_time ?? '00:00'}`, {
+          zone: policy.timezone,
+        });
+    if (!approximateStart.isValid) {
+      return {
+        ok: false,
+        status: 422,
+        error: 'Booking has no usable start time',
+        code: 'INVALID_START',
+      };
+    }
+    const approximateEnd = approximateStart.plus({ minutes: 120 });
+    bookingWindow = {
+      service: 'dinner',
+      durationMinutes: 120,
+      dining: { start: approximateStart, end: approximateEnd },
+      block: { start: approximateStart, end: approximateEnd },
+      clampedToServiceEnd: false,
+    };
+  }
   const contextWindowStart = toIsoUtc(
-    window.block.start.minus({ minutes: ASSIGNMENT_CONTEXT_QUERY_PADDING_MINUTES }),
+    bookingWindow.block.start.minus({ minutes: ASSIGNMENT_CONTEXT_QUERY_PADDING_MINUTES }),
   );
   const contextWindowEnd = toIsoUtc(
-    window.block.end.plus({ minutes: ASSIGNMENT_CONTEXT_QUERY_PADDING_MINUTES }),
+    bookingWindow.block.end.plus({ minutes: ASSIGNMENT_CONTEXT_QUERY_PADDING_MINUTES }),
   );
 
   const contextBookingsQuery = restaurantClient
@@ -406,13 +438,13 @@ export async function loadAssignmentContextPayload(params: {
     bookings: contextBookingsResult.data.map((b) => ({ ...b })),
     holds: [],
     policy,
-    targetWindow: window,
+    targetWindow: bookingWindow,
   });
 
   const conflicts = extractConflictsForTables(
     busy,
     tables.map((table) => table.id),
-    window,
+    bookingWindow,
   );
 
   // The loader returns the same payload shape the legacy route handler
@@ -426,8 +458,8 @@ export async function loadAssignmentContextPayload(params: {
     conflicts,
     bookingAssignments,
     window: {
-      startAt: toIsoUtc(window.block.start),
-      endAt: toIsoUtc(window.block.end),
+      startAt: toIsoUtc(bookingWindow.block.start),
+      endAt: toIsoUtc(bookingWindow.block.end),
     },
     serverNow: toIsoUtc(DateTime.now()),
   } as unknown as AssignmentContext;

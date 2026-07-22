@@ -3,8 +3,8 @@
 import { Plus, Search } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
-import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/dashboard/constants';
-import { Pagination } from '@/components/dashboard/Pagination';
+import { DASHBOARD_DEFAULT_PAGE_SIZE } from '@/components/features/dashboard/bookings-table/constants';
+import { Pagination } from '@/components/features/dashboard/bookings-table/Pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Heading, Text } from '@/components/ui/typography';
 import { useRestaurants } from '@/hooks/ops/useRestaurants';
 
 import { CreateRestaurantDialog } from './CreateRestaurantDialog';
@@ -75,12 +76,12 @@ export function RestaurantsClient() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <Heading variant="section" as="h2">
             Manage Restaurants
-          </h2>
-          <p className="text-sm text-muted-foreground">
+          </Heading>
+          <Text variant="caption">
             Create, update, and manage your restaurants in the system.
-          </p>
+          </Text>
         </div>
 
         <Button type="button" onClick={() => setCreateDialogOpen(true)} className="sm:self-start">

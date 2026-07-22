@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Text } from '@/components/ui/typography';
 
 import { Icon } from './Icons';
 
@@ -35,9 +36,7 @@ export function MetricCard({ metric }: MetricCardProps) {
         <div className="font-variant-numeric font-[var(--pg-font-mono)] text-3xl font-bold tabular-nums text-foreground transition-colors sm:text-4xl">
           {formatMetricValue(metric.value)}
         </div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:text-sm">
-          {metric.label}
-        </p>
+        <Text variant="eyebrow">{metric.label}</Text>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 p-4 sm:p-5 md:p-6">
         <Separator />

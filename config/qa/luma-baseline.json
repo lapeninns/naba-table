@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-06-12T19:34:15.581Z",
+  "generatedAt": "2026-07-20T17:51:03.683Z",
   "description": "Pinned Radix Luma semantic-token migration debt. Update only after reviewing intentional debt movement.",
   "scanRoots": [
     "src/app/app",
@@ -21,18 +21,18 @@
     "styles/design-system/public-guest.utilities.css"
   ],
   "counts": {
-    "total": 183,
+    "total": 51,
     "bySeverity": {
       "exception": 20,
-      "review": 163
+      "review": 31
     },
     "byKind": {
-      "css-gradient-recipe": 7,
-      "css-raw-color-literal": 95,
+      "css-gradient-recipe": 1,
+      "css-raw-color-literal": 14,
       "custom-gradient-utility": 6,
-      "guest-theme-compatibility-reference": 29,
+      "guest-theme-compatibility-reference": 13,
       "hardcoded-palette-utility": 8,
-      "legacy-theme-token": 32,
+      "legacy-theme-token": 3,
       "raw-color-literal": 6
     },
     "byFileKind": {
@@ -48,14 +48,10 @@
       "exception::raw-color-literal::src/components/features/restaurant-settings/google-business-profile/components/ConnectCard.tsx": 2,
       "exception::raw-color-literal::src/components/guest/ui/GuestPrimitives.tsx": 1,
       "review::css-gradient-recipe::src/app/globals.css": 1,
-      "review::css-gradient-recipe::styles/base.css": 3,
-      "review::css-gradient-recipe::styles/themes/guest-enhanced.css": 3,
       "review::css-raw-color-literal::src/app/globals.css": 1,
       "review::css-raw-color-literal::src/components/features/dashboard/OpsBookingsPrintView.module.css": 13,
-      "review::css-raw-color-literal::styles/base.css": 62,
-      "review::css-raw-color-literal::styles/guest-design-system.css": 3,
-      "review::css-raw-color-literal::styles/themes/guest-enhanced.css": 6,
-      "review::css-raw-color-literal::styles/themes/guest.css": 10,
+      "review::guest-theme-compatibility-reference::reserve/features/reservations/wizard/ui/steps/plan-step/PlanStepForm.stories.tsx": 1,
+      "review::guest-theme-compatibility-reference::reserve/features/reservations/wizard/ui/steps/plan-step/TimeSlotGrid.stories.tsx": 1,
       "review::guest-theme-compatibility-reference::src/app/(public)/(marketing)/restaurants/loading.tsx": 1,
       "review::guest-theme-compatibility-reference::src/app/(public)/(marketing)/restaurants/page.tsx": 1,
       "review::guest-theme-compatibility-reference::src/components/features/booking/wizard/ReservationWizardClient.tsx": 1,
@@ -67,13 +63,8 @@
       "review::guest-theme-compatibility-reference::src/components/layouts/MarketingLayout.tsx": 1,
       "review::guest-theme-compatibility-reference::src/components/layouts/RoleSelectionLayout.tsx": 1,
       "review::guest-theme-compatibility-reference::src/components/restaurants/PublicSections.tsx": 1,
-      "review::guest-theme-compatibility-reference::styles/guest-design-system.css": 18,
-      "review::legacy-theme-token::src/app/globals.css": 2,
-      "review::legacy-theme-token::styles/base.css": 2,
-      "review::legacy-theme-token::styles/themes/app.css": 4,
-      "review::legacy-theme-token::styles/themes/guest-enhanced.css": 10,
-      "review::legacy-theme-token::styles/themes/guest.css": 13,
-      "review::legacy-theme-token::styles/tokens.css": 1
+      "review::legacy-theme-token::reserve/features/reservations/wizard/ui/steps/details-step/DetailsConsentDialog.tsx": 1,
+      "review::legacy-theme-token::src/app/globals.css": 2
     }
   }
 }

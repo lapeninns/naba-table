@@ -1,4 +1,4 @@
-import type { StatusOption } from '@/components/dashboard/StatusFilterGroup';
+import type { StatusOption } from '@/components/features/dashboard/bookings-table/StatusFilterGroup';
 import type { OpsBookingStatus } from '@/types/ops';
 
 export const OPS_STATUS_TABS: StatusOption[] = [

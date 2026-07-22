@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { FIELD_TOOLTIPS, getGbpStatuses, sanitizePayload } from '../restaurantDetailsFormModel';
@@ -82,13 +83,13 @@ export function BrandIdentitySubform({
             aria-describedby={errors.name ? 'restaurant-name-error' : 'restaurant-name-help'}
             className={cn(errors.name && 'border-destructive focus-visible:ring-destructive/60')}
           />
-          <p id="restaurant-name-help" className="text-xs text-muted-foreground">
+          <Text variant="caption" id="restaurant-name-help">
             {FIELD_TOOLTIPS.name}
-          </p>
+          </Text>
           {errors.name ? (
-            <p id="restaurant-name-error" className="text-xs text-destructive" role="alert">
+            <Text variant="caption" id="restaurant-name-error" className="text-destructive" role="alert">
               {errors.name}
-            </p>
+            </Text>
           ) : null}
         </div>
 
@@ -121,17 +122,18 @@ export function BrandIdentitySubform({
               errors.businessDescription && 'border-destructive focus-visible:ring-destructive/60',
             )}
           />
-          <p id="restaurant-business-description-help" className="text-xs text-muted-foreground">
+          <Text variant="caption" id="restaurant-business-description-help">
             {FIELD_TOOLTIPS.businessDescription}
-          </p>
+          </Text>
           {errors.businessDescription ? (
-            <p
+            <Text
+              variant="caption"
               id="restaurant-business-description-error"
-              className="text-xs text-destructive"
+              className="text-destructive"
               role="alert"
             >
               {errors.businessDescription}
-            </p>
+            </Text>
           ) : null}
         </div>
 

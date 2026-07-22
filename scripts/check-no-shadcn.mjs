@@ -12,6 +12,7 @@ const STRICT = ARGS.includes('--strict');
 const PRIMITIVES_ONLY = ARGS.includes('--primitives-only');
 const BASELINE_ARG = ARGS.find((arg) => arg.startsWith('--baseline='));
 const BASELINE_PATH = BASELINE_ARG?.slice('--baseline='.length);
+const UPDATE_BASELINE = ARGS.includes('--update-baseline');
 const MAX_EXAMPLES_PER_GROUP = 20;
 
 const SCAN_ROOTS = [
@@ -463,6 +464,33 @@ function writeBaseline(filePath, findings) {
   );
 }
 
+function loadBaseline(filePath) {
+  const absolutePath = path.resolve(ROOT, filePath);
+  if (!fs.existsSync(absolutePath)) return null;
+  return JSON.parse(fs.readFileSync(absolutePath, 'utf8'));
+}
+
+/**
+ * Ratchet a bucket of findings against a baseline count map. Returns the list
+ * of kinds that regressed above baseline and the list that improved below it,
+ * so the gate blocks new debt while tolerating (and inviting cleanup of) known
+ * debt — the same contract as guard:luma.
+ */
+function diffAgainstBaseline(current, baseline) {
+  const base = baseline ?? {};
+  const regressions = [];
+  const improvements = [];
+  for (const [kind, count] of Object.entries(current)) {
+    const allowed = base[kind] ?? 0;
+    if (count > allowed) regressions.push(`${kind}: ${count} (baseline ${allowed})`);
+  }
+  for (const [kind, allowed] of Object.entries(base)) {
+    const count = current[kind] ?? 0;
+    if (count < allowed) improvements.push(`${kind}: ${count} (baseline ${allowed})`);
+  }
+  return { regressions, improvements };
+}
+
 const files = [...new Set(SCAN_ROOTS.flatMap((entry) => collectFiles(entry)))].sort();
 const findings = {
   blocking: [],
@@ -473,11 +501,51 @@ for (const file of files) {
   scanFile(file, findings);
 }
 
-writeBaseline(BASELINE_PATH, findings);
+if (BASELINE_PATH && UPDATE_BASELINE) {
+  writeBaseline(BASELINE_PATH, findings);
+  console.log(`Wrote shadcn primitive baseline to ${BASELINE_PATH}.`);
+  process.exit(0);
+}
 
 console.log(`Scanned ${files.length} shadcn-governed UI source files.`);
 printFindings('Blocking findings', findings.blocking);
 printFindings('Advisory migration inventory', findings.advisory);
+
+const strictFindings = findings.advisory.filter((finding) => finding.kind !== 'ad-hoc-token');
+
+// Baseline (ratchet) mode: block only NEW debt above the pinned counts, tolerate
+// known debt, and nudge to tighten the baseline when it drops. Same contract as
+// guard:luma. Without a baseline, fall back to the original hard gate below.
+if (BASELINE_PATH) {
+  const baseline = loadBaseline(BASELINE_PATH);
+  if (!baseline) {
+    console.error(
+      `\nBaseline ${BASELINE_PATH} not found. Create it with --update-baseline before ratcheting.`,
+    );
+    process.exit(1);
+  }
+
+  const { regressions, improvements } = diffAgainstBaseline(
+    countByKind(findings.blocking),
+    baseline.blocking,
+  );
+
+  if (regressions.length > 0) {
+    console.error(
+      `\nFailed baseline ratchet: ${regressions.length} finding kind(s) above baseline:\n  ${regressions.join('\n  ')}\n` +
+        `Fix the new finding(s), or intentionally re-pin with --update-baseline.`,
+    );
+    process.exit(1);
+  }
+
+  if (improvements.length > 0) {
+    console.log(
+      `\nBelow baseline — tighten it with --update-baseline:\n  ${improvements.join('\n  ')}`,
+    );
+  }
+  console.log('\nPassed baseline ratchet: no shadcn primitive findings above baseline.');
+  process.exit(0);
+}
 
 if (findings.blocking.length > 0) {
   console.error(
@@ -485,8 +553,6 @@ if (findings.blocking.length > 0) {
   );
   process.exit(1);
 }
-
-const strictFindings = findings.advisory.filter((finding) => finding.kind !== 'ad-hoc-token');
 
 if (STRICT && strictFindings.length > 0) {
   console.error(

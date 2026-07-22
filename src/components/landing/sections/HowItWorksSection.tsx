@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 
 const HOW_IT_WORKS_STEPS = [
   {
@@ -43,7 +44,7 @@ export function HowItWorksSection() {
                 <CardTitle className="pg-card-title">{step.title}</CardTitle>
               </CardHeader>
               <CardContent className="px-5 pb-5 pt-0 sm:px-6 sm:pb-6 md:px-7 md:pb-7">
-                <p className="text-sm text-muted-foreground sm:text-base">{step.description}</p>
+                <Text variant="body">{step.description}</Text>
               </CardContent>
             </Card>
           ))}

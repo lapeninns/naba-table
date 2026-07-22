@@ -12,6 +12,7 @@ import {
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 
 import { parseZoneFormPayload, type ZoneFormPayload } from './tableInventoryFormDomain';
 
@@ -71,9 +72,9 @@ export function TableZoneDialog({
                 type="number"
                 defaultValue={editingZone?.sortOrder ?? 0}
               />
-              <p className="text-xs text-muted-foreground">
+              <Text variant="caption">
                 Lower numbers appear first in the list. Defaults to 0.
-              </p>
+              </Text>
             </div>
           </div>
 

@@ -1,4 +1,5 @@
-import { getVenuePolicy, ServiceOverrunError, type VenuePolicy } from '@/server/capacity/policy';
+import { getVenuePolicy, ServiceNotFoundError, ServiceOverrunError, type VenuePolicy } from '@/server/capacity/policy';
+import { getRestaurantServiceWindows } from '@/server/capacity/service-windows';
 import { hashPolicyVersion } from '@/server/capacity/v2';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';
 
@@ -47,6 +48,7 @@ export function buildManualBookingWindowArgs({
     partySize: booking.party_size,
     bookingOption: booking.booking_type ?? null,
     policy,
+    restaurantId: booking.restaurant_id,
   };
 }
 
@@ -69,6 +71,13 @@ export function translateManualBookingWindowError(error: unknown): never {
   if (error instanceof ServiceOverrunError) {
     throw new ManualSelectionInputError(error.message, 'SERVICE_OVERRUN', 422);
   }
+  if (error instanceof ServiceNotFoundError) {
+    throw new ManualSelectionInputError(
+      'Booking time is outside every configured service window',
+      'OUTSIDE_SERVICE_HOURS',
+      422,
+    );
+  }
   throw error;
 }
 
@@ -85,10 +94,14 @@ export async function loadManualBookingPolicyContext({
       fallbackTimezone:
         (await loadRestaurantTimezone(booking.restaurant_id, client)) ?? getVenuePolicy().timezone,
     }) ?? null;
-  const turnBandsByOption = await getRestaurantTurnBands(booking.restaurant_id, client);
+  const [turnBandsByOption, serviceWindows] = await Promise.all([
+    getRestaurantTurnBands(booking.restaurant_id, client),
+    getRestaurantServiceWindows(booking.restaurant_id, client),
+  ]);
   const policy = getVenuePolicy({
     timezone: restaurantTimezone ?? undefined,
     turnBandsByOption,
+    serviceWindows,
   });
 
   return {

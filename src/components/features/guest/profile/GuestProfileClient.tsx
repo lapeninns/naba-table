@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 import { useGuestProfile } from '@/guest/hooks';
 import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
 
@@ -265,7 +266,7 @@ function FieldShell({
         {label}
       </Label>
       {children}
-      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+      {error ? <Text variant="label" className="text-destructive">{error}</Text> : null}
     </div>
   );
 }

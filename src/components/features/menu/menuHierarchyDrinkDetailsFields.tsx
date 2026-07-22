@@ -4,6 +4,7 @@ import { Beer } from 'lucide-react';
 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import { type ItemFormState } from './menuHierarchyDomain';
 import { Field, SwitchField } from './menuHierarchyFormControls';
@@ -20,7 +21,7 @@ export function DrinkDetailsFields({
     <div className="rounded-md border p-4">
       <div className="flex items-center gap-2">
         <Beer className="size-4 text-muted-foreground" aria-hidden />
-        <h3 className="text-sm font-semibold">Drink details</h3>
+        <Text variant="subheading" as="h3">Drink details</Text>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <Field label="ABV %">

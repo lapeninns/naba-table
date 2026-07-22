@@ -1,3 +1,5 @@
+import { Text } from '@/components/ui/typography';
+
 import { DualSyncFieldActionToggle } from './DualSyncFieldActionToggle';
 import { DualSyncFieldValuePreview } from './DualSyncFieldValuePreview';
 
@@ -26,9 +28,9 @@ export function DualSyncFieldRowContent({
       </div>
 
       {actionAvailability.isUnsupported ? (
-        <p className="text-muted-foreground text-xs">
+        <Text variant="caption">
           This field is Nabatable-only. Google has no counterpart.
-        </p>
+        </Text>
       ) : (
         <DualSyncFieldActionToggle
           availability={actionAvailability}

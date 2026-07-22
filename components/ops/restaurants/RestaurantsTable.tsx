@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Heading, Text } from '@/components/ui/typography';
 
 import type { RestaurantDTO } from '@/app/api/ops/restaurants/schema';
 
@@ -40,11 +41,11 @@ function EmptyState() {
   return (
     <div className="flex min-h-[400px] items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 p-8 text-center">
       <div className="max-w-md">
-        <h3 className="text-lg font-semibold text-foreground">No restaurants found</h3>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <Heading variant="title" as="h3">No restaurants found</Heading>
+        <Text variant="caption" className="mt-2">
           Get started by creating your first restaurant. You&apos;ll be able to manage bookings,
           operating hours, and team members.
-        </p>
+        </Text>
       </div>
     </div>
   );
@@ -68,7 +69,7 @@ function RestaurantCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-semibold text-foreground">{restaurant.name}</h3>
-            <p className="truncate text-sm text-muted-foreground">{restaurant.slug}</p>
+            <Text variant="caption" className="truncate">{restaurant.slug}</Text>
           </div>
           <Badge variant={getRoleBadgeVariant(restaurant.role)}>{restaurant.role}</Badge>
         </div>

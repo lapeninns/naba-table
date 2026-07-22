@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Heading } from '@/components/ui/typography';
 
 import { primaryDescription, primaryLabel } from './menuHierarchyDomain';
 
@@ -62,9 +63,9 @@ export function SelectedMenuHeader({
           ) : null}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-xl font-semibold leading-tight text-foreground text-balance">
+              <Heading variant="title" as="h2" className="truncate">
                 {primaryLabel(selectedMenu, 'Menu')}
-              </h2>
+              </Heading>
               <Badge variant={selectedMenu.active ? 'secondary' : 'outline'}>
                 {selectedMenu.active ? 'Active' : 'Inactive'}
               </Badge>

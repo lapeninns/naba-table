@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Text } from '@/components/ui/typography';
 
 const CAPACITY_BREAKDOWN = [
   { label: '2-Tops', current: 0, total: 0 },
@@ -22,14 +23,14 @@ function ActionRequiredPanel() {
     <Card>
       <CardContent className="p-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Action Required</h3>
+          <Text variant="subheading" as="h3">Action Required</Text>
           <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">
             — Alerts
           </span>
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <Text variant="caption" className="mt-3">
           Alerts will appear here once live data is loaded.
-        </p>
+        </Text>
         <Button className="mt-4 w-full" variant="secondary" disabled>
           View All Notifications
         </Button>
@@ -42,10 +43,10 @@ function CapacityBreakdownPanel() {
   return (
     <Card>
       <CardContent className="p-5">
-        <h3 className="text-sm font-semibold">Capacity Breakdown</h3>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <Text variant="subheading" as="h3">Capacity Breakdown</Text>
+        <Text variant="caption" className="mt-2">
           Breakdown will be computed from table inventory and bookings.
-        </p>
+        </Text>
         <div className="mt-4 flex flex-col gap-4">
           {CAPACITY_BREAKDOWN.map((item) => {
             const progress = item.total ? (item.current / item.total) * 100 : 0;

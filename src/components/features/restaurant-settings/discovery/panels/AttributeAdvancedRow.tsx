@@ -3,6 +3,7 @@
 import { Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
 import {
   AttributeAdvancedGuestValueFields,
@@ -28,8 +29,12 @@ export function AttributeAdvancedRow({
     <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{display.title}</p>
-          <p className="truncate text-xs text-muted-foreground">{display.subtitle}</p>
+          <Text variant="label" className="truncate">
+            {display.title}
+          </Text>
+          <Text variant="caption" className="truncate">
+            {display.subtitle}
+          </Text>
         </div>
         <Button
           type="button"

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { GuestSignInForm } from '@/components/auth/GuestSignInForm';
 import { GuestPanel } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { hasRedirectedFrom } from '@/lib/auth/signin-redirect-guard';
 import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import { ensureCsrfCookie } from '@/server/security/csrf';
@@ -225,9 +226,9 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           </div>
 
           <div className="border-t border-border bg-muted/35 p-5">
-            <p className="mb-3 text-center text-sm text-muted-foreground">
+            <Text variant="caption" className="mb-3 text-center">
               Restaurant owner or manager?
-            </p>
+            </Text>
             <Button
               asChild
               variant="guest-outline"

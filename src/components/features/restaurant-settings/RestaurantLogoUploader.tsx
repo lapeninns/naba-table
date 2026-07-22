@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 import { useOpsRestaurantLogoUpload } from '@/hooks/ops/useOpsRestaurantLogoUpload';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
@@ -184,12 +185,12 @@ export function RestaurantLogoUploader({
           </div>
           <div>
             <Label className="text-sm font-medium text-foreground">Restaurant logo</Label>
-            <p className="text-sm text-muted-foreground">
+            <Text variant="caption">
               Shown on the guest booking page and in booking emails.
-            </p>
-            <p className="text-xs text-muted-foreground">
+            </Text>
+            <Text variant="caption">
               Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.
-            </p>
+            </Text>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:items-end">
@@ -225,16 +226,17 @@ export function RestaurantLogoUploader({
             aria-label="Upload restaurant logo"
             disabled={controlsDisabled}
           />
-          <p
+          <Text
+            variant="caption"
             role="status"
             aria-live={errorMessage ? 'assertive' : 'polite'}
-            className={cn('text-xs text-muted-foreground', errorMessage && 'text-destructive')}
+            className={cn(errorMessage && 'text-destructive')}
           >
             {errorMessage ??
               (restaurantId
                 ? 'Images are cropped to square automatically.'
                 : 'Select a restaurant to upload a logo.')}
-          </p>
+          </Text>
         </div>
       </div>
     </div>

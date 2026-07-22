@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormRoot } from '@/components/ui/form';
+import { Text } from '@/components/ui/typography';
 import {
   useOpsCreateRestaurantMenu,
   useOpsCreateRestaurantMenuSection,
@@ -81,7 +82,11 @@ export function MenuDialog({
         </DialogHeader>
         <FormRoot className="flex flex-col gap-5" onSubmit={submit}>
           <MenuDialogFields setState={setState} state={state} />
-          {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
+          {error ? (
+            <Text variant="caption" className="text-destructive">
+              {error.message}
+            </Text>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -147,7 +152,11 @@ export function SectionDialog({
         </DialogHeader>
         <FormRoot className="flex flex-col gap-4" onSubmit={submit}>
           <SectionDialogFields setState={setState} state={state} />
-          {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
+          {error ? (
+            <Text variant="caption" className="text-destructive">
+              {error.message}
+            </Text>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

@@ -4,6 +4,7 @@ import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { SidebarInset, SidebarProvider, SidebarRail } from '@/components/ui/sidebar';
+import { Text } from '@/components/ui/typography';
 import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { cn } from '@/lib/utils';
 
@@ -64,12 +65,13 @@ export function RestaurantSettingsFocusedShell({
           {sectionNav}
 
           {envBanner ? (
-            <p
-              className="shrink-0 border-b border-border/60 bg-muted/40 px-4 py-2 text-center text-xs text-muted-foreground sm:px-6"
+            <Text
+              variant="caption"
+              className="shrink-0 border-b border-border/60 bg-muted/40 px-4 py-2 text-center sm:px-6"
               role="status"
             >
               {envBanner}
-            </p>
+            </Text>
           ) : null}
 
           <div

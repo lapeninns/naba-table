@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import { NONE_VALUE, type ItemFormState } from './menuHierarchyDomain';
 import { Field, SwitchField } from './menuHierarchyFormControls';
@@ -23,7 +24,7 @@ export function GuestMenuItemFields({
 }) {
   return (
     <div className="rounded-md border p-4">
-      <h3 className="text-sm font-semibold">Guest menu</h3>
+      <Text variant="subheading" as="h3">Guest menu</Text>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="Availability status">
           <Select

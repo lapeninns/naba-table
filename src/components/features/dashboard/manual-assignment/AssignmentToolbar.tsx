@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { ManualSelectionCheck } from '@/services/ops/bookings';
@@ -73,9 +74,7 @@ export function AssignmentToolbar({
                   <Users className="size-7 text-primary dark:text-primary" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Party
-                  </p>
+                  <Text variant="eyebrow">Party</Text>
                   <p className="text-3xl font-bold tabular-nums text-foreground">{partySize}</p>
                 </div>
               </div>
@@ -87,9 +86,7 @@ export function AssignmentToolbar({
                 <LayoutGrid className="size-7 text-primary dark:text-primary" />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Selected
-                </p>
+                <Text variant="eyebrow">Selected</Text>
                 <div className="flex items-baseline gap-1.5">
                   <p className="text-3xl font-bold tabular-nums text-foreground">{selectedCount}</p>
                   <p className="text-sm text-muted-foreground font-medium">
@@ -120,9 +117,7 @@ export function AssignmentToolbar({
                 )}
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Capacity
-                </p>
+                <Text variant="eyebrow">Capacity</Text>
                 <div className="flex items-baseline gap-1.5">
                   <p
                     className={cn(

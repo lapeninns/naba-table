@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { Icon } from '../shared/Icons';
@@ -102,9 +103,7 @@ export function BenefitsSection() {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-4 sm:px-5 sm:pb-5 md:px-6 md:pb-6">
                   <CardTitle className="pg-card-title text-left">{benefit.title}</CardTitle>
-                  <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-                    {benefit.description}
-                  </p>
+                  <Text variant="body">{benefit.description}</Text>
                 </CardContent>
               </Card>
             );

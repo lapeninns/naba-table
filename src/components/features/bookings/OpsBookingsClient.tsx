@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic';
 
-import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
 import { OpsBookingsPageHeader } from '@/components/features/bookings/components/OpsBookingsPageHeader';
 import {
@@ -16,6 +15,7 @@ import { OpsCancelBookingAlertDialog } from '@/components/features/bookings/comp
 import { OPS_STATUS_TABS } from '@/components/features/bookings/opsBookingsConstants';
 import { resolveOpsBookingsRestaurantName } from '@/components/features/bookings/opsBookingsQueryDomain';
 import { useOpsBookingsState } from '@/components/features/bookings/useOpsBookingsState';
+import { BookingsTable } from '@/components/features/dashboard/bookings-table/BookingsTable';
 import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ import type { OpsBookingsClientStateParams } from './opsBookingsTypes';
 import type { StatusFilter } from '@/hooks/useBookingsTableState';
 
 const EditBookingDialog = dynamic(
-  () => import('@/components/dashboard/EditBookingDialog').then((m) => m.EditBookingDialog),
+  () => import('@/components/features/dashboard/bookings-table/EditBookingDialog').then((m) => m.EditBookingDialog),
   {
     loading: () => <div className="h-10" />,
   },

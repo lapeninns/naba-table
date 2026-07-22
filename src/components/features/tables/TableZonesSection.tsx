@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { ALL_ZONES_VALUE, type TableZone, type ZoneStatusFilter } from './tableInventoryModel';
@@ -112,11 +113,11 @@ export function TableZonesSection({
             </AlertDescription>
           </Alert>
         ) : filteredZones.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <Text variant="caption">
             {zones.length === 0
               ? 'No zones configured yet. Create your first zone to start organizing tables.'
               : 'No zones match this filter. Show all to view inactive zones.'}
-          </p>
+          </Text>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {filteredZones.map((zone) => {
@@ -158,11 +159,11 @@ export function TableZonesSection({
                         </span>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <Text variant="caption">
                       {zone.active
                         ? 'Included in capacity and assignments.'
                         : 'Tables stay visible but are excluded from service until re-enabled.'}
-                    </p>
+                    </Text>
                     <div className="flex items-center gap-1">
                       <Button
                         type="button"

@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 
 import { ImplicitAuthHandler } from '@/components/auth/ImplicitAuthHandler';
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 type EnhancedAuthLayoutProps = {
@@ -88,15 +89,15 @@ function EnhancedAuthLayoutContent({
           <div className="grid gap-8 sm:grid-cols-[1.4fr_1fr_1fr]">
             <div className="space-y-3">
               <BrandLogo href={`/auth${searchSuffix}`} size="sm" />
-              <p className="text-sm text-muted-foreground">
+              <Text variant="caption">
                 {isGuest
                   ? 'Reserve the best tables without the back-and-forth.'
                   : 'Streamline your restaurant operations with powerful booking tools.'}
-              </p>
+              </Text>
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Product</h3>
+              <Text variant="subheading" as="h3">Product</Text>
               <ul className="space-y-2 text-sm">
                 <li>
                   <Link
@@ -126,7 +127,7 @@ function EnhancedAuthLayoutContent({
             </div>
 
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Help</h3>
+              <Text variant="subheading" as="h3">Help</Text>
               <ul className="space-y-2 text-sm">
                 <li>
                   <Link

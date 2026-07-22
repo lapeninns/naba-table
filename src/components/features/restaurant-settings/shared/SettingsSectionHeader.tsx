@@ -1,3 +1,4 @@
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { SETTINGS_COMPACT_SECTION_HEADER_CLASS } from './compactSettingsClasses';
@@ -24,7 +25,7 @@ export function SettingsSectionHeader({
         {action}
       </div>
       {description ? (
-        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+        <Text variant="caption">{description}</Text>
       ) : null}
     </div>
   );

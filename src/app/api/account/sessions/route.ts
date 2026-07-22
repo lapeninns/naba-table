@@ -368,3 +368,37 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
   });
 }
+
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  return withCsrfProtectedMutation(request, async () => {
+    try {
+      if (getQaSessionsResponse(request)) {
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      const auth = await requireAuthenticatedSession();
+      if (auth.response) return auth.response;
+
+      const { error } = await auth.supabase.auth.signOut({ scope: 'others' });
+      if (error) {
+        console.error('[account/sessions][delete] failed to log out other sessions', {
+          message: error.message,
+        });
+        return jsonError(
+          500,
+          'SESSION_LOGOUT_FAILED',
+          'We couldn’t log out your other sessions. Try again.',
+        );
+      }
+
+      return NextResponse.json({ status: 'ok' });
+    } catch (error) {
+      console.error('[account/sessions][delete] unexpected error', error);
+      return jsonError(
+        500,
+        'UNEXPECTED_ERROR',
+        'We couldn’t log out your other sessions. Try again.',
+      );
+    }
+  });
+}

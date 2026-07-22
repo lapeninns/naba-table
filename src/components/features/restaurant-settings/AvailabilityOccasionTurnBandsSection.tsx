@@ -1,5 +1,7 @@
 import { type Dispatch, type SetStateAction } from 'react';
 
+import { Text } from '@/components/ui/typography';
+
 import { isServiceWindowOccasion, type OccasionFormState } from './availabilityOccasionsModel';
 import { TurnBandsEditor } from './TurnBandsEditor';
 
@@ -30,13 +32,13 @@ export function AvailabilityOccasionTurnBandsSection({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border/70 p-4">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-foreground">Dining durations by party size</p>
-        <p className="text-sm text-muted-foreground">
+        <Text variant="label">Dining durations by party size</Text>
+        <Text variant="caption">
           {editingKey && isServiceWindowOccasion(editingKey)
             ? `How long tables are held for each party size inside the ${form.label || editingKey} service window. Leave empty to fall back to `
             : 'Override the default duration above with per-party-size bands. Leave empty to fall back to '}
           <span className="font-medium text-foreground">{form.defaultDurationMinutes} min</span>.
-        </p>
+        </Text>
       </div>
       <TurnBandsEditor
         bands={form.turnBands}

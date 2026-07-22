@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Text } from '@/components/ui/typography';
 import {
   useOpsDeleteRestaurantMenu,
   useOpsDeleteRestaurantMenuItem,
@@ -116,7 +117,7 @@ export function DeleteHierarchyDialog({
             Google is handled separately.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
+        {error ? <Text variant="caption" className="text-destructive">{error.message}</Text> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction

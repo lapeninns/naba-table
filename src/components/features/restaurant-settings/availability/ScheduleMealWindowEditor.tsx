@@ -3,6 +3,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { DayServiceConfig } from '../servicePeriodsMapper';
@@ -30,8 +31,8 @@ export function ScheduleMealWindowEditor({
     <div className="rounded-lg border border-border/60 bg-background/80 p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="text-xs text-muted-foreground">Booked inside the operating window.</p>
+          <Text variant="label">{label}</Text>
+          <Text variant="caption">Booked inside the operating window.</Text>
         </div>
         <div className="flex items-center gap-2">
           <Label htmlFor={`${idPrefix}-enabled`} className="text-xs text-muted-foreground">
@@ -63,7 +64,11 @@ export function ScheduleMealWindowEditor({
             aria-invalid={Boolean(errors?.start)}
             className={cn('mt-1', errors?.start && 'border-destructive')}
           />
-          {errors?.start ? <p className="mt-1 text-xs text-destructive">{errors.start}</p> : null}
+          {errors?.start ? (
+            <Text variant="caption" className="mt-1 text-destructive">
+              {errors.start}
+            </Text>
+          ) : null}
         </div>
         <div>
           <Label
@@ -82,7 +87,11 @@ export function ScheduleMealWindowEditor({
             aria-invalid={Boolean(errors?.end)}
             className={cn('mt-1', errors?.end && 'border-destructive')}
           />
-          {errors?.end ? <p className="mt-1 text-xs text-destructive">{errors.end}</p> : null}
+          {errors?.end ? (
+            <Text variant="caption" className="mt-1 text-destructive">
+              {errors.end}
+            </Text>
+          ) : null}
         </div>
       </div>
     </div>

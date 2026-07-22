@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { resolveRequestCorrelationId } from '@/lib/observability/request-correlation';
 import { captureRestaurantServerEvent } from '@/lib/posthog/server';
+import { parseBookingAttemptHeaders } from '@/server/bookings/attempt-context';
 import { completeBookingCreate } from '@/server/bookings/create-completion';
 import { runBookingCreateEntryGate } from '@/server/bookings/create-entry-gate';
 import { buildBookingCreateFailureResponse } from '@/server/bookings/create-failure-response';
@@ -86,9 +88,21 @@ export async function buildBookingsPostHttpResponse({
 
   const restaurantId = entryGate.restaurantId;
 
+  // Correlation: the client wizard sends a stable attempt id (+ attempt number)
+  // per logical submission; the correlation id is the active trace id (or a
+  // sanitized request id) shared by the started/failed events, logs, and any
+  // captured exception for this request.
+  const attempt = parseBookingAttemptHeaders(headers);
+  const correlationId = resolveRequestCorrelationId(headers);
+
   captureRestaurantServerEvent('booking_create_started', {
     restaurantId,
-    props: { source: 'api' },
+    correlationId,
+    props: {
+      source: 'api',
+      ...(attempt.attemptId ? { attemptId: attempt.attemptId } : {}),
+      ...(attempt.attemptNumber !== null ? { attempt: attempt.attemptNumber } : {}),
+    },
   });
 
   try {
@@ -168,6 +182,8 @@ export async function buildBookingsPostHttpResponse({
     });
   } catch (error: unknown) {
     return failureResponseBuilder({
+      attempt,
+      correlationId,
       error,
       request,
       restaurantId,

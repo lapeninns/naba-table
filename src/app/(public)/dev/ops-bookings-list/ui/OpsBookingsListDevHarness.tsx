@@ -3,13 +3,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { BookingsTable } from '@/components/dashboard/BookingsTable';
 import {
   BookingOfflineBanner,
   type BookingAction,
 } from '@/components/features/booking-state-machine';
 import { OpsBookingsSearchInput } from '@/components/features/bookings/components/OpsBookingsSearchInput';
 import { buildOpsBookingsCardRows } from '@/components/features/bookings/opsBookingsSelectors';
+import { BookingsTable } from '@/components/features/dashboard/bookings-table/BookingsTable';
 import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';

@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 
 import type { BookingSortDir, BookingSortKey } from './utils';
@@ -49,7 +50,9 @@ export function BookingsListControls({
   return (
     <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-        <span className="text-sm font-medium text-muted-foreground">Sort</span>
+        <Text as="span" variant="label" className="text-muted-foreground">
+          Sort
+        </Text>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
           <Select value={sortKey} onValueChange={(val) => onSortKeyChange(val as BookingSortKey)}>
             <SelectTrigger className="h-9 w-full rounded bg-card sm:w-[150px]" aria-label="Sort by">

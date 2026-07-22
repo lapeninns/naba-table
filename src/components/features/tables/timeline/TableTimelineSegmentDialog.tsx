@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { formatTime, STATUS_META, type SelectedSegment } from './tableTimelineDomain';
@@ -130,7 +131,11 @@ export function TableTimelineSegmentDialog({
             </Button>
           ) : null}
         </div>
-        {actionState.error ? <p className="text-xs text-destructive">{actionState.error}</p> : null}
+        {actionState.error ? (
+          <Text variant="caption" className="text-destructive">
+            {actionState.error}
+          </Text>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

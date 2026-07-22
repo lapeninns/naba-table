@@ -49,7 +49,10 @@ const htmlStyle: CSSProperties = {
   marginRight: '0px',
 };
 
-const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);if(theme==='guest'){root.classList.remove('dark');root.style.colorScheme='light';}else{root.style.removeProperty('color-scheme');}})();`;
+// Sets the surface theme (guest/app, by host/path) AND the color mode (light/dark).
+// Color mode is orthogonal to the surface and opt-in: no stored preference stays light;
+// 'dark' forces dark; 'system' follows the OS. Runs before paint to avoid a flash.
+const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);var mode=null;try{mode=localStorage.getItem('nabatable-color-mode');}catch(e){}var systemDark=!!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);var dark=mode==='dark'||(mode==='system'&&systemDark);if(dark){root.classList.add('dark');root.style.colorScheme='dark';}else{root.classList.remove('dark');root.style.colorScheme='light';}})();`;
 const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**';
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,10 +1,11 @@
 'use client';
 
-import { StatusFilterGroup } from '@/components/dashboard/StatusFilterGroup';
 import { BookingOfflineBanner } from '@/components/features/booking-state-machine';
+import { StatusFilterGroup } from '@/components/features/dashboard/bookings-table/StatusFilterGroup';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Text } from '@/components/ui/typography';
 
 import { OPS_STATUS_TABS } from '../opsBookingsConstants';
 import { OpsStatusFilter as OpsStatusFilterPopover } from '../OpsStatusFilter';
@@ -33,9 +34,9 @@ export function OpsBookingsToolbar({
       filters={
         <div className="flex w-full min-w-0 flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
           <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Text variant="eyebrow" as="span">
               View
-            </span>
+            </Text>
             <StatusFilterGroup
               value={queryState.view as StatusFilter}
               options={OPS_STATUS_TABS}

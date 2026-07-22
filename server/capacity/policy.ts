@@ -175,37 +175,52 @@ export class ServiceOverrunError extends PolicyError {
   }
 }
 
+export type ServiceWindowOverride = {
+  start: TimeOfDay;
+  end: TimeOfDay;
+};
+
+export type ServiceWindowsByService = Partial<Record<ServiceKey, ServiceWindowOverride>>;
+
 type PolicyOptions = {
   timezone?: string | null;
   turnBandsByOption?: TurnBandsByOption | null;
+  /**
+   * Per-restaurant service window overrides derived from the restaurant's
+   * configured `restaurant_service_periods` rows. When present these replace
+   * the hardcoded default lunch/dinner start/end times so `whichService`
+   * agrees with the slots the restaurant actually offers (the default
+   * 12:00–15:00 / 16:00–22:00 windows otherwise reject configured slots such
+   * as a 22:15 dinner or 15:00 lunch and force the fallback path).
+   */
+  serviceWindows?: ServiceWindowsByService | null;
 };
 
 export function getVenuePolicy(options?: PolicyOptions): VenuePolicy {
   const turnBandsByOption = options?.turnBandsByOption ?? undefined;
+  const serviceWindows = options?.serviceWindows ?? undefined;
+  const timezone =
+    options?.timezone && options.timezone !== defaultVenuePolicy.timezone
+      ? options.timezone
+      : defaultVenuePolicy.timezone;
 
-  if (!options?.timezone || options.timezone === defaultVenuePolicy.timezone) {
-    return {
-      timezone: defaultVenuePolicy.timezone,
-      serviceOrder: [...defaultVenuePolicy.serviceOrder],
-      services: Object.fromEntries(
-        Object.entries(defaultVenuePolicy.services).map(([key, service]) => [
-          key,
-          service ? cloneService(service) : service,
-        ]),
-      ),
-      ...(turnBandsByOption ? { turnBandsByOption: cloneTurnBandsByOption(turnBandsByOption) } : {}),
-    };
-  }
+  const services = Object.fromEntries(
+    Object.entries(defaultVenuePolicy.services).map(([key, service]) => {
+      if (!service) return [key, service];
+      const cloned = cloneService(service);
+      const override = serviceWindows?.[key as ServiceKey];
+      if (override) {
+        cloned.start = { ...override.start };
+        cloned.end = { ...override.end };
+      }
+      return [key, cloned];
+    }),
+  );
 
   return {
-    timezone: options.timezone,
+    timezone,
     serviceOrder: [...defaultVenuePolicy.serviceOrder],
-    services: Object.fromEntries(
-      Object.entries(defaultVenuePolicy.services).map(([key, service]) => [
-        key,
-        service ? cloneService(service) : service,
-      ]),
-    ),
+    services,
     ...(turnBandsByOption ? { turnBandsByOption: cloneTurnBandsByOption(turnBandsByOption) } : {}),
   };
 }

@@ -10,6 +10,7 @@ import {
   GuestSecondaryButton,
 } from '@/components/guest/ui';
 import { Button } from '@/components/ui/button';
+import { Heading } from '@/components/ui/typography';
 import { getGuestBookingsLandingContent } from '@/guest/routes/auth-aware-content';
 import { getGuestAuthState } from '@/guest/services/auth-state.server';
 
@@ -33,9 +34,9 @@ export default async function BookingsLandingPage() {
         <header className="grid gap-4 border-b border-border/70 pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div className="min-w-0 space-y-2">
             <p className="pg-kicker">Book a table</p>
-            <h1 className="font-[var(--pg-font-display)] text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+            <Heading variant="section" as="h1">
               Start a new booking
-            </h1>
+            </Heading>
             <p className="pg-body max-w-[58ch]">{content.headerDescription}</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { ALL_ZONES_VALUE, type TableStatusFilter, type TableZone } from './tableInventoryModel';
@@ -35,9 +36,9 @@ export function TableInventoryFilters({
     >
       <div className="md:col-span-2">
         <p className="text-sm font-semibold text-foreground">Inventory filters</p>
-        <p className="text-xs leading-5 text-muted-foreground">
+        <Text variant="caption">
           Add tables with number and capacity first; zones and classification can come later.
-        </p>
+        </Text>
       </div>
       <div className="flex items-center gap-3">
         <Label htmlFor="table-zone-filter" className="text-sm font-medium">

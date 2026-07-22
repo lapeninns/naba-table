@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { type FamilyKey, type SeedSource } from '../businessContextModel';
@@ -35,8 +36,8 @@ export function DiscoveryStatusLine({
 
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm font-medium text-foreground">{getDiscoverySyncPosture(family)}</p>
-      <p className="text-xs text-muted-foreground">
+      <Text variant="label">{getDiscoverySyncPosture(family)}</Text>
+      <Text variant="caption">
         {gbpLinked ? (
           status
         ) : (
@@ -50,7 +51,7 @@ export function DiscoveryStatusLine({
             </Link>
           </>
         )}
-      </p>
+      </Text>
     </div>
   );
 }
@@ -78,7 +79,7 @@ export function DiscoverySaveBoundary({
         </Badge>
       ) : null}
       {state.hasError ? <Badge variant="destructive">Error</Badge> : null}
-      <span className="text-xs text-muted-foreground">{state.boundaryText}</span>
+      <Text as="span" variant="caption">{state.boundaryText}</Text>
     </div>
   );
 }
@@ -150,14 +151,15 @@ export function FamilyError({
   // RP-UX-07: announce family save failures so screen readers and live-region
   // listeners can react and operators can recover without re-reading the page.
   return message ? (
-    <p
-      className="text-sm text-destructive"
+    <Text
+      variant="caption"
+      className="text-destructive"
       role="alert"
       aria-live="assertive"
       data-discovery-family-error={family}
       tabIndex={-1}
     >
       {message}
-    </p>
+    </Text>
   ) : null;
 }

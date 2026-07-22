@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { Heading, Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { formatTime, type TimelineService } from './tableTimelineDomain';
@@ -46,14 +47,14 @@ export function TableTimelineHeader({
             <LayoutDashboard className="size-5" />
           </div>
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-lg font-semibold text-foreground">Capacity Timeline</h1>
-            <p className="text-xs text-muted-foreground">
+            <Heading variant="title" as="h1">Capacity Timeline</Heading>
+            <Text variant="caption">
               {service === 'all' ? 'All services' : service === 'lunch' ? 'Lunch' : 'Dinner'}
               {selectedZoneName ? ` • ${selectedZoneName}` : ''}
               {timelineWindow?.start && timelineWindow?.end
                 ? ` • ${formatTime(timelineWindow.start)}–${formatTime(timelineWindow.end)}`
                 : ''}
-            </p>
+            </Text>
           </div>
         </div>
 

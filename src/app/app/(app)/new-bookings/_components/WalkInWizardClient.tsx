@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Text } from "@/components/ui/typography";
 import { useOpsActiveMembership, useOpsSession } from "@/contexts/ops-session";
 import { useOpsRestaurantDetails } from "@/hooks";
 import { PlanStepSkeleton } from "@features/reservations/wizard/ui/WizardSkeletons";
@@ -88,7 +89,7 @@ export function WalkInWizardClient() {
     return (
       <Card className="flex min-h-[40vh] flex-col items-center justify-center gap-3 border-dashed text-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">Preparing your restaurant context…</p>
+        <Text variant="caption">Preparing your restaurant context…</Text>
       </Card>
     );
   }
@@ -109,10 +110,10 @@ export function WalkInWizardClient() {
             <h1 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">
               Create a new booking
             </h1>
-            <p className="text-sm text-muted-foreground sm:max-w-2xl">
+            <Text variant="caption" className="sm:max-w-2xl">
               Use the same booking steps as guests, with ops controls and optional contact details. We will return you to bookings when
               you are done.
-            </p>
+            </Text>
           </div>
           {restaurantQuery.isError ? (
             <Alert variant="warning" className="max-w-xl">

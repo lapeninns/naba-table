@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import {
@@ -81,10 +82,10 @@ export function OpsEmailQueuePanel({
               <CardTitle className="text-base font-semibold text-foreground">
                 Scheduled email queue
               </CardTitle>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+              <Text variant="caption" className="mt-1 max-w-2xl">
                 See which booking emails are scheduled to send later, ready to go out now, currently
                 being sent, or need follow-up.
-              </p>
+              </Text>
             </div>
             {timestamp ? (
               <Badge

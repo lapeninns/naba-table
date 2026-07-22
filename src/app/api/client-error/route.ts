@@ -2,67 +2,33 @@ import { NextResponse } from 'next/server';
 
 import { logger } from '@/lib/logger';
 import { buildGitHubDispatchRequest, parseErrorInsight } from '@/lib/observability/error-insight';
+import { resolveRequestCorrelationId } from '@/lib/observability/request-correlation';
+import { captureServerEvent } from '@/lib/posthog/server';
 import { stripUrlQueryAndHash } from '@/lib/security/url-redaction';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
+
+import {
+  computeServerClientErrorFingerprint,
+  GENERIC_SCRIPT_ERROR_PATTERN,
+  MAX_CLIENT_ERROR_BODY_BYTES,
+  parseClientErrorPayload,
+  registerAnalyticsFingerprint,
+  shouldCaptureClientErrorAnalytics,
+  SUPABASE_USER_ID_PATTERN,
+  type ClientErrorPayload,
+} from './report-handling';
 
 import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const MAX_CLIENT_ERROR_BODY_BYTES = 16 * 1024;
 const TRACEPARENT_PATTERN = /^00-([0-9a-f]{32})-[0-9a-f]{16}-[0-9a-f]{2}$/u;
-
-type ClientErrorPayload = {
-  bookingId: string | null;
-  message: string | null;
-  path: string | null;
-  stack: string | null;
-  userId: string | null;
-};
 
 function parseContentLength(value: string | null): number | null {
   if (!value) return null;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
-function readOptionalString(
-  record: Record<string, unknown>,
-  key: string,
-): string | null | undefined {
-  const value = record[key];
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  return typeof value === 'string' ? value : undefined;
-}
-
-function parseClientErrorPayload(value: unknown): ClientErrorPayload | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  const record = value as Record<string, unknown>;
-  const path = readOptionalString(record, 'path');
-  const message = readOptionalString(record, 'message');
-  const stack = readOptionalString(record, 'stack');
-  const userId = readOptionalString(record, 'userId');
-  const bookingId = readOptionalString(record, 'bookingId');
-
-  if (path === undefined || message === undefined) {
-    return null;
-  }
-
-  if (!path || !message || message.length > 1000 || (stack && stack.length > 8000)) {
-    return null;
-  }
-
-  return {
-    path,
-    message,
-    stack: stack ?? null,
-    userId: userId ?? null,
-    bookingId: bookingId ?? null,
-  };
 }
 
 async function dispatchClientErrorInsight(
@@ -138,7 +104,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid client error report' }, { status: 400 });
     }
 
-    logger.error('client error report', clientError);
+    const correlationId = resolveRequestCorrelationId(req.headers);
+    const fingerprint = computeServerClientErrorFingerprint({
+      type: clientError.type,
+      message: clientError.message ?? '',
+      stack: clientError.stack,
+      path: clientError.path ?? 'unknown',
+    });
+    const isGenericScriptError =
+      GENERIC_SCRIPT_ERROR_PATTERN.test((clientError.message ?? '').trim()) && !clientError.stack;
+
+    if (isGenericScriptError) {
+      // Cross-origin "Script error." with no stack has no actionable context;
+      // keep a warn-level trace but never an analytics event.
+      logger.warn('client error report (generic script error)', {
+        path: clientError.path,
+        fingerprint,
+        correlationId,
+      });
+    } else {
+      logger.error('client error report', { ...clientError, fingerprint, correlationId });
+
+      // Analytics only after the server accepted and validated the report, so
+      // client_error_reported can never disagree with the Logs record.
+      if (shouldCaptureClientErrorAnalytics(req.headers)) {
+        const dedupe = registerAnalyticsFingerprint(fingerprint, Date.now());
+        if (dedupe.count === 1) {
+          const distinctId =
+            clientError.userId && SUPABASE_USER_ID_PATTERN.test(clientError.userId)
+              ? clientError.userId
+              : undefined;
+          captureServerEvent(
+            'client_error_reported',
+            {
+              type: clientError.type,
+              path: stripUrlQueryAndHash(clientError.path ?? 'unknown'),
+              fingerprint,
+            },
+            { distinctId, correlationId },
+          );
+        }
+      }
+    }
+
     await dispatchClientErrorInsight(req, clientError).catch((error) => {
       logger.warn('client error insight dispatch failed', { error });
     });
@@ -146,5 +154,6 @@ export async function POST(req: NextRequest) {
     logger.error('client error report failed', { error });
   }
 
+  await flushPosthogLogsAfterResponse();
   return NextResponse.json({ ok: true }, { status: 200 });
 }

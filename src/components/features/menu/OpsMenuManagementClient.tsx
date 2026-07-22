@@ -16,6 +16,7 @@ import {
 } from '@/components/features/restaurant-settings/GbpDriftProvider';
 import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
@@ -175,9 +176,9 @@ export function OpsMenuManagementClient() {
         </nav>
         <section className="min-w-0 rounded-xl border border-border/70 bg-card p-3 shadow-sm">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Google FoodMenus drift appears beside matching rows below.
-            </p>
+            </Text>
             <GbpDriftBadge fields={foodMenuDriftFields} label="Google menu review" />
           </div>
           <MenuHierarchyManagementPanel

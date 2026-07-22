@@ -17,21 +17,24 @@ const resolvePosthogLogsConfig = () => {
   };
 };
 
+const buildOtelResource = () =>
+  resourceFromAttributes({
+    'service.name': 'nabatable-web',
+    'service.namespace': 'nabatable',
+    'deployment.environment': process.env.APP_ENV ?? process.env.NODE_ENV ?? 'unknown',
+    'service.version':
+      process.env.VERCEL_GIT_COMMIT_SHA ??
+      process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+      process.env.NEXT_PUBLIC_APP_VERSION ??
+      'unknown',
+  });
+
 export const posthogLoggerProvider = (() => {
   const config = resolvePosthogLogsConfig();
   if (!config) return null;
 
   return new LoggerProvider({
-    resource: resourceFromAttributes({
-      'service.name': 'nabatable-web',
-      'service.namespace': 'nabatable',
-      'deployment.environment': process.env.APP_ENV ?? process.env.NODE_ENV ?? 'unknown',
-      'service.version':
-        process.env.VERCEL_GIT_COMMIT_SHA ??
-        process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
-        process.env.NEXT_PUBLIC_APP_VERSION ??
-        'unknown',
-    }),
+    resource: buildOtelResource(),
     processors: [
       new BatchLogRecordProcessor(
         new OTLPLogExporter({
@@ -46,9 +49,37 @@ export const posthogLoggerProvider = (() => {
   });
 })();
 
+let nodeTracingRegistered = false;
+
+/**
+ * Registers a Node tracer provider with the default AsyncLocalStorage context
+ * manager and W3C propagators. No span processors are attached, so spans are
+ * never exported; the provider exists so Next.js records request spans and the
+ * OTel Logs SDK stamps real (non-zero) trace/span ids onto every log record
+ * emitted inside a request. Exported for tests.
+ */
+export async function registerNodeTracing(): Promise<boolean> {
+  if (nodeTracingRegistered) return true;
+  try {
+    const { NodeTracerProvider } = await import('@opentelemetry/sdk-trace-node');
+    const provider = new NodeTracerProvider({ resource: buildOtelResource() });
+    provider.register();
+    nodeTracingRegistered = true;
+    return true;
+  } catch (error) {
+    console.warn('[instrumentation] failed to register OpenTelemetry tracing', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
 export async function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs' && posthogLoggerProvider) {
-    logs.setGlobalLoggerProvider(posthogLoggerProvider);
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    if (posthogLoggerProvider) {
+      logs.setGlobalLoggerProvider(posthogLoggerProvider);
+    }
+    await registerNodeTracing();
   }
 }
 

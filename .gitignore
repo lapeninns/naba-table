@@ -93,3 +93,6 @@ ds-bundle/
 .design-sync/learnings/
 .design-sync/node_modules
 .design-sync/compiled/
+
+# Phase 2 visual baseline images (large, regenerable via the capture-routes tooling)
+.design-sync/baseline-phase2/

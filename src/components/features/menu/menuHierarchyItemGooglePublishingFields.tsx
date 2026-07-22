@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 
 import { type ItemFormState } from './menuHierarchyDomain';
 import { Field } from './menuHierarchyFormControls';
@@ -41,11 +42,11 @@ export function GoogleItemPublishingFields({
     <div className="rounded-md border p-4">
       <div className="flex items-center gap-2">
         <ImageIcon className="size-4 text-muted-foreground" aria-hidden />
-        <h3 className="text-sm font-semibold">Google publishing</h3>
+        <Text variant="subheading" as="h3">Google publishing</Text>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <Text variant="caption" className="mt-1">
         Select or paste GBP media keys for publishing. Local image URLs stay Nabatable-only.
-      </p>
+      </Text>
       <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-3 rounded-md border bg-muted/20 p-3">
           <div className="flex gap-2">
@@ -76,7 +77,7 @@ export function GoogleItemPublishingFields({
                 </Badge>
               ))
             ) : (
-              <span className="text-xs text-muted-foreground">No GBP media keys selected.</span>
+              <Text as="span" variant="caption">No GBP media keys selected.</Text>
             )}
           </div>
           <Field label="Manual paste fallback">
@@ -95,7 +96,7 @@ export function GoogleItemPublishingFields({
           />
         </Field>
       </div>
-      {mediaError ? <p className="mt-3 text-sm text-destructive">{mediaError}</p> : null}
+      {mediaError ? <Text variant="caption" className="mt-3 text-destructive">{mediaError}</Text> : null}
     </div>
   );
 }

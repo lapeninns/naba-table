@@ -5,6 +5,7 @@ import { ExternalLink, MapPin, RefreshCcw, Unplug } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/typography';
 
 import { StatusBadge, connectionStatusBadge } from './StatusBadge';
 import { formatLastSync } from '../lib/formatters';
@@ -35,8 +36,8 @@ type GbpOverviewCardProps = {
 function OverviewDatum({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-md border border-border/70 bg-background px-3 py-2.5">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-medium leading-5 text-foreground break-words">{value}</p>
+      <Text variant="eyebrow">{label}</Text>
+      <Text variant="label" className="mt-1 break-words">{value}</Text>
     </div>
   );
 }

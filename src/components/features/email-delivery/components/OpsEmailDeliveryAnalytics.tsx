@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import {
@@ -79,10 +80,10 @@ export function OpsEmailDeliveryAnalytics({
                 </Badge>
               ) : null}
             </div>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            <Text variant="caption" className="max-w-2xl">
               Measure delivery health over time with summary metrics, distribution, and failure
               hotspots.
-            </p>
+            </Text>
           </div>
 
           <div className="space-y-2">
@@ -138,7 +139,9 @@ export function OpsEmailDeliveryAnalytics({
                     </CardHeader>
                     <CardContent className={OPS_CARD_CONTENT_CLASS}>
                       <p className="text-3xl font-semibold tracking-tight">{tile.value}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{tile.hint}</p>
+                      <Text variant="caption" className="mt-2">
+                        {tile.hint}
+                      </Text>
                     </CardContent>
                   </Card>
                 ))}
@@ -191,9 +194,9 @@ export function OpsEmailDeliveryAnalytics({
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-muted-foreground">
+                      <Text variant="caption">
                         No failed templates in this range.
-                      </p>
+                      </Text>
                     )}
                   </CardContent>
                 </Card>
@@ -214,9 +217,9 @@ export function OpsEmailDeliveryAnalytics({
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-muted-foreground">
+                      <Text variant="caption">
                         No failed email types in this range.
-                      </p>
+                      </Text>
                     )}
                   </CardContent>
                 </Card>

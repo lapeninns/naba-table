@@ -2,6 +2,7 @@ import { Clock3 } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
@@ -94,12 +95,14 @@ export function ScheduleWorkspace({
         <TabsContent value="schedule" className="mt-0 flex flex-col gap-4">
           <div id={AVAILABILITY_ANCHORS.weeklyHours} className="scroll-mt-28">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">Weekly open hours</p>
+              <Text variant="label" className="font-semibold">
+                Weekly open hours
+              </Text>
               <GbpDriftBadge fields={operatingHoursDriftFields} />
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Set the outer open and close window for each day.
-            </p>
+            </Text>
           </div>
           <div
             className={cn(
@@ -115,14 +118,14 @@ export function ScheduleWorkspace({
           </div>
           <div id={AVAILABILITY_ANCHORS.serviceWindows} className="scroll-mt-28">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">
+              <Text variant="label" className="font-semibold">
                 Meal windows (lunch / dinner inside open hours)
-              </p>
+              </Text>
               <GbpDriftBadge fields={servicePeriodDriftFields} />
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Use each day card to switch lunch and dinner windows on or off inside the open hours.
-            </p>
+            </Text>
           </div>
           {weeklyRows.map((row, index) => {
             const day = dayConfigs[index];
@@ -154,10 +157,12 @@ export function ScheduleWorkspace({
 
         <TabsContent value="overrides" className="mt-0">
           <div className="mb-4">
-            <p className="text-sm font-semibold text-foreground">Date overrides</p>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="label" className="font-semibold">
+              Date overrides
+            </Text>
+            <Text variant="caption">
               Closures and special hours override the weekly template.
-            </p>
+            </Text>
           </div>
           <AvailabilityOverridesEditor
             onAdd={onAddOverride}

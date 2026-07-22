@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Text } from '@/components/ui/typography';
 import { formatGoogleFoodMenuEnumLabel as formatEnumLabel } from '@/lib/google-food-menu-labels';
 
 import {
@@ -44,7 +45,7 @@ export function GoogleItemEssentialsFields({
     <div className="rounded-md border p-4">
       <div className="flex items-center gap-2">
         <Globe2 className="size-4 text-muted-foreground" aria-hidden />
-        <h3 className="text-sm font-semibold">Essentials</h3>
+        <Text variant="subheading" as="h3">Essentials</Text>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="Item name">
@@ -237,10 +238,10 @@ function GoogleItemNutritionFields({
       <h4 className="text-xs font-medium uppercase text-muted-foreground">
         Google nutrition facts
       </h4>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <Text variant="caption" className="mt-1">
         Google menu publishing includes calories, total fat, cholesterol, sodium, total
         carbohydrate, and protein. Sugar, fibre, and saturated fat remain import-tolerated.
-      </p>
+      </Text>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         <Field label="Calories">
           <NutritionRangeInputs

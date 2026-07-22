@@ -3,6 +3,7 @@
 import { AlertCircle } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Heading, Text } from '@/components/ui/typography';
 import { derivePlanDateAdvisory } from '@features/reservations/wizard/hooks/usePlanStepForm';
 
 const WEEKEND_DATE = '2026-04-18';
@@ -19,18 +20,16 @@ export function GuestBookingPlanAlertDevHarness() {
     <main className="min-h-screen bg-muted/20 px-4 py-10">
       <div className="mx-auto max-w-4xl space-y-6">
         <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h1 className="text-2xl font-semibold text-foreground">Guest Booking Plan Alert</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <Heading variant="section" as="h1">Guest Booking Plan Alert</Heading>
+          <Text variant="caption" className="mt-2">
             Dev-only proof for the plan-step advisory shown on weekends and date overrides.
-          </p>
+          </Text>
         </section>
 
         {noteAdvisory ? (
           <section className="space-y-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Operating-hours note
-            </p>
-            <p className="text-sm text-foreground">Selected date: {NOTE_DATE}</p>
+            <Text variant="eyebrow">Operating-hours note</Text>
+            <Text variant="caption" className="text-foreground">Selected date: {NOTE_DATE}</Text>
             <Alert variant="info">
               <AlertIcon>
                 <AlertCircle className="h-4 w-4" aria-hidden />
@@ -42,10 +41,8 @@ export function GuestBookingPlanAlertDevHarness() {
 
         {weekendAdvisory ? (
           <section className="space-y-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Weekend selection
-            </p>
-            <p className="text-sm text-foreground">Selected date: {WEEKEND_DATE}</p>
+            <Text variant="eyebrow">Weekend selection</Text>
+            <Text variant="caption" className="text-foreground">Selected date: {WEEKEND_DATE}</Text>
             <Alert variant="info">
               <AlertIcon>
                 <AlertCircle className="h-4 w-4" aria-hidden />
@@ -57,10 +54,8 @@ export function GuestBookingPlanAlertDevHarness() {
 
         {overrideAdvisory ? (
           <section className="space-y-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              Override selection
-            </p>
-            <p className="text-sm text-foreground">Selected date: {OVERRIDE_DATE}</p>
+            <Text variant="eyebrow">Override selection</Text>
+            <Text variant="caption" className="text-foreground">Selected date: {OVERRIDE_DATE}</Text>
             <Alert variant="info">
               <AlertIcon>
                 <AlertCircle className="h-4 w-4" aria-hidden />

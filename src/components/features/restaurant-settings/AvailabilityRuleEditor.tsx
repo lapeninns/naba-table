@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Text } from '@/components/ui/typography';
 
 import { MONTH_OPTIONS, describeRuleDraft, type RuleDraft } from './availabilityOccasionsModel';
 import { RestaurantSettingsDatePickerField } from './RestaurantSettingsDatePickerField';
@@ -41,7 +42,7 @@ export function AvailabilityRuleEditor({
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-medium text-foreground">Rule {index + 1}</p>
+        <Text variant="label">Rule {index + 1}</Text>
         <Button
           type="button"
           variant="ghost"
@@ -76,9 +77,9 @@ export function AvailabilityRuleEditor({
       </div>
 
       {rule.kind === 'anytime' ? (
-        <p className="text-sm text-muted-foreground">
+        <Text variant="caption">
           Guests can choose this occasion at any time the restaurant is taking bookings.
-        </p>
+        </Text>
       ) : null}
 
       {rule.kind === 'time_window' ? (
@@ -169,7 +170,7 @@ export function AvailabilityRuleEditor({
         </div>
       ) : null}
 
-      <p className="text-xs text-muted-foreground">Preview: {describeRuleDraft(rule)}</p>
+      <Text variant="caption">Preview: {describeRuleDraft(rule)}</Text>
     </div>
   );
 }

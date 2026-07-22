@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import {
@@ -99,9 +100,9 @@ export function ContactLocationSubform({
       >
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-foreground">Location</p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             Keep the restaurant&apos;s address, timezone, and directions aligned for guests.
-          </p>
+          </Text>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -178,22 +179,27 @@ export function ContactLocationSubform({
                         </Button>
                       ))}
                       {filteredTimezones.length === 0 ? (
-                        <p className="px-3 py-2 text-sm text-muted-foreground">
+                        <Text variant="caption" className="px-3 py-2">
                           No matching timezones found.
-                        </p>
+                        </Text>
                       ) : null}
                     </div>
                   </ScrollArea>
                 </div>
               </PopoverContent>
             </Popover>
-            <p id="restaurant-timezone-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-timezone-help">
               {FIELD_TOOLTIPS.timezone}
-            </p>
+            </Text>
             {errors.timezone ? (
-              <p id="restaurant-timezone-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-timezone-error"
+                role="alert"
+              >
                 {errors.timezone}
-              </p>
+              </Text>
             ) : null}
           </div>
 
@@ -213,9 +219,9 @@ export function ContactLocationSubform({
               onChange={(event) => handleChange('address', event.target.value)}
               aria-describedby="restaurant-address-help"
             />
-            <p id="restaurant-address-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-address-help">
               {FIELD_TOOLTIPS.address}
-            </p>
+            </Text>
           </div>
         </div>
 
@@ -248,14 +254,19 @@ export function ContactLocationSubform({
               errors.googleMapUrl && 'border-destructive focus-visible:ring-destructive/60',
             )}
           />
-          <p id="restaurant-google-map-help" className="text-xs text-muted-foreground">
+          <Text variant="caption" id="restaurant-google-map-help">
             Directions link for guests (Google Maps).
-          </p>
+          </Text>
           <ExternalUrlButton href={mapUrl} label="Open map link" />
           {errors.googleMapUrl ? (
-            <p id="restaurant-google-map-error" className="text-xs text-destructive" role="alert">
+            <Text
+              variant="caption"
+              className="text-destructive"
+              id="restaurant-google-map-error"
+              role="alert"
+            >
               {errors.googleMapUrl}
-            </p>
+            </Text>
           ) : null}
         </div>
 
@@ -263,9 +274,9 @@ export function ContactLocationSubform({
 
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-foreground">Public contact</p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             Phone and email are the fallback details guests use when they need help.
-          </p>
+          </Text>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -291,13 +302,18 @@ export function ContactLocationSubform({
                 errors.contactPhone && 'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-phone-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-phone-help">
               {FIELD_TOOLTIPS.contactPhone}
-            </p>
+            </Text>
             {errors.contactPhone ? (
-              <p id="restaurant-phone-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-phone-error"
+                role="alert"
+              >
                 {errors.contactPhone}
-              </p>
+              </Text>
             ) : null}
           </div>
 
@@ -319,13 +335,18 @@ export function ContactLocationSubform({
                 errors.contactEmail && 'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-email-help" className="text-xs text-muted-foreground">
+            <Text variant="caption" id="restaurant-email-help">
               {FIELD_TOOLTIPS.contactEmail}
-            </p>
+            </Text>
             {errors.contactEmail ? (
-              <p id="restaurant-email-error" className="text-xs text-destructive" role="alert">
+              <Text
+                variant="caption"
+                className="text-destructive"
+                id="restaurant-email-error"
+                role="alert"
+              >
                 {errors.contactEmail}
-              </p>
+              </Text>
             ) : null}
           </div>
         </div>
@@ -334,9 +355,9 @@ export function ContactLocationSubform({
 
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-foreground">After visit</p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <Text variant="caption">
             Review links support follow-up emails without changing website or menu links.
-          </p>
+          </Text>
         </div>
         <div className="flex flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -369,18 +390,19 @@ export function ContactLocationSubform({
               errors.googleReviewUrl && 'border-destructive focus-visible:ring-destructive/60',
             )}
           />
-          <p id="restaurant-google-review-help" className="text-xs text-muted-foreground">
+          <Text variant="caption" id="restaurant-google-review-help">
             Post-visit review link; not the same as website/menu links in Discovery.
-          </p>
+          </Text>
           <ExternalUrlButton href={reviewUrl} label="Open review link" />
           {errors.googleReviewUrl ? (
-            <p
+            <Text
+              variant="caption"
+              className="text-destructive"
               id="restaurant-google-review-error"
-              className="text-xs text-destructive"
               role="alert"
             >
               {errors.googleReviewUrl}
-            </p>
+            </Text>
           ) : null}
         </div>
 

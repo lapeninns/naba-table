@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BrandLogo } from '@/components/shared/BrandLogo';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +31,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useProfile } from '@/hooks/useProfile';
 import { useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { buildQueryStorageKey, clearPersistedQueryCache } from '@/lib/query/persist';
@@ -181,6 +183,10 @@ function DesktopActions({
 }) {
   return (
     <div className="hidden items-center gap-3 md:flex">
+      <ThemeToggle
+        className={cn(tone === 'dark' && DARK_GLASS_CONTROL_CLASSES)}
+      />
+
       {isLoading ? <Skeleton className="size-10 rounded-full" /> : null}
 
       {!isLoading && !isAuthenticated ? (
@@ -355,7 +361,10 @@ function MobileMenu({
         className="flex h-full flex-col gap-0 px-0 pb-0 pt-0 sm:max-w-md"
       >
         <SheetHeader className="border-b border-border/70 px-6 py-5 text-left">
-          <BrandMark tone="light" />
+          <div className="flex items-center justify-between">
+            <BrandMark tone="light" />
+            <ThemeToggle />
+          </div>
           <SheetTitle className="mt-5 text-2xl font-semibold tracking-tight">
             Guest navigation
           </SheetTitle>
@@ -405,9 +414,9 @@ function MobileMenu({
             </div>
           ) : (
             <div className="rounded-[var(--pg-radius-lg)] border border-border/70 bg-muted/35 p-4">
-              <p className="text-sm text-muted-foreground">
+              <Text variant="caption">
                 Sign in to sync bookings, dietary notes, and saved occasions.
-              </p>
+              </Text>
             </div>
           )}
 
@@ -420,9 +429,9 @@ function MobileMenu({
                 className="flex flex-col gap-3"
                 aria-label={section.title}
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <Text variant="eyebrow">
                   {section.title}
-                </p>
+                </Text>
                 <div className="flex flex-col gap-2">
                   {section.links.map((link) => (
                     <SheetClose asChild key={link.href}>

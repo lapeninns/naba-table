@@ -88,6 +88,10 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
         capture_pageview: false, // We capture pageviews manually via instrumentation-client.ts
         capture_pageleave: true,
         autocapture: true,
+        // Explicit true overrides the remote $exception_capture_enabled_server_side
+        // flag, so unhandled errors/rejections always produce native $exception
+        // events (still filtered through before_send below).
+        capture_exceptions: true,
         persistence: 'localStorage+cookie',
         before_send: (event) => {
           const suppressionMatch = matchPosthogExceptionSuppression(event);

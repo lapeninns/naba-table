@@ -10,13 +10,18 @@ export type AnalyticsProps = Record<string, AnalyticsJsonValue>;
 
 const ALLOWED_ANALYTICS_PROP_KEYS = new Set([
   'assignedCount',
+  'attempt',
+  'attemptId',
   'available',
   'bookingId',
   'booking_id',
   'code',
+  'context',
+  'correlationId',
   'date',
   'draftId',
   'fields',
+  'fingerprint',
   'hasAvatar',
   'idempotent',
   'is_online',

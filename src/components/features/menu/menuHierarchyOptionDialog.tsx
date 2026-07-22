@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FormRoot } from '@/components/ui/form';
+import { Text } from '@/components/ui/typography';
 import {
   useOpsCreateRestaurantMenuOption,
   useOpsPatchRestaurantMenuOption,
@@ -104,7 +105,11 @@ export function OptionDialog({
           <OptionPortionNutritionFields setState={setState} state={state} />
           <OptionMediaFields setState={setState} state={state} />
           <OptionActiveField setState={setState} state={state} />
-          {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
+          {error ? (
+            <Text variant="caption" className="text-destructive">
+              {error.message}
+            </Text>
+          ) : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

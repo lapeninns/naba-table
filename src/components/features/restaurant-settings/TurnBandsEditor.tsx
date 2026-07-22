@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Text } from '@/components/ui/typography';
 
 import { describeTurnBands, type TurnBandRowError } from './turnBandsDomain';
 
@@ -151,7 +152,7 @@ export function TurnBandsEditor({
                     onBlur={handleSortOnBlur}
                   />
                   {error.maxPartySize ? (
-                    <p className="text-xs text-destructive">{error.maxPartySize}</p>
+                    <Text variant="caption" className="text-destructive">{error.maxPartySize}</Text>
                   ) : null}
                 </div>
 
@@ -174,7 +175,7 @@ export function TurnBandsEditor({
                     onChange={(event) => handleUpdate(index, 'durationMinutes', event.target.value)}
                   />
                   {error.durationMinutes ? (
-                    <p className="text-xs text-destructive">{error.durationMinutes}</p>
+                    <Text variant="caption" className="text-destructive">{error.durationMinutes}</Text>
                   ) : null}
                 </div>
 

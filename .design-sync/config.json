@@ -14,6 +14,21 @@
     "docs/auth-design-system.md"
   ],
   "overrides": {
+    "Table": {
+      "cardMode": "column"
+    },
+    "GuestContent": {
+      "cardMode": "column"
+    },
+    "GuestPanel": {
+      "cardMode": "column"
+    },
+    "CategoryTab": {
+      "cardMode": "column"
+    },
+    "OpsPageShell": {
+      "cardMode": "column"
+    },
     "Dialog": {
       "cardMode": "single",
       "viewport": "560x460"
@@ -33,8 +48,8 @@
   },
   "readmeHeader": ".design-sync/conventions.md",
   "componentSrcMap": {
-    "Calendar": "./src/components/ui/calendar.tsx",
-    "CopyButton": "./src/components/ui/copy-button.tsx",
+    "Calendar": "./components/ui/calendar.tsx",
+    "CopyButton": "./components/ui/copy-button.tsx",
     "Field": "./reserve/shared/ui/Field.tsx",
     "Icon": "./reserve/shared/ui/icons.tsx",
     "OpsMobileBottomNav": "./src/components/features/ops-shell/OpsMobileBottomNav.tsx",
@@ -62,21 +77,14 @@
     "GuestSectionHeader": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestPanel": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestInsetCard": "./src/components/guest/ui/GuestPageShell.tsx",
-    "GuestActionCard": "./src/components/guest/ui/GuestPageShell.tsx",
-    "GuestRouteCard": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestMetricCard": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestDetailList": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestSplitPanel": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestReferenceStrip": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestPrimaryButton": "./src/components/guest/ui/GuestPageShell.tsx",
     "GuestSecondaryButton": "./src/components/guest/ui/GuestPageShell.tsx",
-    "GuestGhostButton": "./src/components/guest/ui/GuestPageShell.tsx",
-    "GuestSection": "./src/components/guest/ui/GuestPrimitives.tsx",
     "BrandIcon": "./src/components/shared/BrandIcon.tsx",
     "BrandLogo": "./src/components/shared/BrandLogo.tsx",
-    "FeatureCard": "./src/components/shared/FeatureCard.tsx",
-    "PageHero": "./src/components/shared/PageHero.tsx",
-    "PageSection": "./src/components/shared/PageSection.tsx",
     "Accordion": "./components/ui/accordion.tsx",
     "AlertDialog": "./components/ui/alert-dialog.tsx",
     "Alert": "./components/ui/alert.tsx",

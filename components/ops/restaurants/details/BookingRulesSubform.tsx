@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Text } from '@/components/ui/typography';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
@@ -70,9 +71,9 @@ export function BookingRulesSubform({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <p className="text-sm font-semibold text-foreground">Guest booking grid</p>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Controls slot spacing and the default table time guests receive.
-            </p>
+            </Text>
           </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
@@ -105,13 +106,13 @@ export function BookingRulesSubform({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-interval-help" className="text-xs text-muted-foreground">
+            <Text id="restaurant-interval-help" variant="caption">
               {FIELD_TOOLTIPS.reservationInterval}
-            </p>
+            </Text>
             {errors.reservationIntervalMinutes ? (
-              <p id="restaurant-interval-error" className="text-xs text-destructive" role="alert">
+              <Text id="restaurant-interval-error" variant="caption" className="text-destructive" role="alert">
                 {errors.reservationIntervalMinutes}
-              </p>
+              </Text>
             ) : null}
           </div>
 
@@ -148,13 +149,13 @@ export function BookingRulesSubform({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-duration-help" className="text-xs text-muted-foreground">
+            <Text id="restaurant-duration-help" variant="caption">
               {FIELD_TOOLTIPS.reservationDuration}
-            </p>
+            </Text>
             {errors.reservationDefaultDurationMinutes ? (
-              <p id="restaurant-duration-error" className="text-xs text-destructive" role="alert">
+              <Text id="restaurant-duration-error" variant="caption" className="text-destructive" role="alert">
                 {errors.reservationDefaultDurationMinutes}
-              </p>
+              </Text>
             ) : null}
           </div>
         </div>
@@ -164,9 +165,9 @@ export function BookingRulesSubform({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <p className="text-sm font-semibold text-foreground">Service cutoffs</p>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Keeps late seating and booking lifecycle timing separate from the visible slot grid.
-            </p>
+            </Text>
           </div>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1">
@@ -201,17 +202,18 @@ export function BookingRulesSubform({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-last-seating-help" className="text-xs text-muted-foreground">
+            <Text id="restaurant-last-seating-help" variant="caption">
               {FIELD_TOOLTIPS.lastSeatingBuffer}
-            </p>
+            </Text>
             {errors.reservationLastSeatingBufferMinutes ? (
-              <p
+              <Text
                 id="restaurant-last-seating-error"
-                className="text-xs text-destructive"
+                variant="caption"
+                className="text-destructive"
                 role="alert"
               >
                 {errors.reservationLastSeatingBufferMinutes}
-              </p>
+              </Text>
             ) : null}
           </div>
 
@@ -251,17 +253,18 @@ export function BookingRulesSubform({
                   'border-destructive focus-visible:ring-destructive/60',
               )}
             />
-            <p id="restaurant-lifecycle-grace-help" className="text-xs text-muted-foreground">
+            <Text id="restaurant-lifecycle-grace-help" variant="caption">
               {FIELD_TOOLTIPS.lifecycleGrace}
-            </p>
+            </Text>
             {errors.reservationLifecycleGraceMinutes ? (
-              <p
+              <Text
                 id="restaurant-lifecycle-grace-error"
-                className="text-xs text-destructive"
+                variant="caption"
+                className="text-destructive"
                 role="alert"
               >
                 {errors.reservationLifecycleGraceMinutes}
-              </p>
+              </Text>
             ) : null}
           </div>
         </div>
@@ -270,9 +273,9 @@ export function BookingRulesSubform({
           <Separator />
           <div>
             <p className="text-sm font-semibold text-foreground">Guest-facing policy</p>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <Text variant="caption">
               Shown where booking terms or reservation guidance are needed.
-            </p>
+            </Text>
           </div>
           <div className="flex items-center gap-1">
             <Label htmlFor="restaurant-policy">Booking Policy</Label>
@@ -289,9 +292,9 @@ export function BookingRulesSubform({
             rows={3}
             aria-describedby="restaurant-policy-help"
           />
-          <p id="restaurant-policy-help" className="text-xs text-muted-foreground">
+          <Text id="restaurant-policy-help" variant="caption">
             {FIELD_TOOLTIPS.bookingPolicy}
-          </p>
+          </Text>
         </div>
 
         <SubformActions
