@@ -17,10 +17,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260715.1",
-    "@vitest/coverage-v8": "4.1.0",
-    "eslint": "9.39.1",
-    "typescript": "5.9.3",
-    "vitest": "4.1.0",
-    "wrangler": "4.111.0"
+    "@vitest/coverage-v8": "4.1.10",
+    "eslint": "10.8.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wrangler": "4.114.0"
   }
 }
