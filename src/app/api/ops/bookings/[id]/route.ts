@@ -9,6 +9,7 @@ import {
   createBookingValidationService,
   BookingValidationError,
   type BookingInput,
+  type BookingValidationResponse,
   type ValidationContext,
 } from '@/server/booking';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
@@ -108,6 +109,7 @@ type UnifiedOpsUpdateParams = {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  requiresTableRealignment: boolean;
   instantFields: BookingInstantFields;
   durationMinutes: number;
   payload: DashboardUpdatePayload;
@@ -301,7 +303,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     // Fetched once as full rows: the unified update and the legacy past-time
     // check below reuse them instead of re-querying memberships per stage.
-    memberships = await timing.measure('memberships', fetchUserMemberships(user.id, tenantSupabase));
+    memberships = await timing.measure(
+      'memberships',
+      fetchUserMemberships(user.id, tenantSupabase),
+    );
   } catch (membershipError) {
     console.error('[ops/bookings][PATCH] failed to load memberships', membershipError);
     return timing.json({ error: 'Unable to verify access' }, { status: 500 });
@@ -562,6 +567,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         bookingDate,
         startTime,
         endTime,
+        requiresTableRealignment,
         instantFields,
         durationMinutes,
         payload: parsed.data,
@@ -818,6 +824,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   const {
     bookingId,
+    bookingDate,
+    startTime,
+    endTime,
+    requiresTableRealignment,
     durationMinutes,
     instantFields,
     payload,
@@ -881,21 +891,58 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
   };
 
   try {
-    const commit = await timing.measure(
-      'unified_validation',
-      validationService.updateWithEnforcement(
-        existingBooking as unknown as BookingRecord,
-        bookingInput,
-        context,
-      ),
-    );
-    let updated = commit.booking as Tables<'bookings'>;
+    let updated: Tables<'bookings'>;
+    let validationResponse: BookingValidationResponse;
+
+    if (requiresTableRealignment) {
+      const validation = await timing.measure(
+        'unified_validation',
+        validationService.validateUpdate(
+          existingBooking as unknown as BookingRecord,
+          bookingInput,
+          context,
+        ),
+      );
+      if (!validation.response.ok) {
+        throw new BookingValidationError({ ...validation.response, ok: false });
+      }
+
+      updated = await timing.measure(
+        'modification_flow',
+        beginBookingModificationFlow({
+          client: tenantClient,
+          bookingId,
+          existingBooking,
+          source: 'ops',
+          payload: {
+            booking_date: bookingDate,
+            start_time: startTime,
+            end_time: endTime,
+            ...instantFields,
+            party_size: payload.partySize,
+            notes: payload.notes ?? null,
+          },
+        }),
+      );
+      validationResponse = validation.response;
+    } else {
+      const commit = await timing.measure(
+        'unified_validation',
+        validationService.updateWithEnforcement(
+          existingBooking as unknown as BookingRecord,
+          bookingInput,
+          context,
+        ),
+      );
+      updated = commit.booking as Tables<'bookings'>;
+      validationResponse = commit.response;
+    }
+
     if (updated.start_at !== instantFields.start_at || updated.end_at !== instantFields.end_at) {
       updated = await updateBookingRecord(tenantClient, bookingId, instantFields, {
         restaurantId: existingBooking.restaurant_id,
       });
     }
-    const validationResponse = commit.response;
 
     const auditMetadata: Json = {
       restaurant_id: updated.restaurant_id ?? existingBooking.restaurant_id,
@@ -927,7 +974,11 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
           current: safeBookingPayload(updated as unknown as BookingRecord),
           restaurantId: updated.restaurant_id ?? existingBooking.restaurant_id,
         },
-        { supabase: tenantClient },
+        {
+          supabase: tenantClient,
+          // The modification flow already sends the appropriate confirmed/pending email.
+          skipEmail: requiresTableRealignment,
+        },
       );
     } catch (jobError) {
       console.error('[ops/bookings][PATCH][unified] side effects failed', jobError);

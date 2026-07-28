@@ -11,6 +11,8 @@ const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
 const sessionRecoveryTokenMatchesBookingContactMock = vi.hoisted(() => vi.fn());
 const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
+const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
+const isUnifiedBookingValidationEnabledMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
@@ -69,7 +71,7 @@ vi.mock('@/server/booking', () => ({
       this.response = response;
     }
   },
-  createBookingValidationService: vi.fn(),
+  createBookingValidationService: createBookingValidationServiceMock,
 }));
 
 vi.mock('@/server/booking/http', () => ({
@@ -95,7 +97,7 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
 vi.mock('@/server/runtime-policy', () => ({
   getBookingPastTimeGraceMinutes: vi.fn(() => 5),
   getPendingSelfServeGraceMinutes: vi.fn(() => 10),
-  isUnifiedBookingValidationEnabled: vi.fn(() => false),
+  isUnifiedBookingValidationEnabled: isUnifiedBookingValidationEnabledMock,
 }));
 
 vi.mock('@/server/observability', () => ({
@@ -284,6 +286,9 @@ describe('public PUT /api/bookings/[id]', () => {
         phone: '+447700900123',
       },
     });
+    createBookingValidationServiceMock.mockReset();
+    isUnifiedBookingValidationEnabledMock.mockReset();
+    isUnifiedBookingValidationEnabledMock.mockReturnValue(false);
     sessionRecoveryTokenMatchesBookingContactMock.mockReset();
     sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(true);
   });
@@ -395,6 +400,57 @@ describe('public PUT /api/bookings/[id]', () => {
         end_at: '2026-07-02T20:00:00.000Z',
       },
     });
+  });
+
+  it('realigns tables when a unified dashboard update changes party size', async () => {
+    isUnifiedBookingValidationEnabledMock.mockReturnValue(true);
+    const lookup = makeBookingLookup(makeBooking({ party_size: 2 }));
+    serviceFromMock.mockReturnValueOnce(lookup);
+
+    const validateUpdate = vi.fn(async () => ({
+      response: {
+        ok: true,
+        issues: [],
+        overridden: false,
+        overrideCodes: [],
+      },
+      metadata: {},
+    }));
+    const updateWithEnforcement = vi.fn();
+    createBookingValidationServiceMock.mockReturnValue({
+      validateUpdate,
+      updateWithEnforcement,
+    });
+    beginBookingModificationFlowMock.mockImplementation(async ({ payload }) =>
+      makeBooking({
+        ...payload,
+      }),
+    );
+
+    const response = await PUT(
+      makeDashboardUpdateRequest({
+        startIso: '2026-07-01T18:00:00.000Z',
+        partySize: 5,
+      }),
+      {
+        params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(validateUpdate).toHaveBeenCalledOnce();
+    expect(beginBookingModificationFlowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'guest',
+        payload: expect.objectContaining({
+          party_size: 5,
+          booking_date: '2026-07-01',
+          start_time: '19:00',
+          end_time: '20:30',
+        }),
+      }),
+    );
+    expect(updateWithEnforcement).not.toHaveBeenCalled();
   });
 
   it('blocks session-recovery updates when the payload moves the booking across restaurants', async () => {

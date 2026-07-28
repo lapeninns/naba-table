@@ -15,6 +15,7 @@ import {
   type ValidationContext,
 } from '@/server/booking';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
+import { buildBookingWhatsAppConsentPatch } from '@/server/booking/whatsapp-consent';
 import {
   BOOKING_TYPES,
   buildBookingAuditSnapshot,
@@ -73,7 +74,6 @@ import {
   CUSTOMER_PHONE_LENGTH_MIN,
   isUKPhone,
 } from '@reserve/shared/validation';
-import { buildBookingWhatsAppConsentPatch } from '@/server/booking/whatsapp-consent';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
@@ -722,12 +722,39 @@ async function handleDashboardUpdate(params: {
       } satisfies ValidationContext;
 
       try {
-        const commit = await validationService.updateWithEnforcement(
-          existingBooking as unknown as BookingRecord,
-          bookingInput,
-          context,
-        );
-        updated = commit.booking as unknown as Tables<'bookings'>;
+        if (requiresTableRealignment) {
+          const validation = await validationService.validateUpdate(
+            existingBooking as unknown as BookingRecord,
+            bookingInput,
+            context,
+          );
+          if (!validation.response.ok) {
+            throw new BookingValidationError({ ...validation.response, ok: false });
+          }
+
+          updated = await beginBookingModificationFlow({
+            client: serviceSupabase,
+            bookingId,
+            existingBooking,
+            source: 'guest',
+            payload: {
+              restaurant_id: restaurantId,
+              booking_date: bookingDate,
+              start_time: startTime,
+              end_time: endTime,
+              ...instantFields,
+              party_size: data.partySize,
+              notes: normalizedNotes,
+            },
+          });
+        } else {
+          const commit = await validationService.updateWithEnforcement(
+            existingBooking as unknown as BookingRecord,
+            bookingInput,
+            context,
+          );
+          updated = commit.booking as unknown as Tables<'bookings'>;
+        }
       } catch (error) {
         if (error instanceof BookingValidationError) {
           const mapped = mapValidationFailure(error.response);
@@ -810,8 +837,8 @@ async function handleDashboardUpdate(params: {
         },
         {
           supabase: serviceSupabase,
-          // Skip email when modification flow was used (not unified) - it already sent the confirmation email
-          skipEmail: requiresTableRealignment && !useUnifiedValidation,
+          // The modification flow already sends the appropriate confirmed/pending email.
+          skipEmail: requiresTableRealignment,
         },
       );
     } catch (jobError: unknown) {

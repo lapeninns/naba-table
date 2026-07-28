@@ -26,6 +26,8 @@ const updateBookingRecordMock = vi.hoisted(() => vi.fn());
 const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
 const invalidateOpsDashboardCachesMock = vi.hoisted(() => vi.fn());
+const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
+const isUnifiedBookingValidationEnabledMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
@@ -61,7 +63,7 @@ vi.mock('@/server/restaurants/turnBands', () => ({
 }));
 
 vi.mock('@/server/booking', () => ({
-  createBookingValidationService: vi.fn(),
+  createBookingValidationService: createBookingValidationServiceMock,
   BookingValidationError: class BookingValidationError extends Error {},
 }));
 
@@ -100,7 +102,7 @@ vi.mock('@/server/runtime-policy', () => ({
   getBookingPastTimeGraceMinutes: vi.fn(() => 5),
   isBookingPastTimeBlockingEnabled: vi.fn(() => false),
   isDbStrictConstraintMappingEnabled: vi.fn(() => false),
-  isUnifiedBookingValidationEnabled: vi.fn(() => false),
+  isUnifiedBookingValidationEnabled: isUnifiedBookingValidationEnabledMock,
 }));
 
 vi.mock('@/server/ops/bookings', () => ({
@@ -167,6 +169,9 @@ describe('ops booking PATCH route timezone handling', () => {
     logAuditEventMock.mockReset();
     enqueueBookingUpdatedSideEffectsMock.mockReset();
     invalidateOpsDashboardCachesMock.mockReset();
+    createBookingValidationServiceMock.mockReset();
+    isUnifiedBookingValidationEnabledMock.mockReset();
+    isUnifiedBookingValidationEnabledMock.mockReturnValue(false);
 
     tenantAuthGetUserMock.mockResolvedValue({
       data: {
@@ -300,6 +305,63 @@ describe('ops booking PATCH route timezone handling', () => {
       { restaurantId: 'rest-1' },
     );
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
+  });
+
+  it('clears and recalculates assignments when unified updates change party size', async () => {
+    isUnifiedBookingValidationEnabledMock.mockReturnValue(true);
+    maybeSingleMock.mockResolvedValue({
+      data: buildBooking({ party_size: 2 }),
+      error: null,
+    });
+
+    const validateUpdate = vi.fn(async () => ({
+      response: {
+        ok: true,
+        issues: [],
+        warnings: [],
+        overridden: false,
+        overrideCodes: [],
+      },
+      metadata: {},
+    }));
+    const updateWithEnforcement = vi.fn();
+    createBookingValidationServiceMock.mockReturnValue({
+      validateUpdate,
+      updateWithEnforcement,
+    });
+    beginBookingModificationFlowMock.mockImplementation(async ({ payload }) =>
+      buildBooking({
+        party_size: payload.party_size,
+        start_at: payload.start_at,
+        end_at: payload.end_at,
+      }),
+    );
+
+    const response = await PATCH(
+      new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          startIso: '2026-07-01T18:30:00.000Z',
+          partySize: 5,
+        }),
+      }),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(validateUpdate).toHaveBeenCalledOnce();
+    expect(beginBookingModificationFlowMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'ops',
+        payload: expect.objectContaining({
+          party_size: 5,
+          booking_date: '2026-07-01',
+          start_time: '19:30',
+          end_time: '21:00',
+        }),
+      }),
+    );
+    expect(updateWithEnforcement).not.toHaveBeenCalled();
   });
 
   it('does not look up bookings when the operator has no restaurant memberships', async () => {
