@@ -77,6 +77,20 @@ describe('booking SMS builders', () => {
     expect(message).toContain('Manage your booking:');
   });
 
+  it('uses the configured SMS display name without changing the venue name', () => {
+    const message = buildGuestBookingConfirmationSms({
+      booking: booking as never,
+      venue: {
+        ...venue,
+        smsDisplayName: 'Old Crown Girton',
+      },
+    });
+
+    expect(message).toMatch(/^Old Crown Girton\n/);
+    expect(message).not.toContain('The Old Crown Girton');
+    expect(venue.name).toBe('The Old Crown Girton');
+  });
+
   it('builds update SMS copy with manage link', () => {
     const message = buildGuestBookingUpdateSms({
       booking: booking as never,
