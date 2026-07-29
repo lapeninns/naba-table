@@ -25,6 +25,7 @@ import type { MobileDispatchResult } from '@/server/notifications/mobile';
 type SmsVenue = {
   id: string;
   name: string;
+  smsDisplayName?: string | null;
   timezone: string;
   phone?: string;
 };
@@ -65,7 +66,7 @@ async function resolveSmsVenue(restaurantId: string): Promise<SmsVenue> {
   const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase
     .from('restaurants')
-    .select('id,name,timezone,contact_phone')
+    .select('id,name,sms_display_name,timezone,contact_phone')
     .eq('id', restaurantId)
     .maybeSingle();
 
@@ -76,6 +77,7 @@ async function resolveSmsVenue(restaurantId: string): Promise<SmsVenue> {
   return {
     id: data.id,
     name: data.name || 'Restaurant',
+    smsDisplayName: data.sms_display_name,
     timezone: data.timezone || 'Europe/London',
     phone: data.contact_phone || '',
   };
@@ -109,6 +111,10 @@ function buildVenueContactLine(venue: SmsVenue): string | null {
   return `Contact: ${venue.phone.trim()}`;
 }
 
+function resolveSmsVenueName(venue: SmsVenue): string {
+  return venue.smsDisplayName?.trim() || venue.name;
+}
+
 function formatGuestBookingEventSms(params: {
   venue: SmsVenue;
   headline: string;
@@ -118,7 +124,7 @@ function formatGuestBookingEventSms(params: {
   contactLine?: string | null;
 }): string {
   return [
-    params.venue.name,
+    resolveSmsVenueName(params.venue),
     '',
     params.headline,
     params.detailsLine,
