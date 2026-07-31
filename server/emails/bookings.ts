@@ -32,6 +32,7 @@ import {
   renderEmailBase,
   renderGridBox,
   renderNote,
+  renderStarRow,
   escapeHtml,
   EMAIL_FONT_STACK,
   type EmailAnnotation,
@@ -433,6 +434,10 @@ export function renderHtml({
   const manageUrl = buildBookingManageUrl(booking);
   const safeCtaUrl = ctaUrl ? safePublicHref(ctaUrl, manageUrl) : manageUrl;
 
+  // One-tap star row: only on review requests, and only when the CTA is a genuine
+  // Google review destination (never for the manage-booking fallback URL).
+  const reviewStarUrl = emailType === 'review_request' ? safeGoogleReviewUrl(safeCtaUrl) : null;
+
   // Schema.org Annotation
   const annotation: EmailAnnotation = {
     actionName: ctaLabel,
@@ -527,6 +532,9 @@ export function renderHtml({
 
           <!-- Notes -->
           ${booking.notes ? renderNote('📝', booking.notes) : ''}
+
+          <!-- One-Tap Star Row -->
+          ${reviewStarUrl ? renderStarRow(reviewStarUrl) : ''}
 
           <!-- CTA Button -->
           ${
