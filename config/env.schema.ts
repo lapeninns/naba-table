@@ -158,6 +158,9 @@ const baseEnvSchema = z
     BOOKING_SHORT_LINKS_INTERNAL_URL: z.string().url().optional(),
     BOOKING_SHORT_LINKS_INTERNAL_TOKEN: z.string().min(1).optional(),
     DUAL_SYNC_FAILURE_WEBHOOK_URL: z.string().url().startsWith('https://').optional(),
+    NABAPRESENCE_SERVICE_JWT_PUBLIC_KEY: optionalString,
+    NABAPRESENCE_SERVICE_JWT_KEY_ID: optionalString,
+    NABAPRESENCE_SERVICE_JWT_ISSUER: optionalString,
     ALLOCATIONS_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).optional(),
     // Strategic demand profiles no longer loaded from disk
     OPS_SUMMARY_CACHE_TTL_MS: z.coerce.number().int().min(0).max(600000).optional(),
