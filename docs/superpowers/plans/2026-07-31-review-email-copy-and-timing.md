@@ -554,8 +554,7 @@ Expected: no errors (repo lint skips `tests/`).
 
 - [ ] **Step 4: Governance guard**
 
-Run: `pnpm guard:micro-specs`
-Expected: PASS (no micro-spec covers these files today; the guard confirms nothing drifted).
+AMENDED during execution: `pnpm guard:micro-specs` does not exist in this repo (plan authored from stale session memory). The guards that do exist (`guard:no-shadcn*`, `guard:luma*`, `guard:typography-scale`, `security:guard:service-role`) are design-system/service-role scanners with no coverage of the files this plan touches — step is N/A. No governance check applies.
 
 - [ ] **Step 5: Optional visual check of the star row**
 
