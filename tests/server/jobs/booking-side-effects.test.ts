@@ -190,6 +190,91 @@ describe('processBookingCreatedSideEffects', () => {
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
   });
 
+  it('defers a commute-window review send to the 7 PM evening peak @contract', async () => {
+    // Given: visit ends 14:00 London; +3h review delay proposes 17:00 London (commute).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime('2026-07-12T13:30:00.000Z');
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      end_at: '2026-07-12T13:00:00.000Z',
+    };
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: 'https://g.page/r/example/review',
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    // Then: pushed from 17:00 to 19:00 London (18:00Z), minutes preserved.
+    expect(enqueueEmailJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: completed.id,
+        type: 'review_request',
+        scheduledFor: '2026-07-12T18:00:00.000Z',
+      }),
+      expect.objectContaining({ jobId: `review_request:${completed.id}` }),
+    );
+  });
+
+  it('keeps evening-peak review sends at their proposed time @contract', async () => {
+    // Given: visit ends 16:30 London; +3h proposes 19:30 London — already past the commute.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime('2026-07-12T16:00:00.000Z');
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      end_at: '2026-07-12T15:30:00.000Z',
+    };
+    const client = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: 'https://g.page/r/example/review',
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    // When
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    // Then: unchanged — 19:30 London is 18:30Z.
+    expect(enqueueEmailJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'review_request',
+        scheduledFor: '2026-07-12T18:30:00.000Z',
+      }),
+      expect.objectContaining({ jobId: `review_request:${completed.id}` }),
+    );
+  });
+
   it('does not schedule mobile review without a valid venue review destination @contract', async () => {
     const completed = {
       ...pendingBooking,
