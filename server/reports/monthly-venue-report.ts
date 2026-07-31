@@ -30,7 +30,7 @@ export type MonthlyVenueReport = {
     fromBookings: number;
   };
   guests: {
-    firstTime: number; // customers whose first booking (row created) is in this month
+    firstTime: number; // active guests without a completed visit before this month
     returning: number;
   };
   bookings: {
@@ -45,6 +45,12 @@ export type MonthlyVenueReport = {
     afterHoursCount: number;
     afterHoursPercent: number;
   };
+  metrics: MonthlyVenueMetrics;
+  comparison: {
+    month: string;
+    monthName: string;
+    metrics: MonthlyVenueMetrics;
+  } | null;
   communications: {
     emailsSent: number;
     remindersSent: number;
@@ -71,6 +77,167 @@ export type MonthlyVenueReport = {
   };
 };
 
+export type MonthlyVenueMetrics = {
+  bookedCovers: number;
+  activeBookings: number;
+  uniqueGuests: number;
+  firstTimeGuests: number;
+  returningGuests: number;
+  averagePartySize: number;
+  returningGuestShare: number;
+  cancellationRate: number;
+  noShowRate: number;
+  onlineShare: number;
+  lunchCovers: number;
+  dinnerCovers: number;
+};
+
+type BookingMetricRow = {
+  customer_id: string | null;
+  status: string | null;
+  party_size: number | null;
+  booking_date: string | null;
+  booking_type: string | null;
+  source: string | null;
+  created_at: string | null;
+};
+
+type LifetimeEmailRow = { message_id: string };
+type LifetimeSmsRow = { message_sid: string };
+type MonthlyEmailRow = { message_id: string; template_type: string | null };
+
+const HISTORY_PAGE_SIZE = 1000;
+
+async function fetchBookingsInRange(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+  startDate: string,
+  endDate: string,
+): Promise<BookingMetricRow[]> {
+  const rows: BookingMetricRow[] = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('bookings')
+      .select('customer_id, status, party_size, booking_date, booking_type, source, created_at')
+      .eq('restaurant_id', restaurantId)
+      .gte('booking_date', startDate)
+      .lte('booking_date', endDate)
+      .order('booking_date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as BookingMetricRow[];
+    rows.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return rows;
+  }
+}
+
+async function fetchMonthlyEmails(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+  startUtc: string,
+  endUtc: string,
+): Promise<MonthlyEmailRow[]> {
+  const rows: MonthlyEmailRow[] = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('email_delivery_log')
+      .select('message_id, template_type')
+      .eq('restaurant_id', restaurantId)
+      .gte('occurred_at', startUtc)
+      .lt('occurred_at', endUtc)
+      .order('occurred_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as MonthlyEmailRow[];
+    rows.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return rows;
+  }
+}
+
+async function fetchMonthlySms(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+  startUtc: string,
+  endUtc: string,
+): Promise<LifetimeSmsRow[]> {
+  const rows: LifetimeSmsRow[] = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('sms_delivery_log')
+      .select('message_sid')
+      .eq('restaurant_id', restaurantId)
+      .gte('occurred_at', startUtc)
+      .lt('occurred_at', endUtc)
+      .order('occurred_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as LifetimeSmsRow[];
+    rows.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return rows;
+  }
+}
+
+async function fetchBookingHistory(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+): Promise<BookingMetricRow[]> {
+  const rows: BookingMetricRow[] = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('bookings')
+      .select('customer_id, status, party_size, booking_date, booking_type, source, created_at')
+      .eq('restaurant_id', restaurantId)
+      .order('booking_date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as BookingMetricRow[];
+    rows.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return rows;
+  }
+}
+
+async function fetchLifetimeEmails(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+): Promise<LifetimeEmailRow[]> {
+  const rows: LifetimeEmailRow[] = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('email_delivery_log')
+      .select('message_id')
+      .eq('restaurant_id', restaurantId)
+      .order('id', { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as LifetimeEmailRow[];
+    rows.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return rows;
+  }
+}
+
+async function fetchLifetimeSms(
+  client: ReturnType<typeof getServiceSupabaseClient>,
+  restaurantId: string,
+): Promise<LifetimeSmsRow[]> {
+  const rows: LifetimeSmsRow[] = [];
+  for (let offset = 0; ; offset += HISTORY_PAGE_SIZE) {
+    const { data, error } = await client
+      .from('sms_delivery_log')
+      .select('message_sid')
+      .eq('restaurant_id', restaurantId)
+      .order('id', { ascending: true })
+      .range(offset, offset + HISTORY_PAGE_SIZE - 1);
+    if (error) throw error;
+    const page = (data ?? []) as LifetimeSmsRow[];
+    rows.push(...page);
+    if (page.length < HISTORY_PAGE_SIZE) return rows;
+  }
+}
+
 function timeStringToMinutes(value: string | null): number | null {
   if (!value) return null;
   const [h, m] = value.split(':').map(Number);
@@ -80,6 +247,58 @@ function timeStringToMinutes(value: string | null): number | null {
 
 function capitalise(value: string): string {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function percentage(numerator: number, denominator: number): number {
+  return denominator ? +((numerator / denominator) * 100).toFixed(1) : 0;
+}
+
+function buildMonthlyMetrics(
+  bookings: BookingMetricRow[],
+  bookingHistory: BookingMetricRow[],
+  monthStartDate: string,
+): MonthlyVenueMetrics {
+  const active = bookings.filter((booking) => ACTIVE_STATUSES.has(booking.status ?? ''));
+  const bookedCovers = active.reduce((sum, booking) => sum + (booking.party_size ?? 0), 0);
+  const activeGuestIds = new Set(
+    active.map((booking) => booking.customer_id).filter((id): id is string => Boolean(id)),
+  );
+  const priorCompletedGuestIds = new Set(
+    bookingHistory
+      .filter(
+        (booking) =>
+          booking.status === 'completed' &&
+          Boolean(booking.customer_id) &&
+          Boolean(booking.booking_date) &&
+          booking.booking_date! < monthStartDate,
+      )
+      .map((booking) => booking.customer_id as string),
+  );
+  const returningGuests = [...activeGuestIds].filter((id) => priorCompletedGuestIds.has(id)).length;
+  const cancelledCount = bookings.filter((booking) => booking.status === 'cancelled').length;
+  const noShowCount = bookings.filter((booking) => booking.status === 'no_show').length;
+  const onlineCount = bookings.filter((booking) => ONLINE_SOURCES.has(booking.source ?? '')).length;
+  const lunchCovers = active
+    .filter((booking) => booking.booking_type === 'lunch')
+    .reduce((sum, booking) => sum + (booking.party_size ?? 0), 0);
+  const dinnerCovers = active
+    .filter((booking) => booking.booking_type === 'dinner')
+    .reduce((sum, booking) => sum + (booking.party_size ?? 0), 0);
+
+  return {
+    bookedCovers,
+    activeBookings: active.length,
+    uniqueGuests: activeGuestIds.size,
+    firstTimeGuests: Math.max(0, activeGuestIds.size - returningGuests),
+    returningGuests,
+    averagePartySize: active.length ? +(bookedCovers / active.length).toFixed(1) : 0,
+    returningGuestShare: percentage(returningGuests, activeGuestIds.size),
+    cancellationRate: percentage(cancelledCount, bookings.length),
+    noShowRate: percentage(noShowCount, bookings.length),
+    onlineShare: percentage(onlineCount, bookings.length),
+    lunchCovers,
+    dinnerCovers,
+  };
 }
 
 export async function computeMonthlyVenueReport(
@@ -102,6 +321,8 @@ export async function computeMonthlyVenueReport(
     { zone: tz },
   );
   const endOfMonth = startOfMonth.endOf('month');
+  const previousStartOfMonth = startOfMonth.minus({ month: 1 }).startOf('month');
+  const previousEndOfMonth = previousStartOfMonth.endOf('month');
   const monthLabel = startOfMonth.toFormat('MMMM yyyy');
   const monthName = startOfMonth.toFormat('MMMM');
 
@@ -109,63 +330,57 @@ export async function computeMonthlyVenueReport(
   // not those created in the month. Communications and lifetime use timestamps.
   const monthStartDate = startOfMonth.toFormat('yyyy-MM-dd');
   const monthEndDate = endOfMonth.toFormat('yyyy-MM-dd');
+  const previousMonthStartDate = previousStartOfMonth.toFormat('yyyy-MM-dd');
+  const previousMonthEndDate = previousEndOfMonth.toFormat('yyyy-MM-dd');
   const monthStartUtc = startOfMonth.toUTC().toISO()!;
   const monthEndUtc = endOfMonth.plus({ day: 1 }).startOf('day').toUTC().toISO()!;
 
   const [
-    { data: bookingRows },
+    bookingRows,
+    previousBookingRows,
     { data: hoursRows },
-    { data: customerRows },
-    { data: emailRows },
-    { data: smsRows },
-    { data: allBookingRows },
-    { data: allEmailRows },
-    { data: allSmsRows },
+    emailRows,
+    smsRows,
+    allBookingRows,
+    allEmailRows,
+    allSmsRows,
   ] = await Promise.all([
-    client
-      .from('bookings')
-      .select('customer_id, status, party_size, booking_date, booking_type, source, created_at')
-      .eq('restaurant_id', restaurantId)
-      .gte('booking_date', monthStartDate)
-      .lte('booking_date', monthEndDate),
+    fetchBookingsInRange(client, restaurantId, monthStartDate, monthEndDate),
+    fetchBookingsInRange(client, restaurantId, previousMonthStartDate, previousMonthEndDate),
     client
       .from('restaurant_operating_hours')
       .select('day_of_week, opens_at, closes_at, is_closed')
       .eq('restaurant_id', restaurantId)
       .is('effective_date', null),
-    client
-      .from('customers')
-      .select('id, created_at')
-      .eq('restaurant_id', restaurantId),
-    client
-      .from('email_delivery_log')
-      .select('message_id, template_type')
-      .eq('restaurant_id', restaurantId)
-      .gte('occurred_at', monthStartUtc)
-      .lt('occurred_at', monthEndUtc),
-    client
-      .from('sms_delivery_log')
-      .select('message_sid')
-      .eq('restaurant_id', restaurantId)
-      .gte('occurred_at', monthStartUtc)
-      .lt('occurred_at', monthEndUtc),
-    client
-      .from('bookings')
-      .select('status, party_size, booking_date')
-      .eq('restaurant_id', restaurantId),
-    client.from('email_delivery_log').select('message_id').eq('restaurant_id', restaurantId),
-    client.from('sms_delivery_log').select('message_sid').eq('restaurant_id', restaurantId),
+    fetchMonthlyEmails(client, restaurantId, monthStartUtc, monthEndUtc),
+    fetchMonthlySms(client, restaurantId, monthStartUtc, monthEndUtc),
+    fetchBookingHistory(client, restaurantId),
+    fetchLifetimeEmails(client, restaurantId),
+    fetchLifetimeSms(client, restaurantId),
   ]);
 
-  const bookings = bookingRows ?? [];
+  const bookings = bookingRows;
   if (bookings.length === 0) return null; // Nothing to report — skip this venue.
 
   const hours = hoursRows ?? [];
-  const customers = customerRows ?? [];
-  const emails = emailRows ?? [];
-  const sms = smsRows ?? [];
+  const emails = emailRows;
+  const sms = smsRows;
 
   const active = bookings.filter((b) => ACTIVE_STATUSES.has(b.status ?? ''));
+  const bookingHistory = allBookingRows;
+  const metrics = buildMonthlyMetrics(
+    bookings as BookingMetricRow[],
+    bookingHistory,
+    monthStartDate,
+  );
+  const previousBookings = previousBookingRows;
+  const comparison = previousBookings.length
+    ? {
+        month: previousStartOfMonth.toFormat('MMMM yyyy'),
+        monthName: previousStartOfMonth.toFormat('MMMM'),
+        metrics: buildMonthlyMetrics(previousBookings, bookingHistory, previousMonthStartDate),
+      }
+    : null;
 
   // --- Covers & booking mix -------------------------------------------------
   const coversActive = active.reduce((sum, b) => sum + (b.party_size ?? 0), 0);
@@ -175,26 +390,6 @@ export async function computeMonthlyVenueReport(
   const cancelledCount = bookings.filter((b) => b.status === 'cancelled').length;
   const noShowCount = bookings.filter((b) => b.status === 'no_show').length;
   const noShowPercent = bookings.length ? +((noShowCount / bookings.length) * 100).toFixed(1) : 0;
-
-  // --- New vs returning guests ---------------------------------------------
-  // A customer row is created on the guest's first booking, so created_at in the
-  // month == first-time guest. Returning = the rest of this month's active guests.
-  const createdThisMonth = new Set<string>();
-  for (const c of customers) {
-    if (!c.created_at) continue;
-    const created = DateTime.fromISO(c.created_at, { zone: tz });
-    if (created.year === yearMonth.year && created.month === yearMonth.month) {
-      createdThisMonth.add(c.id);
-    }
-  }
-  const activeGuestIds = new Set(
-    active.map((b) => b.customer_id).filter((id): id is string => Boolean(id)),
-  );
-  let firstTime = 0;
-  activeGuestIds.forEach((id) => {
-    if (createdThisMonth.has(id)) firstTime += 1;
-  });
-  const returning = Math.max(0, activeGuestIds.size - firstTime);
 
   // --- After-hours bookings -------------------------------------------------
   // How many bookings were MADE (created_at) while the venue was closed.
@@ -217,8 +412,9 @@ export async function computeMonthlyVenueReport(
     const minutes = made.hour * 60 + made.minute;
     const windows = windowsByDow.get(dow);
     const isOpen =
-      windows?.some(([o, c]) => (c > o ? minutes >= o && minutes < c : minutes >= o || minutes < c)) ??
-      false;
+      windows?.some(([o, c]) =>
+        c > o ? minutes >= o && minutes < c : minutes >= o || minutes < c,
+      ) ?? false;
     if (!isOpen) afterHoursCount += 1;
   }
   const afterHoursPercent = bookings.length
@@ -301,12 +497,12 @@ export async function computeMonthlyVenueReport(
   });
 
   // --- Lifetime -------------------------------------------------------------
-  const allBookings = allBookingRows ?? [];
+  const allBookings = bookingHistory;
   const allActive = allBookings.filter((b) => ACTIVE_STATUSES.has(b.status ?? ''));
   const lifetimeCovers = allActive.reduce((sum, b) => sum + (b.party_size ?? 0), 0);
   const lifetimeMessages = new Set([
-    ...(allEmailRows ?? []).map((e) => e.message_id),
-    ...(allSmsRows ?? []).map((s) => s.message_sid),
+    ...allEmailRows.map((e) => e.message_id),
+    ...allSmsRows.map((s) => s.message_sid),
   ]).size;
   const earliestDate = allBookings
     .map((b) => b.booking_date)
@@ -325,7 +521,7 @@ export async function computeMonthlyVenueReport(
     month: monthLabel,
     monthName,
     covers: { active: coversActive, fromBookings: active.length },
-    guests: { firstTime, returning },
+    guests: { firstTime: metrics.firstTimeGuests, returning: metrics.returningGuests },
     bookings: {
       total: bookings.length,
       onlinePercent,
@@ -335,6 +531,8 @@ export async function computeMonthlyVenueReport(
       noShowPercent,
     },
     timing: { afterHoursCount, afterHoursPercent },
+    metrics,
+    comparison,
     communications: {
       emailsSent,
       remindersSent,

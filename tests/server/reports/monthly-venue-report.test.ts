@@ -25,7 +25,18 @@ function createSupabaseStub(
     const query: RecordedQuery = { table, calls: [] };
     queries.push(query);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'eq', 'gte', 'lte', 'lt', 'is', 'not', 'in', 'order']) {
+    for (const method of [
+      'select',
+      'eq',
+      'gte',
+      'lte',
+      'lt',
+      'is',
+      'not',
+      'in',
+      'order',
+      'range',
+    ]) {
       builder[method] = (...args: unknown[]) => {
         query.calls.push({ method, args });
         return builder;
@@ -55,6 +66,7 @@ const argsOf = (query: RecordedQuery, method: string) =>
 type Dataset = {
   venue?: { data: unknown; error: unknown };
   monthBookings?: unknown[];
+  previousMonthBookings?: unknown[];
   hours?: unknown[];
   customers?: unknown[];
   monthEmails?: unknown[];
@@ -77,14 +89,28 @@ function makeVenue(overrides: Record<string, unknown> = {}) {
 
 function installDataset(dataset: Dataset) {
   const stub = createSupabaseStub((query) => {
+    const page = <T>(rows: T[]): T[] => {
+      const range = argsOf(query, 'range');
+      if (!range) return rows.slice(0, 1000);
+      return rows.slice(Number(range[0]), Number(range[1]) + 1);
+    };
+
     switch (query.table) {
       case 'restaurants':
         return dataset.venue ?? { data: makeVenue(), error: null };
       case 'bookings':
+        if (hasCall(query, 'gte')) {
+          const startDate = argsOf(query, 'gte')?.[1];
+          const rows =
+            startDate === '2026-05-01' || startDate === '2026-06-01'
+              ? startDate === '2026-05-01'
+                ? (dataset.previousMonthBookings ?? [])
+                : (dataset.monthBookings ?? [])
+              : (dataset.monthBookings ?? []);
+          return { data: page(rows), error: null };
+        }
         return {
-          data: hasCall(query, 'gte')
-            ? dataset.monthBookings ?? []
-            : dataset.allBookings ?? dataset.monthBookings ?? [],
+          data: page(dataset.allBookings ?? dataset.monthBookings ?? []),
           error: null,
         };
       case 'restaurant_operating_hours':
@@ -94,15 +120,15 @@ function installDataset(dataset: Dataset) {
       case 'email_delivery_log':
         return {
           data: hasCall(query, 'gte')
-            ? dataset.monthEmails ?? []
-            : dataset.allEmails ?? dataset.monthEmails ?? [],
+            ? page(dataset.monthEmails ?? [])
+            : page(dataset.allEmails ?? dataset.monthEmails ?? []),
           error: null,
         };
       case 'sms_delivery_log':
         return {
           data: hasCall(query, 'gte')
-            ? dataset.monthSms ?? []
-            : dataset.allSms ?? dataset.monthSms ?? [],
+            ? page(dataset.monthSms ?? [])
+            : page(dataset.allSms ?? dataset.monthSms ?? []),
           error: null,
         };
       default:
@@ -141,11 +167,64 @@ describe('computeMonthlyVenueReport', () => {
   it('@contract aggregates covers, booking mix, guests, communications and moments for a mixed month', async () => {
     installDataset({
       monthBookings: [
-        booking({ customer_id: 'c1', status: 'confirmed', party_size: 3, booking_date: '2026-06-05', source: 'api', created_at: '2026-06-01T10:00:00Z' }),
-        booking({ customer_id: 'c2', status: 'completed', party_size: 4, booking_date: '2026-06-05', source: 'walk-in', created_at: '2026-06-02T11:00:00Z' }),
-        booking({ customer_id: 'c3', status: 'cancelled', party_size: 3, booking_date: '2026-06-10', booking_type: 'dinner', source: 'api', created_at: '2026-06-03T09:00:00Z' }),
-        booking({ customer_id: 'c1', status: 'no_show', party_size: 2, booking_date: '2026-06-12', booking_type: 'dinner', source: 'api', created_at: '2026-06-04T20:00:00Z' }),
-        booking({ customer_id: 'c2', status: 'checked_in', party_size: 6, booking_date: '2026-06-21', source: 'walk-in', created_at: '2026-06-05T12:00:00Z' }),
+        booking({
+          customer_id: 'c1',
+          status: 'confirmed',
+          party_size: 3,
+          booking_date: '2026-06-05',
+          source: 'api',
+          created_at: '2026-06-01T10:00:00Z',
+        }),
+        booking({
+          customer_id: 'c2',
+          status: 'completed',
+          party_size: 4,
+          booking_date: '2026-06-05',
+          source: 'walk-in',
+          created_at: '2026-06-02T11:00:00Z',
+        }),
+        booking({
+          customer_id: 'c3',
+          status: 'cancelled',
+          party_size: 3,
+          booking_date: '2026-06-10',
+          booking_type: 'dinner',
+          source: 'api',
+          created_at: '2026-06-03T09:00:00Z',
+        }),
+        booking({
+          customer_id: 'c1',
+          status: 'no_show',
+          party_size: 2,
+          booking_date: '2026-06-12',
+          booking_type: 'dinner',
+          source: 'api',
+          created_at: '2026-06-04T20:00:00Z',
+        }),
+        booking({
+          customer_id: 'c2',
+          status: 'checked_in',
+          party_size: 6,
+          booking_date: '2026-06-21',
+          source: 'walk-in',
+          created_at: '2026-06-05T12:00:00Z',
+        }),
+      ],
+      previousMonthBookings: [
+        booking({
+          customer_id: 'c4',
+          status: 'completed',
+          party_size: 5,
+          booking_date: '2026-05-20',
+          source: 'api',
+        }),
+        booking({
+          customer_id: 'c5',
+          status: 'cancelled',
+          party_size: 2,
+          booking_date: '2026-05-21',
+          source: 'api',
+        }),
       ],
       hours: fullWeekHours,
       customers: [
@@ -162,7 +241,12 @@ describe('computeMonthlyVenueReport', () => {
       ],
       monthSms: [{ message_sid: 's1' }, { message_sid: 's1' }, { message_sid: 's2' }],
       allBookings: [
-        { status: 'completed', party_size: 10, booking_date: '2025-12-15' },
+        {
+          customer_id: 'c1',
+          status: 'completed',
+          party_size: 10,
+          booking_date: '2025-12-15',
+        },
         { status: 'confirmed', party_size: 3, booking_date: '2026-06-05' },
         { status: 'completed', party_size: 4, booking_date: '2026-06-05' },
         { status: 'cancelled', party_size: 3, booking_date: '2026-06-10' },
@@ -201,8 +285,41 @@ describe('computeMonthlyVenueReport', () => {
       noShowPercent: 20,
     });
 
-    // Guests: c2's customer row was created this month -> first-time; c1 predates -> returning.
+    // Guests: c1 completed a visit before June -> returning; c2 has no prior completed visit -> first-time.
     expect(report!.guests).toEqual({ firstTime: 1, returning: 1 });
+
+    expect(report!.metrics).toEqual({
+      bookedCovers: 13,
+      activeBookings: 3,
+      uniqueGuests: 2,
+      firstTimeGuests: 1,
+      returningGuests: 1,
+      averagePartySize: 4.3,
+      returningGuestShare: 50,
+      cancellationRate: 20,
+      noShowRate: 20,
+      onlineShare: 60,
+      lunchCovers: 13,
+      dinnerCovers: 0,
+    });
+    expect(report!.comparison).toEqual({
+      month: 'May 2026',
+      monthName: 'May',
+      metrics: {
+        bookedCovers: 5,
+        activeBookings: 1,
+        uniqueGuests: 1,
+        firstTimeGuests: 1,
+        returningGuests: 0,
+        averagePartySize: 5,
+        returningGuestShare: 0,
+        cancellationRate: 50,
+        noShowRate: 0,
+        onlineShare: 100,
+        lunchCovers: 5,
+        dinnerCovers: 0,
+      },
+    });
 
     // All bookings were made inside opening hours.
     expect(report!.timing).toEqual({ afterHoursCount: 0, afterHoursPercent: 0 });
@@ -391,24 +508,66 @@ describe('computeMonthlyVenueReport', () => {
     expect(eqArgs).toEqual(['restaurant_id']);
   });
 
-  it('@contract counts a guest who booked ahead last month as returning on their first-visit month (KNOWN-ISSUE)', async () => {
-    // KNOWN-ISSUE: server/reports/monthly-venue-report.ts:179-197 keys "first-time"
-    // to the month the CUSTOMER ROW was created (when the booking was made), not the
-    // month of the first visit. A guest who booked in May for a June meal is counted
-    // as "returning" in June — their actual first visit month. Correct behavior would
-    // derive first-visit from the earliest active booking_date per customer. (This is
-    // the code-side successor of the stale first_booking_at prod bug: the module
-    // avoids first_booking_at entirely but still misclassifies book-ahead guests.)
+  it('@contract counts a book-ahead guest as first-time until they have a prior completed visit', async () => {
     installDataset({
       monthBookings: [
         booking({ customer_id: 'c9', status: 'confirmed', booking_date: '2026-06-10' }),
       ],
       customers: [{ id: 'c9', created_at: '2026-05-28T19:00:00Z' }],
+      allBookings: [
+        booking({ customer_id: 'c9', status: 'confirmed', booking_date: '2026-06-10' }),
+      ],
     });
 
     const report = await computeMonthlyVenueReport(RESTAURANT_ID, { year: 2026, month: 6 });
 
-    expect(report!.guests).toEqual({ firstTime: 0, returning: 1 });
+    expect(report!.guests).toEqual({ firstTime: 1, returning: 0 });
+  });
+
+  it('@contract paginates monthly and lifetime data so high-volume venues are not truncated', async () => {
+    const allBookings = Array.from({ length: 1001 }, (_, index) => ({
+      customer_id: `history-${index}`,
+      status: 'completed',
+      party_size: 1,
+      booking_date: '2026-05-01',
+      booking_type: 'dinner',
+      source: 'api',
+      created_at: '2026-04-01T10:00:00Z',
+    }));
+    const allEmails = Array.from({ length: 1001 }, (_, index) => ({
+      message_id: `email-${index}`,
+    }));
+    const stub = installDataset({
+      monthBookings: allBookings.map((row) => ({ ...row, booking_date: '2026-06-01' })),
+      allBookings,
+      monthEmails: allEmails,
+      allEmails,
+      allSms: [],
+    });
+
+    const report = await computeMonthlyVenueReport(RESTAURANT_ID, { year: 2026, month: 6 });
+
+    expect(report!.lifetime.coversActive).toBe(1001);
+    expect(report!.lifetime.messagesSent).toBe(1001);
+    expect(report!.metrics.activeBookings).toBe(1001);
+    expect(report!.communications.emailsSent).toBe(1001);
+    const monthlyBookingsQueries = stub.queries.filter(
+      (query) =>
+        query.table === 'bookings' &&
+        hasCall(query, 'range') &&
+        argsOf(query, 'gte')?.[1] === '2026-06-01',
+    );
+    expect(monthlyBookingsQueries.map((query) => argsOf(query, 'range'))).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+    const lifetimeBookingsQueries = stub.queries.filter(
+      (query) => query.table === 'bookings' && !hasCall(query, 'gte') && hasCall(query, 'range'),
+    );
+    expect(lifetimeBookingsQueries.map((query) => argsOf(query, 'range'))).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
   });
 
   it('@contract attributes cancellations to the meal month, hiding same-month cancellations of future bookings (KNOWN-ISSUE)', async () => {
