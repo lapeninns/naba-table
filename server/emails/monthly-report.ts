@@ -9,7 +9,7 @@ const FONT = EMAIL_FONT_STACK;
  * (plain text) and, HTML-escaped, as the document <title>, so the two never drift.
  */
 export function buildMonthlyReportSubject(report: MonthlyVenueReport): string {
-  return `Your ${report.monthName} on Nabatable: ${report.covers.active.toLocaleString('en-GB')} guests seated at ${report.restaurantName}`;
+  return `Your ${report.monthName} performance: ${report.metrics.bookedCovers.toLocaleString('en-GB')} booked covers at ${report.restaurantName}`;
 }
 
 function fmt(n: number): string {
@@ -33,7 +33,11 @@ function calloutRow(icon: string, innerHtml: string, bg: string, color: string):
   `;
 }
 
-function receiptRow(label: string, value: string, opts?: { emphasis?: boolean; last?: boolean }): string {
+function receiptRow(
+  label: string,
+  value: string,
+  opts?: { emphasis?: boolean; last?: boolean },
+): string {
   const valueStyle = opts?.emphasis
     ? 'font-size:16px;color:#047857;font-weight:800'
     : 'font-size:14px;color:#111827;font-weight:700';
@@ -61,6 +65,123 @@ function lifetimeStat(value: string, label: string, pad: string): string {
   `;
 }
 
+type MetricFormat = 'count' | 'decimal' | 'percent';
+
+type ScorecardMetric = {
+  label: string;
+  current: number;
+  previous: number | null;
+  format: MetricFormat;
+  lowerIsBetter?: boolean;
+};
+
+function metricValue(value: number, format: MetricFormat): string {
+  if (format === 'percent') return `${value.toFixed(1)}%`;
+  if (format === 'decimal') return value.toFixed(1);
+  return fmt(value);
+}
+
+function signed(value: number, suffix: string): string {
+  const normalized = Math.abs(value) < 0.05 ? 0 : value;
+  return `${normalized > 0 ? '+' : ''}${normalized.toFixed(1)}${suffix}`;
+}
+
+function metricChange(metric: ScorecardMetric): string {
+  if (metric.previous === null) return 'First month baseline';
+  if (metric.format === 'percent') {
+    return signed(metric.current - metric.previous, 'pp');
+  }
+  if (metric.previous === 0) return metric.current === 0 ? 'No change' : 'New this month';
+  return signed(((metric.current - metric.previous) / Math.abs(metric.previous)) * 100, '%');
+}
+
+function metricTone(metric: ScorecardMetric): string {
+  if (metric.previous === null || metric.current === metric.previous) return '#6B7280';
+  const improved = metric.lowerIsBetter
+    ? metric.current < metric.previous
+    : metric.current > metric.previous;
+  return improved ? '#047857' : '#B91C1C';
+}
+
+function scorecardCell(metric: ScorecardMetric, options: { right: boolean; top: boolean }): string {
+  const borderTop = options.top ? '' : 'border-top:1px solid #EEF0F2;';
+  const borderLeft = options.right ? 'border-left:1px solid #EEF0F2;' : '';
+  return `
+    <td width="50%" valign="top" style="padding:16px 14px;${borderTop}${borderLeft}">
+      <p style="margin:0 0 4px;font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;font-family:${FONT};">${escapeHtml(metric.label)}</p>
+      <p style="margin:0 0 3px;font-size:20px;color:${COLORS.brand};font-weight:800;letter-spacing:-0.02em;font-family:${FONT};">${escapeHtml(metricValue(metric.current, metric.format))}</p>
+      <p style="margin:0;font-size:11px;color:${metricTone(metric)};font-weight:700;font-family:${FONT};">${escapeHtml(metricChange(metric))}</p>
+    </td>`;
+}
+
+function buildScorecardMetrics(report: MonthlyVenueReport): ScorecardMetric[] {
+  const previous = report.comparison?.metrics ?? null;
+  return [
+    {
+      label: 'Active bookings',
+      current: report.metrics.activeBookings,
+      previous: previous?.activeBookings ?? null,
+      format: 'count',
+    },
+    {
+      label: 'Unique guests',
+      current: report.metrics.uniqueGuests,
+      previous: previous?.uniqueGuests ?? null,
+      format: 'count',
+    },
+    {
+      label: 'New guests',
+      current: report.metrics.firstTimeGuests,
+      previous: previous?.firstTimeGuests ?? null,
+      format: 'count',
+    },
+    {
+      label: 'Average party size',
+      current: report.metrics.averagePartySize,
+      previous: previous?.averagePartySize ?? null,
+      format: 'decimal',
+    },
+    {
+      label: 'Returning guest share',
+      current: report.metrics.returningGuestShare,
+      previous: previous?.returningGuestShare ?? null,
+      format: 'percent',
+    },
+    {
+      label: 'Cancellation rate',
+      current: report.metrics.cancellationRate,
+      previous: previous?.cancellationRate ?? null,
+      format: 'percent',
+      lowerIsBetter: true,
+    },
+    {
+      label: 'No-show rate',
+      current: report.metrics.noShowRate,
+      previous: previous?.noShowRate ?? null,
+      format: 'percent',
+      lowerIsBetter: true,
+    },
+    {
+      label: 'Online booking share',
+      current: report.metrics.onlineShare,
+      previous: previous?.onlineShare ?? null,
+      format: 'percent',
+    },
+    {
+      label: 'Lunch covers',
+      current: report.metrics.lunchCovers,
+      previous: previous?.lunchCovers ?? null,
+      format: 'count',
+    },
+    {
+      label: 'Dinner covers',
+      current: report.metrics.dinnerCovers,
+      previous: previous?.dinnerCovers ?? null,
+      format: 'count',
+    },
+  ];
+}
+
 /**
  * Plain-text alternative part. Every HTML-only email is a deliverability liability:
  * spam filters score multipart/alternative (HTML + text) higher, and some clients
@@ -81,37 +202,57 @@ export function renderMonthlyReportText(params: {
     `${greetingName}, here's everything Nabatable did for ${report.restaurantName} in ${report.monthName}.`,
   );
   lines.push('');
-  lines.push(`GUESTS YOU SEATED IN ${report.monthName.toUpperCase()}: ${fmt(report.covers.active)}`);
-  lines.push(`across ${fmt(report.bookings.total)} bookings`);
+  lines.push(
+    `BOOKED COVERS FOR ${report.monthName.toUpperCase()}: ${fmt(report.metrics.bookedCovers)}`,
+  );
+  lines.push(`across ${fmt(report.metrics.activeBookings)} active bookings`);
   if (report.guests.firstTime > 0) {
     lines.push(`- ${fmt(report.guests.firstTime)} were first-time guests`);
   }
   lines.push('');
-  lines.push(`New guests discovered you: ${fmt(report.guests.firstTime)}`);
-  lines.push(`Guests who came back: ${fmt(report.guests.returning)}`);
-  lines.push(`Booked themselves online: ${report.bookings.onlinePercent}%`);
   lines.push(
-    `No-show rate: ${report.bookings.noShowPercent}% (just ${fmt(report.bookings.noShowCount)} all month)`,
+    report.comparison
+      ? `Performance versus ${report.comparison.month}:`
+      : `${report.monthName} performance baseline:`,
   );
+  const scorecardMetrics = buildScorecardMetrics(report);
+  lines.push(
+    `- Booked covers: ${fmt(report.metrics.bookedCovers)} (${metricChange({ label: 'Booked covers', current: report.metrics.bookedCovers, previous: report.comparison?.metrics.bookedCovers ?? null, format: 'count' })})`,
+  );
+  for (const metric of scorecardMetrics) {
+    lines.push(
+      `- ${metric.label}: ${metricValue(metric.current, metric.format)} (${metricChange(metric)})`,
+    );
+  }
 
   if (report.timing.afterHoursCount > 0) {
     lines.push('');
     lines.push(
-      `${fmt(report.timing.afterHoursCount)} of those bookings (${report.timing.afterHoursPercent}%) came in while you were closed — tables you'd have lost to voicemail.`,
+      `${fmt(report.timing.afterHoursCount)} bookings (${report.timing.afterHoursPercent}%) came in while you were closed — your booking page stayed available outside opening hours.`,
     );
   }
 
   lines.push('');
   lines.push("Work Nabatable handled, so your team didn't have to:");
   lines.push(`- Guest emails & texts sent automatically: ${fmt(messagesTotal)}`);
-  lines.push(`- Arrival reminders that kept no-shows at bay: ${fmt(report.communications.remindersSent)}`);
-  lines.push(`- Review invites sent to grow your reputation: ${fmt(report.communications.reviewRequestsSent)}`);
-  lines.push(`- Changes & cancellations sorted for you: ${fmt(report.communications.changesSentCount)}`);
+  lines.push(
+    `- Arrival reminders that kept no-shows at bay: ${fmt(report.communications.remindersSent)}`,
+  );
+  lines.push(
+    `- Review invites sent to grow your reputation: ${fmt(report.communications.reviewRequestsSent)}`,
+  );
+  lines.push(
+    `- Changes & cancellations sorted for you: ${fmt(report.communications.changesSentCount)}`,
+  );
 
   const moments: string[] = [];
   if (report.moments.busiestDateLabel) {
-    const service = report.moments.busiestService ? ` ${report.moments.busiestService.toLowerCase()}` : '';
-    moments.push(`Busiest table: ${report.moments.busiestDateLabel}${service} · ${fmt(report.moments.busiestCovers)} covers`);
+    const service = report.moments.busiestService
+      ? ` ${report.moments.busiestService.toLowerCase()}`
+      : '';
+    moments.push(
+      `Busiest service: ${report.moments.busiestDateLabel}${service} · ${fmt(report.moments.busiestCovers)} covers`,
+    );
   }
   if (report.moments.biggestParty > 0) {
     moments.push(`Biggest party: ${fmt(report.moments.biggestParty)} guests`);
@@ -129,7 +270,7 @@ export function renderMonthlyReportText(params: {
   lines.push(
     `Since you joined${report.lifetime.joinedLabel ? ` in ${report.lifetime.joinedLabel.split(' ')[0]}` : ''}:`,
   );
-  lines.push(`- ${fmt(report.lifetime.coversActive)} guests seated`);
+  lines.push(`- ${fmt(report.lifetime.coversActive)} booked covers`);
   lines.push(`- ${fmt(report.lifetime.bookingsActive)} bookings taken`);
   lines.push(`- ${fmt(report.lifetime.messagesSent)} messages sent for you`);
 
@@ -146,7 +287,9 @@ export function renderMonthlyReportText(params: {
   lines.push('Every number above happened in the background — while you ran the floor.');
   lines.push('See you next month — the Nabatable team');
   lines.push('');
-  lines.push(`You're receiving this monthly summary because you manage ${report.restaurantName} on Nabatable.`);
+  lines.push(
+    `You're receiving this monthly summary because you manage ${report.restaurantName} on Nabatable.`,
+  );
 
   return lines.join('\n');
 }
@@ -166,8 +309,29 @@ export function renderMonthlyReportEmail(params: {
   const greetingName = escapeHtml(report.managerName?.trim() || 'there');
   const messagesTotal = report.communications.emailsSent + report.communications.smsSent;
   const remindersTotal = report.communications.remindersSent;
+  const scorecardMetrics = buildScorecardMetrics(report);
+  const scorecardRows = Array.from(
+    { length: Math.ceil(scorecardMetrics.length / 2) },
+    (_, index) => {
+      const left = scorecardMetrics[index * 2]!;
+      const right = scorecardMetrics[index * 2 + 1]!;
+      return `<tr>${scorecardCell(left, { right: false, top: index === 0 })}${scorecardCell(right, { right: true, top: index === 0 })}</tr>`;
+    },
+  ).join('');
+  const heroMetric: ScorecardMetric = {
+    label: 'Booked covers',
+    current: report.metrics.bookedCovers,
+    previous: report.comparison?.metrics.bookedCovers ?? null,
+    format: 'count',
+  };
+  const heroTrend = report.comparison
+    ? `<span style="display:inline-block;background-color:#ffffff;color:${metricTone(heroMetric)};font-size:12px;font-weight:800;border:1px solid #D1FAE5;border-radius:999px;padding:5px 12px;font-family:${FONT};">${escapeHtml(metricChange(heroMetric))} vs ${escapeHtml(report.comparison.monthName)}</span>`
+    : `<span style="display:inline-block;background-color:#ffffff;color:#6B7280;font-size:12px;font-weight:700;border:1px solid #E5E7EB;border-radius:999px;padding:5px 12px;font-family:${FONT};">First month baseline</span>`;
 
-  const preheader = `${fmt(report.covers.active)} guests seated, ${fmt(report.guests.firstTime)} of them brand-new to you, and ${fmt(messagesTotal)} guest messages sent automatically.`;
+  const preheaderComparison = report.comparison
+    ? `${metricChange(heroMetric)} versus ${report.comparison.monthName}`
+    : 'first month baseline';
+  const preheader = `${fmt(report.metrics.bookedCovers)} booked covers, ${preheaderComparison}, and ${fmt(messagesTotal)} guest messages sent automatically.`;
 
   const heroPill =
     report.guests.firstTime > 0
@@ -178,7 +342,7 @@ export function renderMonthlyReportEmail(params: {
     report.timing.afterHoursCount > 0
       ? calloutRow(
           '&#127769;',
-          `<strong>${fmt(report.timing.afterHoursCount)} of those bookings (${report.timing.afterHoursPercent}%) came in while you were closed</strong> &mdash; tables you&rsquo;d have lost to voicemail. Your booking page never clocks off.`,
+          `<strong>${fmt(report.timing.afterHoursCount)} bookings (${report.timing.afterHoursPercent}%) came in while you were closed</strong> &mdash; your booking page stayed available outside opening hours.`,
           COLORS.arrivalBg,
           '#9A3412',
         )
@@ -186,16 +350,22 @@ export function renderMonthlyReportEmail(params: {
 
   const momentsParts: string[] = [];
   if (report.moments.busiestDateLabel) {
-    const service = report.moments.busiestService ? ` ${escapeHtml(report.moments.busiestService.toLowerCase())}` : '';
+    const service = report.moments.busiestService
+      ? ` ${escapeHtml(report.moments.busiestService.toLowerCase())}`
+      : '';
     momentsParts.push(
-      `Your busiest table was <strong style="color:#111827;">${escapeHtml(report.moments.busiestDateLabel)}${service} &middot; ${fmt(report.moments.busiestCovers)} covers</strong>`,
+      `Your busiest service was <strong style="color:#111827;">${escapeHtml(report.moments.busiestDateLabel)}${service} &middot; ${fmt(report.moments.busiestCovers)} covers</strong>`,
     );
   }
   if (report.moments.biggestParty > 0) {
-    momentsParts.push(`biggest party of the month was <strong style="color:#111827;">${fmt(report.moments.biggestParty)} guests</strong>`);
+    momentsParts.push(
+      `biggest party of the month was <strong style="color:#111827;">${fmt(report.moments.biggestParty)} guests</strong>`,
+    );
   }
   if (report.moments.repeatGuests > 0) {
-    momentsParts.push(`<strong style="color:#111827;">${fmt(report.moments.repeatGuests)}</strong> guests already came back for seconds`);
+    momentsParts.push(
+      `<strong style="color:#111827;">${fmt(report.moments.repeatGuests)}</strong> guests already came back for seconds`,
+    );
   }
   const momentsHtml = momentsParts.length
     ? `
@@ -218,7 +388,7 @@ export function renderMonthlyReportEmail(params: {
           <p style="margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#047857;font-family:${FONT};">Since you joined${report.lifetime.joinedLabel ? ` in ${escapeHtml(report.lifetime.joinedLabel.split(' ')[0])}` : ''}</p>
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
             <tr>
-              ${lifetimeStat(fmt(report.lifetime.coversActive), 'guests seated', '0 12px 0 0')}
+              ${lifetimeStat(fmt(report.lifetime.coversActive), 'booked covers', '0 12px 0 0')}
               ${lifetimeStat(fmt(report.lifetime.bookingsActive), 'bookings taken', '0 12px')}
               ${lifetimeStat(fmt(report.lifetime.messagesSent), 'messages sent for you', '0 0 0 12px')}
             </tr>
@@ -303,42 +473,21 @@ export function renderMonthlyReportEmail(params: {
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:${COLORS.gridBg};border:1px solid ${COLORS.border};border-radius:14px;margin-bottom:14px;">
                       <tr>
                         <td align="center" style="padding:26px 24px 24px;">
-                          <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6B7280;font-family:${FONT};">Guests you seated in ${escapeHtml(report.monthName)}</p>
-                          <p class="hero-number" style="margin:0 0 4px;color:${COLORS.brand};font-size:60px;font-weight:800;line-height:1;letter-spacing:-0.035em;font-family:${FONT};">${fmt(report.covers.active)}</p>
-                          <p style="margin:0 0 ${heroPill ? '16' : '0'}px;color:#4B5563;font-size:14px;font-family:${FONT};">across ${fmt(report.bookings.total)} bookings</p>
+                          <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6B7280;font-family:${FONT};">Booked covers for ${escapeHtml(report.monthName)}</p>
+                          <p class="hero-number" style="margin:0 0 4px;color:${COLORS.brand};font-size:60px;font-weight:800;line-height:1;letter-spacing:-0.035em;font-family:${FONT};">${fmt(report.metrics.bookedCovers)}</p>
+                          <p style="margin:0 0 12px;color:#4B5563;font-size:14px;font-family:${FONT};">across ${fmt(report.metrics.activeBookings)} active bookings</p>
+                          <p style="margin:0 0 ${heroPill ? '12' : '0'}px;">${heroTrend}</p>
                           ${heroPill}
                         </td>
                       </tr>
                     </table>
 
-                    <!-- Stat grid 2x2 -->
+                    <!-- Comparative performance scorecard -->
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom:6px;">
+                      <tr><td align="left"><p style="margin:0;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${COLORS.brand};font-family:${FONT};">Performance scorecard${report.comparison ? ` &bull; versus ${escapeHtml(report.comparison.month)}` : ''}</p></td></tr>
+                    </table>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:${COLORS.gridBg};border:1px solid ${COLORS.border};border-radius:14px;margin-bottom:22px;">
-                      <tr>
-                        <td style="padding:18px 24px;">
-                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                            <tr>
-                              <td width="50%" valign="top" style="padding:0 12px 16px 0;">
-                                <p style="margin:0 0 3px;font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;font-family:${FONT};">New guests discovered you</p>
-                                <p style="margin:0;font-size:20px;color:${COLORS.brand};font-weight:800;letter-spacing:-0.02em;font-family:${FONT};">${fmt(report.guests.firstTime)}</p>
-                              </td>
-                              <td width="50%" valign="top" style="padding:0 0 16px 12px;">
-                                <p style="margin:0 0 3px;font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;font-family:${FONT};">Guests who came back</p>
-                                <p style="margin:0;font-size:20px;color:${COLORS.brand};font-weight:800;letter-spacing:-0.02em;font-family:${FONT};">${fmt(report.guests.returning)}</p>
-                              </td>
-                            </tr>
-                            <tr>
-                              <td width="50%" valign="top" style="padding:16px 12px 0 0;border-top:1px solid #EEF0F2;">
-                                <p style="margin:0 0 3px;font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;font-family:${FONT};">Booked themselves online</p>
-                                <p style="margin:0;font-size:20px;color:${COLORS.brand};font-weight:800;letter-spacing:-0.02em;font-family:${FONT};">${report.bookings.onlinePercent}%</p>
-                              </td>
-                              <td width="50%" valign="top" style="padding:16px 0 0 12px;border-top:1px solid #EEF0F2;">
-                                <p style="margin:0 0 3px;font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;font-weight:600;font-family:${FONT};">No-show rate</p>
-                                <p style="margin:0;font-size:20px;color:#047857;font-weight:800;letter-spacing:-0.02em;font-family:${FONT};">${report.bookings.noShowPercent}% <span style="color:#6B7280;font-size:11px;font-weight:600;">just ${fmt(report.bookings.noShowCount)} all month</span></p>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
+                      ${scorecardRows}
                     </table>
 
                     ${afterHoursCallout}

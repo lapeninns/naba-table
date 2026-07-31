@@ -3,10 +3,7 @@ import 'server-only';
 import { DateTime } from 'luxon';
 
 import { getTrustedAppOrigin } from '@/lib/site-url';
-import {
-  isEmailRecipientSuppressedError,
-  sendEmail,
-} from '@/libs/resend';
+import { isEmailRecipientSuppressedError, sendEmail } from '@/libs/resend';
 import { recordEmailDeliveryLog } from '@/server/emails/email-delivery-log';
 import { renderMonthlyReportEmail } from '@/server/emails/monthly-report';
 import { recordObservabilityEvent } from '@/server/observability';
@@ -39,8 +36,8 @@ export async function sendMonthlyVenueReports(options?: {
   const dryRun = options?.dryRun ?? false;
   const filterRestaurantId = options?.restaurantIdFilter ?? null;
 
-  const now = DateTime.now();
-  const yearMonth = { year: now.year, month: now.month };
+  const reportMonth = DateTime.now().minus({ month: 1 });
+  const yearMonth = { year: reportMonth.year, month: reportMonth.month };
 
   // Fetch all restaurants with contact email
   let query = supabase
@@ -175,10 +172,7 @@ export async function sendMonthlyVenueReports(options?: {
     results.forEach((result) => {
       if (result.status === 'rejected') {
         summary.failed++;
-        console.error(
-          '[monthly-reports] unexpected error during send:',
-          result.reason,
-        );
+        console.error('[monthly-reports] unexpected error during send:', result.reason);
       }
     });
   }

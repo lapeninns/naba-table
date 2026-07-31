@@ -106,7 +106,7 @@ function makeReport(overrides: Record<string, unknown> = {}) {
 describe('sendMonthlyVenueReports', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    // Mid-month noon UTC: the calendar month is July in every possible host timezone.
+    // Mid-month noon UTC: the most recently completed calendar month is June.
     vi.setSystemTime(new Date('2026-07-15T12:00:00Z'));
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -126,9 +126,9 @@ describe('sendMonthlyVenueReports', () => {
     expect(summary).toEqual({ totalVenues: 2, sent: 2, skipped: 0, failed: 0, errors: [] });
 
     expect(computeMonthlyVenueReportMock).toHaveBeenCalledTimes(2);
-    // The report month comes from the frozen clock.
-    expect(computeMonthlyVenueReportMock).toHaveBeenCalledWith('v1', { year: 2026, month: 7 });
-    expect(computeMonthlyVenueReportMock).toHaveBeenCalledWith('v2', { year: 2026, month: 7 });
+    // Monthly reports always cover the most recently completed calendar month.
+    expect(computeMonthlyVenueReportMock).toHaveBeenCalledWith('v1', { year: 2026, month: 6 });
+    expect(computeMonthlyVenueReportMock).toHaveBeenCalledWith('v2', { year: 2026, month: 6 });
 
     expect(sendEmailMock).toHaveBeenCalledTimes(2);
     expect(sendEmailMock).toHaveBeenCalledWith({
@@ -285,9 +285,7 @@ describe('sendMonthlyVenueReports', () => {
   it('@worker @contract @observability throws and records observability when the venue query fails', async () => {
     installVenues({ data: null, error: { message: 'db offline' } });
 
-    await expect(sendMonthlyVenueReports()).rejects.toThrow(
-      'Failed to fetch venues: db offline',
-    );
+    await expect(sendMonthlyVenueReports()).rejects.toThrow('Failed to fetch venues: db offline');
     expect(recordObservabilityEventMock).toHaveBeenCalledWith({
       source: 'monthly_reports',
       eventType: 'fetch_venues_failed',
