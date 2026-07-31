@@ -127,6 +127,23 @@ export function renderButton(label: string, href: string): string {
   `;
 }
 
+export function renderStarRow(href: string): string {
+  const starLink = (count: number) =>
+    `<td align="center" style="padding:0 2px;"><a href="${escapeHtml(href)}" aria-label="Rate ${count} star${count === 1 ? '' : 's'}" style="display:inline-block;min-width:44px;font-family:${EMAIL_FONT_STACK};font-size:32px;line-height:44px;color:#F59E0B;text-decoration:none;">&#9733;</a></td>`;
+
+  return `
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto;">
+      <tr>
+        ${[1, 2, 3, 4, 5].map(starLink).join('')}
+      </tr>
+      <tr>
+        <td colspan="5" align="center" style="padding:4px 0 20px;">
+          <p style="margin:0;font-family:${EMAIL_FONT_STACK};font-size:13px;color:#6B7280;">Tap a star to rate your visit</p>
+        </td>
+      </tr>
+    </table>`;
+}
+
 export type GridItem = { label: string; value: string };
 
 export function renderGridBox(items: GridItem[]): string {

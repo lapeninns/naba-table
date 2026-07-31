@@ -222,6 +222,7 @@ function computeDelayMs(
 // - Peak engagement: 9 AM - 12 PM (morning) and 1 PM - 3 PM (afternoon)
 // - Secondary peak: 5 PM - 8 PM (post-work evening check)
 // - Avoid: 10 PM - 7 AM (sleep hours - very low open rates)
+// - Commute dead zone (post-event only): 4 PM - 7 PM sends defer to 7 PM
 // ============================================================================
 
 const OPTIMAL_SEND_HOURS = {
@@ -229,6 +230,7 @@ const OPTIMAL_SEND_HOURS = {
   eveningEnd: 20, // 8 PM - latest optimal send time
   eveningFallback: 19, // 7 PM - fallback for pre-event emails that would land in sleep hours
   nextDayStart: 10, // 10 AM - comfortable start time for pushed emails
+  commuteStart: 16, // 4 PM - start of the late-afternoon commute dead zone (post-event only)
 };
 
 type ScheduleMode = 'post-event' | 'pre-event';
@@ -262,6 +264,7 @@ function isWithinOptimalHours(hour: number): boolean {
  *
  * For POST-EVENT emails (e.g., review requests after a visit):
  *   - If outside 9 AM - 8 PM, delay to 10 AM next morning
+ *   - If proposed between 4 PM and 7 PM, defer to 7 PM the same evening
  *
  * For PRE-EVENT emails (e.g., reminders before a booking):
  *   - If outside 9 AM - 8 PM but would still be before the event, move to:
@@ -283,6 +286,17 @@ function adjustToOptimalSendTime(
 ): number | null {
   const proposedDate = new Date(proposedTimeMs);
   const localHour = getLocalHour(proposedDate, timezone);
+
+  // POST-EVENT sends proposed during the late-afternoon commute (4 PM - 7 PM) engage
+  // poorly; defer them to the 7 PM post-work evening peak (minutes preserved).
+  // Pre-event reminders are exempt: a 5 PM reminder for an 8 PM booking is intentional.
+  const inCommuteWindow =
+    localHour >= OPTIMAL_SEND_HOURS.commuteStart && localHour < OPTIMAL_SEND_HOURS.eveningFallback;
+  if (mode === 'post-event' && inCommuteWindow) {
+    const deferred = new Date(proposedDate);
+    deferred.setHours(deferred.getHours() + (OPTIMAL_SEND_HOURS.eveningFallback - localHour));
+    return Math.max(0, deferred.getTime() - Date.now());
+  }
 
   // If already within optimal hours, no adjustment needed
   if (isWithinOptimalHours(localHour)) {

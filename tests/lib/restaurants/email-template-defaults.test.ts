@@ -26,9 +26,9 @@ const FULL_VARIABLES: BookingEmailTemplateVariableMap = {
   name: 'Aman Shrestha',
   firstName: 'Aman',
   venue: 'Old Crown',
-  date: 'Friday 17 July',
+  date: 'Sun, 12 Jul 2026',
   time: '19:30',
-  party: '4 guests',
+  party: '4 People',
 };
 
 function extractTokens(text: string): string[] {
@@ -84,6 +84,22 @@ describe('restaurant email template defaults', () => {
           }
         }
       }
+    }
+  });
+
+  it('review request defaults carry no photo ask and lead with the guest experience @contract', () => {
+    const family = TEMPLATE_DEFINITIONS.find((definition) => definition.key === 'review_request');
+    expect(family).toBeDefined();
+    expect(family!.recommendedVariables).toEqual(
+      expect.arrayContaining(['firstName', 'venue', 'date', 'party']),
+    );
+    for (const variant of family!.defaultVariants) {
+      expect(variant.ask.trim()).toBe('');
+      expect(variant.cue.trim()).toBe('');
+      for (const field of ['subject', 'preheader', 'headline', 'intro', 'cue', 'ask'] as const) {
+        expect(variant[field].toLowerCase()).not.toContain('photo');
+      }
+      expect(variant.subject).toMatch(/how (was|did)/i);
     }
   });
 

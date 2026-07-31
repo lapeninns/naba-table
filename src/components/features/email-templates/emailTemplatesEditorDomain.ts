@@ -194,7 +194,7 @@ export function buildEmailTemplateCopyFieldSections({
           control: 'textarea',
           field: 'ask',
           helpText:
-            "Use this for the direct post-visit ask, like encouraging a photo alongside the guest's review.",
+            'Optional extra line after the intro. Keep it light: avoid adding tasks before the review link.',
           label: 'Review ask',
         },
       ],
