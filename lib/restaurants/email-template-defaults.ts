@@ -375,8 +375,8 @@ export const TEMPLATE_DEFINITIONS = [
       {
         id: 'review-request-default-3',
         name: 'Short and Direct',
-        subject: 'Your {{date}} visit to {{venue}} — how was it?',
-        preheader: 'Tap a star — it takes 30 seconds.',
+        subject: '{{venue}} — how was your visit?',
+        preheader: 'It only takes 30 seconds.',
         headline: 'How was it?',
         intro:
           'You joined us at {{venue}} on {{date}} — how was it? A 30-second review helps future guests choose.',

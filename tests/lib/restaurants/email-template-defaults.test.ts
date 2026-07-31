@@ -26,9 +26,9 @@ const FULL_VARIABLES: BookingEmailTemplateVariableMap = {
   name: 'Aman Shrestha',
   firstName: 'Aman',
   venue: 'Old Crown',
-  date: 'Friday 17 July',
+  date: 'Sun, 12 Jul 2026',
   time: '19:30',
-  party: '4 guests',
+  party: '4 People',
 };
 
 function extractTokens(text: string): string[] {

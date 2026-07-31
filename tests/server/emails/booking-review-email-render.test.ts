@@ -46,7 +46,7 @@ const venue = {
   timezone: 'Europe/London',
 } as never;
 
-const summary = { date: 'Sat 12 Jul', startTime: '1:00 PM', endTime: '2:30 PM', party: '2 People' };
+const summary = { date: 'Sun, 12 Jul 2026', startTime: '1:00 PM', endTime: '2:30 PM', party: '2 People' };
 
 function renderReviewEmail(overrides: { ctaUrl?: string; emailType?: string } = {}) {
   return renderHtml({
