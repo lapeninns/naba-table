@@ -71,6 +71,7 @@ test.describe('reserve routes', () => {
           contentType: 'application/json',
           body: JSON.stringify({
             restaurantId,
+            evaluatedPartySize: Number(url.searchParams.get('party') ?? '1'),
             date,
             timezone: restaurantTimezone,
             intervalMinutes: 15,
@@ -87,6 +88,7 @@ test.describe('reserve routes', () => {
                 periodName: 'Dinner',
                 bookingOption: 'dinner',
                 defaultBookingOption: 'dinner',
+                durationMinutes: 90,
                 availability: {
                   services: {},
                   labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
@@ -100,6 +102,7 @@ test.describe('reserve routes', () => {
                 periodName: 'Dinner',
                 bookingOption: 'dinner',
                 defaultBookingOption: 'dinner',
+                durationMinutes: 90,
                 availability: {
                   services: {},
                   labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
@@ -113,6 +116,7 @@ test.describe('reserve routes', () => {
                 periodName: 'Dinner',
                 bookingOption: 'dinner',
                 defaultBookingOption: 'dinner',
+                durationMinutes: 90,
                 availability: {
                   services: {},
                   labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },
@@ -320,7 +324,7 @@ test.describe('reserve routes', () => {
     await expect(phoneInput).toHaveCSS('height', '44px');
     await page.getByRole('button', { name: 'Review booking' }).click();
     await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
-    await expect(page.getByText('Booking messages')).toBeVisible();
+    await expect(page.getByText('Booking messages', { exact: true })).toBeVisible();
     await expect(page.getByText(/WhatsApp when available/)).toBeVisible();
     await expect(page.getByRole('checkbox')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /privacy notice/i })).toHaveAttribute(

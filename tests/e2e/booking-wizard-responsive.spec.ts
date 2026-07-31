@@ -103,7 +103,6 @@ async function capture(
 async function completeDetails(page: Page): Promise<void> {
   await page.getByLabel('Full name').fill('QA Guest');
   await page.getByLabel('Email address').fill('qa.guest@example.test');
-  await page.getByRole('checkbox', { name: /I agree to the terms/i }).check();
 }
 
 async function assertStep(page: Page, finalControl: ReturnType<Page['locator']>): Promise<void> {
@@ -144,8 +143,8 @@ test.describe('booking wizard responsive evidence matrix', () => {
       );
       await clickClientControl(page.getByTestId('wizard-action-plan-continue'));
       await expect(page.getByRole('heading', { name: 'Tell us how to reach you' })).toBeVisible();
-      const terms = page.getByRole('checkbox', { name: /I agree to the terms/i });
-      await assertStep(page, terms);
+      const reviewAction = page.getByTestId('wizard-action-details-review');
+      await assertStep(page, reviewAction);
       await capture(
         page,
         testInfo,
@@ -156,6 +155,8 @@ test.describe('booking wizard responsive evidence matrix', () => {
 
       await completeDetails(page);
       await clickClientControl(page.getByTestId('wizard-action-details-review'));
+      await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
+      await page.getByRole('button', { name: 'Accept all & review booking' }).click();
       await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
       const editPlan = page.getByRole('button', { name: 'Edit reservation details' });
       const editGuest = page.getByRole('button', { name: 'Edit guest details' });

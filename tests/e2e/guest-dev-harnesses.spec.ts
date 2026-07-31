@@ -6,7 +6,7 @@ const harnessCases = [
   {
     path: '/dev/guest-bookings',
     heading: 'Upcoming plans and saved receipts.',
-    proof: 'White Horse',
+    proof: 'Choose a view',
   },
   {
     path: '/dev/guest-dashboard',

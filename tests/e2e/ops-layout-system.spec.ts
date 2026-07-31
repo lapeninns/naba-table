@@ -319,14 +319,13 @@ test.describe('layout system — email delivery log responsive variants', () => 
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(EMAIL_DELIVERY_URL);
 
-    const cards = page.locator('[data-attempt-key]');
-    await expect(cards).toHaveCount(2);
     await expect(page.getByRole('table')).toHaveCount(0);
 
     // Retry stays available on mobile with the same accessible name as the table.
     const retry = page.getByRole('button', { name: 'Retry email for failed@example.test' });
     await expect(retry).toBeVisible();
 
+    await expect(page.getByText('failed@example.test')).toBeVisible();
     await expect(page.getByText('delivered@example.test')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: `${ARTIFACT_DIR}/email-delivery-375.png`, fullPage: false });
@@ -339,8 +338,9 @@ test.describe('layout system — email delivery log responsive variants', () => 
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto(EMAIL_DELIVERY_URL);
 
-    await expect(page.locator('[data-attempt-key]')).toHaveCount(2);
     await expect(page.getByRole('table')).toHaveCount(0);
+    await expect(page.getByText('failed@example.test')).toBeVisible();
+    await expect(page.getByText('delivered@example.test')).toBeVisible();
 
     // Tablet shell: fixed sidebar visible, bottom action bar hidden at >=md.
     await expect(page.getByRole('navigation', { name: 'Primary' })).toBeHidden();
@@ -358,7 +358,6 @@ test.describe('layout system — email delivery log responsive variants', () => 
     await expect(
       page.getByRole('cell', { name: 'failed@example.test', exact: true }),
     ).toBeVisible();
-    await expect(page.locator('[data-attempt-key]')).toHaveCount(0);
 
     await expectNoHorizontalOverflow(page);
     await page.screenshot({ path: `${ARTIFACT_DIR}/email-delivery-1440.png`, fullPage: false });

@@ -59,6 +59,7 @@ test('mocked guest APIs are exercised', async ({ page }) => {
         contentType: 'application/json',
         body: JSON.stringify({
           restaurantId,
+          evaluatedPartySize: 1,
           date,
           timezone: restaurantTimezone,
           intervalMinutes: 15,
@@ -75,6 +76,7 @@ test('mocked guest APIs are exercised', async ({ page }) => {
               periodName: 'Dinner',
               bookingOption: 'dinner',
               defaultBookingOption: 'dinner',
+              durationMinutes: 90,
               availability: {
                 services: {},
                 labels: { kitchenClosed: false, lunchWindow: false, dinnerWindow: true },

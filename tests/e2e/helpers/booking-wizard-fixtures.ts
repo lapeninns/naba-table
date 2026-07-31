@@ -64,6 +64,7 @@ export async function seedBookingWizardDraft(page: Page): Promise<void> {
 function schedulePayload(date: string, emptySchedule: boolean) {
   return {
     restaurantId: bookingFixture.restaurantId,
+    evaluatedPartySize: 2,
     date,
     timezone: 'Europe/London',
     intervalMinutes: 15,
@@ -82,6 +83,7 @@ function schedulePayload(date: string, emptySchedule: boolean) {
             periodName: 'Lunch',
             bookingOption: 'lunch',
             defaultBookingOption: 'lunch',
+            durationMinutes: 90,
             availability: {
               services: {},
               labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
@@ -95,6 +97,7 @@ function schedulePayload(date: string, emptySchedule: boolean) {
             periodName: 'Lunch',
             bookingOption: 'lunch',
             defaultBookingOption: 'lunch',
+            durationMinutes: 90,
             availability: {
               services: {},
               labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },

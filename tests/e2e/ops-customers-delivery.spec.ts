@@ -353,8 +353,10 @@ test.describe('ops customers and delivery shipped routes', () => {
 
     await page.getByRole('tab', { name: 'Queue' }).click();
     await expect(page.locator('main').getByText('Scheduled email queue')).toBeVisible();
-    await expect(page.locator('main').getByText('QA-QUEUE-1')).toBeVisible();
-    await expect(page.locator('main').getByText('Queue QA Guest')).toBeVisible();
+    await expect(page.getByRole('table').getByText('QA-QUEUE-1', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('table').getByText('Queue QA Guest', { exact: true }),
+    ).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-email-delivery-desktop.png'),
@@ -369,9 +371,9 @@ test.describe('ops customers and delivery shipped routes', () => {
     await waitForSettled(page);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/sms-delivery/);
-    await expect(page.getByRole('heading', { name: 'SMS Delivery' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Message Delivery' })).toBeVisible();
     await expect(page.locator('main').getByText('Total attempts')).toBeVisible();
-    await expect(page.locator('main').getByText('SMS Delivery Log')).toBeVisible();
+    await expect(page.locator('main').getByText('Message Delivery Log')).toBeVisible();
     await expect(page.locator('main').getByText('Booking confirmation')).toBeVisible();
     await expect(page.locator('main').getByText('Ref QA-SMS-1')).toBeVisible();
     await expect(page.locator('main').getByText('ending 0101')).toBeVisible();

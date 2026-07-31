@@ -48,8 +48,9 @@ async function openReview(page: Page, mode: BookingCreateMode): Promise<void> {
   await clickClientControl(page.getByTestId('wizard-action-plan-continue'));
   await page.getByLabel('Full name').fill('QA Guest');
   await page.getByLabel('Email address').fill('qa.guest@example.test');
-  await page.getByRole('checkbox', { name: /I agree to the terms/i }).check();
   await clickClientControl(page.getByTestId('wizard-action-details-review'));
+  await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
+  await page.getByRole('button', { name: 'Accept all & review booking' }).click();
   await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
 }
 
