@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
-import { clearBookingTableAssignments } from '@/server/bookings';
+import { captureServerException } from '@/lib/posthog/server';
 import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
 import {
   prepareCheckInTransition,
@@ -302,31 +301,6 @@ async function patchBookingStatus(
     finalStatus = checkOutResult.result.status as Tables<'bookings'>['status'];
 
     if (checkOutResult.result.changed) {
-      try {
-        await clearBookingTableAssignments(serviceSupabase, bookingRow.id);
-      } catch (clearError) {
-        console.error('[ops][booking-status] failed to clear table assignments', {
-          bookingId: bookingRow.id,
-          error: clearError instanceof Error ? clearError.message : clearError,
-        });
-        captureServerException(clearError, {
-          distinctId: user.id,
-          groups: { restaurant: bookingRow.restaurant_id },
-          properties: {
-            bookingId: bookingRow.id,
-            restaurantId: bookingRow.restaurant_id,
-            source: 'ops',
-            kind: 'ops-booking-status',
-          },
-        });
-        return withStatusDeprecation(
-          NextResponse.json(
-            { error: 'Booking was updated but table assignments could not be released' },
-            { status: 500 },
-          ),
-        );
-      }
-
       invalidateOpsDashboardCaches(bookingRow.restaurant_id, {
         summaryDates: [bookingRow.booking_date],
       });

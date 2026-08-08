@@ -19,7 +19,6 @@ import { buildBookingWhatsAppConsentPatch } from '@/server/booking/whatsapp-cons
 import {
   BOOKING_TYPES,
   buildBookingAuditSnapshot,
-  clearBookingTableAssignments,
   deriveEndTimeFromDuration,
   fetchBookingsForContact,
   inferMealTypeFromTime,
@@ -1826,8 +1825,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       if (!cancellation.cancelled) {
         return NextResponse.json({ id: bookingId, status: cancelledRecord.status ?? 'cancelled' });
       }
-      await clearBookingTableAssignments(serviceSupabase, bookingId);
-
       const cancellationMetadata = {
         restaurant_id: existingBooking.restaurant_id,
         ...buildBookingAuditSnapshot(existingBooking, cancelledRecord),
@@ -2019,8 +2016,6 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         ),
       });
     }
-    await clearBookingTableAssignments(serviceSupabase, bookingId);
-
     const cancellationMetadata = {
       restaurant_id: existingBooking.restaurant_id,
       ...buildBookingAuditSnapshot(existingBooking, cancelledRecord),

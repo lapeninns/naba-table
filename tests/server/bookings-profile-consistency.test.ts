@@ -119,47 +119,48 @@ describe('booking profile consistency helpers', () => {
   });
 
   it('records cancellation profile data only on a real non-cancelled transition', async () => {
-    const updateQuery = makeQuery({
-      data: makeBooking({ status: 'cancelled' }),
-      error: null,
-    });
-    const client = makeClientForQueries([updateQuery]);
+    const cancelledBooking = makeBooking({ status: 'cancelled' });
+    const client = makeClientForQueries([], [{ cancelled: true, booking: cancelledBooking }]);
     recordCancellationForCustomerProfileMock.mockRejectedValue(new Error('profile unavailable'));
 
-    const result = await softCancelBooking(client as never, 'booking-1');
+    const result = await softCancelBooking(client as never, 'booking-1', {
+      restaurantId: 'rest-1',
+    });
 
     expect(result).toMatchObject({ cancelled: true, booking: { status: 'cancelled' } });
-    expect(updateQuery.neq).toHaveBeenCalledWith('status', 'cancelled');
+    expect(client.rpc).toHaveBeenCalledWith('cancel_booking_and_release_table_state', {
+      p_booking_id: 'booking-1',
+      p_restaurant_id: 'rest-1',
+    });
     expect(recordCancellationForCustomerProfileMock).toHaveBeenCalledTimes(1);
   });
 
-  it('scopes soft cancellation updates and readback to the authorized restaurant when provided', async () => {
-    const updateQuery = makeQuery({ data: null, error: null });
-    const readQuery = makeQuery({
-      data: makeBooking({ status: 'cancelled' }),
-      error: null,
-    });
-    const client = makeClientForQueries([updateQuery, readQuery]);
+  it('scopes cancellation and table-state release to the authorized restaurant', async () => {
+    const client = makeClientForQueries(
+      [],
+      [{ cancelled: true, booking: makeBooking({ status: 'cancelled' }) }],
+    );
 
     await softCancelBooking(client as never, 'booking-1', { restaurantId: 'rest-1' });
 
-    expect(updateQuery.eq).toHaveBeenCalledWith('id', 'booking-1');
-    expect(updateQuery.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
-    expect(readQuery.eq).toHaveBeenCalledWith('id', 'booking-1');
-    expect(readQuery.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
+    expect(client.rpc).toHaveBeenCalledWith('cancel_booking_and_release_table_state', {
+      p_booking_id: 'booking-1',
+      p_restaurant_id: 'rest-1',
+    });
   });
 
-  it('does not double-count customer cancellations for an already-cancelled booking', async () => {
-    const updateQuery = makeQuery({ data: null, error: null });
-    const readQuery = makeQuery({
-      data: makeBooking({ status: 'cancelled' }),
-      error: null,
-    });
-    const client = makeClientForQueries([updateQuery, readQuery]);
+  it('re-runs idempotent table-state cleanup without double-counting an already-cancelled booking', async () => {
+    const client = makeClientForQueries(
+      [],
+      [{ cancelled: false, booking: makeBooking({ status: 'cancelled' }) }],
+    );
 
-    const result = await softCancelBooking(client as never, 'booking-1');
+    const result = await softCancelBooking(client as never, 'booking-1', {
+      restaurantId: 'rest-1',
+    });
 
     expect(result).toMatchObject({ cancelled: false, booking: { status: 'cancelled' } });
+    expect(client.rpc).toHaveBeenCalledTimes(1);
     expect(recordCancellationForCustomerProfileMock).not.toHaveBeenCalled();
   });
 
