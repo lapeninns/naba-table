@@ -224,10 +224,7 @@ describe('public DELETE /api/bookings/[id]', () => {
         restaurantId: 'rest-1',
       },
     );
-    expect(clearBookingTableAssignmentsMock).toHaveBeenCalledWith(
-      expect.anything(),
-      '65c3207e-318a-4e4b-b82d-1249a720d776',
-    );
+    expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
     expect(enqueueBookingCancelledSideEffectsMock).toHaveBeenCalledOnce();
   });
 

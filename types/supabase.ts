@@ -6031,6 +6031,13 @@ export type Database = {
           total: number;
         }[];
       };
+      cancel_booking_and_release_table_state: {
+        Args: { p_booking_id: string; p_restaurant_id: string };
+        Returns: {
+          booking: Database['public']['Tables']['bookings']['Row'];
+          cancelled: boolean;
+        }[];
+      };
       check_soft_hold_ownership: {
         Args: {
           p_session_token: string;

@@ -429,55 +429,36 @@ export async function addToWaitingList(
 export async function softCancelBooking(
   client: DbClient,
   bookingId: string,
-  options: { restaurantId?: string | null } = {},
+  options: { restaurantId: string },
 ): Promise<{ booking: BookingRecord; cancelled: boolean }> {
-  let updateQuery = client
-    .from('bookings')
-    .update({ status: 'cancelled' })
-    .eq('id', bookingId)
-    .neq('status', 'cancelled');
-
-  if (options.restaurantId) {
-    updateQuery = updateQuery.eq('restaurant_id', options.restaurantId);
-  }
-
-  const { data, error } = await updateQuery.select(BOOKING_SELECT).maybeSingle();
+  const { data, error } = await client.rpc('cancel_booking_and_release_table_state', {
+    p_booking_id: bookingId,
+    p_restaurant_id: options.restaurantId,
+  });
 
   if (error) {
     throw error;
   }
 
-  if (!data) {
-    let readQuery = client
-      .from('bookings')
-      .select(BOOKING_SELECT)
-      .eq('id', bookingId);
-
-    if (options.restaurantId) {
-      readQuery = readQuery.eq('restaurant_id', options.restaurantId);
-    }
-
-    const { data: existing, error: existingError } = await readQuery.single();
-
-    if (existingError) {
-      throw existingError;
-    }
-
-    return { booking: existing as BookingRecord, cancelled: false };
+  const result = data?.[0];
+  if (!result) {
+    throw new Error(`Cancellation returned no booking for ${bookingId}`);
   }
 
-  const booking = data as BookingRecord;
+  const { booking, cancelled } = result;
 
-  try {
-    await recordCancellationForCustomerProfile(client, {
-      customerId: booking.customer_id,
-      cancelledAt: booking.updated_at,
-    });
-  } catch (profileError) {
-    logCustomerProfileMaintenanceFailure('cancellation', profileError);
+  if (cancelled) {
+    try {
+      await recordCancellationForCustomerProfile(client, {
+        customerId: booking.customer_id,
+        cancelledAt: booking.updated_at,
+      });
+    } catch (profileError) {
+      logCustomerProfileMaintenanceFailure('cancellation', profileError);
+    }
   }
 
-  return { booking, cancelled: true };
+  return { booking, cancelled };
 }
 
 function logCustomerProfileMaintenanceFailure(context: string, error: unknown): void {

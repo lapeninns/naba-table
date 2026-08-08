@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { performance } from 'node:perf_hooks';
 
-
+import { BOOKING_BLOCKING_STATUSES } from '@/lib/enums';
 import { AssignTablesRpcError } from '@/server/capacity/holds';
 import {
   createAvailabilityBitset,
@@ -1064,7 +1064,7 @@ export async function legacyTableAvailabilityCheck(params: {
     if (excludeBookingId && booking?.id === excludeBookingId) {
       continue;
     }
-    if (booking && !['pending', 'confirmed', 'seated'].includes(booking.status ?? '')) {
+    if (booking && !BOOKING_BLOCKING_STATUSES.includes(booking.status)) {
       continue;
     }
     const otherStart = row.start_at ?? booking?.start_at;
