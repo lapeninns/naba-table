@@ -2,20 +2,16 @@
  * Phase 3b of the unified dual-sync engine.
  *
  * Concrete `applyImportToCore` port for the `profile` section. Maps the
- * canonical Google value for one profile field onto the matching slot
- * of `UpdateRestaurantDetailsInput` and calls the legacy section writer
- * directly so the dual-sync `core_writes/details.ts` wrapper does NOT
- * re-queue the same value as an outbound candidate.
+ * canonical Google value for one profile field and applies it through
+ * the exact-fenced provider-import RPC. The RPC owns the Core update and
+ * projection cleanup in one transaction.
  *
  * Non-profile sections fall through to a `failed` result with code
  * `PORT_FAILURE`; Phase 3c will add ports for operating hours, service
  * periods, and business context.
  */
 
-import { getRestaurantDetails, updateRestaurantDetails } from '@/server/restaurants/details';
-
 import {
-  buildProfileImportDetailsPartial,
   buildProfileImportPortFailure,
   buildProfileImportSuccess,
   isProfileImportFieldKey,
@@ -26,67 +22,29 @@ import { buildRegistry } from '../../registry';
 
 import type { DualSyncOperationContext, DualSyncOperationResult } from '../types';
 
-async function clearNabatableProjectionForImportedProfileField({
-  client,
-  restaurantId,
-  fieldKey,
-}: Pick<DualSyncOperationContext, 'client' | 'restaurantId'> & {
-  readonly fieldKey: string;
-}): Promise<void> {
-  if (fieldKey === 'profile.contactPhone') {
-    const { error } = await client
-      .from('restaurant_phone_numbers')
-      .delete()
-      .eq('restaurant_id', restaurantId)
-      .eq('source', 'nabatable')
-      .eq('managed_by', 'nabatable')
-      .eq('phone_kind', 'primary');
-    if (error) throw error;
-    return;
-  }
-
-  if (fieldKey === 'profile.address') {
-    const { error } = await client
-      .from('restaurant_addresses')
-      .delete()
-      .eq('restaurant_id', restaurantId)
-      .eq('source', 'nabatable')
-      .eq('managed_by', 'nabatable')
-      .eq('address_type', 'storefront');
-    if (error) throw error;
-    return;
-  }
-
-  const linkType =
-    fieldKey === 'profile.googleMapUrl'
-      ? 'google_map'
-      : fieldKey === 'profile.googleReviewUrl'
-        ? 'google_review'
-        : null;
-  if (!linkType) return;
-
-  const { error } = await client
-    .from('restaurant_links')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .eq('source', 'nabatable')
-    .eq('managed_by', 'nabatable')
-    .eq('link_type', linkType)
-    .eq('link_status', 'current');
-  if (error) throw error;
-}
+const ATOMIC_PROFILE_IMPORT_FIELDS = new Set([
+  'profile.name',
+  'profile.contactPhone',
+  'profile.address',
+  'profile.googleMapUrl',
+  'profile.googleReviewUrl',
+]);
+const SAFE_IMPORT_FAILURE_MESSAGE = 'Google profile import could not be applied.';
 
 /**
- * Concrete `applyImportToCore` for profile fields. Reads the current
- * Core details (so legacy required fields like `timezone` survive the
- * partial update), overlays the imported field with the canonical
- * Google value, and writes back via `updateRestaurantDetails`.
+ * Concrete `applyImportToCore` for the five atomic profile fields.
+ * Connection fences come only from the current server-side linked profile.
  */
 export async function applyProfileImportToCore(
   ctx: DualSyncOperationContext,
 ): Promise<DualSyncOperationResult> {
   const { client, restaurantId, decision, gbpSnapshot, coreSnapshot } = ctx;
   if (!isProfileImportFieldKey(decision.fieldKey)) {
+    return buildProfileImportPortFailure(
+      `Profile import port does not handle field ${decision.fieldKey}.`,
+    );
+  }
+  if (!ATOMIC_PROFILE_IMPORT_FIELDS.has(decision.fieldKey)) {
     return buildProfileImportPortFailure(
       `Profile import port does not handle field ${decision.fieldKey}.`,
     );
@@ -107,30 +65,50 @@ export async function applyProfileImportToCore(
   });
   if (projection.status === 'failed') return projection.result;
 
-  const current = await getRestaurantDetails(restaurantId, client);
-  const partial = buildProfileImportDetailsPartial({
-    timezone: current.timezone,
-    detailsKey: projection.detailsKey,
-    normalizedGbpValue: projection.normalizedGbpValue,
-  });
+  const value = projection.normalizedGbpValue;
+  if (value !== null && typeof value !== 'string') {
+    return buildProfileImportPortFailure(SAFE_IMPORT_FAILURE_MESSAGE);
+  }
 
-  await updateRestaurantDetails(restaurantId, partial, client);
   try {
-    await clearNabatableProjectionForImportedProfileField({
-      client,
-      restaurantId,
-      fieldKey: decision.fieldKey,
+    const { data: profile, error: profileError } = await client
+      .from('restaurant_external_profiles')
+      .select(
+        'id, external_account_id, external_profile_id, external_location_id, connection_generation, consent_epoch',
+      )
+      .eq('restaurant_id', restaurantId)
+      .eq('provider', 'google_business_profile')
+      .eq('connection_status', 'linked')
+      .maybeSingle();
+    if (
+      profileError ||
+      !profile ||
+      !profile.external_account_id ||
+      !profile.external_profile_id ||
+      !profile.external_location_id
+    ) {
+      return buildProfileImportPortFailure(SAFE_IMPORT_FAILURE_MESSAGE);
+    }
+
+    const { data, error } = await client.rpc('apply_gbp_profile_import_to_core_v1', {
+      p_restaurant_id: restaurantId,
+      p_external_profile_row_id: profile.id,
+      p_expected_account_id: profile.external_account_id,
+      p_expected_profile_id: profile.external_profile_id,
+      p_expected_location_id: profile.external_location_id,
+      p_connection_generation: profile.connection_generation,
+      p_consent_epoch: profile.consent_epoch,
+      p_field_key: decision.fieldKey,
+      p_value: value,
     });
+    if (error || data === null) {
+      return buildProfileImportPortFailure(SAFE_IMPORT_FAILURE_MESSAGE);
+    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      status: 'failed',
-      failure: {
-        code: 'PORT_FAILURE',
-        message: `Imported ${decision.fieldKey}, but failed to clear the Nabatable projection row: ${message}`,
-        retryable: true,
-      },
-    };
+    if (error instanceof Error) {
+      return buildProfileImportPortFailure(SAFE_IMPORT_FAILURE_MESSAGE);
+    }
+    throw error;
   }
 
   return buildProfileImportSuccess({

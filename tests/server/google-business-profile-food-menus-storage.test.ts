@@ -5,6 +5,7 @@ import {
   finishFoodMenusPublishAttempt,
   markFoodMenusImportReviewDecision,
   openFoodMenusPublishAttempt,
+  readLatestFoodMenusSnapshot,
   readFoodMenusImportReviewForRestaurant,
   buildFoodMenusProjectionSnapshotHash,
   recordFoodMenusProjection,
@@ -92,6 +93,19 @@ function makeSnapshotRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeExternalProfileRow() {
+  return {
+    id: 'profile-row-1',
+    restaurant_id: 'rest-1',
+    provider: 'google_business_profile',
+    external_account_id: 'account-123',
+    external_profile_id: 'profile-123',
+    external_location_id: '456',
+    connection_generation: 2,
+    consent_epoch: 4,
+  };
+}
+
 function makeIdentityRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'identity-1',
@@ -163,38 +177,52 @@ function makePublishAttemptRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('GBP FoodMenus storage helpers', () => {
-  it('records FoodMenus snapshots with provider, hashes, and payload metadata', async () => {
-    const insertChain = makeChain(makeSnapshotRow());
-    const { client, fromMock } = makeClient([insertChain]);
+  it('records exact raw FoodMenus without a canonical or content-bearing metadata copy', async () => {
+    const profileChain = makeChain(makeExternalProfileRow());
+    const { client, fromMock, rpcMock } = makeClient([profileChain]);
+    rpcMock.mockResolvedValueOnce({
+      data: makeSnapshotRow({
+        external_profile_id: 'profile-row-1',
+        canonical_food_menus: null,
+      }),
+      error: null,
+    });
 
     const snapshot = await recordFoodMenusSnapshot({
       client,
       restaurantId: 'rest-1',
+      externalProfileId: 'profile-row-1',
       snapshotKind: 'google_pull',
       source: 'manual',
       foodMenusName: 'accounts/123/locations/456/foodMenus',
       rawFoodMenus: { name: 'accounts/123/locations/456/foodMenus', menus: [] },
       canonicalFoodMenus: { name: 'accounts/123/locations/456/foodMenus', menus: [] },
+      projectionMetadata: { providerDescription: 'must not persist' },
       snapshotHash: 'hash-1',
       pulledAt: '2026-05-02T18:00:00.000Z',
     });
 
-    expect(fromMock).toHaveBeenCalledWith('restaurant_gbp_food_menu_snapshots');
-    expect(insertChain.insert).toHaveBeenCalledWith(
+    expect(fromMock).toHaveBeenCalledWith('restaurant_external_profiles');
+    expect(rpcMock).toHaveBeenCalledWith(
+      'persist_gbp_food_menu_snapshot_v1',
       expect.objectContaining({
-        restaurant_id: 'rest-1',
-        provider: 'google_business_profile',
-        snapshot_kind: 'google_pull',
-        source: 'manual',
-        status: 'succeeded',
-        snapshot_hash: 'hash-1',
+        p_restaurant_id: 'rest-1',
+        p_external_profile_row_id: 'profile-row-1',
+        p_external_account_id: 'account-123',
+        p_external_profile_id: 'profile-123',
+        p_external_location_id: '456',
+        p_connection_generation: 2,
+        p_consent_epoch: 4,
+        p_source: 'manual',
+        p_raw_food_menus: { name: 'accounts/123/locations/456/foodMenus', menus: [] },
+        p_observed_at: '2026-05-02T18:00:00.000Z',
       }),
     );
     expect(snapshot.restaurantId).toBe('rest-1');
     expect(snapshot.snapshotHash).toBe('hash-1');
   });
 
-  it('reuses an existing FoodMenus snapshot when the snapshot hash already exists', async () => {
+  it('reuses an existing owner-authored projection snapshot when its hash exists', async () => {
     const duplicateError = {
       code: '23505',
       message:
@@ -208,7 +236,7 @@ describe('GBP FoodMenus storage helpers', () => {
     const snapshot = await recordFoodMenusSnapshot({
       client,
       restaurantId: 'rest-1',
-      snapshotKind: 'google_pull',
+      snapshotKind: 'nabatable_projection',
       source: 'scheduled',
       foodMenusName: 'accounts/123/locations/456/foodMenus',
       rawFoodMenus: { name: 'accounts/123/locations/456/foodMenus', menus: [] },
@@ -217,9 +245,41 @@ describe('GBP FoodMenus storage helpers', () => {
     });
 
     expect(existingChain.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
-    expect(existingChain.eq).toHaveBeenCalledWith('snapshot_kind', 'google_pull');
+    expect(existingChain.eq).toHaveBeenCalledWith('snapshot_kind', 'nabatable_projection');
     expect(existingChain.eq).toHaveBeenCalledWith('snapshot_hash', 'hash-1');
     expect(snapshot.id).toBe('snapshot-existing');
+  });
+
+  it('reads provider baselines only through the current unexpired fenced RPC', async () => {
+    const profileChain = makeChain(makeExternalProfileRow());
+    const { client, fromMock, rpcMock } = makeClient([profileChain]);
+    rpcMock.mockResolvedValueOnce({
+      data: [
+        makeSnapshotRow({
+          external_profile_id: 'profile-row-1',
+          canonical_food_menus: null,
+        }),
+      ],
+      error: null,
+    });
+
+    const snapshot = await readLatestFoodMenusSnapshot({
+      client,
+      restaurantId: 'rest-1',
+      snapshotKind: 'google_pull',
+    });
+
+    expect(fromMock).toHaveBeenCalledTimes(1);
+    expect(rpcMock).toHaveBeenCalledWith('get_current_gbp_food_menu_snapshots_v1', {
+      p_restaurant_id: 'rest-1',
+      p_external_profile_row_id: 'profile-row-1',
+      p_external_account_id: 'account-123',
+      p_external_profile_id: 'profile-123',
+      p_external_location_id: '456',
+      p_connection_generation: 2,
+      p_consent_epoch: 4,
+    });
+    expect(snapshot?.id).toBe('snapshot-1');
   });
 
   it('persists projected identities with deterministic conflict keys', async () => {
@@ -289,7 +349,7 @@ describe('GBP FoodMenus storage helpers', () => {
     expect(snapshotChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         snapshot_kind: 'nabatable_projection',
-        projection_metadata: { skippedItems: [], identityCount: 1 },
+        projection_metadata: {},
         snapshot_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
       }),
     );
@@ -367,21 +427,8 @@ describe('GBP FoodMenus storage helpers', () => {
       },
     });
 
-    expect(rpcMock).toHaveBeenCalledWith(
-      'replace_pending_food_menus_import_reviews',
-      expect.objectContaining({
-        p_restaurant_id: 'rest-1',
-        p_google_snapshot_id: 'google-snapshot-1',
-        p_projection_snapshot_id: 'projection-snapshot-1',
-        p_reviews: [
-          expect.objectContaining({
-            menu_item_id: 'item-1',
-            match_status: 'matched',
-          }),
-        ],
-      }),
-    );
-    expect(rows[0]?.suggestedPatch).toEqual({ shortDescription: 'Updated' });
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(rows).toEqual([]);
   });
 
   it('reads and marks an import-review decision by restaurant', async () => {

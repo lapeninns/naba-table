@@ -105,33 +105,7 @@ describe('restaurant GBP core sync routes', () => {
     expect(syncRestaurantProfileWithGoogleBusinessProfileMock).not.toHaveBeenCalled();
   });
 
-  it('verifies the password and forwards selected profile fields', async () => {
-    syncRestaurantProfileWithGoogleBusinessProfileMock.mockResolvedValue({
-      id: 'rest-1',
-      name: 'Old Crown Girton',
-      slug: 'old-crown-girton',
-      timezone: 'Europe/London',
-      capacity: 120,
-      contactEmail: null,
-      contactPhone: '+441223277217',
-      address: '89 High Street',
-      managerDailySummaryEnabled: false,
-      managerNotificationPhone: null,
-      googleMapUrl: null,
-      googleReviewUrl: null,
-      bookingPolicy: null,
-      logoUrl: null,
-      emailSendReminder24h: true,
-      emailSendReminderShort: true,
-      emailSendReviewRequest: true,
-      reservationIntervalMinutes: 15,
-      reservationDefaultDurationMinutes: 90,
-      reservationLastSeatingBufferMinutes: 15,
-      reservationLifecycleGraceMinutes: 15,
-      isActive: true,
-      updatedAt: '2026-04-18T13:00:00.000Z',
-    });
-
+  it('retires legacy profile pushes before password or provider calls', async () => {
     const response = await detailsPOST(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/details', {
         method: 'POST',
@@ -145,16 +119,12 @@ describe('restaurant GBP core sync routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(verifyUserPasswordConfirmationMock).toHaveBeenCalledWith({
-      email: 'owner@example.com',
-      password: 'correct-password',
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
     });
-    expect(syncRestaurantProfileWithGoogleBusinessProfileMock).toHaveBeenCalledWith({
-      restaurantId: 'rest-1',
-      direction: 'push_to_gbp',
-      fields: ['name', 'contactPhone'],
-    });
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(syncRestaurantProfileWithGoogleBusinessProfileMock).not.toHaveBeenCalled();
   });
 
   it('forwards selected operating-hours rows after password confirmation', async () => {
@@ -191,9 +161,29 @@ describe('restaurant GBP core sync routes', () => {
     });
   });
 
-  it('forwards selected service-period days after password confirmation', async () => {
-    syncRestaurantServicePeriodsWithGoogleBusinessProfileMock.mockResolvedValue([]);
+  it('retires legacy operating-hours pushes before password or provider calls', async () => {
+    const response = await hoursPOST(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/hours', {
+        method: 'POST',
+        body: JSON.stringify({
+          direction: 'push_to_gbp',
+          password: 'correct-password',
+          selection: { weeklyDays: [0, 1] },
+        }),
+        headers: csrfHeaders(),
+      }),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
 
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+    });
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(syncRestaurantOperatingHoursWithGoogleBusinessProfileMock).not.toHaveBeenCalled();
+  });
+
+  it('retires legacy service-period pushes before password or provider calls', async () => {
     const response = await servicePeriodsPOST(
       new NextRequest('https://example.com/api/ops/restaurants/rest-1/service-periods', {
         method: 'POST',
@@ -209,13 +199,11 @@ describe('restaurant GBP core sync routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(syncRestaurantServicePeriodsWithGoogleBusinessProfileMock).toHaveBeenCalledWith({
-      restaurantId: 'rest-1',
-      direction: 'push_to_gbp',
-      selection: {
-        dayOfWeeks: [0, 6],
-      },
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
     });
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(syncRestaurantServicePeriodsWithGoogleBusinessProfileMock).not.toHaveBeenCalled();
   });
 });

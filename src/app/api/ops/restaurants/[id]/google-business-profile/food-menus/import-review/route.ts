@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -10,6 +9,8 @@ import {
   FoodMenusImportReviewRequestSchema,
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { listPendingFoodMenusImportReviews } from '@/server/google-business-profile/food-menus-storage';
 import { prepareFoodMenusImportReview } from '@/server/google-business-profile/food-menus-sync';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -23,7 +24,7 @@ type RouteContext = {
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(
@@ -31,7 +32,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     'google-business-profile-food-menus-import-review',
   );
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   try {
@@ -40,27 +41,26 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       restaurantId,
     });
 
-    return NextResponse.json({
+    return gbpNoStoreJson({
       rows,
       pendingCount: rows.length,
     });
   } catch (error) {
-    console.error('[ops][gbp][food-menus][import-review][list] failed', error);
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review-list' },
     });
     const message =
       error instanceof Error ? error.message : 'Unable to list Google FoodMenus import reviews.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return gbpNoStoreJson({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     request,
   );
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   let payload: z.infer<typeof FoodMenusImportReviewRequestSchema>;
@@ -77,9 +77,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     payload = FoodMenusImportReviewRequestSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(invalidPayloadResponse(error), { status: 400 });
+      return gbpNoStoreJson(invalidPayloadResponse(error), { status: 400 });
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Invalid payload' }, { status: 400 });
   }
 
   try {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       persist: payload.persist,
     });
 
-    return NextResponse.json({
+    return gbpNoStoreJson({
       localItemCount: result.localItemCount,
       previousIdentityCount: result.previousIdentityCount,
       projectionSnapshotId: result.projectionSnapshotId,
@@ -103,15 +103,14 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       persisted: Boolean(result.googleSnapshot || result.rows.length > 0),
     });
   } catch (error) {
-    console.error('[ops][gbp][food-menus][import-review] failed', error);
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review' },
     });
     const message =
       error instanceof Error ? error.message : 'Unable to prepare Google FoodMenus import review.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return gbpNoStoreJson({ error: message }, { status: 500 });
   }
 }
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
 const businessDetailsStatusForClientMock = vi.hoisted(() => vi.fn());
 const foodMenusContextForClientMock = vi.hoisted(() => vi.fn());
 const createAuthorizationForClientMock = vi.hoisted(() => vi.fn());
@@ -14,9 +15,34 @@ const patchLocationFieldsForClientMock = vi.hoisted(() => vi.fn());
 const syncOperatingHoursForClientMock = vi.hoisted(() => vi.fn());
 const syncProfileForClientMock = vi.hoisted(() => vi.fn());
 const syncServicePeriodsForClientMock = vi.hoisted(() => vi.fn());
+const setNotificationParticipationForClientMock = vi.hoisted(() => vi.fn());
+const findExternalProfileMock = vi.hoisted(() => vi.fn());
+const hasNotificationLinkMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/env', () => ({
+  env: {
+    dualSync: {
+      pubsubIngress: {
+        enabled: true,
+        topic: 'projects/project-1/topics/gbp',
+      },
+    },
+  },
+}));
 
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: getServiceSupabaseClientMock,
+  getServerComponentSupabaseClient: getServerComponentSupabaseClientMock,
+}));
+
+vi.mock('@/server/google-business-profile/serviceRepository', () => ({
+  findExternalProfile: findExternalProfileMock,
+  hasNotificationLink: hasNotificationLinkMock,
+}));
+
+vi.mock('@/server/google-business-profile/serviceNotificationParticipationRuntime', () => ({
+  setGoogleBusinessProfileNotificationParticipationForClient:
+    setNotificationParticipationForClientMock,
 }));
 
 vi.mock('@/server/google-business-profile/serviceBusinessDetailsStatusRuntime', () => ({
@@ -65,16 +91,24 @@ import {
   linkGoogleBusinessProfileLocation,
   patchRestaurantGoogleBusinessProfileLocationFields,
   syncGoogleBusinessProfileBusinessInformation,
+  setGoogleBusinessProfileNotificationParticipation,
   syncRestaurantOperatingHoursWithGoogleBusinessProfile,
   syncRestaurantProfileWithGoogleBusinessProfile,
   syncRestaurantServicePeriodsWithGoogleBusinessProfile,
 } from '@/server/google-business-profile/servicePublic';
 
 const serviceClient = { role: 'service' } as never;
-const tenantClient = { role: 'tenant' } as never;
+const tenantClient = {
+  role: 'tenant',
+  auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }) },
+} as never;
 
 beforeEach(() => {
   getServiceSupabaseClientMock.mockReset().mockReturnValue(serviceClient);
+  tenantClient.auth.getUser.mockResolvedValue({
+    data: { user: { id: 'user-1' } },
+    error: null,
+  });
   for (const mock of [
     businessDetailsStatusForClientMock,
     foodMenusContextForClientMock,
@@ -89,9 +123,12 @@ beforeEach(() => {
     syncOperatingHoursForClientMock,
     syncProfileForClientMock,
     syncServicePeriodsForClientMock,
+    setNotificationParticipationForClientMock,
   ]) {
     mock.mockReset();
   }
+  findExternalProfileMock.mockReset().mockResolvedValue({ id: 'external-1' });
+  hasNotificationLinkMock.mockReset().mockResolvedValue(false);
 });
 
 describe('servicePublic facade', () => {
@@ -332,7 +369,57 @@ describe('servicePublic facade', () => {
     await expect(disconnectGoogleBusinessProfileConnection('rest-1', tenantClient)).resolves.toBe(
       disconnectedState,
     );
-    expect(disconnectForClientMock).toHaveBeenCalledWith('rest-1', tenantClient);
+    expect(disconnectForClientMock).toHaveBeenCalledWith(
+      'rest-1',
+      tenantClient,
+      expect.objectContaining({ actorUserId: 'user-1' }),
+    );
+    expect(setNotificationParticipationForClientMock).toHaveBeenCalledWith({
+      restaurantId: 'rest-1',
+      enabled: false,
+      managedTopic: 'projects/project-1/topics/gbp',
+      client: tenantClient,
+    });
+    expect(setNotificationParticipationForClientMock.mock.invocationCallOrder[0]).toBeLessThan(
+      disconnectForClientMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it('uses the authenticated server operator and current DB context for participation', async () => {
+    setNotificationParticipationForClientMock.mockResolvedValue({ enabled: true, refCount: 1 });
+
+    await expect(
+      setGoogleBusinessProfileNotificationParticipation('rest-1', true, tenantClient),
+    ).resolves.toEqual({ enabled: true, refCount: 1 });
+
+    expect(setNotificationParticipationForClientMock).toHaveBeenCalledWith({
+      restaurantId: 'rest-1',
+      enabled: true,
+      managedTopic: 'projects/project-1/topics/gbp',
+      client: tenantClient,
+    });
+  });
+
+  it('does not begin revocation when provider notification teardown is uncertain', async () => {
+    setNotificationParticipationForClientMock.mockRejectedValue(
+      new Error('provider notification teardown failed'),
+    );
+
+    await expect(disconnectGoogleBusinessProfileConnection('rest-1', tenantClient)).rejects.toThrow(
+      'provider notification teardown failed',
+    );
+
+    expect(disconnectForClientMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when disconnect has no authenticated server operator @contract @security', async () => {
+    tenantClient.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(
+      disconnectGoogleBusinessProfileConnection('rest-1', tenantClient),
+    ).rejects.toMatchObject({ code: 'GBP_DISCONNECT_CONTEXT_REQUIRED', status: 401 });
+
+    expect(disconnectForClientMock).not.toHaveBeenCalled();
   });
 
   it('propagates runtime errors unchanged to callers @contract', async () => {

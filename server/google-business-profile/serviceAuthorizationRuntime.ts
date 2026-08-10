@@ -5,16 +5,13 @@ import {
   exchangeGoogleBusinessProfileCode,
   fetchGoogleBusinessProfileIdentity,
 } from './client';
+import { deriveLegacyBoundOAuthNonce } from './oauthNonce';
 import {
+  completeOAuthIdentityRecord,
   consumeOAuthStateRecord,
   createOAuthStateRecord,
-  saveGoogleBusinessProfileCredentials,
 } from './serviceAuthorizationFlow';
-import {
-  buildAuthorizationCompletedExternalProfileUpdate,
-  buildAuthorizationFailureExternalProfileUpdate,
-  buildAuthorizationPendingExternalProfileUpdate,
-} from './serviceConnectionLifecyclePayloads';
+import { buildAuthorizationPendingExternalProfileUpdate } from './serviceConnectionLifecyclePayloads';
 import { sanitizeOAuthReturnPath } from './serviceOAuthState';
 import { ensureExternalProfile, updateExternalProfile, type DbClient } from './serviceRepository';
 
@@ -49,7 +46,10 @@ export async function createGoogleBusinessProfileAuthorizationForClient(params: 
   );
 
   return {
-    authorizationUrl: buildGoogleBusinessProfileAuthUrl(stateToken),
+    authorizationUrl: buildGoogleBusinessProfileAuthUrl(
+      stateToken,
+      deriveLegacyBoundOAuthNonce(stateToken),
+    ),
     stateToken,
   };
 }
@@ -82,56 +82,31 @@ export async function completeGoogleBusinessProfileAuthorizationForClient(params
     },
     params.client,
   );
-  const externalProfile = await ensureExternalProfile(state.restaurant_id, params.client);
-
   try {
     const tokens = await exchangeGoogleBusinessProfileCode(params.code);
-    let identity: GoogleBusinessProfileIdentity = {
-      providerUserId: null,
-      email: null,
-      name: null,
-    };
+    const identity: GoogleBusinessProfileIdentity = await fetchGoogleBusinessProfileIdentity({
+      idToken: tokens.idToken,
+      expectedNonce: deriveLegacyBoundOAuthNonce(params.stateToken),
+    });
 
-    try {
-      identity = await fetchGoogleBusinessProfileIdentity(tokens.accessToken);
-    } catch (error) {
-      gbpAuthorizationLogger.warn('oauth identity lookup skipped', {
-        restaurantId: state.restaurant_id,
-        error,
-      });
-    }
-
-    await saveGoogleBusinessProfileCredentials(
+    await completeOAuthIdentityRecord(
       {
-        externalProfile,
+        state,
+        stateToken: params.stateToken,
+        requestedByUserId: params.requestedByUserId,
         tokens,
         identity,
         refreshedAt: resolveNow(),
       },
       params.client,
     );
-    await updateExternalProfile(
-      externalProfile.id,
-      buildAuthorizationCompletedExternalProfileUpdate(externalProfile),
-      params.client,
-    );
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Google Business Profile authorization failed unexpectedly.';
-
     gbpAuthorizationLogger.error('oauth completion failed', {
       restaurantId: state.restaurant_id,
       returnPath: sanitizeOAuthReturnPath(state.return_path),
       error,
     });
 
-    await updateExternalProfile(
-      externalProfile.id,
-      buildAuthorizationFailureExternalProfileUpdate(message),
-      params.client,
-    );
     throw error;
   }
 

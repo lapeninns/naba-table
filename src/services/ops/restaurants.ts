@@ -1449,13 +1449,13 @@ export function createBrowserRestaurantService(): RestaurantService {
 
     async getGoogleBusinessProfileConnection(restaurantId: string) {
       return fetchJson<GoogleBusinessProfileConnection>(
-        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile`,
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/details`,
       );
     },
 
     async getGoogleBusinessProfileAvailableLocations(restaurantId: string) {
       const response = await fetchJson<{ locations: GoogleBusinessProfileAvailableLocation[] }>(
-        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business/locations`,
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/locations`,
       );
       return response.locations;
     },

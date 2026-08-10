@@ -231,7 +231,7 @@ describe('google business profile business info mapping', () => {
     });
   });
 
-  it('links GBP attributes to matching provider definitions without changing flexible rows', async () => {
+  it('does not query or create global provider attribute definitions', async () => {
     const rows = [
       {
         restaurant_id: 'rest-1',
@@ -247,42 +247,19 @@ describe('google business profile business info mapping', () => {
       },
     ] as Parameters<typeof businessInfoTestUtils.linkAttributeDefinitions>[0];
 
-    const client = {
-      from(table: string) {
-        expect(table).toBe('restaurant_attribute_definitions');
-        return {
-          select() {
-            return this;
-          },
-          eq() {
-            return this;
-          },
-          in() {
-            return {
-              data: [
-                {
-                  id: 'definition-1',
-                  attribute_key: 'has_wifi',
-                  provider_attribute_id: 'has_wifi',
-                },
-              ],
-              error: null,
-            };
-          },
-        };
-      },
-    };
+    const from = vi.fn();
+    const client = { from };
 
     const linked = await businessInfoTestUtils.linkAttributeDefinitions(
       rows,
       client as Parameters<typeof businessInfoTestUtils.linkAttributeDefinitions>[1],
     );
 
-    expect(linked[0]?.attribute_definition_id).toBe('definition-1');
-    expect(linked[1]?.attribute_definition_id).toBeNull();
+    expect(linked).toBe(rows);
+    expect(from).not.toHaveBeenCalled();
   });
 
-  it('keeps profile change logging best-effort before the change-log table is applied', async () => {
+  it('fails closed instead of writing provider values to the profile change log', async () => {
     const client = {
       from(table: string) {
         expect(table).toBe('restaurant_profile_change_log');
@@ -312,17 +289,24 @@ describe('google business profile business info mapping', () => {
         ],
         client as Parameters<typeof businessInfoTestUtils.insertProfileChangeLogRows>[1],
       ),
-    ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({ code: 'GBP_PROVIDER_MIRROR_RETIRED' });
   });
 
-  it('preserves existing GBP service items when the optional segment was unavailable', async () => {
-    const rpc = vi.fn(async () => ({ error: null }));
+  it('omits local optional-fetch metadata from the retained raw location', async () => {
+    const rpc = vi.fn(async () => ({ data: { id: 'snapshot-1' }, error: null }));
     const client = { rpc };
 
     await syncGoogleBusinessProfileCanonicalBusinessInfo({
       restaurantId: '00000000-0000-4000-8000-000000000001',
       externalProfile: {
         id: '00000000-0000-4000-8000-000000000002',
+        restaurant_id: '00000000-0000-4000-8000-000000000001',
+        provider: 'google_business_profile',
+        external_account_id: 'account-123',
+        external_profile_id: 'profile-123',
+        external_location_id: '456',
+        connection_generation: 1,
+        consent_epoch: 1,
       } as Parameters<typeof syncGoogleBusinessProfileCanonicalBusinessInfo>[0]['externalProfile'],
       location: {
         name: 'locations/456',
@@ -341,21 +325,25 @@ describe('google business profile business info mapping', () => {
 
     expect(rpc).toHaveBeenCalledTimes(1);
     const [, args] = rpc.mock.calls[0] ?? [];
-    expect(args.p_service_items).toBeNull();
-    expect(args.p_field_sync_entity_tables).not.toContain('restaurant_service_items');
-    expect(JSON.stringify(args.p_profile_change_log_rows)).not.toContain(
-      'restaurant_service_items',
-    );
+    expect(args.p_payload).not.toHaveProperty('__nabatableOptionalFetchStatus');
+    expect(JSON.stringify(args)).not.toContain('restaurant_service_items');
   });
 
-  it('replaces GBP service items when Google explicitly returns an empty segment', async () => {
-    const rpc = vi.fn(async () => ({ error: null }));
+  it('retains an explicitly fetched empty service-items segment in the raw snapshot', async () => {
+    const rpc = vi.fn(async () => ({ data: { id: 'snapshot-1' }, error: null }));
     const client = { rpc };
 
     await syncGoogleBusinessProfileCanonicalBusinessInfo({
       restaurantId: '00000000-0000-4000-8000-000000000001',
       externalProfile: {
         id: '00000000-0000-4000-8000-000000000002',
+        restaurant_id: '00000000-0000-4000-8000-000000000001',
+        provider: 'google_business_profile',
+        external_account_id: 'account-123',
+        external_profile_id: 'profile-123',
+        external_location_id: '456',
+        connection_generation: 1,
+        consent_epoch: 1,
       } as Parameters<typeof syncGoogleBusinessProfileCanonicalBusinessInfo>[0]['externalProfile'],
       location: {
         name: 'locations/456',
@@ -375,8 +363,8 @@ describe('google business profile business info mapping', () => {
 
     expect(rpc).toHaveBeenCalledTimes(1);
     const [, args] = rpc.mock.calls[0] ?? [];
-    expect(args.p_service_items).toEqual([]);
-    expect(args.p_field_sync_entity_tables).toContain('restaurant_service_items');
+    expect(args.p_payload.serviceItems).toEqual([]);
+    expect(args.p_payload).not.toHaveProperty('__nabatableOptionalFetchStatus');
   });
 
   it('builds deterministic field sync status rows for canonical GBP values', () => {
@@ -490,7 +478,7 @@ describe('google business profile business info mapping', () => {
     expect(combined?.isVerified).toBe(false);
   });
 
-  it('upserts GBP business details by provider ownership key', async () => {
+  it('fails closed instead of upserting normalized GBP business details', async () => {
     const calls: Array<{
       table: string;
       options: unknown;
@@ -506,31 +494,28 @@ describe('google business profile business info mapping', () => {
       },
     };
 
-    await businessInfoTestUtils.upsertBusinessDetails(
-      'rest-1',
-      {
-        restaurant_id: 'rest-1',
-        business_name: 'Old Crown Girton',
-        description: null,
-        language_code: 'en-GB',
-        opening_date: null,
-        business_status: 'open',
-        is_service_area_business: false,
-        can_reopen: null,
-        source: 'gbp',
-        managed_by: 'gbp',
-        source_record_id: 'locations/456',
-        last_synced_at: '2026-04-25T12:00:00.000Z',
-      },
-      client as Parameters<typeof businessInfoTestUtils.upsertBusinessDetails>[2],
-    );
+    await expect(
+      businessInfoTestUtils.upsertBusinessDetails(
+        'rest-1',
+        {
+          restaurant_id: 'rest-1',
+          business_name: 'Old Crown Girton',
+          description: null,
+          language_code: 'en-GB',
+          opening_date: null,
+          business_status: 'open',
+          is_service_area_business: false,
+          can_reopen: null,
+          source: 'gbp',
+          managed_by: 'gbp',
+          source_record_id: 'locations/456',
+          last_synced_at: '2026-04-25T12:00:00.000Z',
+        },
+        client as Parameters<typeof businessInfoTestUtils.upsertBusinessDetails>[2],
+      ),
+    ).rejects.toMatchObject({ code: 'GBP_PROVIDER_MIRROR_RETIRED' });
 
-    expect(calls).toEqual([
-      {
-        table: 'restaurant_business_details',
-        options: { onConflict: 'restaurant_id,source,managed_by' },
-      },
-    ]);
+    expect(calls).toEqual([]);
   });
 
   it('reads only GBP-owned provider rows for business information snapshots', async () => {
@@ -735,13 +720,8 @@ describe('google business profile business info mapping', () => {
         ['restaurant_business_details'],
         client as Parameters<typeof businessInfoTestUtils.replaceProviderFieldSyncStatuses>[3],
       ),
-    ).resolves.toBeUndefined();
+    ).rejects.toMatchObject({ code: 'GBP_PROVIDER_MIRROR_RETIRED' });
 
-    expect(operations).toEqual([
-      {
-        type: 'delete',
-        table: 'restaurant_field_sync_statuses',
-      },
-    ]);
+    expect(operations).toEqual([]);
   });
 });

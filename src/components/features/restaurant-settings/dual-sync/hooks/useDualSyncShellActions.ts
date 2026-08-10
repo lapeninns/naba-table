@@ -1,6 +1,7 @@
 'use client';
 
 import { useDualSyncControlAction } from './useDualSyncControlAction';
+import { useDualSyncExactPublishActions } from './useDualSyncExactPublishActions';
 import { useDualSyncPublishActions } from './useDualSyncPublishActions';
 import { useDualSyncReconnectAction } from './useDualSyncReconnectAction';
 import { useDualSyncStateSyncActions } from './useDualSyncStateSyncActions';
@@ -24,23 +25,26 @@ export function useDualSyncShellActions({
   canSubmit,
 }: UseDualSyncShellActionsArgs) {
   const showToast = useDualSyncToastBridge();
-  const {
-    clearPublishPreview,
-    onClickPublish,
-    onConfirmPublishPreview,
-    publishPreviewOpen,
-    publishPreviewPlan,
-    publishResult,
-    publishResultOpen,
-    setPublishPreviewOpen,
-    setPublishResultOpen,
-  } = useDualSyncPublishActions({
+  const exact = useDualSyncExactPublishActions({
     workspace,
     syncPaused,
     pauseReason,
     canSubmit,
     showToast,
   });
+  const legacy = useDualSyncPublishActions({
+    workspace,
+    syncPaused,
+    pauseReason,
+    canSubmit,
+    showToast,
+  });
+  const usesExactPublish = Boolean(
+    workspace.exactPreviewPublishMutation && workspace.exactPublishMutation,
+  );
+  const clearPublishPreview = usesExactPublish
+    ? () => exact.setPreviewOpen(false)
+    : legacy.clearPublishPreview;
   const { handleReconnect, isReconnectPending, needsReauth } = useDualSyncReconnectAction({
     restaurantId,
   });
@@ -62,15 +66,19 @@ export function useDualSyncShellActions({
     isReconnectPending,
     needsReauth,
     onClickAutoExport,
-    onClickPublish,
+    onClickPublish: usesExactPublish ? exact.onClickPublish : legacy.onClickPublish,
     onClickRefresh,
     onClickToggleControl,
-    onConfirmPublishPreview,
-    publishPreviewOpen,
-    publishPreviewPlan,
-    publishResult,
-    publishResultOpen,
-    setPublishPreviewOpen,
-    setPublishResultOpen,
+    onConfirmPublishPreview: usesExactPublish ? exact.onConfirm : legacy.onConfirmPublishPreview,
+    onRefreshExpired: exact.onRefreshExpired,
+    publishPreviewOpen: usesExactPublish ? exact.previewOpen : legacy.publishPreviewOpen,
+    publishPreviewPlan: usesExactPublish ? exact.preview : legacy.publishPreviewPlan,
+    publishResult: usesExactPublish ? exact.result : legacy.publishResult,
+    publishResultOpen: usesExactPublish ? exact.resultOpen : legacy.publishResultOpen,
+    setPublishPreviewOpen: usesExactPublish ? exact.setPreviewOpen : legacy.setPublishPreviewOpen,
+    setPublishResultOpen: usesExactPublish ? exact.setResultOpen : legacy.setPublishResultOpen,
+    usesExactPublish,
+    exactPublishActions: exact,
+    legacyPublishActions: legacy,
   };
 }

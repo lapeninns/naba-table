@@ -2,20 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const listOpenOutboundCandidatesMock = vi.hoisted(() => vi.fn());
 const listRestaurantsWithOpenOutboundCandidatesMock = vi.hoisted(() => vi.fn());
-const runPublishMock = vi.hoisted(() => vi.fn());
-const defaultDualSyncPortsMock = vi.hoisted(() => vi.fn(() => ({})));
 
 vi.mock('@/server/dual-sync/outbound/candidates', () => ({
   listOpenOutboundCandidates: listOpenOutboundCandidatesMock,
   listRestaurantsWithOpenOutboundCandidates: listRestaurantsWithOpenOutboundCandidatesMock,
-}));
-
-vi.mock('@/server/dual-sync/publish/orchestrator', () => ({
-  runPublish: runPublishMock,
-}));
-
-vi.mock('@/server/dual-sync/publish/ports', () => ({
-  defaultDualSyncPorts: defaultDualSyncPortsMock,
 }));
 
 import {
@@ -60,21 +50,6 @@ function makeCandidate(
 beforeEach(() => {
   listOpenOutboundCandidatesMock.mockReset();
   listRestaurantsWithOpenOutboundCandidatesMock.mockReset();
-  runPublishMock.mockReset();
-  defaultDualSyncPortsMock.mockReset();
-  defaultDualSyncPortsMock.mockReturnValue({});
-  runPublishMock.mockResolvedValue({
-    summary: {
-      publishJobId: 'job-1',
-      restaurantId: RESTAURANT_ID,
-      totalDecisions: 0,
-      succeededCount: 0,
-      failedCount: 0,
-      skippedCount: 0,
-      operations: [],
-      failures: [],
-    },
-  });
 });
 
 describe('runAutoExportForRestaurant', () => {
@@ -84,10 +59,9 @@ describe('runAutoExportForRestaurant', () => {
     expect(result.candidatesConsidered).toBe(0);
     expect(result.decisionsExecuted).toBe(0);
     expect(result.publishResult).toBeNull();
-    expect(runPublishMock).not.toHaveBeenCalled();
   });
 
-  it('translates open candidates into export decisions and runs publish', async () => {
+  it('discovers eligible candidates without publishing or creating a mutation job', async () => {
     listOpenOutboundCandidatesMock.mockResolvedValue([
       makeCandidate({ id: 'cand-a', fieldKey: 'profile.name' }),
       makeCandidate({
@@ -101,29 +75,9 @@ describe('runAutoExportForRestaurant', () => {
 
     const result = await runAutoExportForRestaurant({ client, restaurantId: RESTAURANT_ID });
 
-    expect(runPublishMock).toHaveBeenCalledTimes(1);
-    const [, publishInput] = runPublishMock.mock.calls[0] ?? [];
-    expect(publishInput?.restaurantId).toBe(RESTAURANT_ID);
-    expect(publishInput?.actorUserId).toBeNull();
-    expect(publishInput?.decisions).toEqual([
-      expect.objectContaining({
-        fieldKey: 'profile.name',
-        sectionKey: 'profile',
-        action: 'export_to_google',
-        pinnedCoreHash: 'core-hash-1',
-        pinnedGbpHash: 'gbp-hash-1',
-      }),
-      expect.objectContaining({
-        fieldKey: 'operatingHours.weekly.1',
-        sectionKey: 'operatingHours',
-        action: 'export_to_google',
-        pinnedCoreHash: 'core-hash-2',
-        pinnedGbpHash: 'gbp-hash-2',
-      }),
-    ]);
     expect(result.candidatesConsidered).toBe(2);
-    expect(result.decisionsExecuted).toBe(2);
-    expect(result.publishResult).not.toBeNull();
+    expect(result.decisionsExecuted).toBe(0);
+    expect(result.publishResult).toBeNull();
     expect(result.skipped).toEqual([]);
   });
 
@@ -137,7 +91,6 @@ describe('runAutoExportForRestaurant', () => {
     expect(result.skipped).toEqual([
       { candidateId: 'cand-no-baseline', fieldKey: 'profile.name', reason: 'no_baseline' },
     ]);
-    expect(runPublishMock).not.toHaveBeenCalled();
   });
 
   it('respects maxCandidates and only considers the first N', async () => {
@@ -152,36 +105,18 @@ describe('runAutoExportForRestaurant', () => {
       maxCandidates: 2,
     });
     expect(result.candidatesConsidered).toBe(2);
-    expect(result.decisionsExecuted).toBe(2);
-    const [, publishInput] = runPublishMock.mock.calls[0] ?? [];
-    expect(publishInput?.decisions.map((d: { fieldKey: string }) => d.fieldKey)).toEqual([
-      'profile.name',
-      'profile.contactPhone',
-    ]);
+    expect(result.decisionsExecuted).toBe(0);
   });
 
-  it('forwards actorUserId to the publish job', async () => {
+  it('accepts a legacy actor attribution without publishing', async () => {
     listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate()]);
-    await runAutoExportForRestaurant({
+    const result = await runAutoExportForRestaurant({
       client,
       restaurantId: RESTAURANT_ID,
       actorUserId: 'user-42',
     });
-    const [, publishInput] = runPublishMock.mock.calls[0] ?? [];
-    expect(publishInput?.actorUserId).toBe('user-42');
-  });
-
-  it('honors injected publish ports for tests', async () => {
-    listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate()]);
-    const customPorts = { applyImportToCore: vi.fn(), applyExportToGoogle: vi.fn() };
-    await runAutoExportForRestaurant({
-      client,
-      restaurantId: RESTAURANT_ID,
-      publishOptions: { ports: customPorts },
-    });
-    const [, , publishOptions] = runPublishMock.mock.calls[0] ?? [];
-    expect(publishOptions?.ports).toBe(customPorts);
-    expect(defaultDualSyncPortsMock).not.toHaveBeenCalled();
+    expect(result.decisionsExecuted).toBe(0);
+    expect(result.publishResult).toBeNull();
   });
 });
 
@@ -195,10 +130,9 @@ describe('runAutoExportForAllTenants', () => {
     expect(result.errors).toEqual([]);
     expect(result.dryRun).toBe(false);
     expect(listOpenOutboundCandidatesMock).not.toHaveBeenCalled();
-    expect(runPublishMock).not.toHaveBeenCalled();
   });
 
-  it('processes each discovered tenant via runAutoExportForRestaurant', async () => {
+  it('discovers candidates for each tenant without publishing', async () => {
     listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1', 'rest-2']);
     listOpenOutboundCandidatesMock.mockImplementation(({ restaurantId }) => {
       const cand = makeCandidate({ id: `cand-${restaurantId}` });
@@ -208,18 +142,18 @@ describe('runAutoExportForAllTenants', () => {
     expect(result.restaurantsConsidered).toBe(2);
     expect(result.restaurantsProcessed).toBe(2);
     expect(result.summaries.map((s) => s.restaurantId)).toEqual(['rest-1', 'rest-2']);
-    expect(runPublishMock).toHaveBeenCalledTimes(2);
+    expect(result.summaries.every((summary) => summary.decisionsExecuted === 0)).toBe(true);
+    expect(result.summaries.every((summary) => summary.publishResult === null)).toBe(true);
   });
 
-  it('skips publish when dryRun is true', async () => {
+  it('still discovers candidates when dryRun is true because discovery is non-mutating', async () => {
     listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1', 'rest-2']);
+    listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate()]);
     const result = await runAutoExportForAllTenants({ client, dryRun: true });
     expect(result.dryRun).toBe(true);
     expect(result.restaurantsConsidered).toBe(2);
-    expect(result.restaurantsProcessed).toBe(0);
-    expect(result.summaries).toEqual([]);
-    expect(listOpenOutboundCandidatesMock).not.toHaveBeenCalled();
-    expect(runPublishMock).not.toHaveBeenCalled();
+    expect(result.restaurantsProcessed).toBe(2);
+    expect(result.summaries).toHaveLength(2);
   });
 
   it('forwards maxRestaurants and maxCandidatesPerRestaurant to the discovery + per-tenant runner', async () => {
@@ -228,15 +162,14 @@ describe('runAutoExportForAllTenants', () => {
       makeCandidate({ id: 'cand-a' }),
       makeCandidate({ id: 'cand-b', fieldKey: 'profile.contactPhone' }),
     ]);
-    await runAutoExportForAllTenants({
+    const result = await runAutoExportForAllTenants({
       client,
       maxRestaurants: 5,
       maxCandidatesPerRestaurant: 1,
     });
     const discoveryCall = listRestaurantsWithOpenOutboundCandidatesMock.mock.calls[0]?.[0];
     expect(discoveryCall?.limit).toBe(5);
-    const [, publishInput] = runPublishMock.mock.calls[0] ?? [];
-    expect(publishInput?.decisions).toHaveLength(1);
+    expect(result.summaries[0]?.candidatesConsidered).toBe(1);
   });
 
   it('continues past tenants that throw and records the error', async () => {
@@ -277,53 +210,9 @@ describe('runAutoExportForAllTenants', () => {
     });
   });
 
-  it('emits a tenant_run_partial notification when a tenant publish has failed operations', async () => {
+  it('emits no notification when candidate discovery succeeds', async () => {
     listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1']);
     listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate({ id: 'cand-x' })]);
-    runPublishMock.mockResolvedValueOnce({
-      summary: {
-        publishJobId: 'job-rest-1',
-        restaurantId: 'rest-1',
-        totalDecisions: 2,
-        succeededCount: 1,
-        failedCount: 1,
-        skippedCount: 0,
-        operations: [
-          { status: 'succeeded', errorCode: null },
-          { status: 'failed', errorCode: 'PORT_FAILURE' },
-        ],
-        failures: [],
-      },
-    });
-    const emit = vi.fn(async () => {});
-    await runAutoExportForAllTenants({ client, notifications: { emit } });
-    expect(emit).toHaveBeenCalledTimes(1);
-    const [event] = emit.mock.calls[0]!;
-    expect(event).toMatchObject({
-      kind: 'tenant_run_partial',
-      severity: 'warning',
-      restaurantId: 'rest-1',
-      publishJobId: 'job-rest-1',
-      errorCode: 'PORT_FAILURE',
-      counts: { succeeded: 1, failed: 1, skipped: 0, other: 0 },
-    });
-  });
-
-  it('emits no notification when a tenant publish fully succeeds', async () => {
-    listRestaurantsWithOpenOutboundCandidatesMock.mockResolvedValue(['rest-1']);
-    listOpenOutboundCandidatesMock.mockResolvedValue([makeCandidate({ id: 'cand-x' })]);
-    runPublishMock.mockResolvedValueOnce({
-      summary: {
-        publishJobId: 'job-rest-1',
-        restaurantId: 'rest-1',
-        totalDecisions: 1,
-        succeededCount: 1,
-        failedCount: 0,
-        skippedCount: 0,
-        operations: [{ status: 'succeeded', errorCode: null }],
-        failures: [],
-      },
-    });
     const emit = vi.fn(async () => {});
     await runAutoExportForAllTenants({ client, notifications: { emit } });
     expect(emit).not.toHaveBeenCalled();

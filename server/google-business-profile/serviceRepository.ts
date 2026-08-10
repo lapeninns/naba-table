@@ -77,6 +77,23 @@ export async function getCredentialRow(
   return data;
 }
 
+export async function hasNotificationLink(
+  externalProfileId: string,
+  client: DbClient,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('gbp_notification_restaurant_links_v1')
+    .select('external_profile_row_id')
+    .eq('external_profile_row_id', externalProfileId)
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data?.length ?? 0) > 0;
+}
+
 export async function upsertCredential(
   payload: Database['public']['Tables']['restaurant_external_profile_credentials']['Insert'],
   client: DbClient,
@@ -153,6 +170,24 @@ export async function insertOAuthState(
   }
 }
 
+export async function createOAuthAttempt(
+  args: Database['public']['Functions']['create_gbp_oauth_attempt_v1']['Args'],
+  client: DbClient,
+): Promise<OAuthStateRow> {
+  const { data, error } = await client.rpc('create_gbp_oauth_attempt_v1', args);
+  if (error) throw error;
+  return data;
+}
+
+export async function consumeOAuthAttempt(
+  args: Database['public']['Functions']['consume_gbp_oauth_attempt_v1']['Args'],
+  client: DbClient,
+): Promise<OAuthStateRow> {
+  const { data, error } = await client.rpc('consume_gbp_oauth_attempt_v1', args);
+  if (error) throw error;
+  return data;
+}
+
 export async function readOAuthStateByToken(
   stateToken: string,
   client: DbClient,
@@ -167,6 +202,64 @@ export async function readOAuthStateByToken(
     throw error;
   }
 
+  return data;
+}
+
+export async function readOAuthAttemptByHash(
+  stateHash: string,
+  client: DbClient,
+): Promise<OAuthStateRow | null> {
+  const { data, error } = await client
+    .from('restaurant_external_profile_oauth_states')
+    .select('*')
+    .eq('state_hash', stateHash)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function completeOAuthIdentity(
+  args: Database['public']['Functions']['complete_gbp_oauth_identity_v1']['Args'],
+  client: DbClient,
+): Promise<ExternalProfileRow> {
+  const { data, error } = await client.rpc('complete_gbp_oauth_identity_v1', args);
+  if (error) throw error;
+  return data;
+}
+
+export async function refreshCredentialFenced(
+  args: Database['public']['Functions']['refresh_gbp_credential_v1']['Args'],
+  client: DbClient,
+): Promise<CredentialRow> {
+  const { data, error } = await client.rpc('refresh_gbp_credential_v1', args);
+  if (error) throw error;
+  return data;
+}
+
+export async function transitionConnectionFenced(
+  args: Database['public']['Functions']['transition_gbp_connection_v1']['Args'],
+  client: DbClient,
+): Promise<ExternalProfileRow> {
+  const { data, error } = await client.rpc('transition_gbp_connection_v1', args);
+  if (error) throw error;
+  return data;
+}
+
+export async function transitionConnectionProviderFailureFenced(
+  args: Database['public']['Functions']['transition_gbp_connection_provider_failure_v1']['Args'],
+  client: DbClient,
+): Promise<ExternalProfileRow> {
+  const { data, error } = await client.rpc('transition_gbp_connection_provider_failure_v1', args);
+  if (error) throw error;
+  return data;
+}
+
+export async function disconnectConnectionFenced(
+  args: Database['public']['Functions']['disconnect_gbp_connection_v1']['Args'],
+  client: DbClient,
+): Promise<ExternalProfileRow> {
+  const { data, error } = await client.rpc('disconnect_gbp_connection_v1', args);
+  if (error) throw error;
   return data;
 }
 

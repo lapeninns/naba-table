@@ -1,5 +1,7 @@
 import { DualSyncPublishPreviewDialog } from './DualSyncPublishPreviewDialog';
 import { DualSyncPublishResultDialog } from './DualSyncPublishResultDialog';
+import { GbpExactPublishDialog } from './GbpExactPublishDialog';
+import { GbpExactPublishResultDialog } from './GbpExactPublishResultDialog';
 
 import type { useDualSyncShellActions } from './hooks/useDualSyncShellActions';
 import type { useDualSyncWorkspace } from './hooks/useDualSyncWorkspace';
@@ -13,19 +15,40 @@ interface DualSyncShellDialogsProps {
 }
 
 export function DualSyncShellDialogs({ shellActions, publishPending }: DualSyncShellDialogsProps) {
+  if (!shellActions.usesExactPublish) {
+    const legacy = shellActions.legacyPublishActions;
+    return (
+      <>
+        <DualSyncPublishPreviewDialog
+          open={legacy.publishPreviewOpen}
+          plan={legacy.publishPreviewPlan}
+          isPublishing={publishPending}
+          onOpenChange={legacy.setPublishPreviewOpen}
+          onConfirm={legacy.onConfirmPublishPreview}
+        />
+        <DualSyncPublishResultDialog
+          open={legacy.publishResultOpen}
+          result={legacy.publishResult}
+          onOpenChange={legacy.setPublishResultOpen}
+        />
+      </>
+    );
+  }
+  const exact = shellActions.exactPublishActions;
   return (
     <>
-      <DualSyncPublishPreviewDialog
-        open={shellActions.publishPreviewOpen}
-        plan={shellActions.publishPreviewPlan}
+      <GbpExactPublishDialog
+        open={exact.previewOpen}
+        preview={exact.preview}
         isPublishing={publishPending}
-        onOpenChange={shellActions.setPublishPreviewOpen}
-        onConfirm={shellActions.onConfirmPublishPreview}
+        onOpenChange={exact.setPreviewOpen}
+        onConfirm={exact.onConfirm}
+        onRefreshExpired={exact.onRefreshExpired}
       />
-      <DualSyncPublishResultDialog
-        open={shellActions.publishResultOpen}
-        result={shellActions.publishResult}
-        onOpenChange={shellActions.setPublishResultOpen}
+      <GbpExactPublishResultDialog
+        open={exact.resultOpen}
+        result={exact.result}
+        onOpenChange={exact.setResultOpen}
       />
     </>
   );

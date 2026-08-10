@@ -7,13 +7,24 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
-import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
+import { logger } from '@/lib/logger';
+import {
+  createSupabaseGbpDispatchedGrantRecoveryPort,
+  recoverStaleGbpDispatchedGrants,
+} from '@/server/dual-sync/health/dispatched-grant-recovery';
+import { reconcileGoogleWriteTerminalNotices } from '@/server/dual-sync/notifications';
 import { runDualSyncOperationalHealthAlertSweep } from '@/server/dual-sync/observability';
+import {
+  GBP_NO_STORE_HEADERS,
+  createSupabaseContentRetentionPort,
+  gbpNoStoreResponse,
+  runContentRetention,
+} from '@/server/dual-sync/retention';
 import { recordObservabilityEvent } from '@/server/observability';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,7 +49,7 @@ function isTruthyFlag(value: string | null): boolean {
 
 export async function GET(request: Request) {
   await flushPosthogLogsAfterResponse();
-  return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
+  const response = await requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     const url = new URL(request.url);
     const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
     const onlyCritical = isTruthyFlag(url.searchParams.get('onlyCritical'));
@@ -67,19 +78,51 @@ export async function GET(request: Request) {
         },
       });
 
+      const client = getServiceSupabaseClient();
+      const recovery = dryRun
+        ? {
+            mode: 'dry_run_omitted' as const,
+            cutoff: null,
+            profilesConsidered: 0,
+            profilesProcessed: 0,
+            recovered: 0,
+            capped: false,
+            errors: [],
+          }
+        : await recoverStaleGbpDispatchedGrants({
+            port: createSupabaseGbpDispatchedGrantRecoveryPort(client),
+            now: new Date(),
+          });
+      const noticeReconciliation = dryRun
+        ? { considered: 0, materialized: 0, failed: 0 }
+        : await reconcileGoogleWriteTerminalNotices({ client, limit: 100 });
+      const grantRecovery = {
+        ...recovery,
+        terminalNoticesMaterialized: noticeReconciliation.materialized,
+      };
       const summary = await runDualSyncOperationalHealthAlertSweep({
-        client: getServiceSupabaseClient(),
+        client,
         maxRestaurants,
         dryRun,
         windowMs: windowHours * 60 * 60 * 1000,
         limit: metricLimit,
         onlyCritical,
       });
+      const contentRetention = await runContentRetention({
+        port: createSupabaseContentRetentionPort(client),
+        now: new Date(),
+        dryRun: true,
+        limit: 500,
+        timeBudgetMs: 10_000,
+      });
 
       await recordObservabilityEvent({
         source: 'cron.dual-sync.health',
         eventType: 'sweep.completed',
-        severity: summary.errors.length > 0 || summary.alertsEmitted > 0 ? 'warning' : 'info',
+        severity:
+          summary.errors.length > 0 || summary.alertsEmitted > 0 || grantRecovery.errors.length > 0
+            ? 'warning'
+            : 'info',
         context: {
           jobName: auth.jobName,
           runId: auth.runId,
@@ -88,30 +131,33 @@ export async function GET(request: Request) {
           restaurantsProcessed: summary.restaurantsProcessed,
           alertsEmitted: summary.alertsEmitted,
           errors: summary.errors.length,
+          grantsRecovered: grantRecovery.recovered,
+          grantRecoveryErrors: grantRecovery.errors.length,
+          terminalNoticesMaterialized: grantRecovery.terminalNoticesMaterialized,
+          retentionLevel: contentRetention.level,
+          retentionMatched: contentRetention.totals.matched,
+          retentionOldestOutstandingAgeMs: contentRetention.oldestOutstandingAgeMs,
         },
       });
 
-      return NextResponse.json({
-        success: true,
-        runId: auth.runId,
-        windowHours,
-        metricLimit,
-        onlyCritical,
-        ...summary,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          runId: auth.runId,
+          windowHours,
+          metricLimit,
+          onlyCritical,
+          grantRecovery,
+          contentRetention,
+          ...summary,
+        },
+        { headers: GBP_NO_STORE_HEADERS },
+      );
     } catch (error) {
-      console.error('[cron][dual-sync.health] failed to run', {
+      logger.error('cron.dual-sync.health.failed', {
         jobName: auth.jobName,
         runId: auth.runId,
-        error,
-      });
-      captureServerException(error, {
-        properties: {
-          jobName: auth.jobName,
-          runId: auth.runId,
-          source: 'cron',
-          kind: 'dual-sync-health',
-        },
+        errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
       });
       await recordObservabilityEvent({
         source: 'cron.dual-sync.health',
@@ -121,10 +167,14 @@ export async function GET(request: Request) {
           jobName: auth.jobName,
           runId: auth.runId,
           dryRun,
-          message: error instanceof Error ? error.message : String(error),
+          errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
         },
       });
-      return NextResponse.json({ error: 'Dual-sync health cron failed.' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Dual-sync health cron failed.' },
+        { status: 500, headers: GBP_NO_STORE_HEADERS },
+      );
     }
   });
+  return gbpNoStoreResponse(response);
 }

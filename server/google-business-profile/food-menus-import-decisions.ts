@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 import {
   applyCanonicalFoodMenusSuggestedPatch,
   createCanonicalFoodMenusItemFromPatch,
@@ -179,11 +181,10 @@ export async function decideFoodMenusImportReview({
           decidedByUserId,
         });
       } catch (markFailedError) {
-        const message =
-          markFailedError instanceof Error ? markFailedError.message : 'Unknown failure mark error';
-        console.error('[gbp][food-menus][import-review] failed to mark claimed review failed', {
+        logger.error('Food menus import review failure transition failed.', {
+          module: 'gbp',
           reviewId,
-          message,
+          errorKind: markFailedError instanceof Error ? 'error' : typeof markFailedError,
         });
       }
     }

@@ -122,7 +122,10 @@ describe('dual-sync publish operation mappers', () => {
       acceptedCount: 2,
       rejectedCount: 1,
       ignoredCount: 0,
-      planSummary: {},
+      planSummary: {
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 0 },
+      },
       errorCode: null,
       errorMessage: null,
       startedAt: null,
@@ -130,6 +133,15 @@ describe('dual-sync publish operation mappers', () => {
       createdAt: '2026-05-22T08:00:00.000Z',
       updatedAt: '2026-05-22T08:00:01.000Z',
     });
+  });
+
+  it('preserves an already metadata-only hash without hashing the envelope again', () => {
+    const summary = {
+      sha256: 'a'.repeat(64),
+      shape: { kind: 'object', fieldCount: 2 },
+    };
+
+    expect(rowToBatch(batchRow({ plan_summary: summary })).planSummary).toEqual(summary);
   });
 
   it('maps operation group rows and preserves nullable audit summaries', () => {
@@ -151,9 +163,18 @@ describe('dual-sync publish operation mappers', () => {
       writeGroup: 'location.profile',
       googleUpdateMasks: ['profile.description'],
       decisionCount: 2,
-      preflightResult: { validateOnly: true },
-      requestSummary: { fieldKeys: ['profile.businessDescription'] },
-      responseSummary: { status: 'passed' },
+      preflightResult: {
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 1 },
+      },
+      requestSummary: {
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 1 },
+      },
+      responseSummary: {
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 1 },
+      },
     });
   });
 

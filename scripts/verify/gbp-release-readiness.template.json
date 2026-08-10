@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "release": {
+    "environment": "staging",
+    "deploySha": "REPLACE_WITH_DEPLOY_GIT_SHA",
+    "recordedAt": "REPLACE_WITH_UTC_TIMESTAMP"
+  },
+  "artifacts": [
+    {
+      "id": "deployment-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "migration-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "environment-presence-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "cron-scheduler-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "canonical-route-smoke",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "legacy-route-traffic-baseline",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "write-grant-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "canary-set-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "canary-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "canary-restore-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "pubsub-topic-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "pubsub-subscription-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "pubsub-dlq-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "pubsub-iam-readback",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "key-rotation-dry-run",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "retention-census",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "backup-pitr-census",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    },
+    {
+      "id": "legacy-retirement-traffic-evidence",
+      "status": "missing",
+      "recordedAt": "",
+      "source": "",
+      "reference": "",
+      "sha256": ""
+    }
+  ]
+}

@@ -1,8 +1,116 @@
+import { Buffer } from 'node:buffer';
 import { z } from 'zod';
 
 const booleanString = z.enum(['true', 'false']).transform((value) => value === 'true');
 
 const booleanStringOptional = booleanString.optional();
+
+const gbpWriteRolloutMode = z.enum(['off', 'canary', 'allowlist', 'on']);
+
+const RESERVED_GOOGLE_CREDENTIAL_KEY_IDS = new Set([
+  '__definegetter__',
+  '__definesetter__',
+  '__lookupgetter__',
+  '__lookupsetter__',
+  '__proto__',
+  'constructor',
+  'hasownproperty',
+  'isprototypeof',
+  'propertyisenumerable',
+  'prototype',
+  'tolocalestring',
+  'tostring',
+  'valueof',
+]);
+
+const googleCredentialKeyId = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/u)
+  .refine((value) => !RESERVED_GOOGLE_CREDENTIAL_KEY_IDS.has(value.toLowerCase()), {
+    message: 'Reserved key identifiers are not allowed.',
+  });
+
+const googleCredentialEncryptionKey = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{43}$/u)
+  .refine(
+    (value) => {
+      const decoded = Buffer.from(value, 'base64url');
+      return decoded.byteLength === 32 && decoded.toString('base64url') === value;
+    },
+    { message: 'Must be canonical base64url encoding of exactly 32 bytes.' },
+  );
+
+const googleCredentialEncryptionKeys = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
+  z
+    .string()
+    .max(16_384)
+    .transform((value, ctx): unknown => {
+      try {
+        const propertyNames = new Set<string>();
+        const propertyPattern = /"((?:\\.|[^"\\])*)"\s*:/gu;
+        for (const match of value.matchAll(propertyPattern)) {
+          const encodedName = match[1];
+          if (encodedName === undefined) continue;
+          const decodedName: unknown = JSON.parse(`"${encodedName}"`);
+          if (typeof decodedName === 'string' && propertyNames.has(decodedName)) {
+            ctx.addIssue({ code: 'custom', message: 'Key identifiers must be unique.' });
+            return z.NEVER;
+          }
+          if (
+            typeof decodedName === 'string' &&
+            RESERVED_GOOGLE_CREDENTIAL_KEY_IDS.has(decodedName.toLowerCase())
+          ) {
+            ctx.addIssue({ code: 'custom', message: 'Reserved key identifiers are not allowed.' });
+            return z.NEVER;
+          }
+          if (typeof decodedName === 'string') propertyNames.add(decodedName);
+        }
+
+        return JSON.parse(value) as unknown;
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          ctx.addIssue({ code: 'custom', message: 'Must be a valid JSON object.' });
+          return z.NEVER;
+        }
+        throw error;
+      }
+    })
+    .pipe(
+      z
+        .record(googleCredentialKeyId, googleCredentialEncryptionKey)
+        .refine((keys) => Object.keys(keys).length > 0, { message: 'Must not be empty.' })
+        .refine((keys) => Object.keys(keys).length <= 32, {
+          message: 'Must contain at most 32 keys.',
+        })
+        .transform((keys): Readonly<Record<string, string>> => {
+          const safeKeys: Record<string, string> = Object.create(null);
+          for (const [keyId, key] of Object.entries(keys)) safeKeys[keyId] = key;
+          return Object.freeze(safeKeys);
+        }),
+    )
+    .optional(),
+);
+
+const isAllowedGooglePubsubResourceName = (value: string): boolean =>
+  value.split('/').at(-1)?.toLowerCase().startsWith('goog') !== true;
+
+const googlePubsubSubscription = z
+  .string()
+  .regex(
+    /^projects\/(?:[a-z][a-z0-9-]{4,28}[a-z0-9]|[0-9]{6,30})\/subscriptions\/[A-Za-z][A-Za-z0-9._~+%-]{2,254}$/u,
+  )
+  .refine(isAllowedGooglePubsubResourceName);
+
+const googlePubsubTopic = z
+  .string()
+  .regex(
+    /^projects\/(?:[a-z][a-z0-9-]{4,28}[a-z0-9]|[0-9]{6,30})\/topics\/[A-Za-z][A-Za-z0-9._~+%-]{2,254}$/u,
+  )
+  .refine(isAllowedGooglePubsubResourceName);
 
 const normalizeOptionalUrl = (value: unknown) =>
   typeof value === 'string' && value.trim().length === 0 ? undefined : value;
@@ -35,6 +143,7 @@ export const PUBLIC_ENV_ALLOWLIST = new Set([
   'NEXT_PUBLIC_DEFAULT_RESTAURANT_ID',
   'NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG',
   'NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG_FALLBACK',
+  'NEXT_PUBLIC_DISABLE_REACT_DEVTOOLS',
   'NEXT_PUBLIC_FORCE_PASSWORD_SIGNIN',
   'NEXT_PUBLIC_POSTHOG_HOST',
   'NEXT_PUBLIC_POSTHOG_KEY',
@@ -77,6 +186,7 @@ const baseEnvSchema = z
     NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
     NEXT_PUBLIC_DEFAULT_RESTAURANT_ID: z.string().uuid().optional(),
     NEXT_PUBLIC_DEFAULT_RESTAURANT_SLUG: z.string().optional(),
+    NEXT_PUBLIC_DISABLE_REACT_DEVTOOLS: z.enum(['0', '1']).optional(),
     NEXT_PUBLIC_RESERVE_V2: booleanStringOptional,
     NEXT_PUBLIC_BOOKING_PENDING_GRACE_MINUTES: z.coerce.number().int().min(0).max(120).optional(),
     NEXT_PUBLIC_APP_VERSION: z.string().optional(),
@@ -144,6 +254,8 @@ const baseEnvSchema = z
     GOOGLE_BUSINESS_CLIENT_SECRET: optionalString,
     GOOGLE_BUSINESS_REDIRECT_URI: optionalUrl,
     GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY: optionalString,
+    GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID: googleCredentialKeyId.optional(),
+    GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS: googleCredentialEncryptionKeys,
     GOOGLE_BUSINESS_PROFILE_CLIENT_ID: optionalString,
     GOOGLE_BUSINESS_PROFILE_CLIENT_SECRET: optionalString,
     GOOGLE_BUSINESS_PROFILE_REDIRECT_URI: optionalUrl,
@@ -158,6 +270,20 @@ const baseEnvSchema = z
     BOOKING_SHORT_LINKS_INTERNAL_URL: z.string().url().optional(),
     BOOKING_SHORT_LINKS_INTERNAL_TOKEN: z.string().min(1).optional(),
     DUAL_SYNC_FAILURE_WEBHOOK_URL: z.string().url().startsWith('https://').optional(),
+    GBP_IMPORT_ENABLED: booleanString.default(false),
+    GBP_EXPORT_ENABLED: booleanString.default(false),
+    GBP_AUTO_CANDIDATES_ENABLED: booleanString.default(true),
+    GBP_HIGH_RISK_EXPORTS_ENABLED: booleanString.default(false),
+    GBP_MENU_SYNC_ENABLED: booleanString.default(false),
+    GBP_ATTRIBUTES_SYNC_ENABLED: booleanString.default(false),
+    GBP_SCHEDULED_REFRESH_ENABLED: booleanString.default(false),
+    GBP_PUBSUB_INGEST_ENABLED: booleanString.default(false),
+    GBP_PUBSUB_EXPECTED_AUDIENCE: z.string().url().optional(),
+    GBP_PUBSUB_PUSH_SERVICE_ACCOUNT_EMAIL: z.string().email().optional(),
+    GBP_PUBSUB_SUBSCRIPTION: googlePubsubSubscription.optional(),
+    GBP_PUBSUB_TOPIC: googlePubsubTopic.optional(),
+    GBP_WRITE_ROLLOUT_MODE: gbpWriteRolloutMode.default('off'),
+    GBP_CANARY_RESTAURANT_ID: z.string().uuid().optional(),
     ALLOCATIONS_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).optional(),
     // Strategic demand profiles no longer loaded from disk
     OPS_SUMMARY_CACHE_TTL_MS: z.coerce.number().int().min(0).max(600000).optional(),
@@ -171,6 +297,70 @@ const baseEnvSchema = z
     STRATEGIC_DEMAND_PROFILE_PATH: z.string().optional(),
   })
   .passthrough();
+
+function refineGoogleBusinessEnvironment(
+  env: {
+    readonly GBP_WRITE_ROLLOUT_MODE: z.infer<typeof gbpWriteRolloutMode>;
+    readonly GBP_CANARY_RESTAURANT_ID?: string;
+    readonly GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID?: string;
+    readonly GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS?: Readonly<Record<string, string>>;
+    readonly GBP_PUBSUB_INGEST_ENABLED: boolean;
+    readonly GBP_PUBSUB_EXPECTED_AUDIENCE?: string;
+    readonly GBP_PUBSUB_PUSH_SERVICE_ACCOUNT_EMAIL?: string;
+    readonly GBP_PUBSUB_SUBSCRIPTION?: string;
+    readonly GBP_PUBSUB_TOPIC?: string;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (env.GBP_WRITE_ROLLOUT_MODE === 'canary' && !env.GBP_CANARY_RESTAURANT_ID) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['GBP_CANARY_RESTAURANT_ID'],
+      message: 'Canary rollout mode requires GBP_CANARY_RESTAURANT_ID.',
+    });
+  }
+
+  const hasActiveKeyId = env.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID !== undefined;
+  const hasEncryptionKeys = env.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS !== undefined;
+  if (hasActiveKeyId !== hasEncryptionKeys) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [
+        hasActiveKeyId
+          ? 'GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS'
+          : 'GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID',
+      ],
+      message: 'Credential keyring requires both active key ID and keys.',
+    });
+  }
+
+  const activeKeyId = env.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID;
+  const encryptionKeys = env.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS;
+  if (activeKeyId && encryptionKeys && !Object.hasOwn(encryptionKeys, activeKeyId)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID'],
+      message: 'Active credential key ID must exist in the keyring.',
+    });
+  }
+
+  if (env.GBP_PUBSUB_INGEST_ENABLED) {
+    for (const name of [
+      'GBP_PUBSUB_EXPECTED_AUDIENCE',
+      'GBP_PUBSUB_PUSH_SERVICE_ACCOUNT_EMAIL',
+      'GBP_PUBSUB_SUBSCRIPTION',
+      'GBP_PUBSUB_TOPIC',
+    ] as const) {
+      if (!env[name]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [name],
+          message: 'Required when GBP_PUBSUB_INGEST_ENABLED=true.',
+        });
+      }
+    }
+  }
+}
 
 const productionEnvSchema = baseEnvSchema
   .extend({
@@ -186,6 +376,8 @@ const productionEnvSchema = baseEnvSchema
     CRON_SECRET: z.string().min(1),
   })
   .superRefine((env, ctx) => {
+    refineGoogleBusinessEnvironment(env, ctx);
+
     const hasCloudflareGateway =
       Boolean(env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_URL) &&
       Boolean(env.CLOUDFLARE_EMAIL_QUEUE_GATEWAY_TOKEN);
@@ -219,8 +411,8 @@ const productionEnvSchema = baseEnvSchema
     }
   });
 
-const developmentEnvSchema = baseEnvSchema;
-const testEnvSchema = baseEnvSchema;
+const developmentEnvSchema = baseEnvSchema.superRefine(refineGoogleBusinessEnvironment);
+const testEnvSchema = baseEnvSchema.superRefine(refineGoogleBusinessEnvironment);
 
 export const envSchemas = {
   production: productionEnvSchema,

@@ -9,12 +9,6 @@ import {
   applyBusinessContextServiceItemExportToGoogle,
 } from './business-context-export';
 import {
-  applyBusinessContextAttributeImportToCore,
-  applyBusinessContextCategoryImportToCore,
-  applyBusinessContextServiceAreaImportToCore,
-  applyBusinessContextServiceItemImportToCore,
-} from './business-context-import';
-import {
   applyFoodMenusExportBatchToGoogle,
   applyFoodMenusExportToGoogle,
 } from './food-menus-export';
@@ -22,14 +16,12 @@ import {
   applyOperatingHoursExportBatchToGoogle,
   applyOperatingHoursExportToGoogle,
 } from './operating-hours-export';
-import { applyOperatingHoursImportToCore } from './operating-hours-import';
 import { applyProfileExportBatchToGoogle, applyProfileExportToGoogle } from './profile-export';
 import { applyProfileImportToCore } from './profile-import';
 import {
   applyServicePeriodsExportBatchToGoogle,
   applyServicePeriodsExportToGoogle,
 } from './service-periods-export';
-import { applyServicePeriodsImportToCore } from './service-periods-import';
 
 import type { DualSyncOrchestratorPorts } from '../ports';
 import type { DualSyncOperationContext, DualSyncOperationResult } from '../types';
@@ -57,6 +49,17 @@ function unimplementedPortResult(
   };
 }
 
+function atomicImportRequiredResult(): DualSyncOperationResult {
+  return {
+    status: 'failed',
+    failure: {
+      code: 'PORT_FAILURE',
+      message: 'This Google import requires an atomic provider-fenced database operation.',
+      retryable: false,
+    },
+  };
+}
+
 /**
  * Compose the concrete-port set used by the dual-sync HTTP routes.
  * Sections without a concrete port yet return a `PORT_FAILURE` result
@@ -71,22 +74,22 @@ export function defaultDualSyncPorts(): DualSyncOrchestratorPorts {
         return applyProfileImportToCore(ctx);
       }
       if (fieldKey.startsWith(OPERATING_HOURS_FIELD_KEY_PREFIX)) {
-        return applyOperatingHoursImportToCore(ctx);
+        return atomicImportRequiredResult();
       }
       if (fieldKey.startsWith(SERVICE_PERIODS_FIELD_KEY_PREFIX)) {
-        return applyServicePeriodsImportToCore(ctx);
+        return atomicImportRequiredResult();
       }
       if (fieldKey.startsWith(BUSINESS_CONTEXT_CATEGORY_PREFIX)) {
-        return applyBusinessContextCategoryImportToCore(ctx);
+        return atomicImportRequiredResult();
       }
       if (fieldKey.startsWith(BUSINESS_CONTEXT_SERVICE_AREA_PREFIX)) {
-        return applyBusinessContextServiceAreaImportToCore(ctx);
+        return atomicImportRequiredResult();
       }
       if (fieldKey.startsWith(BUSINESS_CONTEXT_ATTRIBUTE_PREFIX)) {
-        return applyBusinessContextAttributeImportToCore(ctx);
+        return atomicImportRequiredResult();
       }
       if (fieldKey.startsWith(BUSINESS_CONTEXT_SERVICE_ITEM_PREFIX)) {
-        return applyBusinessContextServiceItemImportToCore(ctx);
+        return atomicImportRequiredResult();
       }
       return unimplementedPortResult(ctx, 'import');
     },

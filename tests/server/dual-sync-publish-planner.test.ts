@@ -6,13 +6,14 @@ vi.mock('@/server/dual-sync/controls', () => ({
   getDualSyncRestaurantControl: getDualSyncRestaurantControlMock,
 }));
 
+import { resetEnvCache } from '@/lib/env';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { buildPublishPlan } from '@/server/dual-sync/publish/planner';
-import { computeReplayDecisionPins } from '@/server/dual-sync/replay/runner';
 import {
   createReplaySnapshot,
   FOOD_MENU_TIKKA_FIELD_KEY,
 } from '@/server/dual-sync/replay/fixtures';
+import { computeReplayDecisionPins } from '@/server/dual-sync/replay/runner';
 
 import type { DualSyncPublishDecision } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
@@ -23,6 +24,12 @@ const RESTAURANT_ID = 'rest-1';
 const client = {} as SupabaseClient<Database>;
 
 beforeEach(() => {
+  process.env.GBP_IMPORT_ENABLED = 'true';
+  process.env.GBP_EXPORT_ENABLED = 'true';
+  process.env.GBP_HIGH_RISK_EXPORTS_ENABLED = 'true';
+  process.env.GBP_MENU_SYNC_ENABLED = 'true';
+  process.env.GBP_ATTRIBUTES_SYNC_ENABLED = 'true';
+  resetEnvCache();
   getDualSyncRestaurantControlMock.mockReset();
   getDualSyncRestaurantControlMock.mockResolvedValue({
     restaurantId: RESTAURANT_ID,
@@ -41,6 +48,9 @@ afterEach(() => {
   delete process.env.GBP_EXPORT_ENABLED;
   delete process.env.GBP_HIGH_RISK_EXPORTS_ENABLED;
   delete process.env.GBP_MENU_SYNC_ENABLED;
+  delete process.env.GBP_ATTRIBUTES_SYNC_ENABLED;
+  delete process.env.GBP_IMPORT_ENABLED;
+  resetEnvCache();
 });
 
 function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCanonicalSnapshot {

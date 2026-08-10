@@ -19,6 +19,8 @@ import {
   listDualSyncOperations,
   listDualSyncPublishJobs,
   previewDualSyncPublishPlan,
+  previewGbpExactPublishV1,
+  publishGbpExactV1,
   publishDualSyncDecisions,
   refreshDualSync,
   cancelDualSyncCandidate,
@@ -54,6 +56,9 @@ import type {
   RunAutoExportResponse,
   SetDualSyncControlRequest,
   SetDualSyncControlResponse,
+  GbpExactPreviewResponseV1,
+  GbpExactPublishRequestV1,
+  GbpPublishResponseV1,
 } from '@/services/ops/dual-sync';
 
 const operationsKey = (restaurantId: string, request: ListDualSyncOperationsRequest) =>
@@ -153,6 +158,7 @@ export function useOpsDualSync({
       ? dualSyncQueryKeys.state(restaurantId as string)
       : ['dual-sync-state', 'noop'],
     queryFn: () => getDualSyncState(restaurantId as string),
+    meta: { persist: false },
   });
 
   const refreshMutation = useMutation<RefreshDualSyncResponse, Error, void>({
@@ -193,6 +199,31 @@ export function useOpsDualSync({
         return Promise.reject(new Error('restaurantId is required to preview dual-sync publish.'));
       }
       return previewDualSyncPublishPlan(restaurantId, request);
+    },
+  });
+
+  const exactPreviewPublishMutation = useMutation<
+    GbpExactPreviewResponseV1,
+    Error,
+    DualSyncPublishRequest
+  >({
+    mutationFn: (request) => {
+      if (!restaurantId) {
+        return Promise.reject(new Error('restaurantId is required to preview exact GBP publish.'));
+      }
+      return previewGbpExactPublishV1(restaurantId, request);
+    },
+  });
+
+  const exactPublishMutation = useMutation<GbpPublishResponseV1, Error, GbpExactPublishRequestV1>({
+    mutationFn: (request) => {
+      if (!restaurantId) {
+        return Promise.reject(new Error('restaurantId is required to publish exact GBP plan.'));
+      }
+      return publishGbpExactV1(restaurantId, request);
+    },
+    onSuccess: () => {
+      if (restaurantId) invalidateOpsIntegrationQueries(queryClient, restaurantId);
     },
   });
 
@@ -272,6 +303,7 @@ export function useOpsDualSync({
       ? operationsKey(restaurantId as string, operationsRequest ?? {})
       : ['dual-sync-operations', 'noop'],
     queryFn: () => listDualSyncOperations(restaurantId as string, operationsRequest ?? {}),
+    meta: { persist: false },
   });
 
   const jobsQuery = useQuery<ListDualSyncJobsResponse>({
@@ -280,6 +312,7 @@ export function useOpsDualSync({
       ? jobsKey(restaurantId as string, jobsRequest ?? {})
       : ['dual-sync-jobs', 'noop'],
     queryFn: () => listDualSyncJobs(restaurantId as string, jobsRequest ?? {}),
+    meta: { persist: false },
   });
 
   const candidatesQuery = useQuery<ListDualSyncCandidatesResponse>({
@@ -288,6 +321,7 @@ export function useOpsDualSync({
       ? candidatesKey(restaurantId as string, candidatesRequest ?? {})
       : ['dual-sync-candidates', 'noop'],
     queryFn: () => listDualSyncCandidates(restaurantId as string, candidatesRequest ?? {}),
+    meta: { persist: false },
   });
 
   const metricsQuery = useQuery<GetDualSyncMetricsResponse>({
@@ -296,6 +330,7 @@ export function useOpsDualSync({
       ? metricsKey(restaurantId as string, metricsRequest ?? {})
       : ['dual-sync-metrics', 'noop'],
     queryFn: () => getDualSyncMetrics(restaurantId as string, metricsRequest ?? {}),
+    meta: { persist: false },
   });
 
   const publishJobsQuery = useQuery<ListDualSyncPublishJobsResponse>({
@@ -304,6 +339,7 @@ export function useOpsDualSync({
       ? publishJobsKey(restaurantId as string, publishJobsRequest ?? {})
       : ['dual-sync-publish-jobs', 'noop'],
     queryFn: () => listDualSyncPublishJobs(restaurantId as string, publishJobsRequest ?? {}),
+    meta: { persist: false },
   });
 
   const publishJobDetailQuery = useQuery<GetDualSyncPublishJobDetailResponse>({
@@ -313,6 +349,7 @@ export function useOpsDualSync({
       : ['dual-sync-publish-job-detail', 'noop'],
     queryFn: () =>
       getDualSyncPublishJobDetail(restaurantId as string, publishJobDetailId as string),
+    meta: { persist: false },
   });
 
   return {
@@ -320,6 +357,8 @@ export function useOpsDualSync({
     refreshMutation,
     publishMutation,
     previewPublishMutation,
+    exactPreviewPublishMutation,
+    exactPublishMutation,
     autoExportMutation,
     retryJobMutation,
     cancelCandidateMutation,

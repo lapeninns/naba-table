@@ -529,6 +529,18 @@ describe('script DB safety', () => {
     expect(assertTargetBody).not.toContain('NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL');
   });
 
+  it('retires historical FoodMenus Google mutation scripts', () => {
+    const proofSource = readScript('scripts/prove-gbp-foodmenus-publish.ts');
+    const clearSource = readScript(
+      'tasks/gbp-foodmenus-wipe-repush-old-crown-20260509-0000/clear-gbp-foodmenus.ts',
+    );
+
+    expect(proofSource).toContain('GBP_LEGACY_GOOGLE_WRITE_RETIRED');
+    expect(clearSource).toContain('GBP_LEGACY_GOOGLE_WRITE_RETIRED');
+    expect(proofSource).not.toContain('publishFoodMenusProjectionToGoogle(');
+    expect(clearSource).not.toContain('updateGoogleBusinessProfileFoodMenus(');
+  });
+
   it('maps the FoodMenus rollout confirmation into the delegated SQL runner only after wrapper checks', () => {
     const source = readScript('scripts/rollout-gbp-foodmenus-storage.ts');
     const runApplyBody = source.slice(

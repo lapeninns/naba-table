@@ -10,6 +10,8 @@ const syncBusinessInfoMock = vi.hoisted(() => vi.fn());
 const disconnectConnectionMock = vi.hoisted(() => vi.fn());
 const verifyUserPasswordConfirmationMock = vi.hoisted(() => vi.fn());
 const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
+const loadOperatorConnectionStateMock = vi.hoisted(() => vi.fn());
+const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn(() => ({ service: true })));
 const PasswordConfirmationErrorMock = vi.hoisted(
   () =>
     class PasswordConfirmationError extends Error {
@@ -45,6 +47,10 @@ vi.mock('@/server/auth/password-confirmation', () => ({
 vi.mock('@/server/security/provider-rate-limit', () => ({
   requireProviderRefreshBudget: requireProviderRefreshBudgetMock,
 }));
+vi.mock('@/server/dual-sync/freshness/operator-connection-state', () => ({
+  loadGbpOperatorConnectionState: loadOperatorConnectionStateMock,
+}));
+vi.mock('@/server/supabase', () => ({ getServiceSupabaseClient: getServiceSupabaseClientMock }));
 
 import {
   GET as connectGET,
@@ -68,6 +74,7 @@ describe('restaurant google business profile routes', () => {
     disconnectConnectionMock.mockReset();
     verifyUserPasswordConfirmationMock.mockReset();
     requireProviderRefreshBudgetMock.mockReset().mockResolvedValue(null);
+    loadOperatorConnectionStateMock.mockReset();
   });
 
   it('starts Google OAuth from the connect route over POST', async () => {
@@ -88,8 +95,9 @@ describe('restaurant google business profile routes', () => {
     await expect(response.json()).resolves.toEqual({
       authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
     });
-    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=test');
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=v1.');
     expect(response.headers.get('set-cookie')).toContain('HttpOnly');
+    expect(response.headers.get('set-cookie')).not.toContain('sr-gbp-oauth-state=test');
     expect(ensureRestaurantAdminAccessMock).toHaveBeenCalledWith(
       'rest-1',
       'google-business-profile',
@@ -254,7 +262,48 @@ describe('restaurant google business profile routes', () => {
     expect(linkLocationMock).not.toHaveBeenCalled();
   });
 
-  it('returns frontend-readable messages for connection load failures', async () => {
+  it('returns the strict canonical operator connection state', async () => {
+    resolveRestaurantIdMock.mockResolvedValue('rest-1');
+    ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
+    const legacyState = { provider: 'google_business_profile', status: 'linked' };
+    getConnectionStateMock.mockResolvedValue(legacyState);
+    const canonicalState = {
+      version: 'v1',
+      restaurantId: 'rest-1',
+      provider: 'google_business_profile',
+      connectionStatus: 'linked',
+      writeState: 'blocked',
+      connectionGeneration: 2,
+      consentEpoch: 3,
+      reasonCode: 'operator_disabled',
+      rollout: { eligible: true, cohort: 'all', evaluatedAt: '2026-08-09T10:00:00.000Z' },
+      pendingUpdates: { version: 'v1', restaurantId: 'rest-1', state: 'none' },
+      notifications: { enabled: false, refCount: 0 },
+      refresh: {
+        status: 'idle',
+        lastAttemptAt: null,
+        lastSucceededAt: null,
+        safeErrorCode: null,
+      },
+    };
+    loadOperatorConnectionStateMock.mockResolvedValue(canonicalState);
+
+    const response = await connectionGET(
+      new NextRequest('https://example.com/api/ops/restaurants/rest-1/google-business-profile'),
+      { params: Promise.resolve({ id: 'rest-1' }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    await expect(response.json()).resolves.toEqual(canonicalState);
+    expect(loadOperatorConnectionStateMock).toHaveBeenCalledWith({
+      client: { service: true },
+      restaurantId: 'rest-1',
+      connection: legacyState,
+    });
+  });
+
+  it('returns a stable safe error for connection load failures', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({ userId: 'user-1' });
     getConnectionStateMock.mockRejectedValue(new Error('GBP provider unavailable'));
@@ -266,8 +315,9 @@ describe('restaurant google business profile routes', () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toMatchObject({
-      message: 'GBP provider unavailable',
-      error: 'GBP provider unavailable',
+      message: 'Unable to load Google Business Profile connection.',
+      error: 'Unable to load Google Business Profile connection.',
+      code: 'GBP_CONNECTION_STATE_FAILED',
     });
   });
 

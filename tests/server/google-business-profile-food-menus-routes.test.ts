@@ -474,15 +474,7 @@ describe('GBP FoodMenus routes', () => {
     });
   });
 
-  it('publishes FoodMenus through stored OAuth context and preflighted service layer', async () => {
-    publishFoodMenusProjectionToGoogleMock.mockResolvedValue({
-      projection: { projectionHash: 'a'.repeat(64) },
-      baselineGoogleHash: 'b'.repeat(64),
-      baselineGoogleSnapshot: { id: 'baseline-snapshot-1' },
-      attempt: { id: 'attempt-1', status: 'succeeded' },
-      googleResponse: googleFoodMenus,
-    });
-
+  it('retires standalone FoodMenus publishing before budget or provider calls', async () => {
     const response = await publishPOST(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/publish',
@@ -500,36 +492,17 @@ describe('GBP FoodMenus routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(getGoogleBusinessProfileFoodMenusContextMock).toHaveBeenCalledWith({
-      client: serviceClient,
-      restaurantId: 'rest-1',
-      requirePushEnabled: true,
-    });
-    expect(publishFoodMenusProjectionToGoogleMock).toHaveBeenCalledWith({
-      client: serviceClient,
-      restaurantId: 'rest-1',
-      accessToken: 'access-token',
-      foodMenusName: 'accounts/123/locations/456/foodMenus',
-      menuLabel: 'Dinner menu',
-      sourceUrl: 'https://example.com/menu',
-      languageCode: undefined,
-      includeUnavailable: undefined,
-      cuisines: ['INDIAN'],
-      externalProfileId: 'profile-1',
-      createdByUserId: 'user-1',
-      expectedGoogleHash: 'b'.repeat(64),
-      expectedProjectionHash: 'a'.repeat(64),
-    });
+    expect(response.status).toBe(410);
     await expect(response.json()).resolves.toMatchObject({
-      projectionHash: 'a'.repeat(64),
-      baselineGoogleHash: 'b'.repeat(64),
-      canHaveFoodMenus: true,
-      attempt: { status: 'succeeded' },
+      code: 'GBP_WRITE_AUTHORIZATION_REQUIRED',
+      retryable: false,
     });
+    expect(requireProviderRefreshBudgetMock).not.toHaveBeenCalled();
+    expect(getGoogleBusinessProfileFoodMenusContextMock).not.toHaveBeenCalled();
+    expect(publishFoodMenusProjectionToGoogleMock).not.toHaveBeenCalled();
   });
 
-  it('returns conflict when FoodMenus publish preflight detects a changed baseline', async () => {
+  it('returns the terminal retirement response for a stale FoodMenus baseline', async () => {
     const error = new Error('Google FoodMenus changed since the expected baseline.');
     error.name = 'GBP_FOOD_MENUS_PREFLIGHT_CHANGED';
     publishFoodMenusProjectionToGoogleMock.mockRejectedValue(
@@ -554,17 +527,15 @@ describe('GBP FoodMenus routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(410);
     await expect(response.json()).resolves.toMatchObject({
-      code: 'GBP_FOOD_MENUS_PREFLIGHT_CHANGED',
-      baselineGoogleHash: 'c'.repeat(64),
-      expectedGoogleHash: 'b'.repeat(64),
-      canHaveFoodMenus: true,
-      attempt: { status: 'preflight_failed' },
+      code: 'GBP_WRITE_AUTHORIZATION_REQUIRED',
+      retryable: false,
     });
+    expect(publishFoodMenusProjectionToGoogleMock).not.toHaveBeenCalled();
   });
 
-  it('returns conflict when FoodMenus publish preflight detects a changed projection', async () => {
+  it('returns the terminal retirement response for a stale FoodMenus projection', async () => {
     const error = new Error('Nabatable FoodMenus projection changed since the expected baseline.');
     error.name = 'GBP_FOOD_MENUS_PROJECTION_CHANGED';
     publishFoodMenusProjectionToGoogleMock.mockRejectedValue(
@@ -590,18 +561,15 @@ describe('GBP FoodMenus routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(410);
     await expect(response.json()).resolves.toMatchObject({
-      code: 'GBP_FOOD_MENUS_PROJECTION_CHANGED',
-      baselineGoogleHash: 'b'.repeat(64),
-      projectionHash: 'd'.repeat(64),
-      expectedProjectionHash: 'a'.repeat(64),
-      canHaveFoodMenus: true,
-      attempt: { status: 'preflight_failed' },
+      code: 'GBP_WRITE_AUTHORIZATION_REQUIRED',
+      retryable: false,
     });
+    expect(publishFoodMenusProjectionToGoogleMock).not.toHaveBeenCalled();
   });
 
-  it('returns an error response when Google FoodMenus publish fails after preflight', async () => {
+  it('returns the terminal retirement response before a FoodMenus provider failure', async () => {
     publishFoodMenusProjectionToGoogleMock.mockRejectedValue(
       Object.assign(new Error('Google rejected menu'), {
         name: 'GBP_FOOD_MENUS_PUBLISH_FAILED',
@@ -623,13 +591,15 @@ describe('GBP FoodMenus routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(410);
     await expect(response.json()).resolves.toMatchObject({
-      error: 'Google rejected menu',
+      code: 'GBP_WRITE_AUTHORIZATION_REQUIRED',
+      retryable: false,
     });
+    expect(publishFoodMenusProjectionToGoogleMock).not.toHaveBeenCalled();
   });
 
-  it('rejects FoodMenus publish requests without both baseline hashes', async () => {
+  it('returns the terminal retirement response before validating FoodMenus payloads', async () => {
     const response = await publishPOST(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/google-business-profile/food-menus/publish',
@@ -641,7 +611,11 @@ describe('GBP FoodMenus routes', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GBP_WRITE_AUTHORIZATION_REQUIRED',
+      retryable: false,
+    });
     expect(publishFoodMenusProjectionToGoogleMock).not.toHaveBeenCalled();
   });
 });

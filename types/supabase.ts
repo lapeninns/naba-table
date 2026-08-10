@@ -1,5 +1,245 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+type GbpWriteGrantV1Row = {
+  actor_user_id: string;
+  after_hashes: string[];
+  before_hashes: string[];
+  bundle_hash: string;
+  bundle_id: string;
+  bundle_order: number;
+  bundle_size: number;
+  claimed_at: string | null;
+  connection_generation: number;
+  consent_epoch: number;
+  core_snapshot_hash: string;
+  created_at: string;
+  decision_hash: string;
+  direction: string;
+  dispatched_at: string | null;
+  execution_id: string | null;
+  expires_at: string;
+  external_account_id: string;
+  external_location_id: string;
+  external_profile_id: string;
+  external_profile_row_id: string;
+  field_keys: string[];
+  google_method: string;
+  google_resource: string;
+  google_snapshot_hash: string;
+  group_id: string;
+  id: string;
+  issued_at: string;
+  manifest_hash: string;
+  policy_version: string;
+  preview_fingerprint: string;
+  provider: 'google_business_profile';
+  reason_code: string | null;
+  renderer_version: string;
+  request_hash: string;
+  restaurant_id: string;
+  risk_acknowledgements: string[];
+  status: string;
+  terminal_at: string | null;
+  update_masks: string[];
+  update_masks_hash: string;
+  write_group: string;
+};
+
+type GbpWriteGrantIssueV1 = {
+  after_hashes: string[];
+  before_hashes: string[];
+  bundle_order: number;
+  core_snapshot_hash: string;
+  decision_hash: string;
+  direction: string;
+  field_keys: string[];
+  google_method: string;
+  google_resource: string;
+  google_snapshot_hash: string;
+  group_id: string;
+  grant_id: string;
+  manifest_hash: string;
+  preview_fingerprint: string;
+  request_hash: string;
+  risk_acknowledgements: string[];
+  update_masks: string[];
+  update_masks_hash: string;
+  write_group: string;
+};
+
+type GbpWriteBundleEnqueueResultV1 = {
+  grants: GbpWriteGrantV1Row[];
+  job_id: string;
+  job_payload: Json;
+  job_status: string;
+};
+
+type GbpConsentEventV1Row = {
+  actor_user_id: string | null;
+  bundle_id: string | null;
+  created_at: string;
+  event_hash: string;
+  event_type: string;
+  execution_id: string | null;
+  grant_id: string | null;
+  id: string;
+  reason_code: string | null;
+  restaurant_id: string;
+  status: string;
+};
+
+type GbpNotificationRegistryV1Row = {
+  created_at: string;
+  external_account_id: string;
+  id: string;
+  managed_topic: string;
+  provider: string;
+  provider_notification_setting_id: string | null;
+  ref_count: number;
+  updated_at: string;
+};
+
+type GbpPubsubReceiptResultV1 = {
+  job_id: string | null;
+  processing_result:
+    | 'accepted'
+    | 'duplicate'
+    | 'ignored'
+    | 'unmatched'
+    | 'poison'
+    | 'rejected'
+    | 'failed';
+  receipt_inserted: boolean;
+};
+
+type GbpScheduledRefreshResultV1 = {
+  created: boolean;
+  job_id: string;
+  restaurant_id: string;
+};
+
+type GbpTerminalNoticeCensusV1 = {
+  claimed_count: number;
+  delivered_count: number;
+  dispatched_count: number;
+  failed_count: number;
+  oldest_pending_at: string | null;
+  outcome_unknown_count: number;
+  overdue_count: number;
+  pending_count: number;
+};
+
+type GbpFieldProvenanceV1Row = {
+  connection_generation: number | null;
+  consent_epoch: number | null;
+  created_at: string;
+  expires_at: string | null;
+  expiry_basis: string | null;
+  external_account_id: string | null;
+  external_location_id: string | null;
+  external_profile_id: string | null;
+  external_profile_row_id: string | null;
+  field_key: string;
+  id: string;
+  observed_at: string | null;
+  restaurant_id: string;
+  source: string;
+  source_row_id: string;
+  source_table: string;
+  updated_at: string;
+  value_hash: string;
+};
+
+type GbpCoreChangeOutboxV1Row = {
+  after_hash: string | null;
+  attempt_count: number;
+  available_at: string;
+  before_hash: string | null;
+  claimed_at: string | null;
+  claimed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  dead_lettered_at: string | null;
+  field_keys: string[];
+  id: string;
+  idempotency_hash: string;
+  last_error_code: string | null;
+  lease_expires_at: string | null;
+  lease_token: string | null;
+  max_attempts: number;
+  operation: string;
+  restaurant_id: string;
+  source_row_id: string;
+  source_table: string;
+  status: string;
+};
+
+type GbpCoreOutboxCensusV1 = {
+  claimed: number;
+  completed: number;
+  dead_letter: number;
+  oldest_outstanding_age_seconds: number | null;
+  pending_available: number;
+  pending_delayed: number;
+  stale_claimed: number;
+};
+
+type GbpContentRetentionResultV1 = {
+  action: string;
+  matched_count: number;
+  more_likely: boolean;
+  mutated_count: number;
+  oldest_expires_at: string | null;
+  store_key: string;
+};
+
+type GbpContentRetentionReadinessV1 = {
+  backup_window_days: number | null;
+  computed_live_ttl_days: number | null;
+  policy_version: string | null;
+  provider: string;
+  ready: boolean;
+  renderer_version: string | null;
+  valid_until: string | null;
+};
+
+type GbpDualSyncSnapshotRunV1Row = {
+  canonical_snapshot: Json | null;
+  created_at: string;
+  error_code: string | null;
+  error_message: string | null;
+  finished_at: string | null;
+  id: string;
+  provider: 'google_business_profile';
+  raw_payload: Json | null;
+  restaurant_id: string;
+  run_kind: string;
+  snapshot_hash: string | null;
+  started_at: string;
+  status: string;
+};
+
+type GbpFoodMenuSnapshotV1Row = {
+  canonical_food_menus: Json | null;
+  created_at: string;
+  created_by_user_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  external_profile_id: string | null;
+  food_menus_name: string | null;
+  google_etag: string | null;
+  id: string;
+  projection_metadata: Json;
+  provider: string;
+  pulled_at: string | null;
+  raw_food_menus: Json | null;
+  restaurant_id: string;
+  snapshot_hash: string | null;
+  snapshot_kind: string;
+  source: string;
+  status: string;
+};
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -3960,6 +4200,7 @@ export type Database = {
           created_at: string;
           external_profile_id: string;
           granted_scopes: string[];
+          identity_verified_at: string | null;
           last_error: string | null;
           last_refreshed_at: string | null;
           provider_user_id: string | null;
@@ -3973,6 +4214,7 @@ export type Database = {
           created_at?: string;
           external_profile_id: string;
           granted_scopes?: string[];
+          identity_verified_at?: string | null;
           last_error?: string | null;
           last_refreshed_at?: string | null;
           provider_user_id?: string | null;
@@ -3986,6 +4228,7 @@ export type Database = {
           created_at?: string;
           external_profile_id?: string;
           granted_scopes?: string[];
+          identity_verified_at?: string | null;
           last_error?: string | null;
           last_refreshed_at?: string | null;
           provider_user_id?: string | null;
@@ -4005,38 +4248,68 @@ export type Database = {
       };
       restaurant_external_profile_oauth_states: {
         Row: {
+          connection_generation: number;
           consumed_at: string | null;
+          consent_epoch: number;
           created_at: string;
+          expected_external_account_id: string | null;
+          expected_external_location_id: string | null;
+          expected_external_profile_id: string | null;
           expires_at: string;
+          external_profile_row_id: string | null;
           id: string;
+          invalidated_at: string | null;
+          invalidation_reason: string | null;
+          oidc_nonce_hash: string;
           provider: string;
           requested_by_user_id: string;
           restaurant_id: string;
           return_path: string;
+          state_hash: string;
           state_token: string;
           updated_at: string;
         };
         Insert: {
+          connection_generation: number;
           consumed_at?: string | null;
+          consent_epoch: number;
           created_at?: string;
+          expected_external_account_id?: string | null;
+          expected_external_location_id?: string | null;
+          expected_external_profile_id?: string | null;
           expires_at: string;
+          external_profile_row_id?: string | null;
           id?: string;
+          invalidated_at?: string | null;
+          invalidation_reason?: string | null;
+          oidc_nonce_hash: string;
           provider: string;
           requested_by_user_id: string;
           restaurant_id: string;
           return_path?: string;
+          state_hash: string;
           state_token: string;
           updated_at?: string;
         };
         Update: {
+          connection_generation?: number;
           consumed_at?: string | null;
+          consent_epoch?: number;
           created_at?: string;
+          expected_external_account_id?: string | null;
+          expected_external_location_id?: string | null;
+          expected_external_profile_id?: string | null;
           expires_at?: string;
+          external_profile_row_id?: string | null;
           id?: string;
+          invalidated_at?: string | null;
+          invalidation_reason?: string | null;
+          oidc_nonce_hash?: string;
           provider?: string;
           requested_by_user_id?: string;
           restaurant_id?: string;
           return_path?: string;
+          state_hash?: string;
           state_token?: string;
           updated_at?: string;
         };
@@ -4047,6 +4320,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'restaurants';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'restaurant_external_profile_oauth_states_profile_tenant_v1_fkey';
+            columns: ['restaurant_id', 'external_profile_row_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['restaurant_id', 'id'];
           },
         ];
       };
@@ -4113,9 +4393,1024 @@ export type Database = {
           },
         ];
       };
+      dual_sync_google_request_log_archives: {
+        Row: {
+          archived_at: string;
+          archived_payload: Json;
+          content_archive_decommissioned_at: string | null;
+          id: string;
+          metadata_audit_hash: string | null;
+          metadata_audit_retained_until: string | null;
+          original_created_at: string;
+          original_request_log_id: string;
+          provider: string;
+          restaurant_id: string;
+          retention_expires_at: string;
+        };
+        Insert: {
+          archived_at?: string;
+          archived_payload: Json;
+          content_archive_decommissioned_at?: string | null;
+          id?: string;
+          metadata_audit_hash?: string | null;
+          metadata_audit_retained_until?: string | null;
+          original_created_at: string;
+          original_request_log_id: string;
+          provider?: string;
+          restaurant_id: string;
+          retention_expires_at: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['dual_sync_google_request_log_archives']['Row']
+        >;
+        Relationships: [
+          {
+            foreignKeyName: 'dual_sync_google_request_log_archives_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      dual_sync_google_request_logs: {
+        Row: {
+          created_at: string;
+          direction: string | null;
+          error_code: string | null;
+          error_message: string | null;
+          field_key: string | null;
+          google_method: string | null;
+          google_update_masks: string[];
+          id: string;
+          operation_group_id: string | null;
+          phase: string;
+          provider: string;
+          publish_batch_id: string | null;
+          publish_job_id: string | null;
+          publish_operation_id: string | null;
+          request_summary: Json;
+          response_summary: Json | null;
+          restaurant_id: string;
+          retention_expires_at: string | null;
+          section_key: string | null;
+          status: string | null;
+          write_group: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          direction?: string | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          field_key?: string | null;
+          google_method?: string | null;
+          google_update_masks?: string[];
+          id?: string;
+          operation_group_id?: string | null;
+          phase: string;
+          provider?: string;
+          publish_batch_id?: string | null;
+          publish_job_id?: string | null;
+          publish_operation_id?: string | null;
+          request_summary?: Json;
+          response_summary?: Json | null;
+          restaurant_id: string;
+          retention_expires_at?: string | null;
+          section_key?: string | null;
+          status?: string | null;
+          write_group?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['dual_sync_google_request_logs']['Row']>;
+        Relationships: [
+          {
+            foreignKeyName: 'dual_sync_google_request_logs_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      dual_sync_jobs: {
+        Row: {
+          attempt_count: number;
+          available_at: string;
+          connection_generation: number | null;
+          consent_epoch: number | null;
+          created_at: string;
+          dead_letter_reason: string | null;
+          execution_id: string | null;
+          external_account_id: string | null;
+          external_location_id: string | null;
+          external_profile_id: string | null;
+          finished_at: string | null;
+          id: string;
+          idempotency_key: string | null;
+          job_kind: string;
+          last_error_code: string | null;
+          last_error_message: string | null;
+          locked_at: string | null;
+          locked_by: string | null;
+          max_attempts: number;
+          payload: Json;
+          priority: number;
+          provider: string;
+          restaurant_id: string;
+          started_at: string | null;
+          status: string;
+          updated_at: string;
+          write_bundle_id: string | null;
+        };
+        Insert: {
+          attempt_count?: number;
+          available_at?: string;
+          connection_generation?: number | null;
+          consent_epoch?: number | null;
+          created_at?: string;
+          dead_letter_reason?: string | null;
+          execution_id?: string | null;
+          external_account_id?: string | null;
+          external_location_id?: string | null;
+          external_profile_id?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          idempotency_key?: string | null;
+          job_kind: string;
+          last_error_code?: string | null;
+          last_error_message?: string | null;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          max_attempts?: number;
+          payload?: Json;
+          priority?: number;
+          provider?: string;
+          restaurant_id: string;
+          started_at?: string | null;
+          status?: string;
+          updated_at?: string;
+          write_bundle_id?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['dual_sync_jobs']['Row']>;
+        Relationships: [
+          {
+            foreignKeyName: 'dual_sync_jobs_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_content_lineage_v1: {
+        Row: {
+          connection_generation: number;
+          consent_epoch: number;
+          content_field: string;
+          created_at: string;
+          expires_at: string;
+          external_account_id: string;
+          external_location_id: string;
+          external_profile_id: string;
+          external_profile_row_id: string;
+          id: string;
+          observed_at: string;
+          origin_kind: string;
+          parent_lineage_id: string | null;
+          restaurant_id: string;
+          source_row_id: string;
+          store_key: string;
+          value_hash: string;
+        };
+        Insert: {
+          connection_generation: number;
+          consent_epoch: number;
+          content_field: string;
+          created_at?: string;
+          expires_at: string;
+          external_account_id: string;
+          external_location_id: string;
+          external_profile_id: string;
+          external_profile_row_id: string;
+          id?: string;
+          observed_at: string;
+          origin_kind: string;
+          parent_lineage_id?: string | null;
+          restaurant_id: string;
+          source_row_id: string;
+          store_key: string;
+          value_hash: string;
+        };
+        Update: {
+          connection_generation?: number;
+          consent_epoch?: number;
+          content_field?: string;
+          created_at?: string;
+          expires_at?: string;
+          external_account_id?: string;
+          external_location_id?: string;
+          external_profile_id?: string;
+          external_profile_row_id?: string;
+          id?: string;
+          observed_at?: string;
+          origin_kind?: string;
+          parent_lineage_id?: string | null;
+          restaurant_id?: string;
+          source_row_id?: string;
+          store_key?: string;
+          value_hash?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_content_lineage_v1_parent_lineage_id_fkey';
+            columns: ['parent_lineage_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_content_lineage_v1';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'gbp_content_lineage_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'gbp_content_lineage_v1_profile_fkey';
+            columns: [
+              'restaurant_id',
+              'external_profile_row_id',
+              'external_account_id',
+              'external_profile_id',
+              'external_location_id',
+              'connection_generation',
+              'consent_epoch',
+            ];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: [
+              'restaurant_id',
+              'id',
+              'external_account_id',
+              'external_profile_id',
+              'external_location_id',
+              'connection_generation',
+              'consent_epoch',
+            ];
+          },
+        ];
+      };
+      gbp_consent_events_v1: {
+        Row: GbpConsentEventV1Row;
+        Insert: Omit<
+          GbpConsentEventV1Row,
+          | 'actor_user_id'
+          | 'bundle_id'
+          | 'created_at'
+          | 'execution_id'
+          | 'grant_id'
+          | 'id'
+          | 'reason_code'
+        > &
+          Partial<
+            Pick<
+              GbpConsentEventV1Row,
+              | 'actor_user_id'
+              | 'bundle_id'
+              | 'created_at'
+              | 'execution_id'
+              | 'grant_id'
+              | 'id'
+              | 'reason_code'
+            >
+          >;
+        Update: Partial<GbpConsentEventV1Row>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_consent_events_v1_grant_tenant_fkey';
+            columns: ['restaurant_id', 'grant_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_write_grants_v1';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'gbp_consent_events_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_core_change_outbox_v1: {
+        Row: GbpCoreChangeOutboxV1Row;
+        Insert: Omit<
+          GbpCoreChangeOutboxV1Row,
+          | 'after_hash'
+          | 'attempt_count'
+          | 'available_at'
+          | 'before_hash'
+          | 'claimed_at'
+          | 'claimed_by'
+          | 'completed_at'
+          | 'created_at'
+          | 'dead_lettered_at'
+          | 'id'
+          | 'last_error_code'
+          | 'lease_expires_at'
+          | 'lease_token'
+          | 'max_attempts'
+          | 'status'
+        > &
+          Partial<
+            Pick<
+              GbpCoreChangeOutboxV1Row,
+              | 'after_hash'
+              | 'attempt_count'
+              | 'available_at'
+              | 'before_hash'
+              | 'claimed_at'
+              | 'claimed_by'
+              | 'completed_at'
+              | 'created_at'
+              | 'dead_lettered_at'
+              | 'id'
+              | 'last_error_code'
+              | 'lease_expires_at'
+              | 'lease_token'
+              | 'max_attempts'
+              | 'status'
+            >
+          >;
+        Update: Partial<GbpCoreChangeOutboxV1Row>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_core_change_outbox_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_field_provenance_v1: {
+        Row: GbpFieldProvenanceV1Row;
+        Insert: Omit<
+          GbpFieldProvenanceV1Row,
+          | 'connection_generation'
+          | 'consent_epoch'
+          | 'created_at'
+          | 'expires_at'
+          | 'expiry_basis'
+          | 'external_account_id'
+          | 'external_location_id'
+          | 'external_profile_id'
+          | 'external_profile_row_id'
+          | 'id'
+          | 'observed_at'
+          | 'updated_at'
+        > &
+          Partial<
+            Pick<
+              GbpFieldProvenanceV1Row,
+              | 'connection_generation'
+              | 'consent_epoch'
+              | 'created_at'
+              | 'expires_at'
+              | 'expiry_basis'
+              | 'external_account_id'
+              | 'external_location_id'
+              | 'external_profile_id'
+              | 'external_profile_row_id'
+              | 'id'
+              | 'observed_at'
+              | 'updated_at'
+            >
+          >;
+        Update: Partial<GbpFieldProvenanceV1Row>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_field_provenance_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_notification_event_types_v1: {
+        Row: {
+          created_at: string;
+          event_type: string;
+          managed_by_nabatable: boolean;
+          registry_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_type: string;
+          managed_by_nabatable?: boolean;
+          registry_id: string;
+        };
+        Update: {
+          created_at?: string;
+          event_type?: string;
+          managed_by_nabatable?: boolean;
+          registry_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_notification_event_types_v1_registry_id_fkey';
+            columns: ['registry_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_notification_registries_v1';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_notification_registries_v1: {
+        Row: GbpNotificationRegistryV1Row;
+        Insert: Omit<
+          GbpNotificationRegistryV1Row,
+          | 'created_at'
+          | 'id'
+          | 'provider'
+          | 'provider_notification_setting_id'
+          | 'ref_count'
+          | 'updated_at'
+        > &
+          Partial<
+            Pick<
+              GbpNotificationRegistryV1Row,
+              | 'created_at'
+              | 'id'
+              | 'provider'
+              | 'provider_notification_setting_id'
+              | 'ref_count'
+              | 'updated_at'
+            >
+          >;
+        Update: Partial<GbpNotificationRegistryV1Row>;
+        Relationships: [];
+      };
+      gbp_notification_restaurant_links_v1: {
+        Row: {
+          connection_generation: number;
+          consent_epoch: number;
+          created_at: string;
+          external_account_id: string;
+          external_location_id: string;
+          external_profile_id: string;
+          external_profile_row_id: string;
+          registry_id: string;
+          restaurant_id: string;
+        };
+        Insert: {
+          connection_generation: number;
+          consent_epoch: number;
+          created_at?: string;
+          external_account_id: string;
+          external_location_id: string;
+          external_profile_id: string;
+          external_profile_row_id: string;
+          registry_id: string;
+          restaurant_id: string;
+        };
+        Update: {
+          connection_generation?: number;
+          consent_epoch?: number;
+          created_at?: string;
+          external_account_id?: string;
+          external_location_id?: string;
+          external_profile_id?: string;
+          external_profile_row_id?: string;
+          registry_id?: string;
+          restaurant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_notification_links_v1_registry_account_fkey';
+            columns: ['registry_id', 'external_account_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_notification_registries_v1';
+            referencedColumns: ['id', 'external_account_id'];
+          },
+          {
+            foreignKeyName: 'gbp_notification_links_v1_connection_fence_fkey';
+            columns: [
+              'restaurant_id',
+              'external_profile_row_id',
+              'external_account_id',
+              'external_profile_id',
+              'external_location_id',
+              'connection_generation',
+              'consent_epoch',
+            ];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: [
+              'restaurant_id',
+              'id',
+              'external_account_id',
+              'external_profile_id',
+              'external_location_id',
+              'connection_generation',
+              'consent_epoch',
+            ];
+          },
+          {
+            foreignKeyName: 'gbp_notification_links_v1_profile_tenant_fkey';
+            columns: ['restaurant_id', 'external_profile_row_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'gbp_notification_restaurant_links_v1_registry_id_fkey';
+            columns: ['registry_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_notification_registries_v1';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'gbp_notification_restaurant_links_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_pubsub_receipts_v1: {
+        Row: {
+          authentication_result: string;
+          connection_generation: number | null;
+          consent_epoch: number | null;
+          event_hash: string;
+          event_type: string | null;
+          external_account_id: string | null;
+          external_location_id: string | null;
+          external_profile_id: string | null;
+          external_profile_row_id: string | null;
+          idempotency_key: string | null;
+          job_id: string | null;
+          message_id: string;
+          processed_at: string | null;
+          processing_result: string;
+          received_at: string;
+          registry_id: string | null;
+          reason_code: string | null;
+          restaurant_id: string | null;
+          subscription: string;
+        };
+        Insert: {
+          authentication_result: string;
+          connection_generation?: number | null;
+          consent_epoch?: number | null;
+          event_hash: string;
+          event_type?: string | null;
+          external_account_id?: string | null;
+          external_location_id?: string | null;
+          external_profile_id?: string | null;
+          external_profile_row_id?: string | null;
+          idempotency_key?: string | null;
+          job_id?: string | null;
+          message_id: string;
+          processed_at?: string | null;
+          processing_result: string;
+          received_at?: string;
+          registry_id?: string | null;
+          reason_code?: string | null;
+          restaurant_id?: string | null;
+          subscription: string;
+        };
+        Update: Partial<Database['public']['Tables']['gbp_pubsub_receipts_v1']['Row']>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_pubsub_receipts_v1_job_id_fkey';
+            columns: ['job_id'];
+            isOneToOne: false;
+            referencedRelation: 'dual_sync_jobs';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'gbp_pubsub_receipts_v1_profile_tenant_fkey';
+            columns: ['restaurant_id', 'external_profile_row_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'gbp_pubsub_receipts_v1_registry_id_fkey';
+            columns: ['registry_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_notification_registries_v1';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'gbp_pubsub_receipts_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_pending_update_masks_v1: {
+        Row: {
+          attribute_paths: string[];
+          connection_generation: number;
+          consent_epoch: number;
+          created_at: string;
+          event_id: string;
+          expires_at: string;
+          external_account_id: string;
+          external_location_id: string;
+          external_profile_id: string;
+          external_profile_row_id: string;
+          id: string;
+          location_masks: string[];
+          observed_at: string;
+          restaurant_id: string;
+          source_job_id: string | null;
+          source_receipt_message_id: string | null;
+          source_receipt_subscription: string | null;
+          status: string;
+          terminal_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          attribute_paths?: string[];
+          connection_generation: number;
+          consent_epoch: number;
+          created_at?: string;
+          event_id: string;
+          expires_at: string;
+          external_account_id: string;
+          external_location_id: string;
+          external_profile_id: string;
+          external_profile_row_id: string;
+          id?: string;
+          location_masks?: string[];
+          observed_at: string;
+          restaurant_id: string;
+          source_job_id?: string | null;
+          source_receipt_message_id?: string | null;
+          source_receipt_subscription?: string | null;
+          status?: string;
+          terminal_at?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['gbp_pending_update_masks_v1']['Row']>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_pending_update_masks_v1_connection_fence_fkey';
+            columns: [
+              'restaurant_id',
+              'external_profile_row_id',
+              'external_account_id',
+              'external_profile_id',
+              'external_location_id',
+              'connection_generation',
+              'consent_epoch',
+            ];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: [
+              'restaurant_id',
+              'id',
+              'external_account_id',
+              'external_profile_id',
+              'external_location_id',
+              'connection_generation',
+              'consent_epoch',
+            ];
+          },
+          {
+            foreignKeyName: 'gbp_pending_update_masks_v1_receipt_fkey';
+            columns: ['source_receipt_subscription', 'source_receipt_message_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_pubsub_receipts_v1';
+            referencedColumns: ['subscription', 'message_id'];
+          },
+          {
+            foreignKeyName: 'gbp_pending_update_masks_v1_source_job_id_fkey';
+            columns: ['source_job_id'];
+            isOneToOne: false;
+            referencedRelation: 'dual_sync_jobs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_terminal_outcome_notices_v1: {
+        Row: {
+          attempt_count: number;
+          available_at: string;
+          claimed_by: string | null;
+          created_at: string;
+          delivered_at: string | null;
+          delivery_channel: string | null;
+          dispatch_key: string | null;
+          dispatched_at: string | null;
+          due_at: string;
+          event_id: string;
+          failed_at: string | null;
+          grant_id: string;
+          id: string;
+          last_error_code: string | null;
+          lease_expires_at: string | null;
+          lease_token: string | null;
+          max_attempts: number;
+          outcome_unknown_at: string | null;
+          requires_fresh_preview: boolean;
+          restaurant_id: string;
+          safe_reason_code: string;
+          status: string;
+          terminal_at: string;
+          terminal_kind: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempt_count?: number;
+          available_at?: string;
+          claimed_by?: string | null;
+          created_at?: string;
+          delivered_at?: string | null;
+          delivery_channel?: string | null;
+          dispatch_key?: string | null;
+          dispatched_at?: string | null;
+          due_at: string;
+          event_id: string;
+          failed_at?: string | null;
+          grant_id: string;
+          id?: string;
+          last_error_code?: string | null;
+          lease_expires_at?: string | null;
+          lease_token?: string | null;
+          max_attempts?: number;
+          outcome_unknown_at?: string | null;
+          requires_fresh_preview: boolean;
+          restaurant_id: string;
+          safe_reason_code: string;
+          status?: string;
+          terminal_at: string;
+          terminal_kind: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row']>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_terminal_outcome_notices_v1_grant_fkey';
+            columns: ['restaurant_id', 'grant_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_write_grants_v1';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+        ];
+      };
+      gbp_terminal_notice_delivery_attempts_v1: {
+        Row: {
+          attempt_number: number;
+          channel: string;
+          created_at: string;
+          dispatch_key: string;
+          dispatched_at: string;
+          id: string;
+          lease_token: string;
+          notice_id: string;
+          restaurant_id: string;
+          safe_error_code: string | null;
+          status: string;
+          terminal_at: string | null;
+          updated_at: string;
+          worker_id: string;
+        };
+        Insert: {
+          attempt_number: number;
+          channel?: string;
+          created_at?: string;
+          dispatch_key: string;
+          dispatched_at: string;
+          id?: string;
+          lease_token: string;
+          notice_id: string;
+          restaurant_id: string;
+          safe_error_code?: string | null;
+          status?: string;
+          terminal_at?: string | null;
+          updated_at?: string;
+          worker_id: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['gbp_terminal_notice_delivery_attempts_v1']['Row']
+        >;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_terminal_notice_delivery_attempts_v1_notice_fkey';
+            columns: ['restaurant_id', 'notice_id'];
+            isOneToOne: false;
+            referencedRelation: 'gbp_terminal_outcome_notices_v1';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+        ];
+      };
+      gbp_write_allowlist_v1: {
+        Row: {
+          added_by_user_id: string | null;
+          created_at: string;
+          enabled: boolean;
+          restaurant_id: string;
+        };
+        Insert: {
+          added_by_user_id?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          restaurant_id: string;
+        };
+        Update: {
+          added_by_user_id?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          restaurant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_write_allowlist_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: true;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_write_canary_restaurants_v1: {
+        Row: {
+          added_by_user_id: string | null;
+          created_at: string;
+          enabled: boolean;
+          restaurant_id: string;
+        };
+        Insert: {
+          added_by_user_id?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          restaurant_id: string;
+        };
+        Update: {
+          added_by_user_id?: string | null;
+          created_at?: string;
+          enabled?: boolean;
+          restaurant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_write_canary_restaurants_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: true;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_write_grants_v1: {
+        Row: GbpWriteGrantV1Row;
+        Insert: Omit<
+          GbpWriteGrantV1Row,
+          | 'claimed_at'
+          | 'created_at'
+          | 'dispatched_at'
+          | 'execution_id'
+          | 'id'
+          | 'provider'
+          | 'reason_code'
+          | 'status'
+          | 'terminal_at'
+        > &
+          Partial<
+            Pick<
+              GbpWriteGrantV1Row,
+              | 'claimed_at'
+              | 'created_at'
+              | 'dispatched_at'
+              | 'execution_id'
+              | 'id'
+              | 'provider'
+              | 'reason_code'
+              | 'status'
+              | 'terminal_at'
+            >
+          >;
+        Update: Partial<GbpWriteGrantV1Row>;
+        Relationships: [
+          {
+            foreignKeyName: 'gbp_write_grants_v1_profile_tenant_fkey';
+            columns: ['restaurant_id', 'external_profile_row_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurant_external_profiles';
+            referencedColumns: ['restaurant_id', 'id'];
+          },
+          {
+            foreignKeyName: 'gbp_write_grants_v1_restaurant_id_fkey';
+            columns: ['restaurant_id'];
+            isOneToOne: false;
+            referencedRelation: 'restaurants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      gbp_write_policy_config_v1: {
+        Row: {
+          approved_at: string;
+          approved_by_user_id: string;
+          backup_window_days: number;
+          created_at: string;
+          policy_version: string;
+          proven_content_ttl_days: number;
+          provider: string;
+          renderer_version: string;
+        };
+        Insert: {
+          approved_at: string;
+          approved_by_user_id: string;
+          backup_window_days: number;
+          created_at?: string;
+          policy_version: string;
+          proven_content_ttl_days: number;
+          provider?: string;
+          renderer_version: string;
+        };
+        Update: {
+          approved_at?: string;
+          approved_by_user_id?: string;
+          backup_window_days?: number;
+          created_at?: string;
+          policy_version?: string;
+          proven_content_ttl_days?: number;
+          provider?: string;
+          renderer_version?: string;
+        };
+        Relationships: [];
+      };
+      gbp_write_rollout_config_v1: {
+        Row: {
+          provider: string;
+          rollout_mode: string;
+          updated_at: string;
+          updated_by_user_id: string | null;
+        };
+        Insert: {
+          provider?: string;
+          rollout_mode?: string;
+          updated_at?: string;
+          updated_by_user_id?: string | null;
+        };
+        Update: {
+          provider?: string;
+          rollout_mode?: string;
+          updated_at?: string;
+          updated_by_user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      gbp_write_readiness_evidence_v1: {
+        Row: {
+          backup_restore_verified_at: string;
+          backup_window_days: number;
+          evidence_hash: string;
+          id: string;
+          issued_at: string;
+          issued_by_user_id: string;
+          live_content_ttl_days: number;
+          pitr_verified_at: string;
+          policy_approved_at: string;
+          policy_version: string;
+          provider: string;
+          renderer_version: string;
+          transformed_content_approved_at: string;
+          valid_until: string;
+        };
+        Insert: {
+          backup_restore_verified_at: string;
+          backup_window_days: number;
+          evidence_hash?: string;
+          id?: string;
+          issued_at?: string;
+          issued_by_user_id: string;
+          live_content_ttl_days: number;
+          pitr_verified_at: string;
+          policy_approved_at: string;
+          policy_version: string;
+          provider?: string;
+          renderer_version: string;
+          transformed_content_approved_at: string;
+          valid_until: string;
+        };
+        Update: Partial<Database['public']['Tables']['gbp_write_readiness_evidence_v1']['Row']>;
+        Relationships: [];
+      };
       restaurant_external_profiles: {
         Row: {
+          connection_generation: number;
           connection_status: string;
+          consent_epoch: number;
           created_at: string;
           external_account_id: string | null;
           external_account_name: string | null;
@@ -4123,6 +5418,7 @@ export type Database = {
           external_location_name: string | null;
           external_location_title: string | null;
           external_place_id: string | null;
+          external_profile_id: string | null;
           external_resource_name: string | null;
           id: string;
           last_pull_at: string | null;
@@ -4135,9 +5431,15 @@ export type Database = {
           restaurant_id: string;
           sync_enabled: boolean;
           updated_at: string;
+          write_state: string;
+          write_state_actor_user_id: string | null;
+          write_state_changed_at: string;
+          write_state_reason_code: string | null;
         };
         Insert: {
+          connection_generation?: number;
           connection_status?: string;
+          consent_epoch?: number;
           created_at?: string;
           external_account_id?: string | null;
           external_account_name?: string | null;
@@ -4145,6 +5447,7 @@ export type Database = {
           external_location_name?: string | null;
           external_location_title?: string | null;
           external_place_id?: string | null;
+          external_profile_id?: string | null;
           external_resource_name?: string | null;
           id?: string;
           last_pull_at?: string | null;
@@ -4157,9 +5460,15 @@ export type Database = {
           restaurant_id: string;
           sync_enabled?: boolean;
           updated_at?: string;
+          write_state?: string;
+          write_state_actor_user_id?: string | null;
+          write_state_changed_at?: string;
+          write_state_reason_code?: string | null;
         };
         Update: {
+          connection_generation?: number;
           connection_status?: string;
+          consent_epoch?: number;
           created_at?: string;
           external_account_id?: string | null;
           external_account_name?: string | null;
@@ -4167,6 +5476,7 @@ export type Database = {
           external_location_name?: string | null;
           external_location_title?: string | null;
           external_place_id?: string | null;
+          external_profile_id?: string | null;
           external_resource_name?: string | null;
           id?: string;
           last_pull_at?: string | null;
@@ -4179,6 +5489,10 @@ export type Database = {
           restaurant_id?: string;
           sync_enabled?: boolean;
           updated_at?: string;
+          write_state?: string;
+          write_state_actor_user_id?: string | null;
+          write_state_changed_at?: string;
+          write_state_reason_code?: string | null;
         };
         Relationships: [
           {
@@ -5839,6 +7153,719 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      all_sha256_text: { Args: { p_values: string[] }; Returns: boolean };
+      array_sort_unique_text: { Args: { p_values: string[] }; Returns: string[] };
+      apply_gbp_profile_import_to_core_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_account_id: string;
+          p_expected_location_id: string;
+          p_expected_profile_id: string;
+          p_external_profile_row_id: string;
+          p_field_key: string;
+          p_restaurant_id: string;
+          p_value: string | null;
+        };
+        Returns: Database['public']['Tables']['restaurants']['Row'];
+      };
+      begin_gbp_dual_sync_snapshot_run_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_restaurant_id: string;
+          p_run_id: string;
+          p_run_kind: string;
+          p_started_at: string;
+        };
+        Returns: GbpDualSyncSnapshotRunV1Row;
+      };
+      claim_gbp_core_changes_v1: {
+        Args: { p_limit?: number; p_worker_id: string };
+        Returns: Database['public']['Tables']['gbp_core_change_outbox_v1']['Row'][];
+      };
+      claim_gbp_core_changes_v2: {
+        Args: { p_lease_seconds?: number; p_limit?: number; p_worker_id: string };
+        Returns: Database['public']['Tables']['gbp_core_change_outbox_v1']['Row'][];
+      };
+      claim_gbp_terminal_notices_v1: {
+        Args: {
+          p_lease_seconds?: number;
+          p_limit?: number;
+          p_now?: string;
+          p_worker_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row'][];
+      };
+      claim_gbp_write_bundle_v1: {
+        Args: {
+          p_bundle_hash: string;
+          p_bundle_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_execution_id: string;
+          p_decision_hashes: string[];
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_grant_ids: string[];
+          p_manifest_hashes: string[];
+          p_policy_version: string;
+          p_request_hashes: string[];
+          p_renderer_version: string;
+          p_restaurant_id: string;
+          p_update_masks_hashes: string[];
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      cancel_gbp_claimed_bundle_before_dispatch_v1: {
+        Args: {
+          p_bundle_id: string;
+          p_execution_id: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      complete_gbp_core_change_v1: {
+        Args: {
+          p_outbox_id: string;
+          p_restaurant_id: string;
+          p_succeeded: boolean;
+          p_worker_id: string;
+        };
+        Returns: boolean;
+      };
+      complete_gbp_core_change_v2: {
+        Args: {
+          p_error_code?: string | null;
+          p_lease_token: string;
+          p_outbox_id: string;
+          p_outcome: string;
+          p_restaurant_id: string;
+          p_worker_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_core_change_outbox_v1']['Row'];
+      };
+      complete_gbp_oauth_identity_v1: {
+        Args: {
+          p_connected_email: string | null;
+          p_connected_name: string | null;
+          p_granted_scopes: string[];
+          p_identity_verified_at: string;
+          p_nonce_hash: string;
+          p_provider_user_id: string;
+          p_refreshed_at: string;
+          p_refresh_token_encrypted: string;
+          p_requested_by_user_id: string;
+          p_restaurant_id: string;
+          p_state_hash: string;
+          p_target_external_profile_row_id: string;
+          p_token_type: string | null;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profiles']['Row'];
+      };
+      consume_gbp_oauth_attempt_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_external_account_id: string | null;
+          p_expected_external_location_id: string | null;
+          p_expected_external_profile_id: string | null;
+          p_external_profile_row_id: string | null;
+          p_nonce_hash: string;
+          p_restaurant_id: string;
+          p_state_hash: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profile_oauth_states']['Row'];
+      };
+      create_gbp_oauth_attempt_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_external_account_id: string | null;
+          p_expected_external_location_id: string | null;
+          p_expected_external_profile_id: string | null;
+          p_expires_at: string;
+          p_external_profile_row_id: string | null;
+          p_nonce_hash: string;
+          p_requested_by_user_id: string;
+          p_restaurant_id: string;
+          p_return_path: string;
+          p_state_hash: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profile_oauth_states']['Row'];
+      };
+      dispatch_gbp_write_bundle_v1: {
+        Args: { p_bundle_id: string; p_execution_id: string; p_restaurant_id: string };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      dispatch_gbp_write_grant_v1: {
+        Args: {
+          p_bundle_id: string;
+          p_bundle_order: number;
+          p_execution_id: string;
+          p_grant_id: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'];
+      };
+      dispatch_gbp_terminal_notice_v1: {
+        Args: {
+          p_dispatch_key: string;
+          p_lease_token: string;
+          p_notice_id: string;
+          p_now?: string;
+          p_restaurant_id: string;
+          p_worker_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row'];
+      };
+      disconnect_gbp_connection_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_account_id: string | null;
+          p_expected_location_id: string | null;
+          p_expected_profile_id: string | null;
+          p_external_profile_row_id: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profiles']['Row'];
+      };
+      enqueue_gbp_core_change_v1: { Args: never; Returns: unknown };
+      enqueue_gbp_scheduled_refreshes_v1: {
+        Args: { p_bucket: string; p_limit?: number; p_now: string };
+        Returns: Database['public']['CompositeTypes']['gbp_scheduled_refresh_result_v1'][];
+      };
+      expire_gbp_write_grants_v1: { Args: { p_limit?: number }; Returns: number };
+      fail_gbp_dual_sync_snapshot_run_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_error_code: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_finished_at: string;
+          p_restaurant_id: string;
+          p_run_id: string;
+          p_run_kind: string;
+        };
+        Returns: GbpDualSyncSnapshotRunV1Row;
+      };
+      finalize_gbp_write_bundle_v1: {
+        Args: {
+          p_bundle_id: string;
+          p_execution_id: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+          p_status: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      finalize_gbp_write_grant_v1: {
+        Args: {
+          p_bundle_id: string;
+          p_bundle_order: number;
+          p_execution_id: string;
+          p_grant_id: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+          p_status: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'];
+      };
+      finalize_gbp_terminal_notice_v1: {
+        Args: {
+          p_lease_token: string;
+          p_notice_id: string;
+          p_now?: string;
+          p_outcome: string;
+          p_restaurant_id: string;
+          p_safe_error_code?: string | null;
+          p_worker_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row'];
+      };
+      guard_gbp_grant_transition_v1: { Args: never; Returns: unknown };
+      guard_gbp_field_provenance_v1: { Args: never; Returns: unknown };
+      guard_gbp_mutation_job_v1: { Args: never; Returns: unknown };
+      get_gbp_core_outbox_census_v1: {
+        Args: { p_restaurant_id: string };
+        Returns: Database['public']['CompositeTypes']['gbp_core_outbox_census_v1'];
+      };
+      get_gbp_terminal_notice_census_v1: {
+        Args: { p_now?: string; p_restaurant_id?: string | null };
+        Returns: Database['public']['CompositeTypes']['gbp_terminal_notice_census_v1'];
+      };
+      get_gbp_content_retention_readiness_v1: {
+        Args: { p_now?: string };
+        Returns: Database['public']['CompositeTypes']['gbp_content_retention_readiness_v1'];
+      };
+      get_current_gbp_dual_sync_snapshot_runs_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_now?: string;
+          p_restaurant_id: string;
+          p_run_kind?: string | null;
+        };
+        Returns: GbpDualSyncSnapshotRunV1Row[];
+      };
+      get_current_gbp_external_profile_snapshots_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_now?: string;
+          p_restaurant_id: string;
+          p_snapshot_type?: string | null;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profile_snapshots']['Row'][];
+      };
+      get_current_gbp_food_menu_snapshots_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_now?: string;
+          p_restaurant_id: string;
+        };
+        Returns: GbpFoodMenuSnapshotV1Row[];
+      };
+      inherit_gbp_content_lineage_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_profile_row_id: string;
+          p_parent_lineage_id: string;
+          p_restaurant_id: string;
+          p_target_content_field: string;
+          p_target_source_row_id: string;
+          p_target_store_key: string;
+        };
+        Returns: Database['public']['Tables']['gbp_content_lineage_v1']['Row'];
+      };
+      issue_and_enqueue_gbp_write_bundle_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_bundle_hash: string;
+          p_bundle_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expires_at: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_grants: Database['public']['CompositeTypes']['gbp_write_grant_issue_v1'][];
+          p_issued_at: string;
+          p_job_id: string;
+          p_policy_version: string;
+          p_renderer_version: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['CompositeTypes']['gbp_write_bundle_enqueue_result_v1'];
+      };
+      issue_and_claim_gbp_write_bundle_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_bundle_hash: string;
+          p_bundle_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_execution_id: string;
+          p_expires_at: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_grants: Database['public']['CompositeTypes']['gbp_write_grant_issue_v1'][];
+          p_issued_at: string;
+          p_policy_version: string;
+          p_renderer_version: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      issue_gbp_write_bundle_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_bundle_hash: string;
+          p_bundle_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expires_at: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_grants: Database['public']['CompositeTypes']['gbp_write_grant_issue_v1'][];
+          p_issued_at: string;
+          p_policy_version: string;
+          p_renderer_version: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      rebind_gbp_connection_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_account_id: string | null;
+          p_expected_location_id: string | null;
+          p_expected_profile_id: string | null;
+          p_external_profile_row_id: string;
+          p_new_account_id: string;
+          p_new_location_id: string;
+          p_new_profile_id: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profiles']['Row'];
+      };
+      record_gbp_grant_created_v1: { Args: never; Returns: unknown };
+      refresh_gbp_notification_ref_count_v1: { Args: never; Returns: unknown };
+      repair_gbp_core_change_v1: {
+        Args: {
+          p_after_hash?: string | null;
+          p_before_hash?: string | null;
+          p_field_keys?: string[] | null;
+          p_idempotency_hash: string;
+          p_insert_missing?: boolean;
+          p_operation?: string | null;
+          p_operator_repair: boolean;
+          p_operator_user_id: string;
+          p_outbox_id: string;
+          p_restaurant_id: string;
+          p_source_row_id?: string | null;
+          p_source_table?: string | null;
+        };
+        Returns: Database['public']['Tables']['gbp_core_change_outbox_v1']['Row'];
+      };
+      record_gbp_provider_observation_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expires_at: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_field_key: string;
+          p_observed_at: string;
+          p_restaurant_id: string;
+          p_source_row_id: string;
+          p_source_table: string;
+          p_value_hash: string;
+        };
+        Returns: string;
+      };
+      record_gbp_content_observation_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_content_fields: string[];
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_observed_at: string;
+          p_restaurant_id: string;
+          p_source_row_id: string;
+          p_store_key: string;
+          p_value_hashes: string[];
+        };
+        Returns: Database['public']['Tables']['gbp_content_lineage_v1']['Row'][];
+      };
+      run_gbp_content_retention_v1: {
+        Args: {
+          p_connection_generation?: number | null;
+          p_consent_epoch?: number | null;
+          p_dry_run: boolean;
+          p_external_profile_row_id?: string | null;
+          p_limit: number;
+          p_now: string;
+          p_restaurant_id?: string | null;
+          p_time_budget_ms: number;
+        };
+        Returns: Database['public']['CompositeTypes']['gbp_content_retention_result_v1'][];
+      };
+      purge_gbp_profile_content_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_restaurant_id: string;
+        };
+        Returns: number;
+      };
+      persist_gbp_dual_sync_snapshot_run_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_observed_at: string;
+          p_raw_payload: Json;
+          p_restaurant_id: string;
+          p_run_id: string;
+          p_run_kind: string;
+        };
+        Returns: GbpDualSyncSnapshotRunV1Row;
+      };
+      persist_gbp_external_profile_snapshot_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_observed_at: string;
+          p_payload: Json;
+          p_restaurant_id: string;
+          p_snapshot_id: string;
+          p_snapshot_type: string;
+          p_source_revision: string | null;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profile_snapshots']['Row'];
+      };
+      persist_gbp_food_menu_snapshot_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_food_menus_name: string | null;
+          p_google_etag: string | null;
+          p_observed_at: string;
+          p_raw_food_menus: Json;
+          p_restaurant_id: string;
+          p_snapshot_id: string;
+          p_source: string;
+        };
+        Returns: GbpFoodMenuSnapshotV1Row;
+      };
+      refresh_gbp_credential_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_account_id: string | null;
+          p_expected_location_id: string | null;
+          p_expected_profile_id: string | null;
+          p_expected_refresh_token_encrypted: string;
+          p_external_profile_row_id: string;
+          p_granted_scopes: string[];
+          p_refreshed_at: string;
+          p_refresh_token_encrypted: string;
+          p_restaurant_id: string;
+          p_token_type: string | null;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profile_credentials']['Row'];
+      };
+      reject_gbp_append_only_mutation_v1: { Args: never; Returns: unknown };
+      reject_gbp_readiness_mutation_v1: { Args: never; Returns: unknown };
+      set_gbp_readiness_hash_v1: { Args: never; Returns: unknown };
+      set_gbp_write_access_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_enabled: boolean;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profiles']['Row'];
+      };
+      transition_gbp_connection_v1: {
+        Args: {
+          p_actor_user_id: string;
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_account_id: string | null;
+          p_expected_location_id: string | null;
+          p_expected_profile_id: string | null;
+          p_external_profile_row_id: string;
+          p_next_state: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profiles']['Row'];
+      };
+      transition_gbp_connection_provider_failure_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_expected_account_id: string | null;
+          p_expected_location_id: string | null;
+          p_expected_profile_id: string | null;
+          p_external_profile_row_id: string;
+          p_next_state: string;
+          p_reason_code: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['restaurant_external_profiles']['Row'];
+      };
+      link_gbp_notification_participation_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_managed_topic: string;
+          p_provider_notification_setting_id?: string | null;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_notification_registries_v1']['Row'];
+      };
+      materialize_gbp_terminal_notice_v1: {
+        Args: {
+          p_event_id: string;
+          p_grant_id: string;
+          p_restaurant_id: string;
+          p_safe_reason_code: string;
+          p_terminal_at: string;
+          p_terminal_kind: string;
+        };
+        Returns: Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row'];
+      };
+      read_gbp_pending_update_masks_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_now?: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_pending_update_masks_v1']['Row'][];
+      };
+      record_gbp_pubsub_and_enqueue_v1: {
+        Args: {
+          p_authentication_result: string;
+          p_connection_generation: number | null;
+          p_consent_epoch: number | null;
+          p_event_hash: string;
+          p_event_type: string | null;
+          p_external_account_id: string | null;
+          p_external_location_id: string | null;
+          p_external_profile_id: string | null;
+          p_external_profile_row_id: string | null;
+          p_idempotency_key: string;
+          p_message_id: string;
+          p_processing_result: string;
+          p_received_at: string;
+          p_registry_id: string | null;
+          p_restaurant_id: string | null;
+          p_subscription: string;
+        };
+        Returns: Database['public']['CompositeTypes']['gbp_pubsub_receipt_result_v1'];
+      };
+      reconcile_missing_gbp_terminal_notices_v1: {
+        Args: { p_limit?: number; p_now?: string };
+        Returns: Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row'][];
+      };
+      recover_stale_gbp_dispatched_notices_v1: {
+        Args: { p_limit?: number; p_now?: string };
+        Returns: Database['public']['Tables']['gbp_terminal_outcome_notices_v1']['Row'][];
+      };
+      recover_stale_gbp_dispatched_grants_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_cutoff: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_limit?: number;
+          p_now?: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_write_grants_v1']['Row'][];
+      };
+      terminalize_gbp_pending_update_masks_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_event_id: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_restaurant_id: string;
+          p_terminal_at: string;
+          p_terminal_status: string;
+        };
+        Returns: Database['public']['Tables']['gbp_pending_update_masks_v1']['Row'];
+      };
+      unlink_gbp_notification_participation_v1: {
+        Args: {
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['gbp_notification_registries_v1']['Row'];
+      };
+      upsert_gbp_pending_update_masks_v1: {
+        Args: {
+          p_attribute_paths: string[];
+          p_connection_generation: number;
+          p_consent_epoch: number;
+          p_event_id: string;
+          p_expires_at: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_external_profile_id: string;
+          p_external_profile_row_id: string;
+          p_location_masks: string[];
+          p_observed_at: string;
+          p_restaurant_id: string;
+          p_source_job_id: string | null;
+          p_source_receipt_message_id: string | null;
+          p_source_receipt_subscription: string | null;
+        };
+        Returns: Database['public']['Tables']['gbp_pending_update_masks_v1']['Row'];
+      };
       claim_due_mobile_review_notifications: {
         Args: { p_limit?: number };
         Returns: Database['public']['Tables']['mobile_notifications']['Row'][];
@@ -6468,7 +8495,14 @@ export type Database = {
       table_status: 'available' | 'reserved' | 'occupied' | 'out_of_service';
     };
     CompositeTypes: {
-      [_ in never]: never;
+      gbp_content_retention_readiness_v1: GbpContentRetentionReadinessV1;
+      gbp_content_retention_result_v1: GbpContentRetentionResultV1;
+      gbp_core_outbox_census_v1: GbpCoreOutboxCensusV1;
+      gbp_pubsub_receipt_result_v1: GbpPubsubReceiptResultV1;
+      gbp_scheduled_refresh_result_v1: GbpScheduledRefreshResultV1;
+      gbp_terminal_notice_census_v1: GbpTerminalNoticeCensusV1;
+      gbp_write_bundle_enqueue_result_v1: GbpWriteBundleEnqueueResultV1;
+      gbp_write_grant_issue_v1: GbpWriteGrantIssueV1;
     };
   };
 };

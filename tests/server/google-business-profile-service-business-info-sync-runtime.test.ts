@@ -5,6 +5,8 @@ const getAttributesMock = vi.hoisted(() => vi.fn());
 const getLocationProfileMock = vi.hoisted(() => vi.fn());
 const parseLocationIdMock = vi.hoisted(() => vi.fn());
 const getAccessTokenMock = vi.hoisted(() => vi.fn());
+const isProviderAccessFailureMock = vi.hoisted(() => vi.fn());
+const persistProviderAccessFailureMock = vi.hoisted(() => vi.fn());
 const getConnectionStateMock = vi.hoisted(() => vi.fn());
 const ensureExternalProfileMock = vi.hoisted(() => vi.fn());
 const recordSyncRunMock = vi.hoisted(() => vi.fn());
@@ -31,6 +33,8 @@ vi.mock('@/server/google-business-profile/client', () => ({
 
 vi.mock('@/server/google-business-profile/serviceAccessRuntime', () => ({
   getUsableGoogleBusinessProfileAccessToken: getAccessTokenMock,
+  isGoogleProviderAccessFailure: isProviderAccessFailureMock,
+  persistGoogleProviderAccessFailure: persistProviderAccessFailureMock,
 }));
 
 vi.mock('@/server/google-business-profile/serviceConnectionStateRuntime', () => ({
@@ -43,18 +47,26 @@ vi.mock('@/server/google-business-profile/serviceRepository', () => ({
   updateExternalProfile: updateExternalProfileMock,
 }));
 
-import { syncGoogleBusinessProfileBusinessInformationForClient } from '@/server/google-business-profile/serviceBusinessInfoSyncRuntime';
+import {
+  syncGoogleBusinessProfileBusinessInformationForClient,
+  syncGoogleBusinessProfileBusinessInformationWithObservationForClient,
+} from '@/server/google-business-profile/serviceBusinessInfoSyncRuntime';
 
 function externalProfile(overrides: Record<string, unknown> = {}) {
   return {
     id: 'external-1',
     restaurant_id: 'restaurant-1',
+    provider: 'google_business_profile',
+    external_account_id: 'account-1',
+    external_profile_id: 'profile-1',
     external_location_id: 'location-1',
     external_location_name: 'locations/1',
     external_location_title: 'Existing Title',
     external_place_id: 'existing-place',
     external_resource_name: 'locations/1',
     provider_timezone: 'Europe/London',
+    connection_generation: 2,
+    consent_epoch: 3,
     ...overrides,
   };
 }
@@ -75,6 +87,8 @@ describe('google business profile business-info sync runtime', () => {
     getLocationProfileMock.mockReset();
     parseLocationIdMock.mockReset();
     getAccessTokenMock.mockReset();
+    isProviderAccessFailureMock.mockReset().mockReturnValue(false);
+    persistProviderAccessFailureMock.mockReset().mockResolvedValue(false);
     getConnectionStateMock.mockReset();
     ensureExternalProfileMock.mockReset();
     recordSyncRunMock.mockReset();
@@ -86,6 +100,30 @@ describe('google business profile business-info sync runtime', () => {
     getAttributesMock.mockResolvedValue({ attributes: [{ name: 'attributes/serves_dinner' }] });
     parseLocationIdMock.mockReturnValue('456');
     getConnectionStateMock.mockResolvedValue({ status: 'linked' });
+  });
+
+  it('does not write a stale failure mirror after a fenced provider transition', async () => {
+    const providerError = Object.assign(new Error('access lost'), {
+      kind: 'access_lost',
+      upstreamStatus: 403,
+    });
+    getLocationProfileMock.mockRejectedValue(providerError);
+    persistProviderAccessFailureMock.mockResolvedValue(true);
+
+    await expect(
+      syncGoogleBusinessProfileBusinessInformationForClient({
+        restaurantId: 'restaurant-1',
+        client: {} as never,
+      }),
+    ).rejects.toBe(providerError);
+
+    expect(persistProviderAccessFailureMock).toHaveBeenCalledWith(
+      providerError,
+      expect.objectContaining({ id: 'external-1' }),
+      {},
+    );
+    expect(updateExternalProfileMock).not.toHaveBeenCalled();
+    expect(recordSyncRunMock).not.toHaveBeenCalled();
   });
 
   it('syncs location and attributes, records success, and returns refreshed connection state', async () => {
@@ -149,6 +187,45 @@ describe('google business profile business-info sync runtime', () => {
       client,
     );
     expect(getConnectionStateMock).toHaveBeenCalledWith('restaurant-1', client);
+  });
+
+  it('returns an exact raw observation envelope with the current provider fence', async () => {
+    const requiredResponse = { name: 'locations/456', title: 'Google Title' };
+    const optionalResponse = { serviceItems: [{ freeFormServiceItem: { label: 'Tea' } }] };
+    const attributesResponse = { attributes: [{ name: 'attributes/serves_dinner' }] };
+    getLocationProfileMock.mockResolvedValue({
+      ...requiredResponse,
+      ...optionalResponse,
+      __nabatableOptionalFetchStatus: { serviceItems: 'fetched' },
+      __nabatableRawResponses: [requiredResponse, optionalResponse],
+    });
+    getAttributesMock.mockResolvedValue(attributesResponse);
+
+    const result = await syncGoogleBusinessProfileBusinessInformationWithObservationForClient({
+      restaurantId: 'restaurant-1',
+      client: {} as never,
+      clock: () => '2026-05-22T08:01:00.000Z',
+    });
+
+    expect(result.observation).toEqual({
+      fence: {
+        restaurantId: 'restaurant-1',
+        externalProfileRowId: 'external-1',
+        accountId: 'account-1',
+        profileId: 'profile-1',
+        locationId: 'location-1',
+        connectionGeneration: 2,
+        consentEpoch: 3,
+      },
+      observedAt: '2026-05-22T08:01:00.000Z',
+      rawPayload: {
+        locationResponses: [requiredResponse, optionalResponse],
+        attributesResponse,
+      },
+    });
+    expect(JSON.stringify(result.observation.rawPayload)).not.toContain(
+      '__nabatableOptionalFetchStatus',
+    );
   });
 
   it('downgrades attribute refresh failures to a sync warning', async () => {

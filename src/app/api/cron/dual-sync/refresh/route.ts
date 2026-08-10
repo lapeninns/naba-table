@@ -11,11 +11,12 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
-import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import { isDualSyncScheduledRefreshEnabled } from '@/server/dual-sync/runtime-controls';
-import { runScheduledRefreshForAllTenants } from '@/server/dual-sync/scheduling';
+import {
+  enqueueScheduledRefreshJobs,
+  runScheduledRefreshForAllTenants,
+} from '@/server/dual-sync/scheduling';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -37,8 +38,7 @@ function isTruthyFlag(value: string | null): boolean {
 }
 
 export async function GET(request: Request) {
-  await flushPosthogLogsAfterResponse();
-  return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
+  const response = await requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     if (!isDualSyncScheduledRefreshEnabled()) {
       return NextResponse.json(
         { error: 'Dual-sync scheduled refresh is disabled for this deployment.' },
@@ -54,27 +54,17 @@ export async function GET(request: Request) {
       : undefined;
 
     try {
-      const summary = await runScheduledRefreshForAllTenants({
-        client: getServiceSupabaseClient(),
-        maxRestaurants,
-        dryRun,
-      });
+      const client = getServiceSupabaseClient();
+      const summary = dryRun
+        ? await runScheduledRefreshForAllTenants({ client, maxRestaurants, dryRun: true })
+        : await enqueueScheduledRefreshJobs({ client, maxRestaurants });
       return NextResponse.json({ success: true, runId: auth.runId, ...summary });
-    } catch (error) {
-      console.error('[cron][dual-sync.refresh] failed to run', {
-        jobName: auth.jobName,
-        runId: auth.runId,
-        error,
-      });
-      captureServerException(error, {
-        properties: {
-          jobName: auth.jobName,
-          runId: auth.runId,
-          source: 'cron',
-          kind: 'dual-sync-refresh',
-        },
-      });
+    } catch {
       return NextResponse.json({ error: 'Dual-sync refresh cron failed.' }, { status: 500 });
     }
   });
+  response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+  response.headers.set('CDN-Cache-Control', 'no-store');
+  response.headers.set('Vary', 'Cookie, Authorization');
+  return response;
 }

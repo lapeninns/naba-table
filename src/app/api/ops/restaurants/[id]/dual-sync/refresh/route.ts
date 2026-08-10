@@ -10,7 +10,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -27,6 +26,8 @@ import {
 import { isDualSyncLockError } from '@/server/dual-sync/locks';
 import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
 import { refreshFromGoogle } from '@/server/dual-sync/refresh';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -40,7 +41,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-refresh', _req);
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   const rateLimit = await requireProviderRefreshBudget({
     provider: 'google_business_profile',
@@ -48,7 +49,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     action: 'dual-sync-refresh',
   });
   if (rateLimit) {
-    return rateLimit;
+    return gbpNoStoreResponse(rateLimit);
   }
 
   try {
@@ -66,7 +67,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
         },
         priority: 40,
       });
-      return NextResponse.json({ queued: true, job }, { status: 202 });
+      return gbpNoStoreJson({ queued: true, job }, { status: 202 });
     }
 
     const result = await refreshFromGoogle({
@@ -74,7 +75,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
       restaurantId,
       runKind: 'manual',
     });
-    return NextResponse.json(
+    return gbpNoStoreJson(
       {
         snapshotRun: result.snapshotRun,
         foodMenusRefresh: result.foodMenusRefresh,
@@ -96,7 +97,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
       );
     }
     const message = error instanceof Error ? error.message : 'Refresh failed';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-refresh' },

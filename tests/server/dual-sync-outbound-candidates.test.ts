@@ -110,6 +110,58 @@ describe('dual-sync outbound candidate helpers', () => {
     expect(candidate.proposedValueHash).toBe('hash-newer');
   });
 
+  it('preserves owner-authored Core proposal values', async () => {
+    const insertChain = makeChain(makeCandidateRow({ proposed_value: 'Owner-authored name' }));
+
+    await upsertOutboundCandidate({
+      client: clientForSequence([makeChain(null), insertChain]),
+      restaurantId: 'rest-1',
+      sectionKey: 'profile',
+      fieldKey: 'profile.name',
+      proposedValue: 'Owner-authored name',
+      proposedValueHash: 'owner-hash',
+      baselineGbpHash: 'google-hash',
+      source: 'core_write',
+    });
+
+    expect(insertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ proposed_value: 'Owner-authored name' }),
+    );
+  });
+
+  it('refuses to persist Google-derived candidate copies', async () => {
+    const client = { from: vi.fn() } as unknown as SupabaseClient<Database>;
+
+    await expect(
+      upsertOutboundCandidate({
+        client,
+        restaurantId: 'rest-1',
+        sectionKey: 'profile',
+        fieldKey: 'profile.name',
+        proposedValue: 'Google-derived private value',
+        proposedValueHash: 'google-derived-hash',
+        baselineGbpHash: 'google-hash',
+        source: 'scheduled',
+      }),
+    ).rejects.toThrow('reconstruct from a current raw snapshot');
+
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('hides legacy Google-derived copies while keeping owner proposals visible', async () => {
+    const chain = makeChain([
+      makeCandidateRow({ id: 'owner', source: 'core_write' }),
+      makeCandidateRow({ id: 'expired', source: 'scheduled', proposed_value: null }),
+    ]);
+    const candidates = await listOutboundCandidates({
+      client: clientFor(chain),
+      restaurantId: 'rest-1',
+    });
+
+    expect(candidates.map((candidate) => candidate.id)).toEqual(['owner']);
+    expect(candidates[0]?.proposedValue).toBe('New name');
+  });
+
   it('retries as an open-row update when a concurrent insert wins the partial unique index race', async () => {
     const insertRaceError = {
       code: '23505',

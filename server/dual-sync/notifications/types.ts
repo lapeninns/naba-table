@@ -16,9 +16,24 @@ export type DualSyncNotificationKind =
   | 'tenant_run_failed'
   | 'tenant_run_partial'
   | 'cron_run_failed'
-  | 'operational_health_alert';
+  | 'operational_health_alert'
+  | 'google_write_terminal'
+  | 'google_write_notice_overdue'
+  | 'google_write_notice_delivery_uncertain';
 
 export type DualSyncNotificationSeverity = 'info' | 'warning' | 'error';
+
+export type DualSyncNotificationDeliveryResult =
+  | { readonly outcome: 'confirmed_success' }
+  | {
+      readonly outcome: 'definitive_rejection';
+      readonly retryable: boolean;
+      readonly safeErrorCode: string;
+    }
+  | {
+      readonly outcome: 'ambiguous_failure';
+      readonly safeErrorCode: string;
+    };
 
 export interface DualSyncNotificationEvent {
   readonly kind: DualSyncNotificationKind;
@@ -40,10 +55,5 @@ export interface DualSyncNotificationEvent {
 }
 
 export interface DualSyncNotificationPort {
-  /**
-   * Send a notification. The port should swallow its own errors and
-   * never throw — the cron caller relies on this contract to keep the
-   * fan-out loop running across remaining tenants.
-   */
-  emit(event: DualSyncNotificationEvent): Promise<void>;
+  emit(event: DualSyncNotificationEvent): Promise<DualSyncNotificationDeliveryResult>;
 }

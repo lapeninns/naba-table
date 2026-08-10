@@ -29,14 +29,14 @@ This map is source-backed only. It does not claim production traffic, live Googl
 
 ## Legacy GBP Routes
 
-| Route                                                       | Methods         | Classification                      | Current caller evidence                                                                               | Test evidence                                                                               | Decision                                                                                  |
-| ----------------------------------------------------------- | --------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `/api/ops/restaurants/:id/google-business`                  | `GET`, `DELETE` | Compatibility-only, protected       | No current `src/services/ops/restaurants.ts` caller found for status/delete                           | `tests/server/restaurant-google-business-v1-routes.test.ts`; CSRF audit references `DELETE` | Retain. `DELETE` must require password confirmation so it cannot bypass canonical policy. |
-| `/api/ops/restaurants/:id/google-business/connect`          | `POST`          | Compatibility-only, protected       | No current app service caller found; canonical service uses `/google-business-profile/connect`        | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain until production traffic/OAuth compatibility is checked.                           |
-| `/api/ops/restaurants/:id/google-business/locations`        | `GET`           | Active legacy                       | `src/services/ops/restaurants.ts` `getGoogleBusinessProfileAvailableLocations` still calls this route | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Not removable while the client still uses it.                                             |
-| `/api/ops/restaurants/:id/google-business/locations/select` | `POST`          | Compatibility-only, protected       | No current app service caller found; canonical link uses `PUT /google-business-profile`               | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain; source-only classification.                                                       |
-| `/api/ops/restaurants/:id/google-business/sync`             | `POST`          | Compatibility-only, protected       | No current app service caller found                                                                   | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain; already password-confirmed.                                                       |
-| `/api/ops/restaurants/:id/google-business/callback`         | `GET`           | Legacy OAuth callback compatibility | OAuth redirect compatibility, not a client fetch                                                      | `tests/server/google-business-profile-callback-route.test.ts`                               | Retain; binds expected restaurant id before completion.                                   |
+| Route                                                       | Methods         | Classification                      | Current caller evidence                                                                          | Test evidence                                                                               | Decision                                                                                  |
+| ----------------------------------------------------------- | --------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/api/ops/restaurants/:id/google-business`                  | `GET`, `DELETE` | Compatibility-only, protected       | No current `src/services/ops/restaurants.ts` caller found for status/delete                      | `tests/server/restaurant-google-business-v1-routes.test.ts`; CSRF audit references `DELETE` | Retain. `DELETE` must require password confirmation so it cannot bypass canonical policy. |
+| `/api/ops/restaurants/:id/google-business/connect`          | `POST`          | Compatibility-only, protected       | No current app service caller found; canonical service uses `/google-business-profile/connect`   | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain until production traffic/OAuth compatibility is checked.                           |
+| `/api/ops/restaurants/:id/google-business/locations`        | `GET`           | Compatibility-only, protected       | No current app service caller found; canonical service uses `/google-business-profile/locations` | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain until production traffic compatibility is checked.                                 |
+| `/api/ops/restaurants/:id/google-business/locations/select` | `POST`          | Compatibility-only, protected       | No current app service caller found; canonical link uses `PUT /google-business-profile`          | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain; source-only classification.                                                       |
+| `/api/ops/restaurants/:id/google-business/sync`             | `POST`          | Compatibility-only, protected       | No current app service caller found                                                              | `tests/server/restaurant-google-business-v1-routes.test.ts`                                 | Retain; already password-confirmed.                                                       |
+| `/api/ops/restaurants/:id/google-business/callback`         | `GET`           | Legacy OAuth callback compatibility | OAuth redirect compatibility, not a client fetch                                                 | `tests/server/google-business-profile-callback-route.test.ts`                               | Retain; binds expected restaurant id before completion.                                   |
 
 ## Dual-Sync Routes
 
@@ -48,13 +48,38 @@ This map is source-backed only. It does not claim production traffic, live Googl
 
 ## Cron Routes
 
-| Route                                       | Classification       | Source evidence                                                            | Production status            |
-| ------------------------------------------- | -------------------- | -------------------------------------------------------------------------- | ---------------------------- |
-| `/api/cron/dual-sync/queue`                 | Active cron endpoint | `src/app/api/cron/dual-sync/queue/route.ts`, `vercel.json`                 | Live scheduler not verified. |
-| `/api/cron/dual-sync/health`                | Active cron endpoint | `src/app/api/cron/dual-sync/health/route.ts`, `vercel.json`                | Live scheduler not verified. |
-| `/api/cron/dual-sync/auto-export`           | Active cron endpoint | `src/app/api/cron/dual-sync/auto-export/route.ts`, `vercel.json`           | Live scheduler not verified. |
-| `/api/cron/dual-sync/refresh`               | Source route only    | `src/app/api/cron/dual-sync/refresh/route.ts`; not listed in `vercel.json` | Live scheduler not verified. |
-| `/api/cron/dual-sync/request-log-retention` | Active cron endpoint | `src/app/api/cron/dual-sync/request-log-retention/route.ts`, `vercel.json` | Live scheduler not verified. |
+All seven active dual-sync cron routes are present in source configuration. This is not
+evidence that a Vercel target has installed them; record that external readback in the
+release-readiness manifest.
+
+| Route                                       | Source schedule    | Source evidence                                                            | Production status            |
+| ------------------------------------------- | ------------------ | -------------------------------------------------------------------------- | ---------------------------- |
+| `/api/cron/dual-sync/auto-export`           | Every 30 minutes   | `src/app/api/cron/dual-sync/auto-export/route.ts`, `vercel.json`           | Live scheduler not verified. |
+| `/api/cron/dual-sync/queue`                 | Every 5 minutes    | `src/app/api/cron/dual-sync/queue/route.ts`, `vercel.json`                 | Live scheduler not verified. |
+| `/api/cron/dual-sync/core-outbox`           | Every 5 minutes    | `src/app/api/cron/dual-sync/core-outbox/route.ts`, `vercel.json`           | Live scheduler not verified. |
+| `/api/cron/dual-sync/health`                | Hourly             | `src/app/api/cron/dual-sync/health/route.ts`, `vercel.json`                | Live scheduler not verified. |
+| `/api/cron/dual-sync/refresh`               | Every 15 minutes   | `src/app/api/cron/dual-sync/refresh/route.ts`, `vercel.json`               | Live scheduler not verified. |
+| `/api/cron/dual-sync/notifications`         | Every 15 minutes   | `src/app/api/cron/dual-sync/notifications/route.ts`, `vercel.json`         | Live scheduler not verified. |
+| `/api/cron/dual-sync/request-log-retention` | Daily at 02:30 UTC | `src/app/api/cron/dual-sync/request-log-retention/route.ts`, `vercel.json` | Live scheduler not verified. |
+
+## Legacy Retirement Gate
+
+Legacy `/google-business/**` routes are compatibility surface, not a migration deadline.
+Retire a route only after all of the following are recorded as external evidence for a
+defined observation window: edge/request traffic is zero for that exact route and method,
+OAuth redirect telemetry is zero for callback paths, the current deployed client has no
+caller, and a restore plan has been reviewed. A source search alone is insufficient because
+older clients, bookmarks, integrations, and OAuth redirects can continue to use the route.
+
+The release gate is intentionally traffic-based:
+
+1. Capture the baseline route/method traffic and deployed client SHA.
+2. Deploy the canonical client path while retaining the legacy route.
+3. Observe at least one complete business cycle and the agreed traffic window with zero
+   legacy requests and zero legacy callback completions.
+4. Preserve the traffic export digest and rollback target before removal.
+5. Remove one compatibility path in a separately approved change; do not fold removal into
+   a write-rollout deployment.
 
 ## Rules For Future Changes
 

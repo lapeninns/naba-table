@@ -31,7 +31,7 @@ export function RestaurantSettingsChromeHeader({
 
   return (
     <header className="z-10 flex h-12 shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 sm:px-6">
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <Button asChild variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground">
           <Link
             href={SETTINGS_EXIT_HREF}
@@ -46,7 +46,7 @@ export function RestaurantSettingsChromeHeader({
           className="shrink-0 md:hidden"
           aria-label="Toggle restaurant settings navigation"
         />
-        <div className="min-w-0 border-l border-border/60 pl-3">
+        <div className="min-w-0 flex-1 overflow-hidden border-l border-border/60 pl-3">
           <p className="text-[0.6875rem] font-medium uppercase leading-4 tracking-wide text-muted-foreground">
             Restaurant settings
           </p>
@@ -70,15 +70,18 @@ export function RestaurantSettingsChromeHeader({
         </div>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2">
         {hasUnsavedChanges ? (
           <Badge variant="secondary" className="whitespace-nowrap">
             Unsaved changes
           </Badge>
         ) : null}
-        <GbpDriftStatusPill />
+        <GbpDriftStatusPill className="max-w-28 shrink-0 overflow-hidden" />
         {restaurantName ? (
-          <Badge variant="outline" className="max-w-[min(40vw,14rem)] truncate font-medium">
+          <Badge
+            variant="outline"
+            className="hidden max-w-[min(40vw,14rem)] truncate font-medium sm:inline-flex"
+          >
             {restaurantName}
           </Badge>
         ) : null}

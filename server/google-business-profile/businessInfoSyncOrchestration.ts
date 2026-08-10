@@ -1,12 +1,8 @@
-import { buildCanonicalRows } from './businessInfoCanonicalRows';
-import { buildFieldSyncStatuses } from './businessInfoFieldSyncStatus';
-import { normalizeText } from './businessInfoNormalization';
-import { shouldSyncLocationServiceItems } from './businessInfoServiceItemNormalization';
+import { normalizeText, toJson } from './businessInfoNormalization';
 import {
-  buildProfileChangeLogRows,
-  linkAttributeDefinitions,
-  replaceGoogleBusinessProfileCanonicalBusinessInfo,
-} from './businessInfoSyncPersistence';
+  persistGoogleBusinessProfileRawSnapshot,
+  requireGoogleBusinessProfileContentFence,
+} from './contentSnapshotPersistence';
 
 import type {
   GoogleBusinessProfileAttributesResponse,
@@ -27,55 +23,32 @@ export async function syncGoogleBusinessProfileCanonicalBusinessInfo(params: {
   syncedAt: string;
   syncAttributes: boolean;
 }) {
-  const rows = buildCanonicalRows({
-    restaurantId: params.restaurantId,
-    location: params.location,
-    attributes: params.syncAttributes ? params.attributes : null,
-    syncedAt: params.syncedAt,
-  });
-  if (params.syncAttributes) {
-    rows.attributes = await linkAttributeDefinitions(rows.attributes, params.client);
+  const fence = requireGoogleBusinessProfileContentFence(
+    params.restaurantId,
+    params.externalProfile,
+  );
+  const rawResponses = params.location.__nabatableRawResponses;
+  const rawLocation = { ...params.location };
+  delete rawLocation.__nabatableOptionalFetchStatus;
+  delete rawLocation.__nabatableRawResponses;
+  for (const rawResponse of rawResponses ?? [rawLocation]) {
+    await persistGoogleBusinessProfileRawSnapshot({
+      client: params.client,
+      fence,
+      snapshotType: 'location',
+      payload: toJson(rawResponse),
+      sourceRevision: normalizeText(params.location.name),
+      observedAt: params.syncedAt,
+    });
   }
-  const syncServiceItems = shouldSyncLocationServiceItems(params.location);
-  const fieldSyncStatuses = buildFieldSyncStatuses({
-    restaurantId: params.restaurantId,
-    rows,
-    syncedAt: params.syncedAt,
-    syncServiceItems,
-  });
-  const fieldSyncEntityTables = [
-    'restaurant_business_details',
-    'restaurant_addresses',
-    'restaurant_phone_numbers',
-    'restaurant_links',
-    'restaurant_categories',
-    'restaurant_service_areas',
-    'restaurant_hours',
-    ...(syncServiceItems ? ['restaurant_service_items'] : []),
-    ...(params.syncAttributes ? ['restaurant_attributes'] : []),
-  ];
-  const profileChangeLogRows = buildProfileChangeLogRows({
-    restaurantId: params.restaurantId,
-    externalProfileId: params.externalProfile.id,
-    syncedAt: params.syncedAt,
-    rows,
-    syncAttributes: params.syncAttributes,
-    syncServiceItems,
-  });
-
-  await replaceGoogleBusinessProfileCanonicalBusinessInfo({
-    restaurantId: params.restaurantId,
-    externalProfileId: params.externalProfile.id,
-    locationSnapshot: params.location,
-    locationSourceRevision: normalizeText(params.location.name),
-    attributesSnapshot: params.attributes,
-    attributesSourceRevision: normalizeText(params.attributes?.name),
-    rows,
-    fieldSyncStatuses,
-    fieldSyncEntityTables,
-    profileChangeLogRows,
-    syncAttributes: params.syncAttributes,
-    syncServiceItems,
-    client: params.client,
-  });
+  if (params.syncAttributes && params.attributes) {
+    await persistGoogleBusinessProfileRawSnapshot({
+      client: params.client,
+      fence,
+      snapshotType: 'attributes',
+      payload: toJson(params.attributes),
+      sourceRevision: normalizeText(params.attributes.name),
+      observedAt: params.syncedAt,
+    });
+  }
 }

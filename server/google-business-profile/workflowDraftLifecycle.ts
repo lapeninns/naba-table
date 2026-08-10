@@ -88,22 +88,6 @@ export async function createGoogleBusinessProfileWorkflowDraftState(params: {
     readCoreSnapshots(params.restaurantId, params.client),
   ]);
 
-  const canPushServicePeriods = resolveCanPushServicePeriods({
-    core,
-    businessInfo: refreshedConnection.businessInfo,
-    lastPulledAt: refreshedConnection.lastPullAt,
-    lastPushedAt: refreshedConnection.lastPushAt,
-  });
-
-  const sections = buildDraftSections({
-    core,
-    businessInfo: refreshedConnection.businessInfo,
-    externalLocationTitle: refreshedConnection.externalLocationTitle,
-    canPushServicePeriods,
-  });
-  const selectedApprovals = Object.fromEntries(
-    sections.flatMap((section) => section.items.map((item) => [item.fieldKey, false])),
-  );
   const fetchedAt = nowIso();
 
   const { data, error } = await params.client
@@ -119,8 +103,8 @@ export async function createGoogleBusinessProfileWorkflowDraftState(params: {
         lastPullAt: refreshedConnection.lastPullAt,
         lastPushAt: refreshedConnection.lastPushAt,
       }),
-      section_diffs: toJson(sections),
-      selected_approvals: toJson(selectedApprovals),
+      section_diffs: [],
+      selected_approvals: {},
       core_snapshot_hashes: toJson(buildCoreSnapshotHashes(core)),
       stale_sections: [],
       conflict_metadata: {},

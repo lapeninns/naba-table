@@ -11,7 +11,6 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -21,16 +20,32 @@ import {
   dualSyncErrorResponse,
   dualSyncPausedResponse,
 } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { logger } from '@/lib/logger';
 import { DUAL_SYNC_SECTION_KEYS } from '@/server/dual-sync';
+import {
+  gbpExactPublishRequestV1Schema,
+  gbpPublishResponseV1Schema,
+} from '@/server/dual-sync/contracts';
 import {
   assertDualSyncRestaurantNotPaused,
   isDualSyncRestaurantPausedError,
 } from '@/server/dual-sync/controls';
 import { isDualSyncLockError } from '@/server/dual-sync/locks';
+import {
+  buildSupportedExactConsentPlan,
+  confirmExactConsentAndIssue,
+  ExactConsentError,
+  readSupportedExactConsentEligibility,
+  readSupportedGoogleUpdates,
+  withExactConsentListingLock,
+  type FreshExactConsentPlan,
+} from '@/server/dual-sync/publish/exact-consent';
+import { exactConsentPublicError } from '@/server/dual-sync/publish/exact-consent/public-errors';
 import { createDurableDualSyncGoogleEditThrottle } from '@/server/dual-sync/publish/google-safety';
 import { runPublish } from '@/server/dual-sync/publish/orchestrator';
 import { defaultDualSyncPorts } from '@/server/dual-sync/publish/ports';
 import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
+import { gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -53,31 +68,98 @@ const publishRequestSchema = z.object({
 
 type RouteContext = { params: Promise<{ id: string | string[] }> };
 
+function privateNoStore(response: NextResponse): NextResponse {
+  return gbpNoStoreResponse(response);
+}
+
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return dualSyncErrorResponse('Missing restaurant id', 400);
+    return privateNoStore(dualSyncErrorResponse('Missing restaurant id', 400));
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish', req);
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return privateNoStore(access);
 
   let body: unknown = null;
   try {
     const text = await req.text();
     body = text.length > 0 ? JSON.parse(text) : null;
   } catch {
-    return dualSyncErrorResponse('Invalid JSON body', 400, 'DUAL_SYNC_INVALID_JSON');
+    return privateNoStore(
+      dualSyncErrorResponse('Invalid JSON body', 400, 'DUAL_SYNC_INVALID_JSON'),
+    );
   }
-  const parsed = publishRequestSchema.safeParse(body);
+  const exactRequested = body !== null && typeof body === 'object' && 'confirmationVersion' in body;
+  const parsed = (exactRequested ? gbpExactPublishRequestV1Schema : publishRequestSchema).safeParse(
+    body,
+  );
   if (!parsed.success) {
-    return dualSyncErrorResponse('Invalid request', 422, 'DUAL_SYNC_INVALID_REQUEST', {
-      details: parsed.error.flatten(),
-    });
+    return privateNoStore(
+      dualSyncErrorResponse('Invalid request', 422, 'DUAL_SYNC_INVALID_REQUEST', {
+        details: parsed.error.flatten(),
+      }),
+    );
   }
 
   try {
     const client = getServiceSupabaseClient();
     await assertDualSyncRestaurantNotPaused({ client, restaurantId });
+    if (exactRequested && 'confirmationVersion' in parsed.data) {
+      const exact = gbpExactPublishRequestV1Schema.parse(parsed.data);
+      let fresh: Awaited<ReturnType<typeof buildSupportedExactConsentPlan>> | undefined;
+      const result = await confirmExactConsentAndIssue({
+        client,
+        submittedPreview: exact.preview,
+        acknowledged: exact.acknowledged,
+        riskAcknowledgements: exact.riskAcknowledgements,
+        actorUserId: access.userId,
+        mode: exact.mode,
+        withListingLock: (work) => withExactConsentListingLock(client, restaurantId, work),
+        rebuild: async (window): Promise<FreshExactConsentPlan> => {
+          fresh = await buildSupportedExactConsentPlan({
+            client,
+            publish: {
+              restaurantId,
+              decisions: exact.decisions,
+              actorUserId: access.userId,
+              clientRequestId: exact.clientRequestId ?? null,
+              publishBatchId: exact.publishBatchId ?? null,
+              pinnedCoreSnapshotHash: exact.pinnedCoreSnapshotHash ?? null,
+              pinnedGbpSnapshotHash: exact.pinnedGbpSnapshotHash ?? null,
+            },
+            clock: () => new Date(window.issuedAt),
+          });
+          if (fresh.preview.expiresAt !== window.expiresAt) {
+            throw new ExactConsentError('GBP_PREVIEW_MISMATCH', 'The approval window was changed.');
+          }
+          return fresh;
+        },
+        readEligibility: async () => {
+          if (!fresh) throw new Error('Exact write plan was not rebuilt.');
+          return readSupportedExactConsentEligibility({ client, preview: fresh.preview });
+        },
+        readGoogleUpdates: async () => {
+          if (!fresh) throw new Error('Exact write plan was not rebuilt.');
+          return readSupportedGoogleUpdates({
+            accessToken: fresh.linked.accessToken,
+            preview: fresh.preview,
+          });
+        },
+      });
+      const response = gbpPublishResponseV1Schema.parse(result);
+      return privateNoStore(
+        NextResponse.json(response, { status: response.mode === 'queued' ? 202 : 200 }),
+      );
+    }
+    if (parsed.data.decisions.some((decision) => decision.action === 'export_to_google')) {
+      return privateNoStore(
+        dualSyncErrorResponse(
+          'Google exports require an exact-consent preview and confirmation.',
+          409,
+          'GBP_EXACT_CONSENT_REQUIRED',
+        ),
+      );
+    }
     if (req.nextUrl.searchParams.get('queue') === '1') {
       const job = await enqueueDualSyncJob({
         client,
@@ -94,7 +176,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         },
         priority: 50,
       });
-      return NextResponse.json({ queued: true, job }, { status: 202 });
+      return privateNoStore(NextResponse.json({ queued: true, job }, { status: 202 }));
     }
 
     const result = await runPublish(
@@ -114,26 +196,28 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         refreshGoogleBeforePublish: true,
       },
     );
-    return NextResponse.json(result.summary, { status: 200 });
+    return privateNoStore(NextResponse.json(result.summary, { status: 200 }));
   } catch (error) {
     if (isDualSyncRestaurantPausedError(error)) {
-      return dualSyncPausedResponse(error.message);
+      return privateNoStore(dualSyncPausedResponse('Google synchronization is paused.'));
     }
     if (isDualSyncLockError(error)) {
-      return dualSyncErrorResponse(
-        error.message,
-        409,
-        'DUAL_SYNC_LOCK_HELD',
-        error.activeLock ? { activeLock: error.activeLock } : undefined,
+      return privateNoStore(
+        dualSyncErrorResponse(
+          'Another Google synchronization job is active.',
+          409,
+          'DUAL_SYNC_LOCK_HELD',
+        ),
       );
     }
-    const message = error instanceof Error ? error.message : 'Publish failed';
-    captureServerException(error, {
-      distinctId: access.userId,
-      groups: { restaurant: restaurantId },
-      properties: { restaurantId, source: 'ops', kind: 'dual-sync-publish' },
+    const publicError = exactConsentPublicError(error, 'publish');
+    logger.error('Exact Google write failed.', {
+      restaurantId,
+      failureKind: publicError.code,
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_ERROR');
+    return privateNoStore(
+      dualSyncErrorResponse(publicError.message, publicError.status, publicError.code),
+    );
   }
 }
 

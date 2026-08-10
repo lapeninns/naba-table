@@ -3,6 +3,7 @@ import { createGoogleRequestLog } from './google-request-logs';
 import { reserveGoogleEditBudget, type DualSyncGoogleEditThrottle } from './google-safety';
 import { updateOperationGroupStatus, updateOperationStatus } from './operations';
 import { isExport, isImport } from './orchestrator-domain';
+import { hashCanonicalJson } from '../hashing';
 import { markFailed, markInSync } from '../state/write';
 
 import type { PreparedPublishDecision } from './orchestrator-prepare-decisions';
@@ -141,9 +142,8 @@ export async function executePreparedPublishOperations(
           beforeCoreHash,
           beforeGbpHash,
         },
-        responseSummary: result.externalResponse ?? null,
+        responseSummary: { responseHash: hashCanonicalJson(result.externalResponse ?? null) },
         errorCode: result.failure?.code ?? null,
-        errorMessage: result.failure?.message ?? null,
       });
     }
 

@@ -54,9 +54,13 @@ function buildQuery(table: TableName, captured: CapturedQueries, options: BuildQ
     id: 'profile-1',
     restaurant_id: 'rest-1',
     provider: 'google_business_profile',
+    external_account_id: null,
+    external_profile_id: null,
     external_location_id: null,
     external_resource_name: null,
     connection_status: 'pending_auth',
+    connection_generation: 1,
+    consent_epoch: 1,
     push_enabled: false,
   };
   const oauthState = {
@@ -64,10 +68,18 @@ function buildQuery(table: TableName, captured: CapturedQueries, options: BuildQ
     restaurant_id: 'rest-1',
     provider: 'google_business_profile',
     requested_by_user_id: 'user-1',
-    state_token: 'state-token',
+    state_hash: 'state-hash',
+    oidc_nonce_hash: 'nonce-hash',
+    external_profile_row_id: 'profile-1',
+    expected_external_account_id: null,
+    expected_external_profile_id: null,
+    expected_external_location_id: null,
+    connection_generation: 1,
+    consent_epoch: 1,
     return_path: '/app/settings/restaurant/google-business-profile',
     expires_at: new Date(Date.now() + 60_000).toISOString(),
     consumed_at: null,
+    invalidated_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...options.oauthStateOverrides,
@@ -137,7 +149,7 @@ describe('GBP read-only V1 authorization storage', () => {
       idToken: null,
     });
     fetchIdentityMock.mockResolvedValue({
-      providerUserId: null,
+      providerUserId: 'google-user-1',
       email: null,
       name: null,
     });
@@ -148,6 +160,10 @@ describe('GBP read-only V1 authorization storage', () => {
     };
     const client = {
       from: vi.fn((table: TableName) => buildQuery(table, captured)),
+      rpc: vi.fn(async (_name: string, args: unknown) => {
+        captured.credentialUpsert.push(args);
+        return { data: {}, error: null };
+      }),
     };
 
     const { completeGoogleBusinessProfileAuthorization } =
@@ -157,13 +173,14 @@ describe('GBP read-only V1 authorization storage', () => {
       stateToken: 'state-token',
       code: 'code',
       requestedByUserId: 'user-1',
+      expectedRestaurantId: 'rest-1',
       client: client as never,
     });
 
     expect(captured.credentialUpsert).toHaveLength(1);
     expect(captured.credentialUpsert[0]).toMatchObject({
-      refresh_token_encrypted: 'enc:refresh-token',
-      granted_scopes: ['https://www.googleapis.com/auth/business.manage'],
+      p_refresh_token_encrypted: 'enc:refresh-token',
+      p_granted_scopes: ['https://www.googleapis.com/auth/business.manage'],
     });
     expect(captured.credentialUpsert[0]).not.toHaveProperty('access_token_encrypted');
     expect(captured.credentialUpsert[0]).not.toHaveProperty('access_token_expires_at');
@@ -176,6 +193,7 @@ describe('GBP read-only V1 authorization storage', () => {
     };
     const client = {
       from: vi.fn((table: TableName) => buildQuery(table, captured)),
+      rpc: vi.fn(),
     };
 
     const { completeGoogleBusinessProfileAuthorization } =
@@ -186,6 +204,7 @@ describe('GBP read-only V1 authorization storage', () => {
         stateToken: 'state-token',
         code: 'code',
         requestedByUserId: 'user-2',
+        expectedRestaurantId: 'rest-1',
         client: client as never,
       }),
     ).rejects.toMatchObject({
@@ -205,6 +224,7 @@ describe('GBP read-only V1 authorization storage', () => {
     };
     const client = {
       from: vi.fn((table: TableName) => buildQuery(table, captured)),
+      rpc: vi.fn(),
     };
 
     const { completeGoogleBusinessProfileAuthorization } =
@@ -235,6 +255,7 @@ describe('GBP read-only V1 authorization storage', () => {
     };
     const client = {
       from: vi.fn((table: TableName) => buildQuery(table, captured, { membership: null })),
+      rpc: vi.fn(),
     };
 
     const { completeGoogleBusinessProfileAuthorization } =
@@ -245,6 +266,7 @@ describe('GBP read-only V1 authorization storage', () => {
         stateToken: 'state-token',
         code: 'code',
         requestedByUserId: 'user-1',
+        expectedRestaurantId: 'rest-1',
         client: client as never,
       }),
     ).rejects.toMatchObject({

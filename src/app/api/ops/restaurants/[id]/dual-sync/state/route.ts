@@ -18,7 +18,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -26,13 +25,16 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { getDualSyncRestaurantControl } from '@/server/dual-sync/controls';
+import { hashCanonicalJson } from '@/server/dual-sync/hashing';
+import { listOpenOutboundCandidates } from '@/server/dual-sync/outbound/candidates';
+import { buildRegistry, resolveFieldCapability } from '@/server/dual-sync/registry';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { loadCurrentGoogleContentFence } from '@/server/dual-sync/retention/supabase-port';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import {
   getDualSyncDecisionDisabledReason,
   getDualSyncRuntimeControls,
 } from '@/server/dual-sync/runtime-controls';
-import { hashCanonicalJson } from '@/server/dual-sync/hashing';
-import { listOpenOutboundCandidates } from '@/server/dual-sync/outbound/candidates';
-import { buildRegistry, resolveFieldCapability } from '@/server/dual-sync/registry';
 import { readGoogleSnapshot } from '@/server/dual-sync/snapshots/google';
 import { readNabatableSnapshot } from '@/server/dual-sync/snapshots/nabatable';
 import { readLatestSucceededRun } from '@/server/dual-sync/snapshots/runs';
@@ -50,7 +52,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-state');
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const client = getServiceSupabaseClient();
@@ -65,11 +67,25 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       includeCoreOnly: true,
     });
     const runtimeControls = getDualSyncRuntimeControls({ restaurantId });
+    const currentFence = await loadCurrentGoogleContentFence(client, restaurantId);
 
     const [fieldStates, openCandidates, latestSnapshotRun] = await Promise.all([
       listFieldStates({ client, restaurantId }),
       listOpenOutboundCandidates({ client, restaurantId }),
-      readLatestSucceededRun({ client, restaurantId }),
+      currentFence
+        ? readLatestSucceededRun({
+            client,
+            googleFence: {
+              restaurantId: currentFence.restaurantId,
+              externalProfileRowId: currentFence.externalProfileRowId,
+              accountId: currentFence.externalAccountId,
+              profileId: currentFence.externalProfileId,
+              locationId: currentFence.externalLocationId,
+              connectionGeneration: currentFence.connectionGeneration,
+              consentEpoch: currentFence.consentEpoch,
+            },
+          })
+        : Promise.resolve(null),
     ]);
     const control = await getDualSyncRestaurantControl({ client, restaurantId });
     const stateByKey = new Map(fieldStates.map((row) => [row.fieldKey, row]));
@@ -197,7 +213,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
         }
       : null;
 
-    return NextResponse.json(
+    return gbpNoStoreJson(
       {
         restaurantId,
         coreSnapshot,
@@ -213,7 +229,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load dual-sync state';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-state' },

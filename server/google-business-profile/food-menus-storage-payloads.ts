@@ -1,5 +1,7 @@
 import { DUAL_SYNC_PROVIDER } from '@/server/dual-sync/types';
 
+import { toJson } from './businessInfoNormalization';
+
 import type {
   GoogleFoodMenusProjection,
   GoogleFoodMenusProjectedIdentity,
@@ -38,8 +40,8 @@ export function buildFoodMenusSnapshotInsertPayload({
   status,
   foodMenusName,
   rawFoodMenus,
-  canonicalFoodMenus,
-  projectionMetadata,
+  canonicalFoodMenus: _canonicalFoodMenus,
+  projectionMetadata: _projectionMetadata,
   snapshotHash,
   googleEtag,
   errorCode,
@@ -55,9 +57,9 @@ export function buildFoodMenusSnapshotInsertPayload({
     source,
     status,
     food_menus_name: foodMenusName,
-    raw_food_menus: rawFoodMenus === undefined ? null : (rawFoodMenus as Json),
-    canonical_food_menus: canonicalFoodMenus === undefined ? null : (canonicalFoodMenus as Json),
-    projection_metadata: projectionMetadata as Json,
+    raw_food_menus: rawFoodMenus === undefined ? null : toJson(rawFoodMenus),
+    canonical_food_menus: null,
+    projection_metadata: {},
     snapshot_hash: snapshotHash,
     google_etag: googleEtag,
     error_code: errorCode,

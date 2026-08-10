@@ -54,7 +54,7 @@ function clientFor(chain: MockChain) {
 }
 
 describe('createGoogleRequestLog', () => {
-  it('inserts redacted request and response summaries while preserving metadata', async () => {
+  it('persists only allowlisted metadata with an inherited expiry', async () => {
     const chain = makeChain(makeLogRow());
     const client = clientFor(chain);
 
@@ -90,6 +90,7 @@ describe('createGoogleRequestLog', () => {
       },
       errorCode: 'LOCATION_ACCESS_LOST',
       errorMessage: 'Permission denied for access_token=message-token',
+      retentionExpiresAt: '2026-08-29T00:00:00.000Z',
     });
 
     const insert = chain.insert.mock.calls[0]?.[0];
@@ -115,25 +116,47 @@ describe('createGoogleRequestLog', () => {
       status: 'failed',
       google_method: 'locations.patch',
       google_update_masks: ['profile'],
-      request_summary: {
-        fieldKey: 'profile.name',
-        authorization: '[redacted]',
-        headers: {
-          cookie: '[redacted]',
-          'x-goog-api-key': '[redacted]',
-        },
-      },
-      response_summary: {
-        url: 'https://google.example/location?access_token=[redacted]',
-        body: {
-          refresh_token: '[redacted]',
-          message: 'invalid secret=[redacted]',
-        },
-      },
+      request_summary: {},
+      response_summary: null,
       error_code: 'LOCATION_ACCESS_LOST',
-      error_message: 'Permission denied for access_token=[redacted]',
+      error_message: null,
+      retention_expires_at: '2026-08-29T00:00:00.000Z',
     });
     expect(log.id).toBe('request-log-1');
     expect(log.googleUpdateMasks).toEqual(['profile']);
+  });
+
+  it('allows null expiry only because every supplied summary is reduced to metadata', async () => {
+    const chain = makeChain(makeLogRow());
+    await createGoogleRequestLog({
+      client: clientFor(chain),
+      restaurantId: 'rest-1',
+      phase: 'provider_summary',
+      requestSummary: { body: 'provider value', status: 'succeeded' },
+      responseSummary: { message: 'guest@example.com', access_token: 'secret' },
+      errorCode: 'guest@example.com',
+    });
+    expect(chain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request_summary: {},
+        response_summary: null,
+        error_code: null,
+        error_message: null,
+        retention_expires_at: null,
+      }),
+    );
+  });
+
+  it('rejects a malformed optional inherited expiry', async () => {
+    const chain = makeChain(makeLogRow());
+    await expect(
+      createGoogleRequestLog({
+        client: clientFor(chain),
+        restaurantId: 'rest-1',
+        phase: 'provider_summary',
+        retentionExpiresAt: 'not-a-timestamp',
+      }),
+    ).rejects.toThrow('valid inherited timestamp');
+    expect(chain.insert).not.toHaveBeenCalled();
   });
 });

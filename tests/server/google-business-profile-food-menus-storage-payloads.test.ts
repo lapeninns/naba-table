@@ -37,7 +37,7 @@ describe('GBP FoodMenus storage payload builders', () => {
       food_menus_name: 'accounts/123/locations/456/foodMenus',
       raw_food_menus: null,
       canonical_food_menus: null,
-      projection_metadata: { source: 'test' },
+      projection_metadata: {},
       snapshot_hash: 'hash-1',
       google_etag: 'etag-1',
       error_code: null,

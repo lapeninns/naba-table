@@ -1,14 +1,13 @@
 /**
  * Bounded retention for redacted Google request-log summaries.
  *
- * The helper selects expired rows first, archives only that selected set, then
- * deletes only those ids so a cron tick cannot accidentally remove an unbounded
- * amount of audit data.
+ * Content summaries are deleted directly. They must never be copied into the
+ * legacy archive because that would reset recoverability and launder content.
  */
 
 import { getDualSyncDbClient, type DualSyncGoogleRequestLogRow } from '../db';
 
-import type { Database, Json } from '@/types/supabase';
+import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -25,6 +24,7 @@ export interface PruneExpiredGoogleRequestLogsInput {
   readonly client: DbClient;
   readonly now?: string;
   readonly limit?: number;
+  readonly dryRun?: boolean;
 }
 
 export interface PruneExpiredGoogleRequestLogsResult {
@@ -36,32 +36,6 @@ export interface PruneExpiredGoogleRequestLogsResult {
   readonly moreLikely: boolean;
 }
 
-function archivePayload(row: DualSyncGoogleRequestLogRow): Json {
-  return {
-    id: row.id,
-    restaurant_id: row.restaurant_id,
-    provider: row.provider,
-    publish_batch_id: row.publish_batch_id,
-    operation_group_id: row.operation_group_id,
-    publish_operation_id: row.publish_operation_id,
-    publish_job_id: row.publish_job_id,
-    section_key: row.section_key,
-    field_key: row.field_key,
-    direction: row.direction,
-    write_group: row.write_group,
-    phase: row.phase,
-    status: row.status,
-    google_method: row.google_method,
-    google_update_masks: row.google_update_masks,
-    request_summary: row.request_summary,
-    response_summary: row.response_summary,
-    error_code: row.error_code,
-    error_message: row.error_message,
-    retention_expires_at: row.retention_expires_at,
-    created_at: row.created_at,
-  } as Json;
-}
-
 export async function pruneExpiredGoogleRequestLogs(
   input: PruneExpiredGoogleRequestLogsInput,
 ): Promise<PruneExpiredGoogleRequestLogsResult> {
@@ -71,7 +45,7 @@ export async function pruneExpiredGoogleRequestLogs(
 
   const { data: rows, error: selectError } = await dual
     .from('dual_sync_google_request_logs')
-    .select('*')
+    .select('id,retention_expires_at')
     .lt('retention_expires_at', cutoff)
     .order('retention_expires_at', { ascending: true })
     .limit(limit);
@@ -95,24 +69,15 @@ export async function pruneExpiredGoogleRequestLogs(
       moreLikely: false,
     };
   }
-
-  const archiveRows = selectedRows
-    .filter((row) => ids.includes(row.id))
-    .map((row) => ({
-      original_request_log_id: row.id,
-      restaurant_id: row.restaurant_id,
-      provider: row.provider,
-      retention_expires_at: row.retention_expires_at,
-      original_created_at: row.created_at,
-      archived_payload: archivePayload(row),
-    }));
-
-  const { data: archivedRows, error: archiveError } = await dual
-    .from('dual_sync_google_request_log_archives')
-    .upsert(archiveRows as never, { onConflict: 'original_request_log_id' })
-    .select('original_request_log_id');
-  if (archiveError) {
-    throw archiveError;
+  if (input.dryRun) {
+    return {
+      cutoff,
+      limit,
+      selected: ids.length,
+      archived: 0,
+      deleted: 0,
+      moreLikely: ids.length === limit,
+    };
   }
 
   const { data: deletedRows, error: deleteError } = await dual
@@ -128,7 +93,7 @@ export async function pruneExpiredGoogleRequestLogs(
     cutoff,
     limit,
     selected: ids.length,
-    archived: archivedRows?.length ?? archiveRows.length,
+    archived: 0,
     deleted: deletedRows?.length ?? ids.length,
     moreLikely: ids.length === limit,
   };

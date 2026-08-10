@@ -7,6 +7,7 @@
  */
 
 import type {
+  DualSyncNotificationDeliveryResult,
   DualSyncNotificationEvent,
   DualSyncNotificationPort,
 } from './types';
@@ -31,7 +32,7 @@ export function createConsoleNotificationPort(
 ): DualSyncNotificationPort {
   const logger = options.logger ?? console;
   return {
-    async emit(event: DualSyncNotificationEvent): Promise<void> {
+    async emit(event: DualSyncNotificationEvent): Promise<DualSyncNotificationDeliveryResult> {
       try {
         const payload = {
           ...event,
@@ -46,8 +47,9 @@ export function createConsoleNotificationPort(
         } else {
           logger.info(prefix, payload);
         }
+        return { outcome: 'confirmed_success' };
       } catch {
-        // never throw
+        return { outcome: 'ambiguous_failure', safeErrorCode: 'console_delivery_failed' };
       }
     },
   };

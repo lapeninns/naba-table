@@ -7,13 +7,31 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import {
+  getGbpConnectionStateV1,
+  getGbpTerminalNoticesV1,
+  setGbpNotificationParticipationV1,
+  setGbpWriteAccessV1,
+} from '@/services/ops/dual-sync';
 
-import { invalidateOpsIntegrationQueries } from './opsIntegrationQueries';
+import {
+  gbpOperatorQueryKeys,
+  invalidateOpsIntegrationQueries,
+  removeGbpOperatorQueries,
+} from './opsIntegrationQueries';
 
 import type { HttpError } from '@/lib/http/errors';
+import type {
+  GbpConnectionStateResponseV1,
+  GbpNotificationParticipationResponseV1,
+  GbpTerminalNoticesResponseV1,
+  GbpWriteAccessRequestV1,
+  SetGbpNotificationParticipationV1Request,
+} from '@/services/ops/dual-sync';
 import type {
   GoogleBusinessProfileAuthorizationStart,
   GoogleBusinessProfileAvailableLocation,
@@ -21,6 +39,73 @@ import type {
   GoogleBusinessProfileProtectedActionPayload,
   LinkGoogleBusinessProfileLocationInput,
 } from '@/services/ops/restaurants';
+
+export function useOpsGbpOperatorState(restaurantId?: string | null) {
+  const queryClient = useQueryClient();
+  const enabled = Boolean(restaurantId);
+  const queryRestaurantId = restaurantId ?? 'none';
+
+  const connectionQuery = useQuery<GbpConnectionStateResponseV1, Error>({
+    enabled,
+    queryKey: gbpOperatorQueryKeys.connection(queryRestaurantId),
+    queryFn: () => getGbpConnectionStateV1(queryRestaurantId),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    meta: { persist: false },
+  });
+  const terminalNoticesQuery = useQuery<GbpTerminalNoticesResponseV1, Error>({
+    enabled,
+    queryKey: gbpOperatorQueryKeys.terminalNotices(queryRestaurantId),
+    queryFn: () => getGbpTerminalNoticesV1(queryRestaurantId),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    meta: { persist: false },
+  });
+
+  const setWriteAccessMutation = useMutation<
+    GbpConnectionStateResponseV1,
+    Error,
+    GbpWriteAccessRequestV1
+  >({
+    mutationFn: (request) => setGbpWriteAccessV1(queryRestaurantId, request),
+    onSuccess: (state, request) => {
+      if (!request.eligible) {
+        removeGbpOperatorQueries(queryClient, queryRestaurantId);
+        return;
+      }
+      queryClient.setQueryData(gbpOperatorQueryKeys.connection(queryRestaurantId), state);
+    },
+  });
+  const setNotificationParticipationMutation = useMutation<
+    GbpNotificationParticipationResponseV1,
+    Error,
+    SetGbpNotificationParticipationV1Request
+  >({
+    mutationFn: (request) => setGbpNotificationParticipationV1(queryRestaurantId, request),
+    onSuccess: (notifications) => {
+      queryClient.setQueryData<GbpConnectionStateResponseV1>(
+        gbpOperatorQueryKeys.connection(queryRestaurantId),
+        (current) => (current ? { ...current, notifications } : current),
+      );
+    },
+  });
+
+  useEffect(
+    () => () => {
+      if (restaurantId) removeGbpOperatorQueries(queryClient, restaurantId);
+    },
+    [queryClient, restaurantId],
+  );
+
+  return {
+    connectionQuery,
+    terminalNoticesQuery,
+    setWriteAccessMutation,
+    setNotificationParticipationMutation,
+  };
+}
 
 export function useOpsGoogleBusinessProfileConnection(
   restaurantId?: string | null,
@@ -39,6 +124,7 @@ export function useOpsGoogleBusinessProfileConnection(
     },
     enabled: Boolean(restaurantId),
     staleTime: 30_000,
+    meta: { persist: false },
   });
 }
 
@@ -60,6 +146,7 @@ export function useOpsGoogleBusinessProfileAvailableLocations(
     },
     enabled: Boolean(restaurantId) && enabled,
     staleTime: 10 * 60_000,
+    meta: { persist: false },
   });
 }
 
@@ -101,6 +188,7 @@ export function useOpsLinkGoogleBusinessProfileLocation(
     },
     onSuccess: (state) => {
       if (!restaurantId) return;
+      removeGbpOperatorQueries(queryClient, restaurantId);
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
       invalidateOpsIntegrationQueries(queryClient, restaurantId);
     },
@@ -130,6 +218,7 @@ export function useOpsDisconnectGoogleBusinessProfile(
     },
     onSuccess: (state) => {
       if (!restaurantId) return;
+      removeGbpOperatorQueries(queryClient, restaurantId);
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
       invalidateOpsIntegrationQueries(queryClient, restaurantId);
     },

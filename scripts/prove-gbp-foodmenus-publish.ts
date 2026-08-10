@@ -4,7 +4,6 @@ import path from 'node:path';
 import process from 'node:process';
 
 import type { GoogleFoodMenuCuisine } from '@/server/google-business-profile/food-menus';
-import { resolveServiceRoleSupabaseUrl } from '@/server/supabase';
 import { assertExactSupabaseApiProjectRef } from './db/safety';
 
 loadEnv({ path: '.env.local', override: false });
@@ -263,17 +262,7 @@ function parseArgs(argv: string[]): Args {
   }
 
   if (mode === 'publish') {
-    if (!expectedGoogleHash || !/^[a-f0-9]{64}$/i.test(expectedGoogleHash)) {
-      throw new Error('--expected-google-hash must be a 64-character hex digest for publish mode.');
-    }
-    if (!expectedProjectedHash || !/^[a-f0-9]{64}$/i.test(expectedProjectedHash)) {
-      throw new Error(
-        '--expected-projected-hash must be a 64-character hex digest for publish mode.',
-      );
-    }
-    if (process.env[CONFIRM_GOOGLE_WRITE_ENV] !== 'true') {
-      throw new Error(`Refusing Google write without ${CONFIRM_GOOGLE_WRITE_ENV}=true.`);
-    }
+    throw new Error('GBP_LEGACY_GOOGLE_WRITE_RETIRED: FoodMenus publish proof is retired.');
   }
 
   return {
@@ -291,8 +280,9 @@ function parseArgs(argv: string[]): Args {
   };
 }
 
-function assertTargetEnv(target: TargetName) {
+async function assertTargetEnv(target: TargetName) {
   const expectedProjectRef = TARGETS[target].expectedProjectRef;
+  const { resolveServiceRoleSupabaseUrl } = await import('@/server/supabase');
   const supabaseUrl = resolveServiceRoleSupabaseUrl();
   try {
     assertExactSupabaseApiProjectRef(supabaseUrl, expectedProjectRef);
@@ -339,22 +329,16 @@ function defaultOutPath(mode: Mode, restaurantId: string): string {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  assertTargetEnv(args.target);
+  await assertTargetEnv(args.target);
   const restaurantId = args.restaurantId;
   const [
     { getServiceSupabaseClient },
     { getGoogleBusinessProfileFoodMenusContext },
-    {
-      prepareFoodMenusProjection,
-      publishFoodMenusProjectionToGoogle,
-      refreshFoodMenusImportReviewFromGoogle,
-    },
-    { hashGoogleFoodMenusResource },
+    { prepareFoodMenusProjection, refreshFoodMenusImportReviewFromGoogle },
   ] = await Promise.all([
     import('@/server/supabase'),
     import('@/server/google-business-profile/service'),
     import('@/server/google-business-profile/food-menus-sync'),
-    import('@/server/google-business-profile/food-menus'),
   ]);
   const client = getServiceSupabaseClient();
   const context = await getGoogleBusinessProfileFoodMenusContext({
@@ -386,75 +370,11 @@ async function main() {
     }),
   ]);
 
-  let publish: ProofArtifact['publish'] = null;
-  let publishFailure: string | null = null;
-  if (args.mode === 'publish') {
-    const expectedGoogleHash = args.expectedGoogleHash;
-    const expectedProjectedHash = args.expectedProjectedHash;
-    if (!expectedGoogleHash) {
-      throw new Error('--expected-google-hash is required for publish mode.');
-    }
-    if (!expectedProjectedHash) {
-      throw new Error('--expected-projected-hash is required for publish mode.');
-    }
-    if (projection.projectionHash !== expectedProjectedHash) {
-      throw new Error(
-        `Refusing Google write because projected payload hash changed from ${expectedProjectedHash} to ${projection.projectionHash}.`,
-      );
-    }
-    const published = await publishFoodMenusProjectionToGoogle({
-      client,
-      restaurantId,
-      accessToken: context.accessToken,
-      foodMenusName: context.foodMenusName,
-      menuLabel: args.menuLabel,
-      sourceUrl: args.sourceUrl,
-      languageCode: args.languageCode,
-      includeUnavailable: args.includeUnavailable,
-      cuisines: args.cuisines,
-      externalProfileId: context.externalProfileId,
-      expectedGoogleHash,
-      expectedProjectionHash: expectedProjectedHash,
-    });
-    const googleResponseHash = published.googleResponse
-      ? hashGoogleFoodMenusResource(published.googleResponse)
-      : null;
-    const followUpRead = await refreshFoodMenusImportReviewFromGoogle({
-      client,
-      restaurantId,
-      accessToken: context.accessToken,
-      foodMenusName: context.foodMenusName,
-      externalProfileId: context.externalProfileId,
-      persist: false,
-    });
-
-    publish = {
-      expectedGoogleHash,
-      baselineGoogleHash: published.baselineGoogleHash,
-      attemptStatus: published.attempt.status,
-      attemptId: published.attempt.id,
-      googleResponsePresent: published.googleResponse !== null,
-      googleResponseHash,
-      followUpGoogleHash: followUpRead.googleFoodMenusHash,
-      followUpMatchesProjectionHash: followUpRead.googleFoodMenusHash === projection.projectionHash,
-      followUpMatchesGoogleResponseHash: googleResponseHash
-        ? followUpRead.googleFoodMenusHash === googleResponseHash
-        : null,
-      followUpGoogleMenuCount: followUpRead.googleFoodMenus.menus?.length ?? 0,
-      followUpGoogleSectionCount: countGoogleSections(followUpRead.googleFoodMenus),
-      followUpGoogleItemCount: countGoogleItems(followUpRead.googleFoodMenus),
-    };
-
-    if (published.attempt.status !== 'succeeded' || published.googleResponse === null) {
-      publishFailure = `Google FoodMenus publish did not succeed; attempt ${published.attempt.id} finished with status ${published.attempt.status}.`;
-    }
-  }
-
   const artifact: ProofArtifact = {
     verifiedAt: new Date().toISOString(),
     mode: args.mode,
     restaurantId,
-    googleWriteAttempted: args.mode === 'publish',
+    googleWriteAttempted: false,
     target: {
       name: args.target,
       expectedProjectRef: TARGETS[args.target].expectedProjectRef,
@@ -476,16 +396,12 @@ async function main() {
       googleItemCount: countGoogleItems(googleRead.googleFoodMenus),
       importReviewItemCount: googleRead.importReview.review.items.length,
     },
-    publish,
+    publish: null,
   };
 
   const outPath = path.resolve(args.outPath ?? defaultOutPath(args.mode, restaurantId));
   await writeFile(outPath, `${JSON.stringify(artifact, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(artifact, null, 2)}\n`);
-
-  if (publishFailure) {
-    throw new Error(publishFailure);
-  }
 }
 
 main().catch((error) => {

@@ -69,7 +69,7 @@ function makePublishAttemptRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('GBP FoodMenus publish attempt storage', () => {
-  it('opens publish attempts with provider and hash metadata', async () => {
+  it('opens publish attempts with hashes but without persisting projected provider content', async () => {
     const openChain = makeChain(makePublishAttemptRow());
     const client = makeClient([openChain]);
 
@@ -94,13 +94,14 @@ describe('GBP FoodMenus publish attempt storage', () => {
         update_mask: ['menus'],
         projected_payload_hash: 'projection-hash',
         baseline_google_hash: 'baseline-hash',
+        projected_payload: {},
       }),
     );
     expect(attempt.id).toBe('attempt-1');
     expect(attempt.projectedPayloadHash).toBe('projection-hash');
   });
 
-  it('marks attempts running and finishes them with response or error payloads', async () => {
+  it('marks attempts running and finishes them without persisting provider responses', async () => {
     const runningChain = makeChain(
       makePublishAttemptRow({
         status: 'running',
@@ -138,7 +139,7 @@ describe('GBP FoodMenus publish attempt storage', () => {
     expect(finishChain.update).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        google_response: { error: 'denied' },
+        google_response: null,
         error_code: 'GBP_FOOD_MENUS_PUBLISH_FAILED',
         error_message: 'Unable to publish Google FoodMenus.',
         finished_at: expect.any(String),

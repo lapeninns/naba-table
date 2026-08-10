@@ -220,8 +220,8 @@ export async function insertPublishEvent(params: {
       provider: GOOGLE_BUSINESS_PROFILE_PROVIDER,
       direction: params.direction,
       affected_sections: params.sections,
-      old_values: toJson(params.oldValues),
-      new_values: toJson(params.newValues),
+      old_values: {},
+      new_values: {},
       google_update_masks: toJson(params.googleUpdateMasks ?? []),
       result: 'pending',
       errors: [],
@@ -245,7 +245,7 @@ export async function updatePublishEvent(
 ): Promise<void> {
   const { error } = await client
     .from('restaurant_external_profile_publish_events')
-    .update({ result, errors: toJson(errors) })
+    .update({ result, errors: [] })
     .eq('id', eventId);
 
   if (error) {
@@ -287,11 +287,11 @@ export async function upsertPublishJobFromPreflight(params: {
         params.context.decisions,
       ),
       nabatable_sections: params.context.sections,
-      preflight_nabatable_updates: toJson(params.context.nabatableUpdates),
-      preflight_pull_only_items: toJson(params.context.pullOnlyItems),
+      preflight_nabatable_updates: [],
+      preflight_pull_only_items: [],
       google_update_masks: params.context.googleUpdateMasks,
-      preflight_warnings: toJson(params.context.warnings),
-      preflight_errors: toJson(params.context.errors),
+      preflight_warnings: [],
+      preflight_errors: [],
       created_by_user_id: params.actorUserId,
       preflighted_at: nowIso(),
     })
@@ -336,11 +336,11 @@ export async function claimPublishJobForPublishing(params: {
         params.context.decisions,
       ),
       nabatable_sections: params.context.sections,
-      preflight_nabatable_updates: toJson(params.context.nabatableUpdates),
-      preflight_pull_only_items: toJson(params.context.pullOnlyItems),
+      preflight_nabatable_updates: [],
+      preflight_pull_only_items: [],
       google_update_masks: params.context.googleUpdateMasks,
-      preflight_warnings: toJson(params.context.warnings),
-      preflight_errors: toJson(params.context.errors),
+      preflight_warnings: [],
+      preflight_errors: [],
     })
     .eq('id', params.jobId)
     .eq('status', 'preflight_ready')

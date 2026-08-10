@@ -26,7 +26,9 @@ const baseProfile = {
 
 function mockProfileFetch({
   base = baseProfile as Record<string, unknown>,
-  serviceItems = { serviceItems: [{ structuredServiceItem: {} }] } as Record<string, unknown> | Error,
+  serviceItems = { serviceItems: [{ structuredServiceItem: {} }] } as
+    | Record<string, unknown>
+    | Error,
 } = {}) {
   googleFetchJsonMock.mockImplementation(async (url: string) => {
     const mask = new URL(url).searchParams.get('readMask');
@@ -67,6 +69,7 @@ describe('getGoogleBusinessProfileLocationProfile', () => {
       ...baseProfile,
       serviceItems: [{ structuredServiceItem: {} }],
       __nabatableOptionalFetchStatus: { serviceItems: 'fetched' },
+      __nabatableRawResponses: [baseProfile, { serviceItems: [{ structuredServiceItem: {} }] }],
     });
   });
 
@@ -92,6 +95,7 @@ describe('getGoogleBusinessProfileLocationProfile', () => {
     expect(profile).toEqual({
       ...baseProfile,
       __nabatableOptionalFetchStatus: { serviceItems: 'unavailable' },
+      __nabatableRawResponses: [baseProfile],
     });
   });
 
@@ -100,7 +104,10 @@ describe('getGoogleBusinessProfileLocationProfile', () => {
 
     const profile = await getGoogleBusinessProfileLocationProfile('token-1', 'locations/123');
 
-    expect(profile).toEqual({ __nabatableOptionalFetchStatus: { serviceItems: 'fetched' } });
+    expect(profile).toEqual({
+      __nabatableOptionalFetchStatus: { serviceItems: 'fetched' },
+      __nabatableRawResponses: [{}, {}],
+    });
   });
 
   it('propagates required-mask fetch failures without attempting the optional segment @contract @external-mock', async () => {
@@ -110,9 +117,9 @@ describe('getGoogleBusinessProfileLocationProfile', () => {
     });
     googleFetchJsonMock.mockRejectedValue(authError);
 
-    await expect(
-      getGoogleBusinessProfileLocationProfile('token-1', 'locations/123'),
-    ).rejects.toBe(authError);
+    await expect(getGoogleBusinessProfileLocationProfile('token-1', 'locations/123')).rejects.toBe(
+      authError,
+    );
     expect(googleFetchJsonMock).toHaveBeenCalledTimes(1);
   });
 });
@@ -150,74 +157,24 @@ describe('getGoogleBusinessProfileLocationAttributes', () => {
 });
 
 describe('updateGoogleBusinessProfileLocationAttributes', () => {
-  it('patches attributes with a joined attributeMask and canonical resource name @contract @external-mock', async () => {
-    googleFetchJsonMock.mockResolvedValue({ attributes: [{ name: 'attributes/wi_fi' }] });
-
-    const result = await updateGoogleBusinessProfileLocationAttributes(
-      'token-1',
-      'locations/123',
-      { attributes: [{ name: 'attributes/wi_fi', values: [{ boolValue: true }] }] },
-      ['attributes/wi_fi', 'attributes/has_delivery'],
-    );
-
-    const [url, token, init] = googleFetchJsonMock.mock.calls[0]!;
-    const parsed = new URL(url);
-    expect(parsed.pathname).toBe('/v1/locations/123/attributes');
-    expect(parsed.searchParams.get('attributeMask')).toBe(
-      'attributes/wi_fi,attributes/has_delivery',
-    );
-    expect(token).toBe('token-1');
-    expect(init.method).toBe('PATCH');
-    expect(JSON.parse(init.body as string)).toEqual({
-      name: 'locations/123/attributes',
-      attributes: [{ name: 'attributes/wi_fi', values: [{ boolValue: true }] }],
-    });
-    expect(result).toEqual({ attributes: [{ name: 'attributes/wi_fi' }] });
+  it('retires legacy attribute writes before transport dispatch @contract', async () => {
+    await expect(
+      updateGoogleBusinessProfileLocationAttributes(
+        'token-1',
+        'locations/123',
+        { attributes: [] },
+        ['attributes/wi_fi'],
+      ),
+    ).rejects.toMatchObject({ code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED' });
+    expect(googleFetchJsonMock).not.toHaveBeenCalled();
   });
 });
 
 describe('patchGoogleBusinessProfileLocation', () => {
-  it('patches the location with an updateMask and no validateOnly flag by default @contract @external-mock', async () => {
-    googleFetchJsonMock.mockResolvedValue({ name: 'locations/123', title: 'New Name' });
-
-    const result = await patchGoogleBusinessProfileLocation(
-      'token-1',
-      '123',
-      { title: 'New Name' },
-      ['title', 'phoneNumbers'],
-    );
-
-    const [url, token, init] = googleFetchJsonMock.mock.calls[0]!;
-    const parsed = new URL(url);
-    expect(parsed.pathname).toBe('/v1/locations/123');
-    expect(parsed.searchParams.get('updateMask')).toBe('title,phoneNumbers');
-    expect(parsed.searchParams.get('validateOnly')).toBeNull();
-    expect(token).toBe('token-1');
-    expect(init.method).toBe('PATCH');
-    expect(JSON.parse(init.body as string)).toEqual({ title: 'New Name' });
-    expect(result).toEqual({ name: 'locations/123', title: 'New Name' });
-  });
-
-  it('adds validateOnly=true for dry-run patches @contract @external-mock', async () => {
-    googleFetchJsonMock.mockResolvedValue({});
-
-    await patchGoogleBusinessProfileLocation('token-1', 'locations/123', { title: 'X' }, ['title'], {
-      validateOnly: true,
-    });
-
-    const [url] = googleFetchJsonMock.mock.calls[0]!;
-    expect(new URL(url).searchParams.get('validateOnly')).toBe('true');
-  });
-
-  it('propagates transport-level upstream errors from patch calls @contract @external-mock', async () => {
-    const upstream = new GoogleBusinessProfileError('Google Business Profile request failed', {
-      code: 'GBP_UPSTREAM_ERROR',
-      status: 502,
-    });
-    googleFetchJsonMock.mockRejectedValue(upstream);
-
+  it('retires legacy location writes before transport dispatch @contract', async () => {
     await expect(
       patchGoogleBusinessProfileLocation('token-1', 'locations/123', { title: 'X' }, ['title']),
-    ).rejects.toBe(upstream);
+    ).rejects.toMatchObject({ code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED' });
+    expect(googleFetchJsonMock).not.toHaveBeenCalled();
   });
 });

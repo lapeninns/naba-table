@@ -173,6 +173,33 @@ describe('useOpsDualSync', () => {
     } as never);
   });
 
+  it('marks every dual-sync query as non-persistent', () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    renderHook(
+      () =>
+        useOpsDualSync({
+          restaurantId,
+          operationsRequest: {},
+          jobsRequest: {},
+          candidatesRequest: {},
+          metricsRequest: {},
+          publishJobsRequest: {},
+          publishJobDetailId: 'publish-job-1',
+        }),
+      { wrapper },
+    );
+
+    const dualSyncQueries = queryClient
+      .getQueryCache()
+      .getAll()
+      .filter((query) => String(query.queryKey[0]).startsWith('dual-sync-'));
+
+    expect(dualSyncQueries).toHaveLength(7);
+    expect(dualSyncQueries.every((query) => query.meta?.persist === false)).toBe(true);
+  });
+
   it('invalidates cached restaurant profile details after dual-sync publish', async () => {
     const queryClient = createTestQueryClient();
     const wrapper = createQueryWrapper(queryClient);

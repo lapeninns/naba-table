@@ -9,6 +9,8 @@
  * stack during the rollout window.
  */
 
+export * from './contracts';
+
 // ---------------------------------------------------------------------------
 // Provider + sections
 // ---------------------------------------------------------------------------
@@ -159,6 +161,11 @@ export interface DualSyncJob {
   readonly idempotencyKey: string | null;
   readonly priority: number;
   readonly payload: unknown;
+  readonly externalProfileId: string | null;
+  readonly externalAccountId: string | null;
+  readonly externalLocationId: string | null;
+  readonly connectionGeneration: number | null;
+  readonly consentEpoch: number | null;
   readonly attemptCount: number;
   readonly maxAttempts: number;
   readonly availableAt: string;
@@ -346,7 +353,7 @@ export interface DualSyncGoogleRequestLog {
   readonly responseSummary: unknown;
   readonly errorCode: string | null;
   readonly errorMessage: string | null;
-  readonly retentionExpiresAt: string;
+  readonly retentionExpiresAt: string | null;
   readonly createdAt: string;
 }
 

@@ -1,12 +1,18 @@
 import { logger } from '@/lib/logger';
 
 import { syncGoogleBusinessProfileCanonicalBusinessInfo } from './business-info';
+import { toJson } from './businessInfoNormalization';
 import {
   getGoogleBusinessProfileLocationAttributes,
   getGoogleBusinessProfileLocationProfile,
   parseGoogleLocationId,
 } from './client';
-import { getUsableGoogleBusinessProfileAccessToken } from './serviceAccessRuntime';
+import { requireGoogleBusinessProfileContentFence } from './contentSnapshotPersistence';
+import {
+  getUsableGoogleBusinessProfileAccessToken,
+  isGoogleProviderAccessFailure,
+  persistGoogleProviderAccessFailure,
+} from './serviceAccessRuntime';
 import {
   buildBusinessInfoSyncExternalProfileUpdate,
   buildBusinessInfoSyncFailureExternalProfileUpdate,
@@ -29,6 +35,7 @@ import {
 
 import type { GoogleBusinessProfileAttributesResponse } from './client';
 import type { GoogleBusinessProfileConnectionState } from './serviceConnectionStateTypes';
+import type { Json } from '@/types/supabase';
 
 const gbpBusinessInfoSyncLogger = logger.child({ module: 'gbp' });
 
@@ -36,12 +43,31 @@ export type GoogleBusinessProfileBusinessInfoSyncRuntimeClock = () => string;
 
 const nowIso: GoogleBusinessProfileBusinessInfoSyncRuntimeClock = () => new Date().toISOString();
 
-export async function syncGoogleBusinessProfileBusinessInformationForClient(params: {
+export interface GoogleBusinessProfileObservation {
+  readonly fence: {
+    readonly restaurantId: string;
+    readonly externalProfileRowId: string;
+    readonly accountId: string;
+    readonly profileId: string;
+    readonly locationId: string;
+    readonly connectionGeneration: number;
+    readonly consentEpoch: number;
+  };
+  readonly observedAt: string;
+  readonly rawPayload: Json;
+}
+
+export interface GoogleBusinessProfileSyncWithObservationResult {
+  readonly connectionState: GoogleBusinessProfileConnectionState;
+  readonly observation: GoogleBusinessProfileObservation;
+}
+
+export async function syncGoogleBusinessProfileBusinessInformationWithObservationForClient(params: {
   restaurantId: string;
   client: DbClient;
   runKind?: GoogleBusinessProfileBusinessInfoSyncRunKind;
   clock?: GoogleBusinessProfileBusinessInfoSyncRuntimeClock;
-}): Promise<GoogleBusinessProfileConnectionState> {
+}): Promise<GoogleBusinessProfileSyncWithObservationResult> {
   const resolveNow = params.clock ?? nowIso;
   const externalProfile = await ensureExternalProfile(params.restaurantId, params.client);
   const startedAt = resolveNow();
@@ -67,6 +93,7 @@ export async function syncGoogleBusinessProfileBusinessInformationForClient(para
         externalProfile.external_location_id ?? parseGoogleLocationId(location.name),
       );
     } catch (error) {
+      if (isGoogleProviderAccessFailure(error)) throw error;
       attributeWarning = formatGoogleBusinessProfileAttributeWarning(error);
       gbpBusinessInfoSyncLogger.warn('attribute sync skipped', {
         restaurantId: params.restaurantId,
@@ -113,8 +140,40 @@ export async function syncGoogleBusinessProfileBusinessInformationForClient(para
       params.client,
     );
 
-    return getGoogleBusinessProfileConnectionStateForClient(params.restaurantId, params.client);
+    const connectionState = await getGoogleBusinessProfileConnectionStateForClient(
+      params.restaurantId,
+      params.client,
+    );
+    const contentFence = requireGoogleBusinessProfileContentFence(
+      params.restaurantId,
+      externalProfile,
+    );
+    const rawLocation = { ...location };
+    delete rawLocation.__nabatableOptionalFetchStatus;
+    delete rawLocation.__nabatableRawResponses;
+    return {
+      connectionState,
+      observation: {
+        fence: {
+          restaurantId: contentFence.restaurantId,
+          externalProfileRowId: contentFence.externalProfileRowId,
+          accountId: contentFence.externalAccountId,
+          profileId: contentFence.externalProfileId,
+          locationId: contentFence.externalLocationId,
+          connectionGeneration: contentFence.connectionGeneration,
+          consentEpoch: contentFence.consentEpoch,
+        },
+        observedAt: syncedAt,
+        rawPayload: toJson({
+          locationResponses: location.__nabatableRawResponses ?? [rawLocation],
+          attributesResponse: attributes,
+        }),
+      },
+    };
   } catch (error) {
+    if (await persistGoogleProviderAccessFailure(error, externalProfile, params.client)) {
+      throw error;
+    }
     await updateExternalProfile(
       externalProfile.id,
       buildBusinessInfoSyncFailureExternalProfileUpdate(error),
@@ -135,4 +194,14 @@ export async function syncGoogleBusinessProfileBusinessInformationForClient(para
 
     throw error;
   }
+}
+
+export async function syncGoogleBusinessProfileBusinessInformationForClient(params: {
+  restaurantId: string;
+  client: DbClient;
+  runKind?: GoogleBusinessProfileBusinessInfoSyncRunKind;
+  clock?: GoogleBusinessProfileBusinessInfoSyncRuntimeClock;
+}): Promise<GoogleBusinessProfileConnectionState> {
+  const result = await syncGoogleBusinessProfileBusinessInformationWithObservationForClient(params);
+  return result.connectionState;
 }

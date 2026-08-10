@@ -74,14 +74,10 @@ function logRow(id: string) {
 }
 
 describe('pruneExpiredGoogleRequestLogs', () => {
-  it('archives selected expired rows before deleting only that batch', async () => {
+  it('deletes selected expired rows without copying content to the legacy archive', async () => {
     const selectChain = makeChain([logRow('log-1'), logRow('log-2')]);
-    const archiveChain = makeChain([
-      { original_request_log_id: 'log-1' },
-      { original_request_log_id: 'log-2' },
-    ]);
     const deleteChain = makeChain([{ id: 'log-1' }, { id: 'log-2' }]);
-    const client = clientFor([selectChain, archiveChain, deleteChain]);
+    const client = clientFor([selectChain, deleteChain]);
 
     const result = await pruneExpiredGoogleRequestLogs({
       client,
@@ -90,33 +86,14 @@ describe('pruneExpiredGoogleRequestLogs', () => {
     });
 
     expect(client.from).toHaveBeenCalledWith('dual_sync_google_request_logs');
-    expect(client.from).toHaveBeenCalledWith('dual_sync_google_request_log_archives');
-    expect(selectChain.select).toHaveBeenCalledWith('*');
+    expect(client.from).not.toHaveBeenCalledWith('dual_sync_google_request_log_archives');
+    expect(selectChain.select).toHaveBeenCalledWith('id,retention_expires_at');
     expect(selectChain.lt).toHaveBeenCalledWith('retention_expires_at', '2026-05-10T00:00:00.000Z');
     expect(selectChain.order).toHaveBeenCalledWith('retention_expires_at', {
       ascending: true,
     });
     expect(selectChain.limit).toHaveBeenCalledWith(2);
-    expect(archiveChain.upsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          original_request_log_id: 'log-1',
-          restaurant_id: 'rest-1',
-          retention_expires_at: '2026-05-09T00:00:00.000Z',
-          original_created_at: '2026-04-10T00:00:00.000Z',
-          archived_payload: expect.objectContaining({
-            id: 'log-1',
-            request_summary: { fieldKey: 'profile.name' },
-            response_summary: { ok: true },
-          }),
-        }),
-        expect.objectContaining({
-          original_request_log_id: 'log-2',
-        }),
-      ],
-      { onConflict: 'original_request_log_id' },
-    );
-    expect(archiveChain.select).toHaveBeenCalledWith('original_request_log_id');
+    expect(client.from).not.toHaveBeenCalledWith('dual_sync_google_request_log_archives');
     expect(deleteChain.delete).toHaveBeenCalled();
     expect(deleteChain.in).toHaveBeenCalledWith('id', ['log-1', 'log-2']);
     expect(deleteChain.select).toHaveBeenCalledWith('id');
@@ -124,10 +101,24 @@ describe('pruneExpiredGoogleRequestLogs', () => {
       cutoff: '2026-05-10T00:00:00.000Z',
       limit: 2,
       selected: 2,
-      archived: 2,
+      archived: 0,
       deleted: 2,
       moreLikely: true,
     });
+  });
+
+  it('performs a real census without mutation in dry-run mode', async () => {
+    const selectChain = makeChain([logRow('log-1')]);
+    const client = clientFor([selectChain]);
+
+    const result = await pruneExpiredGoogleRequestLogs({
+      client,
+      now: '2026-05-10T00:00:00.000Z',
+      dryRun: true,
+    });
+
+    expect(client.from).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ selected: 1, archived: 0, deleted: 0 });
   });
 
   it('does not issue a delete when no expired ids are selected', async () => {

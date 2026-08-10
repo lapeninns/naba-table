@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { resetEnvCache } from '@/lib/env';
 import {
   getDualSyncDecisionDisabledReason,
   getDualSyncRuntimeControls,
@@ -15,6 +16,9 @@ const FLAG_NAMES = [
   'GBP_MENU_SYNC_ENABLED',
   'GBP_ATTRIBUTES_SYNC_ENABLED',
   'GBP_SCHEDULED_REFRESH_ENABLED',
+  'GBP_PUBSUB_INGEST_ENABLED',
+  'GBP_WRITE_ROLLOUT_MODE',
+  'GBP_CANARY_RESTAURANT_ID',
 ] as const;
 
 const originalEnv = new Map<string, string | undefined>(
@@ -30,24 +34,28 @@ afterEach(() => {
       process.env[name] = original;
     }
   }
+  resetEnvCache();
 });
 
 describe('dual-sync runtime controls', () => {
-  it('defaults targeted rollback controls to enabled', () => {
+  it('defaults write controls to fail closed while retaining candidate discovery', () => {
     for (const name of FLAG_NAMES) {
       delete process.env[name];
     }
 
     expect(isDualSyncAutoCandidatesEnabled()).toBe(true);
-    expect(isDualSyncScheduledRefreshEnabled()).toBe(true);
+    expect(isDualSyncScheduledRefreshEnabled()).toBe(false);
     expect(getDualSyncRuntimeControls()).toMatchObject({
-      importEnabled: true,
-      exportEnabled: true,
+      importEnabled: false,
+      exportEnabled: false,
       autoCandidatesEnabled: true,
-      highRiskExportsEnabled: true,
-      menuSyncEnabled: true,
-      attributesSyncEnabled: true,
-      scheduledRefreshEnabled: true,
+      highRiskExportsEnabled: false,
+      menuSyncEnabled: false,
+      attributesSyncEnabled: false,
+      scheduledRefreshEnabled: false,
+      pubsubIngestEnabled: false,
+      writeRolloutMode: 'off',
+      canaryRestaurantId: null,
     });
   });
 

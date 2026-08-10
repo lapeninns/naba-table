@@ -6,7 +6,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -14,6 +13,8 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { cancelOutboundCandidate } from '@/server/dual-sync/outbound';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -43,7 +44,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     'dual-sync-candidate-cancel',
     _req,
   );
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const candidate = await cancelOutboundCandidate({
@@ -58,10 +59,9 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
         'DUAL_SYNC_CANDIDATE_NOT_CANCELLABLE',
       );
     }
-    return NextResponse.json({ restaurantId, candidate }, { status: 200 });
+    return gbpNoStoreJson({ restaurantId, candidate }, { status: 200 });
   } catch (error) {
-    console.error('[dual-sync][candidate-cancel] failed', error);
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-candidate-cancel' },

@@ -34,7 +34,9 @@ export function DualSyncShellReadyContent({
     <>
       <DualSyncShellDialogs
         shellActions={shellActions}
-        publishPending={workspace.publishMutation.isPending}
+        publishPending={
+          workspace.exactPublishMutation?.isPending ?? workspace.publishMutation.isPending
+        }
       />
       <TooltipProvider delayDuration={250}>
         <div className="flex flex-col gap-4">

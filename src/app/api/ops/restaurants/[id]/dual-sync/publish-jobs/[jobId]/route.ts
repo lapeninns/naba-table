@@ -13,7 +13,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -21,6 +20,8 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { getPublishJobDetailForRestaurant } from '@/server/dual-sync/publish/operations';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -46,7 +47,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing job id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-publish-job-detail');
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const detail = await getPublishJobDetailForRestaurant({
@@ -61,10 +62,10 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
         'DUAL_SYNC_PUBLISH_JOB_NOT_FOUND',
       );
     }
-    return NextResponse.json({ restaurantId, ...detail }, { status: 200 });
+    return gbpNoStoreJson({ restaurantId, ...detail }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load publish job detail';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-publish-job' },

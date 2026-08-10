@@ -25,7 +25,7 @@ import {
 } from '@/server/google-business-profile/food-menus-sync';
 import {
   getGoogleBusinessProfileFoodMenusContext,
-  syncGoogleBusinessProfileBusinessInformation,
+  syncGoogleBusinessProfileBusinessInformationWithObservation,
 } from '@/server/google-business-profile/service';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -35,12 +35,19 @@ import { runWithDualSyncLock, type DualSyncLockManager } from '../locks';
 import { createGoogleRequestLog } from '../publish/google-request-logs';
 import { readGoogleSnapshot } from '../snapshots/google';
 import { readNabatableSnapshot } from '../snapshots/nabatable';
-import { commitSnapshotRun, failSnapshotRun, openSnapshotRun } from '../snapshots/runs';
+import {
+  commitSnapshotRun,
+  failSnapshotRun,
+  openSnapshotRun,
+  readLatestSucceededRun,
+  resolveGoogleContentFence,
+  type GoogleContentFence,
+} from '../snapshots/runs';
 import { recomputeAllStates, type RecomputeAllStatesOutput } from '../state/recompute';
 
 import type { DualSyncCanonicalSnapshot } from '../snapshots/types';
 import type { DualSyncSnapshotRun, DualSyncSnapshotRunKind } from '../types';
-import type { Database } from '@/types/supabase';
+import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -266,7 +273,18 @@ async function refreshFromGoogleUnlocked({
   runKind,
   skipPull,
 }: Required<Pick<RefreshFromGoogleInput, 'restaurantId' | 'client' | 'runKind' | 'skipPull'>>) {
-  const snapshotRun = await openSnapshotRun({ client, restaurantId, runKind });
+  const googleFence = await resolveGoogleContentFence({ client, restaurantId });
+  const snapshotRun = skipPull
+    ? await readLatestSucceededRun({ client, googleFence, runKind })
+    : await openSnapshotRun({ client, restaurantId, runKind, googleFence });
+  if (!snapshotRun) {
+    throw new Error('No current Google snapshot is available for recomputation.');
+  }
+  let observation: {
+    readonly fence: GoogleContentFence;
+    readonly observedAt: string;
+    readonly rawPayload: Json;
+  } | null = null;
   let foodMenusRefresh: FoodMenusRefreshResult = {
     status: 'skipped',
     reason: 'skip_pull',
@@ -275,9 +293,17 @@ async function refreshFromGoogleUnlocked({
 
   try {
     if (!skipPull) {
-      await syncGoogleBusinessProfileBusinessInformation(restaurantId, client, {
-        runKind: mapRunKindToLegacy(runKind),
-      });
+      const synced = await syncGoogleBusinessProfileBusinessInformationWithObservation(
+        restaurantId,
+        client,
+        {
+          runKind: mapRunKindToLegacy(runKind),
+        },
+      );
+      observation = synced.observation;
+      if (!sameGoogleFence(googleFence, observation.fence)) {
+        throw new Error('Google snapshot observation fence changed during refresh.');
+      }
       foodMenusRefresh = await refreshFoodMenusSnapshotsForDualSync({
         client,
         restaurantId,
@@ -299,12 +325,18 @@ async function refreshFromGoogleUnlocked({
     };
     const snapshotHash = hashCanonicalJson(canonical) ?? '';
 
-    const committed = await commitSnapshotRun({
-      client,
-      runId: snapshotRun.id,
-      canonicalSnapshot: canonical,
-      snapshotHash,
-    });
+    const committed = observation
+      ? await commitSnapshotRun({
+          client,
+          runId: snapshotRun.id,
+          runKind,
+          googleFence,
+          observedAt: observation.observedAt,
+          rawPayload: observation.rawPayload,
+          canonicalSnapshot: canonical,
+          snapshotHash,
+        })
+      : snapshotRun;
 
     const recompute = await recomputeAllStates({
       client,
@@ -328,7 +360,13 @@ async function refreshFromGoogleUnlocked({
         },
         responseSummary: {
           snapshotHash,
-          foodMenusRefresh,
+          foodMenusStatus: foodMenusRefresh.status,
+          foodMenusReason:
+            foodMenusRefresh.status === 'skipped' ? foodMenusRefresh.reason : undefined,
+          googleFoodMenusHash:
+            foodMenusRefresh.status === 'refreshed'
+              ? foodMenusRefresh.googleFoodMenusHash
+              : undefined,
           evaluatedFieldCount: recompute.evaluatedFieldKeys.length,
           transitionCount: recompute.transitions.length,
         },
@@ -345,12 +383,17 @@ async function refreshFromGoogleUnlocked({
   } catch (error) {
     const code = snapshotRunErrorCode(error);
     const message = errorMessage(error);
-    await failSnapshotRun({
-      client,
-      runId: snapshotRun.id,
-      errorCode: code,
-      errorMessage: message,
-    });
+    if (snapshotRun.status === 'pending') {
+      await failSnapshotRun({
+        client,
+        restaurantId,
+        runId: snapshotRun.id,
+        runKind,
+        googleFence,
+        errorCode: code,
+        errorMessage: message,
+      });
+    }
     if (!skipPull) {
       await createGoogleRequestLog({
         client,
@@ -365,11 +408,22 @@ async function refreshFromGoogleUnlocked({
         },
         responseSummary: null,
         errorCode: code,
-        errorMessage: message,
       });
     }
     throw error;
   }
+}
+
+function sameGoogleFence(left: GoogleContentFence, right: GoogleContentFence): boolean {
+  return (
+    left.restaurantId === right.restaurantId &&
+    left.externalProfileRowId === right.externalProfileRowId &&
+    left.accountId === right.accountId &&
+    left.profileId === right.profileId &&
+    left.locationId === right.locationId &&
+    left.connectionGeneration === right.connectionGeneration &&
+    left.consentEpoch === right.consentEpoch
+  );
 }
 
 export async function refreshFromGoogleWithoutLock(

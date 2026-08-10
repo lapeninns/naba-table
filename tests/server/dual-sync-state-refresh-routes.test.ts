@@ -11,6 +11,7 @@ const readGoogleSnapshotMock = vi.hoisted(() => vi.fn());
 const listFieldStatesMock = vi.hoisted(() => vi.fn());
 const listOpenOutboundCandidatesMock = vi.hoisted(() => vi.fn());
 const readLatestSucceededRunMock = vi.hoisted(() => vi.fn());
+const loadCurrentGoogleContentFenceMock = vi.hoisted(() => vi.fn());
 const buildRegistryMock = vi.hoisted(() => vi.fn());
 const resolveFieldCapabilityMock = vi.hoisted(() => vi.fn());
 const hashCanonicalJsonMock = vi.hoisted(() => vi.fn());
@@ -53,6 +54,10 @@ vi.mock('@/server/dual-sync/outbound/candidates', () => ({
 
 vi.mock('@/server/dual-sync/snapshots/runs', () => ({
   readLatestSucceededRun: readLatestSucceededRunMock,
+}));
+
+vi.mock('@/server/dual-sync/retention/supabase-port', () => ({
+  loadCurrentGoogleContentFence: loadCurrentGoogleContentFenceMock,
 }));
 
 vi.mock('@/server/dual-sync/registry', () => ({
@@ -101,6 +106,7 @@ describe('dual-sync state and refresh routes', () => {
     listFieldStatesMock.mockReset();
     listOpenOutboundCandidatesMock.mockReset();
     readLatestSucceededRunMock.mockReset();
+    loadCurrentGoogleContentFenceMock.mockReset();
     buildRegistryMock.mockReset();
     resolveFieldCapabilityMock.mockReset();
     hashCanonicalJsonMock.mockReset();
@@ -129,6 +135,15 @@ describe('dual-sync state and refresh routes', () => {
     listFieldStatesMock.mockResolvedValue([]);
     listOpenOutboundCandidatesMock.mockResolvedValue([]);
     readLatestSucceededRunMock.mockResolvedValue(null);
+    loadCurrentGoogleContentFenceMock.mockResolvedValue({
+      restaurantId: 'rest-1',
+      externalProfileRowId: 'profile-row-1',
+      externalAccountId: 'account-1',
+      externalProfileId: 'profile-1',
+      externalLocationId: 'location-1',
+      connectionGeneration: 4,
+      consentEpoch: 7,
+    });
     buildRegistryMock.mockReturnValue([]);
     hashCanonicalJsonMock.mockReturnValue('hash');
     requireProviderRefreshBudgetMock.mockResolvedValue(null);
@@ -236,6 +251,19 @@ describe('dual-sync state and refresh routes', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store, max-age=0');
+    expect(readLatestSucceededRunMock).toHaveBeenCalledWith({
+      client: serviceClient,
+      googleFence: {
+        restaurantId: 'rest-1',
+        externalProfileRowId: 'profile-row-1',
+        accountId: 'account-1',
+        profileId: 'profile-1',
+        locationId: 'location-1',
+        connectionGeneration: 4,
+        consentEpoch: 7,
+      },
+    });
     await expect(response.json()).resolves.toMatchObject({
       fields: [
         {

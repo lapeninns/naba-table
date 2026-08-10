@@ -254,6 +254,16 @@ async function postOperatingHours(req: NextRequest, restaurantId: string) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
+  if (payload.direction === 'push_to_gbp') {
+    return NextResponse.json(
+      {
+        error: 'Legacy Google Business Profile writes are retired.',
+        code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+      },
+      { status: 410 },
+    );
+  }
+
   try {
     const authResponse = await ensureAuthorized(restaurantId);
     if (authResponse instanceof NextResponse) {

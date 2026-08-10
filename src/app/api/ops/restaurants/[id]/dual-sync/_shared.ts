@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-
 import { DUAL_SYNC_RESTAURANT_PAUSED_CODE } from '@/server/dual-sync/controls';
+import { gbpNoStoreJson } from '@/server/dual-sync/retention/privacy';
 
 export function dualSyncErrorResponse(
   message: string,
@@ -8,7 +7,7 @@ export function dualSyncErrorResponse(
   code?: string,
   extra?: Record<string, unknown>,
 ) {
-  return NextResponse.json(
+  return gbpNoStoreJson(
     {
       message,
       error: message,

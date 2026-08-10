@@ -1,6 +1,9 @@
 'use client';
 
+import { useOpsSession } from '@/contexts/ops-session';
+
 import { SettingsSectionStates } from '../shared';
+import { GbpOperatorControls } from './components/GbpOperatorControls';
 import {
   EmptyGbpConnectionSection,
   ErrorGbpSection,
@@ -24,6 +27,7 @@ export function GoogleBusinessProfileSection({
   restaurantId,
   hasSyncWorkspace = true,
 }: GoogleBusinessProfileSectionProps) {
+  const { permissions } = useOpsSession();
   const state = useGoogleBusinessProfileSectionState({
     restaurantId,
     hasSyncWorkspace,
@@ -81,12 +85,17 @@ export function GoogleBusinessProfileSection({
                 ) : null}
 
                 {state.isLinked ? (
-                  <GbpSyncSummarySection
-                    status={state.data.status === 'sync_error' ? 'sync_error' : 'linked'}
-                    lastError={state.data.lastError}
-                    hasSyncWorkspace={hasSyncWorkspace}
-                    gbpDrift={state.gbpDrift}
-                  />
+                  <>
+                    <GbpSyncSummarySection
+                      status={state.data.status === 'sync_error' ? 'sync_error' : 'linked'}
+                      lastError={state.data.lastError}
+                      hasSyncWorkspace={hasSyncWorkspace}
+                      gbpDrift={state.gbpDrift}
+                    />
+                    {restaurantId && permissions.canManageSettings ? (
+                      <GbpOperatorControls restaurantId={restaurantId} />
+                    ) : null}
+                  </>
                 ) : null}
               </>
             ) : (

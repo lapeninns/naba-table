@@ -33,3 +33,24 @@ export {
   parseGoogleAccountId,
   parseGoogleLocationId,
 } from './clientResourceNames';
+export {
+  createGoogleUpdatesClient,
+  masksOverlap,
+  normalizeGoogleUpdateMasks,
+} from './googleUpdates';
+export {
+  createGoogleFoodMenusMutationClient,
+  createGoogleListingMutationClient,
+  GoogleWritePreDispatchError,
+  isGoogleWritePreDispatchError,
+} from './mutationClients';
+export {
+  claimGoogleWritePermit,
+  executeGoogleWrite,
+  hashGoogleRequest,
+  issueGoogleWritePermitsFromClaimedBundle,
+  GoogleWritePermit,
+  GoogleWriteOutcomeUnknownError,
+  isGoogleWriteOutcomeUnknownError,
+} from './writePermit';
+export { createGoogleWritePermitStore } from './writePermitRepository';

@@ -92,6 +92,7 @@ vi.mock('@/server/dual-sync/controls', () => ({
   getDualSyncRestaurantControl: getDualSyncRestaurantControlMock,
 }));
 
+import { resetEnvCache } from '@/lib/env';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { runPublish as runPublishBase } from '@/server/dual-sync/publish/orchestrator';
 import { valueForField } from '@/server/dual-sync/publish/orchestrator-domain';
@@ -110,6 +111,9 @@ afterEach(() => {
   delete process.env.GBP_EXPORT_ENABLED;
   delete process.env.GBP_IMPORT_ENABLED;
   delete process.env.GBP_HIGH_RISK_EXPORTS_ENABLED;
+  delete process.env.GBP_MENU_SYNC_ENABLED;
+  delete process.env.GBP_ATTRIBUTES_SYNC_ENABLED;
+  resetEnvCache();
 });
 
 function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCanonicalSnapshot {
@@ -218,6 +222,12 @@ function noopOperation(over: Record<string, unknown> = {}) {
 
 describe('dual-sync runPublish', () => {
   beforeEach(() => {
+    process.env.GBP_IMPORT_ENABLED = 'true';
+    process.env.GBP_EXPORT_ENABLED = 'true';
+    process.env.GBP_HIGH_RISK_EXPORTS_ENABLED = 'true';
+    process.env.GBP_MENU_SYNC_ENABLED = 'true';
+    process.env.GBP_ATTRIBUTES_SYNC_ENABLED = 'true';
+    resetEnvCache();
     createOperationMock.mockReset();
     updateOperationStatusMock.mockReset();
     listOperationsForJobMock.mockReset();
@@ -711,10 +721,11 @@ describe('dual-sync runPublish', () => {
           groupId: 'export_to_google:operatingHours:location.regularHours',
           fieldKeys: ['operatingHours.weekly.1'],
         }),
-        responseSummary: { validateOnly: false },
+        responseSummary: { resultHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
         errorCode: 'GOOGLE_VALIDATION_FAILED',
       }),
     );
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain('validateOnly');
     expect(result.summary.failures).toEqual([
       expect.objectContaining({
         fieldKey: 'operatingHours.weekly.1',
@@ -846,7 +857,13 @@ describe('dual-sync runPublish', () => {
 
     const ports: DualSyncOrchestratorPorts = {
       applyImportToCore: vi.fn(),
-      applyExportToGoogle: vi.fn().mockResolvedValue({ status: 'succeeded' }),
+      applyExportToGoogle: vi.fn().mockResolvedValue({
+        status: 'succeeded',
+        externalResponse: {
+          access_token: 'provider-token',
+          customerEmail: 'private@example.test',
+        },
+      }),
     };
 
     await runPublishWithDefaultSnapshotPins(
@@ -874,7 +891,12 @@ describe('dual-sync runPublish', () => {
         phase: 'provider_write',
         status: 'succeeded',
         googleUpdateMasks: ['profile'],
+        responseSummary: { responseHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
       }),
+    );
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain('provider-token');
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain(
+      'private@example.test',
     );
   });
 

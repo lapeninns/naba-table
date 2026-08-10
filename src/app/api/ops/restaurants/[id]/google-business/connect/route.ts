@@ -28,7 +28,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     });
 
     const response = NextResponse.json({ authorizationUrl: authorization.authorizationUrl });
-    setGoogleBusinessProfileOAuthStateCookie(response, authorization.stateToken);
+    setGoogleBusinessProfileOAuthStateCookie(
+      response,
+      authorization.stateToken,
+      resolved.restaurantId,
+    );
     return response;
   } catch (error) {
     return googleBusinessErrorResponse(

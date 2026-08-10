@@ -38,7 +38,7 @@ function rowToCandidate(row: DualSyncOutboundCandidateRow): DualSyncOutboundCand
     provider: row.provider,
     sectionKey: row.section_key as DualSyncSectionKey,
     fieldKey: row.field_key,
-    proposedValue: row.proposed_value ?? null,
+    proposedValue: row.source === 'scheduled' ? null : (row.proposed_value ?? null),
     proposedValueHash: row.proposed_value_hash,
     baselineGbpHash: row.baseline_gbp_hash,
     status: row.status,
@@ -78,6 +78,11 @@ export async function upsertOutboundCandidate({
   source = 'core_write',
   createdByUserId,
 }: UpsertOutboundCandidateInput): Promise<DualSyncOutboundCandidate> {
+  if (source === 'scheduled') {
+    throw new Error(
+      'Google-derived candidate copies are disabled; reconstruct from a current raw snapshot.',
+    );
+  }
   const dual = getDualSyncDbClient(client);
   const candidatePatch = {
     proposed_value: proposedValue as Json,
@@ -197,7 +202,10 @@ export async function listOpenOutboundCandidates({
   if (error) {
     throw error;
   }
-  return (data ?? []).map(rowToCandidate);
+  return (data ?? [])
+    .map((row) => row as DualSyncOutboundCandidateRow)
+    .filter((row) => row.source !== 'scheduled')
+    .map(rowToCandidate);
 }
 
 export interface ListOutboundCandidatesInput {
@@ -228,7 +236,10 @@ export async function listOutboundCandidates({
   if (error) {
     throw error;
   }
-  return (data ?? []).map(rowToCandidate);
+  return (data ?? [])
+    .map((row) => row as DualSyncOutboundCandidateRow)
+    .filter((row) => row.source !== 'scheduled')
+    .map(rowToCandidate);
 }
 
 export interface CancelOutboundCandidateInput {

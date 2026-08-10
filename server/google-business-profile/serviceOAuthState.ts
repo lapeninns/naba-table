@@ -15,8 +15,15 @@ type OAuthStatePolicyFields = Pick<
   Database['public']['Tables']['restaurant_external_profile_oauth_states']['Row'],
   'requested_by_user_id' | 'restaurant_id' | 'consumed_at' | 'expires_at'
 >;
-type OAuthStateInsert =
-  Database['public']['Tables']['restaurant_external_profile_oauth_states']['Insert'];
+type LegacyOAuthStateInsert = Pick<
+  Database['public']['Tables']['restaurant_external_profile_oauth_states']['Insert'],
+  | 'restaurant_id'
+  | 'provider'
+  | 'requested_by_user_id'
+  | 'state_token'
+  | 'return_path'
+  | 'expires_at'
+>;
 type OAuthStateUpdate =
   Database['public']['Tables']['restaurant_external_profile_oauth_states']['Update'];
 
@@ -34,7 +41,7 @@ export function buildGoogleBusinessProfileOAuthStateInsert(params: {
   stateToken: string;
   returnPath: string | null | undefined;
   expiresAt: string;
-}): OAuthStateInsert {
+}): LegacyOAuthStateInsert {
   return {
     restaurant_id: params.restaurantId,
     provider: 'google_business_profile',

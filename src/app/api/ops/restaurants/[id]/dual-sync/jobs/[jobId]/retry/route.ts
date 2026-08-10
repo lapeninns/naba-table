@@ -5,7 +5,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -13,6 +12,8 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { retryDualSyncJob } from '@/server/dual-sync/queue';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -38,7 +39,7 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing job id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-job-retry', _req);
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const job = await retryDualSyncJob({
@@ -53,10 +54,10 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
         'DUAL_SYNC_JOB_NOT_RETRYABLE',
       );
     }
-    return NextResponse.json({ restaurantId, job }, { status: 200 });
+    return gbpNoStoreJson({ restaurantId, job }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to retry dual-sync job';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-job-retry' },

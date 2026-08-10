@@ -126,7 +126,7 @@ describe('google business profile workflow repository', () => {
     expect(isUniqueConstraintError({ code: 'PGRST116' })).toBe(false);
   });
 
-  it('inserts publish events with provider, direction, values, and pending result', async () => {
+  it('inserts publish events with metadata but without value copies', async () => {
     const insertedEvent = { id: 'event-1' };
     const { client, from, insert } = createInsertClient({
       data: insertedEvent,
@@ -155,8 +155,8 @@ describe('google business profile workflow repository', () => {
       provider: 'google_business_profile',
       direction: 'push_from_nabatable_to_google',
       affected_sections: ['profile'],
-      old_values: { name: 'Old' },
-      new_values: { name: 'New' },
+      old_values: {},
+      new_values: {},
       google_update_masks: ['title'],
       result: 'pending',
       errors: [],
@@ -198,6 +198,10 @@ describe('google business profile workflow repository', () => {
         selected_approvals: { 'profile.name': true },
         nabatable_sections: ['profile'],
         google_update_masks: ['title'],
+        preflight_nabatable_updates: [],
+        preflight_pull_only_items: [],
+        preflight_warnings: [],
+        preflight_errors: [],
         created_by_user_id: 'user-1',
       }),
     );

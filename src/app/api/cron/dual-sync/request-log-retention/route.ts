@@ -1,19 +1,23 @@
 /**
  * GET /api/cron/dual-sync/request-log-retention
  *
- * Cron-authenticated bounded retention job for redacted Google request-log
- * summaries. Archives, then deletes only expired rows selected by id in the
- * current batch.
+ * Cron-authenticated bounded retention census/purge across classified GBP
+ * stores. Content summaries are never copied into the legacy archive.
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
-import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
-import { pruneExpiredGoogleRequestLogs } from '@/server/dual-sync/publish';
+import { logger } from '@/lib/logger';
+import {
+  GBP_NO_STORE_HEADERS,
+  createSupabaseContentRetentionPort,
+  gbpNoStoreResponse,
+  runContentRetention,
+} from '@/server/dual-sync/retention';
 import { recordObservabilityEvent } from '@/server/observability';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -35,7 +39,7 @@ function isTruthyFlag(value: string | null): boolean {
 
 export async function GET(request: Request) {
   await flushPosthogLogsAfterResponse();
-  return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
+  const response = await requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     const url = new URL(request.url);
     const dryRun = isTruthyFlag(url.searchParams.get('dryRun'));
     const limit = Math.min(
@@ -43,20 +47,6 @@ export async function GET(request: Request) {
       MAX_LIMIT,
     );
     const cutoff = new Date().toISOString();
-
-    if (dryRun) {
-      return NextResponse.json({
-        success: true,
-        runId: auth.runId,
-        dryRun: true,
-        cutoff,
-        limit,
-        selected: 0,
-        archived: 0,
-        deleted: 0,
-        moreLikely: false,
-      });
-    }
 
     try {
       await recordObservabilityEvent({
@@ -71,10 +61,13 @@ export async function GET(request: Request) {
         },
       });
 
-      const summary = await pruneExpiredGoogleRequestLogs({
-        client: getServiceSupabaseClient(),
-        now: cutoff,
+      const client = getServiceSupabaseClient();
+      const summary = await runContentRetention({
+        port: createSupabaseContentRetentionPort(client),
+        now: new Date(cutoff),
         limit,
+        dryRun,
+        timeBudgetMs: 20_000,
       });
 
       await recordObservabilityEvent({
@@ -84,34 +77,25 @@ export async function GET(request: Request) {
         context: {
           jobName: auth.jobName,
           runId: auth.runId,
-          cutoff: summary.cutoff,
+          cutoff: summary.runAt,
           limit: summary.limit,
-          selected: summary.selected,
-          archived: summary.archived,
-          deleted: summary.deleted,
+          matched: summary.totals.matched,
+          mutated: summary.totals.mutated,
+          oldestOutstandingAgeMs: summary.oldestOutstandingAgeMs,
+          level: summary.level,
           moreLikely: summary.moreLikely,
         },
       });
 
-      return NextResponse.json({
-        success: true,
-        runId: auth.runId,
-        dryRun: false,
-        ...summary,
-      });
+      return NextResponse.json(
+        { success: true, runId: auth.runId, ...summary },
+        { headers: GBP_NO_STORE_HEADERS },
+      );
     } catch (error) {
-      console.error('[cron][dual-sync.request-log-retention] failed to run', {
+      logger.error('cron.dual-sync.content-retention.failed', {
         jobName: auth.jobName,
         runId: auth.runId,
-        error,
-      });
-      captureServerException(error, {
-        properties: {
-          jobName: auth.jobName,
-          runId: auth.runId,
-          source: 'cron',
-          kind: 'dual-sync-request-log-retention',
-        },
+        errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
       });
       await recordObservabilityEvent({
         source: 'cron.dual-sync.request-log-retention',
@@ -122,13 +106,14 @@ export async function GET(request: Request) {
           runId: auth.runId,
           cutoff,
           limit,
-          message: error instanceof Error ? error.message : String(error),
+          errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
         },
       });
       return NextResponse.json(
         { error: 'Dual-sync request-log retention cron failed.' },
-        { status: 500 },
+        { status: 500, headers: GBP_NO_STORE_HEADERS },
       );
     }
   });
+  return gbpNoStoreResponse(response);
 }

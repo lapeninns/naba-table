@@ -142,6 +142,7 @@ export function GbpWorkflowFrame({
           : 'Jump to the current setup step.'
       }
       railItems={railItems}
+      railClassName="max-sm:[&_[role=list]]:flex-wrap max-sm:[&_[role=list]]:overflow-visible"
       footer={<GbpFooter />}
     >
       <div className="flex min-w-0 flex-col gap-4">

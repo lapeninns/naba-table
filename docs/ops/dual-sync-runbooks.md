@@ -410,6 +410,103 @@ Required incident note:
 - Rollback action taken.
 - Follow-up owner.
 
+## Production Rollout, Canary, and Rollback Gate
+
+This procedure requires separate staging and production evidence. The source defaults are
+write-safe: `GBP_WRITE_ROLLOUT_MODE=off`, import/export/high-risk/menu/attributes/scheduled
+refresh/PubSub ingestion are false by default. `GBP_AUTO_CANDIDATES_ENABLED` is an exception
+and defaults true, so a rollback must set it explicitly false rather than relying on omission.
+
+Before setting a canary, capture a count-only readback of the write-grant and rollout state.
+The proposed canary venue must be the only venue in the readback and must have no unresolved
+grant, queue, or terminal-notice incident. Do not use a live customer venue unless the
+change approval identifies it.
+
+Canary set, readback, and restore have two exact rollout grants plus the deployment gate:
+
+1. The deployment configuration must set `GBP_WRITE_ROLLOUT_MODE=canary` and set
+   `GBP_CANARY_RESTAURANT_ID` to the same, recorded restaurant UUID. The environment schema
+   rejects canary mode without that UUID.
+2. The remote database must read back `gbp_write_rollout_config_v1.rollout_mode = canary`
+   and exactly one enabled row in `gbp_write_canary_restaurants_v1` for that restaurant.
+   These are the two remote authorization records: the global mode row and the venue row.
+3. Read back both deployment configuration and the two remote records before the first
+   approved write. Record only the restaurant UUID, row counts, timestamps, command names,
+   and an artifact digest; never record credentials, tokens, payloads, or guest data.
+4. Restore by setting the deployment rollout mode to `off`, removing or disabling the canary
+   row, and reading back `off` plus zero enabled canary rows. A restored deployment is not
+   proven safe until both configuration planes agree.
+
+The first canary write must use one named venue, one reviewed preview, and the exact current
+grant bundle. A grant is scoped to its ordered group, request/decision/update-mask hashes,
+connection generation, consent epoch, and execution. It is not a reusable approval. Record
+the bundle id, grant count, terminal status counts, and hash-only artifact reference; do not
+record raw request or provider response content.
+
+For rollback during or after a canary:
+
+1. Stop new public writes first: set `GBP_WRITE_ROLLOUT_MODE=off` and explicitly set
+   `GBP_IMPORT_ENABLED=false`, `GBP_EXPORT_ENABLED=false`, `GBP_AUTO_CANDIDATES_ENABLED=false`,
+   `GBP_HIGH_RISK_EXPORTS_ENABLED=false`, `GBP_MENU_SYNC_ENABLED=false`,
+   `GBP_ATTRIBUTES_SYNC_ENABLED=false`, `GBP_SCHEDULED_REFRESH_ENABLED=false`, and
+   `GBP_PUBSUB_INGEST_ENABLED=false` in the target deployment.
+2. Pause the affected restaurant before replay or diagnosis. Keep state and audit reads
+   available; do not delete jobs, grants, or observations.
+3. If application rollback is required, choose the last **permit-aware binary**: the newest
+   released binary that understands the exact-consent/claimed-grant persistence contract.
+   Do not roll back to a pre-permit binary merely because it predates the incident.
+4. Read back the deployed SHA, every disabled flag, rollout mode, paused state, and
+   outstanding grant/queue counts. Preserve this evidence before considering the incident
+   contained.
+5. Resume only after a fresh preview and new approval; stale permits and stale decisions
+   must not be replayed.
+
+## Pub/Sub Ingress Release Gate
+
+`/api/webhooks/google-business-profile/pubsub` remains disabled until
+`GBP_PUBSUB_INGEST_ENABLED=true` and all four required ingress values are present:
+expected audience, push service-account email, subscription, and topic. A production change
+must additionally attach external, metadata-only evidence for each item below:
+
+- Topic readback: exact project/topic resource name and the Google Business Profile
+  notification registration association.
+- Subscription readback: exact subscription resource name, the push endpoint URL, and the
+  configured OIDC audience. Do not retain the bearer token.
+- DLQ readback: dead-letter topic/subscription identity, max-delivery attempt policy, and the
+  operational owner/runbook for replay. A retry policy alone is not a DLQ.
+- IAM readback: the Google-managed publisher has publisher permission on the topic; the Pub/Sub
+  service agent can publish to the DLQ topic; and the configured push service account has only
+  the token-creation/identity permissions needed for the push subscription. Record principal
+  names, role names, resource names, and a digest, never service-account keys.
+- Ingress proof: an authenticated staging delivery produces a receipt/queue outcome with
+  count-only readback; an invalid audience or signer is rejected. Do not use production
+  notifications as this test.
+
+## Credential-Key Rotation Dry Run
+
+The keyring needs both `GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID` and
+`GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS`; the active id must be present in the keyring. Rotate
+staging first with both old and new keys present, then run the rotation census in `dryRun`
+mode with a bounded limit. The only acceptable dry-run artifact is count-only:
+`examined`, `oldKeyCount`, `rewrapped=0`, and `conflicts=0`, plus active key id and an artifact
+digest. Never emit an envelope, plaintext, key material, refresh token, or database row.
+
+Only after the dry-run census and a separately approved write window may a bounded compare and
+swap rewrap run. Keep the old key available until a post-run census reports `oldKeyCount=0` and
+the restoration owner approves its removal.
+
+## Retention, Backup, and PITR Census
+
+Before enabling production writes, record a count-only census from the retention readiness
+path: classified-store matched/mutated totals, oldest outstanding age, retention level, and
+whether more work is likely. The health cron performs a retention dry run; it is not permission
+to perform destructive cleanup.
+
+Record a separate external Supabase backup/PITR artifact that names the target project, backup
+status, PITR status/window, most recent successful backup timestamp, restore-test timestamp,
+and artifact digest. The checker treats this as an external gate because source and migrations
+cannot prove a remote backup policy or restore ability.
+
 ## Replay Drill
 
 Use replay before risky code or migration rollout.

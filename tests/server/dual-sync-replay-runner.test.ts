@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { resetEnvCache } from '@/lib/env';
 import {
   ATTRIBUTE_WIFI_FIELD_KEY,
   DUAL_SYNC_FAKE_GOOGLE_FAILURE_FIXTURES,
@@ -18,6 +19,24 @@ import type {
 } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
 import type { DualSyncSectionKey } from '@/server/dual-sync/types';
+
+const ENABLED_WRITE_FLAGS = [
+  'GBP_IMPORT_ENABLED',
+  'GBP_EXPORT_ENABLED',
+  'GBP_HIGH_RISK_EXPORTS_ENABLED',
+  'GBP_MENU_SYNC_ENABLED',
+  'GBP_ATTRIBUTES_SYNC_ENABLED',
+] as const;
+
+beforeEach(() => {
+  for (const name of ENABLED_WRITE_FLAGS) process.env[name] = 'true';
+  resetEnvCache();
+});
+
+afterEach(() => {
+  for (const name of ENABLED_WRITE_FLAGS) delete process.env[name];
+  resetEnvCache();
+});
 
 function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCanonicalSnapshot {
   return {

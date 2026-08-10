@@ -10,6 +10,7 @@ import {
   type DualSyncPublishOperationGroup,
   isDualSyncSectionKey,
 } from '../types';
+import { metadataOnlySummary } from './persistence-metadata';
 
 export function rowToBatch(row: DualSyncPublishBatchRow): DualSyncPublishBatch {
   return {
@@ -29,9 +30,9 @@ export function rowToBatch(row: DualSyncPublishBatchRow): DualSyncPublishBatch {
     acceptedCount: row.accepted_count,
     rejectedCount: row.rejected_count,
     ignoredCount: row.ignored_count,
-    planSummary: row.plan_summary ?? {},
+    planSummary: metadataOnlySummary(row.plan_summary ?? {}),
     errorCode: row.error_code,
-    errorMessage: row.error_message,
+    errorMessage: null,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
@@ -63,11 +64,13 @@ export function rowToOperationGroup(
     googleUpdateMasks: row.google_update_masks as DualSyncGoogleUpdateMask[],
     decisionCount: row.decision_count,
     preflightStatus: row.preflight_status,
-    preflightResult: row.preflight_result ?? null,
-    requestSummary: row.request_summary ?? null,
-    responseSummary: row.response_summary ?? null,
+    preflightResult:
+      row.preflight_result === null ? null : metadataOnlySummary(row.preflight_result),
+    requestSummary: row.request_summary === null ? null : metadataOnlySummary(row.request_summary),
+    responseSummary:
+      row.response_summary === null ? null : metadataOnlySummary(row.response_summary),
     errorCode: row.error_code,
-    errorMessage: row.error_message,
+    errorMessage: null,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
@@ -96,8 +99,8 @@ export function rowToOperation(row: DualSyncPublishOperationRow): DualSyncPublis
     afterGbpHash: row.after_gbp_hash,
     googleUpdateMask: (row.google_update_mask as DualSyncGoogleUpdateMask | null) ?? null,
     errorCode: row.error_code,
-    errorMessage: row.error_message,
-    externalResponse: row.external_response ?? null,
+    errorMessage: null,
+    externalResponse: null,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,

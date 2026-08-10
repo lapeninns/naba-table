@@ -7,11 +7,13 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
-import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
+import { captureRestaurantServerEvent } from '@/lib/posthog/server';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
 } from '@/server/auth/password-confirmation';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { publishGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
 
 import type { GoogleBusinessProfileFieldDecisionInput } from '@/server/google-business-profile/workflow';
@@ -76,6 +78,26 @@ type RouteContext = {
   params: Promise<{ id: string | string[]; draftId: string | string[] }>;
 };
 
+function legacyGoogleWriteRetiredResponse() {
+  return gbpNoStoreJson(
+    {
+      error: 'Legacy Google Business Profile writes are retired.',
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+    },
+    { status: 410 },
+  );
+}
+
+function isCoreOnlyPublish(payload: z.infer<typeof publishSchema>): boolean {
+  if (payload.decisions?.some((decision) => decision.action === 'export_to_google') ?? false) {
+    return false;
+  }
+  return (
+    payload.directionIntent === 'google_to_nabatable' ||
+    (payload.directionIntent === undefined && payload.pushToGoogle === false)
+  );
+}
+
 async function resolveDraftId(paramsPromise: RouteContext['params']): Promise<string | null> {
   const params = await paramsPromise;
   const { draftId } = params;
@@ -90,7 +112,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     resolveDraftId(params),
   ]);
   if (!restaurantId || !draftId) {
-    return NextResponse.json({ error: 'Missing restaurant or draft id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant or draft id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(
@@ -99,7 +121,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     req,
   );
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   let payload: z.infer<typeof publishSchema>;
@@ -107,12 +129,16 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     payload = publishSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Invalid payload' }, { status: 400 });
+  }
+
+  if (!isCoreOnlyPublish(payload)) {
+    return legacyGoogleWriteRetiredResponse();
   }
 
   captureRestaurantServerEvent('gbp_publish_started', {
@@ -146,13 +172,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       props: { draftId, source: 'ops' },
     });
 
-    return NextResponse.json(published);
+    return gbpNoStoreJson(published);
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
-      return NextResponse.json(
-        { message: error.message, code: error.code },
-        { status: error.status },
-      );
+      return gbpNoStoreJson({ message: error.message, code: error.code }, { status: error.status });
     }
 
     const status = getPublishErrorStatus(error);
@@ -161,7 +184,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       distinctId: access.userId,
       props: { draftId, source: 'ops', status },
     });
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: {

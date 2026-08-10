@@ -106,7 +106,7 @@ function makeReview(): GoogleFoodMenusImportReview {
 }
 
 describe('GBP FoodMenus import-review storage', () => {
-  it('replaces pending reviews through the bulk RPC payload', async () => {
+  it('does not call the retired arbitrary provider-review JSON RPC', async () => {
     const { client, rpcMock } = makeClient([]);
 
     const rows = await replacePendingFoodMenusImportReviews({
@@ -117,22 +117,8 @@ describe('GBP FoodMenus import-review storage', () => {
       review: makeReview(),
     });
 
-    expect(rpcMock).toHaveBeenCalledWith('replace_pending_food_menus_import_reviews', {
-      p_google_snapshot_id: 'google-snapshot-1',
-      p_projection_snapshot_id: 'projection-snapshot-1',
-      p_restaurant_id: 'rest-1',
-      p_reviews: [
-        expect.objectContaining({
-          menu_item_id: 'item-1',
-          external_item_id: 'starter-paneer',
-          target_kind: 'food',
-          match_status: 'matched',
-          match_confidence: 'previous_identity',
-          warnings: ['description_changed'],
-        }),
-      ],
-    });
-    expect(rows[0]?.id).toBe('review-1');
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(rows).toEqual([]);
   });
 
   it('lists and reads restaurant-scoped import reviews', async () => {

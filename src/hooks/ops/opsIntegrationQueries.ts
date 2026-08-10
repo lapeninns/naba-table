@@ -13,6 +13,17 @@ export const dualSyncQueryKeys = {
     ['dual-sync-publish-job-detail', restaurantId] as const,
 };
 
+export const gbpOperatorQueryKeys = {
+  root: (restaurantId: string) => ['gbp-operator-v1', restaurantId] as const,
+  connection: (restaurantId: string) => ['gbp-operator-v1', restaurantId, 'connection'] as const,
+  terminalNotices: (restaurantId: string) =>
+    ['gbp-operator-v1', restaurantId, 'terminal-notices'] as const,
+};
+
+export function removeGbpOperatorQueries(queryClient: QueryClient, restaurantId: string) {
+  queryClient.removeQueries({ queryKey: gbpOperatorQueryKeys.root(restaurantId) });
+}
+
 export function invalidateGoogleBusinessProfileQueries(
   queryClient: QueryClient,
   restaurantId: string,
@@ -23,6 +34,7 @@ export function invalidateGoogleBusinessProfileQueries(
   queryClient.invalidateQueries({
     queryKey: queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
   });
+  queryClient.invalidateQueries({ queryKey: gbpOperatorQueryKeys.root(restaurantId) });
 }
 
 export function invalidateDualSyncWorkspaceQueries(queryClient: QueryClient, restaurantId: string) {

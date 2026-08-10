@@ -1,8 +1,9 @@
 import { getDualSyncDbClient, type DualSyncPublishBatchRow } from '../db';
 import { type DualSyncPublishBatch, type DualSyncPublishBatchStatus } from '../types';
 import { rowToBatch } from './operations-mappers';
+import { metadataOnlySummary, safePersistenceErrorCode } from './persistence-metadata';
 
-import type { Database, Json } from '@/types/supabase';
+import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -46,7 +47,7 @@ export async function createPublishBatch(
       accepted_count: input.acceptedCount ?? 0,
       rejected_count: input.rejectedCount ?? 0,
       ignored_count: input.ignoredCount ?? 0,
-      plan_summary: (input.planSummary ?? {}) as Json,
+      plan_summary: metadataOnlySummary(input.planSummary ?? {}),
     } as never)
     .select('*')
     .single<DualSyncPublishBatchRow>();
@@ -100,8 +101,8 @@ export async function updatePublishBatchStatus(
   const patch: Partial<DualSyncPublishBatchRow> = {
     status: input.status,
   };
-  if (input.errorCode !== undefined) patch.error_code = input.errorCode;
-  if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
+  if (input.errorCode !== undefined) patch.error_code = safePersistenceErrorCode(input.errorCode);
+  if (input.errorMessage !== undefined) patch.error_message = null;
   if (input.startedAt !== undefined) patch.started_at = input.startedAt;
   if (input.finishedAt !== undefined) patch.finished_at = input.finishedAt;
 

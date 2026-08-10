@@ -5,7 +5,9 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
-import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
+import { captureRestaurantServerEvent } from '@/lib/posthog/server';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { setGoogleBusinessProfileOAuthStateCookie } from '@/server/google-business-profile/oauth-state-cookie';
 import { createGoogleBusinessProfileAuthorization } from '@/server/google-business-profile/service';
 
@@ -18,7 +20,7 @@ type RouteContext = {
 const SETTINGS_RETURN_PATH = '/app/settings/restaurant/google-business-profile';
 
 export async function GET() {
-  return NextResponse.json(
+  return gbpNoStoreJson(
     { error: 'Method not allowed. Use POST to start Google Business Profile authorization.' },
     { status: 405, headers: { Allow: 'POST' } },
   );
@@ -27,12 +29,12 @@ export async function GET() {
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   captureRestaurantServerEvent('gbp_authorization_started', {
@@ -48,8 +50,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       returnPath: new URL(SETTINGS_RETURN_PATH, getRequestOrigin(req)).toString(),
     });
 
-    const response = NextResponse.json({ authorizationUrl: authorization.authorizationUrl });
-    setGoogleBusinessProfileOAuthStateCookie(response, authorization.stateToken);
+    const response = gbpNoStoreJson({ authorizationUrl: authorization.authorizationUrl });
+    setGoogleBusinessProfileOAuthStateCookie(response, authorization.stateToken, restaurantId);
     return response;
   } catch (error) {
     const message =
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       distinctId: access.userId,
       props: { source: 'ops' },
     });
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: {
@@ -70,6 +72,6 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         path: '/api/ops/restaurants/[id]/google-business-profile/connect',
       },
     });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return gbpNoStoreJson({ error: message }, { status: 500 });
   }
 }

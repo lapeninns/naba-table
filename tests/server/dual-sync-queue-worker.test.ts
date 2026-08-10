@@ -54,6 +54,11 @@ function makeJob(overrides: Partial<DualSyncJob> = {}): DualSyncJob {
     idempotencyKey: 'request-1',
     priority: 100,
     payload: {},
+    externalProfileId: 'profile-1',
+    externalAccountId: 'account-1',
+    externalLocationId: 'location-1',
+    connectionGeneration: 2,
+    consentEpoch: 3,
     attemptCount: 1,
     maxAttempts: 3,
     availableAt: '2026-05-09T00:00:00.000Z',
@@ -147,20 +152,94 @@ describe('dual-sync queue worker', () => {
     expect(completeDualSyncJobMock).toHaveBeenCalledWith({ client, jobId: 'job-1' });
   });
 
-  it('executes refresh and core recompute jobs with the expected snapshot run kind', async () => {
+  it('executes an exact hash-only write envelope once without rebuilding from queued content', async () => {
+    const executeGoogleWriteEnvelope = vi.fn().mockResolvedValue(undefined);
+    claimNextDualSyncJobMock.mockResolvedValue(
+      makeJob({
+        maxAttempts: 1,
+        payload: {
+          confirmationVersion: 'gbp-exact-consent-v1',
+          bundleId: 'bundle-1',
+          listing: {
+            restaurantId: 'rest-1',
+            externalProfileRowId: 'profile-row-1',
+            accountId: 'account-1',
+            profileId: 'profile-1',
+            locationId: 'location-1',
+            connectionGeneration: 2,
+            consentEpoch: 3,
+          },
+          snapshotPins: { core: 'a'.repeat(64), google: 'b'.repeat(64) },
+          planFingerprint: 'c'.repeat(64),
+          policyVersion: 'gbp-write-policy-v1',
+          rendererVersion: 'gbp-renderer-v1',
+          expiresAt: '2026-08-09T10:15:00.000Z',
+          groups: [
+            {
+              grantId: 'grant-1',
+              groupId: 'profile',
+              fieldKeys: ['profile.businessDescription'],
+              requestHash: 'd'.repeat(64),
+              decisionHash: 'e'.repeat(64),
+              beforeHashes: {
+                core: { 'profile.businessDescription': 'f'.repeat(64) },
+                google: { 'profile.businessDescription': '1'.repeat(64) },
+              },
+              afterHashes: {
+                core: { 'profile.businessDescription': '2'.repeat(64) },
+                google: { 'profile.businessDescription': '3'.repeat(64) },
+              },
+              updateMasks: ['profile'],
+            },
+          ],
+        },
+      }),
+    );
+
+    const result = await processNextDualSyncJob({
+      client,
+      workerId: 'worker-1',
+      options: { executeGoogleWriteEnvelope },
+    });
+
+    expect(result.status).toBe('succeeded');
+    expect(executeGoogleWriteEnvelope).toHaveBeenCalledWith(
+      expect.objectContaining({ bundleId: 'bundle-1', planFingerprint: 'c'.repeat(64) }),
+    );
+    expect(runPublishMock).not.toHaveBeenCalled();
+  });
+
+  it('routes scheduled refresh through the Google Updates executor without legacy refresh', async () => {
+    const executeScheduledGoogleUpdateRefresh = vi.fn().mockResolvedValue(undefined);
     claimNextDualSyncJobMock.mockResolvedValueOnce(
       makeJob({
         jobKind: 'google_refresh_scheduled',
-        payload: { skipPull: false },
+        payload: {},
       }),
+    );
+    await processNextDualSyncJob({
+      client,
+      workerId: 'worker-1',
+      now: '2026-08-09T10:00:00.000Z',
+      options: { executeScheduledGoogleUpdateRefresh },
+    });
+
+    expect(executeScheduledGoogleUpdateRefresh).toHaveBeenCalledWith({
+      client,
+      jobId: 'job-1',
+      restaurantId: 'rest-1',
+      observedAt: '2026-08-09T10:00:00.000Z',
+    });
+    expect(refreshFromGoogleMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps ordinary manual and core recompute jobs on the legacy refresh path', async () => {
+    claimNextDualSyncJobMock.mockResolvedValueOnce(
+      makeJob({ jobKind: 'google_refresh_manual', payload: {} }),
     );
     await processNextDualSyncJob({ client, workerId: 'worker-1' });
     expect(refreshFromGoogleMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        restaurantId: 'rest-1',
-        runKind: 'scheduled',
-        skipPull: false,
-      }),
+      expect.objectContaining({ runKind: 'manual', skipPull: false }),
     );
 
     claimNextDualSyncJobMock.mockResolvedValueOnce(
@@ -177,6 +256,96 @@ describe('dual-sync queue worker', () => {
         runKind: 'core_write',
         skipPull: true,
       }),
+    );
+  });
+
+  it('routes PubSub-correlated manual jobs through Google Updates only', async () => {
+    const executeScheduledGoogleUpdateRefresh = vi.fn().mockResolvedValue(undefined);
+    claimNextDualSyncJobMock.mockResolvedValueOnce(
+      makeJob({
+        jobKind: 'google_refresh_manual',
+        payload: {
+          eventId: 'event-1',
+          sourceReceiptSubscription: 'subscription-1',
+          sourceReceiptMessageId: 'message-1',
+        },
+      }),
+    );
+
+    await processNextDualSyncJob({
+      client,
+      workerId: 'worker-1',
+      options: { executeScheduledGoogleUpdateRefresh },
+    });
+
+    expect(executeScheduledGoogleUpdateRefresh).toHaveBeenCalledTimes(1);
+    expect(refreshFromGoogleMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a scheduled refresh lacks its immutable fence', async () => {
+    const executeScheduledGoogleUpdateRefresh = vi.fn().mockResolvedValue(undefined);
+    claimNextDualSyncJobMock.mockResolvedValueOnce(
+      makeJob({
+        jobKind: 'google_refresh_scheduled',
+        externalLocationId: null,
+      }),
+    );
+
+    const result = await processNextDualSyncJob({
+      client,
+      workerId: 'worker-1',
+      options: { executeScheduledGoogleUpdateRefresh },
+    });
+
+    expect(result.status).toBe('retrying');
+    expect(executeScheduledGoogleUpdateRefresh).not.toHaveBeenCalled();
+    expect(refreshFromGoogleMock).not.toHaveBeenCalled();
+    expect(failDualSyncJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ errorCode: 'DUAL_SYNC_JOB_FAILED' }),
+    );
+  });
+
+  it('rejects partial PubSub correlation instead of falling back to legacy refresh', async () => {
+    const executeScheduledGoogleUpdateRefresh = vi.fn().mockResolvedValue(undefined);
+    claimNextDualSyncJobMock.mockResolvedValueOnce(
+      makeJob({
+        jobKind: 'google_refresh_manual',
+        payload: { eventId: 'event-1' },
+      }),
+    );
+
+    await processNextDualSyncJob({
+      client,
+      workerId: 'worker-1',
+      options: { executeScheduledGoogleUpdateRefresh },
+    });
+
+    expect(executeScheduledGoogleUpdateRefresh).not.toHaveBeenCalled();
+    expect(refreshFromGoogleMock).not.toHaveBeenCalled();
+    expect(failDualSyncJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ errorCode: 'GBP_REFRESH_RECEIPT_INVALID' }),
+    );
+  });
+
+  it('keeps a stale-fence Google Updates failure out of the legacy refresh path', async () => {
+    const executeScheduledGoogleUpdateRefresh = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('stale fence'), { code: 'GBP_UPDATE_MASK_STALE_FENCE' }),
+      );
+    claimNextDualSyncJobMock.mockResolvedValueOnce(
+      makeJob({ jobKind: 'google_refresh_scheduled' }),
+    );
+
+    await processNextDualSyncJob({
+      client,
+      workerId: 'worker-1',
+      options: { executeScheduledGoogleUpdateRefresh },
+    });
+
+    expect(refreshFromGoogleMock).not.toHaveBeenCalled();
+    expect(failDualSyncJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ errorCode: 'GBP_UPDATE_MASK_STALE_FENCE' }),
     );
   });
 
@@ -200,24 +369,15 @@ describe('dual-sync queue worker', () => {
     );
   });
 
-  it('retries failed jobs and preserves provider error codes', async () => {
+  it('preserves generic refresh retry semantics with safe provider error codes', async () => {
     const error = Object.assign(new Error('quota exhausted'), { code: 'QUOTA_LIMITED' });
     claimNextDualSyncJobMock.mockResolvedValue(
       makeJob({
-        payload: {
-          decisions: [
-            {
-              fieldKey: 'profile.businessDescription',
-              sectionKey: 'profile',
-              action: 'export_to_google',
-              pinnedCoreHash: 'core-hash',
-              pinnedGbpHash: 'gbp-hash',
-            },
-          ],
-        },
+        jobKind: 'google_refresh_manual',
+        payload: {},
       }),
     );
-    runPublishMock.mockRejectedValue(error);
+    refreshFromGoogleMock.mockRejectedValue(error);
 
     const result = await processNextDualSyncJob({
       client,
@@ -233,11 +393,44 @@ describe('dual-sync queue worker', () => {
         attemptCount: 1,
         maxAttempts: 3,
         errorCode: 'QUOTA_LIMITED',
-        errorMessage: 'quota exhausted',
+        errorMessage: 'QUOTA_LIMITED',
         retryAfterMs: 120_000,
       }),
     );
     expect(completeDualSyncJobMock).not.toHaveBeenCalled();
+  });
+
+  it('never gives a failed listing mutation job a generic retry attempt', async () => {
+    claimNextDualSyncJobMock.mockResolvedValue(
+      makeJob({
+        maxAttempts: 3,
+        payload: {
+          decisions: [
+            {
+              fieldKey: 'profile.businessDescription',
+              sectionKey: 'profile',
+              action: 'export_to_google',
+              pinnedCoreHash: 'core-hash',
+              pinnedGbpHash: 'gbp-hash',
+            },
+          ],
+        },
+      }),
+    );
+    runPublishMock.mockRejectedValue(new Error('provider response body must not persist'));
+    failDualSyncJobMock.mockResolvedValue(
+      makeJob({ status: 'dead_letter', lastErrorCode: 'DUAL_SYNC_JOB_FAILED' }),
+    );
+
+    const result = await processNextDualSyncJob({ client, workerId: 'worker-1' });
+
+    expect(result.status).toBe('dead_letter');
+    expect(failDualSyncJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({ maxAttempts: 1, errorMessage: 'DUAL_SYNC_JOB_FAILED' }),
+    );
+    expect(JSON.stringify(failDualSyncJobMock.mock.calls)).not.toContain(
+      'provider response body must not persist',
+    );
   });
 
   it('fails queued publish jobs that omit field-level pins before replaying', async () => {
@@ -262,7 +455,7 @@ describe('dual-sync queue worker', () => {
     expect(failDualSyncJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         errorCode: 'DUAL_SYNC_JOB_FAILED',
-        errorMessage: 'publish_batch job payload must include at least one valid decision.',
+        errorMessage: 'DUAL_SYNC_JOB_FAILED',
       }),
     );
   });
@@ -294,7 +487,7 @@ describe('dual-sync queue worker', () => {
     expect(failDualSyncJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         errorCode: 'DUAL_SYNC_RESTAURANT_PAUSED',
-        errorMessage: 'Maintenance window.',
+        errorMessage: 'DUAL_SYNC_RESTAURANT_PAUSED',
       }),
     );
   });

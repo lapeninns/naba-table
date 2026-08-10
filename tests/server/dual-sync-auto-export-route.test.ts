@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const ensureRestaurantAdminAccessMock = vi.hoisted(() => vi.fn());
 const resolveRestaurantIdMock = vi.hoisted(() => vi.fn());
 const isDualSyncAutoCandidatesEnabledMock = vi.hoisted(() => vi.fn());
-const enqueueDualSyncJobMock = vi.hoisted(() => vi.fn());
 const runAutoExportForRestaurantMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const assertDualSyncRestaurantNotPausedMock = vi.hoisted(() => vi.fn());
@@ -17,10 +16,6 @@ vi.mock('@/app/api/ops/restaurants/[id]/_shared', () => ({
 
 vi.mock('@/server/dual-sync/runtime-controls', () => ({
   isDualSyncAutoCandidatesEnabled: isDualSyncAutoCandidatesEnabledMock,
-}));
-
-vi.mock('@/server/dual-sync/queue', () => ({
-  enqueueDualSyncJob: enqueueDualSyncJobMock,
 }));
 
 vi.mock('@/server/dual-sync/scheduling/auto-export', () => ({
@@ -46,7 +41,6 @@ describe('dual-sync auto-export route', () => {
     ensureRestaurantAdminAccessMock.mockReset();
     resolveRestaurantIdMock.mockReset();
     isDualSyncAutoCandidatesEnabledMock.mockReset();
-    enqueueDualSyncJobMock.mockReset();
     runAutoExportForRestaurantMock.mockReset();
     getServiceSupabaseClientMock.mockReset();
     assertDualSyncRestaurantNotPausedMock.mockReset();
@@ -58,12 +52,6 @@ describe('dual-sync auto-export route', () => {
     getServiceSupabaseClientMock.mockReturnValue(serviceClient);
     assertDualSyncRestaurantNotPausedMock.mockResolvedValue(undefined);
     isDualSyncRestaurantPausedErrorMock.mockReturnValue(false);
-    enqueueDualSyncJobMock.mockResolvedValue({
-      id: 'job-1',
-      restaurantId: 'rest-1',
-      jobKind: 'auto_export',
-      status: 'queued',
-    });
     runAutoExportForRestaurantMock.mockResolvedValue({
       restaurantId: 'rest-1',
       candidatesConsidered: 0,
@@ -73,7 +61,7 @@ describe('dual-sync auto-export route', () => {
     });
   });
 
-  it('can enqueue a durable auto-export job instead of running inline', async () => {
+  it('does not enqueue a durable auto-export job because candidate discovery is synchronous', async () => {
     const response = await POST(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/dual-sync/auto-export?queue=1',
@@ -86,23 +74,16 @@ describe('dual-sync auto-export route', () => {
       { params: Promise.resolve({ id: 'rest-1' }) },
     );
 
-    expect(response.status).toBe(202);
-    expect(enqueueDualSyncJobMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        client: serviceClient,
-        restaurantId: 'rest-1',
-        jobKind: 'auto_export',
-        idempotencyKey: 'auto-export-1',
-        payload: {
-          maxCandidates: 25,
-          actorUserId: 'user-1',
-        },
-      }),
-    );
-    expect(runAutoExportForRestaurantMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(runAutoExportForRestaurantMock).toHaveBeenCalledWith({
+      client: serviceClient,
+      restaurantId: 'rest-1',
+      maxCandidates: 25,
+      actorUserId: 'user-1',
+    });
     await expect(response.json()).resolves.toMatchObject({
-      queued: true,
-      job: { id: 'job-1', status: 'queued' },
+      restaurantId: 'rest-1',
+      decisionsExecuted: 0,
     });
   });
 
@@ -123,7 +104,6 @@ describe('dual-sync auto-export route', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(enqueueDualSyncJobMock).not.toHaveBeenCalled();
     expect(runAutoExportForRestaurantMock).not.toHaveBeenCalled();
   });
 
@@ -144,7 +124,6 @@ describe('dual-sync auto-export route', () => {
       message: 'Dual-sync auto-candidate export is disabled for this deployment.',
     });
     expect(ensureRestaurantAdminAccessMock).not.toHaveBeenCalled();
-    expect(enqueueDualSyncJobMock).not.toHaveBeenCalled();
     expect(runAutoExportForRestaurantMock).not.toHaveBeenCalled();
   });
 
@@ -167,7 +146,6 @@ describe('dual-sync auto-export route', () => {
     );
 
     expect(response.status).toBe(409);
-    expect(enqueueDualSyncJobMock).not.toHaveBeenCalled();
     expect(runAutoExportForRestaurantMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({
       code: 'DUAL_SYNC_RESTAURANT_PAUSED',

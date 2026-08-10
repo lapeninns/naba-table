@@ -77,4 +77,15 @@ describe('defaultDualSyncPorts', () => {
       ),
     ).resolves.toEqual({ supported: false });
   });
+
+  it('fails closed when an import section has no atomic provider-fenced RPC', async () => {
+    const ports = defaultDualSyncPorts();
+
+    await expect(
+      ports.applyImportToCore(operationContext('operatingHours.weekly.1')),
+    ).resolves.toMatchObject({
+      status: 'failed',
+      failure: { code: 'PORT_FAILURE', retryable: false },
+    });
+  });
 });

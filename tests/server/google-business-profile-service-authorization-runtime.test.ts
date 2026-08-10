@@ -31,7 +31,7 @@ vi.mock('@/server/google-business-profile/client', () => ({
 vi.mock('@/server/google-business-profile/serviceAuthorizationFlow', () => ({
   consumeOAuthStateRecord: consumeOAuthStateMock,
   createOAuthStateRecord: createOAuthStateMock,
-  saveGoogleBusinessProfileCredentials: saveCredentialsMock,
+  completeOAuthIdentityRecord: saveCredentialsMock,
 }));
 
 vi.mock('@/server/google-business-profile/serviceConnectionLifecyclePayloads', () => ({
@@ -79,7 +79,7 @@ const tokens = {
   refreshToken: 'refresh-token',
   grantedScopes: ['scope-a'],
   tokenType: 'Bearer',
-  idToken: null,
+  idToken: 'id-token',
 };
 
 const identity = {
@@ -192,19 +192,19 @@ describe('google business profile service authorization runtime', () => {
       client,
     );
     expect(exchangeCodeMock).toHaveBeenCalledWith('auth-code');
-    expect(fetchIdentityMock).toHaveBeenCalledWith('access-token');
+    expect(fetchIdentityMock).toHaveBeenCalledWith({
+      idToken: 'id-token',
+      expectedNonce: expect.any(String),
+    });
     expect(saveCredentialsMock).toHaveBeenCalledWith(
       {
-        externalProfile: externalProfile(),
+        state: oauthState(),
+        stateToken: 'state-token',
+        requestedByUserId: 'user-1',
         tokens,
         identity,
         refreshedAt: '2026-05-22T08:01:00.000Z',
       },
-      client,
-    );
-    expect(updateExternalProfileMock).toHaveBeenCalledWith(
-      'external-1',
-      { connection_status: 'authorized' },
       client,
     );
     expect(result).toEqual({
@@ -213,38 +213,27 @@ describe('google business profile service authorization runtime', () => {
     });
   });
 
-  it('continues completion with anonymous identity when identity lookup fails', async () => {
+  it('fails closed when identity validation fails', async () => {
     consumeOAuthStateMock.mockResolvedValue(oauthState());
     ensureExternalProfileMock.mockResolvedValue(externalProfile());
     exchangeCodeMock.mockResolvedValue(tokens);
     fetchIdentityMock.mockRejectedValue(new Error('identity unavailable'));
 
-    await completeGoogleBusinessProfileAuthorizationForClient({
-      stateToken: 'state-token',
-      code: 'auth-code',
-      requestedByUserId: 'user-1',
-      client: {} as never,
-      clock: () => '2026-05-22T08:00:00.000Z',
-    });
-
-    expect(saveCredentialsMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        identity: {
-          providerUserId: null,
-          email: null,
-          name: null,
-        },
+    await expect(
+      completeGoogleBusinessProfileAuthorizationForClient({
+        stateToken: 'state-token',
+        code: 'auth-code',
+        requestedByUserId: 'user-1',
+        client: {} as never,
+        clock: () => '2026-05-22T08:00:00.000Z',
       }),
-      {},
-    );
-    expect(updateExternalProfileMock).toHaveBeenCalledWith(
-      'external-1',
-      { connection_status: 'authorized' },
-      {},
-    );
+    ).rejects.toThrow('identity unavailable');
+
+    expect(saveCredentialsMock).not.toHaveBeenCalled();
+    expect(updateExternalProfileMock).not.toHaveBeenCalled();
   });
 
-  it('persists authorization failure before rethrowing OAuth exchange errors', async () => {
+  it('rethrows OAuth exchange errors without a stale profile write', async () => {
     const exchangeError = new Error('OAuth exchange failed.');
     consumeOAuthStateMock.mockResolvedValue(oauthState({ return_path: 'https://evil.example' }));
     ensureExternalProfileMock.mockResolvedValue(externalProfile());
@@ -261,15 +250,8 @@ describe('google business profile service authorization runtime', () => {
       }),
     ).rejects.toThrow(exchangeError);
 
-    expect(failurePayloadMock).toHaveBeenCalledWith('OAuth exchange failed.');
-    expect(updateExternalProfileMock).toHaveBeenCalledWith(
-      'external-1',
-      {
-        connection_status: 'sync_error',
-        last_error: 'OAuth exchange failed.',
-      },
-      {},
-    );
+    expect(failurePayloadMock).not.toHaveBeenCalled();
+    expect(updateExternalProfileMock).not.toHaveBeenCalled();
     expect(saveCredentialsMock).not.toHaveBeenCalled();
   });
 });

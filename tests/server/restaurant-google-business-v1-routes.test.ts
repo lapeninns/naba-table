@@ -194,8 +194,9 @@ describe('restaurant google business V1 routes', () => {
     await expect(response.json()).resolves.toEqual({
       authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test',
     });
-    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=test');
+    expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=v1.');
     expect(response.headers.get('set-cookie')).toContain('HttpOnly');
+    expect(response.headers.get('set-cookie')).not.toContain('sr-gbp-oauth-state=test');
     expect(createAuthorizationUrlMock).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
       requestedByUserId: 'user-1',

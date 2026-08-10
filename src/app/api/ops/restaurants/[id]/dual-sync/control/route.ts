@@ -8,7 +8,6 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -19,6 +18,8 @@ import {
   getDualSyncRestaurantControl,
   setDualSyncRestaurantPaused,
 } from '@/server/dual-sync/controls';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -36,17 +37,17 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-control');
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const control = await getDualSyncRestaurantControl({
       client: getServiceSupabaseClient(),
       restaurantId,
     });
-    return NextResponse.json({ restaurantId, control }, { status: 200 });
+    return gbpNoStoreJson({ restaurantId, control }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load dual-sync control';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-control-read' },
@@ -61,7 +62,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-control', req);
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   let body: z.infer<typeof controlPatchSchema>;
   try {
@@ -84,10 +85,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       reason: body.reason ?? null,
       actorUserId: access.userId,
     });
-    return NextResponse.json({ restaurantId, control }, { status: 200 });
+    return gbpNoStoreJson({ restaurantId, control }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update dual-sync control';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-control-update' },

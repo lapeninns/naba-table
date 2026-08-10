@@ -14,6 +14,8 @@ export interface DualSyncShellHeaderWorkspaceState {
   readonly autoExportMutation: PendingMutationState;
   readonly publishMutation: PendingMutationState;
   readonly previewPublishMutation: PendingMutationState;
+  readonly exactPublishMutation?: PendingMutationState;
+  readonly exactPreviewPublishMutation?: PendingMutationState;
   readonly decisionCount: number;
   readonly workspaceProgress: WorkspaceReviewProgress;
 }
@@ -43,8 +45,10 @@ export function useDualSyncShellHeaderProps({
   const controlPending = workspace.controlMutation.isPending;
   const refreshPending = workspace.refreshMutation.isPending;
   const autoExportPending = workspace.autoExportMutation.isPending;
-  const publishPending = workspace.publishMutation.isPending;
-  const previewPublishPending = workspace.previewPublishMutation.isPending;
+  const publishPending =
+    workspace.exactPublishMutation?.isPending ?? workspace.publishMutation.isPending;
+  const previewPublishPending =
+    workspace.exactPreviewPublishMutation?.isPending ?? workspace.previewPublishMutation.isPending;
   const { decisionCount, workspaceProgress } = workspace;
   const { onClickAutoExport, onClickPublish, onClickRefresh, onClickToggleControl } = shellActions;
   const {

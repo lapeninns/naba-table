@@ -81,4 +81,8 @@ export {
   type PruneExpiredGoogleRequestLogsInput,
   type PruneExpiredGoogleRequestLogsResult,
 } from './google-request-log-retention';
-export { createGoogleRequestLog, type CreateGoogleRequestLogInput } from './google-request-logs';
+export {
+  createGoogleRequestLog,
+  GoogleRequestLogRetentionError,
+  type CreateGoogleRequestLogInput,
+} from './google-request-logs';

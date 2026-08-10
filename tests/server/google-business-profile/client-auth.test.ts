@@ -30,11 +30,7 @@ import { GoogleBusinessProfileError } from '@/server/google-business-profile/err
 const fetchMock = vi.fn();
 
 function jsonResponse(payload: unknown, init: { ok?: boolean; status?: number } = {}) {
-  return {
-    ok: init.ok ?? true,
-    status: init.status ?? 200,
-    json: async () => payload,
-  };
+  return new Response(JSON.stringify(payload), { status: init.status ?? 200 });
 }
 
 function tokenPayload(overrides: Record<string, unknown> = {}) {
@@ -84,27 +80,30 @@ afterEach(() => {
 
 describe('buildGoogleBusinessProfileAuthUrl', () => {
   it('builds an offline-consent OAuth URL scoped to business.manage @contract', () => {
-    const url = new URL(buildGoogleBusinessProfileAuthUrl('state-token-1'));
+    const url = new URL(buildGoogleBusinessProfileAuthUrl('state-token-1', 'nonce-1'));
 
     expect(url.origin + url.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth');
     expect(url.searchParams.get('client_id')).toBe('client-id');
     expect(url.searchParams.get('redirect_uri')).toBe('https://app.example/api/gbp/callback');
     expect(url.searchParams.get('response_type')).toBe('code');
-    expect(url.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/business.manage');
+    expect(url.searchParams.get('scope')).toBe(
+      'https://www.googleapis.com/auth/business.manage openid email profile',
+    );
     expect(url.searchParams.get('access_type')).toBe('offline');
     expect(url.searchParams.get('include_granted_scopes')).toBe('true');
     expect(url.searchParams.get('prompt')).toBe('consent');
     expect(url.searchParams.get('state')).toBe('state-token-1');
+    expect(url.searchParams.get('nonce')).toBe('nonce-1');
   });
 
   it('fails closed with GBP_NOT_CONFIGURED when the integration env is incomplete @contract @security', () => {
     gbpConfig.current = { ...gbpConfig.current, configured: false };
-    expect(() => buildGoogleBusinessProfileAuthUrl('state')).toThrowError(
+    expect(() => buildGoogleBusinessProfileAuthUrl('state', 'nonce')).toThrowError(
       expect.objectContaining({ code: 'GBP_NOT_CONFIGURED', status: 503 }),
     );
 
     gbpConfig.current = { ...gbpConfig.current, configured: true, clientSecret: null as never };
-    expect(() => buildGoogleBusinessProfileAuthUrl('state')).toThrowError(
+    expect(() => buildGoogleBusinessProfileAuthUrl('state', 'nonce')).toThrowError(
       expect.objectContaining({ code: 'GBP_NOT_CONFIGURED', status: 503 }),
     );
   });
@@ -112,16 +111,20 @@ describe('buildGoogleBusinessProfileAuthUrl', () => {
 
 describe('exchangeGoogleBusinessProfileCode', () => {
   it('posts the authorization code as form data and maps the full token payload @contract @external-mock', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(tokenPayload()));
+    let capturedBody = '';
+    fetchMock.mockImplementation(async (request: Request) => {
+      capturedBody = await request.clone().text();
+      return jsonResponse(tokenPayload());
+    });
 
     const tokens = await exchangeGoogleBusinessProfileCode('auth-code-1');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe('https://oauth2.googleapis.com/token');
-    expect(init.method).toBe('POST');
-    expect(init.headers).toEqual({ 'Content-Type': 'application/x-www-form-urlencoded' });
-    const body = init.body as URLSearchParams;
+    const [request] = fetchMock.mock.calls[0] as [Request];
+    expect(request.url).toBe('https://oauth2.googleapis.com/token');
+    expect(request.method).toBe('POST');
+    expect(request.headers.get('content-type')).toBe('application/x-www-form-urlencoded');
+    const body = new URLSearchParams(capturedBody);
     expect(body.get('grant_type')).toBe('authorization_code');
     expect(body.get('code')).toBe('auth-code-1');
     expect(body.get('client_id')).toBe('client-id');
@@ -138,7 +141,7 @@ describe('exchangeGoogleBusinessProfileCode', () => {
     });
   });
 
-  it('normalises partial token payloads to null and empty defaults @contract @external-mock', async () => {
+  it('rejects token responses with incorrectly typed fields @contract @external-mock', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({
         access_token: 'access-token-1',
@@ -147,15 +150,9 @@ describe('exchangeGoogleBusinessProfileCode', () => {
       }),
     );
 
-    const tokens = await exchangeGoogleBusinessProfileCode('auth-code-1');
-
-    expect(tokens).toEqual({
-      accessToken: 'access-token-1',
-      expiresIn: null,
-      refreshToken: null,
-      grantedScopes: [],
-      tokenType: null,
-      idToken: null,
+    await expectGbpError(exchangeGoogleBusinessProfileCode('auth-code-1'), {
+      code: 'GBP_MALFORMED_RESPONSE',
+      status: 502,
     });
   });
 
@@ -163,17 +160,20 @@ describe('exchangeGoogleBusinessProfileCode', () => {
     fetchMock.mockResolvedValue(jsonResponse({ token_type: 'Bearer' }));
 
     await expectGbpError(exchangeGoogleBusinessProfileCode('auth-code-1'), {
-      code: 'GBP_TOKEN_EXCHANGE_FAILED',
+      code: 'GBP_MALFORMED_RESPONSE',
       status: 502,
     });
   });
 
   it('maps invalid_grant to a 409 reauth-required error @contract @external-mock', async () => {
     fetchMock.mockResolvedValue(
-      jsonResponse({ error: 'invalid_grant', error_description: 'Token has been revoked.' }, {
-        ok: false,
-        status: 400,
-      }),
+      jsonResponse(
+        { error: 'invalid_grant', error_description: 'Token has been revoked.' },
+        {
+          ok: false,
+          status: 400,
+        },
+      ),
     );
 
     const error = await expectGbpError(exchangeGoogleBusinessProfileCode('auth-code-1'), {
@@ -211,13 +211,17 @@ describe('exchangeGoogleBusinessProfileCode', () => {
 
 describe('refreshGoogleBusinessProfileAccessToken', () => {
   it('exchanges the refresh token for a new access token @contract @external-mock', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(tokenPayload({ refresh_token: undefined })));
+    let capturedBody = '';
+    fetchMock.mockImplementation(async (request: Request) => {
+      capturedBody = await request.clone().text();
+      return jsonResponse(tokenPayload({ refresh_token: undefined }));
+    });
 
     const tokens = await refreshGoogleBusinessProfileAccessToken('refresh-token-1');
 
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe('https://oauth2.googleapis.com/token');
-    const body = init.body as URLSearchParams;
+    const [request] = fetchMock.mock.calls[0] as [Request];
+    expect(request.url).toBe('https://oauth2.googleapis.com/token');
+    const body = new URLSearchParams(capturedBody);
     expect(body.get('grant_type')).toBe('refresh_token');
     expect(body.get('refresh_token')).toBe('refresh-token-1');
     expect(body.get('redirect_uri')).toBeNull();
@@ -238,26 +242,30 @@ describe('refreshGoogleBusinessProfileAccessToken', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('propagates network-level failures without wrapping them @contract @external-mock', async () => {
+  it('maps network-level failures without retrying @contract @external-mock', async () => {
     const networkError = new TypeError('fetch failed');
     fetchMock.mockRejectedValue(networkError);
 
-    await expect(refreshGoogleBusinessProfileAccessToken('refresh-token-1')).rejects.toBe(
-      networkError,
-    );
+    await expect(refreshGoogleBusinessProfileAccessToken('refresh-token-1')).rejects.toMatchObject({
+      name: 'NetworkError',
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('revokeGoogleBusinessProfileToken', () => {
   it('posts the token to the revoke endpoint @contract @external-mock', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({}));
+    let capturedBody = '';
+    fetchMock.mockImplementation(async (request: Request) => {
+      capturedBody = await request.clone().text();
+      return jsonResponse({});
+    });
 
     await expect(revokeGoogleBusinessProfileToken('refresh-token-1')).resolves.toBeUndefined();
 
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe('https://oauth2.googleapis.com/revoke');
-    expect((init.body as URLSearchParams).get('token')).toBe('refresh-token-1');
+    const [request] = fetchMock.mock.calls[0] as [Request];
+    expect(request.url).toBe('https://oauth2.googleapis.com/revoke');
+    expect(new URLSearchParams(capturedBody).get('token')).toBe('refresh-token-1');
   });
 
   it('treats a 400 revoke response as already revoked @contract @external-mock', async () => {

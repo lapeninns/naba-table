@@ -5,6 +5,11 @@ const completeGoogleBusinessProfileAuthorizationMock = vi.hoisted(() => vi.fn())
 const authGetUserMock = vi.hoisted(() => vi.fn());
 const loggerErrorMock = vi.hoisted(() => vi.fn());
 
+function createBoundOAuthStateCookie(stateToken: string, restaurantId: string): string {
+  const payload = Buffer.from(JSON.stringify({ restaurantId, stateToken })).toString('base64url');
+  return `sr-gbp-oauth-state=v1.${payload}`;
+}
+
 vi.mock('@/server/google-business-profile/service', () => ({
   completeGoogleBusinessProfileAuthorization: completeGoogleBusinessProfileAuthorizationMock,
 }));
@@ -55,7 +60,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),
@@ -69,9 +74,13 @@ describe('google business profile callback route', () => {
       stateToken: 'test-state',
       code: 'test-code',
       requestedByUserId: 'user-1',
+      expectedRestaurantId: 'rest-1',
     });
     expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(response.headers.get('cache-control')).toBe('private, no-store, max-age=0');
+    expect(response.headers.get('cdn-cache-control')).toBe('no-store');
+    expect(response.headers.get('vary')).toBe('Cookie, Authorization');
   });
 
   it('ignores forwarded host headers for error redirects', async () => {
@@ -103,7 +112,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),
@@ -142,7 +151,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=other-state',
+            cookie: createBoundOAuthStateCookie('other-state', 'rest-1'),
           },
         },
       ),
@@ -168,7 +177,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),
@@ -190,7 +199,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),
@@ -216,7 +225,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/google-business-profile/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),
@@ -242,7 +251,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/restaurants/rest-1/google-business/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),
@@ -273,7 +282,7 @@ describe('google business profile callback route', () => {
         'https://preview.nabatable.example/api/ops/restaurants/rest-1/google-business/callback?state=test-state&code=test-code',
         {
           headers: {
-            cookie: 'sr-gbp-oauth-state=test-state',
+            cookie: createBoundOAuthStateCookie('test-state', 'rest-1'),
           },
         },
       ),

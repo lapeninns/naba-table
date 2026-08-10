@@ -9,6 +9,8 @@ const readGoogleSnapshotMock = vi.hoisted(() => vi.fn());
 const openSnapshotRunMock = vi.hoisted(() => vi.fn());
 const commitSnapshotRunMock = vi.hoisted(() => vi.fn());
 const failSnapshotRunMock = vi.hoisted(() => vi.fn());
+const readLatestSucceededRunMock = vi.hoisted(() => vi.fn());
+const resolveGoogleContentFenceMock = vi.hoisted(() => vi.fn());
 const recomputeAllStatesMock = vi.hoisted(() => vi.fn());
 const createGoogleRequestLogMock = vi.hoisted(() => vi.fn());
 const assertDualSyncRestaurantNotPausedMock = vi.hoisted(() => vi.fn());
@@ -27,7 +29,8 @@ const runWithDualSyncLockMock = vi.hoisted(() =>
 
 vi.mock('@/server/google-business-profile/service', () => ({
   getGoogleBusinessProfileFoodMenusContext: getGoogleBusinessProfileFoodMenusContextMock,
-  syncGoogleBusinessProfileBusinessInformation: syncGoogleBusinessProfileBusinessInformationMock,
+  syncGoogleBusinessProfileBusinessInformationWithObservation:
+    syncGoogleBusinessProfileBusinessInformationMock,
 }));
 
 vi.mock('@/server/google-business-profile/food-menus-sync', () => ({
@@ -47,6 +50,8 @@ vi.mock('@/server/dual-sync/snapshots/runs', () => ({
   commitSnapshotRun: commitSnapshotRunMock,
   failSnapshotRun: failSnapshotRunMock,
   openSnapshotRun: openSnapshotRunMock,
+  readLatestSucceededRun: readLatestSucceededRunMock,
+  resolveGoogleContentFence: resolveGoogleContentFenceMock,
 }));
 
 vi.mock('@/server/dual-sync/state/recompute', () => ({
@@ -110,6 +115,8 @@ beforeEach(() => {
   openSnapshotRunMock.mockReset();
   commitSnapshotRunMock.mockReset();
   failSnapshotRunMock.mockReset();
+  readLatestSucceededRunMock.mockReset();
+  resolveGoogleContentFenceMock.mockReset();
   recomputeAllStatesMock.mockReset();
   createGoogleRequestLogMock.mockReset();
   assertDualSyncRestaurantNotPausedMock.mockReset();
@@ -127,6 +134,37 @@ beforeEach(() => {
     startedAt: '2026-05-02T18:00:00.000Z',
     finishedAt: null,
     createdAt: '2026-05-02T18:00:00.000Z',
+  });
+  readLatestSucceededRunMock.mockResolvedValue({
+    id: 'run-current',
+    restaurantId: RESTAURANT_ID,
+    provider: 'google_business_profile',
+    runKind: 'manual',
+    status: 'succeeded',
+    snapshotHash: 'current-hash',
+    errorCode: null,
+    errorMessage: null,
+    startedAt: '2026-05-02T18:00:00.000Z',
+    finishedAt: '2026-05-02T18:00:01.000Z',
+    createdAt: '2026-05-02T18:00:00.000Z',
+  });
+  const googleFence = {
+    restaurantId: RESTAURANT_ID,
+    externalProfileRowId: 'profile-row-1',
+    accountId: 'account-1',
+    profileId: 'profile-1',
+    locationId: 'location-1',
+    connectionGeneration: 2,
+    consentEpoch: 3,
+  };
+  resolveGoogleContentFenceMock.mockResolvedValue(googleFence);
+  syncGoogleBusinessProfileBusinessInformationMock.mockResolvedValue({
+    connectionState: {},
+    observation: {
+      fence: googleFence,
+      observedAt: '2026-05-02T18:00:01.000Z',
+      rawPayload: { locationResponses: [{ name: 'locations/1' }], attributesResponse: null },
+    },
   });
   commitSnapshotRunMock.mockImplementation(async (input) => ({
     id: input.runId,
@@ -228,6 +266,13 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       expect.objectContaining({
         client,
         runId: 'run-1',
+        runKind: 'scheduled',
+        googleFence: expect.objectContaining({ consentEpoch: 3 }),
+        observedAt: '2026-05-02T18:00:01.000Z',
+        rawPayload: {
+          locationResponses: [{ name: 'locations/1' }],
+          attributesResponse: null,
+        },
         canonicalSnapshot: expect.objectContaining({
           foodMenus: expect.objectContaining({
             items: [expect.objectContaining({ itemName: 'Chilli Paneer' })],
@@ -263,13 +308,9 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       },
       responseSummary: {
         snapshotHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        foodMenusRefresh: {
-          status: 'refreshed',
-          projectionSnapshotId: 'projection-snapshot-1',
-          googleSnapshotId: 'google-snapshot-1',
-          googleFoodMenusHash: 'g'.repeat(64),
-          importReviewCount: 2,
-        },
+        foodMenusStatus: 'refreshed',
+        foodMenusReason: undefined,
+        googleFoodMenusHash: 'g'.repeat(64),
         evaluatedFieldCount: 1,
         transitionCount: 0,
       },
@@ -358,7 +399,10 @@ describe('refreshFromGoogle FoodMenus integration', () => {
 
     expect(failSnapshotRunMock).toHaveBeenCalledWith({
       client,
+      restaurantId: RESTAURANT_ID,
       runId: 'run-1',
+      runKind: 'manual',
+      googleFence: expect.objectContaining({ consentEpoch: 3 }),
       errorCode: 'GBP_UPSTREAM_ERROR',
       errorMessage: 'Google FoodMenus failed',
     });
@@ -375,8 +419,43 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       },
       responseSummary: null,
       errorCode: 'GBP_UPSTREAM_ERROR',
-      errorMessage: 'Google FoodMenus failed',
     });
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain(
+      'Google FoodMenus failed',
+    );
+  });
+
+  it('fails the pending run without persistence when the provider observation fence changes', async () => {
+    syncGoogleBusinessProfileBusinessInformationMock.mockResolvedValueOnce({
+      connectionState: {},
+      observation: {
+        fence: {
+          restaurantId: RESTAURANT_ID,
+          externalProfileRowId: 'profile-row-1',
+          accountId: 'account-1',
+          profileId: 'profile-1',
+          locationId: 'forged-location',
+          connectionGeneration: 2,
+          consentEpoch: 3,
+        },
+        observedAt: '2026-05-02T18:00:01.000Z',
+        rawPayload: { locationResponses: [{ private: 'must-not-persist' }] },
+      },
+    });
+
+    await expect(refreshFromGoogle({ client, restaurantId: RESTAURANT_ID })).rejects.toThrow(
+      'observation fence changed',
+    );
+
+    expect(commitSnapshotRunMock).not.toHaveBeenCalled();
+    expect(failSnapshotRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        restaurantId: RESTAURANT_ID,
+        runId: 'run-1',
+        errorCode: 'Error',
+      }),
+    );
+    expect(JSON.stringify(failSnapshotRunMock.mock.calls)).not.toContain('must-not-persist');
   });
 
   it('fails the snapshot run for FoodMenus storage errors after migration exists', async () => {
@@ -398,7 +477,10 @@ describe('refreshFromGoogle FoodMenus integration', () => {
     expect(refreshFoodMenusImportReviewFromGoogleMock).not.toHaveBeenCalled();
     expect(failSnapshotRunMock).toHaveBeenCalledWith({
       client,
+      restaurantId: RESTAURANT_ID,
       runId: 'run-1',
+      runKind: 'manual',
+      googleFence: expect.objectContaining({ consentEpoch: 3 }),
       errorCode: '23505',
       errorMessage:
         'duplicate key value violates unique constraint "restaurant_gbp_food_menu_snapshots_hash_idx"',

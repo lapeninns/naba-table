@@ -27,6 +27,7 @@ export function DualSyncShellHeaderActionButton({
       onClick={onClick}
       disabled={action.disabled}
       aria-disabled={action.ariaDisabled}
+      data-dual-sync-action={action.id}
       className={action.className}
     >
       <Icon data-icon="inline-start" className={getActionIconClassName(action.iconMotion)} />

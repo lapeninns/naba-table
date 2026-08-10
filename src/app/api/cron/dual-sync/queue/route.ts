@@ -6,13 +6,14 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
-import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { processNextDualSyncJob } from '@/server/dual-sync/queue';
 import { recordObservabilityEvent } from '@/server/observability';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { getServiceSupabaseClient } from '@/server/supabase';
+import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -108,11 +109,12 @@ export async function GET(request: Request) {
         results,
       });
     } catch (error) {
-      console.error('[cron][dual-sync.queue] failed to run', {
-        jobName: auth.jobName,
+      logger.error('Dual-sync queue cron failed.', {
+        source: 'cron.dual-sync.queue',
         runId: auth.runId,
-        error,
+        errorKind: error instanceof Error ? 'error' : typeof error,
       });
+      // captureServerException sanitizes exception content before external telemetry.
       captureServerException(error, {
         properties: {
           jobName: auth.jobName,
@@ -129,7 +131,7 @@ export async function GET(request: Request) {
           jobName: auth.jobName,
           runId: auth.runId,
           maxJobs,
-          message: error instanceof Error ? error.message : String(error),
+          errorKind: error instanceof Error ? 'error' : typeof error,
         },
       });
       return NextResponse.json({ error: 'Dual-sync queue cron failed.' }, { status: 500 });

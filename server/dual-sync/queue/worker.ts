@@ -1,5 +1,17 @@
 import { claimNextDualSyncJob, completeDualSyncJob, failDualSyncJob } from './jobs';
 import { DUAL_SYNC_RESTAURANT_PAUSED_CODE } from '../controls';
+import {
+  executeScheduledGoogleUpdateRefresh,
+  type ScheduledGoogleUpdateRefreshExecutor,
+} from '../freshness/refresh-google-updates';
+import {
+  EXACT_CONSENT_VERSION,
+  executeDatabaseQueuedExactConsent,
+  parseDatabaseGoogleWriteQueueEnvelope,
+  parseGoogleWriteQueueEnvelope,
+  type DatabaseGoogleWriteQueueEnvelope,
+  type GoogleWriteQueueEnvelope,
+} from '../publish/exact-consent';
 import { createDurableDualSyncGoogleEditThrottle } from '../publish/google-safety';
 import { runPublish, type RunPublishOptions } from '../publish/orchestrator';
 import { defaultDualSyncPorts } from '../publish/ports';
@@ -22,6 +34,10 @@ export interface DualSyncQueueWorkerOptions {
     readonly errorCode: string;
     readonly errorMessage: string;
   }) => number;
+  readonly executeGoogleWriteEnvelope?: (
+    envelope: GoogleWriteQueueEnvelope | DatabaseGoogleWriteQueueEnvelope,
+  ) => Promise<void>;
+  readonly executeScheduledGoogleUpdateRefresh?: ScheduledGoogleUpdateRefreshExecutor;
 }
 
 export interface ProcessNextDualSyncJobInput {
@@ -102,14 +118,67 @@ function refreshKindForJob(jobKind: DualSyncJobKind): DualSyncSnapshotRunKind {
   }
 }
 
+function isPubSubCorrelatedRefresh(payload: JsonObject): boolean {
+  const fields = [
+    payload.eventId,
+    payload.sourceReceiptSubscription,
+    payload.sourceReceiptMessageId,
+  ];
+  if (fields.every((value) => value === undefined)) return false;
+  if (
+    typeof payload.eventId === 'string' &&
+    payload.eventId.length > 0 &&
+    typeof payload.sourceReceiptSubscription === 'string' &&
+    payload.sourceReceiptSubscription.length > 0 &&
+    typeof payload.sourceReceiptMessageId === 'string' &&
+    payload.sourceReceiptMessageId.length > 0
+  ) {
+    return true;
+  }
+  throw Object.assign(new Error('Invalid Google update refresh receipt correlation.'), {
+    code: 'GBP_REFRESH_RECEIPT_INVALID',
+  });
+}
+
+function assertScheduledRefreshFence(job: DualSyncJob): void {
+  if (
+    !job.externalProfileId ||
+    !job.externalAccountId ||
+    !job.externalLocationId ||
+    !job.connectionGeneration ||
+    !job.consentEpoch
+  ) {
+    throw new Error('Scheduled Google update refresh job is missing its immutable fence.');
+  }
+}
+
 async function executeDualSyncJob(
   client: DbClient,
   job: DualSyncJob,
   options: DualSyncQueueWorkerOptions = {},
+  observedAt = new Date().toISOString(),
 ): Promise<void> {
   const payload = payloadObject(job);
   switch (job.jobKind) {
     case 'publish_batch':
+      if (
+        payload.confirmationVersion === EXACT_CONSENT_VERSION ||
+        payload.confirmation_version === EXACT_CONSENT_VERSION
+      ) {
+        const envelope =
+          payload.confirmation_version === EXACT_CONSENT_VERSION
+            ? parseDatabaseGoogleWriteQueueEnvelope(job.payload)
+            : parseGoogleWriteQueueEnvelope(job.payload);
+        if (options.executeGoogleWriteEnvelope) {
+          await options.executeGoogleWriteEnvelope(envelope);
+          return;
+        }
+        if ('confirmation_version' in envelope) {
+          await executeDatabaseQueuedExactConsent({ client, envelope });
+          return;
+        }
+        throw new Error('Legacy exact Google write envelope is not executable.');
+      }
       await runPublish(
         client,
         {
@@ -138,8 +207,29 @@ async function executeDualSyncJob(
         publishOptions: options.publishOptions,
       });
       return;
+    case 'google_refresh_scheduled': {
+      assertScheduledRefreshFence(job);
+      const executor =
+        options.executeScheduledGoogleUpdateRefresh ?? executeScheduledGoogleUpdateRefresh;
+      await executor({ client, jobId: job.id, restaurantId: job.restaurantId, observedAt });
+      return;
+    }
     case 'google_refresh_manual':
-    case 'google_refresh_scheduled':
+      if (isPubSubCorrelatedRefresh(payload)) {
+        assertScheduledRefreshFence(job);
+        const executor =
+          options.executeScheduledGoogleUpdateRefresh ?? executeScheduledGoogleUpdateRefresh;
+        await executor({ client, jobId: job.id, restaurantId: job.restaurantId, observedAt });
+        return;
+      }
+      await refreshFromGoogle({
+        client,
+        restaurantId: job.restaurantId,
+        runKind: 'manual',
+        skipPull: optionalBoolean(payload.skipPull) ?? false,
+        ...options.refreshOptions,
+      });
+      return;
     case 'core_write_recompute':
     case 'mirror_refresh_after_publish':
       await refreshFromGoogle({
@@ -168,10 +258,6 @@ function errorCodeFor(error: unknown): string {
   return 'DUAL_SYNC_JOB_FAILED';
 }
 
-function errorMessageFor(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export async function processNextDualSyncJob({
   client,
   workerId,
@@ -184,19 +270,24 @@ export async function processNextDualSyncJob({
   }
 
   try {
-    await executeDualSyncJob(client, claimed, options);
+    await executeDualSyncJob(client, claimed, options, now);
     const completed = await completeDualSyncJob({ client, jobId: claimed.id });
     return { status: 'succeeded', job: completed };
   } catch (error) {
     const errorCode = errorCodeFor(error);
-    const errorMessage = errorMessageFor(error);
+    const errorMessage = errorCode;
     const retryAfterMs =
       options?.retryAfterMs?.({ job: claimed, errorCode, errorMessage }) ?? 60_000;
     const failed = await failDualSyncJob({
       client,
       jobId: claimed.id,
       attemptCount: claimed.attemptCount,
-      maxAttempts: claimed.maxAttempts,
+      maxAttempts:
+        claimed.jobKind === 'publish_batch' ||
+        payloadObject(claimed).confirmationVersion === EXACT_CONSENT_VERSION ||
+        payloadObject(claimed).confirmation_version === EXACT_CONSENT_VERSION
+          ? 1
+          : claimed.maxAttempts,
       errorCode,
       errorMessage,
       retryAfterMs,

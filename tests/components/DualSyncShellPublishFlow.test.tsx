@@ -245,6 +245,123 @@ beforeEach(() => {
 });
 
 describe('DualSyncShell publish flow', () => {
+  it('uses the frozen exact preview and publish mutations on the shipped workspace', async () => {
+    const user = userEvent.setup();
+    const hash = 'a'.repeat(64);
+    const exactPreview = vi.fn(async () => ({
+      confirmationVersion: 'gbp-exact-consent-v1' as const,
+      policyVersion: 'gbp-write-policy-v1' as const,
+      rendererVersion: 'gbp-renderer-v1' as const,
+      listing: {
+        restaurantId: 'restaurant-1',
+        externalProfileRowId: 'profile-row-1',
+        accountId: 'account-1',
+        profileId: 'profile-1',
+        locationId: 'location-1',
+        connectionGeneration: 7,
+        consentEpoch: 4,
+      },
+      snapshotPins: { core: hash, google: hash },
+      groups: [
+        {
+          groupId: 'profile-group',
+          writeGroup: 'location.profile',
+          direction: 'export_to_google' as const,
+          fieldKeys: ['profile.phone'],
+          method: 'PATCH' as const,
+          resource: 'locations/location-1',
+          updateMasks: ['phoneNumbers'],
+          beforeDisplay: {
+            core: { 'profile.phone': '+44 1223 000000' },
+            google: { 'profile.phone': '+44 1223 111111' },
+          },
+          afterDisplay: {
+            core: { 'profile.phone': '+44 1223 000000' },
+            google: { 'profile.phone': '+44 1223 000000' },
+          },
+          beforeHashes: {
+            core: { 'profile.phone': hash },
+            google: { 'profile.phone': hash },
+          },
+          afterHashes: {
+            core: { 'profile.phone': hash },
+            google: { 'profile.phone': hash },
+          },
+          requestHash: hash,
+          decisionHash: hash,
+          warnings: ['This updates public contact data.'],
+          riskLevel: 'critical' as const,
+          fullReplacement: false,
+        },
+      ],
+      planFingerprint: hash,
+      issuedAt: '2099-08-09T10:00:00.000Z',
+      expiresAt: '2099-08-09T10:15:00.000Z',
+    }));
+    const exactPublish = vi.fn(async () => ({
+      mode: 'immediate' as const,
+      bundleId: 'bundle-1',
+      grantIds: ['grant-1'],
+      outcomes: [
+        {
+          groupId: 'profile-group',
+          status: 'outcome_unknown' as const,
+          reasonCode: 'provider_outcome_unknown',
+        },
+      ],
+    }));
+
+    mocks.useOpsDualSync.mockReturnValue({
+      stateQuery: makeQuery(makeState()),
+      refreshMutation: makeMutation(async () => ({})),
+      publishMutation: makeMutation(async () => makeResult()),
+      previewPublishMutation: makeMutation(async () => makePlan()),
+      exactPreviewPublishMutation: makeMutation(exactPreview),
+      exactPublishMutation: makeMutation(exactPublish),
+      autoExportMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        candidatesConsidered: 0,
+        decisionsExecuted: 0,
+        publishResult: null,
+        skipped: [],
+      })),
+      retryJobMutation: makeMutation(async () => ({})),
+      cancelCandidateMutation: makeMutation(async () => ({})),
+      controlMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        control: makeState().control,
+      })),
+      operationsQuery: makeQuery({ restaurantId: 'restaurant-1', operations: [] }),
+      jobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      candidatesQuery: makeQuery({ restaurantId: 'restaurant-1', candidates: [] }),
+      metricsQuery: makeQuery(null),
+      publishJobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      publishJobDetailQuery: makeQuery(null),
+    });
+
+    render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
+    await user.click(screen.getByRole('button', { name: 'Export (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Review and publish (1)' }));
+
+    expect(await screen.findByText('Confirm exact Google publish')).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/public google business profile data/i));
+    await user.click(screen.getByRole('button', { name: 'Publish exact plan' }));
+
+    expect(exactPreview).toHaveBeenCalledTimes(1);
+    expect(exactPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmationVersion: 'gbp-exact-consent-v1',
+        acknowledged: true,
+        mode: 'immediate',
+      }),
+    );
+    expect(await screen.findByText('Google publish outcome')).toBeInTheDocument();
+    expect(mocks.toast.warning).toHaveBeenCalledWith(
+      'Provider outcome unknown. Refresh Google, verify the listing, and create a new preview.',
+    );
+    expect(mocks.toast.success).not.toHaveBeenCalled();
+  });
+
   it('previews selected decisions, publishes accepted plan fields, and opens the result dialog', async () => {
     const user = userEvent.setup();
     const previewPublish = vi.fn<

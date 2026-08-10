@@ -49,6 +49,55 @@ export interface RunScheduledRefreshFanOutSummary {
   readonly dryRun: boolean;
 }
 
+export interface EnqueueScheduledRefreshJobsInput {
+  readonly client: DbClient;
+  readonly now?: string;
+  readonly maxRestaurants?: number;
+}
+
+export interface EnqueueScheduledRefreshJobsSummary {
+  readonly considered: number;
+  readonly enqueued: number;
+  readonly bucket: string;
+  readonly jobIds: readonly string[];
+}
+
+const MAX_SCHEDULED_REFRESH_BATCH = 50;
+const SCHEDULED_REFRESH_BUCKET_MS = 30 * 60 * 1000;
+
+export function scheduledRefreshBucket(now: string): string {
+  const parsed = new Date(now);
+  if (Number.isNaN(parsed.getTime())) throw new RangeError('Invalid scheduled refresh timestamp.');
+  return new Date(
+    Math.floor(parsed.getTime() / SCHEDULED_REFRESH_BUCKET_MS) * SCHEDULED_REFRESH_BUCKET_MS,
+  ).toISOString();
+}
+
+export async function enqueueScheduledRefreshJobs({
+  client,
+  now = new Date().toISOString(),
+  maxRestaurants = MAX_SCHEDULED_REFRESH_BATCH,
+}: EnqueueScheduledRefreshJobsInput): Promise<EnqueueScheduledRefreshJobsSummary> {
+  const requestedLimit = Number.isFinite(maxRestaurants)
+    ? Math.trunc(maxRestaurants)
+    : MAX_SCHEDULED_REFRESH_BATCH;
+  const limit = Math.min(Math.max(1, requestedLimit), MAX_SCHEDULED_REFRESH_BATCH);
+  const bucket = scheduledRefreshBucket(now);
+  const result = await client.rpc('enqueue_gbp_scheduled_refreshes_v1', {
+    p_now: now,
+    p_bucket: bucket,
+    p_limit: limit,
+  });
+  if (result.error) throw result.error;
+  const jobs = result.data;
+  return {
+    considered: jobs.length,
+    enqueued: jobs.filter((job) => job.created).length,
+    bucket,
+    jobIds: jobs.map((job) => job.job_id),
+  };
+}
+
 export async function listRestaurantsWithLinkedGoogleBusinessProfile({
   client,
   limit,

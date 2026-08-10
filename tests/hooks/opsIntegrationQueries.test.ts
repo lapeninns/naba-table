@@ -4,9 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query/keys';
 import {
   dualSyncQueryKeys,
+  gbpOperatorQueryKeys,
   invalidateDualSyncWorkspaceQueries,
   invalidateGoogleBusinessProfileQueries,
   invalidateOpsIntegrationQueries,
+  removeGbpOperatorQueries,
 } from '@src/hooks/ops/opsIntegrationQueries';
 
 const restaurantId = 'rest-1';
@@ -32,6 +34,7 @@ describe('opsIntegrationQueries', () => {
     expect(invalidatedKeys(invalidateSpy)).toEqual([
       queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
       queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
+      gbpOperatorQueryKeys.root(restaurantId),
     ]);
   });
 
@@ -58,7 +61,7 @@ describe('opsIntegrationQueries', () => {
     invalidateOpsIntegrationQueries(queryClient, restaurantId);
 
     const keys = invalidatedKeys(invalidateSpy);
-    expect(keys).toHaveLength(10);
+    expect(keys).toHaveLength(11);
     expect(keys).toContainEqual(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId));
     expect(keys).toContainEqual(dualSyncQueryKeys.state(restaurantId));
     expect(keys).toContainEqual(queryKeys.opsRestaurants.detail(restaurantId));
@@ -66,9 +69,15 @@ describe('opsIntegrationQueries', () => {
 
   it('@contract scopes dual-sync keys per restaurant', () => {
     expect(dualSyncQueryKeys.state('a')).toEqual(['dual-sync-state', 'a']);
-    expect(dualSyncQueryKeys.publishJobDetail('b')).toEqual([
-      'dual-sync-publish-job-detail',
-      'b',
-    ]);
+    expect(dualSyncQueryKeys.publishJobDetail('b')).toEqual(['dual-sync-publish-job-detail', 'b']);
+  });
+
+  it('@contract removes volatile GBP operator state instead of retaining it', () => {
+    const queryClient = new QueryClient();
+    const removeSpy = vi.spyOn(queryClient, 'removeQueries');
+
+    removeGbpOperatorQueries(queryClient, restaurantId);
+
+    expect(removeSpy).toHaveBeenCalledWith({ queryKey: gbpOperatorQueryKeys.root(restaurantId) });
   });
 });

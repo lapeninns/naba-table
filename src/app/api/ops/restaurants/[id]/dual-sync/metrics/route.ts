@@ -8,7 +8,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -16,6 +15,8 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { loadDualSyncOperationalMetrics } from '@/server/dual-sync/observability';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-metrics');
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const windowHours = parsePositiveInt(req.nextUrl.searchParams.get('windowHours'));
@@ -45,10 +46,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       windowMs: windowHours === undefined ? undefined : windowHours * 60 * 60 * 1000,
       limit,
     });
-    return NextResponse.json(metrics, { status: 200 });
+    return gbpNoStoreJson(metrics, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load dual-sync metrics';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-metrics' },

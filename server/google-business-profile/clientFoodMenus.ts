@@ -1,4 +1,5 @@
 import { googleFetchJson } from './clientTransport';
+import { GoogleBusinessProfileError } from './errors';
 
 import type { GoogleFoodMenusResource } from './food-menus';
 
@@ -22,13 +23,11 @@ export async function updateGoogleBusinessProfileFoodMenus(
   foodMenus: GoogleFoodMenusResource,
   options: { updateMask?: Array<'menus'> } = {},
 ): Promise<GoogleFoodMenusResource> {
-  const url = new URL(`${GOOGLE_MY_BUSINESS_V4_BASE_URL}/${foodMenus.name.trim()}`);
-  if (options.updateMask && options.updateMask.length > 0) {
-    url.searchParams.set('updateMask', options.updateMask.join(','));
-  }
-
-  return googleFetchJson<GoogleFoodMenusResource>(url.toString(), accessToken, {
-    method: 'PATCH',
-    body: JSON.stringify(foodMenus),
+  void accessToken;
+  void foodMenus;
+  void options;
+  throw new GoogleBusinessProfileError('Legacy Google FoodMenus writes are retired.', {
+    code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+    status: 409,
   });
 }

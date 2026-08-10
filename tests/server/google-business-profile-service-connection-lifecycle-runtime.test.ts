@@ -4,7 +4,10 @@ const revokeTokenMock = vi.hoisted(() => vi.fn());
 const decryptSecretMock = vi.hoisted(() => vi.fn());
 const discoverLocationsMock = vi.hoisted(() => vi.fn());
 const getConnectionStateMock = vi.hoisted(() => vi.fn());
-const deleteCredentialsMock = vi.hoisted(() => vi.fn());
+const disconnectConnectionFencedMock = vi.hoisted(() => vi.fn());
+const transitionConnectionFencedMock = vi.hoisted(() => vi.fn());
+const teardownNotificationsMock = vi.hoisted(() => vi.fn());
+const onRevocationUncertainMock = vi.hoisted(() => vi.fn());
 const ensureExternalProfileMock = vi.hoisted(() => vi.fn());
 const getCredentialRowMock = vi.hoisted(() => vi.fn());
 const updateExternalProfileMock = vi.hoisted(() => vi.fn());
@@ -26,7 +29,8 @@ vi.mock('@/server/google-business-profile/serviceConnectionStateRuntime', () => 
 }));
 
 vi.mock('@/server/google-business-profile/serviceRepository', () => ({
-  deleteCredentialsForExternalProfile: deleteCredentialsMock,
+  disconnectConnectionFenced: disconnectConnectionFencedMock,
+  transitionConnectionFenced: transitionConnectionFencedMock,
   ensureExternalProfile: ensureExternalProfileMock,
   getCredentialRow: getCredentialRowMock,
   updateExternalProfile: updateExternalProfileMock,
@@ -43,6 +47,10 @@ function externalProfile(overrides: Record<string, unknown> = {}) {
     id: 'external-1',
     restaurant_id: 'restaurant-1',
     external_location_id: 'location-1',
+    external_account_id: 'account-1',
+    external_profile_id: 'profile-1',
+    connection_generation: 1,
+    consent_epoch: 1,
     ...overrides,
   };
 }
@@ -66,7 +74,10 @@ describe('google business profile connection lifecycle runtime', () => {
     decryptSecretMock.mockReset();
     discoverLocationsMock.mockReset();
     getConnectionStateMock.mockReset();
-    deleteCredentialsMock.mockReset();
+    disconnectConnectionFencedMock.mockReset();
+    transitionConnectionFencedMock.mockReset();
+    teardownNotificationsMock.mockReset();
+    onRevocationUncertainMock.mockReset();
     ensureExternalProfileMock.mockReset();
     getCredentialRowMock.mockReset();
     updateExternalProfileMock.mockReset();
@@ -140,50 +151,94 @@ describe('google business profile connection lifecycle runtime', () => {
     expect(getConnectionStateMock).toHaveBeenCalledWith('restaurant-1', client);
   });
 
-  it('revokes the refresh token, deletes credentials, clears the linked profile, and returns state', async () => {
+  it('revokes then atomically disconnects the exact fenced profile', async () => {
     const client = {} as never;
     getCredentialRowMock.mockResolvedValue({ refresh_token_encrypted: 'encrypted-refresh' });
 
-    await disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', client);
+    await disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', client, {
+      actorUserId: 'user-1',
+      teardownNotifications: teardownNotificationsMock,
+      onRevocationUncertain: onRevocationUncertainMock,
+    });
 
-    expect(decryptSecretMock).toHaveBeenCalledWith('encrypted-refresh');
+    expect(decryptSecretMock).toHaveBeenCalledWith('encrypted-refresh', 'external-1');
     expect(revokeTokenMock).toHaveBeenCalledWith('refresh-token');
-    expect(deleteCredentialsMock).toHaveBeenCalledWith('external-1', client);
-    expect(updateExternalProfileMock).toHaveBeenCalledWith(
-      'external-1',
+    expect(teardownNotificationsMock).toHaveBeenCalledTimes(1);
+    expect(teardownNotificationsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      revokeTokenMock.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(transitionConnectionFencedMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        external_account_id: null,
-        external_location_id: null,
-        connection_status: 'unlinked',
-        last_error: null,
+        p_restaurant_id: 'restaurant-1',
+        p_external_profile_row_id: 'external-1',
+        p_expected_account_id: 'account-1',
+        p_expected_profile_id: 'profile-1',
+        p_expected_location_id: 'location-1',
+        p_connection_generation: 1,
+        p_consent_epoch: 1,
+      }),
+      client,
+    );
+    expect(disconnectConnectionFencedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_restaurant_id: 'restaurant-1',
+        p_external_profile_row_id: 'external-1',
+        p_connection_generation: 1,
+        p_consent_epoch: 2,
       }),
       client,
     );
     expect(getConnectionStateMock).toHaveBeenCalledWith('restaurant-1', client);
   });
 
-  it('continues disconnect when Google token revoke fails', async () => {
+  it('retains restricted revocation recovery and alerts when token revoke is uncertain', async () => {
     getCredentialRowMock.mockResolvedValue({ refresh_token_encrypted: 'encrypted-refresh' });
     revokeTokenMock.mockRejectedValue(new Error('revoke failed'));
+    getConnectionStateMock.mockResolvedValue({ status: 'revoking' });
 
     await expect(
-      disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', {} as never),
-    ).resolves.toEqual({
-      status: 'linked',
-      availableLocations: [availableLocation],
-    });
+      disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', {} as never, {
+        actorUserId: 'user-1',
+        teardownNotifications: teardownNotificationsMock,
+        onRevocationUncertain: onRevocationUncertainMock,
+      }),
+    ).resolves.toEqual({ status: 'revoking' });
 
-    expect(deleteCredentialsMock).toHaveBeenCalled();
-    expect(updateExternalProfileMock).toHaveBeenCalled();
+    expect(transitionConnectionFencedMock).toHaveBeenCalled();
+    expect(onRevocationUncertainMock).toHaveBeenCalledWith({
+      restaurantId: 'restaurant-1',
+      externalProfileRowId: 'external-1',
+    });
+    expect(disconnectConnectionFencedMock).not.toHaveBeenCalled();
+  });
+
+  it('fails before provider teardown when the current connection fence is stale', async () => {
+    transitionConnectionFencedMock.mockRejectedValue(new Error('stale connection fence'));
+
+    await expect(
+      disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', {} as never, {
+        actorUserId: 'user-1',
+        teardownNotifications: teardownNotificationsMock,
+        onRevocationUncertain: onRevocationUncertainMock,
+      }),
+    ).rejects.toThrow('stale connection fence');
+
+    expect(teardownNotificationsMock).not.toHaveBeenCalled();
+    expect(revokeTokenMock).not.toHaveBeenCalled();
+    expect(disconnectConnectionFencedMock).not.toHaveBeenCalled();
   });
 
   it('disconnects without revoking when no refresh token is stored', async () => {
     getCredentialRowMock.mockResolvedValue(null);
 
-    await disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', {} as never);
+    await disconnectGoogleBusinessProfileConnectionForClient('restaurant-1', {} as never, {
+      actorUserId: 'user-1',
+      teardownNotifications: teardownNotificationsMock,
+      onRevocationUncertain: onRevocationUncertainMock,
+    });
 
     expect(decryptSecretMock).not.toHaveBeenCalled();
     expect(revokeTokenMock).not.toHaveBeenCalled();
-    expect(deleteCredentialsMock).toHaveBeenCalledWith('external-1', {});
+    expect(disconnectConnectionFencedMock).toHaveBeenCalled();
   });
 });

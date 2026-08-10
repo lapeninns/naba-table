@@ -6,6 +6,8 @@
  * can be mutated.
  */
 
+import { getEnv } from '@/lib/env';
+
 export interface DualSyncRuntimeControlInput {
   readonly restaurantId: string;
 }
@@ -18,6 +20,9 @@ export interface DualSyncRuntimeControls {
   readonly menuSyncEnabled: boolean;
   readonly attributesSyncEnabled: boolean;
   readonly scheduledRefreshEnabled: boolean;
+  readonly pubsubIngestEnabled: boolean;
+  readonly writeRolloutMode: 'off' | 'canary' | 'allowlist' | 'on';
+  readonly canaryRestaurantId: string | null;
 }
 
 export interface DualSyncDecisionControlInput {
@@ -27,27 +32,22 @@ export interface DualSyncDecisionControlInput {
   readonly requiresManualReview?: boolean;
 }
 
-function readEnvBoolean(name: string): boolean | null {
-  const raw =
-    (typeof process !== 'undefined' && process.env ? process.env[name] : undefined) ?? null;
-  if (raw === null) return null;
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
-  if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
-  return null;
-}
-
 export function getDualSyncRuntimeControls(
   _input?: DualSyncRuntimeControlInput,
 ): DualSyncRuntimeControls {
+  const parsed = getEnv();
+
   return {
-    importEnabled: readEnvBoolean('GBP_IMPORT_ENABLED') ?? true,
-    exportEnabled: readEnvBoolean('GBP_EXPORT_ENABLED') ?? true,
-    autoCandidatesEnabled: readEnvBoolean('GBP_AUTO_CANDIDATES_ENABLED') ?? true,
-    highRiskExportsEnabled: readEnvBoolean('GBP_HIGH_RISK_EXPORTS_ENABLED') ?? true,
-    menuSyncEnabled: readEnvBoolean('GBP_MENU_SYNC_ENABLED') ?? true,
-    attributesSyncEnabled: readEnvBoolean('GBP_ATTRIBUTES_SYNC_ENABLED') ?? true,
-    scheduledRefreshEnabled: readEnvBoolean('GBP_SCHEDULED_REFRESH_ENABLED') ?? true,
+    importEnabled: parsed.GBP_IMPORT_ENABLED,
+    exportEnabled: parsed.GBP_EXPORT_ENABLED,
+    autoCandidatesEnabled: parsed.GBP_AUTO_CANDIDATES_ENABLED,
+    highRiskExportsEnabled: parsed.GBP_HIGH_RISK_EXPORTS_ENABLED,
+    menuSyncEnabled: parsed.GBP_MENU_SYNC_ENABLED,
+    attributesSyncEnabled: parsed.GBP_ATTRIBUTES_SYNC_ENABLED,
+    scheduledRefreshEnabled: parsed.GBP_SCHEDULED_REFRESH_ENABLED,
+    pubsubIngestEnabled: parsed.GBP_PUBSUB_INGEST_ENABLED,
+    writeRolloutMode: parsed.GBP_WRITE_ROLLOUT_MODE,
+    canaryRestaurantId: parsed.GBP_CANARY_RESTAURANT_ID ?? null,
   };
 }
 

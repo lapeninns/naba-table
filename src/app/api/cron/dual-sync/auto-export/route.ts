@@ -18,6 +18,7 @@
 
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/runtime-controls';
 import { runAutoExportForAllTenants } from '@/server/dual-sync/scheduling/auto-export';
@@ -75,11 +76,12 @@ export async function GET(request: Request) {
       });
       return NextResponse.json({ success: true, runId: auth.runId, ...summary });
     } catch (error) {
-      console.error('[cron][dual-sync.auto-export] failed to run', {
-        jobName: auth.jobName,
+      logger.error('Dual-sync auto-export cron failed.', {
+        source: 'cron.dual-sync.auto-export',
         runId: auth.runId,
-        error,
+        errorKind: error instanceof Error ? 'error' : typeof error,
       });
+      // captureServerException sanitizes exception content before external telemetry.
       captureServerException(error, {
         properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });

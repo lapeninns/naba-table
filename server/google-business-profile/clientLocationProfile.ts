@@ -3,6 +3,7 @@ import {
   parseGoogleLocationId,
 } from './clientResourceNames';
 import { googleFetchJson } from './clientTransport';
+import { GoogleBusinessProfileError } from './errors';
 
 const GOOGLE_BUSINESS_INFORMATION_BASE_URL =
   'https://mybusinessbusinessinformation.googleapis.com/v1';
@@ -138,6 +139,7 @@ export type GoogleBusinessProfileLocationProfile = {
   }>;
   serviceItems?: Array<Record<string, unknown>>;
   __nabatableOptionalFetchStatus?: GoogleBusinessProfileLocationOptionalFetchStatuses;
+  __nabatableRawResponses?: Array<Record<string, unknown>>;
 };
 
 export type GoogleBusinessProfileAttributesResponse = {
@@ -243,6 +245,7 @@ export async function getGoogleBusinessProfileLocationProfile(
   return {
     ...mergedLocation,
     __nabatableOptionalFetchStatus: optionalFetchStatus,
+    __nabatableRawResponses: [location, ...optionalSegments.filter((segment) => segment !== null)],
   };
 }
 
@@ -265,20 +268,13 @@ export async function updateGoogleBusinessProfileLocationAttributes(
   payload: GoogleBusinessProfileAttributesPatch,
   attributeMask: string[],
 ): Promise<GoogleBusinessProfileAttributesResponse> {
-  const normalizedLocationId = parseGoogleLocationId(
-    normalizeGoogleBusinessProfileLocationResourceName(locationId),
-  );
-  const url = new URL(
-    `${GOOGLE_BUSINESS_INFORMATION_BASE_URL}/locations/${normalizedLocationId}/attributes`,
-  );
-  url.searchParams.set('attributeMask', attributeMask.join(','));
-
-  return googleFetchJson<GoogleBusinessProfileAttributesResponse>(url.toString(), accessToken, {
-    method: 'PATCH',
-    body: JSON.stringify({
-      name: `locations/${normalizedLocationId}/attributes`,
-      ...payload,
-    }),
+  void accessToken;
+  void locationId;
+  void payload;
+  void attributeMask;
+  throw new GoogleBusinessProfileError('Legacy Google attribute writes are retired.', {
+    code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+    status: 409,
   });
 }
 
@@ -289,15 +285,13 @@ export async function patchGoogleBusinessProfileLocation(
   updateMask: string[],
   options: { validateOnly?: boolean } = {},
 ): Promise<GoogleBusinessProfileLocationProfile> {
-  const locationName = normalizeGoogleBusinessProfileLocationResourceName(locationNameOrId);
-  const url = new URL(`${GOOGLE_BUSINESS_INFORMATION_BASE_URL}/${locationName}`);
-  url.searchParams.set('updateMask', updateMask.join(','));
-  if (options.validateOnly) {
-    url.searchParams.set('validateOnly', 'true');
-  }
-
-  return googleFetchJson<GoogleBusinessProfileLocationProfile>(url.toString(), accessToken, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
+  void accessToken;
+  void locationNameOrId;
+  void payload;
+  void updateMask;
+  void options;
+  throw new GoogleBusinessProfileError('Legacy Google location writes are retired.', {
+    code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+    status: 409,
   });
 }

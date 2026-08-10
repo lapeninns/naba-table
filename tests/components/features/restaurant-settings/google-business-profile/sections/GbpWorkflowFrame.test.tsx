@@ -63,5 +63,9 @@ describe('GbpWorkflowFrame', () => {
     await user.click(screen.getByRole('button', { name: /Review changes/ }));
     expect(onSelectAnchor).toHaveBeenCalledWith('gbp-sync-review');
     expect(screen.queryByText('Google integration is 100% optional')).not.toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Google workflow' })).toHaveClass(
+      'max-sm:[&_[role=list]]:flex-wrap',
+      'max-sm:[&_[role=list]]:overflow-visible',
+    );
   });
 });

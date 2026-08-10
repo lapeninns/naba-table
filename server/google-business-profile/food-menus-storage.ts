@@ -1,6 +1,12 @@
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { DUAL_SYNC_PROVIDER } from '@/server/dual-sync/types';
 
+import { toJson } from './businessInfoNormalization';
+import {
+  persistGoogleBusinessProfileFoodMenusSnapshot,
+  readCurrentGoogleBusinessProfileFoodMenusSnapshots,
+  resolveGoogleBusinessProfileContentFence,
+} from './contentSnapshotPersistence';
 import {
   canonicalizeGoogleFoodMenusResource,
   type CanonicalGoogleFoodMenusResource,
@@ -208,6 +214,44 @@ function isFoodMenusSnapshotHashConflict(error: unknown): boolean {
   return code === '23505' && text.includes('restaurant_gbp_food_menu_snapshots_hash_idx');
 }
 
+type PersistedFoodMenusSnapshotRow = Awaited<
+  ReturnType<typeof persistGoogleBusinessProfileFoodMenusSnapshot>
+>;
+
+function snapshotKind(value: string): FoodMenusSnapshotKind {
+  if (value === 'google_pull' || value === 'nabatable_projection' || value === 'preflight') {
+    return value;
+  }
+  throw new Error('GBP FoodMenus snapshot kind is invalid');
+}
+
+function snapshotSource(value: string): FoodMenusSnapshotSource {
+  if (value === 'manual' || value === 'scheduled' || value === 'preflight' || value === 'publish') {
+    return value;
+  }
+  throw new Error('GBP FoodMenus snapshot source is invalid');
+}
+
+function snapshotStatus(value: string): FoodMenusSnapshotStatus {
+  if (value === 'succeeded' || value === 'failed') return value;
+  throw new Error('GBP FoodMenus snapshot status is invalid');
+}
+
+function normalizePersistedFoodMenusSnapshotRow(
+  row: PersistedFoodMenusSnapshotRow,
+): FoodMenusSnapshotRow {
+  if (row.provider !== DUAL_SYNC_PROVIDER) {
+    throw new Error('GBP FoodMenus snapshot row is invalid');
+  }
+  return {
+    ...row,
+    provider: DUAL_SYNC_PROVIDER,
+    snapshot_kind: snapshotKind(row.snapshot_kind),
+    source: snapshotSource(row.source),
+    status: snapshotStatus(row.status),
+  };
+}
+
 export function buildFoodMenusProjectionSnapshotHash({
   projection,
   foodMenusHash,
@@ -296,6 +340,23 @@ export async function recordFoodMenusSnapshot({
   pulledAt = null,
   createdByUserId = null,
 }: RecordFoodMenusSnapshotInput): Promise<FoodMenusSnapshot> {
+  if (snapshotKind !== 'nabatable_projection' && rawFoodMenus) {
+    const fence = await resolveGoogleBusinessProfileContentFence({
+      client,
+      restaurantId,
+      externalProfileRowId: externalProfileId,
+    });
+    const row = await persistGoogleBusinessProfileFoodMenusSnapshot({
+      client,
+      fence,
+      source,
+      foodMenusName,
+      rawFoodMenus: toJson(rawFoodMenus),
+      googleEtag,
+      observedAt: pulledAt ?? new Date().toISOString(),
+    });
+    return rowToSnapshot(normalizePersistedFoodMenusSnapshotRow(row));
+  }
   const db = getFoodMenusSyncDbClient(client);
   const { data, error } = await db
     .from('restaurant_gbp_food_menu_snapshots')
@@ -353,6 +414,14 @@ export async function readLatestFoodMenusSnapshot({
   readonly snapshotKind: FoodMenusSnapshotKind;
   readonly status?: FoodMenusSnapshotStatus;
 }): Promise<FoodMenusSnapshot | null> {
+  if (snapshotKind !== 'nabatable_projection') {
+    const fence = await resolveGoogleBusinessProfileContentFence({ client, restaurantId });
+    const rows = await readCurrentGoogleBusinessProfileFoodMenusSnapshots({ client, fence });
+    const matching = rows.find(
+      (row) => snapshotKind === 'google_pull' || row.source === 'preflight',
+    );
+    return matching ? rowToSnapshot(normalizePersistedFoodMenusSnapshotRow(matching)) : null;
+  }
   const db = getFoodMenusSyncDbClient(client);
   const { data, error } = await db
     .from('restaurant_gbp_food_menu_snapshots')

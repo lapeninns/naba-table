@@ -82,6 +82,20 @@ describe('RestaurantSettingsChromeHeader', () => {
     expect(screen.getByText('Old Crown Girton')).toBeInTheDocument();
   });
 
+  it('@contract keeps the title usable at 375px and defers the restaurant badge to sm', () => {
+    settingsContextState.headingContext = {
+      chromeBreadcrumb: null,
+      chromeLeafTitle: 'Google Business Profile',
+    };
+    settingsContextState.restaurantName = 'QA App Host Restaurant';
+    renderHeader();
+
+    const title = screen.getByRole('heading', { name: 'Google Business Profile', level: 1 });
+    expect(title.parentElement).toHaveClass('flex-1', 'min-w-0', 'overflow-hidden');
+    expect(title.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
+    expect(screen.getByText('QA App Host Restaurant')).toHaveClass('hidden', 'sm:inline-flex');
+  });
+
   it('@contract invokes the exit guard when the close link is clicked', async () => {
     const user = userEvent.setup();
     const onExitClick = vi.fn((event: React.MouseEvent<HTMLAnchorElement>) =>

@@ -18,7 +18,9 @@ interface MockChain {
   readonly update: ReturnType<typeof vi.fn>;
   readonly select: ReturnType<typeof vi.fn>;
   readonly eq: ReturnType<typeof vi.fn>;
+  readonly neq: ReturnType<typeof vi.fn>;
   readonly in: ReturnType<typeof vi.fn>;
+  readonly is: ReturnType<typeof vi.fn>;
   readonly lte: ReturnType<typeof vi.fn>;
   readonly order: ReturnType<typeof vi.fn>;
   readonly limit: ReturnType<typeof vi.fn>;
@@ -36,7 +38,9 @@ function makeChain(result: unknown): MockChain {
     update: fluent,
     select: fluent,
     eq: fluent,
+    neq: fluent,
     in: fluent,
+    is: fluent,
     lte: fluent,
     order: fluent,
     limit: fluent,
@@ -99,6 +103,7 @@ describe('dual-sync queue job helpers', () => {
         job_kind: 'publish_batch',
         idempotency_key: 'request-1',
         priority: 10,
+        max_attempts: 1,
       }),
       expect.objectContaining({
         onConflict: 'restaurant_id,provider,job_kind,idempotency_key',
@@ -150,6 +155,24 @@ describe('dual-sync queue job helpers', () => {
     ).rejects.toThrow('idempotency key was already used with a different payload');
   });
 
+  it('rejects content-bearing GBP job payloads before persistence', async () => {
+    const chain = makeChain(null);
+    const client = clientFor(chain);
+
+    await expect(
+      enqueueDualSyncJob({
+        client,
+        restaurantId: 'rest-1',
+        jobKind: 'publish_batch',
+        payload: {
+          publishBatchId: 'batch-1',
+          providerResponse: { name: 'Private Google content' },
+        },
+      }),
+    ).rejects.toThrow();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
   it('claims the next available queued job for a worker', async () => {
     const staleChain = makeChain([]);
     const readChain = makeChain([makeJobRow()]);
@@ -177,6 +200,7 @@ describe('dual-sync queue job helpers', () => {
       }),
     );
     expect(staleChain.eq).toHaveBeenCalledWith('status', 'running');
+    expect(staleChain.is).toHaveBeenCalledWith('write_bundle_id', null);
     expect(staleChain.lte).toHaveBeenCalledWith('locked_at', '2026-05-08T23:46:00.000Z');
     expect(readChain.in).toHaveBeenCalledWith('status', ['queued', 'retrying']);
     expect(readChain.lte).toHaveBeenCalledWith('available_at', '2026-05-09T00:01:00.000Z');
@@ -266,7 +290,9 @@ describe('dual-sync queue job helpers', () => {
     expect(deadChain.update).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'dead_letter',
-        dead_letter_reason: 'Provider still failing',
+        last_error_code: 'EXTERNAL_API_ERROR',
+        last_error_message: null,
+        dead_letter_reason: 'EXTERNAL_API_ERROR',
         finished_at: '2026-05-09T00:05:00.000Z',
       }),
     );
@@ -321,6 +347,7 @@ describe('dual-sync queue job helpers', () => {
         dead_letter_reason: null,
       }),
     );
+    expect(chain.is).toHaveBeenCalledWith('write_bundle_id', null);
     expect(chain.eq).toHaveBeenCalledWith('id', 'job-1');
     expect(chain.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
     expect(chain.in).toHaveBeenCalledWith('status', ['failed', 'dead_letter', 'cancelled']);

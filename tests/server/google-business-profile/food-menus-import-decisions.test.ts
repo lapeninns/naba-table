@@ -9,6 +9,9 @@ const markDecisionMock = vi.hoisted(() => vi.fn());
 const readSettingsMock = vi.hoisted(() => vi.fn());
 const readReviewMock = vi.hoisted(() => vi.fn());
 const upsertSettingsMock = vi.hoisted(() => vi.fn());
+const loggerErrorMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/logger', () => ({ logger: { error: loggerErrorMock } }));
 
 vi.mock('@/server/google-business-profile/food-menus-canonical-adapter', () => ({
   applyCanonicalFoodMenusSuggestedPatch: applySuggestedPatchMock,
@@ -57,11 +60,13 @@ function review(overrides: ReviewOverrides = {}) {
   } as never;
 }
 
-function decide(overrides: {
-  review?: ReviewOverrides;
-  action?: string;
-  decidedByUserId?: string | null;
-} = {}) {
+function decide(
+  overrides: {
+    review?: ReviewOverrides;
+    action?: string;
+    decidedByUserId?: string | null;
+  } = {},
+) {
   readReviewMock.mockResolvedValue(review(overrides.review));
   return decideFoodMenusImportReview({
     client,
@@ -88,9 +93,11 @@ beforeEach(() => {
   ]) {
     mock.mockReset();
   }
+  loggerErrorMock.mockReset();
   claimDecisionMock.mockResolvedValue(review());
-  markDecisionMock.mockImplementation(async (input: { decisionStatus: string; decisionAction: string }) =>
-    review({ decisionStatus: input.decisionStatus, decisionAction: input.decisionAction }),
+  markDecisionMock.mockImplementation(
+    async (input: { decisionStatus: string; decisionAction: string }) =>
+      review({ decisionStatus: input.decisionStatus, decisionAction: input.decisionAction }),
   );
   markDecisionFailedMock.mockResolvedValue(review({ decisionStatus: 'failed' }));
   readSettingsMock.mockResolvedValue(null);
@@ -353,15 +360,20 @@ describe('decideFoodMenusImportReview', () => {
 
   it('still rethrows the original failure when marking the claim failed also fails @contract @observability', async () => {
     const writeFailure = new Error('canonical write failed');
+    const secret = 'Bearer provider-secret guest@example.com';
     applySuggestedPatchMock.mockRejectedValue(writeFailure);
-    markDecisionFailedMock.mockRejectedValue(new Error('mark failed error'));
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    markDecisionFailedMock.mockRejectedValue(new Error(secret));
 
     await expect(decide({ action: 'apply_to_nabatable' })).rejects.toBe(writeFailure);
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[gbp][food-menus][import-review] failed to mark claimed review failed',
-      { reviewId: 'review-1', message: 'mark failed error' },
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      'Food menus import review failure transition failed.',
+      {
+        module: 'gbp',
+        reviewId: 'review-1',
+        errorKind: 'error',
+      },
     );
+    expect(JSON.stringify(loggerErrorMock.mock.calls)).not.toContain(secret);
   });
 });

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const loggerErrorMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/logger', () => ({ logger: { error: loggerErrorMock } }));
+
 import {
   DualSyncLockError,
   DUAL_SYNC_LOCK_HELD_CODE,
@@ -131,5 +135,44 @@ describe('runWithDualSyncLock', () => {
 
     expect(work).not.toHaveBeenCalled();
     expect(manager.release).not.toHaveBeenCalled();
+  });
+
+  it('records a safe release failure and preserves the protected-job failure', async () => {
+    // Given
+    const secret = 'Bearer provider-secret guest@example.com';
+    const workFailure = new Error('publish failed');
+    const manager: DualSyncLockManager = {
+      acquire: vi.fn(async () => lock),
+      release: vi.fn(async () => {
+        throw new Error(secret);
+      }),
+    };
+
+    // When
+    const result = runWithDualSyncLock(
+      {
+        client,
+        restaurantId: 'rest-1',
+        jobKind: 'publish_batch',
+        manager,
+      },
+      async () => {
+        throw workFailure;
+      },
+    );
+
+    // Then
+    await expect(result).rejects.toBe(workFailure);
+    expect(loggerErrorMock).toHaveBeenCalledWith(
+      'Dual-sync lock release failed after job failure.',
+      {
+        module: 'dual-sync-locks',
+        restaurantId: 'rest-1',
+        jobKind: 'publish_batch',
+        lockId: 'lock-1',
+        errorKind: 'error',
+      },
+    );
+    expect(JSON.stringify(loggerErrorMock.mock.calls)).not.toContain(secret);
   });
 });

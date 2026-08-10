@@ -7,9 +7,12 @@ export {
   type RunAutoExportFanOutSummary,
 } from './auto-export';
 export {
+  enqueueScheduledRefreshJobs,
   listRestaurantsWithLinkedGoogleBusinessProfile,
   runScheduledRefreshForAllTenants,
   runScheduledRefreshForRestaurant,
+  type EnqueueScheduledRefreshJobsInput,
+  type EnqueueScheduledRefreshJobsSummary,
   type RunScheduledRefreshFanOutSummary,
   type RunScheduledRefreshForAllTenantsInput,
   type RunScheduledRefreshForRestaurantInput,

@@ -12,6 +12,7 @@ import { queryKeys } from '@/lib/query/keys';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
 let mockSearchParams = new URLSearchParams();
+let mockCanManageSettings = true;
 
 const queryClientMock = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('sonner', () => ({
     error: vi.fn(),
     warning: vi.fn(),
   },
+}));
+
+vi.mock('@/contexts/ops-session', () => ({
+  useOpsSession: () => ({ permissions: { canManageSettings: mockCanManageSettings } }),
 }));
 
 const connectionResult = {
@@ -71,12 +76,34 @@ const startAuthorizationMutation = {
   error: null,
 };
 
+const operatorStateResult = {
+  connectionQuery: {
+    data: undefined,
+    isLoading: true,
+    error: null,
+  },
+  terminalNoticesQuery: {
+    data: undefined,
+  },
+  setWriteAccessMutation: {
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  },
+  setNotificationParticipationMutation: {
+    mutateAsync: vi.fn(),
+    isPending: false,
+    error: null,
+  },
+};
+
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
   useOpsGoogleBusinessProfileAvailableLocations: () => locationsResult,
   useOpsStartGoogleBusinessProfileAuthorization: () => startAuthorizationMutation,
   useOpsLinkGoogleBusinessProfileLocation: () => linkMutation,
   useOpsDisconnectGoogleBusinessProfile: () => disconnectMutation,
+  useOpsGbpOperatorState: () => operatorStateResult,
 }));
 
 function emptyBusinessInfo(): GoogleBusinessProfileConnection['businessInfo'] {
@@ -160,6 +187,7 @@ function expectSharedChrome() {
 
 beforeEach(() => {
   mockSearchParams = new URLSearchParams();
+  mockCanManageSettings = true;
   connectionResult.data = undefined;
   connectionResult.error = null;
   connectionResult.isLoading = false;
@@ -366,6 +394,20 @@ describe('GoogleBusinessProfileSection', () => {
     expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
     expect(screen.getAllByTestId('gbp-overview-card')).toHaveLength(1);
     expectSharedChrome();
+  });
+
+  it('hides admin-only Google operator controls without settings permission', () => {
+    mockCanManageSettings = false;
+    connectionResult.data = buildConnection({
+      status: 'linked',
+      externalAccountId: 'a-1',
+      externalLocationId: 'l-1',
+      externalLocationName: 'locations/1',
+    });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.queryByText(/loading google operator controls/i)).not.toBeInTheDocument();
   });
 
   it('renders truthful linked copy when the sync workspace is unavailable', () => {

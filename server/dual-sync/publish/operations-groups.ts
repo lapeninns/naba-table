@@ -3,11 +3,11 @@ import {
   type DualSyncPublishOperationGroup,
   type DualSyncPublishOperationGroupStatus,
 } from '../types';
-import { sanitizeGoogleAuditPayload } from './google-audit';
 import { rowToOperationGroup } from './operations-mappers';
+import { metadataOnlySummary, safePersistenceErrorCode } from './persistence-metadata';
 
 import type { DualSyncPublishGroup } from './types';
-import type { Database, Json } from '@/types/supabase';
+import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -39,7 +39,7 @@ export async function createOperationGroupsForPlan(
         requires_preflight: group.requiresPreflight,
         requires_manual_confirmation: group.requiresManualConfirmation,
         destructive_write_possible: group.destructiveWritePossible,
-        google_update_masks: [...group.googleUpdateMasks],
+        google_update_masks: [...group.googleUpdateMasks].sort(),
         decision_count: group.fields.length,
       })) as never,
     )
@@ -73,13 +73,13 @@ export async function updateOperationGroupStatus(
   };
   if (input.preflightStatus !== undefined) patch.preflight_status = input.preflightStatus;
   if (input.preflightResult !== undefined)
-    patch.preflight_result = sanitizeGoogleAuditPayload(input.preflightResult) as Json;
+    patch.preflight_result = metadataOnlySummary(input.preflightResult);
   if (input.requestSummary !== undefined)
-    patch.request_summary = sanitizeGoogleAuditPayload(input.requestSummary) as Json;
+    patch.request_summary = metadataOnlySummary(input.requestSummary);
   if (input.responseSummary !== undefined)
-    patch.response_summary = sanitizeGoogleAuditPayload(input.responseSummary) as Json;
-  if (input.errorCode !== undefined) patch.error_code = input.errorCode;
-  if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
+    patch.response_summary = metadataOnlySummary(input.responseSummary);
+  if (input.errorCode !== undefined) patch.error_code = safePersistenceErrorCode(input.errorCode);
+  if (input.errorMessage !== undefined) patch.error_message = null;
   if (input.startedAt !== undefined) patch.started_at = input.startedAt;
   if (input.finishedAt !== undefined) patch.finished_at = input.finishedAt;
 

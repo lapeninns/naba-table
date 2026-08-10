@@ -290,13 +290,24 @@ export const env = {
       parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEY ??
       parsed.GOOGLE_BUSINESS_PROFILE_TOKEN_ENCRYPTION_KEY ??
       null;
+    const tokenEncryptionKeyring =
+      parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID &&
+      parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS
+        ? {
+            activeKeyId: parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_ACTIVE_KEY_ID,
+            keys: parsed.GOOGLE_BUSINESS_TOKEN_ENCRYPTION_KEYS,
+          }
+        : null;
     return {
       clientId,
       clientSecret,
       redirectUri,
       tokenEncryptionKey,
+      tokenEncryptionKeyring,
       quotaProject: parsed.GOOGLE_CLOUD_QUOTA_PROJECT ?? null,
-      configured: Boolean(clientId && clientSecret && redirectUri && tokenEncryptionKey),
+      configured: Boolean(
+        clientId && clientSecret && redirectUri && (tokenEncryptionKey || tokenEncryptionKeyring),
+      ),
     } as const;
   },
 
@@ -342,6 +353,13 @@ export const env = {
     const parsed = parseEnv();
     return {
       failureWebhookUrl: parsed.DUAL_SYNC_FAILURE_WEBHOOK_URL ?? null,
+      pubsubIngress: {
+        enabled: parsed.GBP_PUBSUB_INGEST_ENABLED,
+        expectedAudience: parsed.GBP_PUBSUB_EXPECTED_AUDIENCE ?? null,
+        pushServiceAccountEmail: parsed.GBP_PUBSUB_PUSH_SERVICE_ACCOUNT_EMAIL ?? null,
+        subscription: parsed.GBP_PUBSUB_SUBSCRIPTION ?? null,
+        topic: parsed.GBP_PUBSUB_TOPIC ?? null,
+      },
     } as const;
   },
 } as const;

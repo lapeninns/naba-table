@@ -47,3 +47,20 @@ function sanitizeValue(value: unknown): unknown {
 export function sanitizeGoogleAuditPayload<T>(payload: T): unknown {
   return sanitizeValue(payload);
 }
+
+const AUDIT_METADATA_KEY =
+  /^(?:id|.*Id|.*_id|fieldKey|sectionKey|status|errorCode|method|phase|direction|writeGroup|updateMasks|.*Hash|.*_hash|count|attemptCount)$/;
+
+export function googleAuditMetadataOnly(payload: unknown): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return {};
+  const metadata: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (!AUDIT_METADATA_KEY.test(key)) continue;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      metadata[key] = truncateString(String(value));
+    } else if (Array.isArray(value) && value.every((item) => typeof item === 'string')) {
+      metadata[key] = value.slice(0, MAX_ARRAY_LENGTH).map(truncateString);
+    }
+  }
+  return metadata;
+}

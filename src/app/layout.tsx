@@ -1,14 +1,15 @@
 import { Geist_Mono, Inter, Merriweather } from 'next/font/google';
+import Script from 'next/script';
 import PlausibleProvider from 'next-plausible';
 import { type CSSProperties, type ReactNode } from 'react';
 
-import ClientLayout from '@/components/LayoutClient';
 import config from '@/config';
 import { APP_THEME_PATH_PATTERN } from '@/lib/theme/documentTheme';
 import { getSEOTags } from '@/libs/seo';
 
 import './globals.css';
 import { AppProviders } from './providers';
+import ClientLayout from '../../components/LayoutClient';
 
 import type { Viewport } from 'next';
 
@@ -53,7 +54,15 @@ const htmlStyle: CSSProperties = {
 // Color mode is orthogonal to the surface and opt-in: no stored preference stays light;
 // 'dark' forces dark; 'system' follows the OS. Runs before paint to avoid a flash.
 const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);var mode=null;try{mode=localStorage.getItem('nabatable-color-mode');}catch(e){}var systemDark=!!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);var dark=mode==='dark'||(mode==='system'&&systemDark);if(dark){root.classList.add('dark');root.style.colorScheme='dark';}else{root.classList.remove('dark');root.style.colorScheme='light';}})();`;
-const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**';
+export const PLAUSIBLE_EXCLUDED_PATHS = [
+  '/invite/**',
+  '/**/google-business-profile',
+  '/**/google-business-profile/**',
+  '/**/dual-sync',
+  '/**/dual-sync/**',
+  '/**/gbp',
+  '/**/gbp/**',
+].join(',');
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -66,6 +75,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: documentThemeBootstrapScript }} />
+        {process.env.NODE_ENV === 'development' &&
+        process.env.NEXT_PUBLIC_DISABLE_REACT_DEVTOOLS !== '1' ? (
+          <>
+            <Script
+              src="//unpkg.com/react-grab/dist/index.global.js"
+              crossOrigin="anonymous"
+              strategy="beforeInteractive"
+            />
+            <Script
+              src="//unpkg.com/react-scan/dist/auto.global.js"
+              crossOrigin="anonymous"
+              strategy="beforeInteractive"
+            />
+          </>
+        ) : null}
         {config.domainName ? (
           <PlausibleProvider domain={config.domainName} exclude={PLAUSIBLE_EXCLUDED_PATHS} />
         ) : null}

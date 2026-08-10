@@ -8,6 +8,7 @@
  */
 
 import { getDualSyncDbClient, type DualSyncFieldStateRow } from '../db';
+import { metadataOnlyRecord } from '../publish/persistence-metadata';
 import {
   DUAL_SYNC_PROVIDER,
   type DualSyncFieldStateSectionKey,
@@ -21,9 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
 
-function isDualSyncFieldStateSectionKey(
-  value: unknown,
-): value is DualSyncFieldStateSectionKey {
+function isDualSyncFieldStateSectionKey(value: unknown): value is DualSyncFieldStateSectionKey {
   return value === 'core_only' || isDualSyncSectionKey(value);
 }
 
@@ -54,10 +53,7 @@ function rowToRecord(row: DualSyncFieldStateRow): DualSyncFieldStateRecord {
     lastGbpChangeAt: row.last_gbp_change_at,
     lastInSyncAt: row.last_in_sync_at,
     lastSnapshotRunId: row.last_snapshot_run_id,
-    metadata:
-      row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
-        ? (row.metadata as Record<string, unknown>)
-        : {},
+    metadata: metadataOnlyRecord(row.metadata ?? {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

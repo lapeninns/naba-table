@@ -256,12 +256,12 @@ describe('dual-sync publish batch helpers', () => {
       expect.objectContaining({
         status: 'failed',
         error_code: 'PORT_FAILURE',
-        error_message: 'Google rejected the payload',
+        error_message: null,
       }),
     );
   });
 
-  it('redacts sensitive Google audit payloads before updating group summaries', async () => {
+  it('stores only hashes and shapes for group summaries', async () => {
     const groupChain = makeChain(makeGroupRow({ status: 'failed' }));
     const groupClient = clientFor(groupChain);
 
@@ -300,27 +300,21 @@ describe('dual-sync publish batch helpers', () => {
       status: 'failed',
       preflight_status: 'failed',
       preflight_result: {
-        status: 400,
-        authorization: '[redacted]',
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 2 },
       },
       request_summary: {
-        fieldKey: 'profile.name',
-        updateMask: ['profile'],
-        headers: {
-          cookie: '[redacted]',
-          'x-goog-api-key': '[redacted]',
-        },
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 3 },
       },
       response_summary: {
-        message: 'Rejected refresh_token=[redacted]',
-        nested: {
-          access_token: '[redacted]',
-        },
+        sha256: expect.any(String),
+        shape: { kind: 'object', fieldCount: 2 },
       },
     });
   });
 
-  it('redacts sensitive Google audit payloads before updating operation responses', async () => {
+  it('does not persist provider operation responses', async () => {
     const operationChain = makeChain(makeOperationRow({ status: 'failed' }));
     const operationClient = clientFor(operationChain);
 
@@ -350,18 +344,7 @@ describe('dual-sync publish batch helpers', () => {
     expect(JSON.stringify(patch)).not.toContain('body-secret');
     expect(patch).toMatchObject({
       status: 'failed',
-      external_response: {
-        status: 403,
-        url: 'https://google.example/location?access_token=[redacted]',
-        headers: {
-          authorization: '[redacted]',
-          'set-cookie': '[redacted]',
-        },
-        body: {
-          apiKey: '[redacted]',
-          error: 'invalid secret=[redacted]',
-        },
-      },
+      external_response: null,
     });
   });
 });

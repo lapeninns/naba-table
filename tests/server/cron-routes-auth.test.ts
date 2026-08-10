@@ -12,11 +12,16 @@ const drainMobileReviewIntentsMock = vi.hoisted(() => vi.fn());
 const processEmailJobsMock = vi.hoisted(() => vi.fn());
 const autoCompletePastBookingsMock = vi.hoisted(() => vi.fn());
 const runScheduledRefreshForAllTenantsMock = vi.hoisted(() => vi.fn());
+const enqueueScheduledRefreshJobsMock = vi.hoisted(() => vi.fn());
 const runAutoExportForAllTenantsMock = vi.hoisted(() => vi.fn());
 const runDualSyncOperationalHealthAlertSweepMock = vi.hoisted(() => vi.fn());
 const processNextDualSyncJobMock = vi.hoisted(() => vi.fn());
-const pruneExpiredGoogleRequestLogsMock = vi.hoisted(() => vi.fn());
+const runContentRetentionMock = vi.hoisted(() => vi.fn());
+const createSupabaseContentRetentionPortMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const createGrantRecoveryPortMock = vi.hoisted(() => vi.fn());
+const recoverStaleGrantsMock = vi.hoisted(() => vi.fn());
+const reconcileTerminalNoticesMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/security/rate-limit', () => ({
   consumeRateLimit: consumeRateLimitMock,
@@ -70,6 +75,7 @@ vi.mock('@/server/queue/mobile-review-intents', async () => {
 });
 
 vi.mock('@/server/dual-sync/scheduling', () => ({
+  enqueueScheduledRefreshJobs: enqueueScheduledRefreshJobsMock,
   runScheduledRefreshForAllTenants: runScheduledRefreshForAllTenantsMock,
 }));
 
@@ -85,12 +91,26 @@ vi.mock('@/server/dual-sync/queue', () => ({
   processNextDualSyncJob: processNextDualSyncJobMock,
 }));
 
-vi.mock('@/server/dual-sync/publish', () => ({
-  pruneExpiredGoogleRequestLogs: pruneExpiredGoogleRequestLogsMock,
-}));
+vi.mock('@/server/dual-sync/retention', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('@/server/dual-sync/retention');
+  return {
+    ...actual,
+    createSupabaseContentRetentionPort: createSupabaseContentRetentionPortMock,
+    runContentRetention: runContentRetentionMock,
+  };
+});
 
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: getServiceSupabaseClientMock,
+}));
+
+vi.mock('@/server/dual-sync/health/dispatched-grant-recovery', () => ({
+  createSupabaseGbpDispatchedGrantRecoveryPort: createGrantRecoveryPortMock,
+  recoverStaleGbpDispatchedGrants: recoverStaleGrantsMock,
+}));
+
+vi.mock('@/server/dual-sync/notifications', () => ({
+  reconcileGoogleWriteTerminalNotices: reconcileTerminalNoticesMock,
 }));
 
 import { GET as autoCompleteGET } from '@/src/app/api/cron/auto-complete-bookings/route';
@@ -254,14 +274,33 @@ describe('cron route authentication', () => {
       dryRun: true,
     });
     processNextDualSyncJobMock.mockResolvedValue({ status: 'idle', job: null });
-    pruneExpiredGoogleRequestLogsMock.mockResolvedValue({
-      cutoff: '2026-05-10T00:00:00.000Z',
+    createSupabaseContentRetentionPortMock.mockReturnValue({ retention: true });
+    runContentRetentionMock.mockResolvedValue({
+      dryRun: false,
+      runAt: '2026-05-10T00:00:00.000Z',
       limit: 1_000,
-      selected: 0,
-      deleted: 0,
+      totals: { matched: 0, mutated: 0 },
+      oldestOutstandingAgeMs: null,
+      level: 'healthy',
       moreLikely: false,
+      stores: [],
     });
     getServiceSupabaseClientMock.mockReturnValue({ service: true });
+    createGrantRecoveryPortMock.mockReturnValue({ recovery: true });
+    recoverStaleGrantsMock.mockResolvedValue({
+      mode: 'mutated',
+      cutoff: '2026-05-09T23:55:00.000Z',
+      profilesConsidered: 1,
+      profilesProcessed: 1,
+      recovered: 1,
+      capped: false,
+      errors: [],
+    });
+    reconcileTerminalNoticesMock.mockResolvedValue({
+      considered: 1,
+      materialized: 1,
+      failed: 0,
+    });
   });
 
   it.each(cronRoutes)('%s fails closed when CRON_SECRET is missing', async (_name, callRoute) => {
@@ -279,7 +318,7 @@ describe('cron route authentication', () => {
     expect(runAutoExportForAllTenantsMock).not.toHaveBeenCalled();
     expect(runDualSyncOperationalHealthAlertSweepMock).not.toHaveBeenCalled();
     expect(processNextDualSyncJobMock).not.toHaveBeenCalled();
-    expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
+    expect(runContentRetentionMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -327,6 +366,11 @@ describe('cron route authentication', () => {
 
     expect(response.status).toBe(401);
     expect(payload).toEqual({ error: 'Unauthorized' });
+    if (_name === 'dual-sync health' || _name === 'dual-sync request-log retention') {
+      expect(response.headers.get('cache-control')).toBe('private, no-store, max-age=0');
+      expect(response.headers.get('cdn-cache-control')).toBe('no-store');
+      expect(response.headers.get('vary')).toBe('Cookie, Authorization');
+    }
     expect(triggerEmailQueueDrainMock).not.toHaveBeenCalled();
     expect(processEmailJobsMock).not.toHaveBeenCalled();
     expect(autoCompletePastBookingsMock).not.toHaveBeenCalled();
@@ -334,7 +378,7 @@ describe('cron route authentication', () => {
     expect(runAutoExportForAllTenantsMock).not.toHaveBeenCalled();
     expect(runDualSyncOperationalHealthAlertSweepMock).not.toHaveBeenCalled();
     expect(processNextDualSyncJobMock).not.toHaveBeenCalled();
-    expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
+    expect(runContentRetentionMock).not.toHaveBeenCalled();
   });
 
   it('rate limits failed cron authentication before recording security events', async () => {
@@ -501,6 +545,9 @@ describe('cron route authentication', () => {
     const response = await healthGET(cronRequest('/api/cron/dual-sync/health?windowHours=6'));
 
     expect(response.status).toBe(200);
+    expect(recoverStaleGrantsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      reconcileTerminalNoticesMock.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+    );
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'cron.dual-sync.health',
@@ -531,7 +578,80 @@ describe('cron route authentication', () => {
       windowHours: 6,
       metricLimit: 200,
       alertsEmitted: 1,
+      grantRecovery: {
+        mode: 'mutated',
+        recovered: 1,
+        terminalNoticesMaterialized: 1,
+        errors: [],
+      },
     });
+  });
+
+  it('truthfully omits dispatched grant mutation and notice reconciliation in health dry-run', async () => {
+    // Given
+    const request = cronRequest('/api/cron/dual-sync/health?dryRun=1');
+
+    // When
+    const response = await healthGET(request);
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(recoverStaleGrantsMock).not.toHaveBeenCalled();
+    expect(reconcileTerminalNoticesMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      grantRecovery: {
+        mode: 'dry_run_omitted',
+        recovered: 0,
+        terminalNoticesMaterialized: 0,
+        errors: [],
+      },
+    });
+  });
+
+  it('returns safe per-profile grant recovery failures and marks health telemetry warning', async () => {
+    // Given
+    recoverStaleGrantsMock.mockResolvedValueOnce({
+      mode: 'mutated',
+      cutoff: '2026-05-09T23:55:00.000Z',
+      profilesConsidered: 2,
+      profilesProcessed: 2,
+      recovered: 1,
+      capped: false,
+      errors: [
+        {
+          restaurantId: 'rest-1',
+          externalProfileRowId: 'profile-row-1',
+          code: 'grant_recovery_failed',
+        },
+      ],
+    });
+
+    // When
+    const response = await healthGET(cronRequest('/api/cron/dual-sync/health'));
+    const body = await response.json();
+
+    // Then
+    expect(response.status).toBe(200);
+    expect(body.grantRecovery).toEqual(
+      expect.objectContaining({
+        recovered: 1,
+        errors: [
+          {
+            restaurantId: 'rest-1',
+            externalProfileRowId: 'profile-row-1',
+            code: 'grant_recovery_failed',
+          },
+        ],
+      }),
+    );
+    expect(JSON.stringify(body)).not.toContain('provider body');
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'sweep.completed',
+        severity: 'warning',
+        context: expect.objectContaining({ grantRecoveryErrors: 1 }),
+      }),
+    );
   });
 
   it('caps dual-sync queue worker drain limits and stops on idle', async () => {
@@ -602,13 +722,17 @@ describe('cron route authentication', () => {
   });
 
   it('caps request-log retention limits and records count-only observability', async () => {
-    pruneExpiredGoogleRequestLogsMock.mockResolvedValueOnce({
-      cutoff: '2026-05-10T00:00:00.000Z',
+    const port = { retention: true };
+    createSupabaseContentRetentionPortMock.mockReturnValueOnce(port);
+    runContentRetentionMock.mockResolvedValueOnce({
+      dryRun: false,
+      runAt: '2026-05-10T00:00:00.000Z',
       limit: 5_000,
-      selected: 5_000,
-      archived: 5_000,
-      deleted: 5_000,
+      totals: { matched: 5_000, mutated: 5_000 },
+      oldestOutstandingAgeMs: 86_400_000,
+      level: 'page',
       moreLikely: true,
+      stores: [],
     });
 
     const response = await requestLogRetentionGET(
@@ -616,10 +740,14 @@ describe('cron route authentication', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(pruneExpiredGoogleRequestLogsMock).toHaveBeenCalledWith({
-      client: { service: true },
-      now: expect.any(String),
+    expect(response.headers.get('cache-control')).toBe('private, no-store, max-age=0');
+    expect(createSupabaseContentRetentionPortMock).toHaveBeenCalledWith({ service: true });
+    expect(runContentRetentionMock).toHaveBeenCalledWith({
+      port,
+      now: expect.any(Date),
       limit: 5_000,
+      dryRun: false,
+      timeBudgetMs: 20_000,
     });
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -637,9 +765,9 @@ describe('cron route authentication', () => {
         eventType: 'retention.completed',
         severity: 'warning',
         context: expect.objectContaining({
-          selected: 5_000,
-          archived: 5_000,
-          deleted: 5_000,
+          matched: 5_000,
+          mutated: 5_000,
+          level: 'page',
           moreLikely: true,
         }),
       }),
@@ -648,27 +776,42 @@ describe('cron route authentication', () => {
       success: true,
       dryRun: false,
       limit: 5_000,
-      selected: 5_000,
-      archived: 5_000,
-      deleted: 5_000,
+      totals: { matched: 5_000, mutated: 5_000 },
       moreLikely: true,
     });
   });
 
   it('keeps request-log retention dryRun behind auth without deleting rows', async () => {
+    const port = { retention: true };
+    createSupabaseContentRetentionPortMock.mockReturnValueOnce(port);
+    runContentRetentionMock.mockResolvedValueOnce({
+      dryRun: true,
+      runAt: '2026-05-10T00:00:00.000Z',
+      limit: 5_000,
+      totals: { matched: 2, mutated: 0 },
+      oldestOutstandingAgeMs: 60_000,
+      level: 'healthy',
+      moreLikely: false,
+      stores: [],
+    });
     const response = await requestLogRetentionGET(
       cronRequest('/api/cron/dual-sync/request-log-retention?dryRun=1&limit=999999'),
     );
 
     expect(response.status).toBe(200);
-    expect(pruneExpiredGoogleRequestLogsMock).not.toHaveBeenCalled();
+    expect(response.headers.get('cache-control')).toBe('private, no-store, max-age=0');
+    expect(runContentRetentionMock).toHaveBeenCalledWith({
+      port,
+      now: expect.any(Date),
+      limit: 5_000,
+      dryRun: true,
+      timeBudgetMs: 20_000,
+    });
     await expect(response.json()).resolves.toMatchObject({
       success: true,
       dryRun: true,
       limit: 5_000,
-      selected: 0,
-      archived: 0,
-      deleted: 0,
+      totals: { matched: 2, mutated: 0 },
       moreLikely: false,
     });
   });

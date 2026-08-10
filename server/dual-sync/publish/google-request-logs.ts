@@ -5,6 +5,8 @@
  * metadata and this helper sanitizes nested JSON before persistence.
  */
 
+import { DateTime } from 'luxon';
+
 import { getDualSyncDbClient, type DualSyncGoogleRequestLogRow } from '../db';
 import {
   type DualSyncGoogleRequestLog,
@@ -13,13 +15,16 @@ import {
   type DualSyncSectionKey,
   isDualSyncSectionKey,
 } from '../types';
-import { sanitizeGoogleAuditPayload } from './google-audit';
-import { sanitizeGoogleProviderErrorMessage } from './google-errors';
 
 import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
+const SAFE_ERROR_CODE = /^[A-Z][A-Z0-9_]{0,99}$/;
+
+function safeErrorCode(value: string | null | undefined): string | null {
+  return typeof value === 'string' && SAFE_ERROR_CODE.test(value) ? value : null;
+}
 
 function rowToGoogleRequestLog(row: DualSyncGoogleRequestLogRow): DualSyncGoogleRequestLog {
   return {
@@ -69,9 +74,23 @@ export interface CreateGoogleRequestLogInput {
   readonly retentionExpiresAt?: string | null;
 }
 
+export class GoogleRequestLogRetentionError extends Error {
+  constructor() {
+    super('Google request-log retention expiry must be a valid inherited timestamp');
+    this.name = 'GoogleRequestLogRetentionError';
+  }
+}
+
 export async function createGoogleRequestLog(
   input: CreateGoogleRequestLogInput,
 ): Promise<DualSyncGoogleRequestLog> {
+  if (
+    input.retentionExpiresAt !== null &&
+    input.retentionExpiresAt !== undefined &&
+    !DateTime.fromISO(input.retentionExpiresAt, { setZone: true }).isValid
+  ) {
+    throw new GoogleRequestLogRetentionError();
+  }
   const dual = getDualSyncDbClient(input.client);
   const insert: Partial<DualSyncGoogleRequestLogRow> &
     Pick<DualSyncGoogleRequestLogRow, 'restaurant_id' | 'phase'> = {
@@ -89,19 +108,12 @@ export async function createGoogleRequestLog(
     status: input.status ?? null,
     google_method: input.googleMethod ?? null,
     google_update_masks: [...(input.googleUpdateMasks ?? [])],
-    request_summary: sanitizeGoogleAuditPayload(input.requestSummary ?? {}) as Json,
-    response_summary:
-      input.responseSummary === undefined
-        ? null
-        : (sanitizeGoogleAuditPayload(input.responseSummary) as Json),
-    error_code: input.errorCode ?? null,
-    error_message: input.errorMessage
-      ? sanitizeGoogleProviderErrorMessage(input.errorMessage)
-      : null,
+    request_summary: {} as Json,
+    response_summary: null,
+    error_code: safeErrorCode(input.errorCode),
+    error_message: null,
   };
-  if (input.retentionExpiresAt) {
-    insert.retention_expires_at = input.retentionExpiresAt;
-  }
+  insert.retention_expires_at = input.retentionExpiresAt ?? null;
 
   const { data, error } = await dual
     .from('dual_sync_google_request_logs')

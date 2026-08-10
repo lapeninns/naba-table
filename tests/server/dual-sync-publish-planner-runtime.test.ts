@@ -6,6 +6,7 @@ vi.mock('@/server/dual-sync/controls', () => ({
   getDualSyncRestaurantControl: getDualSyncRestaurantControlMock,
 }));
 
+import { resetEnvCache } from '@/lib/env';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { readPublishPlannerRuntime } from '@/server/dual-sync/publish/planner-runtime';
 
@@ -41,6 +42,7 @@ function snapshot(overrides: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncC
 
 beforeEach(() => {
   delete process.env.GBP_EXPORT_ENABLED;
+  resetEnvCache();
   getDualSyncRestaurantControlMock.mockReset();
   getDualSyncRestaurantControlMock.mockResolvedValue({
     restaurantId: 'rest-1',

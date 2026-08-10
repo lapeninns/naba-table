@@ -1,12 +1,18 @@
+import ky from 'ky';
+
 import { env } from '@/lib/env';
 
+import { readGoogleJsonResponse } from './clientTransport';
 import { GoogleBusinessProfileError } from './errors';
+import { googleTokenErrorSchema, googleTokenSuccessSchema } from './providerSchemas';
 
 const GOOGLE_OAUTH_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const GOOGLE_OAUTH_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
-
-const GOOGLE_BUSINESS_PROFILE_SCOPES = ['https://www.googleapis.com/auth/business.manage'] as const;
+const GOOGLE_BUSINESS_PROFILE_SCOPES = [
+  'https://www.googleapis.com/auth/business.manage',
+  'openid',
+  'email',
+  'profile',
+] as const;
 
 type GoogleTokenResponse = {
   access_token?: string;
@@ -55,9 +61,12 @@ function parseTokenError(payload: GoogleTokenResponse): GoogleBusinessProfileErr
   );
 }
 
-function mapTokenResponse(payload: GoogleTokenResponse): GoogleBusinessProfileTokens {
+function mapTokenResponse(
+  payload: GoogleTokenResponse,
+  accessToken: string,
+): GoogleBusinessProfileTokens {
   return {
-    accessToken: payload.access_token!,
+    accessToken,
     expiresIn: typeof payload.expires_in === 'number' ? payload.expires_in : null,
     refreshToken: payload.refresh_token ?? null,
     grantedScopes:
@@ -67,7 +76,7 @@ function mapTokenResponse(payload: GoogleTokenResponse): GoogleBusinessProfileTo
   };
 }
 
-export function buildGoogleBusinessProfileAuthUrl(state: string): string {
+export function buildGoogleBusinessProfileAuthUrl(state: string, nonce: string): string {
   const { clientId, redirectUri } = assertConfigured();
   const url = new URL(GOOGLE_OAUTH_AUTHORIZE_URL);
   url.searchParams.set('client_id', clientId);
@@ -78,7 +87,51 @@ export function buildGoogleBusinessProfileAuthUrl(state: string): string {
   url.searchParams.set('include_granted_scopes', 'true');
   url.searchParams.set('prompt', 'consent');
   url.searchParams.set('state', state);
+  url.searchParams.set('nonce', nonce);
   return url.toString();
+}
+
+async function postOAuthForm(
+  path: 'token' | 'revoke',
+  body: URLSearchParams,
+  readBody = false,
+): Promise<{ readonly response: Response; readonly payload?: unknown }> {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new DOMException('Deadline exceeded', 'TimeoutError')),
+    15_000,
+  );
+  try {
+    const response = await ky.post(path, {
+      prefix: 'https://oauth2.googleapis.com/',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      retry: 0,
+      timeout: false,
+      totalTimeout: 15_000,
+      signal: controller.signal,
+      throwHttpErrors: false,
+      redirect: 'manual',
+    });
+    const payload = readBody
+      ? await readGoogleJsonResponse(response, controller.signal)
+      : undefined;
+    return { response, payload };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function parseTokenResponse(payload: unknown): GoogleTokenResponse {
+  const success = googleTokenSuccessSchema.safeParse(payload);
+  if (success.success) return success.data;
+  const failure = googleTokenErrorSchema.safeParse(payload);
+  if (failure.success) return failure.data;
+  throw new GoogleBusinessProfileError('Google OAuth returned a malformed response.', {
+    code: 'GBP_MALFORMED_RESPONSE',
+    status: 502,
+    kind: 'malformed_response',
+  });
 }
 
 export async function exchangeGoogleBusinessProfileCode(
@@ -93,20 +146,14 @@ export async function exchangeGoogleBusinessProfileCode(
     redirect_uri: redirectUri,
   });
 
-  const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
-
-  const payload = (await response.json()) as GoogleTokenResponse;
-  if (!response.ok || !payload.access_token) {
+  const { response, payload: rawPayload } = await postOAuthForm('token', body, true);
+  const payload = parseTokenResponse(rawPayload);
+  const accessToken = payload.access_token;
+  if (!response.ok || !accessToken) {
     throw parseTokenError(payload);
   }
 
-  return mapTokenResponse(payload);
+  return mapTokenResponse(payload, accessToken);
 }
 
 export async function refreshGoogleBusinessProfileAccessToken(
@@ -120,30 +167,18 @@ export async function refreshGoogleBusinessProfileAccessToken(
     grant_type: 'refresh_token',
   });
 
-  const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body,
-  });
-
-  const payload = (await response.json()) as GoogleTokenResponse;
-  if (!response.ok || !payload.access_token) {
+  const { response, payload: rawPayload } = await postOAuthForm('token', body, true);
+  const payload = parseTokenResponse(rawPayload);
+  const accessToken = payload.access_token;
+  if (!response.ok || !accessToken) {
     throw parseTokenError(payload);
   }
 
-  return mapTokenResponse(payload);
+  return mapTokenResponse(payload, accessToken);
 }
 
 export async function revokeGoogleBusinessProfileToken(token: string): Promise<void> {
-  const response = await fetch(GOOGLE_OAUTH_REVOKE_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({ token }),
-  });
+  const { response } = await postOAuthForm('revoke', new URLSearchParams({ token }));
 
   if (!response.ok && response.status !== 400) {
     throw new GoogleBusinessProfileError('Unable to revoke Google authorization.', {

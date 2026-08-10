@@ -75,6 +75,11 @@ export interface DualSyncJobRow {
   idempotency_key: string | null;
   priority: number;
   payload: Json;
+  readonly external_profile_id: string | null;
+  readonly external_account_id: string | null;
+  readonly external_location_id: string | null;
+  readonly connection_generation: number | null;
+  readonly consent_epoch: number | null;
   attempt_count: number;
   max_attempts: number;
   available_at: string;
@@ -241,7 +246,7 @@ export interface DualSyncGoogleRequestLogRow {
   response_summary: Json | null;
   error_code: string | null;
   error_message: string | null;
-  retention_expires_at: string;
+  retention_expires_at: string | null;
   created_at: string;
 }
 

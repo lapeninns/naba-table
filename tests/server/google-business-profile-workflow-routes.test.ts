@@ -241,7 +241,7 @@ describe('google business profile workflow routes', () => {
             password: 'bad-password',
             publishJobId: 'job-1',
             idempotencyKey: 'key-1',
-            pushToGoogle: true,
+            directionIntent: 'google_to_nabatable',
           }),
         },
       ),
@@ -406,6 +406,7 @@ describe('google business profile workflow routes', () => {
             password: 'valid-password',
             publishJobId: 'job-1',
             idempotencyKey: 'key-1',
+            directionIntent: 'google_to_nabatable',
           }),
         },
       ),
@@ -442,6 +443,7 @@ describe('google business profile workflow routes', () => {
             password: 'valid-password',
             publishJobId: 'job-1',
             idempotencyKey: 'key-1',
+            directionIntent: 'google_to_nabatable',
           }),
         },
       ),
@@ -509,6 +511,7 @@ describe('google business profile workflow routes', () => {
             password: 'valid-password',
             publishJobId: 'job-1',
             idempotencyKey: 'key-1',
+            directionIntent: 'google_to_nabatable',
           }),
         },
       ),
@@ -523,15 +526,12 @@ describe('google business profile workflow routes', () => {
     });
   });
 
-  it('publishes a reviewed Google-only write-back request', async () => {
+  it('retires Google write-back publishing before password or provider calls', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
       userEmail: 'ops@example.com',
     });
-    verifyUserPasswordConfirmationMock.mockResolvedValue(undefined);
-    publishDraftMock.mockResolvedValue({ latestDraft: null, auditEvents: [] });
-
     const response = await publishDraftPOST(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/google-business-profile/drafts/draft-1/publish',
@@ -548,17 +548,12 @@ describe('google business profile workflow routes', () => {
       { params: Promise.resolve({ id: 'rest-1', draftId: 'draft-1' }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(publishDraftMock).toHaveBeenCalledWith({
-      restaurantId: 'rest-1',
-      draftId: 'draft-1',
-      actorUserId: 'user-1',
-      publishJobId: 'job-1',
-      idempotencyKey: 'key-1',
-      selectedApprovals: undefined,
-      directionIntent: 'nabatable_to_google',
-      pushToGoogle: undefined,
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
     });
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(publishDraftMock).not.toHaveBeenCalled();
   });
 
   it('returns a sanitized message for unexpected workflow publish errors', async () => {
@@ -579,6 +574,7 @@ describe('google business profile workflow routes', () => {
             password: 'valid-password',
             publishJobId: 'job-1',
             idempotencyKey: 'key-1',
+            directionIntent: 'google_to_nabatable',
           }),
         },
       ),
@@ -613,6 +609,7 @@ describe('google business profile workflow routes', () => {
             password: 'valid-password',
             publishJobId: 'job-1',
             idempotencyKey: 'key-1',
+            directionIntent: 'google_to_nabatable',
           }),
         },
       ),
@@ -626,15 +623,12 @@ describe('google business profile workflow routes', () => {
     });
   });
 
-  it('retries Google push only after password confirmation', async () => {
+  it('retires Google retry before password or provider calls', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
       userEmail: 'ops@example.com',
     });
-    verifyUserPasswordConfirmationMock.mockResolvedValue(undefined);
-    retryGooglePushMock.mockResolvedValue(workflowPayload);
-
     const response = await retryGooglePushPOST(
       new NextRequest(
         'https://example.com/api/ops/restaurants/rest-1/google-business-profile/drafts/draft-1/publish-jobs/job-1/retry-google-push',
@@ -646,16 +640,15 @@ describe('google business profile workflow routes', () => {
       { params: Promise.resolve({ id: 'rest-1', draftId: 'draft-1', jobId: 'job-1' }) },
     );
 
-    expect(response.status).toBe(200);
-    expect(retryGooglePushMock).toHaveBeenCalledWith({
-      restaurantId: 'rest-1',
-      draftId: 'draft-1',
-      publishJobId: 'job-1',
-      actorUserId: 'user-1',
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
     });
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(retryGooglePushMock).not.toHaveBeenCalled();
   });
 
-  it('returns conflict when Google push is disabled during retry', async () => {
+  it('returns the retirement response when Google retry is disabled', async () => {
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
     ensureRestaurantAdminAccessMock.mockResolvedValue({
       userId: 'user-1',
@@ -679,11 +672,12 @@ describe('google business profile workflow routes', () => {
       { params: Promise.resolve({ id: 'rest-1', draftId: 'draft-1', jobId: 'job-1' }) },
     );
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(410);
     await expect(response.json()).resolves.toEqual({
-      message: 'Google writes are disabled for this linked Google Business Profile location.',
-      error: 'Google writes are disabled for this linked Google Business Profile location.',
-      code: 'GBP_GOOGLE_PUSH_DISABLED',
+      error: 'Legacy Google Business Profile writes are retired.',
+      code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
     });
+    expect(verifyUserPasswordConfirmationMock).not.toHaveBeenCalled();
+    expect(retryGooglePushMock).not.toHaveBeenCalled();
   });
 });

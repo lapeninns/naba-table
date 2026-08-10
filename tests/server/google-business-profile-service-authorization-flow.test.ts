@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getCredentialRowMock = vi.hoisted(() => vi.fn());
-const insertOAuthStateMock = vi.hoisted(() => vi.fn());
-const markOAuthStateConsumedMock = vi.hoisted(() => vi.fn());
-const readOAuthStateByTokenMock = vi.hoisted(() => vi.fn());
+const findExternalProfileMock = vi.hoisted(() => vi.fn());
+const createOAuthAttemptMock = vi.hoisted(() => vi.fn());
+const readOAuthAttemptByHashMock = vi.hoisted(() => vi.fn());
+const completeOAuthIdentityMock = vi.hoisted(() => vi.fn());
 const upsertCredentialMock = vi.hoisted(() => vi.fn());
 const decryptSecretMock = vi.hoisted(() => vi.fn());
 const encryptSecretMock = vi.hoisted(() => vi.fn());
@@ -11,9 +12,10 @@ const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/google-business-profile/serviceRepository', () => ({
   getCredentialRow: getCredentialRowMock,
-  insertOAuthState: insertOAuthStateMock,
-  markOAuthStateConsumed: markOAuthStateConsumedMock,
-  readOAuthStateByToken: readOAuthStateByTokenMock,
+  findExternalProfile: findExternalProfileMock,
+  createOAuthAttempt: createOAuthAttemptMock,
+  readOAuthAttemptByHash: readOAuthAttemptByHashMock,
+  completeOAuthIdentity: completeOAuthIdentityMock,
   upsertCredential: upsertCredentialMock,
 }));
 
@@ -91,9 +93,10 @@ function oauthState(overrides: Record<string, unknown> = {}) {
 describe('google business profile service authorization flow', () => {
   beforeEach(() => {
     getCredentialRowMock.mockReset();
-    insertOAuthStateMock.mockReset();
-    markOAuthStateConsumedMock.mockReset();
-    readOAuthStateByTokenMock.mockReset();
+    findExternalProfileMock.mockReset();
+    createOAuthAttemptMock.mockReset();
+    readOAuthAttemptByHashMock.mockReset();
+    completeOAuthIdentityMock.mockReset();
     upsertCredentialMock.mockReset();
     decryptSecretMock.mockReset();
     encryptSecretMock.mockReset();
@@ -102,66 +105,27 @@ describe('google business profile service authorization flow', () => {
     encryptSecretMock.mockImplementation((value: string) => `enc:${value}`);
   });
 
-  it('saves credentials with a newly issued refresh token', async () => {
+  it('fails closed for the retired direct credential persistence path', async () => {
     getCredentialRowMock.mockResolvedValue(null);
 
-    await saveGoogleBusinessProfileCredentials(
-      {
-        externalProfile: { id: 'external-1' } as never,
-        tokens: tokens({ refreshToken: 'new-refresh-token' }),
-        identity: identity(),
-        refreshedAt: '2026-05-21T22:00:00.000Z',
-      },
-      {} as never,
-    );
+    await expect(
+      saveGoogleBusinessProfileCredentials(
+        {
+          externalProfile: { id: 'external-1' } as never,
+          tokens: tokens({ refreshToken: 'new-refresh-token' }),
+          identity: identity(),
+          refreshedAt: '2026-05-21T22:00:00.000Z',
+        },
+        {} as never,
+      ),
+    ).rejects.toMatchObject({ code: 'GBP_LEGACY_CREDENTIAL_WRITE_RETIRED', status: 409 });
 
-    expect(decryptSecretMock).not.toHaveBeenCalled();
-    expect(encryptSecretMock).toHaveBeenCalledWith('new-refresh-token');
-    expect(upsertCredentialMock).toHaveBeenCalledWith(
-      {
-        external_profile_id: 'external-1',
-        provider_user_id: 'google-user-1',
-        connected_google_email: 'owner@example.com',
-        connected_google_name: 'Owner',
-        refresh_token_encrypted: 'enc:new-refresh-token',
-        granted_scopes: ['scope-a'],
-        token_type: 'Bearer',
-        last_refreshed_at: '2026-05-21T22:00:00.000Z',
-        last_error: null,
-      },
-      {},
-    );
+    expect(upsertCredentialMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to an existing stored refresh token when Google does not issue one', async () => {
-    getCredentialRowMock.mockResolvedValue({
-      refresh_token_encrypted: 'encrypted-existing-refresh',
-    });
-    decryptSecretMock.mockReturnValue('existing-refresh-token');
-
-    await saveGoogleBusinessProfileCredentials(
-      {
-        externalProfile: { id: 'external-1' } as never,
-        tokens: tokens({ refreshToken: null }),
-        identity: identity({ email: null, name: null }),
-        refreshedAt: '2026-05-21T22:00:00.000Z',
-      },
-      {} as never,
-    );
-
-    expect(decryptSecretMock).toHaveBeenCalledWith('encrypted-existing-refresh');
-    expect(encryptSecretMock).toHaveBeenCalledWith('existing-refresh-token');
-    expect(upsertCredentialMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        refresh_token_encrypted: 'enc:existing-refresh-token',
-        connected_google_email: null,
-        connected_google_name: null,
-      }),
-      {},
-    );
-  });
-
-  it('creates OAuth state records through the sanitized payload builder', async () => {
+  it('creates a hash-only OAuth attempt through the fenced RPC', async () => {
+    findExternalProfileMock.mockResolvedValue(null);
+    createOAuthAttemptMock.mockResolvedValue(oauthState());
     await expect(
       createOAuthStateRecord(
         {
@@ -175,23 +139,26 @@ describe('google business profile service authorization flow', () => {
       ),
     ).resolves.toBe('state-token');
 
-    expect(insertOAuthStateMock).toHaveBeenCalledWith(
-      {
-        restaurant_id: 'rest-1',
-        provider: 'google_business_profile',
-        requested_by_user_id: 'user-1',
-        state_token: 'state-token',
-        return_path: '/app/settings/restaurant/google-business-profile',
-        expires_at: '2026-05-21T22:15:00.000Z',
-      },
+    expect(createOAuthAttemptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_restaurant_id: 'rest-1',
+        p_requested_by_user_id: 'user-1',
+        p_return_path: '/app/settings/restaurant/google-business-profile',
+        p_expires_at: '2026-05-21T22:15:00.000Z',
+        p_external_profile_row_id: null,
+        p_connection_generation: 1,
+        p_consent_epoch: 1,
+        p_state_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_nonce_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      }),
       {},
     );
   });
 
   it('consumes OAuth state after membership verification', async () => {
-    readOAuthStateByTokenMock.mockResolvedValue(oauthState());
+    findExternalProfileMock.mockResolvedValue(null);
+    readOAuthAttemptByHashMock.mockResolvedValue(oauthState());
     requireAdminMembershipMock.mockResolvedValue({ role: 'owner' });
-    markOAuthStateConsumedMock.mockResolvedValue(true);
 
     await expect(
       consumeOAuthStateRecord(
@@ -210,44 +177,32 @@ describe('google business profile service authorization flow', () => {
       restaurantId: 'rest-1',
       client: {},
     });
-    expect(markOAuthStateConsumedMock).toHaveBeenCalledWith(
-      {
-        stateId: 'state-1',
-        payload: { consumed_at: '2026-05-21T22:00:00.000Z' },
-      },
+    expect(readOAuthAttemptByHashMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^[a-f0-9]{64}$/),
       {},
     );
   });
 
-  it('rejects invalid OAuth state records before membership or consumption side effects', async () => {
-    readOAuthStateByTokenMock
-      .mockResolvedValueOnce(oauthState({ consumed_at: '2026-05-21T21:00:00.000Z' }))
-      .mockResolvedValueOnce(oauthState({ expires_at: '2026-05-21T21:59:59.000Z' }))
-      .mockResolvedValueOnce(oauthState({ requested_by_user_id: 'user-2' }))
-      .mockResolvedValueOnce(oauthState({ restaurant_id: 'rest-2' }));
-
-    for (let index = 0; index < 4; index += 1) {
-      await expect(
-        consumeOAuthStateRecord(
-          {
-            stateToken: `state-token-${index}`,
-            requestedByUserId: 'user-1',
-            expectedRestaurantId: 'rest-1',
-            consumedAt: '2026-05-21T22:00:00.000Z',
-          },
-          {} as never,
-        ),
-      ).rejects.toMatchObject({
-        status: expect.any(Number),
-      });
-    }
-
+  it('propagates an atomic OAuth consume rejection without membership side effects', async () => {
+    findExternalProfileMock.mockResolvedValue(null);
+    readOAuthAttemptByHashMock.mockRejectedValue(new Error('stale OAuth attempt'));
+    await expect(
+      consumeOAuthStateRecord(
+        {
+          stateToken: 'state-token',
+          requestedByUserId: 'user-1',
+          expectedRestaurantId: 'rest-1',
+          consumedAt: '2026-05-21T22:00:00.000Z',
+        },
+        {} as never,
+      ),
+    ).rejects.toThrow('stale OAuth attempt');
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
-    expect(markOAuthStateConsumedMock).not.toHaveBeenCalled();
   });
 
   it('maps membership access errors to stable Google Business Profile errors', async () => {
-    readOAuthStateByTokenMock.mockResolvedValue(oauthState());
+    findExternalProfileMock.mockResolvedValue(null);
+    readOAuthAttemptByHashMock.mockResolvedValue(oauthState());
     requireAdminMembershipMock.mockRejectedValue(
       new MembershipAccessError({
         status: 403,
@@ -273,6 +228,6 @@ describe('google business profile service authorization flow', () => {
         'You no longer have permission to connect Google Business Profile for this restaurant.',
     });
 
-    expect(markOAuthStateConsumedMock).not.toHaveBeenCalled();
+    expect(readOAuthAttemptByHashMock).toHaveBeenCalledTimes(1);
   });
 });

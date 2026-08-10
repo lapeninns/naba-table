@@ -1,5 +1,8 @@
 import { getGoogleBusinessProfileLocationProfile } from './client';
-import { getUsableGoogleBusinessProfileAccessToken } from './serviceAccessRuntime';
+import {
+  getUsableGoogleBusinessProfileAccessToken,
+  persistGoogleProviderAccessFailure,
+} from './serviceAccessRuntime';
 import { resolveLinkedLocationResourceName } from './serviceConnectionContext';
 import { ensureExternalProfile, type DbClient, type ExternalProfileRow } from './serviceRepository';
 
@@ -16,7 +19,13 @@ export async function getLinkedExternalProfileWithLocation(
 
   const { accessToken } = await getUsableGoogleBusinessProfileAccessToken(externalProfile, client);
   const locationResourceName = resolveLinkedLocationResourceName(externalProfile);
-  const location = await getGoogleBusinessProfileLocationProfile(accessToken, locationResourceName);
+  let location;
+  try {
+    location = await getGoogleBusinessProfileLocationProfile(accessToken, locationResourceName);
+  } catch (error) {
+    await persistGoogleProviderAccessFailure(error, externalProfile, client);
+    throw error;
+  }
 
   return {
     externalProfile,

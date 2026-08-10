@@ -1,6 +1,7 @@
 import { mapGoogleProviderErrorToPublishFailure } from './google-errors';
 import { createGoogleRequestLog } from './google-request-logs';
 import { updateOperationGroupStatus } from './operations';
+import { hashCanonicalJson } from '../hashing';
 
 import type { DualSyncExportPreflightPort } from './preflight';
 import type { DualSyncOperationFailure, DualSyncPublishGroup } from './types';
@@ -83,9 +84,8 @@ export async function runRequiredExportPreflights(
       googleMethod: group.writeGroup,
       googleUpdateMasks: group.googleUpdateMasks,
       requestSummary,
-      responseSummary: result.result ?? null,
+      responseSummary: { resultHash: hashCanonicalJson(result.result ?? null) },
       errorCode: result.status === 'failed' ? result.failure.code : null,
-      errorMessage: result.status === 'failed' ? result.failure.message : null,
     });
 
     if (result.status === 'failed') {

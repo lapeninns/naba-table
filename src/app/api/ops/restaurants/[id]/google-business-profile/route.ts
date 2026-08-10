@@ -9,6 +9,8 @@ import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
 } from '@/server/auth/password-confirmation';
+import { loadGbpOperatorConnectionState } from '@/server/dual-sync/freshness/operator-connection-state';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import {
   disconnectGoogleBusinessProfileConnection,
   getGoogleBusinessProfileConnectionState,
@@ -16,6 +18,7 @@ import {
   syncGoogleBusinessProfileBusinessInformation,
 } from '@/server/google-business-profile/service';
 import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
@@ -35,7 +38,7 @@ type RouteContext = {
 };
 
 function errorResponse(message: string, status: number, extra?: Record<string, unknown>) {
-  return NextResponse.json({ message, error: message, ...extra }, { status });
+  return gbpNoStoreJson({ message, error: message, ...extra }, { status });
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
@@ -46,7 +49,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   const rateLimit = await requireProviderRefreshBudget({
@@ -56,16 +59,21 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     limit: 60,
   });
   if (rateLimit) {
-    return rateLimit;
+    return gbpNoStoreResponse(rateLimit);
   }
 
   try {
     const state = await getGoogleBusinessProfileConnectionState(restaurantId);
-    return NextResponse.json(state);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unable to load Google Business Profile connection.';
-    return errorResponse(message, 500);
+    const response = await loadGbpOperatorConnectionState({
+      client: getServiceSupabaseClient(),
+      restaurantId,
+      connection: state,
+    });
+    return gbpNoStoreJson(response);
+  } catch {
+    return errorResponse('Unable to load Google Business Profile connection.', 500, {
+      code: 'GBP_CONNECTION_STATE_FAILED',
+    });
   }
 }
 
@@ -77,7 +85,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   let payload: z.infer<typeof linkSchema>;
@@ -86,7 +94,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     payload = parsed;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
@@ -96,7 +104,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
   try {
     const state = await linkGoogleBusinessProfileLocation(restaurantId, payload);
-    return NextResponse.json(state);
+    return gbpNoStoreJson(state);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unable to link Google Business Profile location.';
@@ -113,7 +121,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   let payload: z.infer<typeof syncSchema>;
@@ -121,7 +129,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     payload = syncSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
@@ -141,14 +149,14 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       action: 'business-info-sync',
     });
     if (rateLimit) {
-      return rateLimit;
+      return gbpNoStoreResponse(rateLimit);
     }
 
     const state = await syncGoogleBusinessProfileBusinessInformation(restaurantId);
-    return NextResponse.json(state);
+    return gbpNoStoreJson(state);
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { message: error.message, error: error.message, code: error.code },
         { status: error.status },
       );
@@ -179,7 +187,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   let payload: z.infer<typeof disconnectSchema>;
@@ -187,7 +195,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     payload = disconnectSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
@@ -202,10 +210,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     });
 
     const state = await disconnectGoogleBusinessProfileConnection(restaurantId);
-    return NextResponse.json(state);
+    return gbpNoStoreJson(state);
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { message: error.message, error: error.message, code: error.code },
         { status: error.status },
       );

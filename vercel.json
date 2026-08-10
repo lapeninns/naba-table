@@ -17,8 +17,20 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/dual-sync/core-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/dual-sync/health",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/refresh",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/notifications",
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/dual-sync/request-log-retention",

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -10,6 +9,8 @@ import {
   FoodMenusProjectionRequestSchema,
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { prepareFoodMenusProjection } from '@/server/google-business-profile/food-menus-sync';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -23,7 +24,7 @@ type RouteContext = {
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     request,
   );
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   let payload: z.infer<typeof FoodMenusProjectionRequestSchema>;
@@ -40,9 +41,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     payload = FoodMenusProjectionRequestSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(invalidPayloadResponse(error), { status: 400 });
+      return gbpNoStoreJson(invalidPayloadResponse(error), { status: 400 });
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Invalid payload' }, { status: 400 });
   }
 
   const rateLimitResponse = await requireApiRateLimit({
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     message: 'Too many FoodMenus projection requests',
   });
   if (rateLimitResponse) {
-    return rateLimitResponse;
+    return gbpNoStoreResponse(rateLimitResponse);
   }
 
   try {
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       persist: payload.persist,
     });
 
-    return NextResponse.json({
+    return gbpNoStoreJson({
       localItemCount: result.localItemCount,
       projectionHash: result.projectionHash,
       projection: result.projection,
@@ -81,15 +82,14 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       persisted: Boolean(result.snapshot),
     });
   } catch (error) {
-    console.error('[ops][gbp][food-menus][projection] failed', error);
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-projection' },
     });
     const message =
       error instanceof Error ? error.message : 'Unable to prepare Google FoodMenus projection.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return gbpNoStoreJson({ error: message }, { status: 500 });
   }
 }
 

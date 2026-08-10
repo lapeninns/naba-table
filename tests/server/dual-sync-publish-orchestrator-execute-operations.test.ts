@@ -180,7 +180,10 @@ describe('executePreparedPublishOperations', () => {
         prebuiltResults: new Map([
           [
             'profile.businessDescription',
-            { status: 'succeeded', externalResponse: { batch: true } },
+            {
+              status: 'succeeded',
+              externalResponse: { providerBody: 'private-provider-body' },
+            },
           ],
         ]),
       }),
@@ -195,8 +198,11 @@ describe('executePreparedPublishOperations', () => {
         status: 'succeeded',
         googleMethod: 'location.profile',
         googleUpdateMasks: ['profile'],
-        responseSummary: { batch: true },
+        responseSummary: { responseHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
       }),
+    );
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain(
+      'private-provider-body',
     );
     expect(markInSyncMock).toHaveBeenCalledWith(
       expect.objectContaining({ inSyncHash: 'core-before' }),

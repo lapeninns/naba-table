@@ -4,20 +4,15 @@ import {
   refreshGoogleBusinessProfileAccessToken,
   type GoogleBusinessProfileAvailableLocation,
 } from './client';
-import { decryptGoogleBusinessProfileSecret, encryptGoogleBusinessProfileSecret } from './crypto';
-import { GoogleBusinessProfileError, isGoogleBusinessProfileError } from './errors';
 import {
-  buildAuthorizationCompletedExternalProfileUpdate,
-  buildReauthRequiredExternalProfileUpdate,
-} from './serviceConnectionLifecyclePayloads';
-import {
-  buildGoogleBusinessProfileCredentialRefreshUpdate,
-  buildRefreshedGoogleBusinessProfileCredentialRow,
-} from './serviceCredentialPayloads';
+  decryptGoogleBusinessProfileSecretWithMetadata,
+  encryptGoogleBusinessProfileSecret,
+} from './crypto';
+import { GoogleBusinessProfileError } from './errors';
 import {
   getCredentialRow,
-  updateCredentialRefresh,
-  updateExternalProfile,
+  refreshCredentialFenced,
+  transitionConnectionProviderFailureFenced,
   type CredentialRow,
   type DbClient,
   type ExternalProfileRow,
@@ -46,6 +41,47 @@ function locationDiscoveryCacheKey(externalProfile: ExternalProfileRow): string 
   ].join(':');
 }
 
+export async function persistGoogleProviderAccessFailure(
+  error: unknown,
+  externalProfile: ExternalProfileRow,
+  client: DbClient,
+): Promise<boolean> {
+  if (!(error instanceof GoogleBusinessProfileError)) return false;
+  const transition =
+    error.code === 'GBP_REAUTH_REQUIRED'
+      ? { nextState: 'reauth_required', reasonCode: 'provider_invalid_grant' }
+      : error.kind === 'reauth' && error.upstreamStatus === 401
+        ? { nextState: 'reauth_required', reasonCode: 'provider_unauthorized_401' }
+        : error.kind === 'access_lost' && error.upstreamStatus === 403
+          ? { nextState: 'blocked', reasonCode: 'provider_access_lost_403' }
+          : null;
+  if (!transition) return false;
+  await transitionConnectionProviderFailureFenced(
+    {
+      p_restaurant_id: externalProfile.restaurant_id,
+      p_external_profile_row_id: externalProfile.id,
+      p_expected_account_id: externalProfile.external_account_id,
+      p_expected_profile_id: externalProfile.external_profile_id,
+      p_expected_location_id: externalProfile.external_location_id,
+      p_connection_generation: externalProfile.connection_generation,
+      p_consent_epoch: externalProfile.consent_epoch,
+      p_next_state: transition.nextState,
+      p_reason_code: transition.reasonCode,
+    },
+    client,
+  );
+  return true;
+}
+
+export function isGoogleProviderAccessFailure(error: unknown): boolean {
+  return (
+    error instanceof GoogleBusinessProfileError &&
+    (error.code === 'GBP_REAUTH_REQUIRED' ||
+      (error.kind === 'reauth' && error.upstreamStatus === 401) ||
+      (error.kind === 'access_lost' && error.upstreamStatus === 403))
+  );
+}
+
 export async function getUsableGoogleBusinessProfileAccessToken(
   externalProfile: ExternalProfileRow,
   client: DbClient,
@@ -53,6 +89,12 @@ export async function getUsableGoogleBusinessProfileAccessToken(
   accessToken: string;
   credential: CredentialRow;
 }> {
+  if (externalProfile.write_state === 'revoking') {
+    throw new GoogleBusinessProfileError('Google credential revocation is pending.', {
+      code: 'GBP_REVOCATION_PENDING',
+      status: 409,
+    });
+  }
   const credential = await getCredentialRow(externalProfile.id, client);
   if (!credential) {
     throw new GoogleBusinessProfileError(
@@ -61,54 +103,47 @@ export async function getUsableGoogleBusinessProfileAccessToken(
     );
   }
 
+  const decrypted = decryptGoogleBusinessProfileSecretWithMetadata(
+    credential.refresh_token_encrypted,
+    externalProfile.id,
+  );
+  let refreshed;
   try {
-    const refreshed = await refreshGoogleBusinessProfileAccessToken(
-      decryptGoogleBusinessProfileSecret(credential.refresh_token_encrypted),
-    );
-
-    const updatedRefreshTokenEncrypted = refreshed.refreshToken
-      ? encryptGoogleBusinessProfileSecret(refreshed.refreshToken)
-      : credential.refresh_token_encrypted;
-    const refreshedAt = nowIso();
-
-    await updateCredentialRefresh(
-      externalProfile.id,
-      buildGoogleBusinessProfileCredentialRefreshUpdate({
-        credential,
-        refreshedTokens: refreshed,
-        refreshTokenEncrypted: updatedRefreshTokenEncrypted,
-        refreshedAt,
-      }),
-      client,
-    );
-
-    if (externalProfile.connection_status === 'reauth_required') {
-      await updateExternalProfile(
-        externalProfile.id,
-        buildAuthorizationCompletedExternalProfileUpdate(externalProfile),
-        client,
-      );
-    }
-
-    return {
-      accessToken: refreshed.accessToken,
-      credential: buildRefreshedGoogleBusinessProfileCredentialRow({
-        credential,
-        refreshedTokens: refreshed,
-        refreshTokenEncrypted: updatedRefreshTokenEncrypted,
-        refreshedAt,
-      }),
-    };
+    refreshed = await refreshGoogleBusinessProfileAccessToken(decrypted.plaintext);
   } catch (error) {
-    if (isGoogleBusinessProfileError(error) && error.code === 'GBP_REAUTH_REQUIRED') {
-      await updateExternalProfile(
-        externalProfile.id,
-        buildReauthRequiredExternalProfileUpdate(error.message),
-        client,
-      );
-    }
+    await persistGoogleProviderAccessFailure(error, externalProfile, client);
     throw error;
   }
+
+  const updatedRefreshTokenEncrypted = refreshed.refreshToken
+    ? encryptGoogleBusinessProfileSecret(refreshed.refreshToken, externalProfile.id)
+    : decrypted.requiresRewrap
+      ? encryptGoogleBusinessProfileSecret(decrypted.plaintext, externalProfile.id)
+      : credential.refresh_token_encrypted;
+  const refreshedAt = nowIso();
+
+  const refreshedCredential = await refreshCredentialFenced(
+    {
+      p_restaurant_id: externalProfile.restaurant_id,
+      p_external_profile_row_id: externalProfile.id,
+      p_expected_account_id: externalProfile.external_account_id,
+      p_expected_profile_id: externalProfile.external_profile_id,
+      p_expected_location_id: externalProfile.external_location_id,
+      p_connection_generation: externalProfile.connection_generation,
+      p_consent_epoch: externalProfile.consent_epoch,
+      p_expected_refresh_token_encrypted: credential.refresh_token_encrypted,
+      p_refresh_token_encrypted: updatedRefreshTokenEncrypted,
+      p_granted_scopes: refreshed.grantedScopes,
+      p_token_type: refreshed.tokenType,
+      p_refreshed_at: refreshedAt,
+    },
+    client,
+  );
+
+  return {
+    accessToken: refreshed.accessToken,
+    credential: refreshedCredential,
+  };
 }
 
 export async function discoverGoogleBusinessProfileLocationsForProfile(
@@ -132,12 +167,18 @@ export async function discoverGoogleBusinessProfileLocationsForProfile(
     externalProfile,
     client,
   );
-  const accounts = await listGoogleBusinessProfileAccounts(accessToken);
-  const batches = await Promise.all(
-    accounts.map((account) =>
-      listGoogleBusinessProfileLocations(accessToken, account.name, account.accountName),
-    ),
-  );
+  let batches;
+  try {
+    const accounts = await listGoogleBusinessProfileAccounts(accessToken);
+    batches = await Promise.all(
+      accounts.map((account) =>
+        listGoogleBusinessProfileLocations(accessToken, account.name, account.accountName),
+      ),
+    );
+  } catch (error) {
+    await persistGoogleProviderAccessFailure(error, externalProfile, client);
+    throw error;
+  }
 
   const discovery = {
     credential,

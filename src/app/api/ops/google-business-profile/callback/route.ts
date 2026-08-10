@@ -5,9 +5,11 @@ import {
   sanitizeGoogleBusinessProfileReturnPath,
 } from '@/app/api/ops/google-business-profile/_origin';
 import { logger } from '@/lib/logger';
+import { gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import {
   clearGoogleBusinessProfileOAuthStateCookie,
-  hasMatchingGoogleBusinessProfileOAuthStateCookie,
+  getGoogleBusinessProfileOAuthStateCookieRestaurantId,
 } from '@/server/google-business-profile/oauth-state-cookie';
 import { completeGoogleBusinessProfileAuthorization } from '@/server/google-business-profile/service';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -28,7 +30,7 @@ function buildRedirect(request: NextRequest, status: 'connected' | 'error', mess
 function redirectWithClearedState(url: URL) {
   const response = NextResponse.redirect(url);
   clearGoogleBusinessProfileOAuthStateCookie(response);
-  return response;
+  return gbpNoStoreResponse(response);
 }
 
 export async function GET(req: NextRequest) {
@@ -48,7 +50,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (!hasMatchingGoogleBusinessProfileOAuthStateCookie(req, state)) {
+  const expectedRestaurantId = getGoogleBusinessProfileOAuthStateCookieRestaurantId(req, state);
+  if (!expectedRestaurantId) {
     return redirectWithClearedState(
       buildRedirect(req, 'error', 'Google authorization state could not be verified.'),
     );
@@ -69,6 +72,7 @@ export async function GET(req: NextRequest) {
       stateToken: state,
       code,
       requestedByUserId: user.id,
+      expectedRestaurantId,
     });
 
     const redirectUrl = new URL(
@@ -81,10 +85,12 @@ export async function GET(req: NextRequest) {
     const message =
       error instanceof Error ? error.message : 'Google Business Profile authorization failed.';
     logger.error('gbp.callback authorization failed', {
-      requestOrigin: req.nextUrl.origin,
       hasState: Boolean(state),
       hasCode: Boolean(code),
-      error,
+      errorCode: error instanceof Error ? error.name : 'UNKNOWN_ERROR',
+    });
+    captureSafeGbpException(error, {
+      properties: { source: 'ops', kind: 'gbp_callback', status: 500 },
     });
     return redirectWithClearedState(buildRedirect(req, 'error', message));
   }

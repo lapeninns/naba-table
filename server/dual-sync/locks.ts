@@ -9,6 +9,8 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { logger } from '@/lib/logger';
+
 import { getDualSyncDbClient } from './db';
 import { DUAL_SYNC_PROVIDER } from './types';
 
@@ -228,11 +230,12 @@ export async function runWithDualSyncLock<T>(
   } catch (error) {
     releaseError = error;
     if (thrown) {
-      console.error('[dual-sync][lock] failed to release lock after job error', {
+      logger.error('Dual-sync lock release failed after job failure.', {
+        module: 'dual-sync-locks',
         restaurantId: lock.restaurantId,
         jobKind: lock.jobKind,
         lockId: lock.id,
-        error: error instanceof Error ? error.message : String(error),
+        errorKind: error instanceof Error ? 'error' : typeof error,
       });
     }
   }

@@ -7,6 +7,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { preflightGoogleBusinessProfileWorkflowDraft } from '@/server/google-business-profile/workflow';
 import { requireProviderRefreshBudget } from '@/server/security/provider-rate-limit';
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     resolveDraftId(params),
   ]);
   if (!restaurantId || !draftId) {
-    return NextResponse.json({ error: 'Missing restaurant or draft id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant or draft id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     req,
   );
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   const rateLimit = await requireProviderRefreshBudget({
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     action: 'workflow-preflight',
   });
   if (rateLimit) {
-    return rateLimit;
+    return gbpNoStoreResponse(rateLimit);
   }
 
   let payload: z.infer<typeof preflightSchema>;
@@ -92,16 +93,16 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     payload = preflightSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return gbpNoStoreJson(
         { error: 'Invalid payload', details: error.flatten() },
         { status: 400 },
       );
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Invalid payload' }, { status: 400 });
   }
 
   try {
-    return NextResponse.json(
+    return gbpNoStoreJson(
       await preflightGoogleBusinessProfileWorkflowDraft({
         restaurantId,
         draftId,

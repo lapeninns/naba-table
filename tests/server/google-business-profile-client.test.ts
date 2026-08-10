@@ -28,34 +28,23 @@ describe('google business profile client', () => {
     vi.unstubAllGlobals();
   });
 
-  it('adds validateOnly alongside updateMask for dry-run location patches', async () => {
+  it('retires legacy validateOnly location patches before network dispatch', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await patchGoogleBusinessProfileLocation(
-      'access-token',
-      'locations/123',
-      { title: 'Old Crown Girton' },
-      ['title'],
-      { validateOnly: true },
-    );
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const requestUrl = new URL(url);
-    expect(requestUrl.pathname).toBe('/v1/locations/123');
-    expect(requestUrl.searchParams.get('updateMask')).toBe('title');
-    expect(requestUrl.searchParams.get('validateOnly')).toBe('true');
-    expect(init.method).toBe('PATCH');
-    expect(init.body).toBe(JSON.stringify({ title: 'Old Crown Girton' }));
-    expect(init.headers).toMatchObject({
-      Authorization: 'Bearer access-token',
-      'Content-Type': 'application/json',
-      'X-Goog-User-Project': '23639420332',
-    });
+    await expect(
+      patchGoogleBusinessProfileLocation(
+        'access-token',
+        'locations/123',
+        { title: 'Old Crown Girton' },
+        ['title'],
+        { validateOnly: true },
+      ),
+    ).rejects.toMatchObject({ code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('omits validateOnly for real location patches', async () => {
+  it('retires legacy real location patches before network dispatch', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ name: 'locations/123', title: 'Old Crown Girton' }), {
         status: 200,
@@ -63,23 +52,24 @@ describe('google business profile client', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await patchGoogleBusinessProfileLocation(
-      'access-token',
-      'locations/123',
-      { title: 'Old Crown Girton' },
-      ['title'],
-    );
-
-    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const requestUrl = new URL(url);
-    expect(requestUrl.searchParams.get('updateMask')).toBe('title');
-    expect(requestUrl.searchParams.has('validateOnly')).toBe(false);
+    await expect(
+      patchGoogleBusinessProfileLocation(
+        'access-token',
+        'locations/123',
+        { title: 'Old Crown Girton' },
+        ['title'],
+      ),
+    ).rejects.toMatchObject({ code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('requests only the business.manage OAuth scope for GBP consent', () => {
-    const url = new URL(buildGoogleBusinessProfileAuthUrl('state-token'));
+  it('requests the exact GBP and OIDC scopes for consent', () => {
+    const url = new URL(buildGoogleBusinessProfileAuthUrl('state-token', 'nonce-token'));
 
-    expect(url.searchParams.get('scope')).toBe('https://www.googleapis.com/auth/business.manage');
+    expect(url.searchParams.get('scope')).toBe(
+      'https://www.googleapis.com/auth/business.manage openid email profile',
+    );
+    expect(url.searchParams.get('nonce')).toBe('nonce-token');
     expect(url.searchParams.get('access_type')).toBe('offline');
     expect(url.searchParams.get('prompt')).toBe('consent');
   });
@@ -127,8 +117,10 @@ describe('google business profile client', () => {
       placeId: 'place-1',
       canHaveFoodMenus: true,
     });
-    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(new URL(url).searchParams.get('readMask')).toBe('name,title,storefrontAddress,metadata');
+    const [request] = fetchMock.mock.calls[0] as [Request];
+    expect(new URL(request.url).searchParams.get('readMask')).toBe(
+      'name,title,storefrontAddress,metadata',
+    );
   });
 
   it('reads FoodMenus with an optional top-level readMask', async () => {
@@ -150,20 +142,18 @@ describe('google business profile client', () => {
     );
 
     expect(result).toEqual({ name: 'accounts/123/locations/456/foodMenus', menus: [] });
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const requestUrl = new URL(url);
+    const [request] = fetchMock.mock.calls[0] as [Request];
+    const requestUrl = new URL(request.url);
     expect(requestUrl.origin).toBe('https://mybusiness.googleapis.com');
     expect(requestUrl.pathname).toBe('/v4/accounts/123/locations/456/foodMenus');
     expect(requestUrl.searchParams.get('readMask')).toBe('name,menus');
-    expect(init.method).toBeUndefined();
-    expect(init.headers).toMatchObject({
-      Authorization: 'Bearer access-token',
-      'Content-Type': 'application/json',
-      'X-Goog-User-Project': '23639420332',
-    });
+    expect(request.method).toBe('GET');
+    expect(request.headers.get('authorization')).toBe('Bearer access-token');
+    expect(request.headers.get('x-goog-user-project')).toBe('23639420332');
+    expect(request.headers.get('x-goog-api-format-version')).toBe('2');
   });
 
-  it('updates FoodMenus with a top-level menus updateMask', async () => {
+  it('retires legacy FoodMenus updates before network dispatch', async () => {
     const payload = {
       name: 'accounts/123/locations/456/foodMenus',
       menus: [
@@ -178,19 +168,10 @@ describe('google business profile client', () => {
       .mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await updateGoogleBusinessProfileFoodMenus('access-token', payload, { updateMask: ['menus'] });
-
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const requestUrl = new URL(url);
-    expect(requestUrl.pathname).toBe('/v4/accounts/123/locations/456/foodMenus');
-    expect(requestUrl.searchParams.get('updateMask')).toBe('menus');
-    expect(init.method).toBe('PATCH');
-    expect(init.body).toBe(JSON.stringify(payload));
-    expect(init.headers).toMatchObject({
-      Authorization: 'Bearer access-token',
-      'Content-Type': 'application/json',
-      'X-Goog-User-Project': '23639420332',
-    });
+    await expect(
+      updateGoogleBusinessProfileFoodMenus('access-token', payload, { updateMask: ['menus'] }),
+    ).rejects.toMatchObject({ code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('marks service items unavailable when the optional fetch fails', async () => {

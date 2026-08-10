@@ -79,18 +79,6 @@ type FoodMenusImportReviewDatabase = {
 };
 
 type FoodMenusImportReviewDbClient = SupabaseClient<FoodMenusImportReviewDatabase>;
-type ReplaceFoodMenusImportReviewsRpcClient = FoodMenusImportReviewDbClient & {
-  rpc: (
-    fn: 'replace_pending_food_menus_import_reviews',
-    args: {
-      p_google_snapshot_id: string | null;
-      p_projection_snapshot_id: string | null;
-      p_restaurant_id: string;
-      p_reviews: Json;
-    },
-  ) => Promise<{ data: FoodMenusImportReviewRow[] | null; error: { message: string } | null }>;
-};
-
 function getFoodMenusImportReviewDbClient(client: DbClient): FoodMenusImportReviewDbClient {
   return client as unknown as FoodMenusImportReviewDbClient;
 }
@@ -108,40 +96,12 @@ export async function replacePendingFoodMenusImportReviews({
   readonly projectionSnapshotId?: string | null;
   readonly review: GoogleFoodMenusImportReview;
 }): Promise<ReadonlyArray<FoodMenusImportReviewRecord>> {
-  const db = getFoodMenusImportReviewDbClient(client);
-  const payload = review.items.map((item) => ({
-    menu_item_id:
-      item.match.status === 'matched' || item.match.status === 'missing_from_google'
-        ? item.match.localItemId
-        : null,
-    external_item_id:
-      item.match.status === 'matched' || item.match.status === 'missing_from_google'
-        ? item.match.externalItemId
-        : null,
-    target_kind: item.targetKind,
-    google_path: item.googlePath,
-    google_section_label: item.googleSectionLabel,
-    google_item_name: item.googleItemName,
-    match_status: item.match.status,
-    match_confidence: item.match.confidence,
-    suggested_patch: item.suggestedPatch as Json,
-    warnings: item.warnings as Json,
-  }));
-
-  const { data, error } = await (db as ReplaceFoodMenusImportReviewsRpcClient).rpc(
-    'replace_pending_food_menus_import_reviews',
-    {
-      p_google_snapshot_id: googleSnapshotId,
-      p_projection_snapshot_id: projectionSnapshotId,
-      p_restaurant_id: restaurantId,
-      p_reviews: payload as Json,
-    },
-  );
-
-  if (error) {
-    throw error;
-  }
-  return (data ?? []).map((row) => rowToImportReview(row as FoodMenusImportReviewRow));
+  void client;
+  void restaurantId;
+  void googleSnapshotId;
+  void projectionSnapshotId;
+  void review;
+  return [];
 }
 
 export async function listPendingFoodMenusImportReviews({

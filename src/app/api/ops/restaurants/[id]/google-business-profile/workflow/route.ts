@@ -6,6 +6,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { googleBusinessProfileWorkflowErrorResponse } from '@/app/api/ops/restaurants/[id]/google-business-profile/_shared';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { getGoogleBusinessProfileWorkflow } from '@/server/google-business-profile/workflow';
 
 import type { NextRequest } from 'next/server';
@@ -17,7 +18,7 @@ type RouteContext = {
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return gbpNoStoreJson({ error: 'Missing restaurant id' }, { status: 400 });
   }
 
   const access = await ensureRestaurantAdminAccess(
@@ -25,11 +26,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     'google-business-profile-workflow',
   );
   if (access instanceof NextResponse) {
-    return access;
+    return gbpNoStoreResponse(access);
   }
 
   try {
-    return NextResponse.json(await getGoogleBusinessProfileWorkflow(restaurantId));
+    return gbpNoStoreJson(await getGoogleBusinessProfileWorkflow(restaurantId));
   } catch (error) {
     return googleBusinessProfileWorkflowErrorResponse(error, {
       fallbackMessage: 'Unable to load Google Business Profile workflow.',

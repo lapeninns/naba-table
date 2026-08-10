@@ -1,10 +1,35 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 
-import { describe, expect, it } from 'vitest';
+import { PLAUSIBLE_EXCLUDED_PATHS } from '@/src/app/layout';
+
+vi.mock('next/font/google', () => ({
+  Geist_Mono: () => ({ variable: 'font-mono' }),
+  Inter: () => ({ variable: 'font-body' }),
+  Merriweather: () => ({ variable: 'font-display' }),
+}));
+vi.mock('../../src/app/globals.css', () => ({}));
+vi.mock('next/script', () => ({ default: () => null }));
+vi.mock('../../components/LayoutClient', () => ({ default: () => null }));
+vi.mock('@/src/app/providers', () => ({ AppProviders: () => null }));
+vi.mock('@/config', () => ({
+  default: { colors: { main: '#000000' }, domainName: 'nabatable.example', locale: 'en' },
+}));
+vi.mock('@/libs/seo', () => ({ getSEOTags: () => ({}) }));
+vi.mock('@/lib/theme/documentTheme', () => ({ APP_THEME_PATH_PATTERN: '^/app' }));
 
 function readSource(path: string) {
   return readFileSync(join(process.cwd(), path), 'utf8');
+}
+
+function plausiblePatternMatchesPath(pattern: string, pathname: string): boolean {
+  const escapedPattern = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replaceAll('**', '\u0000')
+    .replaceAll('*', '[^/]*')
+    .replaceAll('\u0000', '.*');
+  return new RegExp(`^${escapedPattern}$`).test(pathname);
 }
 
 describe('DeepSec final remediation source guards', () => {
@@ -70,11 +95,21 @@ describe('DeepSec final remediation source guards', () => {
     expect(workflowSource).not.toMatch(/uses: actions\/(?:checkout|setup-node)@v\d+/);
   });
 
-  it('keeps invite bearer tokens out of automatic Plausible pageviews', () => {
-    const layoutSource = readSource('src/app/layout.tsx');
+  it('excludes invite and GBP state paths from automatic Plausible pageviews', () => {
+    const patterns = PLAUSIBLE_EXCLUDED_PATHS.split(',');
+    const isExcluded = (pathname: string) =>
+      patterns.some((pattern) => plausiblePatternMatchesPath(pattern, pathname));
 
-    expect(layoutSource).toContain("const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**'");
-    expect(layoutSource).toContain('exclude={PLAUSIBLE_EXCLUDED_PATHS}');
+    expect(
+      [
+        '/invite/signed-bearer-token',
+        '/app/settings/restaurant/google-business-profile',
+        '/app/settings/restaurant/google-business-profile/menus',
+        '/app/settings/restaurant/dual-sync/jobs/123',
+        '/app/settings/restaurant/gbp/candidates',
+      ].every(isExcluded),
+    ).toBe(true);
+    expect(isExcluded('/app/settings/restaurant/details')).toBe(false);
   });
 
   it('forces fresh occasion validation for booking writes', () => {

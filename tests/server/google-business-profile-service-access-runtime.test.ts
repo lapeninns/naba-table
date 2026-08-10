@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getCredentialRowMock = vi.hoisted(() => vi.fn());
 const updateCredentialRefreshMock = vi.hoisted(() => vi.fn());
 const updateExternalProfileMock = vi.hoisted(() => vi.fn());
+const transitionConnectionProviderFailureFencedMock = vi.hoisted(() => vi.fn());
 const decryptSecretMock = vi.hoisted(() => vi.fn());
+const decryptSecretWithMetadataMock = vi.hoisted(() => vi.fn());
 const encryptSecretMock = vi.hoisted(() => vi.fn());
 const listAccountsMock = vi.hoisted(() => vi.fn());
 const listLocationsMock = vi.hoisted(() => vi.fn());
@@ -11,12 +13,14 @@ const refreshTokenMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/google-business-profile/serviceRepository', () => ({
   getCredentialRow: getCredentialRowMock,
-  updateCredentialRefresh: updateCredentialRefreshMock,
+  refreshCredentialFenced: updateCredentialRefreshMock,
+  transitionConnectionProviderFailureFenced: transitionConnectionProviderFailureFencedMock,
   updateExternalProfile: updateExternalProfileMock,
 }));
 
 vi.mock('@/server/google-business-profile/crypto', () => ({
   decryptGoogleBusinessProfileSecret: decryptSecretMock,
+  decryptGoogleBusinessProfileSecretWithMetadata: decryptSecretWithMetadataMock,
   encryptGoogleBusinessProfileSecret: encryptSecretMock,
 }));
 
@@ -51,8 +55,15 @@ function credential(overrides: Record<string, unknown> = {}) {
 function externalProfile(overrides: Record<string, unknown> = {}) {
   return {
     id: 'external-1',
+    restaurant_id: 'restaurant-1',
+    external_account_id: 'account-1',
+    external_profile_id: 'profile-1',
     external_location_id: 'location-1',
+    connection_generation: 2,
+    consent_epoch: 3,
     connection_status: 'linked',
+    write_state: 'enabled',
+    write_state_actor_user_id: 'user-1',
     updated_at: '2026-05-20T22:00:00.000Z',
     ...overrides,
   };
@@ -63,7 +74,9 @@ describe('google business profile service access runtime', () => {
     getCredentialRowMock.mockReset();
     updateCredentialRefreshMock.mockReset();
     updateExternalProfileMock.mockReset();
+    transitionConnectionProviderFailureFencedMock.mockReset();
     decryptSecretMock.mockReset();
+    decryptSecretWithMetadataMock.mockReset();
     encryptSecretMock.mockReset();
     listAccountsMock.mockReset();
     listLocationsMock.mockReset();
@@ -71,6 +84,11 @@ describe('google business profile service access runtime', () => {
     clearGoogleBusinessProfileLocationDiscoveryCacheForTests();
 
     decryptSecretMock.mockReturnValue('refresh-token');
+    decryptSecretWithMetadataMock.mockReturnValue({
+      plaintext: 'refresh-token',
+      keyId: 'active',
+      requiresRewrap: false,
+    });
     encryptSecretMock.mockImplementation((value: string) => `enc:${value}`);
     refreshTokenMock.mockResolvedValue({
       accessToken: 'access-token',
@@ -80,6 +98,13 @@ describe('google business profile service access runtime', () => {
       tokenType: null,
       idToken: null,
     });
+    updateCredentialRefreshMock.mockImplementation(async (args) => ({
+      ...credential(),
+      refresh_token_encrypted: args.p_refresh_token_encrypted,
+      granted_scopes: args.p_granted_scopes,
+      token_type: args.p_token_type,
+      last_error: null,
+    }));
   });
 
   it('throws a stable not-connected error when credentials are missing', async () => {
@@ -112,15 +137,16 @@ describe('google business profile service access runtime', () => {
       {} as never,
     );
 
-    expect(decryptSecretMock).toHaveBeenCalledWith('encrypted-refresh');
-    expect(encryptSecretMock).toHaveBeenCalledWith('new-refresh-token');
+    expect(decryptSecretWithMetadataMock).toHaveBeenCalledWith('encrypted-refresh', 'external-1');
+    expect(encryptSecretMock).toHaveBeenCalledWith('new-refresh-token', 'external-1');
     expect(updateCredentialRefreshMock).toHaveBeenCalledWith(
-      'external-1',
       expect.objectContaining({
-        refresh_token_encrypted: 'enc:new-refresh-token',
-        granted_scopes: ['scope-a'],
-        token_type: 'Bearer',
-        last_error: null,
+        p_restaurant_id: 'restaurant-1',
+        p_external_profile_row_id: 'external-1',
+        p_expected_refresh_token_encrypted: 'encrypted-refresh',
+        p_refresh_token_encrypted: 'enc:new-refresh-token',
+        p_granted_scopes: ['scope-a'],
+        p_token_type: 'Bearer',
       }),
       {},
     );
@@ -135,7 +161,7 @@ describe('google business profile service access runtime', () => {
     });
   });
 
-  it('marks the profile reauth-required when Google refresh requires reauth', async () => {
+  it('persists an exact-fenced reauth transition for invalid_grant', async () => {
     getCredentialRowMock.mockResolvedValue(credential());
     refreshTokenMock.mockRejectedValue(
       new GoogleBusinessProfileError('Reconnect Google.', {
@@ -150,12 +176,100 @@ describe('google business profile service access runtime', () => {
       code: 'GBP_REAUTH_REQUIRED',
     });
 
-    expect(updateExternalProfileMock).toHaveBeenCalledWith(
-      'external-1',
-      {
-        connection_status: 'reauth_required',
-        last_error: 'Reconnect Google.',
-      },
+    expect(transitionConnectionProviderFailureFencedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_restaurant_id: 'restaurant-1',
+        p_external_profile_row_id: 'external-1',
+        p_expected_account_id: 'account-1',
+        p_expected_profile_id: 'profile-1',
+        p_expected_location_id: 'location-1',
+        p_connection_generation: 2,
+        p_consent_epoch: 3,
+        p_next_state: 'reauth_required',
+        p_reason_code: 'provider_invalid_grant',
+      }),
+      {},
+    );
+  });
+
+  it('persists an exact-fenced blocked transition for provider access loss', async () => {
+    getCredentialRowMock.mockResolvedValue(credential());
+    refreshTokenMock.mockRejectedValue(
+      new GoogleBusinessProfileError('Access lost.', {
+        code: 'GBP_ACCESS_LOST',
+        status: 409,
+        kind: 'access_lost',
+        upstreamStatus: 403,
+      }),
+    );
+
+    await expect(
+      getUsableGoogleBusinessProfileAccessToken(externalProfile() as never, {} as never),
+    ).rejects.toMatchObject({ kind: 'access_lost' });
+
+    expect(transitionConnectionProviderFailureFencedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_next_state: 'blocked',
+        p_reason_code: 'provider_access_lost_403',
+        p_connection_generation: 2,
+        p_consent_epoch: 3,
+      }),
+      {},
+    );
+  });
+
+  it('persists reauth when a Google read returns API 401 after refresh', async () => {
+    getCredentialRowMock.mockResolvedValue(credential());
+    listAccountsMock.mockRejectedValue(
+      new GoogleBusinessProfileError('Unauthorized.', {
+        code: 'GBP_REAUTH',
+        status: 409,
+        kind: 'reauth',
+        upstreamStatus: 401,
+      }),
+    );
+
+    await expect(
+      discoverGoogleBusinessProfileLocationsForProfile(externalProfile() as never, {} as never),
+    ).rejects.toMatchObject({ kind: 'reauth', upstreamStatus: 401 });
+
+    expect(transitionConnectionProviderFailureFencedMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_next_state: 'reauth_required',
+        p_reason_code: 'provider_unauthorized_401',
+      }),
+      {},
+    );
+  });
+
+  it('rejects normal credential access while revocation recovery is pending', async () => {
+    await expect(
+      getUsableGoogleBusinessProfileAccessToken(
+        externalProfile({ write_state: 'revoking' }) as never,
+        {} as never,
+      ),
+    ).rejects.toMatchObject({ code: 'GBP_REVOCATION_PENDING', status: 409 });
+
+    expect(getCredentialRowMock).not.toHaveBeenCalled();
+    expect(refreshTokenMock).not.toHaveBeenCalled();
+  });
+
+  it('rewraps an old credential through the fenced ciphertext CAS during access', async () => {
+    getCredentialRowMock.mockResolvedValue(credential());
+    decryptSecretWithMetadataMock.mockReturnValue({
+      plaintext: 'refresh-token',
+      keyId: 'old',
+      requiresRewrap: true,
+    });
+    encryptSecretMock.mockReturnValue('gbp.1.active.rewrapped');
+
+    await getUsableGoogleBusinessProfileAccessToken(externalProfile() as never, {} as never);
+
+    expect(updateCredentialRefreshMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_expected_refresh_token_encrypted: 'encrypted-refresh',
+        p_refresh_token_encrypted: 'gbp.1.active.rewrapped',
+      }),
       {},
     );
   });

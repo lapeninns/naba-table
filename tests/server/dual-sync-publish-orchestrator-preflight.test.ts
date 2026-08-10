@@ -195,10 +195,12 @@ describe('runRequiredExportPreflights', () => {
     expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        responseSummary: { validateOnly: false },
+        responseSummary: { resultHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
         errorCode: 'GOOGLE_VALIDATION_FAILED',
-        errorMessage: 'Google rejected the regular hours payload.',
       }),
+    );
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain(
+      'Google rejected the regular hours payload.',
     );
   });
 
@@ -215,10 +217,12 @@ describe('runRequiredExportPreflights', () => {
     expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'failed',
-        responseSummary: { thrown: true, message: 'validateOnly timed out' },
+        responseSummary: { resultHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
         errorCode: 'EXTERNAL_API_TIMEOUT',
-        errorMessage: 'validateOnly timed out',
       }),
+    );
+    expect(JSON.stringify(createGoogleRequestLogMock.mock.calls)).not.toContain(
+      'validateOnly timed out',
     );
   });
 });

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { gbpNoStoreJson } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 
-import { captureServerException } from '@/lib/posthog/server';
+import type { NextResponse } from 'next/server';
 
 const PUBLIC_WORKFLOW_ERROR_NAMES = new Set([
   'GBP_DRAFT_INVALID_STATE',
@@ -59,12 +60,12 @@ export function googleBusinessProfileWorkflowErrorResponse(
   // Only capture genuine server faults; known public workflow errors are
   // expected business outcomes (stale draft, push disabled, etc.).
   if (!isPublicGoogleBusinessProfileWorkflowError(error)) {
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       properties: { source: 'ops', kind: 'gbp_workflow', status: options.status },
     });
   }
 
-  return NextResponse.json(
+  return gbpNoStoreJson(
     {
       message,
       error: message,

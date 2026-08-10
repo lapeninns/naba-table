@@ -12,9 +12,10 @@
  */
 
 import { getDualSyncDbClient, type DualSyncFieldStateRow } from '../db';
+import { metadataOnlySummary } from '../publish/persistence-metadata';
 import { DUAL_SYNC_PROVIDER, type DualSyncFieldState, type DualSyncSectionKey } from '../types';
 
-import type { Database, Json } from '@/types/supabase';
+import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -53,9 +54,8 @@ export async function upsertFieldState(
   if (input.lastInSyncAt !== undefined) payload.last_in_sync_at = input.lastInSyncAt;
   if (input.lastCoreChangeAt !== undefined) payload.last_core_change_at = input.lastCoreChangeAt;
   if (input.lastGbpChangeAt !== undefined) payload.last_gbp_change_at = input.lastGbpChangeAt;
-  if (input.lastSnapshotRunId !== undefined)
-    payload.last_snapshot_run_id = input.lastSnapshotRunId;
-  if (input.metadata !== undefined) payload.metadata = input.metadata as unknown as Json;
+  if (input.lastSnapshotRunId !== undefined) payload.last_snapshot_run_id = input.lastSnapshotRunId;
+  if (input.metadata !== undefined) payload.metadata = metadataOnlySummary(input.metadata);
 
   const { data, error } = await dual
     .from('dual_sync_field_states')

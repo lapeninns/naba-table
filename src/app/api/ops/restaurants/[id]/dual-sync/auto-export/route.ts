@@ -3,10 +3,8 @@
  *
  * POST /api/ops/restaurants/{id}/dual-sync/auto-export
  *
- * Drains the open outbound candidates for the restaurant and runs them
- * through the publish orchestrator with `defaultDualSyncPorts`. Returns
- * the auto-export summary plus the underlying publish summary so the
- * UI can show per-field outcomes.
+ * Discovers open outbound candidates for operator review. This route never
+ * enqueues or executes a provider mutation.
  *
  * Manual ops trigger only — a cross-tenant cron path can call the
  * `runAutoExportForRestaurant` helper directly without going through
@@ -15,7 +13,6 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -29,9 +26,10 @@ import {
   assertDualSyncRestaurantNotPaused,
   isDualSyncRestaurantPausedError,
 } from '@/server/dual-sync/controls';
-import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/runtime-controls';
 import { isDualSyncLockError } from '@/server/dual-sync/locks';
-import { enqueueDualSyncJob } from '@/server/dual-sync/queue';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
+import { isDualSyncAutoCandidatesEnabled } from '@/server/dual-sync/runtime-controls';
 import { runAutoExportForRestaurant } from '@/server/dual-sync/scheduling/auto-export';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -58,7 +56,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     );
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-auto-export', req);
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   let body: z.infer<typeof requestSchema>;
   try {
@@ -76,28 +74,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   try {
     const client = getServiceSupabaseClient();
     await assertDualSyncRestaurantNotPaused({ client, restaurantId });
-    if (req.nextUrl.searchParams.get('queue') === '1') {
-      const job = await enqueueDualSyncJob({
-        client,
-        restaurantId,
-        jobKind: 'auto_export',
-        idempotencyKey: req.headers.get('idempotency-key'),
-        payload: {
-          maxCandidates: body?.maxCandidates,
-          actorUserId: access.userId,
-        },
-        priority: 60,
-      });
-      return NextResponse.json({ queued: true, job }, { status: 202 });
-    }
-
     const summary = await runAutoExportForRestaurant({
       client,
       restaurantId,
       maxCandidates: body?.maxCandidates,
       actorUserId: access.userId,
     });
-    return NextResponse.json(summary, { status: 200 });
+    return gbpNoStoreJson(summary, { status: 200 });
   } catch (error) {
     if (isDualSyncRestaurantPausedError(error)) {
       return dualSyncPausedResponse(error.message);
@@ -111,7 +94,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
     const message = error instanceof Error ? error.message : 'Auto-export failed';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-auto-export' },

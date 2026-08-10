@@ -5,10 +5,10 @@ import {
   type DualSyncPublishOperationStatus,
   type DualSyncSectionKey,
 } from '../types';
-import { sanitizeGoogleAuditPayload } from './google-audit';
 import { rowToOperation } from './operations-mappers';
+import { safePersistenceErrorCode } from './persistence-metadata';
 
-import type { Database, Json } from '@/types/supabase';
+import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
@@ -81,10 +81,9 @@ export async function updateOperationStatus(
   };
   if (input.afterCoreHash !== undefined) patch.after_core_hash = input.afterCoreHash;
   if (input.afterGbpHash !== undefined) patch.after_gbp_hash = input.afterGbpHash;
-  if (input.errorCode !== undefined) patch.error_code = input.errorCode;
-  if (input.errorMessage !== undefined) patch.error_message = input.errorMessage;
-  if (input.externalResponse !== undefined)
-    patch.external_response = sanitizeGoogleAuditPayload(input.externalResponse) as Json;
+  if (input.errorCode !== undefined) patch.error_code = safePersistenceErrorCode(input.errorCode);
+  if (input.errorMessage !== undefined) patch.error_message = null;
+  if (input.externalResponse !== undefined) patch.external_response = null;
   if (input.attemptCount !== undefined) patch.attempt_count = input.attemptCount;
   if (input.startedAt !== undefined) patch.started_at = input.startedAt;
   if (input.finishedAt !== undefined) patch.finished_at = input.finishedAt;

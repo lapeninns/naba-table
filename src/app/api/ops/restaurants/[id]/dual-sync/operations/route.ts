@@ -15,7 +15,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   ensureRestaurantAdminAccess,
@@ -23,6 +22,8 @@ import {
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
 import { listRecentOperationsForRestaurant } from '@/server/dual-sync/publish/operations';
+import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { DualSyncPublishOperationStatus } from '@/server/dual-sync';
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     return dualSyncErrorResponse('Missing restaurant id', 400);
   }
   const access = await ensureRestaurantAdminAccess(restaurantId, 'dual-sync-operations');
-  if (access instanceof NextResponse) return access;
+  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
 
   try {
     const url = new URL(req.url);
@@ -97,10 +98,10 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       direction,
     });
 
-    return NextResponse.json({ restaurantId, operations }, { status: 200 });
+    return gbpNoStoreJson({ restaurantId, operations }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load operations';
-    captureServerException(error, {
+    captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-operations' },

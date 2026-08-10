@@ -7,29 +7,28 @@ import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/typ
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const updateRestaurantDetailsMock = vi.hoisted(() => vi.fn());
-const getRestaurantDetailsMock = vi.hoisted(() => vi.fn());
-
-vi.mock('@/server/restaurants/details', () => ({
-  updateRestaurantDetails: updateRestaurantDetailsMock,
-  getRestaurantDetails: getRestaurantDetailsMock,
-}));
-
-const RESTAURANT_ID = 'rest-1';
+const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
+const PROFILE_ROW_ID = '22222222-2222-4222-8222-222222222222';
+const rpcMock = vi.fn();
 const fromMock = vi.fn();
-const client = { from: fromMock } as unknown as SupabaseClient<Database>;
+const maybeSingleMock = vi.fn();
+const selectMock = vi.fn();
+const eqMock = vi.fn();
+const updateMock = vi.fn();
+const deleteMock = vi.fn();
+const client = { from: fromMock, rpc: rpcMock } as unknown as SupabaseClient<Database>;
 
-function mockDeleteChain(error: Error | null = null) {
-  const chain = {
-    error,
-    delete: vi.fn(),
-    eq: vi.fn(),
-  };
-  chain.delete.mockReturnValue(chain);
-  chain.eq.mockReturnValue(chain);
-  fromMock.mockReturnValueOnce(chain);
-  return chain;
-}
+const linkedProfile = {
+  id: PROFILE_ROW_ID,
+  restaurant_id: RESTAURANT_ID,
+  provider: 'google_business_profile',
+  connection_status: 'linked',
+  external_account_id: 'account-1',
+  external_profile_id: 'profile-1',
+  external_location_id: 'location-1',
+  connection_generation: 2,
+  consent_epoch: 3,
+};
 
 function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCanonicalSnapshot {
   return {
@@ -44,238 +43,188 @@ function makeSnapshot(over: Partial<DualSyncCanonicalSnapshot> = {}): DualSyncCa
     },
     operatingHours: { weekly: [] },
     servicePeriods: { periods: [] },
-    businessContext: {
-      categories: [],
-      serviceAreas: [],
-      attributes: [],
-      serviceItems: [],
-    },
+    businessContext: { categories: [], serviceAreas: [], attributes: [], serviceItems: [] },
     ...over,
   };
 }
 
-function makeCtx(over: Partial<DualSyncOperationContext> = {}): DualSyncOperationContext {
-  const core = makeSnapshot({
-    profile: {
-      name: 'Old Name',
-      businessDescription: 'Old desc',
-      contactPhone: '+15550000000',
-      address: 'Old address',
-      storefrontAddress: null,
-      googleMapUrl: null,
-      googleReviewUrl: null,
-    },
-  });
-  const gbp = makeSnapshot();
+function makeCtx(
+  fieldKey: string,
+  gbpSnapshot: DualSyncCanonicalSnapshot = makeSnapshot(),
+): DualSyncOperationContext {
   return {
     client,
     restaurantId: RESTAURANT_ID,
     publishJobId: 'job-1',
     decision: {
-      fieldKey: 'profile.businessDescription',
-      sectionKey: 'profile',
+      fieldKey,
+      sectionKey: fieldKey.startsWith('profile.') ? 'profile' : 'operatingHours',
       action: 'import_from_google',
       pinnedCoreHash: null,
       pinnedGbpHash: null,
     },
-    coreSnapshot: core,
-    gbpSnapshot: gbp,
+    coreSnapshot: makeSnapshot(),
+    gbpSnapshot,
     actorUserId: null,
-    ...over,
   };
 }
 
 describe('applyProfileImportToCore', () => {
   beforeEach(() => {
-    updateRestaurantDetailsMock.mockReset();
-    getRestaurantDetailsMock.mockReset();
+    rpcMock.mockReset();
     fromMock.mockReset();
-    getRestaurantDetailsMock.mockResolvedValue({
-      restaurantId: RESTAURANT_ID,
-      name: 'Old Name',
-      slug: 'acme',
-      timezone: 'America/Los_Angeles',
-      capacity: 40,
-      contactEmail: 'ops@acme.com',
-      contactPhone: '+15550000000',
-      address: 'Old address',
-      businessDescription: 'Old desc',
-      managerDailySummaryEnabled: false,
-      managerNotificationPhone: null,
-      googleMapUrl: null,
-      googleReviewUrl: null,
-      bookingPolicy: null,
-      logoUrl: null,
-      updatedAt: null,
-    });
-    updateRestaurantDetailsMock.mockResolvedValue({});
+    maybeSingleMock.mockReset();
+    selectMock.mockReset();
+    eqMock.mockReset();
+    updateMock.mockReset();
+    deleteMock.mockReset();
+    const query = {
+      select: selectMock,
+      eq: eqMock,
+      maybeSingle: maybeSingleMock,
+      update: updateMock,
+      delete: deleteMock,
+    };
+    selectMock.mockReturnValue(query);
+    eqMock.mockReturnValue(query);
+    fromMock.mockReturnValue(query);
+    maybeSingleMock.mockResolvedValue({ data: linkedProfile, error: null });
+    rpcMock.mockResolvedValue({ data: { id: RESTAURANT_ID }, error: null });
   });
 
-  it('writes the imported business description and returns succeeded', async () => {
-    const result = await applyProfileImportToCore(makeCtx());
+  it.each([
+    ['profile.name', 'Acme'],
+    ['profile.contactPhone', '+15551234567'],
+    ['profile.address', '1 Main'],
+    ['profile.googleMapUrl', 'https://maps.google.com/?cid=1'],
+    ['profile.googleReviewUrl', 'https://search.google.com/local/writereview?placeid=abc'],
+  ])(
+    'atomically imports supported field %s through one exact fenced RPC',
+    async (fieldKey, value) => {
+      const result = await applyProfileImportToCore(makeCtx(fieldKey));
 
-    expect(updateRestaurantDetailsMock).toHaveBeenCalledTimes(1);
-    expect(updateRestaurantDetailsMock).toHaveBeenCalledWith(
-      RESTAURANT_ID,
-      expect.objectContaining({
-        timezone: 'America/Los_Angeles',
-        businessDescription: 'Tasty',
-      }),
-      client,
-    );
-    expect(result.status).toBe('succeeded');
-    expect(result.afterCoreHash).toBeTruthy();
-  });
+      expect(fromMock).toHaveBeenCalledOnce();
+      expect(fromMock).toHaveBeenCalledWith('restaurant_external_profiles');
+      expect(eqMock.mock.calls).toEqual([
+        ['restaurant_id', RESTAURANT_ID],
+        ['provider', 'google_business_profile'],
+        ['connection_status', 'linked'],
+      ]);
+      expect(updateMock).not.toHaveBeenCalled();
+      expect(deleteMock).not.toHaveBeenCalled();
+      expect(rpcMock).toHaveBeenCalledOnce();
+      expect(rpcMock).toHaveBeenCalledWith('apply_gbp_profile_import_to_core_v1', {
+        p_restaurant_id: RESTAURANT_ID,
+        p_external_profile_row_id: PROFILE_ROW_ID,
+        p_expected_account_id: 'account-1',
+        p_expected_profile_id: 'profile-1',
+        p_expected_location_id: 'location-1',
+        p_connection_generation: 2,
+        p_consent_epoch: 3,
+        p_field_key: fieldKey,
+        p_value: value,
+      });
+      expect(result.status).toBe('succeeded');
+    },
+  );
 
-  it('imports the business name', async () => {
+  it.each([
+    'profile.contactPhone',
+    'profile.address',
+    'profile.googleMapUrl',
+    'profile.googleReviewUrl',
+  ])('passes null semantics for nullable field %s', async (fieldKey) => {
+    const snapshot = makeSnapshot();
+    const profile = snapshot.profile;
+    if (!profile) throw new Error('fixture must include profile data');
+    const nullProfile = {
+      ...profile,
+      contactPhone: fieldKey === 'profile.contactPhone' ? null : profile.contactPhone,
+      address: fieldKey === 'profile.address' ? null : profile.address,
+      googleMapUrl: fieldKey === 'profile.googleMapUrl' ? null : profile.googleMapUrl,
+      googleReviewUrl: fieldKey === 'profile.googleReviewUrl' ? null : profile.googleReviewUrl,
+    };
+
     const result = await applyProfileImportToCore(
-      makeCtx({
-        decision: {
-          fieldKey: 'profile.name',
-          sectionKey: 'profile',
-          action: 'import_from_google',
-          pinnedCoreHash: null,
-          pinnedGbpHash: null,
-        },
-      }),
+      makeCtx(fieldKey, { ...snapshot, profile: nullProfile }),
     );
 
-    expect(updateRestaurantDetailsMock).toHaveBeenCalledWith(
-      RESTAURANT_ID,
-      expect.objectContaining({ name: 'Acme', timezone: 'America/Los_Angeles' }),
-      client,
-    );
     expect(result.status).toBe('succeeded');
+    expect(rpcMock).toHaveBeenLastCalledWith(
+      'apply_gbp_profile_import_to_core_v1',
+      expect.objectContaining({ p_field_key: fieldKey, p_value: null }),
+    );
   });
 
-  it('imports the contact phone', async () => {
-    const deleteChain = mockDeleteChain();
-    const result = await applyProfileImportToCore(
-      makeCtx({
-        decision: {
-          fieldKey: 'profile.contactPhone',
-          sectionKey: 'profile',
-          action: 'import_from_google',
-          pinnedCoreHash: null,
-          pinnedGbpHash: null,
-        },
-      }),
-    );
+  it.each(['profile.businessDescription', 'operatingHours.weekly.0'])(
+    'rejects unsupported field %s without reading or writing tables',
+    async (fieldKey) => {
+      const result = await applyProfileImportToCore(makeCtx(fieldKey));
 
-    expect(fromMock).toHaveBeenCalledWith('restaurant_phone_numbers');
-    expect(deleteChain.delete).toHaveBeenCalledTimes(1);
-    expect(deleteChain.eq.mock.calls).toEqual([
-      ['restaurant_id', RESTAURANT_ID],
-      ['source', 'nabatable'],
-      ['managed_by', 'nabatable'],
-      ['phone_kind', 'primary'],
-    ]);
-    expect(updateRestaurantDetailsMock).toHaveBeenCalledWith(
-      RESTAURANT_ID,
-      expect.objectContaining({
-        contactPhone: '+15551234567',
-        timezone: 'America/Los_Angeles',
-      }),
-      client,
-    );
-    expect(result.status).toBe('succeeded');
-  });
+      expect(result).toMatchObject({ status: 'failed', failure: { code: 'PORT_FAILURE' } });
+      expect(fromMock).not.toHaveBeenCalled();
+      expect(rpcMock).not.toHaveBeenCalled();
+    },
+  );
 
-  it('clears the Nabatable storefront address projection when importing address', async () => {
-    const deleteChain = mockDeleteChain();
-    const result = await applyProfileImportToCore(
-      makeCtx({
-        decision: {
-          fieldKey: 'profile.address',
-          sectionKey: 'profile',
-          action: 'import_from_google',
-          pinnedCoreHash: null,
-          pinnedGbpHash: null,
-        },
-      }),
-    );
+  it.each([
+    ['missing current profile', { data: null, error: null }],
+    ['cross-tenant profile read', { data: null, error: null }],
+    ['profile read failure', { data: null, error: { message: 'secret database detail' } }],
+  ])('fails safely for %s without invoking the import RPC', async (_name, readResult) => {
+    maybeSingleMock.mockResolvedValue(readResult);
 
-    expect(fromMock).toHaveBeenCalledWith('restaurant_addresses');
-    expect(deleteChain.eq.mock.calls).toEqual([
-      ['restaurant_id', RESTAURANT_ID],
-      ['source', 'nabatable'],
-      ['managed_by', 'nabatable'],
-      ['address_type', 'storefront'],
-    ]);
-    expect(result.status).toBe('succeeded');
-  });
+    const result = await applyProfileImportToCore(makeCtx('profile.name'));
 
-  it('imports the Google Maps URL', async () => {
-    const deleteChain = mockDeleteChain();
-    const result = await applyProfileImportToCore(
-      makeCtx({
-        decision: {
-          fieldKey: 'profile.googleMapUrl',
-          sectionKey: 'profile',
-          action: 'import_from_google',
-          pinnedCoreHash: null,
-          pinnedGbpHash: null,
-        },
-      }),
-    );
-
-    expect(fromMock).toHaveBeenCalledWith('restaurant_links');
-    expect(deleteChain.eq.mock.calls).toEqual([
-      ['restaurant_id', RESTAURANT_ID],
-      ['source', 'nabatable'],
-      ['managed_by', 'nabatable'],
-      ['link_type', 'google_map'],
-      ['link_status', 'current'],
-    ]);
-    expect(updateRestaurantDetailsMock).toHaveBeenCalledWith(
-      RESTAURANT_ID,
-      expect.objectContaining({
-        googleMapUrl: 'https://maps.google.com/?cid=1',
-      }),
-      client,
-    );
-    expect(result.status).toBe('succeeded');
-  });
-
-  it('returns a retryable failure when projection cleanup fails', async () => {
-    mockDeleteChain(new Error('delete failed'));
-    const result = await applyProfileImportToCore(
-      makeCtx({
-        decision: {
-          fieldKey: 'profile.googleReviewUrl',
-          sectionKey: 'profile',
-          action: 'import_from_google',
-          pinnedCoreHash: null,
-          pinnedGbpHash: null,
-        },
-      }),
-    );
-
-    expect(updateRestaurantDetailsMock).toHaveBeenCalledTimes(1);
-    expect(result.status).toBe('failed');
-    expect(result.failure).toEqual(
-      expect.objectContaining({
+    expect(result).toEqual({
+      status: 'failed',
+      failure: {
         code: 'PORT_FAILURE',
-        retryable: true,
-      }),
-    );
+        message: 'Google profile import could not be applied.',
+        retryable: false,
+      },
+    });
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it('rejects non-profile field keys with PORT_FAILURE', async () => {
-    const result = await applyProfileImportToCore(
-      makeCtx({
-        decision: {
-          fieldKey: 'operatingHours.weekly.0',
-          sectionKey: 'operatingHours',
-          action: 'import_from_google',
-          pinnedCoreHash: null,
-          pinnedGbpHash: null,
-        },
-      }),
-    );
+  it('returns a safe failure for a stale-fence RPC rejection with no fallback writes', async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { message: 'GBP profile import fence mismatch: secret account' },
+    });
 
-    expect(updateRestaurantDetailsMock).not.toHaveBeenCalled();
-    expect(result.status).toBe('failed');
-    expect(result.failure?.code).toBe('PORT_FAILURE');
+    const result = await applyProfileImportToCore(makeCtx('profile.name'));
+
+    expect(result).toEqual({
+      status: 'failed',
+      failure: {
+        code: 'PORT_FAILURE',
+        message: 'Google profile import could not be applied.',
+        retryable: false,
+      },
+    });
+    expect(rpcMock).toHaveBeenCalledOnce();
+    expect(fromMock).toHaveBeenCalledTimes(1);
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(deleteMock).not.toHaveBeenCalled();
+  });
+
+  it.each(['profile read', 'import RPC'])('redacts a thrown %s database error', async (phase) => {
+    if (phase === 'profile read') {
+      maybeSingleMock.mockRejectedValue(new Error('secret profile read detail'));
+    } else {
+      rpcMock.mockRejectedValue(new Error('secret RPC detail'));
+    }
+
+    const result = await applyProfileImportToCore(makeCtx('profile.name'));
+
+    expect(result).toEqual({
+      status: 'failed',
+      failure: {
+        code: 'PORT_FAILURE',
+        message: 'Google profile import could not be applied.',
+        retryable: false,
+      },
+    });
   });
 });

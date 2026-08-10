@@ -6,8 +6,15 @@
  * core-write recompute jobs without inventing per-route retry semantics.
  */
 
+import { z } from 'zod';
+
 import { getDualSyncDbClient, type DualSyncJobRow } from '../db';
 import { hashCanonicalJson } from '../hashing';
+import {
+  databaseGoogleWriteQueueEnvelopeSchema,
+  googleWriteQueueEnvelopeSchema,
+} from '../publish/exact-consent';
+import { safePersistenceErrorCode } from '../publish/persistence-metadata';
 
 import type { DualSyncJob, DualSyncJobKind, DualSyncJobStatus } from '../types';
 import type { Database, Json } from '@/types/supabase';
@@ -15,7 +22,64 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
 
+const nullableId = z.string().min(1).nullable().optional();
+const publishDecisionSchema = z
+  .object({
+    fieldKey: z.string().min(1),
+    sectionKey: z.string().min(1),
+    action: z.enum(['import_from_google', 'export_to_google', 'ignore']),
+    pinnedCoreHash: z.string().nullable(),
+    pinnedGbpHash: z.string().nullable(),
+  })
+  .strict();
+const publishPayloadSchema = z
+  .object({
+    decisions: z.array(publishDecisionSchema).optional(),
+    actorUserId: nullableId,
+    clientRequestId: nullableId,
+    publishBatchId: nullableId,
+    pinnedCoreSnapshotHash: nullableId,
+    pinnedGbpSnapshotHash: nullableId,
+  })
+  .strict();
+const refreshPayloadSchema = z
+  .object({
+    actorUserId: nullableId,
+    skipPull: z.boolean().optional(),
+    eventId: z.string().min(1).optional(),
+    sourceReceiptSubscription: z.string().min(1).optional(),
+    sourceReceiptMessageId: z.string().min(1).optional(),
+  })
+  .strict();
+const autoExportPayloadSchema = z
+  .object({ actorUserId: nullableId, maxCandidates: z.number().int().positive().optional() })
+  .strict();
+
+function parseJobPayload(jobKind: DualSyncJobKind, value: unknown): Json {
+  const payload = value ?? {};
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    if ('confirmation_version' in payload) {
+      return databaseGoogleWriteQueueEnvelopeSchema.parse(payload) as Json;
+    }
+    if ('confirmationVersion' in payload) {
+      return googleWriteQueueEnvelopeSchema.parse(payload) as Json;
+    }
+  }
+  switch (jobKind) {
+    case 'publish_batch':
+      return publishPayloadSchema.parse(payload) as Json;
+    case 'auto_export':
+      return autoExportPayloadSchema.parse(payload) as Json;
+    case 'google_refresh_manual':
+    case 'google_refresh_scheduled':
+    case 'core_write_recompute':
+    case 'mirror_refresh_after_publish':
+      return refreshPayloadSchema.parse(payload) as Json;
+  }
+}
+
 function rowToJob(row: DualSyncJobRow): DualSyncJob {
+  const safeErrorCode = safePersistenceErrorCode(row.last_error_code);
   return {
     id: row.id,
     restaurantId: row.restaurant_id,
@@ -24,15 +88,20 @@ function rowToJob(row: DualSyncJobRow): DualSyncJob {
     status: row.status,
     idempotencyKey: row.idempotency_key,
     priority: row.priority,
-    payload: row.payload ?? {},
+    externalProfileId: row.external_profile_id,
+    externalAccountId: row.external_account_id,
+    externalLocationId: row.external_location_id,
+    connectionGeneration: row.connection_generation,
+    consentEpoch: row.consent_epoch,
+    payload: parseJobPayload(row.job_kind, row.payload ?? {}),
     attemptCount: row.attempt_count,
     maxAttempts: row.max_attempts,
     availableAt: row.available_at,
     lockedAt: row.locked_at,
     lockedBy: row.locked_by,
-    lastErrorCode: row.last_error_code,
-    lastErrorMessage: row.last_error_message,
-    deadLetterReason: row.dead_letter_reason,
+    lastErrorCode: safeErrorCode,
+    lastErrorMessage: null,
+    deadLetterReason: row.dead_letter_reason === null ? null : safeErrorCode,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     createdAt: row.created_at,
@@ -53,7 +122,12 @@ export interface EnqueueDualSyncJobInput {
 
 export async function enqueueDualSyncJob(input: EnqueueDualSyncJobInput): Promise<DualSyncJob> {
   const dual = getDualSyncDbClient(input.client);
-  const payload = (input.payload ?? {}) as Json;
+  const payload = parseJobPayload(input.jobKind, input.payload);
+  const exactGoogleWrite =
+    input.payload !== null &&
+    typeof input.payload === 'object' &&
+    !Array.isArray(input.payload) &&
+    ('confirmationVersion' in input.payload || 'confirmation_version' in input.payload);
   const insert = {
     restaurant_id: input.restaurantId,
     job_kind: input.jobKind,
@@ -61,7 +135,8 @@ export async function enqueueDualSyncJob(input: EnqueueDualSyncJobInput): Promis
     idempotency_key: input.idempotencyKey ?? null,
     payload,
     priority: input.priority ?? 100,
-    max_attempts: input.maxAttempts ?? 3,
+    max_attempts:
+      input.jobKind === 'publish_batch' || exactGoogleWrite ? 1 : (input.maxAttempts ?? 3),
     available_at: input.availableAt ?? new Date().toISOString(),
   };
 
@@ -125,9 +200,10 @@ export async function claimNextDualSyncJob({
       locked_at: null,
       locked_by: null,
       last_error_code: 'DUAL_SYNC_JOB_STALE_CLAIM',
-      last_error_message: 'Running job lease expired before completion.',
+      last_error_message: null,
     } as never)
     .eq('status', 'running')
+    .is('write_bundle_id', null)
     .lte('locked_at', staleBefore);
   if (staleError) {
     throw staleError;
@@ -216,6 +292,7 @@ export async function failDualSyncJob(input: FailDualSyncJobInput): Promise<Dual
   const now = input.now ?? new Date().toISOString();
   const exhausted = input.attemptCount >= input.maxAttempts;
   const retryAt = new Date(new Date(now).getTime() + (input.retryAfterMs ?? 60_000)).toISOString();
+  const safeErrorCode = safePersistenceErrorCode(input.errorCode) ?? 'DUAL_SYNC_JOB_FAILED';
   const { data, error } = await dual
     .from('dual_sync_jobs')
     .update({
@@ -223,9 +300,9 @@ export async function failDualSyncJob(input: FailDualSyncJobInput): Promise<Dual
       available_at: exhausted ? now : retryAt,
       locked_at: null,
       locked_by: null,
-      last_error_code: input.errorCode,
-      last_error_message: input.errorMessage,
-      dead_letter_reason: exhausted ? input.errorMessage : null,
+      last_error_code: safeErrorCode,
+      last_error_message: null,
+      dead_letter_reason: exhausted ? safeErrorCode : null,
       finished_at: exhausted ? now : null,
     } as never)
     .eq('id', input.jobId)
@@ -303,6 +380,7 @@ export async function retryDualSyncJob(input: RetryDualSyncJobInput): Promise<Du
     .eq('id', input.jobId)
     .eq('restaurant_id', input.restaurantId)
     .in('status', ['failed', 'dead_letter', 'cancelled'])
+    .is('write_bundle_id', null)
     .select('*')
     .maybeSingle<DualSyncJobRow>();
   if (error) {

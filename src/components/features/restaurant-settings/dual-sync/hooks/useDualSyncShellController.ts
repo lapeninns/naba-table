@@ -29,11 +29,16 @@ export function useDualSyncShellController({
       buildDualSyncShellViewState({
         stateData: workspace.stateQuery.data,
         decisionCount: workspace.decisionCount,
-        publishPending: workspace.publishMutation.isPending,
-        previewPublishPending: workspace.previewPublishMutation.isPending,
+        publishPending:
+          workspace.exactPublishMutation?.isPending ?? workspace.publishMutation.isPending,
+        previewPublishPending:
+          workspace.exactPreviewPublishMutation?.isPending ??
+          workspace.previewPublishMutation.isPending,
       }),
     [
       workspace.decisionCount,
+      workspace.exactPreviewPublishMutation?.isPending,
+      workspace.exactPublishMutation?.isPending,
       workspace.previewPublishMutation.isPending,
       workspace.publishMutation.isPending,
       workspace.stateQuery.data,

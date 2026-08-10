@@ -24,6 +24,11 @@ vi.mock('@/server/google-business-profile/client', () => ({
 
 vi.mock('@/server/google-business-profile/crypto', () => ({
   decryptGoogleBusinessProfileSecret: vi.fn((value: string) => value.replace(/^enc:/, '')),
+  decryptGoogleBusinessProfileSecretWithMetadata: vi.fn((value: string) => ({
+    plaintext: value.replace(/^enc:/, ''),
+    keyId: 'active',
+    requiresRewrap: false,
+  })),
   encryptGoogleBusinessProfileSecret: vi.fn((value: string) => `enc:${value}`),
 }));
 
@@ -52,6 +57,10 @@ function makeQuery(table: TableName) {
     external_location_id: '456',
     external_location_name: 'locations/456',
     external_resource_name: 'locations/456',
+    external_profile_id: null,
+    connection_generation: 1,
+    consent_epoch: 1,
+    updated_at: new Date().toISOString(),
     push_enabled: true,
   };
   const credential = {
@@ -98,6 +107,15 @@ describe('Google Business Profile FoodMenus context', () => {
     });
     const client = {
       from: vi.fn((table: TableName) => makeQuery(table)),
+      rpc: vi.fn(async () => ({
+        data: {
+          external_profile_id: 'external-profile-1',
+          refresh_token_encrypted: 'enc:refresh-token',
+          granted_scopes: ['https://www.googleapis.com/auth/business.manage'],
+          token_type: 'Bearer',
+        },
+        error: null,
+      })),
     };
     const { getGoogleBusinessProfileFoodMenusContext } =
       await import('@/server/google-business-profile/service');
@@ -123,6 +141,15 @@ describe('Google Business Profile FoodMenus context', () => {
     });
     const client = {
       from: vi.fn((table: TableName) => makeQuery(table)),
+      rpc: vi.fn(async () => ({
+        data: {
+          external_profile_id: 'external-profile-1',
+          refresh_token_encrypted: 'enc:refresh-token',
+          granted_scopes: ['https://www.googleapis.com/auth/business.manage'],
+          token_type: 'Bearer',
+        },
+        error: null,
+      })),
     };
     const { getGoogleBusinessProfileFoodMenusContext } =
       await import('@/server/google-business-profile/service');

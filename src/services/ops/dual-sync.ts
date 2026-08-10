@@ -6,6 +6,15 @@
  */
 
 import { fetchJson } from '@/lib/http/fetchJson';
+import {
+  gbpConnectionStateResponseV1Schema,
+  gbpExactPublishRequestV1Schema,
+  gbpNotificationParticipationResponseV1Schema,
+  gbpPublishResponseV1Schema,
+  gbpTerminalNoticesResponseV1Schema,
+  gbpWriteAccessRequestV1Schema,
+  parseGbpExactPreviewResponseV1,
+} from '@/server/dual-sync/contracts';
 
 import type {
   DualSyncDecisionAction,
@@ -24,6 +33,16 @@ import type {
   DualSyncSectionKey,
   DualSyncSnapshotRun,
 } from '@/server/dual-sync';
+import type {
+  GbpConnectionStateResponseV1,
+  GbpExactPreviewResponseV1,
+  GbpExactPublishRequestV1,
+  GbpNotificationParticipationResponseV1,
+  GbpPublishResponseV1,
+  GbpTerminalNoticesResponseV1,
+  GbpWriteAccessRequestV1,
+  RemediationOpsResponseV1,
+} from '@/server/dual-sync/contracts';
 import type { DualSyncOperationalMetrics } from '@/server/dual-sync/observability';
 import type {
   DualSyncPublishJobDetail,
@@ -36,7 +55,96 @@ import type {
 } from '@/server/dual-sync/publish/types';
 import type { DualSyncCanonicalSnapshot } from '@/server/dual-sync/snapshots/types';
 
+export type {
+  GbpConnectionStateResponseV1,
+  GbpExactPreviewResponseV1,
+  GbpExactPublishRequestV1,
+  GbpNotificationParticipationResponseV1,
+  GbpNotificationTopicConflictResponseV1,
+  GbpPendingUpdatesResponseV1,
+  GbpPublishResponseV1,
+  GbpTerminalNoticesResponseV1,
+  GbpWriteAccessRequestV1,
+} from '@/server/dual-sync/contracts';
+
+export type GbpRemediationOpsResponseV1 = RemediationOpsResponseV1;
+
 const baseUrl = (restaurantId: string): string => `/api/ops/restaurants/${restaurantId}/dual-sync`;
+const gbpBaseUrl = (restaurantId: string): string =>
+  `/api/ops/restaurants/${restaurantId}/google-business-profile`;
+
+export async function getGbpConnectionStateV1(
+  restaurantId: string,
+): Promise<GbpConnectionStateResponseV1> {
+  const response = await fetchJson<unknown>(gbpBaseUrl(restaurantId));
+  return gbpConnectionStateResponseV1Schema.parse(response);
+}
+
+export interface SetGbpNotificationParticipationV1Request {
+  readonly enabled: boolean;
+  readonly password: string;
+}
+
+export async function setGbpNotificationParticipationV1(
+  restaurantId: string,
+  request: SetGbpNotificationParticipationV1Request,
+): Promise<GbpNotificationParticipationResponseV1> {
+  const response = await fetchJson<unknown>(`${gbpBaseUrl(restaurantId)}/notifications`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  return gbpNotificationParticipationResponseV1Schema.parse(response);
+}
+
+export async function setGbpWriteAccessV1(
+  restaurantId: string,
+  request: GbpWriteAccessRequestV1,
+): Promise<GbpConnectionStateResponseV1> {
+  const validRequest = gbpWriteAccessRequestV1Schema.parse(request);
+  const response = await fetchJson<unknown>(`${gbpBaseUrl(restaurantId)}/write-access`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validRequest),
+  });
+  return gbpConnectionStateResponseV1Schema.parse(response);
+}
+
+export async function getGbpTerminalNoticesV1(
+  restaurantId: string,
+): Promise<GbpTerminalNoticesResponseV1> {
+  const response = await fetchJson<unknown>(`${gbpBaseUrl(restaurantId)}/notifications`);
+  return gbpTerminalNoticesResponseV1Schema.parse(response);
+}
+
+export async function previewGbpExactPublishV1(
+  restaurantId: string,
+  request: DualSyncPublishRequest,
+): Promise<GbpExactPreviewResponseV1> {
+  const response = await fetchJson<unknown>(`${baseUrl(restaurantId)}/publish/preview`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  const parsed = parseGbpExactPreviewResponseV1(response);
+  if (!parsed.success) throw parsed.error;
+  return parsed.data;
+}
+
+export async function publishGbpExactV1(
+  restaurantId: string,
+  request: GbpExactPublishRequestV1,
+): Promise<GbpPublishResponseV1> {
+  const validRequest = gbpExactPublishRequestV1Schema.parse(request);
+  const currentPreview = parseGbpExactPreviewResponseV1(validRequest.preview);
+  if (!currentPreview.success) throw currentPreview.error;
+  const response = await fetchJson<unknown>(`${baseUrl(restaurantId)}/publish`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(validRequest),
+  });
+  return gbpPublishResponseV1Schema.parse(response);
+}
 
 export interface DualSyncFieldSummary {
   readonly fieldKey: string;
