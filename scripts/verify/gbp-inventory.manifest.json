@@ -13022,7 +13022,7 @@
       "category": "provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 14
+      "expectedCount": 18
     },
     {
       "kind": "content",
@@ -14975,7 +14975,7 @@
       "category": "schema",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 21
+      "expectedCount": 23
     },
     {
       "kind": "content",
@@ -14984,7 +14984,7 @@
       "category": "schema",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 21
+      "expectedCount": 23
     },
     {
       "kind": "content",
@@ -14993,7 +14993,7 @@
       "category": "schema",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 31
+      "expectedCount": 33
     },
     {
       "kind": "content",
@@ -15074,7 +15074,7 @@
       "category": "terminal-notice-safe-error-metadata",
       "retentionAction": "retain allowlisted safe error code only through terminal notice lifecycle",
       "classification": "storage",
-      "expectedCount": 1
+      "expectedCount": 2
     },
     {
       "kind": "content",
@@ -16082,7 +16082,7 @@
       "category": "repository-wide-provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 22
+      "expectedCount": 24
     },
     {
       "kind": "content",
@@ -16091,7 +16091,7 @@
       "category": "schema-type",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 31
+      "expectedCount": 33
     },
     {
       "kind": "content",
@@ -16396,6 +16396,204 @@
       "owner": "data-governance",
       "category": "generated-notification-pubsub-metadata",
       "retentionAction": "runtime values follow backing registry, receipt, mask, or terminal notice retention",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/contracts/exact-api.ts#externalProfileRowId",
+      "owner": "data-governance",
+      "category": "exact-consent-transient-request",
+      "retentionAction": "discard after preview confirmation or provider dispatch",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/contracts/exact-api.ts#google",
+      "owner": "data-governance",
+      "category": "exact-consent-transient-request",
+      "retentionAction": "discard after preview confirmation or provider dispatch",
+      "classification": "storage",
+      "expectedCount": 3
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/contracts/exact-api.ts#pinnedGbpHash",
+      "owner": "data-governance",
+      "category": "exact-consent-hash-metadata",
+      "retentionAction": "retain only the bounded consent request hash metadata",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/contracts/exact-api.ts#pinnedGbpSnapshotHash",
+      "owner": "data-governance",
+      "category": "exact-consent-hash-metadata",
+      "retentionAction": "retain only the bounded consent request hash metadata",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/freshness/operator-connection-state.ts#externalProfileId",
+      "owner": "data-governance",
+      "category": "operator-state-exact-fence-metadata",
+      "retentionAction": "request-lifetime exact fence metadata; no provider content",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/freshness/operator-connection-state.ts#externalProfileRowId",
+      "owner": "data-governance",
+      "category": "operator-state-exact-fence-metadata",
+      "retentionAction": "request-lifetime exact fence metadata; no provider content",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/freshness/operator-connection-state.ts#p_external_profile_id",
+      "owner": "data-governance",
+      "category": "operator-state-exact-fence-metadata",
+      "retentionAction": "request-lifetime exact fence metadata; no provider content",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/freshness/operator-connection-state.ts#p_external_profile_row_id",
+      "owner": "data-governance",
+      "category": "operator-state-exact-fence-metadata",
+      "retentionAction": "request-lifetime exact fence metadata; no provider content",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/health/dispatched-grant-recovery.ts#externalProfileId",
+      "owner": "data-governance",
+      "category": "stale-dispatch-recovery-fence-metadata",
+      "retentionAction": "retain only for bounded exact-fence recovery; no provider content",
+      "classification": "storage",
+      "expectedCount": 2
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/health/dispatched-grant-recovery.ts#externalProfileRowId",
+      "owner": "data-governance",
+      "category": "stale-dispatch-recovery-fence-metadata",
+      "retentionAction": "retain only for bounded exact-fence recovery; no provider content",
+      "classification": "storage",
+      "expectedCount": 4
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/health/dispatched-grant-recovery.ts#p_external_profile_id",
+      "owner": "data-governance",
+      "category": "stale-dispatch-recovery-fence-metadata",
+      "retentionAction": "retain only for bounded exact-fence recovery; no provider content",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/health/dispatched-grant-recovery.ts#p_external_profile_row_id",
+      "owner": "data-governance",
+      "category": "stale-dispatch-recovery-fence-metadata",
+      "retentionAction": "retain only for bounded exact-fence recovery; no provider content",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/notifications/types.ts#safeErrorCode",
+      "owner": "data-governance",
+      "category": "terminal-notice-safe-error-metadata",
+      "retentionAction": "retain allowlisted safe error code only through terminal notice lifecycle",
+      "classification": "storage",
+      "expectedCount": 2
+    },
+    {
+      "kind": "content",
+      "signature": "src/components/features/restaurant-settings/dual-sync/hooks/useDualSyncExactPublishActions.ts#pinnedGbpHash",
+      "owner": "data-governance",
+      "category": "exact-consent-client-hash-metadata",
+      "retentionAction": "discard volatile hash metadata when the confirmation closes or tenant changes",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "src/components/features/restaurant-settings/dual-sync/hooks/useDualSyncExactPublishActions.ts#pinnedGbpSnapshotHash",
+      "owner": "data-governance",
+      "category": "exact-consent-client-hash-metadata",
+      "retentionAction": "discard volatile hash metadata when the confirmation closes or tenant changes",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "supabase/migrations/20260809120000_gbp_write_safety_foundation.sql#safe_error_code",
+      "owner": "data-governance",
+      "category": "terminal-notice-safe-error-metadata",
+      "retentionAction": "retain allowlisted safe error code only through terminal notice lifecycle",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "types/supabase.ts#dispatch_gbp_terminal_notice_v1",
+      "owner": "data-governance",
+      "category": "generated-notification-pubsub-metadata",
+      "retentionAction": "runtime values follow backing terminal notice retention",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "types/supabase.ts#gbp_terminal_notice_delivery_attempts_v1",
+      "owner": "data-governance",
+      "category": "generated-notification-pubsub-metadata",
+      "retentionAction": "runtime values follow backing terminal notice retention",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "types/supabase.ts#reconcile_missing_gbp_terminal_notices_v1",
+      "owner": "data-governance",
+      "category": "generated-notification-pubsub-metadata",
+      "retentionAction": "runtime values follow backing terminal notice retention",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "types/supabase.ts#recover_stale_gbp_dispatched_grants_v1",
+      "owner": "data-governance",
+      "category": "generated-permit-recovery-metadata",
+      "retentionAction": "runtime values follow backing grant and consent-event retention",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "types/supabase.ts#recover_stale_gbp_dispatched_notices_v1",
+      "owner": "data-governance",
+      "category": "generated-notification-pubsub-metadata",
+      "retentionAction": "runtime values follow backing terminal notice retention",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "types/supabase.ts#set_gbp_write_access_v1",
+      "owner": "data-governance",
+      "category": "generated-write-access-metadata",
+      "retentionAction": "runtime values follow exact connection and consent-epoch retention",
       "classification": "storage",
       "expectedCount": 1
     },
