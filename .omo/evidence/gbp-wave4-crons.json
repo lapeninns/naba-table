@@ -1,0 +1,73 @@
+{
+  "task": "Wave4 cron contract completeness",
+  "scenario": "vercel.json contains the exact active dual-sync cron set",
+  "configuredDualSyncCrons": [
+    {
+      "path": "/api/cron/dual-sync/auto-export",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/core-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/health",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/notifications",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/queue",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/refresh",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/dual-sync/request-log-retention",
+      "schedule": "30 2 * * *"
+    }
+  ],
+  "perPathCounts": {
+    "/api/cron/dual-sync/auto-export": 1,
+    "/api/cron/dual-sync/queue": 1,
+    "/api/cron/dual-sync/core-outbox": 1,
+    "/api/cron/dual-sync/health": 1,
+    "/api/cron/dual-sync/refresh": 1,
+    "/api/cron/dual-sync/notifications": 1,
+    "/api/cron/dual-sync/request-log-retention": 1
+  },
+  "normalizedSetExact": true,
+  "duplicatePaths": [],
+  "omittedPaths": [],
+  "validation": [
+    {
+      "invocation": "node node_modules/vitest/vitest.mjs run tests/config/vercel-crons.test.ts",
+      "observable": "1 test file passed; 10 tests passed",
+      "artifact": ".omo/evidence/gbp-wave4-crons-focused.log"
+    },
+    {
+      "invocation": "node_modules/.bin/tsc --noEmit",
+      "observable": "exit=0",
+      "artifact": ".omo/evidence/gbp-wave4-crons-typecheck.log"
+    },
+    {
+      "invocation": "node_modules/.bin/eslint tests/config/vercel-crons.test.ts",
+      "observable": "exit=0",
+      "artifact": ".omo/evidence/gbp-wave4-crons-lint.log"
+    },
+    {
+      "invocation": "node_modules/.bin/prettier --check tests/config/vercel-crons.test.ts vercel.json",
+      "observable": "all matched files use Prettier code style; exit=0",
+      "artifact": ".omo/evidence/gbp-wave4-crons-format.log"
+    },
+    {
+      "invocation": "git diff --check -- tests/config/vercel-crons.test.ts vercel.json",
+      "observable": "exit=0 with no whitespace errors",
+      "artifact": ".omo/evidence/gbp-wave4-crons-diff.log"
+    }
+  ]
+}

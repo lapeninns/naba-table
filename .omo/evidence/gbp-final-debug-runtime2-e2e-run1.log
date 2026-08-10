@@ -1,0 +1,5 @@
+[1A[2K[2m[WebServer] [22m/bin/sh: tsx: command not found
+
+Error: Process from config.webServer was not able to start. Exit code: 127
+
+[1A[2K

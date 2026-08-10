@@ -1,0 +1,521 @@
+{
+  "numTotalTestSuites": 20,
+  "numPassedTestSuites": 20,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 40,
+  "numPassedTests": 40,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1786289133493,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile business info sync persistence"],
+          "fullName": "google business profile business info sync persistence persists the exact location response without local fetch-status metadata",
+          "status": "passed",
+          "title": "persists the exact location response without local fetch-status metadata",
+          "duration": 3.230957999999987,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile business info sync persistence"],
+          "fullName": "google business profile business info sync persistence persists attributes as a separate exact raw observation",
+          "status": "passed",
+          "title": "persists attributes as a separate exact raw observation",
+          "duration": 0.6538329999999632,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile business info sync persistence"],
+          "fullName": "google business profile business info sync persistence fails closed before persistence when the current binding is incomplete",
+          "status": "passed",
+          "title": "fails closed before persistence when the current binding is incomplete",
+          "duration": 0.8876660000000811,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134691,
+      "endTime": 1786289134695.8877,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-business-info-sync-orchestration.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route uses the trusted app origin on successful authorization",
+          "status": "passed",
+          "title": "uses the trusted app origin on successful authorization",
+          "duration": 6.213875000000144,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route ignores forwarded host headers for error redirects",
+          "status": "passed",
+          "title": "ignores forwarded host headers for error redirects",
+          "duration": 0.7243339999999989,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route rejects incomplete callbacks before session or OAuth completion",
+          "status": "passed",
+          "title": "rejects incomplete callbacks before session or OAuth completion",
+          "duration": 0.41975000000002183,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route rejects callbacks without the initiating browser state cookie before completing OAuth",
+          "status": "passed",
+          "title": "rejects callbacks without the initiating browser state cookie before completing OAuth",
+          "duration": 0.2684589999998934,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route rejects callbacks with a mismatched browser state cookie before completing OAuth",
+          "status": "passed",
+          "title": "rejects callbacks with a mismatched browser state cookie before completing OAuth",
+          "duration": 0.4017499999999927,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route rejects callbacks without a Nabatable session before completing OAuth",
+          "status": "passed",
+          "title": "rejects callbacks without a Nabatable session before completing OAuth",
+          "duration": 0.2788749999999709,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route redirects safely and clears state when OAuth completion rejects the stored state",
+          "status": "passed",
+          "title": "redirects safely and clears state when OAuth completion rejects the stored state",
+          "duration": 0.46508300000004965,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route redirects safely and clears state when Google returns an invalid grant",
+          "status": "passed",
+          "title": "redirects safely and clears state when Google returns an invalid grant",
+          "duration": 0.20704200000000128,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route binds legacy per-restaurant callbacks to the route restaurant before completing OAuth",
+          "status": "passed",
+          "title": "binds legacy per-restaurant callbacks to the route restaurant before completing OAuth",
+          "duration": 1.390333000000055,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile callback route"],
+          "fullName": "google business profile callback route rejects legacy callbacks when the completed state belongs to another restaurant",
+          "status": "passed",
+          "title": "rejects legacy callbacks when the completed state belongs to another restaurant",
+          "duration": 0.3773750000000291,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134827,
+      "endTime": 1786289134837.3904,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-callback-route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP content snapshot persistence"],
+          "fullName": "GBP content snapshot persistence passes the exact server-derived fence to the current and unexpired read RPC",
+          "status": "passed",
+          "title": "passes the exact server-derived fence to the current and unexpired read RPC",
+          "duration": 2.039541999999983,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP content snapshot persistence"],
+          "fullName": "GBP content snapshot persistence rejects cross-tenant or incomplete profile bindings before a storage call",
+          "status": "passed",
+          "title": "rejects cross-tenant or incomplete profile bindings before a storage call",
+          "duration": 0.4885420000000522,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134648,
+      "endTime": 1786289134650.4885,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-content-snapshot-persistence.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP FoodMenus import-review storage"],
+          "fullName": "GBP FoodMenus import-review storage does not call the retired arbitrary provider-review JSON RPC",
+          "status": "passed",
+          "title": "does not call the retired arbitrary provider-review JSON RPC",
+          "duration": 1.4891659999999547,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus import-review storage"],
+          "fullName": "GBP FoodMenus import-review storage lists and reads restaurant-scoped import reviews",
+          "status": "passed",
+          "title": "lists and reads restaurant-scoped import reviews",
+          "duration": 1.966792000000055,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus import-review storage"],
+          "fullName": "GBP FoodMenus import-review storage claims, marks, and fails decisions using guarded status transitions",
+          "status": "passed",
+          "title": "claims, marks, and fails decisions using guarded status transitions",
+          "duration": 1.4798749999999927,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134657,
+      "endTime": 1786289134662.48,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-food-menus-import-review-storage.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP FoodMenus publish attempt storage"],
+          "fullName": "GBP FoodMenus publish attempt storage opens publish attempts with hashes but without persisting projected provider content",
+          "status": "passed",
+          "title": "opens publish attempts with hashes but without persisting projected provider content",
+          "duration": 2.3531659999999874,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus publish attempt storage"],
+          "fullName": "GBP FoodMenus publish attempt storage marks attempts running and finishes them without persisting provider responses",
+          "status": "passed",
+          "title": "marks attempts running and finishes them without persisting provider responses",
+          "duration": 1.0722910000000638,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134720,
+      "endTime": 1786289134723.0723,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-food-menus-publish-attempt-storage.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP FoodMenus storage payload builders"],
+          "fullName": "GBP FoodMenus storage payload builders builds snapshot insert payloads with provider and null JSON fallbacks",
+          "status": "passed",
+          "title": "builds snapshot insert payloads with provider and null JSON fallbacks",
+          "duration": 1.2903749999999263,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage payload builders"],
+          "fullName": "GBP FoodMenus storage payload builders builds projected identity upsert payloads with Google option paths",
+          "status": "passed",
+          "title": "builds projected identity upsert payloads with Google option paths",
+          "duration": 0.3261250000000473,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage payload builders"],
+          "fullName": "GBP FoodMenus storage payload builders builds projection metadata while preserving caller overrides",
+          "status": "passed",
+          "title": "builds projection metadata while preserving caller overrides",
+          "duration": 0.12891700000000128,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage payload builders"],
+          "fullName": "GBP FoodMenus storage payload builders builds settings upsert payloads with stable null and array defaults",
+          "status": "passed",
+          "title": "builds settings upsert payloads with stable null and array defaults",
+          "duration": 0.14212499999996453,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134725,
+      "endTime": 1786289134727.3262,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-food-menus-storage-payloads.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers records exact raw FoodMenus without a canonical or content-bearing metadata copy",
+          "status": "passed",
+          "title": "records exact raw FoodMenus without a canonical or content-bearing metadata copy",
+          "duration": 2.6942090000000007,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers reuses an existing owner-authored projection snapshot when its hash exists",
+          "status": "passed",
+          "title": "reuses an existing owner-authored projection snapshot when its hash exists",
+          "duration": 0.548041000000012,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers reads provider baselines only through the current unexpired fenced RPC",
+          "status": "passed",
+          "title": "reads provider baselines only through the current unexpired fenced RPC",
+          "duration": 0.33600000000001273,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers persists projected identities with deterministic conflict keys",
+          "status": "passed",
+          "title": "persists projected identities with deterministic conflict keys",
+          "duration": 0.535082999999986,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers records projection snapshots and identity rows together",
+          "status": "passed",
+          "title": "records projection snapshots and identity rows together",
+          "duration": 0.9649999999999181,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers includes projected identity mappings in the projection snapshot hash",
+          "status": "passed",
+          "title": "includes projected identity mappings in the projection snapshot hash",
+          "duration": 0.2166669999999158,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers supersedes pending import reviews before inserting fresh suggestions",
+          "status": "passed",
+          "title": "supersedes pending import reviews before inserting fresh suggestions",
+          "duration": 0.1969169999999849,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers reads and marks an import-review decision by restaurant",
+          "status": "passed",
+          "title": "reads and marks an import-review decision by restaurant",
+          "duration": 0.6101670000000468,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["GBP FoodMenus storage helpers"],
+          "fullName": "GBP FoodMenus storage helpers opens and finishes publish attempts without calling Google",
+          "status": "passed",
+          "title": "opens and finishes publish attempts without calling Google",
+          "duration": 0.8752079999999296,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134769,
+      "endTime": 1786289134775.8752,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-food-menus-storage.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP retention producer boundaries"],
+          "fullName": "GBP retention producer boundaries does not retain legacy canonical, review, publish, or workflow payload copies",
+          "status": "passed",
+          "title": "does not retain legacy canonical, review, publish, or workflow payload copies",
+          "duration": 1.4696249999999509,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134635,
+      "endTime": 1786289134636.4697,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-retention-producers.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["GBP route privacy boundary"],
+          "fullName": "GBP route privacy boundary routes all GBP responses and exceptions through the privacy helpers",
+          "status": "passed",
+          "title": "routes all GBP responses and exceptions through the privacy helpers",
+          "duration": 3.2438339999999926,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134635,
+      "endTime": 1786289134638.244,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-route-privacy.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile business-info sync runtime"],
+          "fullName": "google business profile business-info sync runtime does not write a stale failure mirror after a fenced provider transition",
+          "status": "passed",
+          "title": "does not write a stale failure mirror after a fenced provider transition",
+          "duration": 2.3920419999999467,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile business-info sync runtime"],
+          "fullName": "google business profile business-info sync runtime syncs location and attributes, records success, and returns refreshed connection state",
+          "status": "passed",
+          "title": "syncs location and attributes, records success, and returns refreshed connection state",
+          "duration": 1.479916000000003,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile business-info sync runtime"],
+          "fullName": "google business profile business-info sync runtime returns an exact raw observation envelope with the current provider fence",
+          "status": "passed",
+          "title": "returns an exact raw observation envelope with the current provider fence",
+          "duration": 0.469791999999984,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile business-info sync runtime"],
+          "fullName": "google business profile business-info sync runtime downgrades attribute refresh failures to a sync warning",
+          "status": "passed",
+          "title": "downgrades attribute refresh failures to a sync warning",
+          "duration": 0.3677910000000111,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile business-info sync runtime"],
+          "fullName": "google business profile business-info sync runtime records failure state and rethrows fatal sync errors",
+          "status": "passed",
+          "title": "records failure state and rethrows fatal sync errors",
+          "duration": 0.3436659999999847,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786289134717,
+      "endTime": 1786289134722.3677,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-service-business-info-sync-runtime.test.ts"
+    }
+  ]
+}

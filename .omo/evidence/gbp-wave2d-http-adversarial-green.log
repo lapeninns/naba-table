@@ -1,0 +1,21 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub authentication > requires RS256, a Google issuer, the exact audience, and exact verified service account 2ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub authentication > rejects a different service account even when the token signature is valid 0ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub authentication > classifies verified JWT audience or issuer failures as claim mismatch 0ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub parsing > extracts only metadata needed to enqueue a supported Google update 2ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub parsing > acknowledges unsupported and malformed decoded notifications as metadata-only poison 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > returns 204 for accepted, duplicate, ignored, and unmatched authenticated deliveries 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > passes the exact subscription and metadata-only delivery to the atomic persistence port 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > rejects a wrong subscription before persistence 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > rejects unauthenticated and oversized requests without reading or persisting content 0ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > distinguishes invalid tokens, verified identity mismatch, and transient persistence 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > rejects an actual oversized body and acknowledges persisted poison metadata 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > acknowledges an authenticated malformed envelope without exposing a 400 retry class 0ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  17:58:22
+   Duration  383ms (transform 39ms, setup 36ms, import 58ms, tests 11ms, environment 210ms)
+

@@ -1,0 +1,10 @@
+
+Running 1 test using 1 worker
+
+(node:48183) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:48183) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/e2e/ops-gbp-dual-sync.spec.ts:813:7 › ops GBP dual-sync shipped route › google business profile route shows connect state without publish controls @p1 @browser @contract @external-mock @local-only (1.7s)
+
+  1 passed (3.0s)

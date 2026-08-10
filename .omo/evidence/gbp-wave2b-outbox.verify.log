@@ -1,0 +1,10 @@
+
+> nabatable-platform@0.1.0 verify /Users/amankumarshrestha/LapenInns Project/nabatableLP
+> pnpm agents:validate && pnpm openapi:validate && pnpm check:feature-flags && pnpm check:large-files && pnpm format:check && pnpm lint && pnpm lint:workspaces && pnpm typecheck && pnpm typecheck:strict && pnpm typecheck:workspaces && pnpm test:coverage && pnpm test:coverage:workspaces && pnpm quality:dead-code && pnpm quality:duplicates
+
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+[ERROR] This project is configured to use 10.34.5 of pnpm. Your current pnpm is v11.17.0
+Corepack invoked pnpm with this version, and pnpm does not switch versions when running under corepack.
+Align the "packageManager" field in package.json with "devEngines.packageManager", or invoke pnpm directly (without corepack) so it can switch versions automatically.
+If you want to bypass this version check, you can set the "pmOnFail" configuration to "warn" or "ignore" (e.g. via --pm-on-fail=ignore). If using "devEngines.packageManager", you can set its "onFail" to "warn" or "ignore"
+ ELIFECYCLE  Command failed with exit code 1.

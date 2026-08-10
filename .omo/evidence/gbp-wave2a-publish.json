@@ -1,0 +1,67 @@
+{
+  "claim": "DONECLAIM",
+  "scope": "Wave 2A exact GBP consent, publish, and queue execution",
+  "supportedGroups": [
+    "location.profile: profile.address, profile.businessDescription",
+    "location.foodMenus: full-resource menus replacement"
+  ],
+  "scenarios": [
+    {
+      "scenario": "stateless preview and tamper rejection",
+      "invocation": "node --import tsx .omo/evidence/gbp-wave2a-publish.driver.ts",
+      "observable": "previewNetworkCalls=0, tamperNetworkCalls=0, tamperCode=GBP_PREVIEW_MISMATCH",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.manual.json"
+    },
+    {
+      "scenario": "ordered dispatch success and ambiguous timeout fail-stop",
+      "invocation": "node --import tsx .omo/evidence/gbp-wave2a-publish.driver.ts",
+      "observable": "consumed; outcome_unknown; remaining cancelled_after_bundle_failure; metadata-only output",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.manual.json"
+    },
+    {
+      "scenario": "execution-phase truthful public errors",
+      "invocation": "exact-consent workflow, adapter, public-mapper tests plus deterministic evidence driver",
+      "observable": "Google Updates timeout before issuance => GBP_PREFLIGHT_UNAVAILABLE with zero grants/mutation; issue-and-claim timeout => GBP_GRANT_ISSUANCE_FAILED; generic provider timeout => GBP_PROVIDER_REJECTED; only provider post-dispatch marker => GBP_OUTCOME_UNKNOWN; provider detail absent",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.tests.log; .omo/evidence/gbp-wave2a-publish.manual.json"
+    },
+    {
+      "scenario": "claimed-bundle cancellation before provider dispatch",
+      "invocation": "immediate workflow, claimed-execution, adapter, and provider permit tests plus deterministic evidence driver",
+      "observable": "FoodMenus eligibility timeout/ineligible marker performs zero provider dispatch/finalize, invokes cancel_gbp_claimed_bundle_before_dispatch_v1 once for the full claimed bundle, verifies every grant cancelled_before_dispatch; cancellation failure returns GBP_CLAIM_CANCELLATION_FAILED without retry; post-dispatch definitive/unknown outcomes do not cancel; driver cancellationCalls=1 for grantCount=2",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.tests.log; .omo/evidence/gbp-wave2a-publish.manual.json"
+    },
+    {
+      "scenario": "exact reconstruction, tampered request/decision/epoch/pin/expiry, mask conflicts, eligibility, atomic RPCs, permit bundle group binding, queue no-retry, candidate-only auto-export, exact FoodMenus",
+      "invocation": "vitest focused Wave2A and provider permit bundle suite",
+      "observable": "14 files passed, 122 tests passed",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.tests.log"
+    },
+    {
+      "scenario": "safe API failure boundary for arbitrary internal, token, URL, body-like, and PII-like exception text",
+      "invocation": "focused publish and preview route tests",
+      "observable": "raw exception text absent from response and structured logger calls; stable GBP_PREVIEW_FAILED/GBP_PUBLISH_FAILED returned",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.tests.log"
+    },
+    {
+      "scenario": "strict TypeScript",
+      "invocation": "./node_modules/.bin/tsc --noEmit --pretty false --extendedDiagnostics",
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.typecheck.log"
+    },
+    {
+      "scenario": "targeted lint and formatting",
+      "invocation": "eslint scoped files; prettier --check scoped files",
+      "observable": "exit 0; all files use Prettier style",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.eslint.log; .omo/evidence/gbp-wave2a-publish.format.log"
+    },
+    {
+      "scenario": "live GBP inventory",
+      "invocation": "node scripts/verify/gbp-inventory.mjs",
+      "observable": "ok=true, unknown=0, stale=0",
+      "artifact": ".omo/evidence/gbp-wave2a-publish.inventory.json"
+    }
+  ],
+  "externalBlockers": [
+    "No live Google listing or remote Supabase mutation was exercised; provider and database behavior is covered by deterministic ports, focused tests, and the separately verified schema/provider lanes."
+  ]
+}

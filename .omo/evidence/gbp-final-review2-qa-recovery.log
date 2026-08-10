@@ -1,0 +1,5 @@
+Invocation:
+./node_modules/.bin/vitest run tests/server/dual-sync-dispatched-grant-recovery.test.ts tests/server/cron-routes-auth.test.ts tests/server/dual-sync-terminal-notices.test.ts tests/server/dual-sync-exact-consent-repository.test.ts tests/server/dual-sync-exact-consent-claimed-execution.test.ts tests/server/gbp-wave1a-schema.test.ts --reporter=dot
+
+Result: PASS; Test Files 6 passed; Tests 81 passed; exit 0.
+Key observable: health recovery runs before terminal-notice reconciliation; dry-run omits mutation/reconciliation; recovery errors are metadata-only; tests cover stale cutoff/fence/idempotence and no provider re-emission.

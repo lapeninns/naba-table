@@ -1,0 +1,27 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > defines tenant-fenced connection state and lifecycle fencing 2ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > stores exact short-lived hash-only grants and immutable consent events 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > claims complete bundles atomically with deterministic locks and rollout enforcement 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > persists dispatch before terminal outcomes and never reuses dispatched grants 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > issues and enqueues exact bundles atomically through RPC-only grant writes 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > dispatches and finalizes grants in strict bundle order 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > makes mutation jobs single-attempt and immutable without affecting refresh jobs 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > supports account-shared notifications without clobbering unrelated event types 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > dedupes push receipts and drives fenced refresh and terminal-notice work through RPCs 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > constrains provider expiry and policy approval while decommissioning content archives 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > runs bounded metadata-only Google content retention from exact lineage 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > creates a hash-only trigger outbox for every canonical GBP table 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > leases Core outbox work with bounded retry, dead-letter, census, and repair RPCs 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > hardens every new table and RPC to service role only 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > uses composite tenant fences and one-attempt publish jobs 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > stores and consumes hash-only OAuth attempts with current connection fencing 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > atomically completes OAuth identity, profile, and encrypted credential persistence 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > publishes generated table, altered-column, relationship, and RPC contracts 4ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  19:19:13
+   Duration  980ms (transform 39ms, setup 122ms, import 28ms, tests 16ms, environment 703ms)
+

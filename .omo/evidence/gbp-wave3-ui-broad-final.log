@@ -1,0 +1,430 @@
+^D[?25l
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ❯ tests/server/deepsec-final-controls-source.test.ts (6 tests | 1 failed) 10ms
+     × keeps invite bearer tokens out of automatic Plausible pageviews 7ms
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ tests/components/features/tables/timeline/TableTimelineHeader.test.tsx (5 tests | 1 failed) 1391ms
+     × @contract picks a date from the calendar popover and reports it as yyyy-MM-dd 1127ms
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+Not implemented: navigation to another Document
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/server/deepsec-final-controls-source.test.ts > DeepSec final remediation source guards > keeps invite bearer tokens out of automatic Plausible pageviews
+AssertionError: expected 'import { Geist_Mono, Inter, Merriweat…' to contain 'const PLAUSIBLE_EXCLUDED_PATHS = \'/i…'
+
+- Expected
++ Received
+
+- const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**'
++ import { Geist_Mono, Inter, Merriweather } from 'next/font/google';
++ import Script from 'next/script';
++ import PlausibleProvider from 'next-plausible';
++ import { type CSSProperties, type ReactNode } from 'react';
++
++ import config from '@/config';
++ import { APP_THEME_PATH_PATTERN } from '@/lib/theme/documentTheme';
++ import { getSEOTags } from '@/libs/seo';
++
++ import './globals.css';
++ import { AppProviders } from './providers';
++ import ClientLayout from '../../components/LayoutClient';
++
++ import type { Viewport } from 'next';
++
++ const radixLumaDisplay = Merriweather({
++   subsets: ['latin'],
++   weight: ['700'],
++   variable: '--font-radix-luma-display',
++   display: 'swap',
++ });
++
++ const radixLumaBody = Inter({
++   subsets: ['latin'],
++   weight: ['400', '500', '600', '700'],
++   variable: '--font-radix-luma-body',
++   display: 'swap',
++ });
++
++ const radixLumaMono = Geist_Mono({
++   subsets: ['latin'],
++   weight: ['400'],
++   variable: '--font-radix-luma-mono',
++   display: 'swap',
++ });
++
++ export const viewport: Viewport = {
++   // Will use the primary color of your theme to show a nice theme color in the URL bar of supported browsers
++   themeColor: config.colors.main,
++   width: 'device-width',
++   initialScale: 1,
++ };
++
++ // This adds default SEO tags to all pages in our app.
++ // You can override them in each page passing params to getSOTags() function.
++ export const metadata = getSEOTags();
++
++ const htmlStyle: CSSProperties = {
++   transitionProperty: 'none',
++   marginRight: '0px',
++ };
++
++ // Sets the surface theme (guest/app, by host/path) AND the color mode (light/dark).
++ // Color mode is orthogonal to the surface and opt-in: no stored preference stays light;
++ // 'dark' forces dark; 'system' follows the OS. Runs before paint to avoid a flash.
++ const documentThemeBootstrapScript = `(function(){var root=document.documentElement;var path=window.location.pathname||'/';var host=window.location.hostname||'';var normalized=(path.split('?')[0]||'/').replace(/\\/+$/,'')||'/';var appThemeHostRegex=new RegExp('^app(?:\\\\.|-)');var appThemePathRegex=new RegExp(${JSON.stringify(APP_THEME_PATH_PATTERN)});var theme=(appThemeHostRegex.test(host)||appThemePathRegex.test(normalized))?'app':'guest';root.setAttribute('data-theme',theme);var mode=null;try{mode=localStorage.getItem('nabatable-color-mode');}catch(e){}var systemDark=!!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);var dark=mode==='dark'||(mode==='system'&&systemDark);if(dark){root.classList.add('dark');root.style.colorScheme='dark';}else{root.classList.remove('dark');root.style.colorScheme='light';}})();`;
++ export const PLAUSIBLE_EXCLUDED_PATHS = [
++   '/invite/**',
++   '/**/google-business-profile',
++   '/**/google-business-profile/**',
++   '/**/dual-sync',
++   '/**/dual-sync/**',
++   '/**/gbp',
++   '/**/gbp/**',
++ ].join(',');
++
++ export default function RootLayout({ children }: { children: ReactNode }) {
++   return (
++     <html
++       lang={config.locale ?? 'en'}
++       data-theme="guest"
++       className={`${radixLumaDisplay.variable} ${radixLumaBody.variable} ${radixLumaMono.variable} antialiased font-sans`}
++       style={htmlStyle}
++       suppressHydrationWarning
++     >
++       <head>
++         <script dangerouslySetInnerHTML={{ __html: documentThemeBootstrapScript }} />
++         {process.env.NODE_ENV === 'development' &&
++         process.env.NEXT_PUBLIC_DISABLE_REACT_DEVTOOLS !== '1' ? (
++           <>
++             <Script
++               src="//unpkg.com/react-grab/dist/index.global.js"
++               crossOrigin="anonymous"
++               strategy="beforeInteractive"
++             />
++             <Script
++               src="//unpkg.com/react-scan/dist/auto.global.js"
++               crossOrigin="anonymous"
++               strategy="beforeInteractive"
++             />
++           </>
++         ) : null}
++         {config.domainName ? (
++           <PlausibleProvider domain={config.domainName} exclude={PLAUSIBLE_EXCLUDED_PATHS} />
++         ) : null}
++       </head>
++       <body className="relative font-sans" suppressHydrationWarning>
++         {/* ClientLayout contains all the client wrappers (Crisp chat support, tooltips, etc.) */}
++         <AppProviders initialSession={null}>
++           <ClientLayout>{children}</ClientLayout>
++         </AppProviders>
++       </body>
++     </html>
++   );
++ }
++
+
+ ❯ tests/server/deepsec-final-controls-source.test.ts:76:26
+     74|     const layoutSource = readSource('src/app/layout.tsx');
+     75|
+     76|     expect(layoutSource).toContain("const PLAUSIBLE_EXCLUDED_PATHS = '…
+       |                          ^
+     77|     expect(layoutSource).toContain('exclude={PLAUSIBLE_EXCLUDED_PATHS}…
+     78|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/components/features/tables/timeline/TableTimelineHeader.test.tsx > TableTimelineHeader > @contract picks a date from the calendar popover and reports it as yyyy-MM-dd
+TestingLibraryElementError: Unable to find role="button" and name `/10th July|July 10/`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<span[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div>[39m
+    [36m<nav[39m
+      [33mclass[39m=[32m"sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"rounded-lg bg-primary p-2 text-primary-foreground shadow-sm"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-layout-dashboard size-5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"9"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"5"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"14"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"9"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"14"[39m
+                [33my[39m=[32m"12"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"5"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"16"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-0.5"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-[color:var(--pg-text)] font-[family-name:var(--pg-font-body)] text-[1.25rem] font-semibold leading-[1.4] [text-wrap:pretty]"[39m
+              [33mdata-slot[39m=[32m"heading"[39m
+            [36m>[39m
+              [0mCapacity Timeline[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-[color:var(--pg-text-subtle)] text-[length:var(--pg-text-caption)] leading-[1.45]"[39m
+              [33mdata-slot[39m=[32m"text"[39m
+            [36m>[39m
+              [0mAll services[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 sm:flex-row sm:items-center"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-search pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 21-4.34-4.34"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"11"[39m
+                [33mcy[39m=[32m"11"[39m
+                [33mr[39m=[32m"8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<input[39m
+              [33maria-label[39m=[32m"Find table"[39m
+              [33mclass[39m=[32m"file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive h-10 w-full pl-9 sm:w-72"[39m
+              [33mdata-slot[39m=[32m"input"[39m
+              [33mplaceholder[39m=[32m"Find table…"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Filters"[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 size-10"[39m
+            [33mdata-slot[39m=[32m"button"[39m
+            [33mdisabled[39m=[32m""[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-funnel"[39m
+              [33mdata-icon[39m=[32m"icon"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<span[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div>[39m
+    [36m<nav[39m
+      [33mclass[39m=[32m"sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"rounded-lg bg-primary p-2 text-primary-foreground shadow-sm"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-layout-dashboard size-5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"9"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"5"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"14"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"9"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"14"[39m
+                [33my[39m=[32m"12"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"5"[39m
+                [33mrx[39m=[32m"1"[39m
+                [33mwidth[39m=[32m"7"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"16"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-0.5"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-[color:var(--pg-text)] font-[family-name:var(--pg-font-body)] text-[1.25rem] font-semibold leading-[1.4] [text-wrap:pretty]"[39m
+              [33mdata-slot[39m=[32m"heading"[39m
+            [36m>[39m
+              [0mCapacity Timeline[0m
+            [36m</h1>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-[color:var(--pg-text-subtle)] text-[length:var(--pg-text-caption)] leading-[1.45]"[39m
+              [33mdata-slot[39m=[32m"text"[39m
+            [36m>[39m
+              [0mAll services[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 sm:flex-row sm:items-center"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-search pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 21-4.34-4.34"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"11"[39m
+                [33mcy[39m=[32m"11"[39m
+                [33mr[39m=[32m"8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<input[39m
+              [33maria-label[39m=[32m"Find table"[39m
+              [33mclass[39m=[32m"file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive h-10 w-full pl-9 sm:w-72"[39m
+              [33mdata-slot[39m=[32m"input"[39m
+              [33mplaceholder[39m=[32m"Find table…"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Filters"[39m
+            [33mclass[39m=[32m"inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 size-10"[39m
+            [33mdata-slot[39m=[32m"button"[39m
+            [33mdisabled[39m=[32m""[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-funnel"[39m
+              [33mdata-icon[39m=[32m"icon"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[...
+ ❯ waitForWrapper node_modules/.pnpm/@testing-library+dom@10.4.0/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.0/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/components/features/tables/timeline/TableTimelineHeader.test.tsx:85:36
+     83|
+     84|     // react-day-picker exposes day buttons inside a grid; pick anothe…
+     85|     const dayButton = await screen.findByRole('button', { name: /10th …
+       |                                    ^
+     86|     await user.click(dayButton);
+     87|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 1266 passed (1268)
+      Tests  2 failed | 6222 passed | 5 skipped (6229)
+   Start at  21:02:49
+   Duration  101.79s (transform 29.82s, setup 124.34s, import 289.75s, tests 203.54s, environment 932.02s)
+
+[?25h

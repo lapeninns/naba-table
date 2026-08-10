@@ -1,0 +1,85 @@
+{
+  "task": "Wave2D notifications cron support",
+  "outcome": "done",
+  "changedFiles": ["vercel.json", "tests/config/vercel-crons.test.ts"],
+  "normalizedDualSyncCrons": {
+    "refresh": {
+      "count": 1,
+      "schedule": "*/15 * * * *"
+    },
+    "core-outbox": {
+      "count": 1,
+      "schedule": "*/5 * * * *"
+    },
+    "queue": {
+      "count": 1,
+      "schedule": "*/5 * * * *"
+    },
+    "auto-export": {
+      "count": 1,
+      "schedule": "*/30 * * * *"
+    },
+    "request-log-retention": {
+      "count": 1,
+      "schedule": "30 2 * * *"
+    },
+    "notifications": {
+      "count": 1,
+      "schedule": "*/15 * * * *"
+    }
+  },
+  "verification": [
+    {
+      "scenario": "notifications route is absent before the configuration change",
+      "invocation": "./node_modules/.bin/vitest run tests/config/vercel-crons.test.ts",
+      "observable": "exit 1; notification matches were [] instead of the required singleton",
+      "artifact": ".omo/evidence/gbp-wave2d-notifications-cron-red.log"
+    },
+    {
+      "scenario": "notifications route is scheduled exactly once every fifteen minutes",
+      "invocation": "./node_modules/.bin/vitest run tests/config/vercel-crons.test.ts",
+      "observable": "exit 0; 1 file and 5 tests passed",
+      "artifact": ".omo/evidence/gbp-wave2d-notifications-cron-green.log"
+    },
+    {
+      "scenario": "repository remains type-safe",
+      "invocation": "./node_modules/.bin/tsc --noEmit --pretty false",
+      "observable": "exit 0; no TypeScript diagnostics"
+    },
+    {
+      "scenario": "changed files retain repository formatting",
+      "invocation": "./node_modules/.bin/prettier --check vercel.json tests/config/vercel-crons.test.ts",
+      "observable": "exit 0; all matched files use Prettier code style"
+    },
+    {
+      "scenario": "changed TypeScript test passes lint",
+      "invocation": "./node_modules/.bin/eslint tests/config/vercel-crons.test.ts",
+      "observable": "exit 0; no lint diagnostics"
+    },
+    {
+      "scenario": "all required dual-sync cron paths remain singleton schedules",
+      "invocation": "one-shot Node parse of vercel.json against refresh, core-outbox, queue, auto-export, request-log-retention, and notifications",
+      "observable": "exit 0; every path count is 1 and every schedule equals its expected value",
+      "artifact": ".omo/evidence/gbp-wave2d-notifications-cron.json#normalizedDualSyncCrons"
+    },
+    {
+      "scenario": "patch has no whitespace errors",
+      "invocation": "git diff --check -- vercel.json tests/config/vercel-crons.test.ts",
+      "observable": "exit 0; no output"
+    }
+  ],
+  "review": {
+    "testPureLoc": 74,
+    "singleResponsibility": "Vercel cron configuration contract",
+    "boundaryPurity": "The existing test reader parses the JSON deployment boundary into the local cron config type.",
+    "escapeHatchesAdded": false,
+    "helpersAdded": false,
+    "productionRouteEdited": false
+  },
+  "cleanup": {
+    "serversStarted": 0,
+    "temporaryReports": 0,
+    "pnpmStoreTouched": false
+  },
+  "risks": []
+}

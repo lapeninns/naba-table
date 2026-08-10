@@ -1,0 +1,43 @@
+ M .omo/boulder.json
+ M .omo/start-work/ledger.jsonl
+ M config/env.schema.ts
+ M package.json
+ M pnpm-lock.yaml
+ M server/dual-sync/runtime-controls.ts
+ M server/dual-sync/types.ts
+ M src/app/layout.tsx
+ M src/services/ops/dual-sync.ts
+ M tests/config/vercel-crons.test.ts
+ M tests/lib/env.test.ts
+ M tests/server/dual-sync-runtime-controls.test.ts
+ M vercel.json
+?? .omo/evidence/gbp-wave0-characterization.log
+?? .omo/evidence/gbp-wave0-contracts-dirty-worktree.txt
+?? .omo/evidence/gbp-wave0-contracts-green.txt
+?? .omo/evidence/gbp-wave0-contracts-red.txt
+?? .omo/evidence/gbp-wave0-contracts-review-red.txt
+?? .omo/evidence/gbp-wave0-contracts.json
+?? .omo/evidence/gbp-wave0-env.json
+?? .omo/evidence/gbp-wave0-eslint.log
+?? .omo/evidence/gbp-wave0-final-tests.log
+?? .omo/evidence/gbp-wave0-focused-tests.log
+?? .omo/evidence/gbp-wave0-format.log
+?? .omo/evidence/gbp-wave0-frozen-lockfile.log
+?? .omo/evidence/gbp-wave0-green-initial.log
+?? .omo/evidence/gbp-wave0-inventory-tests.json
+?? .omo/evidence/gbp-wave0-inventory.json
+?? .omo/evidence/gbp-wave0-layout-production-build.log
+?? .omo/evidence/gbp-wave0-layout-production.mjs
+?? .omo/evidence/gbp-wave0-production-build.log
+?? .omo/evidence/gbp-wave0-production-leak-grep.log
+?? .omo/evidence/gbp-wave0-react-dev-tooling-test.log
+?? .omo/evidence/gbp-wave0-red.log
+?? .omo/evidence/gbp-wave0-typecheck.log
+?? .omo/plans/google-business-profile-remediation.md
+?? .pnpm-store/
+?? scripts/verify/
+?? server/dual-sync/contracts/
+?? tests/config/react-dev-tooling.test.ts
+?? tests/scripts/gbp-inventory.test.ts
+?? tests/server/dual-sync-contracts-characterization.test.ts
+?? tests/server/dual-sync-remediation-contracts.test.ts

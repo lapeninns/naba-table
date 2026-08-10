@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "counts": {
+    "entries": 31,
+    "physicalTables": 35,
+    "unknown": 0,
+    "stale": 0
+  },
+  "unknowns": [],
+  "stale": [],
+  "methodology": "Fail-closed manifest schema and copy-parent DAG validation plus SQL provider-store/content-column census and copy-expiry reset detection."
+}

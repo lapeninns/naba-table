@@ -1,0 +1,63 @@
+{
+  "task": "Wave2C GBP analytics and replay privacy boundary repair",
+  "status": "complete",
+  "scope": [
+    "lib/posthog/provider.tsx",
+    "src/app/layout.tsx",
+    "tests/lib/posthog/provider-privacy.test.tsx",
+    "tests/app/layout-analytics-privacy.test.tsx"
+  ],
+  "claims": [
+    {
+      "criterion": "PostHog does not initialize or retain prior identity/content on a sensitive first path",
+      "scenario": "Render the provider initially at the Google Business Profile settings path with existing PostHog localStorage, sessionStorage, cookie and queued content",
+      "invocation": "vitest run tests/lib/posthog/provider-privacy.test.tsx",
+      "observable": "init is not called; PostHog storage/cookie/queue content is removed; unrelated storage is preserved",
+      "artifact": ".omo/evidence/gbp-wave2c-analytics.final.log"
+    },
+    {
+      "criterion": "Navigation into and out of the sensitive boundary is safe",
+      "scenario": "Initialize on an ordinary screen, navigate into GBP settings, then navigate to ordinary restaurant settings",
+      "invocation": "vitest run tests/lib/posthog/provider-privacy.test.tsx",
+      "observable": "entry stops replay, resets identity, opts out, disables autocapture/pageleave/replay and switches to memory persistence before paint; exit restores the existing client once without a second init",
+      "artifact": ".omo/evidence/gbp-wave2c-analytics.final.log"
+    },
+    {
+      "criterion": "Sensitive current and delayed events cannot cross the boundary",
+      "scenario": "Invoke the configured before_send on the sensitive pathname and with a queued pageleave event referencing a sensitive URL after leaving",
+      "invocation": "vitest run tests/lib/posthog/provider-privacy.test.tsx",
+      "observable": "both events return null",
+      "artifact": ".omo/evidence/gbp-wave2c-analytics.final.log"
+    },
+    {
+      "criterion": "Plausible excludes GBP and dual-sync paths through its supported contract",
+      "scenario": "Invoke the real next-plausible provider with the layout-exported exclusions",
+      "invocation": "vitest run tests/app/layout-analytics-privacy.test.tsx",
+      "observable": "the generated script element receives data-exclude and selects script.exclusions.js; patterns include exact and descendant GBP/dual-sync paths",
+      "artifact": ".omo/evidence/gbp-wave2c-analytics.final.log"
+    },
+    {
+      "criterion": "Existing non-GBP analytics remain operational",
+      "scenario": "Run existing PostHog pageview, analytics dispatch and exception-filter regressions together with the new privacy tests",
+      "invocation": "vitest run five focused analytics files",
+      "observable": "5 files and 18 tests pass",
+      "artifact": ".omo/evidence/gbp-wave2c-analytics.final.log"
+    },
+    {
+      "criterion": "Static quality gates",
+      "scenario": "Strict TypeScript, scoped ESLint, Prettier and diff validation",
+      "invocation": "tsc --noEmit; eslint authorized scope; prettier --check authorized scope; git diff --check",
+      "observable": "all commands exit 0",
+      "artifact": ".omo/evidence/gbp-wave2c-analytics.final.log"
+    }
+  ],
+  "tdd": {
+    "redArtifact": ".omo/evidence/gbp-wave2c-analytics.red.log",
+    "redSha256": "ec264c47e5820c4504439e2002bc36b0b8332b7d0939133057ca0912b57be06d",
+    "redObservable": "3 of 3 provider privacy tests failed before production implementation",
+    "greenArtifact": ".omo/evidence/gbp-wave2c-analytics.final.log",
+    "greenSha256": "b24d558c60d1f140358e4922e82041b2d4027ac663e83c7f95e5f180cb473e84"
+  },
+  "visualChanges": false,
+  "externalBlockers": []
+}

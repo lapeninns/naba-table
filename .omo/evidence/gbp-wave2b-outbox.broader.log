@@ -1,0 +1,73 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > defines tenant-fenced connection state and lifecycle fencing 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > stores exact short-lived hash-only grants and immutable consent events 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > claims complete bundles atomically with deterministic locks and rollout enforcement 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > persists dispatch before terminal outcomes and never reuses dispatched grants 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > issues and enqueues exact bundles atomically through RPC-only grant writes 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > dispatches and finalizes grants in strict bundle order 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > makes mutation jobs single-attempt and immutable without affecting refresh jobs 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > supports account-shared notifications without clobbering unrelated event types 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > constrains provider expiry and policy approval while decommissioning content archives 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > creates a hash-only trigger outbox for every canonical GBP table 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > leases Core outbox work with bounded retry, dead-letter, census, and repair RPCs 1ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > hardens every new table and RPC to service role only 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > uses composite tenant fences and one-attempt publish jobs 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > stores and consumes hash-only OAuth attempts with current connection fencing 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > atomically completes OAuth identity, profile, and encrypted credential persistence 0ms
+ ✓ tests/server/gbp-wave1a-schema.test.ts > GBP Wave 1A write-safety schema > publishes generated table, altered-column, relationship, and RPC contracts 2ms
+ ✓ tests/server/dual-sync-core-outbox-reconciliation.test.ts > Core outbox reconciliation > is read-only by default and reports metadata-only missing work 3ms
+ ✓ tests/server/dual-sync-core-outbox-reconciliation.test.ts > Core outbox reconciliation > repairs only work absent from both outbox and candidate/state presence 1ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > coalesces duplicate rows per tenant while completing every claimed id 4ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > isolates tenant failures and leaves successful tenants complete 1ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > safely completes provider-origin rows without candidate discovery 0ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > leaves a discovered Core commit reclaimable when completion crashes 1ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > dead-letters strict-schema poison without logging content 1ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > maps deletes and all nine trigger tables to deterministic registry keys 0ms
+ ✓ tests/server/dual-sync-core-outbox.test.ts > Core-change outbox consumer > maps specialized Core source triggers without unrelated restaurant fields 0ms
+ ✓ tests/server/dual-sync-profile-import-domain.test.ts > profile import domain helpers > identifies supported profile import fields 1ms
+ ✓ tests/server/dual-sync-profile-import-domain.test.ts > profile import domain helpers > resolves importable registry configs and reports non-importable configs 1ms
+ ✓ tests/server/dual-sync-profile-import-domain.test.ts > profile import domain helpers > projects scalar Google profile values through the registry normalizer 0ms
+ ✓ tests/server/dual-sync-profile-import-domain.test.ts > profile import domain helpers > rejects missing profile data and non-scalar profile values 0ms
+ ✓ tests/server/dual-sync-profile-import-domain.test.ts > profile import domain helpers > builds timezone-preserving details partials 0ms
+ ✓ tests/server/dual-sync-profile-import-domain.test.ts > profile import domain helpers > builds canonical success hashes from normalized Core and raw Google values 1ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > atomically imports supported field profile.name through one exact fenced RPC 3ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > atomically imports supported field profile.contactPhone through one exact fenced RPC 1ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > atomically imports supported field profile.address through one exact fenced RPC 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > atomically imports supported field profile.googleMapUrl through one exact fenced RPC 1ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > atomically imports supported field profile.googleReviewUrl through one exact fenced RPC 1ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > passes null semantics for nullable field profile.contactPhone 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > passes null semantics for nullable field profile.address 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > passes null semantics for nullable field profile.googleMapUrl 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > passes null semantics for nullable field profile.googleReviewUrl 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > rejects unsupported field profile.businessDescription without reading or writing tables 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > rejects unsupported field operatingHours.weekly.0 without reading or writing tables 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > fails safely for missing current profile without invoking the import RPC 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > fails safely for cross-tenant profile read without invoking the import RPC 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > fails safely for profile read failure without invoking the import RPC 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > returns a safe failure for a stale-fence RPC rejection with no fallback writes 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > redacts a thrown profile read database error 0ms
+ ✓ tests/server/dual-sync-profile-import-port.test.ts > applyProfileImportToCore > redacts a thrown import RPC database error 0ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > marks every registry field in_sync when both snapshots match 2ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > persists a last-known-good baseline when recompute observes in_sync 2ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > marks unsupported for core-only fields when included 0ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > detects drift between core and gbp values when there is no prior in-sync hash 0ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > evaluates FoodMenus item fields through the dynamic registry 1ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > does not overlay pending_export for first drift without a prior in-sync baseline 0ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > overlays pending_export for a core-side move with an open outbound candidate 0ms
+ ✓ tests/server/dual-sync-recompute.test.ts > recomputeAllStates > preserves ignored state when previous state was ignored 0ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > requires cron auth and returns no-store 2ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > performs a read-only census for dry-run 1ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > does not claim when candidate discovery is disabled 0ms
+ ✓ tests/scripts/core-writer-inventory.test.ts > canonical Core writer inventory > rejects direct writers to every specialized Core trigger source 38ms
+ ✓ tests/scripts/core-writer-inventory.test.ts > canonical Core writer inventory > ignores an explicit restaurants update that cannot touch an outbox field 39ms
+ ✓ tests/scripts/core-writer-inventory.test.ts > canonical Core writer inventory > reports an unknown specialized writer beside an exact allowlisted writer 31ms
+ ✓ tests/scripts/core-writer-inventory.test.ts > canonical Core writer inventory > fails on an unknown direct writer 28ms
+ ✓ tests/scripts/core-writer-inventory.test.ts > canonical Core writer inventory > fails on stale writers and trigger gaps 37ms
+
+ Test Files  8 passed (8)
+      Tests  64 passed (64)
+   Start at  14:23:29
+   Duration  865ms (transform 682ms, setup 581ms, import 794ms, tests 221ms, environment 3.78s)
+

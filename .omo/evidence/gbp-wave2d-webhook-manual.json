@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "results": [
+    {
+      "scenario": "invalid authentication",
+      "status": 401
+    },
+    {
+      "scenario": "claim mismatch",
+      "status": 403
+    },
+    {
+      "scenario": "subscription mismatch",
+      "status": 403
+    },
+    {
+      "scenario": "actual oversize",
+      "status": 413
+    },
+    {
+      "scenario": "authenticated malformed envelope",
+      "status": 204
+    },
+    {
+      "scenario": "transient persistence failure",
+      "status": 500
+    }
+  ]
+}

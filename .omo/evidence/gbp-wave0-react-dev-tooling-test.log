@@ -1,0 +1,10 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  09:40:06
+   Duration  313ms (transform 16ms, setup 31ms, import 7ms, tests 2ms, environment 212ms)
+

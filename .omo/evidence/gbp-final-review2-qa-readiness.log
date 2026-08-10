@@ -1,0 +1,4 @@
+Invocation:
+node scripts/verify/gbp-release-readiness.mjs --input scripts/verify/gbp-release-readiness.template.json
+
+Result: expected fail-closed exit 1; output reports required=18, verified=0 and enumerates missing/invalid artifact IDs without echoing template metadata.

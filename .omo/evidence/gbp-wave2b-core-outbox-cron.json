@@ -1,0 +1,46 @@
+{
+  "status": "done",
+  "changedFiles": ["vercel.json", "tests/config/vercel-crons.test.ts"],
+  "red": {
+    "invocation": "node_modules/.bin/vitest run tests/config/vercel-crons.test.ts --reporter=verbose",
+    "observable": "exit 1; Core outbox cron absent",
+    "artifact": ".omo/evidence/gbp-wave2b-core-outbox-cron-red.log"
+  },
+  "green": {
+    "focusedTests": {
+      "observable": "4 tests passed",
+      "artifact": ".omo/evidence/gbp-wave2b-core-outbox-cron-green.log"
+    },
+    "typecheck": {
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave2b-core-outbox-cron-typecheck.log"
+    },
+    "format": {
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave2b-core-outbox-cron-format.log"
+    }
+  },
+  "schedules": {
+    "/api/cron/dual-sync/core-outbox": {
+      "count": 1,
+      "schedule": "*/5 * * * *"
+    },
+    "/api/cron/dual-sync/refresh": {
+      "count": 1,
+      "schedule": "*/15 * * * *"
+    },
+    "/api/cron/dual-sync/queue": {
+      "count": 1,
+      "schedule": "*/5 * * * *"
+    },
+    "/api/cron/dual-sync/auto-export": {
+      "count": 1,
+      "schedule": "*/30 * * * *"
+    }
+  },
+  "cleanup": {
+    "serversStarted": false,
+    "temporaryRuntimeFiles": []
+  },
+  "risks": ["Vercel deployment cron installation was not changed or externally verified."]
+}

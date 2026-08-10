@@ -1,0 +1,32 @@
+^D[?25l
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ❯ tests/components/features/restaurant-settings/dual-sync/GbpExactPublishDialog.test.tsx (3 tests | 1 failed) 183ms
+     × shows exact listing, versions, fingerprint, expiry, method, masks, values and warnings 97ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/components/features/restaurant-settings/dual-sync/GbpExactPublishDialog.test.tsx > GbpExactPublishDialog > shows exact listing, versions, fingerprint, expiry, method, masks, values and warnings
+Error: expect(element).toHaveClass("pr-12 sm:pr-0")
+
+Expected the element to have class:
+  pr-12 sm:pr-0
+Received:
+  flex flex-col gap-1.5 text-center sm:text-left
+ ❯ tests/components/features/restaurant-settings/dual-sync/GbpExactPublishDialog.test.tsx:88:33
+     86|     const title = screen.getByRole('heading', { name: 'Confirm exact G…
+     87|     expect(title).toHaveAttribute('tabindex', '-1');
+     88|     expect(title.parentElement).toHaveClass('pr-12', 'sm:pr-0');
+       |                                 ^
+     89|   });
+     90|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  22:46:08
+   Duration  666ms (transform 65ms, setup 35ms, import 177ms, tests 183ms, environment 205ms)
+
+[?25h

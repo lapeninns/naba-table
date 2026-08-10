@@ -1,0 +1,6 @@
+$ node --import tsx .omo/evidence/gbp-wave2b-outbox.driver.ts
+{"scenario":"core_change_claim_recompute_complete_crash_reclaim_duplicate_tenant_isolation","firstRun":{"claimed":2,"completed":1,"retried":1,"deadLettered":0},"reclaimRun":{"claimed":2,"completed":2,"retried":0,"deadLettered":0},"candidateKeys":["00000000-0000-4000-8000-000000000010:servicePeriods.*","00000000-0000-4000-8000-000000000020:servicePeriods.*"],"providerCalls":0,"contentFieldsPresent":false}
+
+$ ./node_modules/.bin/vitest run <lock/refresh/exact-consent pack> --reporter=dot
+Test Files 9 passed (9)
+Tests 71 passed (71)

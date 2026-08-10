@@ -1,0 +1,23 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-job-fence-types.test.ts > dual-sync job fence type contract > maps exact external connection metadata without moving content into payload 1ms
+ ✓ tests/server/dual-sync-job-fence-types.test.ts > dual-sync job fence type contract > preserves null for legacy and non-write jobs without inventing a fence 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > enqueues an idempotent job with payload and priority 3ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > returns the existing job when idempotent enqueue is already present 1ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > rejects idempotent enqueue when the existing payload differs 1ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > rejects content-bearing GBP job payloads before persistence 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > claims the next available queued job for a worker 1ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > reclaims stale running jobs before claiming work 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > returns null when no job is claimable 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > marks jobs succeeded, retrying, and dead-letter 1ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > lists recent jobs by restaurant with optional status filters 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > requeues a terminal job for operator retry 0ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  18:18:25
+   Duration  815ms (transform 388ms, setup 72ms, import 511ms, tests 9ms, environment 415ms)
+
+Checking formatting...
+All matched files use Prettier code style!

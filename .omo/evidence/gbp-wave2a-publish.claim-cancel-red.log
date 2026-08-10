@@ -1,0 +1,31 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/server/dual-sync-exact-consent-claimed-execution.test.ts [ tests/server/dual-sync-exact-consent-claimed-execution.test.ts ]
+Error: Failed to resolve import "@/server/dual-sync/publish/exact-consent/claimed-execution" from "tests/server/dual-sync-exact-consent-claimed-execution.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-exact-consent-claimed-execution.test.ts:3:43
+  1  |  import { describe, expect, it, vi } from "vitest";
+  2  |  import { executeClaimedExactConsent } from "@/server/dual-sync/publish/exact-consent/claimed-execution";
+     |                                              ^
+  3  |  import { ExactConsentExecutionError } from "@/server/dual-sync/publish/exact-consent/types";
+  4  |  import { GoogleBusinessProfileError } from "@/server/google-business-profile/errors";
+ ❯ TransformPluginContext._formatLog ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:29079:43
+ ❯ TransformPluginContext.error ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:29076:14
+ ❯ normalizeUrl ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27199:18
+ ❯ ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27257:32
+ ❯ TransformPluginContext.transform ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27225:4
+ ❯ EnvironmentPluginContainer.transform ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:28877:14
+ ❯ loadAndTransform ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.33.0_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:22746:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:32:01
+   Duration  344ms (transform 13ms, setup 37ms, import 0ms, tests 0ms, environment 219ms)
+

@@ -1,0 +1,3 @@
+SCENARIO: Scoped ESLint check for Wave4 logging runtime and focused tests
+INVOCATION: ./node_modules/.bin/eslint <owned runtime and focused test files>
+EXIT_CODE: 0

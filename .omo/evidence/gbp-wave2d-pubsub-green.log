@@ -1,0 +1,16 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub authentication > requires RS256, a Google issuer, the exact audience, and exact verified service account 3ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub authentication > rejects a different service account even when the token signature is valid 0ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub parsing > extracts only metadata needed to enqueue a supported Google update 4ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub parsing > acknowledges unsupported and malformed decoded notifications as metadata-only poison 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > returns 204 for accepted, duplicate, ignored, and unmatched authenticated deliveries 3ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > rejects a wrong subscription before persistence 1ms
+ ✓ tests/server/dual-sync-pubsub.test.ts > Google Business Profile Pub/Sub HTTP behavior > rejects unauthenticated and oversized requests without reading or persisting content 1ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  17:32:49
+   Duration  889ms (transform 58ms, setup 101ms, import 123ms, tests 13ms, environment 541ms)
+

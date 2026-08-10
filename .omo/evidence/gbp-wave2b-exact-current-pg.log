@@ -1,0 +1,716 @@
+CREATE EXTENSION
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+INSERT 0 7
+INSERT 0 7
+INSERT 0 4
+INSERT 0 1
+INSERT 0 1
+BEGIN
+CREATE FUNCTION
+CREATE FUNCTION
+ALTER TABLE
+UPDATE 4
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE TABLE
+INSERT 0 1
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TABLE
+CREATE INDEX
+CREATE FUNCTION
+CREATE TRIGGER
+ALTER TABLE
+COMMENT
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE TYPE
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+ALTER TABLE
+UPDATE 1
+ALTER TABLE
+UPDATE 1
+ALTER TABLE
+CREATE INDEX
+CREATE TYPE
+CREATE TYPE
+CREATE FUNCTION
+CREATE TRIGGER
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+ALTER TABLE
+ALTER TABLE
+UPDATE 1
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+REVOKE
+GRANT
+GRANT
+GRANT
+REVOKE
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+GRANT
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+REVOKE
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+GRANT
+REVOKE
+GRANT
+COMMIT
+CREATE FUNCTION
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:241: NOTICE:  probe=backfill result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:241: NOTICE:  probe=oauth_legacy_fail_closed result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:241: NOTICE:  probe=legacy_null_epoch_write_job_backfill result=pass
+DO
+UPDATE 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:296: NOTICE:  probe=cross_tenant result=pass
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:315: NOTICE:  probe=claim_without_readiness result=pass
+DO
+UPDATE 1
+UPDATE 1
+DO
+BEGIN
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:333: NOTICE:  probe=core_restaurants_relevant_fields result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:333: NOTICE:  probe=core_restaurants_unrelated_field_excluded result=pass
+INSERT 0 1
+UPDATE 1
+COMMIT
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:349: NOTICE:  probe=core_projection_coalesced result=pass
+DO
+UPDATE 1
+INSERT 0 1
+SET
+DO
+RESET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:371: NOTICE:  probe=atomic_provider_profile_import_service_role_only result=pass
+SET
+                                   apply_gbp_profile_import_to_core_v1                                   
+---------------------------------------------------------------------------------------------------------
+ (00000000-0000-0000-0000-000000000001,"Core restaurant",,"Provider imported address",,,still-unrelated)
+(1 row)
+
+RESET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:414: NOTICE:  probe=atomic_provider_profile_import_no_echo result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:414: NOTICE:  probe=atomic_provider_profile_import_cross_tenant result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:414: NOTICE:  probe=atomic_provider_profile_import_stale_epoch result=pass
+DO
+ replace_restaurant_operating_hours 
+------------------------------------
+ 
+(1 row)
+
+ replace_restaurant_service_periods 
+------------------------------------
+ 
+(1 row)
+
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:441: NOTICE:  probe=core_operating_hours_rpc_outbox result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:441: NOTICE:  probe=core_service_periods_rpc_outbox result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:441: NOTICE:  probe=core_effective_date_override_excluded result=pass
+BEGIN
+ replace_restaurant_operating_hours 
+------------------------------------
+ 
+(1 row)
+
+ROLLBACK
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:457: NOTICE:  probe=core_schedule_rpc_rollback result=pass
+DO
+INSERT 0 1
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:477: NOTICE:  probe=core_schedule_tenant_isolation result=pass
+DO
+UPDATE 8
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:507: NOTICE:  probe=issuance_without_readiness result=pass
+DO
+RESET
+INSERT 0 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:633: NOTICE:  probe=issuance_null_array_elements result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:633: NOTICE:  probe=issuance_null_composite_scalars result=pass
+DO
+DO
+RESET
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:676: NOTICE:  probe=issuance_enqueue_null_all_or_none result=pass
+SET
+ count 
+-------
+     1
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:693: NOTICE:  probe=issuance_food_menus_resource result=pass
+DO
+RESET
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:792: NOTICE:  probe=grant_direct_dml_denied result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:792: NOTICE:  probe=issuance_cross_tenant result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:792: NOTICE:  probe=issuance_expiry result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:792: NOTICE:  probe=issuance_sortedness result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:792: NOTICE:  probe=issuance_tamper result=pass
+DO
+RESET
+UPDATE 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:817: NOTICE:  probe=issuance_rollout_off result=pass
+DO
+RESET
+UPDATE 1
+INSERT 0 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:843: NOTICE:  probe=issuance_pause result=pass
+DO
+RESET
+UPDATE 1
+SET
+ count 
+-------
+     1
+(1 row)
+
+RESET
+UPDATE 1
+SET
+ count 
+-------
+     1
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:899: NOTICE:  probe=issuance_fresh_id_same_fingerprint result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:899: NOTICE:  probe=issuance_active_bundle_duplicate result=pass
+DO
+RESET
+INSERT 0 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:929: NOTICE:  probe=issuance_enqueue_all_or_none result=pass
+DO
+                job_id                
+--------------------------------------
+ 71000000-0000-0000-0000-000000000020
+(1 row)
+
+RESET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:967: NOTICE:  probe=issuance_enqueue_hash_only_job result=pass
+DO
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:978: NOTICE:  probe=readiness_owner_attestation result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:978: NOTICE:  probe=readiness_database_hash result=pass
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1018: NOTICE:  probe=service_role_readiness_mutations_denied result=pass
+DO
+RESET
+SET
+ count 
+-------
+     3
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1051: NOTICE:  probe=per_grant_dispatch_order result=pass
+DO
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000020
+(1 row)
+
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000020
+(1 row)
+
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000021
+(1 row)
+
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000021
+(1 row)
+
+RESET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1087: NOTICE:  probe=mutation_job_retry_denied result=pass
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1097: NOTICE:  probe=per_grant_failure_cancels_remaining result=pass
+DO
+SET
+ count 
+-------
+     2
+(1 row)
+
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000030
+(1 row)
+
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000030
+(1 row)
+
+ count 
+-------
+     2
+(1 row)
+
+ count 
+-------
+     2
+(1 row)
+
+ count 
+-------
+     2
+(1 row)
+
+                  id                  
+--------------------------------------
+ 31000000-0000-0000-0000-000000000050
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1176: NOTICE:  probe=dispatched_bundle_cancel_denied result=pass
+DO
+RESET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1208: NOTICE:  probe=per_grant_unknown_cancels_remaining result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1208: NOTICE:  probe=crash_before_dispatch_cancel result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1208: NOTICE:  probe=mutation_job_max_attempts_one result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1208: NOTICE:  probe=refresh_job_retry_unaffected result=pass
+DO
+ count 
+-------
+     1
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1237: NOTICE:  probe=replay result=pass
+DO
+ count 
+-------
+     1
+(1 row)
+
+ count 
+-------
+     1
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1267: NOTICE:  probe=outcome_unknown_nonreuse result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1267: NOTICE:  probe=immutable_event result=pass
+DO
+INSERT 0 1
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1281: NOTICE:  probe=notification_topic_conflict result=pass
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1314: NOTICE:  probe=stale_notification_link result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1314: NOTICE:  probe=notification_refcount result=pass
+DO
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1348: NOTICE:  probe=stale_epoch result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1348: NOTICE:  probe=retention_expiry_extension result=pass
+INSERT 0 1
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1378: NOTICE:  probe=core_provenance result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1378: NOTICE:  probe=unfenced_google_provenance result=pass
+DO
+  record_gbp_provider_observation_v1  
+--------------------------------------
+ 49aee235-50c5-427b-81d2-d38122ca1675
+(1 row)
+
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1387: NOTICE:  probe=fenced_google_provenance result=pass
+INSERT 0 1
+UPDATE 1
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1401: NOTICE:  probe=core_outbox result=pass
+DO
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1420: NOTICE:  probe=oauth_direct_dml_denied result=pass
+DO
+                  id                  
+--------------------------------------
+ e099d5e3-7b74-4586-b2b4-dfd89c1cbe8a
+(1 row)
+
+                  id                  
+--------------------------------------
+ bcfa8c7d-fbd1-4486-8802-161b42941a84
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1465: NOTICE:  probe=oauth_superseded_attempt result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1465: NOTICE:  probe=oauth_cross_tenant result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1465: NOTICE:  probe=oauth_nonce_mismatch result=pass
+DO
+                  id                  
+--------------------------------------
+ bcfa8c7d-fbd1-4486-8802-161b42941a84
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1483: NOTICE:  probe=oauth_one_shot_replay result=pass
+DO
+                  id                  
+--------------------------------------
+ d006dad0-db55-45a4-bae0-3d13c6cbaa3d
+(1 row)
+
+RESET
+UPDATE 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1508: NOTICE:  probe=oauth_expired_callback result=pass
+DO
+                  id                  
+--------------------------------------
+ 3c04c94d-c1d5-4cd8-b53e-d11a8e1085bb
+(1 row)
+
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000003
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1537: NOTICE:  probe=oauth_stale_epoch result=pass
+DO
+                  id                  
+--------------------------------------
+ b9a70ddb-e1eb-4dda-a2c6-5e8584c31073
+(1 row)
+
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000003
+(1 row)
+
+RESET
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1567: NOTICE:  probe=oauth_atomic_reconnect result=pass
+SET
+                  id                  
+--------------------------------------
+ e87acc0b-1d34-4e2a-93ad-58b228c302f7
+(1 row)
+
+                  id                  
+--------------------------------------
+ 0da1dade-df84-4336-be27-3d8cce86bd58
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1597: NOTICE:  probe=oauth_stale_completion_rejected result=pass
+DO
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000004
+(1 row)
+
+RESET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1625: NOTICE:  probe=oauth_atomic_first_link result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1625: NOTICE:  probe=oauth_newer_completion_wins result=pass
+DO
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1658: NOTICE:  probe=credential_direct_write_denied result=pass
+DO
+         external_profile_id          
+--------------------------------------
+ 10000000-0000-0000-0000-000000000004
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1679: NOTICE:  probe=credential_refresh_cas result=pass
+DO
+RESET
+INSERT 0 9
+SET
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000003
+(1 row)
+
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000001
+(1 row)
+
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1719: NOTICE:  probe=credential_disconnect_stale_fence result=pass
+DO
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000004
+(1 row)
+
+RESET
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1777: NOTICE:  probe=credential_disconnect_atomic result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1777: NOTICE:  probe=null_epoch_write_jobs_terminalized result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1777: NOTICE:  probe=null_epoch_write_job_disable result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1777: NOTICE:  probe=null_epoch_write_job_rebind result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1777: NOTICE:  probe=read_only_jobs_epoch_fenced result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1777: NOTICE:  probe=cross_tenant_jobs_untouched result=pass
+INSERT 0 3
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1799: NOTICE:  probe=provider_failure_service_role_only result=pass
+DO
+RESET
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1845: NOTICE:  probe=provider_failure_invalid_pair result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1845: NOTICE:  probe=provider_failure_escalation_rejected result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1845: NOTICE:  probe=provider_failure_cross_tenant result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1845: NOTICE:  probe=provider_failure_stale_epoch result=pass
+DO
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000006
+(1 row)
+
+                  id                  
+--------------------------------------
+ 10000000-0000-0000-0000-000000000007
+(1 row)
+
+RESET
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1897: NOTICE:  probe=provider_failure_401 result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1897: NOTICE:  probe=provider_failure_403 result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1897: NOTICE:  probe=provider_failure_null_epoch_jobs result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1897: NOTICE:  probe=provider_failure_cross_tenant_job_untouched result=pass
+SET
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1969: NOTICE:  probe=core_outbox_direct_dml_denied result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1969: NOTICE:  probe=core_outbox_legacy_rpc_denied result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1969: NOTICE:  probe=core_outbox_field_keys_strict result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:1981: NOTICE:  probe=core_outbox_initial_lease result=pass
+DO
+RESET
+SELECT 1
+GRANT
+UPDATE 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2030: NOTICE:  probe=core_outbox_stale_reclaim result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2030: NOTICE:  probe=core_outbox_wrong_fence result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2030: NOTICE:  probe=core_outbox_retry_backoff result=pass
+DO
+RESET
+UPDATE 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2054: NOTICE:  probe=core_outbox_safe_error_code result=pass
+DO
+RESET
+UPDATE 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2093: NOTICE:  probe=core_outbox_exhausted_dead_letter result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2093: NOTICE:  probe=core_outbox_repair_idempotency result=pass
+DO
+                  id                  
+--------------------------------------
+ 81000000-0000-0000-0000-000000000003
+(1 row)
+
+RESET
+UPDATE 1
+UPDATE 1
+SET
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2125: NOTICE:  probe=core_outbox_pending_poison_dead_letter result=pass
+DO
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2145: NOTICE:  probe=core_outbox_missing_repair result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2145: NOTICE:  probe=core_outbox_census result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2145: NOTICE:  probe=core_transaction_pending_without_followup result=pass
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2145: NOTICE:  probe=core_provider_origin_excluded result=pass
+RESET
+DO
+psql:/workspace/.omo/evidence/gbp-wave1a-schema-driver.sql:2148: NOTICE:  probe=driver result=pass

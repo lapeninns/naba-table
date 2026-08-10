@@ -1,0 +1,201 @@
+{
+  "status": "doneclaim",
+  "completedAt": "2026-08-09T23:44:00+01:00",
+  "scope": "Wave3 authenticated Google Business Profile operator UI and responsive visual-QA revision",
+  "criteria": [
+    {
+      "scenario": "The 375px settings header hides the restaurant-name badge, preserves a usable truncated title, retains compact GBP review status, and prevents overlap while tablet and desktop retain the restaurant badge.",
+      "invocation": "./node_modules/.bin/vitest run tests/components/features/restaurant-settings/RestaurantSettingsChromeHeader.test.tsx; authenticated Playwright 375px bounding-box assertions",
+      "observable": "The component contract changed red to green; the browser measured title width >96px, status width <=112px, no title/status overlap, and a hidden restaurant badge at 375px.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-header-mobile-red.log",
+        ".omo/evidence/gbp-wave3-header-mobile-green.log",
+        ".omo/evidence/gbp-wave3-visual-revise-playwright.log"
+      ]
+    },
+    {
+      "scenario": "Every screenshot contains only the authenticated product DOM, with no persistent Next dev-tools launcher and no transient Rendering or Compiling indicator.",
+      "invocation": "./node_modules/.bin/playwright test tests/e2e/ops-gbp-dual-sync.spec.ts -g 'operator review' --config .omo/evidence/gbp-wave3-production-playwright.config.ts",
+      "observable": "The red run failed at the first capture with nextjs-portal and its Next Dev Tools button. The evidence harness then removed only exact nextjs-portal framework hosts immediately before each capture, verified every removed tag was nextjs-portal, and recursively asserted across the document and open shadow roots that no nextjs-* element, Next Dev Tools control, or exact Rendering/Compiling text remained. The complete authenticated spec passed 5/5 and regenerated all eleven frames.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-production-capture-red.log",
+        ".omo/evidence/gbp-wave3-framework-chrome-free-playwright.log",
+        ".omo/evidence/gbp-wave3-visual-revise-captures.log",
+        ".omo/evidence/gbp-wave3-exact-confirmation-375-initial.png",
+        ".omo/evidence/gbp-wave3-exact-confirmation-375-scrolled.png"
+      ]
+    },
+    {
+      "scenario": "The 375px exact-confirmation title reserves mobile close-control clearance and does not intersect the close button after the entrance animation settles.",
+      "invocation": "Focused component TDD plus ./node_modules/.bin/playwright test tests/e2e/ops-gbp-dual-sync.spec.ts -g 'operator review'",
+      "observable": "The component contract changed red to green with pr-12/sm:pr-0; the authenticated browser asserted title.x + title.width <= close.x before capturing, and 1 journey passed.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-exact-close-red.log",
+        ".omo/evidence/gbp-wave3-exact-close-green.log",
+        ".omo/evidence/gbp-wave3-exact-close-playwright.log",
+        ".omo/evidence/gbp-wave3-exact-confirmation-375-initial.png",
+        ".omo/evidence/gbp-wave3-exact-close-typecheck.log",
+        ".omo/evidence/gbp-wave3-exact-close-eslint.log",
+        ".omo/evidence/gbp-wave3-exact-close-format.log",
+        ".omo/evidence/gbp-wave3-exact-close-diff-check.log",
+        ".omo/evidence/gbp-wave3-exact-close-build.log"
+      ]
+    },
+    {
+      "scenario": "The normal-mobile exact-confirmation initial capture is taken only after the Radix entrance animation settles and the dialog is wholly inside the 375x812 viewport.",
+      "invocation": "./node_modules/.bin/playwright test tests/e2e/ops-gbp-dual-sync.spec.ts -g 'operator review'",
+      "observable": "The journey awaited every dialog-subtree Web Animation, then asserted x >= 0, x + width <= 375, y >= 0, and y + height <= 812 before capturing; 1 authenticated journey passed.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-initial-settled-playwright.log",
+        ".omo/evidence/gbp-wave3-exact-confirmation-375-initial.png",
+        ".omo/evidence/gbp-wave3-initial-settled-typecheck.log",
+        ".omo/evidence/gbp-wave3-initial-settled-eslint.log",
+        ".omo/evidence/gbp-wave3-initial-settled-format.log",
+        ".omo/evidence/gbp-wave3-initial-settled-diff-check.log"
+      ]
+    },
+    {
+      "scenario": "The 375px outcome dialog reserves close-control clearance, and the GBP workflow exposes the complete Review changes step without horizontal clipping.",
+      "invocation": "Three focused component contracts plus authenticated 375px text-range and workflow-item bounding-box assertions",
+      "observable": "The contracts changed red to green; the complete Review changes button remained within x=0..375 and the outcome description text ended before the close control began.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-mobile-final-red.log",
+        ".omo/evidence/gbp-wave3-mobile-final-green.log",
+        ".omo/evidence/gbp-wave3-mobile-final-playwright.log"
+      ]
+    },
+    {
+      "scenario": "Existing rich linked, disconnected, unconfigured, connect, location-picker, and password-confirmed disconnect journeys coexist with the strict V1 operator endpoint.",
+      "invocation": "./node_modules/.bin/playwright test tests/e2e/ops-gbp-dual-sync.spec.ts",
+      "observable": "5 authenticated Chromium journeys passed; legacy detail GET used /google-business-profile/details while strict V1 remained canonical.",
+      "artifact": ".omo/evidence/gbp-wave3-mobile-final-playwright.log"
+    },
+    {
+      "scenario": "Admin-only operator state renders exact connection/write state, epochs, reason, rollout, refresh, known masks, notifications, and provider plus operational outcome_unknown recovery.",
+      "invocation": "Authenticated linked-route Playwright journey plus focused component tests",
+      "observable": "Rendered assertions passed for generation 3, consent epoch 4, phoneNumbers, attribute path, fresh-preview instruction, and operational-channel instruction.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-visual-revise-playwright.log",
+        ".omo/evidence/gbp-wave3-visual-revise-focused.log"
+      ]
+    },
+    {
+      "scenario": "Immediate outcome_unknown is fail-stop and never receives success treatment.",
+      "invocation": "./node_modules/.bin/vitest run tests/components/DualSyncShellPublishFlow.test.tsx",
+      "observable": "The regression test changed red to green: outcome_unknown emits a warning with refresh/verify/new-preview recovery and emits no success toast; screenshots wait until the transient toast is gone.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-outcome-toast-red.log",
+        ".omo/evidence/gbp-wave3-outcome-toast-green.log",
+        ".omo/evidence/gbp-wave3-visual-revise-playwright.log"
+      ]
+    },
+    {
+      "scenario": "Password-confirmed write and notification controls, notification topic conflict, pending-update unknown fail-stop, settings-permission visibility, and volatile query cleanup.",
+      "invocation": "./node_modules/.bin/vitest run <8 focused files>",
+      "observable": "8 files passed; 51 tests passed in the final responsive revision run. The preceding complete Wave3 focused pack remains recorded as 24 files and 105 tests.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-visual-revise-focused.log",
+        ".omo/evidence/gbp-wave3-ui-focused-final.log"
+      ]
+    },
+    {
+      "scenario": "Exact listing-aware preview shows safe before/after values, methods, masks, versions, fingerprint, visible <=15m expiry, warnings, expired refresh flow, and dedicated FoodMenus full-replacement acknowledgement.",
+      "invocation": "Focused dialog/shell tests plus authenticated exact-preview and outcome journey",
+      "observable": "At 375x812 the title receives initial focus, Tab and Shift+Tab wrap within the dialog, Escape closes it, focus returns to Review and publish, and reopening works. Initial and internally scrolled captures prove the bounded scroll region before the tall content receipt.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-mobile-final-focused.log",
+        ".omo/evidence/gbp-wave3-mobile-final-playwright.log",
+        ".omo/evidence/gbp-wave3-exact-confirmation-375-initial.png",
+        ".omo/evidence/gbp-wave3-exact-confirmation-375-scrolled.png"
+      ]
+    },
+    {
+      "scenario": "Eleven fresh shipped-route captures are available for parent-dispatched independent visual QA; this executor does not self-approve them.",
+      "invocation": "Authenticated Chromium setViewportSize/screenshot flow with exact Next framework-chrome removal assertions, followed by file, stat, magic-byte, and SHA-256 validation",
+      "observable": "All eleven files are non-empty PNGs created in the final authenticated run at exact recorded dimensions. Before every screenshot, only exact nextjs-portal framework hosts were eligible for removal and the recursive postcondition required zero Next dev elements/controls and zero Rendering/Compiling text. The two 375x812 exact-confirmation frames truthfully show initial and internally scrolled mobile states; the nine-state responsive matrix was also fully regenerated.",
+      "artifact": ".omo/evidence/gbp-wave3-visual-revise-captures.log",
+      "captures": [
+        {
+          "state": "main-linked",
+          "viewport": "375x1400",
+          "path": ".omo/evidence/gbp-wave3-main-linked-375.png"
+        },
+        {
+          "state": "main-linked",
+          "viewport": "768x1400",
+          "path": ".omo/evidence/gbp-wave3-main-linked-768.png"
+        },
+        {
+          "state": "main-linked",
+          "viewport": "1280x1000",
+          "path": ".omo/evidence/gbp-wave3-main-linked-1280.png"
+        },
+        {
+          "state": "exact-confirmation-initial",
+          "viewport": "375x812",
+          "path": ".omo/evidence/gbp-wave3-exact-confirmation-375-initial.png"
+        },
+        {
+          "state": "exact-confirmation-scrolled",
+          "viewport": "375x812",
+          "path": ".omo/evidence/gbp-wave3-exact-confirmation-375-scrolled.png"
+        },
+        {
+          "state": "exact-confirmation",
+          "viewport": "375x2600",
+          "path": ".omo/evidence/gbp-wave3-exact-confirmation-375.png"
+        },
+        {
+          "state": "exact-confirmation",
+          "viewport": "768x1600",
+          "path": ".omo/evidence/gbp-wave3-exact-confirmation-768.png"
+        },
+        {
+          "state": "exact-confirmation",
+          "viewport": "1280x1200",
+          "path": ".omo/evidence/gbp-wave3-exact-confirmation-1280.png"
+        },
+        {
+          "state": "outcome-unknown",
+          "viewport": "375x900",
+          "path": ".omo/evidence/gbp-wave3-outcome-unknown-375.png"
+        },
+        {
+          "state": "outcome-unknown",
+          "viewport": "768x900",
+          "path": ".omo/evidence/gbp-wave3-outcome-unknown-768.png"
+        },
+        {
+          "state": "outcome-unknown",
+          "viewport": "1280x940",
+          "path": ".omo/evidence/gbp-wave3-outcome-unknown-1280.png"
+        }
+      ]
+    },
+    {
+      "scenario": "Static and production validation after the final evidence-harness correction.",
+      "invocation": "tsc --noEmit; focused ESLint; Prettier --check; git diff --check; optimized next build --webpack",
+      "observable": "All final commands exited 0; the optimized production build compiled, typechecked, generated 73/73 static pages, and included canonical, details, notification, and write-access GBP routes. Production authentication remained intentionally unavailable to QA fixtures and was not weakened.",
+      "artifacts": [
+        ".omo/evidence/gbp-wave3-framework-chrome-free-typecheck.log",
+        ".omo/evidence/gbp-wave3-framework-chrome-free-eslint.log",
+        ".omo/evidence/gbp-wave3-framework-chrome-free-format.log",
+        ".omo/evidence/gbp-wave3-framework-chrome-free-diff-check.log",
+        ".omo/evidence/gbp-wave3-production-build.log"
+      ]
+    }
+  ],
+  "broadRegression": {
+    "invocation": "./node_modules/.bin/vitest run",
+    "observable": "1266 test files passed; 6222 tests passed; 5 skipped; 2 unrelated failures",
+    "artifact": ".omo/evidence/gbp-wave3-ui-broad-final.log",
+    "unrelatedFailures": [
+      "tests/server/deepsec-final-controls-source.test.ts expects an obsolete scalar Plausible exclusion while shared layout now uses a multi-path exclusion array",
+      "tests/components/features/tables/timeline/TableTimelineHeader.test.tsx could not find its July 10 calendar button"
+    ]
+  },
+  "visualReview": {
+    "status": "awaiting_parent_fresh_pair",
+    "note": "The final evidence blocker was persistent Next development chrome. Red evidence proves the guard detects nextjs-portal and its launcher. The authenticated evidence harness removes only exact nextjs-portal framework hosts immediately before every capture, then requires zero Next dev elements/controls and zero Rendering/Compiling text. All eleven receipts are fresh; the separately run optimized production build is green; production auth safeguards were preserved. Parent owns final approval."
+  }
+}

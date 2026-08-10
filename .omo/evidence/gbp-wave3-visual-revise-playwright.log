@@ -1,0 +1,19 @@
+^D
+[2mRunning [22m5[2m tests using [22m1[2m worker[22m
+
+(node:72378) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:72378) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+     [2m1 [22m[2mtests/e2e/ops-gbp-dual-sync.spec.ts:509:7 › ops GBP dual-sync shipped route › google business profile route loads operator review, exact confirmation, and outcome recovery @p1 @browser @contract @external-mock @local-only[22m
+  [32m✓[39m  [2m1 [22mtests/e2e/ops-gbp-dual-sync.spec.ts:509:7 › ops GBP dual-sync shipped route › google business profile route loads operator review, exact confirmation, and outcome recovery @p1 @browser @contract @external-mock @local-only[2m (8.0s)[22m
+     [2m2 [22m[2mtests/e2e/ops-gbp-dual-sync.spec.ts:649:7 › ops GBP dual-sync shipped route › google business profile route shows disconnected and unconfigured states @p1 @browser @contract @external-mock @local-only[22m
+  [32m✓[39m  [2m2 [22mtests/e2e/ops-gbp-dual-sync.spec.ts:649:7 › ops GBP dual-sync shipped route › google business profile route shows disconnected and unconfigured states @p1 @browser @contract @external-mock @local-only[2m (2.4s)[22m
+     [2m3 [22m[2mtests/e2e/ops-gbp-dual-sync.spec.ts:688:7 › ops GBP dual-sync shipped route › google business profile route shows connect state without publish controls @p1 @browser @contract @external-mock @local-only[22m
+  [32m✓[39m  [2m3 [22mtests/e2e/ops-gbp-dual-sync.spec.ts:688:7 › ops GBP dual-sync shipped route › google business profile route shows connect state without publish controls @p1 @browser @contract @external-mock @local-only[2m (1.7s)[22m
+     [2m4 [22m[2mtests/e2e/ops-gbp-dual-sync.spec.ts:720:7 › ops GBP dual-sync shipped route › google business profile route shows the location picker before linking @p1 @browser @contract @external-mock @local-only[22m
+  [32m✓[39m  [2m4 [22mtests/e2e/ops-gbp-dual-sync.spec.ts:720:7 › ops GBP dual-sync shipped route › google business profile route shows the location picker before linking @p1 @browser @contract @external-mock @local-only[2m (1.7s)[22m
+     [2m5 [22m[2mtests/e2e/ops-gbp-dual-sync.spec.ts:754:7 › ops GBP dual-sync shipped route › google business profile disconnect requires password on the shipped route @p1 @browser @contract @external-mock @local-only[22m
+  [32m✓[39m  [2m5 [22mtests/e2e/ops-gbp-dual-sync.spec.ts:754:7 › ops GBP dual-sync shipped route › google business profile disconnect requires password on the shipped route @p1 @browser @contract @external-mock @local-only[2m (2.5s)[22m
+
+[32m  5 passed[39m[2m (17.0s)[22m

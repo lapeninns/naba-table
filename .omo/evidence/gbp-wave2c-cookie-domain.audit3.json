@@ -1,0 +1,66 @@
+{
+  "task": "Third direct audit of Wave2C analytics cookie-domain repair",
+  "recordedAt": "2026-08-09T16:25:42Z",
+  "status": "complete",
+  "doneClaim": true,
+  "browserProof": {
+    "invocation": "env PLAYWRIGHT_JSON_OUTPUT_FILE=.omo/evidence/gbp-wave2c-cookie-playwright-audit3.json ./node_modules/.bin/playwright test --config=tests/e2e/analytics-privacy.playwright.config.ts --reporter=json",
+    "exitCode": 0,
+    "passed": 1,
+    "failed": 0,
+    "resultStatus": "passed",
+    "resultDurationMs": 340,
+    "binaryObservable": {
+      "hostname": "app.example.test",
+      "expiryDomains": [null, "app.example.test", "example.test"],
+      "cookieBefore": [{ "domain": ".example.test", "name": "ph_domain_posthog" }],
+      "cookieAfter": []
+    },
+    "artifact": ".omo/evidence/gbp-wave2c-cookie-playwright-audit3.json",
+    "sha256": "bea143e41e43cee4320274f301bbebdee90267af78bffc84458edde101ec665a"
+  },
+  "focusedBehavioralProof": {
+    "invocation": "./node_modules/.bin/vitest run tests/lib/posthog/provider-privacy.test.tsx tests/app/layout-analytics-privacy.test.tsx --reporter=json --outputFile=.omo/evidence/gbp-wave2c-cookie-focused-tests-audit3.json",
+    "exitCode": 0,
+    "success": true,
+    "passed": 5,
+    "total": 5,
+    "artifact": ".omo/evidence/gbp-wave2c-cookie-focused-tests-audit3.json",
+    "sha256": "e9d19fcaa699f439fa1665c2b65dd67eaec93d6a2c5f73c3fef94627018ab28d"
+  },
+  "staticProof": {
+    "typescript": {
+      "invocation": "./node_modules/.bin/tsc --noEmit --pretty false --diagnostics",
+      "exitCode": 0,
+      "observable": "4257 files parsed; no diagnostics; no emit"
+    },
+    "eslint": {
+      "invocation": "./node_modules/.bin/eslint -f json -o .omo/evidence/gbp-wave2c-cookie-eslint-audit3.json <six scoped files>",
+      "exitCode": 0,
+      "files": 6,
+      "errors": 0,
+      "warnings": 0,
+      "artifact": ".omo/evidence/gbp-wave2c-cookie-eslint-audit3.json",
+      "sha256": "db2e1ecfd39b5989731a28ee190a5d7c1c553606d5da1966df1118fb1e8f83e5"
+    },
+    "prettier": {
+      "invocation": "./node_modules/.bin/prettier --check <six scoped files>",
+      "exitCode": 0,
+      "observable": "All matched files use Prettier code style"
+    },
+    "diffCheck": {
+      "invocation": "git diff --check -- <six scoped files>",
+      "exitCode": 0,
+      "observable": "No whitespace errors"
+    }
+  },
+  "sourceHashes": {
+    "lib/posthog/provider.tsx": "3a8cd0792fcc859fd043f5e187296593df70999f78599eddd7826ad34a9605d4",
+    "src/app/layout.tsx": "5229abb5cf576cc7459aad7735f5f72b159ef0aa1f182db2f41da9df4466864b",
+    "tests/lib/posthog/provider-privacy.test.tsx": "3508e073306c888aac5f5eb48904a0daccdc36f2c68cf65ea5ce99e0b368fd7c",
+    "tests/app/layout-analytics-privacy.test.tsx": "401b5028414eb5d501573e80238b0323717e76c331257abce65da40309751cb9",
+    "tests/e2e/posthog-cookie-privacy.spec.ts": "35cc214869dccdced8bdea88bc00c8c94f3a4fd23f7deeff6f0d51a5a3ebb346",
+    "tests/e2e/analytics-privacy.playwright.config.ts": "d1e72035fb803678f7d507b8bcd88b36355d7ea5003a552bdb5bbc5a73415e49"
+  },
+  "blockers": []
+}

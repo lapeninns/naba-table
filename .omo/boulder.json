@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "active_work_id": "guest-booking-wizard-responsive-redesign",
+  "active_work_id": "google-business-profile-remediation",
   "works": {
     "guest-booking-wizard-responsive-redesign": {
       "work_id": "guest-booking-wizard-responsive-redesign",
@@ -17,6 +17,14 @@
       "session_ids": ["codex:whatsapp-review-production-release-20260712"],
       "status": "active",
       "worktree_path": "<REDACTED_LOCAL_WORKTREE>/nabatableLP-whatsapp-review-production"
+    },
+    "google-business-profile-remediation": {
+      "work_id": "google-business-profile-remediation",
+      "active_plan": ".omo/plans/google-business-profile-remediation.md",
+      "plan_name": "google-business-profile-remediation",
+      "session_ids": ["codex:019fe3b7-a605-70d0-b3e2-07e6078870a1"],
+      "status": "active",
+      "worktree_path": null
     }
   }
 }

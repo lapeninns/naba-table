@@ -1,0 +1,99 @@
+{
+  "numTotalTestSuites": 4,
+  "numPassedTestSuites": 4,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 5,
+  "numPassedTests": 5,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1786292720694,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["root analytics privacy configuration"],
+          "fullName": "root analytics privacy configuration renders Plausible exclusions through its supported data-exclude contract",
+          "status": "passed",
+          "title": "renders Plausible exclusions through its supported data-exclude contract",
+          "duration": 1.5059999999999718,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786292721727,
+      "endTime": 1786292721728.506,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/app/layout-analytics-privacy.test.tsx"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["PostHog sensitive-path privacy boundary"],
+          "fullName": "PostHog sensitive-path privacy boundary classifies GBP and dual-sync settings paths without suppressing ordinary settings",
+          "status": "passed",
+          "title": "classifies GBP and dual-sync settings paths without suppressing ordinary settings",
+          "duration": 5.145832999999925,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PostHog sensitive-path privacy boundary"],
+          "fullName": "PostHog sensitive-path privacy boundary returns exact safe cookie-expiry domains without crossing a public-suffix boundary",
+          "status": "passed",
+          "title": "returns exact safe cookie-expiry domains without crossing a public-suffix boundary",
+          "duration": 2.469875000000002,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PostHog sensitive-path privacy boundary"],
+          "fullName": "PostHog sensitive-path privacy boundary does not initialize and clears prior identity/content persistence on a sensitive first path",
+          "status": "passed",
+          "title": "does not initialize and clears prior identity/content persistence on a sensitive first path",
+          "duration": 13.707833999999934,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["PostHog sensitive-path privacy boundary"],
+          "fullName": "PostHog sensitive-path privacy boundary quarantines an initialized client on entry and safely restores ordinary analytics on exit",
+          "status": "passed",
+          "title": "quarantines an initialized client on entry and safely restores ordinary analytics on exit",
+          "duration": 12.611875000000055,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786292721833,
+      "endTime": 1786292721867.6118,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/lib/posthog/provider-privacy.test.tsx"
+    }
+  ]
+}

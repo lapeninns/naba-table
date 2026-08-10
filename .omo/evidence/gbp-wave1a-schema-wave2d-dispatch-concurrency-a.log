@@ -1,0 +1,13 @@
+SET
+BEGIN
+   status   
+------------
+ dispatched
+(1 row)
+
+ pg_sleep 
+----------
+ 
+(1 row)
+
+COMMIT

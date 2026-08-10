@@ -1,0 +1,44 @@
+{
+  "verification": "direct_post_claim_rerun",
+  "status": "verified_with_recorded_cross_owner_blockers",
+  "results": {
+    "focusedAndRouteTests": {
+      "exitCode": 0,
+      "filesPassed": 19,
+      "testsPassed": 113,
+      "artifact": ".omo/evidence/gbp-wave2c-retention.reverify-tests.log",
+      "sha256": "8dc807354f402534c40ac25b48f74cacddaee44e2c8b9a19deee3f9e0146cb47"
+    },
+    "staticGates": {
+      "exitCode": 0,
+      "typecheck": "passed",
+      "eslint": "passed",
+      "prettier": "passed",
+      "diffCheck": "passed",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.reverify-static.log",
+      "sha256": "7839cc052596a60e50de2e61952e55ca9282878d5e5e757fbe3708d4d972836d"
+    },
+    "runtimeAndInventory": {
+      "exitCode": 0,
+      "lineageEntries": 31,
+      "physicalTables": 35,
+      "unknown": 0,
+      "stale": 0,
+      "dryRunMutated": 0,
+      "liveMutated": 2,
+      "ownerPreserved": true,
+      "contentInResult": false,
+      "artifact": ".omo/evidence/gbp-wave2c-retention.reverify-runtime.log",
+      "sha256": "8acf7eb3c928b88a9a9d72c395bd524888cf99cd4fc9e9a260d1da08cbd6b5a3"
+    }
+  },
+  "verifiedBlockers": [
+    "Production producer lineage RPC usage remains absent outside the typed retention adapter and must be wired by producer owners.",
+    "Backup/PITR and transformed-content policy evidence remains external and write readiness stays fail-closed.",
+    "Provider-owned GBP route privacy wrapping remains delegated by the root coordinator."
+  ],
+  "originalDoneClaim": {
+    "artifact": ".omo/evidence/gbp-wave2c-retention.doneclaim.json",
+    "sha256": "b3743b7ac5551f8eb9e52abab5aa52a4be4570c94f6719123387ea7821f54b96"
+  }
+}

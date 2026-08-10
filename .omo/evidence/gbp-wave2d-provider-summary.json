@@ -1,0 +1,43 @@
+{
+  "status": "done",
+  "scope": "Wave2D Google Business Profile provider support",
+  "implementation": [
+    "Account-scoped notification GET and PATCH preserve unrelated notification types, reject conflicting topics, never retry mutations, and remain account-administration operations outside the public provider barrel.",
+    "Account notification reconciliation accepts the server-computed final event set, removes GOOGLE_UPDATE without removing unrelated types, and clears the topic only with an empty final event set.",
+    "Location and attribute Google Updates use separate Zod response schemas and separate documented endpoints.",
+    "Google update masks retain exact sorted field paths, support ancestor and descendant overlap, and return fail-all classification for unknown roots.",
+    "A combined provider observation returns separately parsed location and attribute results with one injected observation timestamp."
+  ],
+  "scenarios": [
+    {
+      "name": "deterministic provider wire driver",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/wave2d-provider.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2d-provider-manual.json",
+      "observable": "1 suite and 7 tests passed; requests used fixed-origin local fetch doubles; no live Google call",
+      "artifact": ".omo/evidence/gbp-wave2d-provider-manual.json"
+    },
+    {
+      "name": "broad provider regression",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile tests/server/google-business-profile-*.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2d-provider-tests.json",
+      "observable": "235 suites and 673 tests passed with zero failures",
+      "artifact": ".omo/evidence/gbp-wave2d-provider-tests.json"
+    },
+    {
+      "name": "static gates",
+      "invocation": "local tsc, scoped eslint, prettier check, and git diff check",
+      "observable": "direct tsc exited zero after the provider changes; scoped eslint, prettier, and diff check exited zero",
+      "artifact": ".omo/evidence/gbp-wave2d-provider-summary.json"
+    },
+    {
+      "name": "live governed inventory",
+      "invocation": "node scripts/verify/gbp-inventory.mjs",
+      "observable": "ok true; 49 mutation candidates; 1766 content candidates; 1815 matched; zero unknown and zero stale",
+      "artifact": ".omo/evidence/gbp-wave0-inventory.json"
+    }
+  ],
+  "externalLimits": [
+    "No live Google API was called.",
+    "No remote database or Pub/Sub infrastructure was called.",
+    "Webhook JWT verification remains owned by the webhook/runtime boundary; no duplicate provider verifier was introduced.",
+    "A later workspace tsc rerun was temporarily blocked by concurrent queue adapter changes outside provider ownership; the provider-complete tsc run was green."
+  ]
+}

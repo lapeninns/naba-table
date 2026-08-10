@@ -1,0 +1,556 @@
+{
+  "numTotalTestSuites": 10,
+  "numPassedTestSuites": 10,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 48,
+  "numPassedTests": 48,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1786277980778,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["supported exact-consent adapter"],
+          "fullName": "supported exact-consent adapter renders preview without a mutation and dispatches that exact request only with a permit",
+          "status": "passed",
+          "title": "renders preview without a mutation and dispatches that exact request only with a permit",
+          "duration": 2.8848330000000146,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["supported exact-consent adapter"],
+          "fullName": "supported exact-consent adapter blocks unsupported fields before linking or provider access",
+          "status": "passed",
+          "title": "blocks unsupported fields before linking or provider access",
+          "duration": 0.4675409999999829,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["supported exact-consent adapter"],
+          "fullName": "supported exact-consent adapter marks a listing timeout as unknown only after the permit-aware mutation dispatch rejects",
+          "status": "passed",
+          "title": "marks a listing timeout as unknown only after the permit-aware mutation dispatch rejects",
+          "duration": 0.49220900000000256,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["supported exact-consent adapter"],
+          "fullName": "supported exact-consent adapter renders FoodMenus as a destructive full-resource menus replacement without persisting preview content",
+          "status": "passed",
+          "title": "renders FoodMenus as a destructive full-resource menus replacement without persisting preview content",
+          "duration": 1.1732920000000036,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786277982764,
+      "endTime": 1786277982769.1733,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-exact-consent-adapter.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["exact-consent grant repository"],
+          "fullName": "exact-consent grant repository maps a preview into ordered hash-only grant issue records",
+          "status": "passed",
+          "title": "maps a preview into ordered hash-only grant issue records",
+          "duration": 2.1003339999999753,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact-consent grant repository"],
+          "fullName": "exact-consent grant repository uses the atomic issue-and-enqueue RPC and per-grant lifecycle RPCs",
+          "status": "passed",
+          "title": "uses the atomic issue-and-enqueue RPC and per-grant lifecycle RPCs",
+          "duration": 0.572749999999985,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact-consent grant repository"],
+          "fullName": "exact-consent grant repository binds every permit and claim hash to the exact ordered grant bundle",
+          "status": "passed",
+          "title": "binds every permit and claim hash to the exact ordered grant bundle",
+          "duration": 0.26191699999998264,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786277983170,
+      "endTime": 1786277983172.5728,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-exact-consent-repository.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["exact-consent confirmation workflow"],
+          "fullName": "exact-consent confirmation workflow issues grants and the immutable queue job through one atomic RPC",
+          "status": "passed",
+          "title": "issues grants and the immutable queue job through one atomic RPC",
+          "duration": 4.170042000000024,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact-consent confirmation workflow"],
+          "fullName": "exact-consent confirmation workflow performs zero issuance when an untrusted confirmation is tampered",
+          "status": "passed",
+          "title": "performs zero issuance when an untrusted confirmation is tampered",
+          "duration": 0.8126659999999788,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact-consent confirmation workflow"],
+          "fullName": "exact-consent confirmation workflow classifies a Google Updates timeout as preflight unavailable before grant issuance",
+          "status": "passed",
+          "title": "classifies a Google Updates timeout as preflight unavailable before grant issuance",
+          "duration": 0.4665830000000142,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact-consent confirmation workflow"],
+          "fullName": "exact-consent confirmation workflow classifies an atomic issue-and-enqueue failure as issuance, never outcome unknown",
+          "status": "passed",
+          "title": "classifies an atomic issue-and-enqueue failure as issuance, never outcome unknown",
+          "duration": 0.3946250000000191,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact-consent confirmation workflow"],
+          "fullName": "exact-consent confirmation workflow classifies an atomic issue-and-claim failure as issuance, never outcome unknown",
+          "status": "passed",
+          "title": "classifies an atomic issue-and-claim failure as issuance, never outcome unknown",
+          "duration": 1.0330409999999688,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786277982442,
+      "endTime": 1786277982449.033,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-exact-consent-workflow.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent maps typed domain and provider failures to allowlisted public messages",
+          "status": "passed",
+          "title": "maps typed domain and provider failures to allowlisted public messages",
+          "duration": 1.12600000000009,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent builds a deterministic private preview without invoking mutation dependencies",
+          "status": "passed",
+          "title": "builds a deterministic private preview without invoking mutation dependencies",
+          "duration": 1.1106669999999212,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a tampered group even when the submitted fingerprint is unchanged",
+          "status": "passed",
+          "title": "rejects a tampered group even when the submitted fingerprint is unchanged",
+          "duration": 1.6295000000000073,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a tampered request hash with an unchanged fingerprint",
+          "status": "passed",
+          "title": "rejects a tampered request hash with an unchanged fingerprint",
+          "duration": 0.27195799999992687,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a tampered decision hash with an unchanged fingerprint",
+          "status": "passed",
+          "title": "rejects a tampered decision hash with an unchanged fingerprint",
+          "duration": 0.2051249999999527,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a tampered epoch with an unchanged fingerprint",
+          "status": "passed",
+          "title": "rejects a tampered epoch with an unchanged fingerprint",
+          "duration": 0.22116700000003675,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a tampered snapshot pin with an unchanged fingerprint",
+          "status": "passed",
+          "title": "rejects a tampered snapshot pin with an unchanged fingerprint",
+          "duration": 0.13608399999998255,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a tampered expiry with an unchanged fingerprint",
+          "status": "passed",
+          "title": "rejects a tampered expiry with an unchanged fingerprint",
+          "duration": 0.387833999999998,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent keeps the plan fingerprint stable when a fresh approval window is issued",
+          "status": "passed",
+          "title": "keeps the plan fingerprint stable when a fresh approval window is issued",
+          "duration": 0.6263750000000528,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent requires a separate Google attribute comparison before attribute writes",
+          "status": "passed",
+          "title": "requires a separate Google attribute comparison before attribute writes",
+          "duration": 0.3348750000000109,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent blocks all provider groups for an unknown update path and overlapping groups for prefix masks",
+          "status": "passed",
+          "title": "blocks all provider groups for an unknown update path and overlapping groups for prefix masks",
+          "duration": 0.691167000000064,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent creates a strict hash-only one-attempt queue payload",
+          "status": "passed",
+          "title": "creates a strict hash-only one-attempt queue payload",
+          "duration": 1.0071659999999838,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent strictly parses the database-built queue envelope and rejects content keys",
+          "status": "passed",
+          "title": "strictly parses the database-built queue envelope and rejects content keys",
+          "duration": 0.9844999999999118,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent blocks issuance when pause eligibility fails",
+          "status": "passed",
+          "title": "blocks issuance when pause eligibility fails",
+          "duration": 0.22079099999996288,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent blocks issuance when rollout eligibility fails",
+          "status": "passed",
+          "title": "blocks issuance when rollout eligibility fails",
+          "duration": 0.06891600000005838,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent blocks issuance when readiness eligibility fails",
+          "status": "passed",
+          "title": "blocks issuance when readiness eligibility fails",
+          "duration": 0.05579200000011042,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent blocks issuance when export flag eligibility fails",
+          "status": "passed",
+          "title": "blocks issuance when export flag eligibility fails",
+          "duration": 0.06141600000000835,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent rejects a queued envelope when its current request hash is stale",
+          "status": "passed",
+          "title": "rejects a queued envelope when its current request hash is stale",
+          "duration": 0.21404200000006313,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent fails stop after an ambiguous dispatch and cancels remaining groups",
+          "status": "passed",
+          "title": "fails stop after an ambiguous dispatch and cancels remaining groups",
+          "duration": 0.2707910000000311,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["exact GBP write consent"],
+          "fullName": "exact GBP write consent distinguishes definitive provider rejection from a pre-dispatch crash",
+          "status": "passed",
+          "title": "distinguishes definitive provider rejection from a pre-dispatch crash",
+          "duration": 0.09120800000005147,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786277982019,
+      "endTime": 1786277982028.2708,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-exact-consent.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles issues ordered permits without making a second claim",
+          "status": "passed",
+          "title": "issues ordered permits without making a second claim",
+          "duration": 2.5866249999999695,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles claims a queued complete bundle once and issues one permit per grant",
+          "status": "passed",
+          "title": "claims a queued complete bundle once and issues one permit per grant",
+          "duration": 0.447749999999985,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects non-claimed status",
+          "status": "passed",
+          "title": "rejects non-claimed status",
+          "duration": 0.4706249999999841,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects partial bundle",
+          "status": "passed",
+          "title": "rejects partial bundle",
+          "duration": 0.16604200000000446,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects reordered rows",
+          "status": "passed",
+          "title": "rejects reordered rows",
+          "duration": 0.4345840000000294,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects duplicate grant",
+          "status": "passed",
+          "title": "rejects duplicate grant",
+          "duration": 0.16133300000001327,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects mismatched group",
+          "status": "passed",
+          "title": "rejects mismatched group",
+          "duration": 0.17704099999997425,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects mismatched binding",
+          "status": "passed",
+          "title": "rejects mismatched binding",
+          "duration": 0.13470799999998917,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles rejects an unknown content-bearing database field",
+          "status": "passed",
+          "title": "rejects an unknown content-bearing database field",
+          "duration": 0.3759579999999687,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles dispatches and finalizes each grant independently and rejects replay",
+          "status": "passed",
+          "title": "dispatches and finalizes each grant independently and rejects replay",
+          "duration": 0.9223749999999882,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles marks only a durably finalized ambiguous provider write as outcome unknown",
+          "status": "passed",
+          "title": "marks only a durably finalized ambiguous provider write as outcome unknown",
+          "duration": 0.5615829999999846,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles does not mark a FoodMenus eligibility timeout before permit dispatch",
+          "status": "passed",
+          "title": "does not mark a FoodMenus eligibility timeout before permit dispatch",
+          "duration": 4.338833999999963,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles redacts a post-dispatch response-schema failure behind the outcome marker",
+          "status": "passed",
+          "title": "redacts a post-dispatch response-schema failure behind the outcome marker",
+          "duration": 0.7618339999999648,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles does not emit an outcome marker when unknown finalization fails",
+          "status": "passed",
+          "title": "does not emit an outcome marker when unknown finalization fails",
+          "duration": 0.3980420000000322,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles propagates consumed finalization failure without a second finalization attempt",
+          "status": "passed",
+          "title": "propagates consumed finalization failure without a second finalization attempt",
+          "duration": 0.22566600000004655,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["claimed Google write permit bundles"],
+          "fullName": "claimed Google write permit bundles uses per-grant dispatch and finalize RPC identities",
+          "status": "passed",
+          "title": "uses per-grant dispatch and finalize RPC identities",
+          "duration": 0.2001250000000141,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786277981281,
+      "endTime": 1786277981294.2002,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile/write-permit-bundle.test.ts"
+    }
+  ]
+}

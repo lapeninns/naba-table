@@ -1,0 +1,72 @@
+{
+  "task": "Wave2D truthful operational terminal-notice delivery lifecycle",
+  "status": "complete",
+  "criteria": [
+    {
+      "scenario": "Confirmed external call followed by durable-finalize failure and a later recovery run",
+      "invocation": "node --import tsx .omo/evidence/gbp-wave2d-truthful-delivery-driver.ts",
+      "observable": "The DB-like store transitions pending -> claimed -> dispatched before the call, records exactly one transport invocation, then recovers the stranded dispatched row to outcome_unknown without claiming or emitting it again",
+      "artifact": ".omo/evidence/gbp-wave2d-truthful-delivery-manual.json"
+    },
+    {
+      "scenario": "Console and webhook transport outcomes are never silently treated as success",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-notifications.test.ts",
+      "observable": "Confirmed calls, logger failure, terminal 400, retryable 429, ambiguous 503, network failure, missing transport, and composed-port uncertainty all return typed confirmed_success, definitive_rejection, or ambiguous_failure results; no arbitrary endpoint idempotency header is sent",
+      "artifact": ".omo/evidence/gbp-wave2d-truthful-delivery-focused.log"
+    },
+    {
+      "scenario": "Terminal notice worker performs durable dispatch before action and maps every typed result truthfully",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-terminal-notices.test.ts tests/server/dual-sync-notifications-cron-route.test.ts tests/server/google-business-profile-notifications-route.test.ts",
+      "observable": "27/27 focused tests pass across four files, proving dispatch-before-emit ordering, bounded retryable rejection, terminal rejection, ambiguous outcome_unknown, stale dispatched recovery without re-emission, exact RPC bindings, operational census alerting, no-store GET status, and separate provider/operational instructions",
+      "artifact": ".omo/evidence/gbp-wave2d-truthful-delivery-focused.log"
+    },
+    {
+      "scenario": "Database lifecycle prevents selection or replay after dispatch uncertainty",
+      "invocation": "Exact-current PostgreSQL behavioral driver in .omo/evidence/gbp-wave1a-schema-driver.sql",
+      "observable": "Driver emits pass markers for crash-before-dispatch retry, dispatched ambiguous no-retry, finalize-gap recovery no-reemit, confirmed delivery, terminal rejection, and final driver pass",
+      "artifact": ".omo/evidence/gbp-wave1a-schema-pg-current.log"
+    },
+    {
+      "scenario": "Broad dual-sync and canonical Google Business Profile route regression",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync*.test.ts tests/server/google-business-profile-pubsub-route.test.ts tests/server/google-business-profile-notifications-route.test.ts --reporter=dot",
+      "observable": "96 files and 596 tests pass",
+      "artifact": ".omo/evidence/gbp-wave2d-truthful-delivery-broad.log"
+    },
+    {
+      "scenario": "Schema and runtime static gates",
+      "invocation": "Schema Vitest; tsc --noEmit; scoped ESLint; Prettier check; git diff --check",
+      "observable": "Schema contract 18/18 passes and all TypeScript, lint, formatting, and whitespace gates exit zero",
+      "artifacts": [
+        ".omo/evidence/gbp-wave2d-truthful-delivery-schema-static.log",
+        ".omo/evidence/gbp-wave2d-truthful-delivery-typecheck.log",
+        ".omo/evidence/gbp-wave2d-truthful-delivery-eslint.log",
+        ".omo/evidence/gbp-wave2d-truthful-delivery-format.log",
+        ".omo/evidence/gbp-wave2d-truthful-delivery-diff.log"
+      ]
+    }
+  ],
+  "implementation": {
+    "durable_order": "claim -> dispatch_gbp_terminal_notice_v1 -> operational action -> finalize_gbp_terminal_notice_v1",
+    "confirmed_success": "delivered",
+    "retryable_definitive_rejection": "retryable_failure with database-bounded attempts/backoff",
+    "nonretryable_definitive_rejection": "terminal_failure",
+    "ambiguous_failure": "outcome_unknown",
+    "finalize_gap": "expired dispatched rows recover to outcome_unknown and are never claimed or emitted again",
+    "in_app_guarantee": "terminal notice materialization remains the durable in-app record independently of operational delivery",
+    "api_truth": "canonical no-store GET exposes safe status/timestamps/error code and separate provider/operational instructions; census exposes dispatched and outcome_unknown counts"
+  },
+  "evidence_sha256": {
+    ".omo/evidence/gbp-wave2d-truthful-delivery-focused.log": "5cc6ec24e4cfe9172c5f5d057cefbce94274a0053d951614800ff660fbd2c00c",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-broad.log": "c7896464d0c8606b7cef14ea99f282829292e9e30931da05c89d7d23029b6f9f",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-typecheck.log": "2b6c646827ea6a1346efaa5d010fc5eeb7ad89a73ae1803bec8ad6d2a435cebe",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-eslint.log": "9c6a083b8af78ca73246327ea1ff9dc6813a7f02b2d2259198d6f235daff7954",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-format.log": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-diff.log": "fc81ad274059f2c11e11919bd7917d3cb983ca6112ed1485c747dd6f55350b02",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-manual.json": "0df90cc93a68bda9f990274c517d283a062fce241375946dc912716746ce1a92",
+    ".omo/evidence/gbp-wave2d-truthful-delivery-schema-static.log": "6b555ff0189ec0aca477895fca41450cc98027bc9a7ac2ded1e2b31a75101cde",
+    ".omo/evidence/gbp-wave1a-schema-pg-current.log": "a8309aacb83eaf978dabb941b57084103081424998355f2f739b2ad6f510fd67"
+  },
+  "external_limits": [
+    "No live operational webhook or hosted Supabase environment was invoked; transport behavior used deterministic fakes and durable lifecycle behavior used ephemeral PostgreSQL."
+  ]
+}

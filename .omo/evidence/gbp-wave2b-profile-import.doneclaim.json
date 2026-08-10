@@ -1,0 +1,68 @@
+{
+  "claim": "DONE",
+  "scope": "Wave 2B atomic fenced profile import",
+  "production": {
+    "source": "server/dual-sync/publish/ports/profile-import.ts",
+    "readBoundary": "restaurant_external_profiles filtered by server restaurant, google_business_profile provider, and linked status",
+    "mutation": "apply_gbp_profile_import_to_core_v1",
+    "directCoreWrites": 0,
+    "directProjectionDeletes": 0,
+    "fallbackWrites": 0
+  },
+  "scenarios": [
+    {
+      "name": "five_supported_fields",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-profile-import-port.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "profile.name, contactPhone, address, googleMapUrl, and googleReviewUrl each invoke exactly one RPC with exact server-derived tenant/profile/account/location/generation/epoch fence"
+    },
+    {
+      "name": "nullable_values",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-profile-import-port.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "nullable contactPhone/address/googleMapUrl/googleReviewUrl pass p_value=null"
+    },
+    {
+      "name": "unsupported_field",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-profile-import-port.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "businessDescription and non-profile field return PORT_FAILURE with zero profile reads and zero RPCs"
+    },
+    {
+      "name": "stale_or_cross_tenant_fence",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-profile-import-port.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "missing/cross-tenant linked profile invokes zero RPC; stale RPC rejection returns fixed safe failure with no fallback update/delete"
+    },
+    {
+      "name": "database_error_redaction",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-profile-import-port.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "returned and thrown profile-read/RPC errors expose only Google profile import could not be applied"
+    }
+  ],
+  "focused": {
+    "passed": 17,
+    "failed": 0
+  },
+  "integration": {
+    "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-profile-import-port.test.ts tests/server/dual-sync-profile-import-domain.test.ts tests/server/dual-sync-core-outbox-reconciliation.test.ts tests/server/dual-sync-core-outbox-route.test.ts tests/server/dual-sync-core-outbox.test.ts tests/server/google-business-profile-core-sync-operating-hours.test.ts tests/server/google-business-profile-core-sync-profile.test.ts tests/server/google-business-profile-core-sync-service-periods.test.ts tests/server/google-business-profile-service-core-sync-runtime.test.ts tests/server/outbox.test.ts tests/server/restaurant-google-business-profile-core-sync-routes.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2b-profile-import.integration.json --pool=forks --maxWorkers=1",
+    "passed": 67,
+    "failed": 0,
+    "artifact": ".omo/evidence/gbp-wave2b-profile-import.integration.json"
+  },
+  "gates": {
+    "typecheck": "pass",
+    "lint": "pass",
+    "format": "pass",
+    "diffCheck": "pass"
+  },
+  "inventory": {
+    "invocation": "node scripts/verify/gbp-inventory.mjs > .omo/evidence/gbp-wave2b-profile-import.inventory.json",
+    "ok": true,
+    "unknown": 0,
+    "stale": 0,
+    "artifact": ".omo/evidence/gbp-wave2b-profile-import.inventory.json"
+  },
+  "sourceAudit": {
+    "profile-import.ts": 109,
+    "escapeHatchesIntroduced": 0,
+    "singleResponsibility": "project one supported Google profile field, load the current server-side fence, and invoke the atomic import RPC"
+  },
+  "externalBlockers": []
+}

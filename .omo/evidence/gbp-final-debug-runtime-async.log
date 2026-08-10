@@ -1,0 +1,13 @@
+$ node --import tsx .omo/evidence/gbp-wave2d-truthful-delivery-driver.ts
+{
+  "scenario": "durable-dispatch-confirmed-call-finalize-failure-recovery",
+  "finalizeFailureObserved": true,
+  "transportCalls": 1,
+  "finalStatus": "outcome_unknown",
+  "transitions": ["pending->claimed", "claimed->dispatched:gbp-terminal:notice-1:lease-1", "dispatched->outcome_unknown"],
+  "recovery": {"claimed": 0, "delivered": 0, "failed": 0, "outcomeUnknown": 1}
+}
+
+$ ./node_modules/.bin/vitest run <async/notice pack> --reporter=dot
+Test Files 6 passed (6)
+Tests 41 passed (41)

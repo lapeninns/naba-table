@@ -1,0 +1,123 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > validates Supabase project refs exactly from DB host and user 2ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > validates Supabase API project refs by exact HTTPS Supabase host 2ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > fails closed for destructive production apply without confirmation and break-glass 2ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > requires explicit production target env when requested 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > treats the production project ref itself as production even without target env 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > rejects production target env when the DB URL points at a different project 1ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards production API scripts with exact project ref and target env 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > requires staging env, exact project ref, and confirmation for staging writes 1ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps Postgres TLS certificate verification enabled by default 1ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps Postgres TLS certificate verification enabled when a CA is provided inline 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps database scripts from disabling TLS certificate verification 2ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps production access dry-run auth resolution read-only 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards staging staff import before constructing the destination admin client 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > requires the Supabase region probe password from environment only 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > does not pass Vercel tokens on the setup-notifications-domain command line 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > does not log soft-hold session tokens from manual table assignment release failures 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > does not pass Vercel tokens on the setup-notifications-domain command line 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > does not log soft-hold session tokens from manual table assignment release failures 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps SQL file runner behind mandatory project-ref validation and production confirmation 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps fixed SQL executor staging-only with explicit confirmation 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards schema optimization runner as a confirmed staging script 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards production optimization runner and fails hard on DDL phase errors 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards staging owner bootstrap before password persistence or service-role clients 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards staging email delivery smoke before service-role reads and redacts recipients 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards auth reset script for explicit staging or production targets before admin client use 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > guards staging perf seed against stale linked refs and actual DB URL mismatch 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps synthetic booking seed scripts staging-only and explicit restaurant targeted 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > requires explicit restaurant seed owner and target guard 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > validates GBP FoodMenus proof against the actual service-role URL 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > retires historical FoodMenus Google mutation scripts 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > maps the FoodMenus rollout confirmation into the delegated SQL runner only after wrapper checks 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > verifies FoodMenus service-role policies by expected table and policy name 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > keeps SMS backfill artifacts free of raw booking identifiers and Twilio message ids 0ms
+ ✓ tests/scripts/db-safety.test.ts > script DB safety > counts cross-restaurant zone adjacency edges as verification failures 0ms
+stderr | tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > continues past tenants that throw and records the error
+[dual-sync:tenant_run_failed] {
+  kind: 'tenant_run_failed',
+  severity: 'error',
+  summary: 'Auto-export run for rest-1 threw: rest-1 blew up',
+  restaurantId: 'rest-1',
+  errorMessage: 'rest-1 blew up',
+  occurredAt: '2026-08-09T09:52:04.115Z'
+}
+
+stderr | tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > rethrows when onError is "throw"
+[dual-sync:tenant_run_failed] {
+  kind: 'tenant_run_failed',
+  severity: 'error',
+  summary: 'Auto-export run for rest-1 threw: boom',
+  restaurantId: 'rest-1',
+  errorMessage: 'boom',
+  occurredAt: '2026-08-09T09:52:04.116Z'
+}
+
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForRestaurant > returns an empty result when no candidates are open 1ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForRestaurant > discovers eligible candidates without publishing or creating a mutation job 1ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForRestaurant > skips candidates without a baseline GBP hash and does not call publish if none remain 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForRestaurant > respects maxCandidates and only considers the first N 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForRestaurant > accepts a legacy actor attribution without publishing 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > returns an empty fan-out when no tenants have open candidates 3ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > discovers candidates for each tenant without publishing 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > still discovers candidates when dryRun is true because discovery is non-mutating 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > forwards maxRestaurants and maxCandidatesPerRestaurant to the discovery + per-tenant runner 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > continues past tenants that throw and records the error 1ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > rethrows when onError is "throw" 1ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > emits a tenant_run_failed notification when a tenant throws 0ms
+ ✓ tests/server/dual-sync-auto-export.test.ts > runAutoExportForAllTenants > emits no notification when candidate discovery succeeds 0ms
+ ✓ tests/server/dual-sync-auto-export-route.test.ts > dual-sync auto-export route > does not enqueue a durable auto-export job because candidate discovery is synchronous 5ms
+ ✓ tests/server/dual-sync-auto-export-route.test.ts > dual-sync auto-export route > preserves restaurant access checks before queuing 1ms
+ ✓ tests/server/dual-sync-auto-export-route.test.ts > dual-sync auto-export route > blocks auto-candidate export when the runtime control is disabled 1ms
+ ✓ tests/server/dual-sync-auto-export-route.test.ts > dual-sync auto-export route > returns 409 without queuing or running when restaurant sync is paused 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns the shared auth response from workflow GET 3ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > creates a draft with the authenticated actor id 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > updates draft approvals only after payload validation 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns workflow update errors in the shared client message field 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns conflict when a draft update targets a non-editable state 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > requires password confirmation before publish 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > preflights selected approvals without password confirmation 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > preflights a reviewed Google-only write-back request 0ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns conflict when the workflow publish detects a stale draft 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns conflict with stage guidance when publishing a draft still in review 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns conflict when preflight is run against a draft still in review 1ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns conflict when publish targets a non-publishable draft state 0ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > retires Google write-back publishing before password or provider calls 0ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns a sanitized message for unexpected workflow publish errors 0ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > sanitizes non-Error workflow publish messages 0ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > retires Google retry before password or provider calls 0ms
+ ✓ tests/server/google-business-profile-workflow-routes.test.ts > google business profile workflow routes > returns the retirement response when Google retry is disabled 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > returns the shared auth response for projection preparation 3ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > validates projection payloads before calling the service 2ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > rate limits FoodMenus projections before service-role snapshot writes 1ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > accepts the expanded Google cuisine enum and rejects invalid cuisines 2ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > prepares a Nabatable projection through the service layer 1ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > validates import-review Google FoodMenus payloads before calling the service 1ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > lists pending FoodMenus import-review rows for operator review 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > prepares a non-mutating import review through the service layer 2ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > refreshes Google FoodMenus server-side before preparing an import review 1ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > validates Google FoodMenus refresh import-review payloads 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > validates import-review decision payloads before calling the service 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > applies an explicit import-review decision through the service layer 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > retires standalone FoodMenus publishing before budget or provider calls 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > returns the terminal retirement response for a stale FoodMenus baseline 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > returns the terminal retirement response for a stale FoodMenus projection 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > returns the terminal retirement response before a FoodMenus provider failure 0ms
+ ✓ tests/server/google-business-profile-food-menus-routes.test.ts > GBP FoodMenus routes > returns the terminal retirement response before validating FoodMenus payloads 0ms
+ ✓ tests/server/restaurant-google-business-profile-core-sync-routes.test.ts > restaurant GBP core sync routes > requires a password for profile sync actions 5ms
+ ✓ tests/server/restaurant-google-business-profile-core-sync-routes.test.ts > restaurant GBP core sync routes > retires legacy profile pushes before password or provider calls 2ms
+ ✓ tests/server/restaurant-google-business-profile-core-sync-routes.test.ts > restaurant GBP core sync routes > forwards selected operating-hours rows after password confirmation 2ms
+ ✓ tests/server/restaurant-google-business-profile-core-sync-routes.test.ts > restaurant GBP core sync routes > retires legacy operating-hours pushes before password or provider calls 1ms
+ ✓ tests/server/restaurant-google-business-profile-core-sync-routes.test.ts > restaurant GBP core sync routes > retires legacy service-period pushes before password or provider calls 1ms
+ ✓ tests/scripts/gbp-inventory.test.ts > GBP inventory governance scanner > rejects an unlisted direct Google mutation caller 265ms
+ ✓ tests/scripts/gbp-inventory.test.ts > GBP inventory governance scanner > rejects an unlisted Google-derived content column 193ms
+ ✓ tests/scripts/gbp-inventory.test.ts > GBP inventory governance scanner > reports unknown create/delete calls and external content beside an allowlisted match 185ms
+ ✓ tests/scripts/gbp-inventory.test.ts > GBP inventory governance scanner > treats source comments as inert and rejects malformed or stale manifests 560ms
+
+ Test Files  7 passed (7)
+      Tests  94 passed (94)
+   Start at  10:52:03
+   Duration  1.78s (transform 877ms, setup 378ms, import 1.50s, tests 1.28s, environment 2.61s)
+

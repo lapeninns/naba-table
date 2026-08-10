@@ -1,0 +1,57 @@
+{
+  "task": "Independent re-verification of Wave2C PostHog parent-domain cookie privacy repair",
+  "recordedAt": "2026-08-09T16:24:11Z",
+  "status": "complete",
+  "doneClaim": true,
+  "browser": {
+    "scenario": "A real parent-domain ph_domain_posthog cookie on .example.test is removed using the production expiry-domain contract on the sensitive GBP boundary",
+    "invocation": "env PLAYWRIGHT_JSON_OUTPUT_FILE=.omo/evidence/gbp-wave2c-cookie-playwright-reverified.json ./node_modules/.bin/playwright test --config=tests/e2e/analytics-privacy.playwright.config.ts --reporter=json",
+    "processObservable": "exit 0; 1 test passed",
+    "playwrightVersion": "1.58.1",
+    "cookieObservable": {
+      "hostname": "app.example.test",
+      "expiryDomains": [null, "app.example.test", "example.test"],
+      "before": [{ "domain": ".example.test", "name": "ph_domain_posthog" }],
+      "after": []
+    },
+    "artifact": ".omo/evidence/gbp-wave2c-cookie-playwright-reverified.json",
+    "artifactSha256": "ac4acc00ecc767731b2d29f6d86dccd2ca6dbc713ad6405e58e7bc318118f0e1"
+  },
+  "focusedTests": {
+    "invocation": "./node_modules/.bin/vitest run tests/lib/posthog/provider-privacy.test.tsx tests/app/layout-analytics-privacy.test.tsx --reporter=json --outputFile=.omo/evidence/gbp-wave2c-cookie-focused-tests-reverified.json",
+    "observable": "exit 0; success=true; 5/5 tests passed",
+    "artifact": ".omo/evidence/gbp-wave2c-cookie-focused-tests-reverified.json",
+    "artifactSha256": "d43751bb2440e1fb60954cbafd9e7ea679b9cb6b758bd2b33ea056b7362c365a"
+  },
+  "staticGates": [
+    {
+      "name": "TypeScript",
+      "invocation": "./node_modules/.bin/tsc --noEmit --pretty false",
+      "observable": "exit 0; no diagnostics"
+    },
+    {
+      "name": "ESLint",
+      "invocation": "./node_modules/.bin/eslint -f json -o .omo/evidence/gbp-wave2c-cookie-eslint-reverified.json <six scoped files>",
+      "observable": "exit 0; 6 files; 0 errors; 0 warnings",
+      "artifact": ".omo/evidence/gbp-wave2c-cookie-eslint-reverified.json",
+      "artifactSha256": "db2e1ecfd39b5989731a28ee190a5d7c1c553606d5da1966df1118fb1e8f83e5"
+    },
+    {
+      "name": "Prettier",
+      "invocation": "./node_modules/.bin/prettier --check <six scoped files>",
+      "observable": "exit 0; all matched files use Prettier code style"
+    },
+    {
+      "name": "Scoped diff check",
+      "invocation": "git diff --check -- <six scoped files>",
+      "observable": "exit 0; no whitespace errors"
+    }
+  ],
+  "sourceHashes": {
+    "lib/posthog/provider.tsx": "3a8cd0792fcc859fd043f5e187296593df70999f78599eddd7826ad34a9605d4",
+    "tests/lib/posthog/provider-privacy.test.tsx": "3508e073306c888aac5f5eb48904a0daccdc36f2c68cf65ea5ce99e0b368fd7c",
+    "tests/e2e/posthog-cookie-privacy.spec.ts": "35cc214869dccdced8bdea88bc00c8c94f3a4fd23f7deeff6f0d51a5a3ebb346",
+    "tests/e2e/analytics-privacy.playwright.config.ts": "d1e72035fb803678f7d507b8bcd88b36355d7ea5003a552bdb5bbc5a73415e49"
+  },
+  "blockers": []
+}

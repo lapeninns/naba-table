@@ -1,0 +1,14 @@
+
+[2mRunning [22m5[2m tests using [22m1[2m worker[22m
+
+(node:10395) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10395) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+     [2m1 [22m[2m…, and outcome recovery @p1 @browser @contract @external-mock @local-only[22m
+[1A[2K[0G  [32m✓[39m  [2m1 [22m…utcome recovery @p1 @browser @contract @external-mock @local-only[2m (8.7s)[22m[1E     [2m2 [22m[2m…nd unconfigured states @p1 @browser @contract @external-mock @local-only[22m
+[1A[2K[0G  [32m✓[39m  [2m2 [22m…nfigured states @p1 @browser @contract @external-mock @local-only[2m (2.0s)[22m[1E     [2m3 [22m[2m…thout publish controls @p1 @browser @contract @external-mock @local-only[22m
+[1A[2K[0G  [32m✓[39m  [2m3 [22m…ublish controls @p1 @browser @contract @external-mock @local-only[2m (1.8s)[22m[1E     [2m4 [22m[2m… picker before linking @p1 @browser @contract @external-mock @local-only[22m
+[1A[2K[0G  [32m✓[39m  [2m4 [22m… before linking @p1 @browser @contract @external-mock @local-only[2m (1.8s)[22m[1E     [2m5 [22m[2m…d on the shipped route @p1 @browser @contract @external-mock @local-only[22m
+[1A[2K[0G  [32m✓[39m  [2m5 [22m…e shipped route @p1 @browser @contract @external-mock @local-only[2m (2.4s)[22m[1E
+[32m  5 passed[39m[2m (17.3s)[22m

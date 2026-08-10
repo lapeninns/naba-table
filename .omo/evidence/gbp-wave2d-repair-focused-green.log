@@ -1,0 +1,28 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > requires a fresh preview for an unknown provider outcome 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > classifies unresolved notices overdue only after the forty-eight-hour SLA 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > emits a metadata-only operational notice for an overdue delivery 2ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > materializes a terminal event with the safe reason and exact terminal timestamp 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > claims, emits, and finalizes terminal notices without provider content 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > finalizes a failed delivery as retryable using only a safe error code 0ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > reclaims after emit success and finalize failure without duplicate transport delivery 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > delegates missing-notice selection to the anti-join RPC before its limit 0ms
+ ✓ tests/server/dual-sync-notifications-cron-route.test.ts > dual-sync terminal notification cron > caps claims, delivers with a lease, and emits count-only overdue SLA telemetry 5ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > routes errors to logger.error and stamps occurredAt 2ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > routes warnings to logger.warn 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > never throws when the underlying logger explodes 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > POSTs the event JSON to the configured URL 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > reports non-2xx responses via onError but does not throw 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > reports thrown transport errors via onError 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > no-ops when fetchImpl is unavailable 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > returns a no-op port for an empty list 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > returns the single port unchanged 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > fans out to every port even if one rejects 0ms
+
+ Test Files  3 passed (3)
+      Tests  19 passed (19)
+   Start at  18:57:37
+   Duration  911ms (transform 180ms, setup 506ms, import 317ms, tests 20ms, environment 1.20s)
+

@@ -1,0 +1,47 @@
+{
+  "scope": "GBP operations/runbook/release artifacts",
+  "successCriteria": [
+    {
+      "scenario": "Source-scheduled dual-sync crons are documented",
+      "invocation": "./node_modules/.bin/vitest run tests/scripts/gbp-ops-docs-contract.test.ts --reporter=verbose",
+      "observable": "All seven cron route identifiers are present in the route map contract test.",
+      "artifact": ".omo/evidence/gbp-wave4-ops-focused-tests.log"
+    },
+    {
+      "scenario": "Runbook documents permit-aware containment and rollback",
+      "invocation": "./node_modules/.bin/vitest run tests/scripts/gbp-ops-docs-contract.test.ts --reporter=verbose",
+      "observable": "The document contract requires the last permit-aware binary and explicit rollout, auto-candidate, and Pub/Sub flags off.",
+      "artifact": ".omo/evidence/gbp-wave4-ops-focused-tests.log"
+    },
+    {
+      "scenario": "External Pub/Sub, canary, rotation, retention, and backup gates are documented",
+      "invocation": "./node_modules/.bin/vitest run tests/scripts/gbp-ops-docs-contract.test.ts --reporter=verbose",
+      "observable": "The document contract verifies the external setup/readback gates and checker invocation are present.",
+      "artifact": ".omo/evidence/gbp-wave4-ops-focused-tests.log"
+    },
+    {
+      "scenario": "Release checker fails closed without external evidence",
+      "invocation": "node scripts/verify/gbp-release-readiness.mjs --input scripts/verify/gbp-release-readiness.template.json",
+      "observable": "Exit code 1 with all 18 required artifact ids missing and no metadata values echoed.",
+      "artifact": ".omo/evidence/gbp-wave4-ops-template-fail-closed.json"
+    },
+    {
+      "scenario": "Release checker accepts complete evidence and redacts invalid metadata",
+      "invocation": "./node_modules/.bin/vitest run tests/scripts/gbp-release-readiness.test.ts --reporter=verbose",
+      "observable": "Three checker contract tests pass: missing evidence fails, complete metadata succeeds, and invalid metadata is not echoed.",
+      "artifact": ".omo/evidence/gbp-wave4-ops-focused-tests.log"
+    },
+    {
+      "scenario": "Focused source formatting, linting, type checking, and diff check",
+      "invocation": "prettier --check <owned files>; eslint <owned tests>; tsc --noEmit; git diff --check -- <owned tracked files>",
+      "observable": "Each scoped command exits 0; empty lint/typecheck/diff logs and a passing Prettier output are expected.",
+      "artifact": ".omo/evidence/gbp-wave4-ops-format.log"
+    }
+  ],
+  "repositoryWideObservations": {
+    "lint": "Blocked by pre-existing concurrent edits in server/dual-sync/contracts/manifest.ts and unrelated warning-only files; no owned-file lint failure.",
+    "lintArtifact": ".omo/evidence/gbp-wave4-ops-repo-lint-observed.log",
+    "format": "Blocked by concurrent formatting drift in lib/observability/request-correlation.ts; owned files pass focused formatting.",
+    "formatArtifact": ".omo/evidence/gbp-wave4-ops-repo-format-observed.log"
+  }
+}

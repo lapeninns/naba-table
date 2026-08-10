@@ -1,0 +1,34 @@
+{
+  "status": "done",
+  "scope": "Google write permit post-dispatch finalization failure boundary",
+  "implementation": [
+    "A failed finalize after provider success returns GoogleWriteOutcomeUnknownError with GBP_WRITE_OUTCOME_UNKNOWN.",
+    "A failed finalize after ambiguous or definitive provider failure returns the same safe outcome marker.",
+    "Finalize and provider dispatch remain single-shot; raw provider and database failure details are not exposed.",
+    "The grant remains durably dispatched when finalization fails and is not falsely reported as terminalized."
+  ],
+  "scenarios": [
+    {
+      "name": "focused permit finalization repair",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/write-permit-bundle.test.ts tests/server/google-business-profile/wave1c-provider.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2d-provider-finalize-focused.json",
+      "observable": "4 suites and 34 tests passed with zero failures, including provider success, ambiguous failure, and definitive failure followed by finalize rejection",
+      "artifact": ".omo/evidence/gbp-wave2d-provider-finalize-focused.json"
+    },
+    {
+      "name": "broad provider regression",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile tests/server/google-business-profile-*.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2d-provider-finalize-broad.json",
+      "observable": "249 suites and 696 tests passed with zero failures",
+      "artifact": ".omo/evidence/gbp-wave2d-provider-finalize-broad.json"
+    },
+    {
+      "name": "static gates",
+      "invocation": "./node_modules/.bin/tsc --noEmit --pretty false; scoped eslint; prettier check; git diff --check",
+      "observable": "all commands exited zero",
+      "artifact": ".omo/evidence/gbp-wave2d-provider-finalize-summary.json"
+    }
+  ],
+  "externalLimits": [
+    "No live Google API or remote database was called.",
+    "No stale-dispatched recovery RPC adapter was bound because the schema contract was not yet declared committed; recovery remains schema/runtime-owned."
+  ]
+}

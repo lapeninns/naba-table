@@ -1,0 +1,365 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ × tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > enqueues an idempotent job with payload and priority 5ms
+   → expected "vi.fn()" to be called with arguments: [ ObjectContaining{…}, …(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   ObjectContaining {
++   {
++     "available_at": "2026-08-09T11:30:26.812Z",
+      "idempotency_key": "request-1",
+      "job_kind": "publish_batch",
+-     "max_attempts": 1,
++     "max_attempts": 3,
++     "payload": {
++       "publishBatchId": "batch-1",
++     },
+      "priority": 10,
+      "restaurant_id": "rest-1",
++     "status": "queued",
+    },
+-   ObjectContaining {
++   {
+      "ignoreDuplicates": true,
+      "onConflict": "restaurant_id,provider,job_kind,idempotency_key",
+    },
+  ]
+
+  2nd vi.fn() call:
+
+  [
+-   ObjectContaining {
+-     "idempotency_key": "request-1",
+-     "job_kind": "publish_batch",
+-     "max_attempts": 1,
+-     "priority": 10,
+-     "restaurant_id": "rest-1",
+-   },
+-   ObjectContaining {
+-     "ignoreDuplicates": true,
+-     "onConflict": "restaurant_id,provider,job_kind,idempotency_key",
+-   },
++   "*",
+  ]
+
+
+Number of calls: 2
+
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > returns the existing job when idempotent enqueue is already present 1ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > rejects idempotent enqueue when the existing payload differs 1ms
+ × tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > claims the next available queued job for a worker 1ms
+   → expected "vi.fn()" to be called with arguments: [ 'job_kind', 'publish_batch' ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   {
++     "available_at": "2026-05-09T00:01:00.000Z",
++     "last_error_code": "DUAL_SYNC_JOB_STALE_CLAIM",
++     "last_error_message": "Running job lease expired before completion.",
++     "locked_at": null,
++     "locked_by": null,
++     "status": "retrying",
++   },
+  ]
+
+  2nd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "status",
++   "running",
+  ]
+
+  3rd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "locked_at",
++   "2026-05-08T23:46:00.000Z",
+  ]
+
+
+Number of calls: 3
+
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > reclaims stale running jobs before claiming work 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > returns null when no job is claimable 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > marks jobs succeeded, retrying, and dead-letter 0ms
+ ✓ tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > lists recent jobs by restaurant with optional status filters 0ms
+ × tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > requeues a terminal job for operator retry 1ms
+   → expected "vi.fn()" to be called with arguments: [ 'job_kind', 'publish_batch' ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   {
++     "attempt_count": 0,
++     "available_at": "2026-05-09T00:06:00.000Z",
++     "dead_letter_reason": null,
++     "finished_at": null,
++     "last_error_code": null,
++     "last_error_message": null,
++     "locked_at": null,
++     "locked_by": null,
++     "started_at": null,
++     "status": "queued",
++   },
+  ]
+
+  2nd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "id",
++   "job-1",
+  ]
+
+  3rd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "restaurant_id",
++   "rest-1",
+  ]
+
+  4th vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "status",
++   [
++     "failed",
++     "dead_letter",
++     "cancelled",
++   ],
+  ]
+
+  5th vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "*",
+  ]
+
+
+Number of calls: 5
+
+ ✓ tests/server/dual-sync-exact-consent.test.ts > exact GBP write consent > builds a deterministic private preview without invoking mutation dependencies 2ms
+ ✓ tests/server/dual-sync-exact-consent.test.ts > exact GBP write consent > rejects a tampered group even when the submitted fingerprint is unchanged 0ms
+ ✓ tests/server/dual-sync-exact-consent.test.ts > exact GBP write consent > blocks all provider groups for an unknown update path and overlapping groups for prefix masks 0ms
+ ✓ tests/server/dual-sync-exact-consent.test.ts > exact GBP write consent > creates a strict hash-only one-attempt queue payload 0ms
+ ✓ tests/server/dual-sync-exact-consent.test.ts > exact GBP write consent > fails stop after an ambiguous dispatch and cancels remaining groups 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > enqueues an idempotent job with payload and priority
+AssertionError: expected "vi.fn()" to be called with arguments: [ ObjectContaining{…}, …(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   ObjectContaining {
++   {
++     "available_at": "2026-08-09T11:30:26.812Z",
+      "idempotency_key": "request-1",
+      "job_kind": "publish_batch",
+-     "max_attempts": 1,
++     "max_attempts": 3,
++     "payload": {
++       "publishBatchId": "batch-1",
++     },
+      "priority": 10,
+      "restaurant_id": "rest-1",
++     "status": "queued",
+    },
+-   ObjectContaining {
++   {
+      "ignoreDuplicates": true,
+      "onConflict": "restaurant_id,provider,job_kind,idempotency_key",
+    },
+  ]
+
+  2nd vi.fn() call:
+
+  [
+-   ObjectContaining {
+-     "idempotency_key": "request-1",
+-     "job_kind": "publish_batch",
+-     "max_attempts": 1,
+-     "priority": 10,
+-     "restaurant_id": "rest-1",
+-   },
+-   ObjectContaining {
+-     "ignoreDuplicates": true,
+-     "onConflict": "restaurant_id,provider,job_kind,idempotency_key",
+-   },
++   "*",
+  ]
+
+
+Number of calls: 2
+
+ ❯ tests/server/dual-sync-queue-jobs.test.ts:98:26
+     96|
+     97|     expect(client.from).toHaveBeenCalledWith('dual_sync_jobs');
+     98|     expect(chain.upsert).toHaveBeenCalledWith(
+       |                          ^
+     99|       expect.objectContaining({
+    100|         restaurant_id: 'rest-1',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > claims the next available queued job for a worker
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'job_kind', 'publish_batch' ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   {
++     "available_at": "2026-05-09T00:01:00.000Z",
++     "last_error_code": "DUAL_SYNC_JOB_STALE_CLAIM",
++     "last_error_message": "Running job lease expired before completion.",
++     "locked_at": null,
++     "locked_by": null,
++     "status": "retrying",
++   },
+  ]
+
+  2nd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "status",
++   "running",
+  ]
+
+  3rd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "locked_at",
++   "2026-05-08T23:46:00.000Z",
+  ]
+
+
+Number of calls: 3
+
+ ❯ tests/server/dual-sync-queue-jobs.test.ts:183:28
+    181|     );
+    182|     expect(staleChain.eq).toHaveBeenCalledWith('status', 'running');
+    183|     expect(staleChain.neq).toHaveBeenCalledWith('job_kind', 'publish_b…
+       |                            ^
+    184|     expect(staleChain.lte).toHaveBeenCalledWith('locked_at', '2026-05-…
+    185|     expect(readChain.in).toHaveBeenCalledWith('status', ['queued', 're…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/server/dual-sync-queue-jobs.test.ts > dual-sync queue job helpers > requeues a terminal job for operator retry
+AssertionError: expected "vi.fn()" to be called with arguments: [ 'job_kind', 'publish_batch' ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   {
++     "attempt_count": 0,
++     "available_at": "2026-05-09T00:06:00.000Z",
++     "dead_letter_reason": null,
++     "finished_at": null,
++     "last_error_code": null,
++     "last_error_message": null,
++     "locked_at": null,
++     "locked_by": null,
++     "started_at": null,
++     "status": "queued",
++   },
+  ]
+
+  2nd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "id",
++   "job-1",
+  ]
+
+  3rd vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "restaurant_id",
++   "rest-1",
+  ]
+
+  4th vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "status",
++   [
++     "failed",
++     "dead_letter",
++     "cancelled",
++   ],
+  ]
+
+  5th vi.fn() call:
+
+  [
+-   "job_kind",
+-   "publish_batch",
++   "*",
+  ]
+
+
+Number of calls: 5
+
+ ❯ tests/server/dual-sync-queue-jobs.test.ts:328:23
+    326|       }),
+    327|     );
+    328|     expect(chain.neq).toHaveBeenCalledWith('job_kind', 'publish_batch'…
+       |                       ^
+    329|     expect(chain.eq).toHaveBeenCalledWith('id', 'job-1');
+    330|     expect(chain.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 11 passed (14)
+   Start at  12:30:26
+   Duration  563ms (transform 111ms, setup 86ms, import 129ms, tests 14ms, environment 511ms)
+

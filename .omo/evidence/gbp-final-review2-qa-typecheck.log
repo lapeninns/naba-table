@@ -1,0 +1,4 @@
+Invocation: ./node_modules/.bin/tsc --noEmit --pretty false
+Result: PASS; exit 0.
+
+Additional cleanup: git diff --check returned exit 0; lsof checks found no listeners on ports 5180 or 5174.

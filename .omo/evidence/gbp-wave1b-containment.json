@@ -1,0 +1,63 @@
+{
+  "attempt": "gbp-wave1b-containment",
+  "status": "locally_verified",
+  "scenarios": [
+    {
+      "criterion": "Auto-export is discovery-only and cannot enqueue or call the publish orchestrator.",
+      "invocation": "node_modules/.bin/vitest run tests/server/dual-sync-auto-export.test.ts tests/server/dual-sync-auto-export-route.test.ts --reporter=verbose",
+      "binaryObservable": "12 tests pass; eligible candidates report candidatesConsidered with decisionsExecuted: 0 and publishResult: null; ?queue=1 returns 200 and invokes synchronous discovery.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-focused-vitest.log"
+    },
+    {
+      "criterion": "Legacy Google write/retry routes are terminal before password, budget, or provider service calls.",
+      "invocation": "node_modules/.bin/vitest run tests/server/google-business-profile-workflow-routes.test.ts tests/server/google-business-profile-food-menus-routes.test.ts tests/server/restaurant-google-business-profile-core-sync-routes.test.ts --reporter=verbose",
+      "binaryObservable": "44 route tests pass. Draft Google write and retry return HTTP 410 with GBP_LEGACY_GOOGLE_WRITE_RETIRED, FoodMenus returns HTTP 410 with GBP_WRITE_AUTHORIZATION_REQUIRED and retryable: false, and mocked password/budget/provider calls are asserted zero.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-focused-vitest.log"
+    },
+    {
+      "criterion": "Core-only compatibility remains available while push_to_gbp is retired.",
+      "invocation": "node_modules/.bin/vitest run tests/server/restaurant-google-business-profile-core-sync-routes.test.ts --reporter=verbose",
+      "binaryObservable": "pull_from_gbp operating-hours route returns 200 and calls its Core sync service; profile, hours, and service-period push_to_gbp routes each return 410 with zero password/provider calls.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-focused-vitest.log"
+    },
+    {
+      "criterion": "Type and style checks pass for the containment lane.",
+      "invocation": "node_modules/.bin/tsc --noEmit --pretty false; node_modules/.bin/eslint <owned files>; node_modules/.bin/prettier --check <owned files>",
+      "binaryObservable": "All commands exit 0.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-typecheck.log"
+    },
+    {
+      "criterion": "No auto-export source caller can invoke runPublish or enqueueDualSyncJob.",
+      "invocation": "rg -n 'runPublish\\s*\\(|enqueueDualSyncJob\\s*\\(' server/dual-sync/scheduling/auto-export.ts src/app/api/ops/restaurants/[id]/dual-sync/auto-export/route.ts",
+      "binaryObservable": "Empty output.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-auto-export-callgraph.log"
+    },
+    {
+      "criterion": "Inventory records this lane's removed unsafe signatures and guarded legacy compatibility routes.",
+      "invocation": "node scripts/verify/gbp-inventory.mjs",
+      "binaryObservable": "Scanner exits 0 with unknown: 0, stale: 0, and known-unsafe: 0 after adding concurrent Wave 1A schema/type entries as storage and retiring the two historical script mutation signatures.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-inventory-live.json"
+    },
+    {
+      "criterion": "Patch is whitespace-safe.",
+      "invocation": "git diff --check",
+      "binaryObservable": "Empty output and exit 0.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-diff-check.log"
+    },
+    {
+      "criterion": "Historical FoodMenus mutation scripts terminate locally before provider setup.",
+      "invocation": "node_modules/.bin/tsx -r tsconfig-paths/register scripts/prove-gbp-foodmenus-publish.ts --mode publish --restaurant-id test-restaurant; node_modules/.bin/tsx -r tsconfig-paths/register tasks/gbp-foodmenus-wipe-repush-old-crown-20260509-0000/clear-gbp-foodmenus.ts --restaurant-id test-restaurant --expected-google-hash <64 hex> --out /private/tmp/gbp-wave1b-clear.json",
+      "binaryObservable": "Both commands exit 1 with GBP_LEGACY_GOOGLE_WRITE_RETIRED, before any service-client/provider call; static test asserts the removed mutation call expressions.",
+      "artifact": ".omo/evidence/gbp-wave1b-containment-proof-script-retired.log"
+    }
+  ],
+  "laterSeam": {
+    "path": "server/dual-sync/queue/worker.ts",
+    "finding": "Pre-existing auto_export queue jobs still call runAutoExportForRestaurant, but that contained function is now discovery-only and cannot publish.",
+    "artifact": ".omo/evidence/gbp-wave1b-containment-later-seam.log"
+  },
+  "DoneClaim": {
+    "claim": "Wave 1B caller-side containment is locally verified for scheduler, runtime routes, historical FoodMenus scripts, and the live inventory gate.",
+    "limitations": []
+  }
+}

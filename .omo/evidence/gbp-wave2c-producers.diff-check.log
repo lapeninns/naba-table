@@ -1,0 +1,3 @@
+Invocation: git diff --check -- <scoped Wave2C producer files and tests>
+Exit: 0
+Observable: no whitespace errors

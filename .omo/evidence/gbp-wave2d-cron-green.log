@@ -1,0 +1,371 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails GET fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'process-emails',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails POST fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'process-emails:post',
+  reason: 'missing_secret',
+  method: 'POST',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > auto-complete fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'auto-complete-bookings',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync refresh fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'dual-sync.refresh',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync auto-export fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'dual-sync.auto-export',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync queue fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'dual-sync.queue',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync health fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'dual-sync.health',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync request-log retention fails closed when CRON_SECRET is missing
+[cron][auth] request rejected {
+  jobName: 'dual-sync.request-log-retention',
+  reason: 'missing_secret',
+  method: 'GET',
+  hasAuthHeader: false
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails GET rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'process-emails',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails POST rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'process-emails:post',
+  reason: 'unauthorized',
+  method: 'POST',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > auto-complete rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'auto-complete-bookings',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync refresh rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'dual-sync.refresh',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync auto-export rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'dual-sync.auto-export',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync queue rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'dual-sync.queue',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync health rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'dual-sync.health',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync request-log retention rejects wrong bearer tokens before work
+[cron][auth] request rejected {
+  jobName: 'dual-sync.request-log-retention',
+  reason: 'unauthorized',
+  method: 'GET',
+  hasAuthHeader: true
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > rate limits failed cron authentication before recording security events
+[cron][auth] pre-auth failure rate limit exceeded { jobName: 'process-emails', method: 'GET', ipScope: 'unknown' }
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > accepts a rotated previous secret
+[cron][lock] acquired {
+  jobName: 'process-emails',
+  runId: 'bd670624-35ea-47dd-a021-47587dbbb750'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > accepts a rotated previous secret
+[cron][lock] released {
+  jobName: 'process-emails',
+  runId: 'bd670624-35ea-47dd-a021-47587dbbb750'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps large email drain limits
+[cron][lock] acquired {
+  jobName: 'process-emails',
+  runId: 'c0fc7194-978f-4f46-9001-7722f3ee9f22'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps large email drain limits
+[cron][lock] released {
+  jobName: 'process-emails',
+  runId: 'c0fc7194-978f-4f46-9001-7722f3ee9f22'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > reports mobile review failure without hiding the completed email drain @contract
+[cron][lock] acquired {
+  jobName: 'process-emails',
+  runId: '2cc2ef1f-ae8f-4a11-a0a3-013f0ce88a2b'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > reports mobile review failure without hiding the completed email drain @contract
+[cron][lock] released {
+  jobName: 'process-emails',
+  runId: '2cc2ef1f-ae8f-4a11-a0a3-013f0ce88a2b'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > drains mobile reviews even when the email queue is disabled @contract
+[cron][lock] acquired {
+  jobName: 'process-emails',
+  runId: 'a9c321be-3a94-4ea3-a426-8faeca34539a'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > drains mobile reviews even when the email queue is disabled @contract
+[cron][lock] released {
+  jobName: 'process-emails',
+  runId: 'a9c321be-3a94-4ea3-a426-8faeca34539a'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > keeps dryRun behind auth and caps auto-complete limits
+[cron][lock] acquired {
+  jobName: 'auto-complete-bookings',
+  runId: '84ec3ab7-6f4c-4f05-aff9-5314250dc9c9'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > keeps dryRun behind auth and caps auto-complete limits
+[cron][lock] released {
+  jobName: 'auto-complete-bookings',
+  runId: '84ec3ab7-6f4c-4f05-aff9-5314250dc9c9'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits
+[cron][lock] acquired {
+  jobName: 'dual-sync.refresh',
+  runId: '13f10a59-9aaa-4c25-bcb8-ff52c55cbeea'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits
+[cron][lock] released {
+  jobName: 'dual-sync.refresh',
+  runId: '13f10a59-9aaa-4c25-bcb8-ff52c55cbeea'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits
+[cron][lock] acquired {
+  jobName: 'dual-sync.auto-export',
+  runId: '64553b35-0e9b-46cf-8ff7-72f4fb9f5af9'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits
+[cron][lock] released {
+  jobName: 'dual-sync.auto-export',
+  runId: '64553b35-0e9b-46cf-8ff7-72f4fb9f5af9'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits
+[cron][lock] acquired {
+  jobName: 'dual-sync.health',
+  runId: '1aa0440a-c991-474f-9f7c-7d095cc173eb'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits
+[cron][lock] released {
+  jobName: 'dual-sync.health',
+  runId: '1aa0440a-c991-474f-9f7c-7d095cc173eb'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > lets runtime controls disable scheduled refresh and auto-candidate export crons
+[cron][lock] acquired {
+  jobName: 'dual-sync.refresh',
+  runId: '1099b22e-ca93-4be8-a8cd-ed9936ae2ae3'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > lets runtime controls disable scheduled refresh and auto-candidate export crons
+[cron][lock] released {
+  jobName: 'dual-sync.refresh',
+  runId: '1099b22e-ca93-4be8-a8cd-ed9936ae2ae3'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > lets runtime controls disable scheduled refresh and auto-candidate export crons
+[cron][lock] acquired {
+  jobName: 'dual-sync.auto-export',
+  runId: '263eca62-a63f-4bd2-9678-9eb9b4f7be54'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > lets runtime controls disable scheduled refresh and auto-candidate export crons
+[cron][lock] released {
+  jobName: 'dual-sync.auto-export',
+  runId: '263eca62-a63f-4bd2-9678-9eb9b4f7be54'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > records dual-sync health sweep observability and returns the sweep summary
+[cron][lock] acquired {
+  jobName: 'dual-sync.health',
+  runId: 'd6644ac6-f426-45dc-bd65-9ea641b22595'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > records dual-sync health sweep observability and returns the sweep summary
+[cron][lock] released {
+  jobName: 'dual-sync.health',
+  runId: 'd6644ac6-f426-45dc-bd65-9ea641b22595'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps dual-sync queue worker drain limits and stops on idle
+[cron][lock] acquired {
+  jobName: 'dual-sync.queue',
+  runId: '83073980-6c4d-48dc-a9c8-45aaed9cd213'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps dual-sync queue worker drain limits and stops on idle
+[cron][lock] released {
+  jobName: 'dual-sync.queue',
+  runId: '83073980-6c4d-48dc-a9c8-45aaed9cd213'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > keeps dual-sync queue dryRun behind auth without claiming jobs
+[cron][lock] acquired {
+  jobName: 'dual-sync.queue',
+  runId: 'e7370d87-dee2-4a5a-8dcf-f4cd956e3c58'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > keeps dual-sync queue dryRun behind auth without claiming jobs
+[cron][lock] released {
+  jobName: 'dual-sync.queue',
+  runId: 'e7370d87-dee2-4a5a-8dcf-f4cd956e3c58'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps request-log retention limits and records count-only observability
+[cron][lock] acquired {
+  jobName: 'dual-sync.request-log-retention',
+  runId: '4ed4eb05-3cf0-4604-927f-d0d6552cf9e2'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > caps request-log retention limits and records count-only observability
+[cron][lock] released {
+  jobName: 'dual-sync.request-log-retention',
+  runId: '4ed4eb05-3cf0-4604-927f-d0d6552cf9e2'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > keeps request-log retention dryRun behind auth without deleting rows
+[cron][lock] acquired {
+  jobName: 'dual-sync.request-log-retention',
+  runId: 'cb147190-863e-4c43-8079-1818d5dce460'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > keeps request-log retention dryRun behind auth without deleting rows
+[cron][lock] released {
+  jobName: 'dual-sync.request-log-retention',
+  runId: 'cb147190-863e-4c43-8079-1818d5dce460'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > rejects overlapping executions for the same job
+[cron][lock] acquired {
+  jobName: 'auto-complete-bookings',
+  runId: '6789ed03-273e-4f78-92f3-dbd0b505fee8'
+}
+
+stderr | tests/server/cron-routes-auth.test.ts > cron route authentication > rejects overlapping executions for the same job
+[cron][lock] request rejected {
+  jobName: 'auto-complete-bookings',
+  runId: 'a9cef465-c16f-404d-ba69-a5579f75a7b6',
+  reason: 'already_running'
+}
+
+stdout | tests/server/cron-routes-auth.test.ts > cron route authentication > rejects overlapping executions for the same job
+[cron][lock] released {
+  jobName: 'auto-complete-bookings',
+  runId: '6789ed03-273e-4f78-92f3-dbd0b505fee8'
+}
+
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails GET fails closed when CRON_SECRET is missing 6ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails POST fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > auto-complete fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync refresh fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync auto-export fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync queue fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync health fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync request-log retention fails closed when CRON_SECRET is missing 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails GET rejects wrong bearer tokens before work 2ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > process-emails POST rejects wrong bearer tokens before work 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > auto-complete rejects wrong bearer tokens before work 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync refresh rejects wrong bearer tokens before work 0ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync auto-export rejects wrong bearer tokens before work 0ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync queue rejects wrong bearer tokens before work 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync health rejects wrong bearer tokens before work 0ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > dual-sync request-log retention rejects wrong bearer tokens before work 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > rate limits failed cron authentication before recording security events 0ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > accepts a rotated previous secret 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > caps large email drain limits 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > reports mobile review failure without hiding the completed email drain @contract 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > drains mobile reviews even when the email queue is disabled @contract 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > keeps dryRun behind auth and caps auto-complete limits 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > caps scheduled dual-sync provider fan-out limits 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > lets runtime controls disable scheduled refresh and auto-candidate export crons 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > records dual-sync health sweep observability and returns the sweep summary 2ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > caps dual-sync queue worker drain limits and stops on idle 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > keeps dual-sync queue dryRun behind auth without claiming jobs 0ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > caps request-log retention limits and records count-only observability 1ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > keeps request-log retention dryRun behind auth without deleting rows 0ms
+ ✓ tests/server/cron-routes-auth.test.ts > cron route authentication > rejects overlapping executions for the same job 0ms
+ ✓ tests/server/dual-sync-refresh-scheduling-v2.test.ts > scheduled Google refresh queue fan-out > uses a half-hour time bucket as the only varying idempotency input 1ms
+ ✓ tests/server/dual-sync-refresh-scheduling-v2.test.ts > scheduled Google refresh queue fan-out > enqueues reads for at most fifty linked tenants without executing provider work inline 1ms
+
+ Test Files  2 passed (2)
+      Tests  32 passed (32)
+   Start at  17:55:45
+   Duration  1.08s (transform 788ms, setup 79ms, import 1.24s, tests 33ms, environment 495ms)
+

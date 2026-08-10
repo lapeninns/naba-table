@@ -1,0 +1,18 @@
+canonical caller matches
+1458:        `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/locations`,
+legacy caller matches in client path
+none
+canonical route source markers
+4:  ensureRestaurantAdminAccess,
+8:import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+9:import { getGoogleBusinessProfileAvailableLocations } from '@/server/google-business-profile/service';
+19:    return gbpNoStoreJson(
+25:  const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile-locations');
+26:  if (access instanceof NextResponse) return gbpNoStoreResponse(access);
+32:    action: forceRefresh ? 'location-discovery-refresh' : 'location-discovery-read',
+35:  if (rateLimit) return gbpNoStoreResponse(rateLimit);
+38:    const locations = await getGoogleBusinessProfileAvailableLocations(restaurantId, undefined, {
+41:    return gbpNoStoreJson({ locations });
+43:    return gbpNoStoreJson(
+legacy compatibility route still present
+present

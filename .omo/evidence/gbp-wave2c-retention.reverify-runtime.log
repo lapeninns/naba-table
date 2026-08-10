@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "counts": {
+    "entries": 31,
+    "physicalTables": 35,
+    "unknown": 0,
+    "stale": 0
+  },
+  "unknowns": [],
+  "stale": [],
+  "methodology": "Fail-closed manifest schema and copy-parent DAG validation plus SQL provider-store/content-column census and copy-expiry reset detection."
+}
+{"ok":true,"dryRunMutated":0,"liveMutated":2,"ownerPreserved":true,"contentInResult":false}
+(node:48465) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/amankumarshrestha/LapenInns%20Project/nabatableLP/.omo/evidence/gbp-wave2c-retention.driver.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/amankumarshrestha/LapenInns Project/nabatableLP/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PRODUCER_LINEAGE_CALLS_BEGIN
+server/dual-sync/retention/supabase-port.ts:98:  const { data, error } = await client.rpc('record_gbp_content_observation_v1', {
+server/dual-sync/retention/supabase-port.ts:130:  const { data, error } = await client.rpc('inherit_gbp_content_lineage_v1', {
+PRODUCER_LINEAGE_CALLS_END

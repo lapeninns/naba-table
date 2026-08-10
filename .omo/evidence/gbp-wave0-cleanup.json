@@ -1,0 +1,9 @@
+{
+  "cleanup": {
+    "serversStarted": false,
+    "serverProcessesToStop": 0,
+    "temporaryReportsCreated": [],
+    "preExistingPnpmStoreTouched": false
+  },
+  "status": "complete"
+}

@@ -1,0 +1,14 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-google-request-logs.test.ts > createGoogleRequestLog > persists only allowlisted metadata with an inherited expiry 11ms
+ ✓ tests/server/dual-sync-google-request-logs.test.ts > createGoogleRequestLog > allows null expiry only because every supplied summary is reduced to metadata 1ms
+ ✓ tests/server/dual-sync-google-request-logs.test.ts > createGoogleRequestLog > rejects a malformed optional inherited expiry 1ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:05:16
+   Duration  421ms (transform 47ms, setup 42ms, import 60ms, tests 13ms, environment 232ms)
+
+Checking formatting...
+All matched files use Prettier code style!

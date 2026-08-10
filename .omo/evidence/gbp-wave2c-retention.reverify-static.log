@@ -1,0 +1,5 @@
+TYPECHECK_EXIT=0
+LINT_EXIT=0
+Checking formatting...
+All matched files use Prettier code style!
+DIFF_CHECK_EXIT=0

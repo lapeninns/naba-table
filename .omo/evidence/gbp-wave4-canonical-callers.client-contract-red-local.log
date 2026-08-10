@@ -1,0 +1,53 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/services/ops-restaurants-google-business-profile.test.ts > browser restaurant service Google Business Profile details > loads the rich legacy connection DTO from the dedicated details endpoint 1ms
+ × tests/services/ops-restaurants-google-business-profile.test.ts > browser restaurant service Google Business Profile details > loads available locations through the canonical profile route 3ms
+   → expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "/api/ops/restaurants/restaurant-1/google-business-profile/locations",
++   "/api/ops/restaurants/restaurant-1/google-business/locations",
+  ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/services/ops-restaurants-google-business-profile.test.ts > browser restaurant service Google Business Profile details > loads available locations through the canonical profile route
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "/api/ops/restaurants/restaurant-1/google-business-profile/locations",
++   "/api/ops/restaurants/restaurant-1/google-business/locations",
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/services/ops-restaurants-google-business-profile.test.ts:34:27
+     32|
+     33|     expect(locations).toEqual([]);
+     34|     expect(fetchJsonMock).toHaveBeenCalledWith(
+       |                           ^
+     35|       '/api/ops/restaurants/restaurant-1/google-business-profile/locat…
+     36|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:34:58
+   Duration  466ms (transform 51ms, setup 38ms, import 47ms, tests 5ms, environment 222ms)
+

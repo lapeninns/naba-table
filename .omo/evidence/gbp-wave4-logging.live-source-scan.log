@@ -1,0 +1,13 @@
+console.* runtime scan
+PASS: no console.* calls in owned runtime files
+captureServerException runtime scan (explicit safe boundary only)
+src/app/api/cron/dual-sync/core-outbox/route.ts-61-      // captureServerException sanitizes exception content before external telemetry.
+src/app/api/cron/dual-sync/core-outbox/route.ts:62:      captureServerException(error, {
+--
+src/app/api/cron/dual-sync/queue/route.ts-117-      // captureServerException sanitizes exception content before external telemetry.
+src/app/api/cron/dual-sync/queue/route.ts:118:      captureServerException(error, {
+--
+src/app/api/cron/dual-sync/auto-export/route.ts-84-      // captureServerException sanitizes exception content before external telemetry.
+src/app/api/cron/dual-sync/auto-export/route.ts:85:      captureServerException(error, {
+raw error/provider message logging scan
+PASS: no raw exception-message logging metadata in owned runtime files

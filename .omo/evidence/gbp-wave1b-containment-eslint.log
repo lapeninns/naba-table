@@ -1,0 +1,10 @@
+
+/Users/amankumarshrestha/LapenInns Project/nabatableLP/server/dual-sync/scheduling/auto-export.ts
+  18:1  error  There should be at least one empty line between import groups  import/order
+
+/Users/amankumarshrestha/LapenInns Project/nabatableLP/tasks/gbp-foodmenus-wipe-repush-old-crown-20260509-0000/clear-gbp-foodmenus.ts
+  188:7  error  'googleResponse' is never reassigned. Use 'const' instead  prefer-const
+
+✖ 2 problems (2 errors, 0 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

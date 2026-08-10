@@ -1,0 +1,17 @@
+{
+  "scenario": "durable-dispatch-confirmed-call-finalize-failure-recovery",
+  "finalizeFailureObserved": true,
+  "transportCalls": 1,
+  "finalStatus": "outcome_unknown",
+  "transitions": [
+    "pending->claimed",
+    "claimed->dispatched:gbp-terminal:notice-1:lease-1",
+    "dispatched->outcome_unknown"
+  ],
+  "recovery": {
+    "claimed": 0,
+    "delivered": 0,
+    "failed": 0,
+    "outcomeUnknown": 1
+  }
+}

@@ -1,0 +1,5 @@
+SET
+ id | lease_token | attempt_count 
+----+-------------+---------------
+(0 rows)
+

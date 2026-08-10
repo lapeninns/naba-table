@@ -1,0 +1,38 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > keeps the email queue drain route scheduled 1ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > keeps the booking auto-complete route scheduled 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/auto-export' exactly once at '*/30 * * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/queue' exactly once at '*/5 * * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/core-outbox' exactly once at '*/5 * * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/health' exactly once at '0 * * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/refresh' exactly once at '*/15 * * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/notifications' exactly once at '*/15 * * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > schedules '/api/cron/dual-sync/request-log-reten…' exactly once at '30 2 * * *' 0ms
+ ✓ tests/config/vercel-crons.test.ts > vercel cron configuration > contains exactly the active dual-sync cron set without duplicates or omissions 5ms
+ ✓ tests/server/dual-sync-auto-export-cron-route.test.ts > dual-sync auto-export cron route logging > records a safe structured failure while preserving the terminal response 5ms
+ ✓ tests/server/dual-sync-queue-cron-route.test.ts > dual-sync queue cron route logging > records safe telemetry without changing the terminal queue response 5ms
+ ✓ tests/server/google-business-profile-details-route.test.ts > GBP legacy details route > returns only the existing rich connection DTO through an admin-scoped no-store GET 5ms
+ ✓ tests/server/google-business-profile-details-route.test.ts > GBP legacy details route > preserves private no-store headers on authorization denial 1ms
+ ✓ tests/server/google-business-profile-details-route.test.ts > GBP legacy details route > does not reflect provider errors or payloads 1ms
+ ✓ tests/server/dual-sync-notifications-cron-route.test.ts > dual-sync terminal notification cron > caps claims, delivers with a lease, and emits count-only overdue SLA telemetry 6ms
+ ✓ tests/server/google-business-profile-locations-route.test.ts > Google Business Profile locations route > lists available locations through the canonical admin-scoped no-store route 5ms
+ ✓ tests/server/google-business-profile-locations-route.test.ts > Google Business Profile locations route > preserves private no-store headers when admin access is denied 1ms
+ ✓ tests/server/google-business-profile-locations-route.test.ts > Google Business Profile locations route > passes an explicit refresh through the existing discovery budget and service behavior 1ms
+ ✓ tests/server/google-business-profile-locations-route.test.ts > Google Business Profile locations route > returns a safe no-store error without reflecting provider failures 1ms
+ ✓ tests/server/google-business-profile-write-access-route.test.ts > GBP write access route > password-confirms the admin and returns the strict current connection state 5ms
+ ✓ tests/server/google-business-profile-write-access-route.test.ts > GBP write access route > rejects non-strict payloads before password confirmation or mutation 1ms
+ ✓ tests/server/google-business-profile-write-access-route.test.ts > GBP write access route > uses a safe error when the current fence or rollout rejects the transition 1ms
+ ✓ tests/server/google-business-profile-notifications-route.test.ts > Google write terminal notifications route > returns tenant-scoped safe notice metadata and SLA census with no-store headers 5ms
+ ✓ tests/server/google-business-profile-notifications-route.test.ts > Google write terminal notifications route > password-confirms an admin before enabling account participation 2ms
+ ✓ tests/server/google-business-profile-notifications-route.test.ts > Google write terminal notifications route > does not call participation when password confirmation fails 0ms
+ ✓ tests/scripts/gbp-release-readiness.test.ts > GBP release readiness checker > fails closed when required external artifact metadata is absent 40ms
+ ✓ tests/scripts/gbp-release-readiness.test.ts > GBP release readiness checker > accepts only a complete metadata-only external evidence set 27ms
+ ✓ tests/scripts/gbp-release-readiness.test.ts > GBP release readiness checker > does not echo potentially sensitive external artifact metadata on failure 26ms
+
+ Test Files  9 passed (9)
+      Tests  29 passed (29)
+   Start at  01:05:23
+   Duration  796ms (transform 448ms, setup 557ms, import 619ms, tests 152ms, environment 3.77s)
+

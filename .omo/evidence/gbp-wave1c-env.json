@@ -1,0 +1,24 @@
+{
+  "keyring": {
+    "activeKeyId": "primary-2026",
+    "keyIds": ["primary-2026"],
+    "keyCount": 1,
+    "readonlyAtRuntime": true,
+    "nullPrototype": true,
+    "activeMembershipOwnProperty": true,
+    "inheritedActiveIdsRejected": true
+  },
+  "pubsubIngress": {
+    "enabled": true,
+    "expectedAudience": "https://nabatable.example.com/api/pubsub/gbp",
+    "pushServiceAccountEmail": "gbp-push@example-project.iam.gserviceaccount.com",
+    "subscription": "projects/example-project/subscriptions/gbp-profile-updates",
+    "topic": "projects/example-project/topics/gbp-profile-updates"
+  },
+  "priorDefaults": {
+    "import": false,
+    "export": false,
+    "autoCandidates": true,
+    "writeRolloutMode": "off"
+  }
+}

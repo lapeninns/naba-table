@@ -1,0 +1,11 @@
+{
+  "scenario": "gbp_wave3_contract_correction",
+  "checks": {
+    "embeddedUnknownMasksAccepted": true,
+    "missingPendingMasksRejected": true,
+    "missingNotificationsRejected": true,
+    "noObservationAccepted": true,
+    "writeAccessAccepted": true,
+    "writeAccessExtraRejected": true
+  }
+}

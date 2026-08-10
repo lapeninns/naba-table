@@ -1,0 +1,69 @@
+{
+  "task": "Wave2D runtime terminal notice idempotency and reconciliation starvation repair",
+  "status": "complete",
+  "criteria": [
+    {
+      "scenario": "A terminal notice transport succeeds, durable finalization fails, and the expired lease is reclaimed",
+      "invocation": "./node_modules/.bin/tsx .omo/evidence/gbp-wave2d-repair-driver.ts",
+      "observable": "Two transport invocations carry the identical gbp-terminal-notice:notice-1 key, the deduplicating fake records one unique delivery, and both finalization attempts remain delivered rather than falsely recording a retryable transport failure",
+      "artifact": ".omo/evidence/gbp-wave2d-repair-manual.json"
+    },
+    {
+      "scenario": "Every terminal operational transport call is keyed before emission",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-terminal-notices.test.ts tests/server/dual-sync-notifications.test.ts tests/server/dual-sync-notifications-cron-route.test.ts --reporter=verbose",
+      "observable": "19/19 tests pass, covering notice-id keys, overdue grant keys, hourly overdue census keys, and propagation to the webhook Idempotency-Key header",
+      "artifact": ".omo/evidence/gbp-wave2d-repair-focused-green.log"
+    },
+    {
+      "scenario": "More than the reconciliation limit of older terminal grants already have notices while a newer terminal grant is missing one",
+      "invocation": "Runtime fake invokes reconcileGoogleWriteTerminalNotices with limit=50; exact-current PostgreSQL driver invokes reconcile_missing_gbp_terminal_notices_v1",
+      "observable": "Runtime calls only the database RPC and returns the newer missing notice; PostgreSQL emits wave2d_reconcile_antijoin_before_limit=pass, wave2d_reconcile_idempotent=pass, and final driver=pass",
+      "artifacts": [
+        ".omo/evidence/gbp-wave2d-repair-focused-green.log",
+        ".omo/evidence/gbp-wave1a-schema-pg-current.log"
+      ]
+    },
+    {
+      "scenario": "Concurrent database reconciliation of the same missing terminal notice",
+      "invocation": "Schema owner's two-session exact-current PostgreSQL reconciliation race",
+      "observable": "One returned row total and a final notice count of one",
+      "artifact": ".omo/evidence/gbp-wave1a-schema.log"
+    },
+    {
+      "scenario": "Broad dual-sync and canonical GBP route regression",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync*.test.ts tests/server/google-business-profile-pubsub-route.test.ts tests/server/google-business-profile-notifications-route.test.ts --reporter=dot",
+      "observable": "96 files and 591 tests pass",
+      "artifact": ".omo/evidence/gbp-wave2d-repair-broad.log"
+    },
+    {
+      "scenario": "Static quality gates on the repaired runtime",
+      "invocation": "tsc --noEmit; scoped eslint; prettier --check; git diff --check",
+      "observable": "All four commands exit zero",
+      "artifacts": [
+        ".omo/evidence/gbp-wave2d-repair-typecheck.log",
+        ".omo/evidence/gbp-wave2d-repair-eslint.log",
+        ".omo/evidence/gbp-wave2d-repair-format.log",
+        ".omo/evidence/gbp-wave2d-repair-diff.log"
+      ]
+    }
+  ],
+  "implementation": {
+    "transport_key": "gbp-terminal-notice:<notice-id>",
+    "finalize_order": "emit with stable key, then finalize delivered; a delivered-finalize failure propagates and does not mark transport failure",
+    "reconciliation_rpc": "reconcile_missing_gbp_terminal_notices_v1",
+    "reconciliation_boundary": "database anti-join precedes deterministic order and bounded limit"
+  },
+  "evidence_sha256": {
+    ".omo/evidence/gbp-wave2d-repair-focused-green.log": "185289c25af76d78b5e8b08404513449360d8cf5f08ec1db27413a0897ee7ccb",
+    ".omo/evidence/gbp-wave2d-repair-broad.log": "6908acbb12dc7fa92e00ca05db70c5ed09c5c07a3d4125c858af166d534fdff7",
+    ".omo/evidence/gbp-wave2d-repair-typecheck.log": "2b6c646827ea6a1346efaa5d010fc5eeb7ad89a73ae1803bec8ad6d2a435cebe",
+    ".omo/evidence/gbp-wave2d-repair-eslint.log": "9c6a083b8af78ca73246327ea1ff9dc6813a7f02b2d2259198d6f235daff7954",
+    ".omo/evidence/gbp-wave2d-repair-format.log": "17aa973d3f004560237d9a95171210b0671deff23d61628eecf7322ff5938f20",
+    ".omo/evidence/gbp-wave2d-repair-diff.log": "fc81ad274059f2c11e11919bd7917d3cb983ca6112ed1485c747dd6f55350b02",
+    ".omo/evidence/gbp-wave2d-repair-manual.json": "863dd4de120d4e82604b4b46b44f6ab556ca38d3f5e1bcfab08b435d8939e1c0",
+    ".omo/evidence/gbp-wave1a-schema-pg-current.log": "32a8ddcc94b0a441b0f71d693cfbade7a02afc0590b3ed7dd0ee8d64cc7f2697"
+  },
+  "external_limits": [
+    "No live notification endpoint or hosted Supabase environment was invoked; transport behavior used the deterministic deduplicating fake and database behavior used ephemeral PostgreSQL."
+  ]
+}

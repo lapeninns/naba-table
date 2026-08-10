@@ -1,0 +1,800 @@
+{
+  "numTotalTestSuites": 23,
+  "numPassedTestSuites": 23,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 67,
+  "numPassedTests": 67,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1786281105627,
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Core outbox reconciliation"],
+          "fullName": "Core outbox reconciliation is read-only by default and reports metadata-only missing work",
+          "status": "passed",
+          "title": "is read-only by default and reports metadata-only missing work",
+          "duration": 1.7407499999999914,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core outbox reconciliation"],
+          "fullName": "Core outbox reconciliation repairs only work absent from both outbox and candidate/state presence",
+          "status": "passed",
+          "title": "repairs only work absent from both outbox and candidate/state presence",
+          "duration": 1.0286249999999768,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281108443,
+      "endTime": 1786281108446.0286,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-core-outbox-reconciliation.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["core outbox cron route"],
+          "fullName": "core outbox cron route requires cron auth and returns no-store",
+          "status": "passed",
+          "title": "requires cron auth and returns no-store",
+          "duration": 1.8623750000000427,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["core outbox cron route"],
+          "fullName": "core outbox cron route performs a read-only census for dry-run",
+          "status": "passed",
+          "title": "performs a read-only census for dry-run",
+          "duration": 1.432875000000024,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["core outbox cron route"],
+          "fullName": "core outbox cron route does not claim when candidate discovery is disabled",
+          "status": "passed",
+          "title": "does not claim when candidate discovery is disabled",
+          "duration": 0.24824999999998454,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281108117,
+      "endTime": 1786281108120.4329,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-core-outbox-route.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer coalesces duplicate rows per tenant while completing every claimed id",
+          "status": "passed",
+          "title": "coalesces duplicate rows per tenant while completing every claimed id",
+          "duration": 1.961166999999989,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer isolates tenant failures and leaves successful tenants complete",
+          "status": "passed",
+          "title": "isolates tenant failures and leaves successful tenants complete",
+          "duration": 0.44883299999997917,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer safely completes provider-origin rows without candidate discovery",
+          "status": "passed",
+          "title": "safely completes provider-origin rows without candidate discovery",
+          "duration": 0.20129199999996672,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer leaves a discovered Core commit reclaimable when completion crashes",
+          "status": "passed",
+          "title": "leaves a discovered Core commit reclaimable when completion crashes",
+          "duration": 0.7424579999999992,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer dead-letters strict-schema poison without logging content",
+          "status": "passed",
+          "title": "dead-letters strict-schema poison without logging content",
+          "duration": 0.5095000000000027,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer maps deletes and all nine trigger tables to deterministic registry keys",
+          "status": "passed",
+          "title": "maps deletes and all nine trigger tables to deterministic registry keys",
+          "duration": 0.12329199999999219,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["Core-change outbox consumer"],
+          "fullName": "Core-change outbox consumer maps specialized Core source triggers without unrelated restaurant fields",
+          "status": "passed",
+          "title": "maps specialized Core source triggers without unrelated restaurant fields",
+          "duration": 0.2417920000000322,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281107201,
+      "endTime": 1786281107205.2417,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-core-outbox.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["profile import domain helpers"],
+          "fullName": "profile import domain helpers identifies supported profile import fields",
+          "status": "passed",
+          "title": "identifies supported profile import fields",
+          "duration": 0.9052500000000236,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["profile import domain helpers"],
+          "fullName": "profile import domain helpers resolves importable registry configs and reports non-importable configs",
+          "status": "passed",
+          "title": "resolves importable registry configs and reports non-importable configs",
+          "duration": 0.8022090000000048,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["profile import domain helpers"],
+          "fullName": "profile import domain helpers projects scalar Google profile values through the registry normalizer",
+          "status": "passed",
+          "title": "projects scalar Google profile values through the registry normalizer",
+          "duration": 0.16124999999999545,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["profile import domain helpers"],
+          "fullName": "profile import domain helpers rejects missing profile data and non-scalar profile values",
+          "status": "passed",
+          "title": "rejects missing profile data and non-scalar profile values",
+          "duration": 0.24479199999996126,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["profile import domain helpers"],
+          "fullName": "profile import domain helpers builds timezone-preserving details partials",
+          "status": "passed",
+          "title": "builds timezone-preserving details partials",
+          "duration": 0.11641700000001265,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["profile import domain helpers"],
+          "fullName": "profile import domain helpers builds canonical success hashes from normalized Core and raw Google values",
+          "status": "passed",
+          "title": "builds canonical success hashes from normalized Core and raw Google values",
+          "duration": 0.3567499999999768,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281108740,
+      "endTime": 1786281108742.3567,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-profile-import-domain.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore atomically imports supported field profile.name through one exact fenced RPC",
+          "status": "passed",
+          "title": "atomically imports supported field profile.name through one exact fenced RPC",
+          "duration": 2.1297910000000115,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore atomically imports supported field profile.contactPhone through one exact fenced RPC",
+          "status": "passed",
+          "title": "atomically imports supported field profile.contactPhone through one exact fenced RPC",
+          "duration": 0.4121250000000032,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore atomically imports supported field profile.address through one exact fenced RPC",
+          "status": "passed",
+          "title": "atomically imports supported field profile.address through one exact fenced RPC",
+          "duration": 0.28204200000004676,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore atomically imports supported field profile.googleMapUrl through one exact fenced RPC",
+          "status": "passed",
+          "title": "atomically imports supported field profile.googleMapUrl through one exact fenced RPC",
+          "duration": 0.3811670000000049,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore atomically imports supported field profile.googleReviewUrl through one exact fenced RPC",
+          "status": "passed",
+          "title": "atomically imports supported field profile.googleReviewUrl through one exact fenced RPC",
+          "duration": 0.37504100000001017,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore passes null semantics for nullable field profile.contactPhone",
+          "status": "passed",
+          "title": "passes null semantics for nullable field profile.contactPhone",
+          "duration": 0.22820799999999508,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore passes null semantics for nullable field profile.address",
+          "status": "passed",
+          "title": "passes null semantics for nullable field profile.address",
+          "duration": 0.07162499999998317,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore passes null semantics for nullable field profile.googleMapUrl",
+          "status": "passed",
+          "title": "passes null semantics for nullable field profile.googleMapUrl",
+          "duration": 0.05475000000001273,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore passes null semantics for nullable field profile.googleReviewUrl",
+          "status": "passed",
+          "title": "passes null semantics for nullable field profile.googleReviewUrl",
+          "duration": 0.40908300000000963,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore rejects unsupported field profile.businessDescription without reading or writing tables",
+          "status": "passed",
+          "title": "rejects unsupported field profile.businessDescription without reading or writing tables",
+          "duration": 0.2552079999999819,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore rejects unsupported field operatingHours.weekly.0 without reading or writing tables",
+          "status": "passed",
+          "title": "rejects unsupported field operatingHours.weekly.0 without reading or writing tables",
+          "duration": 0.11179100000003928,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore fails safely for missing current profile without invoking the import RPC",
+          "status": "passed",
+          "title": "fails safely for missing current profile without invoking the import RPC",
+          "duration": 0.07287499999995362,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore fails safely for cross-tenant profile read without invoking the import RPC",
+          "status": "passed",
+          "title": "fails safely for cross-tenant profile read without invoking the import RPC",
+          "duration": 0.04120799999998326,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore fails safely for profile read failure without invoking the import RPC",
+          "status": "passed",
+          "title": "fails safely for profile read failure without invoking the import RPC",
+          "duration": 0.03899999999998727,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore returns a safe failure for a stale-fence RPC rejection with no fallback writes",
+          "status": "passed",
+          "title": "returns a safe failure for a stale-fence RPC rejection with no fallback writes",
+          "duration": 0.08183300000001736,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore redacts a thrown profile read database error",
+          "status": "passed",
+          "title": "redacts a thrown profile read database error",
+          "duration": 0.21016700000001265,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["applyProfileImportToCore"],
+          "fullName": "applyProfileImportToCore redacts a thrown import RPC database error",
+          "status": "passed",
+          "title": "redacts a thrown import RPC database error",
+          "duration": 0.06854199999997945,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281107810,
+      "endTime": 1786281107816.0686,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-profile-import-port.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile core sync operating-hours domain"],
+          "fullName": "google business profile core sync operating-hours domain builds verification summaries from operating-hours normalization state",
+          "status": "passed",
+          "title": "builds verification summaries from operating-hours normalization state",
+          "duration": 0.8273749999999609,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile core sync operating-hours domain"],
+          "fullName": "google business profile core sync operating-hours domain builds selected push patches while preserving provider rows outside the selection",
+          "status": "passed",
+          "title": "builds selected push patches while preserving provider rows outside the selection",
+          "duration": 5.420500000000004,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281106890,
+      "endTime": 1786281106896.4204,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-core-sync-operating-hours.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile core-sync profile domain"],
+          "fullName": "google business profile core-sync profile domain builds verified profile summaries when normalized profile fields match",
+          "status": "passed",
+          "title": "builds verified profile summaries when normalized profile fields match",
+          "duration": 1.4259999999999877,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile core-sync profile domain"],
+          "fullName": "google business profile core-sync profile domain detects drift and recommends the newer push direction for editable fields",
+          "status": "passed",
+          "title": "detects drift and recommends the newer push direction for editable fields",
+          "duration": 0.26104099999997743,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile core-sync profile domain"],
+          "fullName": "google business profile core-sync profile domain builds pull patches from selected Google-owned profile values",
+          "status": "passed",
+          "title": "builds pull patches from selected Google-owned profile values",
+          "duration": 0.10629199999999628,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile core-sync profile domain"],
+          "fullName": "google business profile core-sync profile domain builds push patches for supported editable fields and rejects address exports",
+          "status": "passed",
+          "title": "builds push patches for supported editable fields and rejects address exports",
+          "duration": 0.3817500000000109,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281109046,
+      "endTime": 1786281109048.3818,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-core-sync-profile.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile core sync service periods domain"],
+          "fullName": "google business profile core sync service periods domain builds verification summaries from service-period normalization state",
+          "status": "passed",
+          "title": "builds verification summaries from service-period normalization state",
+          "duration": 0.972582999999986,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile core sync service periods domain"],
+          "fullName": "google business profile core sync service periods domain detects writable kitchen more-hours capability from existing rows or category types",
+          "status": "passed",
+          "title": "detects writable kitchen more-hours capability from existing rows or category types",
+          "duration": 0.40100000000001046,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile core sync service periods domain"],
+          "fullName": "google business profile core sync service periods domain returns null when no kitchen hours type can be resolved for a push patch",
+          "status": "passed",
+          "title": "returns null when no kitchen hours type can be resolved for a push patch",
+          "duration": 0.11379099999999198,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281109352,
+      "endTime": 1786281109353.401,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-core-sync-service-periods.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["google business profile service core sync runtime"],
+          "fullName": "google business profile service core sync runtime pulls profile fields from refreshed Google business info into restaurant details",
+          "status": "passed",
+          "title": "pulls profile fields from refreshed Google business info into restaurant details",
+          "duration": 1.788250000000005,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile service core sync runtime"],
+          "fullName": "google business profile service core sync runtime returns the local profile without patching Google when profile push has no update mask",
+          "status": "passed",
+          "title": "returns the local profile without patching Google when profile push has no update mask",
+          "duration": 0.589917000000014,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile service core sync runtime"],
+          "fullName": "google business profile service core sync runtime pushes operating-hours patches with validate-only before write and refreshes local state",
+          "status": "passed",
+          "title": "pushes operating-hours patches with validate-only before write and refreshes local state",
+          "duration": 0.48091599999997925,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile service core sync runtime"],
+          "fullName": "google business profile service core sync runtime applies service-period push capability and patch guards before Google writes",
+          "status": "passed",
+          "title": "applies service-period push capability and patch guards before Google writes",
+          "duration": 0.4350420000000099,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["google business profile service core sync runtime"],
+          "fullName": "google business profile service core sync runtime patches location fields and attributes with deduplicated masks",
+          "status": "passed",
+          "title": "patches location fields and attributes with deduplicated masks",
+          "duration": 0.303875000000005,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281107497,
+      "endTime": 1786281107500.304,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/google-business-profile-service-core-sync-runtime.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["enqueueOutboxEvent"],
+          "fullName": "enqueueOutboxEvent @contract enqueues a pending row with zeroed retry state and null defaults for optional ids",
+          "status": "passed",
+          "title": "@contract enqueues a pending row with zeroed retry state and null defaults for optional ids",
+          "duration": 1.731416999999965,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["enqueueOutboxEvent"],
+          "fullName": "enqueueOutboxEvent @contract a duplicate enqueue (unique violation 23505) is silently idempotent",
+          "status": "passed",
+          "title": "@contract a duplicate enqueue (unique violation 23505) is silently idempotent",
+          "duration": 0.34112500000003365,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["enqueueOutboxEvent"],
+          "fullName": "enqueueOutboxEvent @contract enqueue is best-effort: unexpected failures log a warning instead of throwing",
+          "status": "passed",
+          "title": "@contract enqueue is best-effort: unexpected failures log a warning instead of throwing",
+          "duration": 0.210708000000011,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["enqueueOutboxEvent"],
+          "fullName": "enqueueOutboxEvent @contract falls back to the service-role client when none is provided",
+          "status": "passed",
+          "title": "@contract falls back to the service-role client when none is provided",
+          "duration": 0.3616249999999468,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract claims due events in order and completes hold confirmations",
+          "status": "passed",
+          "title": "@worker @contract claims due events in order and completes hold confirmations",
+          "duration": 1.2343329999999924,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract @observability routes assignment sync events to observability with tenant ids",
+          "status": "passed",
+          "title": "@worker @contract @observability routes assignment sync events to observability with tenant ids",
+          "duration": 0.3572080000000142,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract unknown event types are completed rather than retried (poison-pill guard)",
+          "status": "passed",
+          "title": "@worker @contract unknown event types are completed rather than retried (poison-pill guard)",
+          "duration": 0.7094589999999812,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract a failing handler schedules a retry with exponential backoff and isolates healthy events",
+          "status": "passed",
+          "title": "@worker @contract a failing handler schedules a retry with exponential backoff and isolates healthy events",
+          "duration": 0.404042000000004,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract retry backoff caps at 30 seconds",
+          "status": "passed",
+          "title": "@worker @contract retry backoff caps at 30 seconds",
+          "duration": 0.8383329999999773,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract the tenth failure dead-letters the event",
+          "status": "passed",
+          "title": "@worker @contract the tenth failure dead-letters the event",
+          "duration": 0.31770899999997937,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract losing the claim race to a concurrent worker does not stop processing",
+          "status": "passed",
+          "title": "@worker @contract losing the claim race to a concurrent worker does not stop processing",
+          "duration": 0.3029579999999896,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract select failures and an empty queue both return zeros without batch telemetry",
+          "status": "passed",
+          "title": "@worker @contract select failures and an empty queue both return zeros without batch telemetry",
+          "duration": 0.1921249999999759,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["processOutboxBatch"],
+          "fullName": "processOutboxBatch @worker @contract batch telemetry failures never break the returned summary",
+          "status": "passed",
+          "title": "@worker @contract batch telemetry failures never break the returned summary",
+          "duration": 0.2546249999999759,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281106091,
+      "endTime": 1786281106098.303,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/outbox.test.ts"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": ["restaurant GBP core sync routes"],
+          "fullName": "restaurant GBP core sync routes requires a password for profile sync actions",
+          "status": "passed",
+          "title": "requires a password for profile sync actions",
+          "duration": 3.9993329999999787,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["restaurant GBP core sync routes"],
+          "fullName": "restaurant GBP core sync routes retires legacy profile pushes before password or provider calls",
+          "status": "passed",
+          "title": "retires legacy profile pushes before password or provider calls",
+          "duration": 1.496582999999987,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["restaurant GBP core sync routes"],
+          "fullName": "restaurant GBP core sync routes forwards selected operating-hours rows after password confirmation",
+          "status": "passed",
+          "title": "forwards selected operating-hours rows after password confirmation",
+          "duration": 1.3059159999999679,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["restaurant GBP core sync routes"],
+          "fullName": "restaurant GBP core sync routes retires legacy operating-hours pushes before password or provider calls",
+          "status": "passed",
+          "title": "retires legacy operating-hours pushes before password or provider calls",
+          "duration": 0.6128749999999741,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        },
+        {
+          "ancestorTitles": ["restaurant GBP core sync routes"],
+          "fullName": "restaurant GBP core sync routes retires legacy service-period pushes before password or provider calls",
+          "status": "passed",
+          "title": "retires legacy service-period pushes before password or provider calls",
+          "duration": 0.930499999999995,
+          "failureMessages": [],
+          "meta": {},
+          "tags": []
+        }
+      ],
+      "startTime": 1786281106583,
+      "endTime": 1786281106591.9304,
+      "status": "passed",
+      "message": "",
+      "name": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/restaurant-google-business-profile-core-sync-routes.test.ts"
+    }
+  ]
+}

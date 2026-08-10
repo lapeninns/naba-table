@@ -1,0 +1,77 @@
+{
+  "task": "Wave2C GBP content retention and privacy runtime",
+  "status": "lane_complete_with_cross_owner_blockers",
+  "completedAt": "2026-08-09T15:41:00.000Z",
+  "claims": [
+    {
+      "criterion": "Backup-aware TTL and fail-closed readiness",
+      "scenario": "Compute min(28, 30-backup-window-1), reject impractical TTL, missing/stale evidence, and missing transformed-content approval",
+      "invocation": "vitest run tests/server/dual-sync-retention.test.ts",
+      "observable": "TTL 28/19 cases pass; invalid window throws; absent and incomplete evidence remain ineligible",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.tests.log"
+    },
+    {
+      "criterion": "No expiry extension and exact epoch/profile lineage",
+      "scenario": "Child inherits observation/expiry; scanner rejects now-based copied expiry; RPC adapter sends the complete current profile/generation/epoch fence and rejects stale RPC responses",
+      "invocation": "vitest run tests/scripts/gbp-content-lineage.test.ts tests/server/dual-sync-retention-supabase-port.test.ts",
+      "observable": "Unknown parent, injected column, copied expiry reset, and stale epoch probes fail closed",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.tests.log"
+    },
+    {
+      "criterion": "Machine-checked exhaustive content lineage",
+      "scenario": "Live manifest/schema/producer scan across DB, queues, caches, telemetry, backups, CDN and browser persistence",
+      "invocation": "node scripts/verify/gbp-content-lineage.mjs --json",
+      "observable": "ok=true, entries=31, physicalTables=35, unknown=0, stale=0",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.lineage.json"
+    },
+    {
+      "criterion": "Bounded purge, real dry-run census, mixed-row preservation and safe metrics",
+      "scenario": "Deterministic port with backdated delete, scrub and metadata-only stores; dry-run then live purge",
+      "invocation": "node --experimental-strip-types .omo/evidence/gbp-wave2c-retention.driver.ts",
+      "observable": "dryRunMutated=0, liveMutated=2, ownerPreserved=true, contentInResult=false",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.manual.log"
+    },
+    {
+      "criterion": "Request archives removed and durable audit restricted to metadata-only",
+      "scenario": "Expired legacy content logs delete without archive copy; new rows force empty request summary, null response/error message, safe error code and nullable TTL",
+      "invocation": "vitest run tests/server/dual-sync-google-request-logs.test.ts tests/server/dual-sync-google-request-log-retention.test.ts",
+      "observable": "No archive table call; dry run performs no mutation; tokens, PII, bodies and malformed codes are absent",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.tests.log"
+    },
+    {
+      "criterion": "No-store browser and telemetry boundaries",
+      "scenario": "Dual-sync state/list/action routes, cron routes, query persistence denylist and telemetry allowlist",
+      "invocation": "vitest run the 19 retention/request-log/cron/dual-sync route suites",
+      "observable": "19 files and 113 tests pass; headers are private no-store and CDN no-store; GBP keys are non-persistent; unsafe telemetry fields are removed",
+      "artifact": ".omo/evidence/gbp-wave2c-retention.tests.log"
+    },
+    {
+      "criterion": "Static validation",
+      "scenario": "Strict TypeScript, scoped ESLint, Prettier and whitespace validation",
+      "invocation": "tsc --noEmit; eslint owned scope; prettier --check owned scope; git diff --check",
+      "observable": "All commands exit 0",
+      "artifacts": [
+        ".omo/evidence/gbp-wave2c-retention.typecheck.log",
+        ".omo/evidence/gbp-wave2c-retention.lint.log",
+        ".omo/evidence/gbp-wave2c-retention.format.log"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "owner": "provider/publish/core producer owners",
+      "condition": "No production producer currently invokes record_gbp_content_observation_v1 or inherit_gbp_content_lineage_v1; typed exact-fence wrappers exist, but cross-lane producer wiring is required before retention lineage is effective for new writes.",
+      "probe": "rg -n 'record_gbp_content_observation_v1|inherit_gbp_content_lineage_v1' server --glob '*.ts' returns only server/dual-sync/retention/supabase-port.ts"
+    },
+    {
+      "owner": "operations/environment owner",
+      "condition": "No remote DB/provider was used. Current operator-attested backup/PITR restore evidence and transformed-content policy approval are externally unverified; write eligibility remains fail-closed until valid evidence is inserted.",
+      "probe": "retentionReadiness tests prove missing and incomplete evidence return eligible=false"
+    },
+    {
+      "owner": "provider route owner",
+      "condition": "GBP provider-owned route wrapping and raw telemetry removal were explicitly delegated by the root coordinator; this lane completed the shared helper plus dual-sync and cron routes only.",
+      "probe": "root coordination message records the provider-owned assignment"
+    }
+  ]
+}

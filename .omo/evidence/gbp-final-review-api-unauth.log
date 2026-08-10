@@ -1,0 +1,20 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    60    0    60    0     0   2588      0 --:--:-- --:--:-- --:--:--  2608
+HTTP/1.1 401 Unauthorized
+content-security-policy: base-uri 'self'; frame-ancestors 'none'; object-src 'none'; form-action 'self'
+content-type: application/json
+referrer-policy: strict-origin-when-cross-origin
+server-timing: proxy;dur=0.716
+set-cookie: sr-csrf-token=5f5e21d58f1e4832bde72d3da650d3b3; Path=/; Expires=Thu, 13 Aug 2026 00:04:16 GMT; Max-Age=259200; SameSite=lax
+traceparent: 00-878e980e295046488f1c415e7bf070bc-c7c701138945421a-01
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-request-id: f3c95474-301e-402a-a1a9-30da484a6d34
+Vary: Accept-Encoding
+Date: Mon, 10 Aug 2026 00:04:16 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"error":"Authentication required","code":"UNAUTHENTICATED"}

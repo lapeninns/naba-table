@@ -1,0 +1,36 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > requires a fresh preview for an unknown provider outcome 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > classifies unresolved notices overdue only after the forty-eight-hour SLA 0ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > emits a metadata-only operational notice for an overdue delivery 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > materializes a terminal event with the safe reason and exact terminal timestamp 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > claims, emits, and finalizes terminal notices without provider content 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > retries a definitive rejection using only a safe error code 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > recovers a dispatched notice as outcome unknown without repeating the external call 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > terminalizes an ambiguous transport result as outcome unknown 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > terminalizes a non-retryable definitive rejection 1ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > delegates missing-notice selection to the anti-join RPC before its limit 0ms
+ ✓ tests/server/dual-sync-terminal-notices.test.ts > terminal Google write notices > persists dispatch before delivery and recovers only through the dedicated RPCs 0ms
+ ✓ tests/server/dual-sync-notifications-cron-route.test.ts > dual-sync terminal notification cron > caps claims, delivers with a lease, and emits count-only overdue SLA telemetry 8ms
+ ✓ tests/server/google-business-profile-notifications-route.test.ts > Google write terminal notifications route > returns tenant-scoped safe notice metadata and SLA census with no-store headers 6ms
+ ✓ tests/server/google-business-profile-notifications-route.test.ts > Google write terminal notifications route > password-confirms an admin before enabling account participation 2ms
+ ✓ tests/server/google-business-profile-notifications-route.test.ts > Google write terminal notifications route > does not call participation when password confirmation fails 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > routes errors to logger.error and stamps occurredAt 2ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > routes warnings to logger.warn 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > reports an ambiguous failure when the underlying logger explodes 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > POSTs the event JSON to the configured URL 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > returns a definitive rejection for an unambiguously rejected request 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > returns an ambiguous failure for a server response 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > classifies a rate-limit rejection as definitively retryable 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > returns an ambiguous failure for a thrown transport error 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > reports an unavailable transport instead of silently succeeding 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > fails definitively for an empty operational channel list 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > returns the single port unchanged 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > fans out and preserves the most uncertain transport result 0ms
+
+ Test Files  4 passed (4)
+      Tests  27 passed (27)
+   Start at  19:19:13
+   Duration  1.47s (transform 282ms, setup 369ms, import 461ms, tests 36ms, environment 3.76s)
+

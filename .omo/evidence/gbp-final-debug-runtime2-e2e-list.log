@@ -1,0 +1,7 @@
+Listing tests:
+  ops-gbp-dual-sync.spec.ts:577:7 › ops GBP dual-sync shipped route › google business profile route loads operator review, exact confirmation, and outcome recovery @p1 @browser @contract @external-mock @local-only
+  ops-gbp-dual-sync.spec.ts:794:7 › ops GBP dual-sync shipped route › google business profile route shows disconnected and unconfigured states @p1 @browser @contract @external-mock @local-only
+  ops-gbp-dual-sync.spec.ts:830:7 › ops GBP dual-sync shipped route › google business profile route shows connect state without publish controls @p1 @browser @contract @external-mock @local-only
+  ops-gbp-dual-sync.spec.ts:859:7 › ops GBP dual-sync shipped route › google business profile route shows the location picker before linking @p1 @browser @contract @external-mock @local-only
+  ops-gbp-dual-sync.spec.ts:890:7 › ops GBP dual-sync shipped route › google business profile disconnect requires password on the shipped route @p1 @browser @contract @external-mock @local-only
+Total: 5 tests in 1 file

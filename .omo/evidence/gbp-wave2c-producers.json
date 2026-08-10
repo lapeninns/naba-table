@@ -1,0 +1,51 @@
+{
+  "claim": "DONECLAIM",
+  "scope": "Wave2C dual-sync producer retention handoff",
+  "scenarios": [
+    {
+      "scenario": "atomic snapshot pending lifecycle with exact fence and unmodified raw observation",
+      "invocation": "focused snapshot-run and refresh FoodMenus tests",
+      "observable": "begin/persist/fail/get-current RPC-only lifecycle; fence mismatch performs zero persist; skipPull reuses current unexpired run without TTL extension",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.focused.json"
+    },
+    {
+      "scenario": "owner proposal preserved and Google-derived candidate copy refused",
+      "invocation": "dual-sync-outbound-candidates focused tests",
+      "observable": "owner proposed_value persists unchanged; scheduled Google-derived value reaches zero DB calls and legacy scheduled content is hidden",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.focused.json"
+    },
+    {
+      "scenario": "metadata/hash-only queue, publish operations, request logs, and field state",
+      "invocation": "focused queue/publish/state/preflight/execute tests",
+      "observable": "content payload rejected before DB; publish jobs max_attempts=1; provider bodies/messages absent; summaries and metadata are SHA-256 plus shape only",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.focused.json"
+    },
+    {
+      "scenario": "broad dual-sync regression",
+      "invocation": "./node_modules/.bin/vitest run tests/server/dual-sync-*.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2c-producers.broad.json",
+      "observable": "success=true; 541/541 tests passed",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.broad.json"
+    },
+    {
+      "scenario": "deterministic in-process producer driver",
+      "invocation": "env <dummy local validation variables> ./node_modules/.bin/tsx .omo/evidence/gbp-wave2c-producers.driver.ts",
+      "observable": "atomicRawPassThrough=true; canonical/candidate/queue copies=false; rejected-content databaseCalls=0; no network or database",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.manual.json"
+    },
+    {
+      "scenario": "strict TypeScript, lint, formatting, and diff hygiene",
+      "invocation": "tsc; scoped eslint; scoped prettier; git diff --check",
+      "observable": "all exit 0",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.typecheck.log; .omo/evidence/gbp-wave2c-producers.eslint.json; .omo/evidence/gbp-wave2c-producers.format.log; .omo/evidence/gbp-wave2c-producers.diff-check.log"
+    },
+    {
+      "scenario": "live repository GBP inventory",
+      "invocation": "node scripts/verify/gbp-inventory.mjs",
+      "observable": "current result ok=true, matched=1783, unknown=0, stale=0",
+      "artifact": ".omo/evidence/gbp-wave2c-producers.inventory.json"
+    }
+  ],
+  "externalBlockers": [
+    "No live provider or remote database was exercised; deterministic provider/database ports and the separately verified schema/provider lanes cover those boundaries."
+  ]
+}

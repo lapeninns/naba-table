@@ -1,0 +1,79 @@
+{
+  "claim": "DONE",
+  "scope": "Wave 2A provider post-dispatch outcome truthfulness",
+  "marker": {
+    "type": "GoogleWriteOutcomeUnknownError",
+    "guard": "isGoogleWriteOutcomeUnknownError",
+    "exports": [
+      "@/server/google-business-profile/writePermit",
+      "@/server/google-business-profile/client"
+    ],
+    "safeFields": {
+      "name": "GoogleWriteOutcomeUnknownError",
+      "code": "GBP_WRITE_OUTCOME_UNKNOWN",
+      "message": "Google listing write outcome is unknown.",
+      "status": 502,
+      "kind": "upstream"
+    },
+    "causeExposed": false
+  },
+  "scenarios": [
+    {
+      "name": "food_menus_eligibility_timeout",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/write-permit-bundle.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "GBP_UPSTREAM is not GoogleWriteOutcomeUnknownError; permit dispatch call count is zero"
+    },
+    {
+      "name": "post_dispatch_network_timeout",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/write-permit-bundle.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "outcome_unknown finalize succeeds, then safe GoogleWriteOutcomeUnknownError is thrown without cause"
+    },
+    {
+      "name": "post_dispatch_schema_failure",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/write-permit-bundle.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "malformed provider response finalizes outcome_unknown; secret provider text is absent from marker"
+    },
+    {
+      "name": "finalize_failure_semantics",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/write-permit-bundle.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "consumed and outcome_unknown finalization failures propagate the finalize error, emit no marker, and finalize exactly once"
+    },
+    {
+      "name": "definitive_rejection",
+      "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/wave1c-provider.test.ts --pool=forks --maxWorkers=1",
+      "binaryObservable": "definitive provider 4xx finalizes failed and retains its original typed rejection"
+    }
+  ],
+  "providerSuite": {
+    "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile*.test.ts tests/server/google-business-profile/*.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2a-provider-outcome.vitest.json --pool=forks --maxWorkers=1",
+    "passed": 658,
+    "failed": 0,
+    "artifact": ".omo/evidence/gbp-wave2a-provider-outcome.vitest.json"
+  },
+  "publishIntegration": {
+    "invocation": "./node_modules/.bin/vitest run tests/server/google-business-profile/write-permit-bundle.test.ts tests/server/dual-sync-exact-consent-repository.test.ts tests/server/dual-sync-exact-consent.test.ts tests/server/dual-sync-exact-consent-workflow.test.ts tests/server/dual-sync-exact-consent-adapter.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave2a-provider-outcome.integration.json --pool=forks --maxWorkers=1",
+    "passed": 48,
+    "failed": 0,
+    "artifact": ".omo/evidence/gbp-wave2a-provider-outcome.integration.json"
+  },
+  "gates": {
+    "typecheck": "pass",
+    "lint": "pass",
+    "format": "pass",
+    "diffCheck": "pass"
+  },
+  "inventory": {
+    "invocation": "node scripts/verify/gbp-inventory.mjs > .omo/evidence/gbp-wave2a-provider-outcome.inventory.json",
+    "ok": true,
+    "unknown": 0,
+    "stale": 0,
+    "artifact": ".omo/evidence/gbp-wave2a-provider-outcome.inventory.json"
+  },
+  "sourceAudit": {
+    "writePermit.ts": 204,
+    "client.ts": 54,
+    "escapeHatchesIntroduced": 0,
+    "note": "writePermit.ts is in the 200-250 warning band; split outcome error/lifecycle concerns before the next substantive expansion."
+  },
+  "externalBlockers": []
+}

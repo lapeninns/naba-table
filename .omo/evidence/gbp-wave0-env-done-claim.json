@@ -1,0 +1,78 @@
+{
+  "status": "done",
+  "task": "Wave 0 shared environment, dependencies, rollout controls, cron, and React dev tooling",
+  "changedFiles": [
+    "package.json",
+    "pnpm-lock.yaml",
+    "config/env.schema.ts",
+    "server/dual-sync/runtime-controls.ts",
+    "src/app/layout.tsx",
+    "tests/config/react-dev-tooling.test.ts",
+    "tests/config/vercel-crons.test.ts",
+    "tests/lib/env.test.ts",
+    "tests/server/dual-sync-runtime-controls.test.ts",
+    "vercel.json"
+  ],
+  "scenarios": [
+    {
+      "criterion": "Legacy Google Business environment alias precedence remains unchanged",
+      "invocation": "node_modules/.bin/vitest run tests/lib/env.test.ts -t 'prefers explicit canonical credentials' --reporter=verbose",
+      "observable": "1 test passed with canonical values selected over distinct legacy aliases",
+      "artifact": ".omo/evidence/gbp-wave0-characterization.log"
+    },
+    {
+      "criterion": "New controls fail closed, reject malformed values, require a canary restaurant, and schedule refresh exactly once",
+      "invocation": "node_modules/.bin/vitest run tests/lib/env.test.ts tests/server/dual-sync-runtime-controls.test.ts tests/config/vercel-crons.test.ts --reporter=verbose",
+      "observable": "red exit 1 with seven expected failures before production edits",
+      "artifact": ".omo/evidence/gbp-wave0-red.log"
+    },
+    {
+      "criterion": "Focused environment, runtime, cron, and React tooling behavior",
+      "invocation": "pnpm exec vitest run tests/lib/env.test.ts tests/server/dual-sync-runtime-controls.test.ts tests/config/vercel-crons.test.ts tests/config/react-dev-tooling.test.ts",
+      "observable": "4 files and 20 tests passed",
+      "artifact": ".omo/evidence/gbp-wave0-final-tests.log"
+    },
+    {
+      "criterion": "Exact normalized defaults and refresh schedule",
+      "invocation": "one-shot tsx parse of config/env.schema.ts plus Node parse of vercel.json",
+      "observable": "all eight booleans, off rollout, null canary, one refresh cron at */15",
+      "artifact": ".omo/evidence/gbp-wave0-env.json"
+    },
+    {
+      "criterion": "Exact dependency and lockfile consistency",
+      "invocation": "pnpm install --frozen-lockfile --offline --ignore-scripts",
+      "observable": "exit 0; Lockfile is up to date",
+      "artifact": ".omo/evidence/gbp-wave0-frozen-lockfile.log"
+    },
+    {
+      "criterion": "Type safety",
+      "invocation": "pnpm typecheck",
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave0-typecheck.log"
+    },
+    {
+      "criterion": "Production exclusion of React runtime diagnostics",
+      "invocation": "esbuild production compile of src/app/layout.tsx followed by rg 'react-grab|react-scan'",
+      "observable": "build_exit=0 and react_devtool_markers=absent",
+      "artifact": ".omo/evidence/gbp-wave0-production-leak-grep.log"
+    },
+    {
+      "criterion": "Owned-file lint and formatting",
+      "invocation": "pnpm exec eslint --max-warnings=0 <owned TypeScript files>; pnpm exec prettier --check <owned files>",
+      "observable": "both exit 0",
+      "artifact": ".omo/evidence/gbp-wave0-eslint.log"
+    }
+  ],
+  "cleanup": {
+    "serversStarted": false,
+    "serverProcessesToStop": 0,
+    "temporaryReportsCreated": [],
+    "preExistingPnpmStoreTouched": false,
+    "artifact": ".omo/evidence/gbp-wave0-cleanup.json"
+  },
+  "risks": [
+    "The full pnpm build:turbo attempt remains red on pre-existing out-of-scope Next route-config re-exports and unresolved @/hooks imports; the exact failure is captured in .omo/evidence/gbp-wave0-production-build.log.",
+    "Existing Storybook peer-version warnings remain unchanged during pnpm resolution.",
+    "No deployment environment values, live cron installation, or external Google write was changed or verified."
+  ]
+}

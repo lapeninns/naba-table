@@ -1,0 +1,31 @@
+{
+  "confirmationVersion": "gbp-exact-consent-v1",
+  "planFingerprint": "9462f86f93636aff7e7755c46e904c7c16c8d36ab05d97845dba90800c36a27b",
+  "previewNetworkCalls": 0,
+  "tamperCode": "GBP_PREVIEW_MISMATCH",
+  "tamperNetworkCalls": 0,
+  "success": [{ "groupId": "profile", "status": "consumed", "reasonCode": "provider_succeeded" }],
+  "unknown": [
+    { "groupId": "profile", "status": "outcome_unknown", "reasonCode": "provider_outcome_unknown" },
+    {
+      "groupId": "remaining",
+      "status": "cancelled_after_bundle_failure",
+      "reasonCode": "bundle_fail_stopped"
+    }
+  ],
+  "totalNetworkCalls": 2,
+  "containsProviderPayload": false,
+  "phaseTruth": {
+    "preflight": "GBP_PREFLIGHT_UNAVAILABLE",
+    "issuance": "GBP_GRANT_ISSUANCE_FAILED",
+    "genericProvider": "GBP_PROVIDER_REJECTED",
+    "postDispatch": "GBP_OUTCOME_UNKNOWN",
+    "cancellation": "GBP_CLAIM_CANCELLATION_FAILED"
+  },
+  "claimedBundleCancellation": {
+    "cancellationCalls": 1,
+    "claimedPreDispatchCode": "GBP_PREFLIGHT_UNAVAILABLE",
+    "grantCount": 2
+  },
+  "safeErrorsExcludeProviderDetail": true
+}

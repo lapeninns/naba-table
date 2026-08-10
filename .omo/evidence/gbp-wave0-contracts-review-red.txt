@@ -1,0 +1,140 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > parses the exact manifest and normalizes masks to sorted unique values 3ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > rejects cross-field hash keys that do not exactly match field keys 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > accepts the fifteen-minute expiry boundary and rejects one millisecond beyond it 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > rejects an expired grant with an injected clock 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > enumerates every fail-stop grant status and rejects misleading success 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > rejects stale policy and renderer versions 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > exhaustively parses only the grant lifecycle vocabulary 0ms
+ × tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > exhaustively parses only truthful event lifecycle statuses 2ms
+   → expected undefined to deeply equal [ 'received', 'processing', …(3) ]
+ × tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > exhaustively parses only truthful dispatch lifecycle statuses 1ms
+   → expected undefined to deeply equal [ 'claimed', 'dispatched', …(4) ]
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > remediation operation contracts > rejects an overlay whose update keys do not exactly match its masks 0ms
+ × tests/server/dual-sync-remediation-contracts.test.ts > remediation operation contracts > normalizes a metadata-only overlay without retaining provider content 0ms
+   → [
+  {
+    "expected": "record",
+    "code": "invalid_type",
+    "path": [
+      "updates"
+    ],
+    "message": "Invalid input: expected record, received undefined"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "epoch",
+      "eventId",
+      "state",
+      "previousStateHash",
+      "observedStateHash",
+      "observedAt"
+    ],
+    "path": [],
+    "message": "Unrecognized keys: \"epoch\", \"eventId\", \"state\", \"previousStateHash\", \"observedStateHash\", \"observedAt\""
+  }
+]
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > remediation operation contracts > parses notification, rollout, and every queue job discriminant 1ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > public remediation response > accepts immediate and queued execution while exposing only safe outcome data 1ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > public remediation response > rejects unacknowledged execution independently of strict unknown-key handling 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > public remediation response > strictly rejects content-bearing fields on every shared long-lived schema 0ms
+ ✓ tests/server/dual-sync-remediation-contracts.test.ts > public remediation response > fails closed for stale rollout state and misleading success output 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > exhaustively parses only truthful event lifecycle statuses
+AssertionError: expected undefined to deeply equal [ 'received', 'processing', …(3) ]
+
+- Expected:
+[
+  "received",
+  "processing",
+  "consumed",
+  "ignored",
+  "failed",
+]
+
++ Received:
+undefined
+
+ ❯ tests/server/dual-sync-remediation-contracts.test.ts:171:31
+    169|
+    170|     // Then
+    171|     expect(EVENT_STATUSES_V1).toEqual(expected);
+       |                               ^
+    172|     expect(accepted).toEqual(expected.map(() => true));
+    173|     expect(eventStatusV1Schema.safeParse('granted').success).toBe(fals…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/server/dual-sync-remediation-contracts.test.ts > GrantManifestV1 boundary > exhaustively parses only truthful dispatch lifecycle statuses
+AssertionError: expected undefined to deeply equal [ 'claimed', 'dispatched', …(4) ]
+
+- Expected:
+[
+  "claimed",
+  "dispatched",
+  "failed",
+  "outcome_unknown",
+  "cancelled_before_dispatch",
+  "cancelled_after_bundle_failure",
+]
+
++ Received:
+undefined
+
+ ❯ tests/server/dual-sync-remediation-contracts.test.ts:192:34
+    190|
+    191|     // Then
+    192|     expect(DISPATCH_STATUSES_V1).toEqual(expected);
+       |                                  ^
+    193|     expect(accepted).toEqual(expected.map(() => true));
+    194|     expect(dispatchStatusV1Schema.safeParse('consumed').success).toBe(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/server/dual-sync-remediation-contracts.test.ts > remediation operation contracts > normalizes a metadata-only overlay without retaining provider content
+ZodError: [
+  {
+    "expected": "record",
+    "code": "invalid_type",
+    "path": [
+      "updates"
+    ],
+    "message": "Invalid input: expected record, received undefined"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "epoch",
+      "eventId",
+      "state",
+      "previousStateHash",
+      "observedStateHash",
+      "observedAt"
+    ],
+    "path": [],
+    "message": "Unrecognized keys: \"epoch\", \"eventId\", \"state\", \"previousStateHash\", \"observedStateHash\", \"observedAt\""
+  }
+]
+ ❯ tests/server/dual-sync-remediation-contracts.test.ts:235:52
+    233|
+    234|     // When
+    235|     const parsed = googleMaskUpdateOverlayV1Schema.parse(overlay);
+       |                                                    ^
+    236|
+    237|     // Then
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { _zod: { def: [ { expected: 'record', code: 'invalid_type', path: [ 'updates' ], message: 'Invalid input: expected record, received undefined' }, { code: 'unrecognized_keys', keys: [ 'epoch', 'eventId', 'state', 'previousStateHash', 'observedStateHash', 'observedAt' ], path: [], message: 'Unrecognized keys: "epoch", "eventId", "state", "previousStateHash", "observedStateHash", "observedAt"' } ], constr: 'Function<ZodError>', traits: { constructor: 'Function<Set>', has: 'Function<has>', add: 'Function<add>', delete: 'Function<delete>', clear: 'Function<clear>', entries: 'Function<entries>', forEach: 'Function<forEach>', size: 2, values: 'Function<values>', keys: 'Function<values>', union: 'Function<union>', intersection: 'Function<intersection>', difference: 'Function<difference>', symmetricDifference: 'Function<symmetricDifference>', isSubsetOf: 'Function<isSubsetOf>', isSupersetOf: 'Function<isSupersetOf>', isDisjointFrom: 'Function<isDisjointFrom>' }, deferred: [] }, issues: [ { expected: 'record', code: 'invalid_type', path: [ 'updates' ], message: 'Invalid input: expected record, received undefined' }, { code: 'unrecognized_keys', keys: [ 'epoch', 'eventId', 'state', 'previousStateHash', 'observedStateHash', 'observedAt' ], path: [], message: 'Unrecognized keys: "epoch", "eventId", "state", "previousStateHash", "observedStateHash", "observedAt"' } ], format: 'Function<value>', flatten: 'Function<value>', addIssue: 'Function<value>', addIssues: 'Function<value>', isEmpty: false }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 13 passed (16)
+   Start at  09:44:27
+   Duration  349ms (transform 34ms, setup 32ms, import 46ms, tests 10ms, environment 203ms)
+

@@ -1,0 +1,40 @@
+^D[?25l
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ❯ tests/services/ops-restaurants-google-business-profile.test.ts (1 test | 1 failed) 5ms
+     × loads the rich legacy connection DTO from the dedicated details endpoint 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/services/ops-restaurants-google-business-profile.test.ts > browser restaurant service Google Business Profile details > loads the rich legacy connection DTO from the dedicated details endpoint
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   "/api/ops/restaurants/restaurant-1/google-business-profile/details",
++   "/api/ops/restaurants/restaurant-1/google-business-profile",
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/services/ops-restaurants-google-business-profile.test.ts:22:27
+     20|     await service.getGoogleBusinessProfileConnection('restaurant-1');
+     21|
+     22|     expect(fetchJsonMock).toHaveBeenCalledWith(
+       |                           ^
+     23|       '/api/ops/restaurants/restaurant-1/google-business-profile/detai…
+     24|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  20:52:19
+   Duration  499ms (transform 46ms, setup 39ms, import 41ms, tests 5ms, environment 239ms)
+
+[?25h

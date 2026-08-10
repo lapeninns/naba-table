@@ -1,0 +1,70 @@
+{
+  "task": "Update stale DeepSec Plausible exclusion guard to the real multi-path contract",
+  "recordedAt": "2026-08-09T21:15:58Z",
+  "status": "complete",
+  "doneClaim": true,
+  "scope": {
+    "modified": ["tests/server/deepsec-final-controls-source.test.ts"],
+    "productionAnalyticsModified": false,
+    "unrelatedFlakesTouched": false
+  },
+  "tdd": {
+    "redInvocation": "./node_modules/.bin/vitest run tests/server/deepsec-final-controls-source.test.ts --reporter=verbose",
+    "redObservable": "exit 1; 1 failed / 5 passed; stale test expected the removed scalar declaration const PLAUSIBLE_EXCLUDED_PATHS = '/invite/**'",
+    "greenInvocation": "./node_modules/.bin/vitest run tests/server/deepsec-final-controls-source.test.ts --reporter=json --outputFile=.omo/evidence/gbp-wave3-deepsec-plausible-tests.json",
+    "greenObservable": "exit 0; success=true; 6/6 tests passed",
+    "artifact": ".omo/evidence/gbp-wave3-deepsec-plausible-tests.json",
+    "artifactSha256": "de3482c2abdf3d240c0d6ff9bfefdd79f2d8ad519a34f50ec2e346c1653d750f"
+  },
+  "behavioralContract": {
+    "source": "The test imports the exported PLAUSIBLE_EXCLUDED_PATHS value from src/app/layout.tsx instead of inspecting its source spelling",
+    "excludedRepresentativePaths": [
+      "/invite/signed-bearer-token",
+      "/app/settings/restaurant/google-business-profile",
+      "/app/settings/restaurant/google-business-profile/menus",
+      "/app/settings/restaurant/dual-sync/jobs/123",
+      "/app/settings/restaurant/gbp/candidates"
+    ],
+    "ordinaryNegativeControl": "/app/settings/restaurant/details",
+    "observable": "All sensitive representatives match at least one real configured pattern; the ordinary settings path does not"
+  },
+  "gates": [
+    {
+      "name": "TypeScript",
+      "invocation": "./node_modules/.bin/tsc --noEmit --pretty false",
+      "observable": "exit 0; no diagnostics"
+    },
+    {
+      "name": "ESLint",
+      "invocation": "./node_modules/.bin/eslint -f json -o .omo/evidence/gbp-wave3-deepsec-plausible-eslint.json tests/server/deepsec-final-controls-source.test.ts",
+      "observable": "exit 0; 1 file; 0 errors; 0 warnings",
+      "artifact": ".omo/evidence/gbp-wave3-deepsec-plausible-eslint.json",
+      "artifactSha256": "382c8a231897d78f704e762292e0a0d0750299b44ead358fc794cc87a7b33efc"
+    },
+    {
+      "name": "Prettier",
+      "invocation": "./node_modules/.bin/prettier --check tests/server/deepsec-final-controls-source.test.ts",
+      "observable": "exit 0; all matched files use Prettier code style"
+    },
+    {
+      "name": "Scoped diff check",
+      "invocation": "git diff --check -- tests/server/deepsec-final-controls-source.test.ts",
+      "observable": "exit 0; no whitespace errors"
+    },
+    {
+      "name": "File-size review",
+      "invocation": "awk non-blank/non-comment lines tests/server/deepsec-final-controls-source.test.ts | wc -l",
+      "observable": "105 pure lines; below the 250-line skill ceiling"
+    }
+  ],
+  "skillToolingNote": {
+    "invocation": "bun run <programming-skill>/check-no-excuse-rules.ts tests/server/deepsec-final-controls-source.test.ts",
+    "observable": "exit 2 before analysis because this repository does not expose the skill script's required TypeScript 7 unstable API; repository tsc and ESLint gates passed",
+    "completionBlocker": false
+  },
+  "hashes": {
+    "tests/server/deepsec-final-controls-source.test.ts": "af1de968e14400fcac34d624e931d104e51965f5c2d8861cba312016ed187cd2",
+    "src/app/layout.tsx": "5229abb5cf576cc7459aad7735f5f72b159ef0aa1f182db2f41da9df4466864b"
+  },
+  "blockers": []
+}

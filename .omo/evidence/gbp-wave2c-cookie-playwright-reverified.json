@@ -1,0 +1,107 @@
+{
+  "config": {
+    "configFile": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/e2e/analytics-privacy.playwright.config.ts",
+    "rootDir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/.omo/evidence/gbp-wave2c-cookie-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/e2e",
+        "testIgnore": [],
+        "testMatch": ["posthog-cookie-privacy.spec.ts"],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [["json"]],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "posthog-cookie-privacy.spec.ts",
+      "file": "posthog-cookie-privacy.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "sensitive navigation expiry variants remove a parent-domain PostHog cookie",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 168,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T16:23:43.481Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "cookie-domain-expiry.json",
+                      "contentType": "application/json",
+                      "body": "eyJob3N0bmFtZSI6ImFwcC5leGFtcGxlLnRlc3QiLCJleHBpcnlEb21haW5zIjpbbnVsbCwiYXBwLmV4YW1wbGUudGVzdCIsImV4YW1wbGUudGVzdCJdLCJiZWZvcmUiOlt7ImRvbWFpbiI6Ii5leGFtcGxlLnRlc3QiLCJuYW1lIjoicGhfZG9tYWluX3Bvc3Rob2cifV0sImFmdGVyIjpbXX0="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "386611204a65aec85d60-fc293f7887dbcdb35d1b",
+          "file": "posthog-cookie-privacy.spec.ts",
+          "line": 5,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-09T16:23:42.968Z",
+    "duration": 967.073,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

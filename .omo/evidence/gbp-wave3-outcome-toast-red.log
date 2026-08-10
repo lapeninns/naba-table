@@ -1,0 +1,30 @@
+^D[?25l
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ❯ tests/components/DualSyncShellPublishFlow.test.tsx (5 tests | 1 failed) 648ms
+     × uses the frozen exact preview and publish mutations on the shipped workspace 282ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/components/DualSyncShellPublishFlow.test.tsx > DualSyncShell publish flow > uses the frozen exact preview and publish mutations on the shipped workspace
+AssertionError: expected "vi.fn()" to be called with arguments: [ Array(1) ]
+
+Number of calls: 0
+
+ ❯ tests/components/DualSyncShellPublishFlow.test.tsx:359:33
+    357|     );
+    358|     expect(await screen.findByText('Google publish outcome')).toBeInTh…
+    359|     expect(mocks.toast.warning).toHaveBeenCalledWith(
+       |                                 ^
+    360|       'Provider outcome unknown. Refresh Google, verify the listing, a…
+    361|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  22:11:44
+   Duration  1.41s (transform 303ms, setup 33ms, import 466ms, tests 648ms, environment 196ms)
+
+[?25h

@@ -1,0 +1,6 @@
+SCENARIO: Diff whitespace validation for Wave4 tracked runtime and test changes
+INVOCATION: git diff --check -- <owned tracked files>
+TRACKED_EXIT_CODE: 0
+SCENARIO: Diff whitespace validation for Wave4 untracked focused tests
+UNTRACKED_DIFF_EXIT_CODES (expected 1 for additive diff): auto=1 queue=1
+BINARY_OBSERVABLE: no diff --check diagnostics were emitted

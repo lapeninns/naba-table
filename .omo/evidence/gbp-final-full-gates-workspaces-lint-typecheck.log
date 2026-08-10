@@ -1,0 +1,7 @@
+=== booking-short-links lint ===
+=== booking-short-links typecheck ===
+=== email-queue-gateway lint ===
+=== email-queue-gateway typecheck ===
+=== sms-summary-gateway lint ===
+=== sms-summary-gateway typecheck ===
+exit=

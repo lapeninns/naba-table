@@ -1,0 +1,193 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ❯ tests/server/dual-sync-publish-orchestrator-preflight.test.ts (4 tests | 2 failed) 14ms
+     × fans out failed preflight results to every field in the group 4ms
+     × maps thrown preflight errors to failed group results and audit details 2ms
+ ❯ tests/server/dual-sync-publish-orchestrator-execute-operations.test.ts (4 tests | 1 failed) 10ms
+     × reuses prebuilt export results and skips per-field export ports 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/server/dual-sync-publish-orchestrator-execute-operations.test.ts > executePreparedPublishOperations > reuses prebuilt export results and skips per-field export ports
+AssertionError: expected "vi.fn()" to be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   ObjectContaining {
++   {
++     "client": {
++       "from": [Function Mock],
++     },
++     "direction": "export_to_google",
++     "errorCode": null,
++     "fieldKey": "profile.businessDescription",
+      "googleMethod": "location.profile",
+      "googleUpdateMasks": [
+        "profile",
+      ],
++     "operationGroupId": "group-1",
+      "phase": "provider_write",
++     "publishBatchId": "batch-1",
++     "publishJobId": "job-1",
+      "publishOperationId": "op-1",
++     "requestSummary": {
++       "beforeCoreHash": "core-before",
++       "beforeGbpHash": "gbp-before",
++       "fieldKey": "profile.businessDescription",
++       "googleUpdateMask": "profile",
++       "sectionKey": "profile",
++       "writeGroup": "location.profile",
++     },
+      "responseSummary": {
+-       "batch": true,
++       "responseHash": "5a00653f74706b9405802cb4747f884392c6b51cc4bc093703c4ab3a3715aa3a",
+      },
++     "restaurantId": "rest-1",
++     "sectionKey": "profile",
+      "status": "succeeded",
++     "writeGroup": "location.profile",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/server/dual-sync-publish-orchestrator-execute-operations.test.ts:191:40
+    189|     expect(result.failures).toEqual([]);
+    190|     expect(ports.applyExportToGoogle).not.toHaveBeenCalled();
+    191|     expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
+       |                                        ^
+    192|       expect.objectContaining({
+    193|         publishOperationId: 'op-1',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/server/dual-sync-publish-orchestrator-preflight.test.ts > runRequiredExportPreflights > fans out failed preflight results to every field in the group
+AssertionError: expected "vi.fn()" to be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   ObjectContaining {
++   {
++     "client": {
++       "from": [Function Mock],
++     },
++     "direction": "export_to_google",
+      "errorCode": "GOOGLE_VALIDATION_FAILED",
+-     "errorMessage": "Google rejected the regular hours payload.",
++     "googleMethod": "location.regularHours",
++     "googleUpdateMasks": [
++       "regularHours",
++     ],
++     "operationGroupId": "group-1",
++     "phase": "preflight",
++     "publishBatchId": "batch-1",
++     "requestSummary": {
++       "fieldKeys": [
++         "operatingHours.weekly.1",
++         "operatingHours.weekly.2",
++       ],
++       "googleUpdateMasks": [
++         "regularHours",
++       ],
++       "groupId": "export_to_google:operatingHours:location.regularHours",
++       "sectionKey": "operatingHours",
++       "writeGroup": "location.regularHours",
++     },
+      "responseSummary": {
+-       "validateOnly": false,
++       "resultHash": "d6a28dc5694c80175288a8f30e35d5af30db84b0112a0dd5ff71c060dd62994e",
+      },
++     "restaurantId": "rest-1",
++     "sectionKey": "operatingHours",
+      "status": "failed",
++     "writeGroup": "location.regularHours",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/server/dual-sync-publish-orchestrator-preflight.test.ts:195:40
+    193|       }),
+    194|     );
+    195|     expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
+       |                                        ^
+    196|       expect.objectContaining({
+    197|         status: 'failed',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/server/dual-sync-publish-orchestrator-preflight.test.ts > runRequiredExportPreflights > maps thrown preflight errors to failed group results and audit details
+AssertionError: expected "vi.fn()" to be called with arguments: [ ObjectContaining{…} ]
+
+Received:
+
+  1st vi.fn() call:
+
+  [
+-   ObjectContaining {
++   {
++     "client": {
++       "from": [Function Mock],
++     },
++     "direction": "export_to_google",
+      "errorCode": "EXTERNAL_API_TIMEOUT",
+-     "errorMessage": "validateOnly timed out",
++     "googleMethod": "location.regularHours",
++     "googleUpdateMasks": [
++       "regularHours",
++     ],
++     "operationGroupId": "group-1",
++     "phase": "preflight",
++     "publishBatchId": "batch-1",
++     "requestSummary": {
++       "fieldKeys": [
++         "operatingHours.weekly.1",
++         "operatingHours.weekly.2",
++       ],
++       "googleUpdateMasks": [
++         "regularHours",
++       ],
++       "groupId": "export_to_google:operatingHours:location.regularHours",
++       "sectionKey": "operatingHours",
++       "writeGroup": "location.regularHours",
++     },
+      "responseSummary": {
+-       "message": "validateOnly timed out",
+-       "thrown": true,
++       "resultHash": "0830f5f9c8e4b3b588a40e9f684bdca6e7870afa3538e15c7ff40b3fd545f5cc",
+      },
++     "restaurantId": "rest-1",
++     "sectionKey": "operatingHours",
+      "status": "failed",
++     "writeGroup": "location.regularHours",
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/server/dual-sync-publish-orchestrator-preflight.test.ts:215:40
+    213|       retryable: true,
+    214|     });
+    215|     expect(createGoogleRequestLogMock).toHaveBeenCalledWith(
+       |                                        ^
+    216|       expect.objectContaining({
+    217|         status: 'failed',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 11 passed (13)
+      Tests  3 failed | 63 passed (66)
+   Start at  15:05:56
+   Duration  3.45s (transform 3.83s, setup 2.09s, import 6.19s, tests 131ms, environment 17.87s)
+

@@ -1,0 +1,53 @@
+{
+  "claim": "done",
+  "scope": "Wave3 canonical GBP and exact dual-sync API producers",
+  "scenarios": [
+    {
+      "scenario": "Frozen client and producer integration covers canonical connection state, pending overlays, notification participation and notices, write access, rich legacy details, and exact preview/publish.",
+      "invocation": "./node_modules/.bin/vitest run tests/services/ops-restaurants-google-business-profile.test.ts tests/hooks/useOpsGoogleBusinessProfile.test.tsx tests/services/ops-dual-sync-wave3-client.test.ts tests/server/gbp-operator-connection-state.test.ts tests/server/google-business-profile-details-route.test.ts tests/server/google-business-profile-write-access-route.test.ts tests/server/restaurant-google-business-profile-routes.test.ts tests/server/google-business-profile-notifications-route.test.ts tests/server/dual-sync-publish-preview-route.test.ts tests/server/dual-sync-publish-route.test.ts",
+      "observable": "10 test files and 49 tests passed",
+      "artifact": ".omo/evidence/gbp-wave3-api-final-integration.log"
+    },
+    {
+      "scenario": "Write-access persistence enforces current fence, actor membership, rollout/readiness, idempotent enable/disable, epoch revocation, job cancellation, and credential preservation.",
+      "invocation": "PostgreSQL exact-current driver recorded by the schema lane",
+      "observable": "wave3_write_access actor/tenant/stale, readiness, enable idempotency, disable state/grant/credentials, disable idempotency, disable jobs, and final driver probes all report result=pass",
+      "artifact": ".omo/evidence/gbp-wave1a-schema-pg-current.log"
+    },
+    {
+      "scenario": "Strict TypeScript compilation",
+      "invocation": "./node_modules/.bin/tsc --noEmit",
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave3-api-typecheck.log"
+    },
+    {
+      "scenario": "Scoped ESLint validation",
+      "invocation": "./node_modules/.bin/eslint <Wave3 producer/runtime/test paths>",
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave3-api-eslint.log"
+    },
+    {
+      "scenario": "Scoped formatting validation",
+      "invocation": "./node_modules/.bin/prettier --check <Wave3 producer/runtime/test paths>",
+      "observable": "all matched files use Prettier code style",
+      "artifact": ".omo/evidence/gbp-wave3-api-format.log"
+    },
+    {
+      "scenario": "Repository diff whitespace validation",
+      "invocation": "git diff --check",
+      "observable": "exit 0",
+      "artifact": ".omo/evidence/gbp-wave3-api-diff-check.log"
+    }
+  ],
+  "endpoints": {
+    "canonicalConnection": "GET /api/ops/restaurants/:id/google-business-profile",
+    "legacyDetails": "GET /api/ops/restaurants/:id/google-business-profile/details",
+    "writeAccess": "PUT /api/ops/restaurants/:id/google-business-profile/write-access",
+    "notificationParticipation": "PUT /api/ops/restaurants/:id/google-business-profile/notifications",
+    "terminalNotices": "GET /api/ops/restaurants/:id/google-business-profile/notifications",
+    "exactPreview": "POST /api/ops/restaurants/:id/dual-sync/publish/preview",
+    "exactPublish": "POST /api/ops/restaurants/:id/dual-sync/publish"
+  },
+  "cachePolicy": "All GBP producer success and error responses are private no-store.",
+  "remainingBlockers": []
+}

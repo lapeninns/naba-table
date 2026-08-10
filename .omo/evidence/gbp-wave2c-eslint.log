@@ -1,0 +1,3 @@
+./node_modules/.bin/eslint tests/server/dual-sync-publish-planner.test.ts tests/server/dual-sync-publish-planner-runtime.test.ts tests/server/dual-sync-publish-orchestrator.test.ts tests/server/dual-sync-replay-runner.test.ts
+exit_code=0
+diagnostics=none

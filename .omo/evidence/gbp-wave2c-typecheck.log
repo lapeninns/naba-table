@@ -1,0 +1,3 @@
+./node_modules/.bin/tsc --noEmit --pretty false
+exit_code=0
+diagnostics=none

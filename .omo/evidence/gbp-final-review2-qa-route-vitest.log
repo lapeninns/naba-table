@@ -1,0 +1,4 @@
+Invocation:
+./node_modules/.bin/vitest run tests/server/google-business-profile-details-route.test.ts tests/server/google-business-profile-locations-route.test.ts tests/server/google-business-profile-write-access-route.test.ts tests/server/google-business-profile-notifications-route.test.ts tests/server/restaurant-google-business-profile-routes.test.ts tests/server/google-business-profile-readonly-v1.test.ts --reporter=dot
+
+Result: PASS; Test Files 6 passed; Tests 33 passed; exit 0.

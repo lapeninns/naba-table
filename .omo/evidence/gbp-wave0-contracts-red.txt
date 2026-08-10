@@ -1,0 +1,32 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/server/dual-sync-remediation-contracts.test.ts [ tests/server/dual-sync-remediation-contracts.test.ts ]
+Error: Failed to resolve import "@/server/dual-sync/contracts" from "tests/server/dual-sync-remediation-contracts.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/amankumarshrestha/LapenInns Project/nabatableLP/tests/server/dual-sync-remediation-contracts.test.ts:8:7
+  5  |    parseGrantManifestV1,
+  6  |    remediationOpsResponseV1Schema
+  7  |  } from "@/server/dual-sync/contracts";
+     |          ^
+  8  |  const SHA_A = "a".repeat(64);
+  9  |  const SHA_B = "b".repeat(64);
+ ❯ TransformPluginContext._formatLog ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:29079:43
+ ❯ TransformPluginContext.error ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:29076:14
+ ❯ normalizeUrl ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27199:18
+ ❯ ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27257:32
+ ❯ TransformPluginContext.transform ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:27225:4
+ ❯ EnvironmentPluginContainer.transform ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:28877:14
+ ❯ loadAndTransform ../../LapenInns%20Project/nabatableLP/node_modules/.pnpm/vite@7.3.5_@types+node@24.10.1_jiti@2.7.0_lightningcss@1.30.2_terser@5.46.0_tsx@4.21.0_yaml@2.9.0/node_modules/vite/dist/node/chunks/config.js:22746:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  09:34:07
+   Duration  287ms (transform 10ms, setup 31ms, import 0ms, tests 0ms, environment 191ms)
+

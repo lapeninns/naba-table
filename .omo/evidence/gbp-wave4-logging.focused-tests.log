@@ -1,0 +1,49 @@
+
+ RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
+
+ ✓ tests/server/dual-sync-auto-export-cron-route.test.ts > dual-sync auto-export cron route logging > records a safe structured failure while preserving the terminal response 4ms
+ ✓ tests/server/dual-sync-queue-cron-route.test.ts > dual-sync queue cron route logging > records safe telemetry without changing the terminal queue response 4ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects decisions for unknown reviews without claiming anything @contract @security 2ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects reviews that were already decided @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > marks ignored google changes without touching items or settings @contract 1ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > merges menu metadata patches over current settings when applying metadata @contract 1ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects metadata decisions on non-metadata reviews before claiming @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > routes missing-local-item actions to the canonical adapter @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects missing-local-item actions when the review is not missing_from_google @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > creates new items from complete unmatched suggestions @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects create_new_item when the suggestion is missing required fields @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > applies normalised suggested patches to the matched local item @contract @security 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects apply_to_nabatable without a matched local item @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > rejects malformed suggested patches that parse to nothing @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > marks a claimed review failed when the side effect throws and rethrows the cause @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > does not mark failure when the error happens before the claim @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > propagates claim conflicts without marking the review failed @contract 0ms
+ ✓ tests/server/google-business-profile/food-menus-import-decisions.test.ts > decideFoodMenusImportReview > still rethrows the original failure when marking the claim failed also fails @contract @observability 0ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > requires cron auth and returns no-store 3ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > performs a read-only census for dry-run 2ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > does not claim when candidate discovery is disabled 0ms
+ ✓ tests/server/dual-sync-core-outbox-route.test.ts > core outbox cron route > records a safe structured failure while preserving the terminal response 1ms
+ ✓ tests/server/dual-sync-locks.test.ts > runWithDualSyncLock > acquires and releases a restaurant/provider lock around the job 2ms
+ ✓ tests/server/dual-sync-locks.test.ts > runWithDualSyncLock > renews long-running locks before their TTL expires 1ms
+ ✓ tests/server/dual-sync-locks.test.ts > runWithDualSyncLock > releases the lock when the protected job throws 0ms
+ ✓ tests/server/dual-sync-locks.test.ts > runWithDualSyncLock > surfaces a lock-held error without running the protected job 0ms
+ ✓ tests/server/dual-sync-locks.test.ts > runWithDualSyncLock > records a safe release failure and preserves the protected-job failure 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > routes errors to logger.error and stamps occurredAt 2ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > routes warnings to logger.warn 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createConsoleNotificationPort > reports an ambiguous failure when the underlying logger explodes 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > POSTs the event JSON to the configured URL 1ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > returns a definitive rejection for an unambiguously rejected request 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > returns an ambiguous failure for a server response 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > classifies a rate-limit rejection as definitively retryable 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > returns an ambiguous failure for a thrown transport error 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > createWebhookNotificationPort > reports an unavailable transport instead of silently succeeding 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > fails definitively for an empty operational channel list 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > returns the single port unchanged 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > combineNotificationPorts > fans out and preserves the most uncertain transport result 0ms
+ ✓ tests/server/dual-sync-notifications.test.ts > buildDefaultNotificationPort > routes webhook transport failures through the console notification port without provider text 1ms
+
+ Test Files  6 passed (6)
+      Tests  40 passed (40)
+   Start at  00:41:18
+   Duration  569ms (transform 396ms, setup 302ms, import 483ms, tests 36ms, environment 1.89s)
+
