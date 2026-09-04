@@ -276,12 +276,10 @@ test('@p0 @browser @local-only @external-mock guest can complete a booking flow'
   await page.getByLabel('Full name').fill('Guest Booker');
   await page.getByLabel('Email address').fill('guest@example.com');
   await page.getByLabel('UK phone number', { exact: true }).fill('+441234567890');
-  // Consent is no longer restored from the saved draft (audit fix — no pre-accepted
-  // terms), so it must be given explicitly before the review action enables.
-  await page.getByRole('checkbox', { name: /I agree to the terms/i }).click();
   await expect(page.getByTestId('wizard-action-details-review')).toBeEnabled();
-
   await clickClientControl(page.getByTestId('wizard-action-details-review'));
+  await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
+  await clickClientControl(page.getByRole('button', { name: 'Accept all & review booking' }));
   await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
   await clickClientControl(page.getByTestId('wizard-action-review-confirm'));
 
@@ -321,6 +319,7 @@ test('@p0 @browser @local-only @external-mock guest sees a friendly duplicate-bo
         contentType: 'application/json',
         body: JSON.stringify({
           restaurantId,
+          evaluatedPartySize: 1,
           date,
           timezone: 'Europe/London',
           intervalMinutes: 15,
@@ -337,6 +336,7 @@ test('@p0 @browser @local-only @external-mock guest sees a friendly duplicate-bo
               periodName: 'Lunch',
               bookingOption: 'lunch',
               defaultBookingOption: 'lunch',
+              durationMinutes: 90,
               availability: {
                 services: {},
                 labels: { kitchenClosed: false, lunchWindow: true, dinnerWindow: false },
@@ -401,12 +401,10 @@ test('@p0 @browser @local-only @external-mock guest sees a friendly duplicate-bo
   await page.getByLabel('Full name').fill('Guest Booker');
   await page.getByLabel('Email address').fill('guest@example.com');
   await page.getByLabel('UK phone number', { exact: true }).fill('+441234567890');
-  // Consent is no longer restored from the saved draft (audit fix — no pre-accepted
-  // terms), so it must be given explicitly before the review action enables.
-  await page.getByRole('checkbox', { name: /I agree to the terms/i }).click();
   await expect(page.getByTestId('wizard-action-details-review')).toBeEnabled();
-
   await clickClientControl(page.getByTestId('wizard-action-details-review'));
+  await expect(page.getByRole('heading', { name: 'One last step' })).toBeVisible();
+  await clickClientControl(page.getByRole('button', { name: 'Accept all & review booking' }));
   await expect(page.getByRole('heading', { name: 'Review the booking' })).toBeVisible();
   await clickClientControl(page.getByTestId('wizard-action-review-confirm'));
 
