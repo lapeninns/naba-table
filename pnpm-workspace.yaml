@@ -5,3 +5,23 @@ packages:
 # Hold newly published packages for 24 hours so compromised releases have time
 # to be detected and removed before normal dependency resolution can select them.
 minimumReleaseAge: 1440
+
+overrides:
+  '@opentelemetry/core': ^2.8.0
+  '@protobufjs/utf8': ^1.1.1
+  browserslist: ^4.28.8
+  dompurify: ^3.4.14
+  fast-uri: ^3.1.7
+  fflate: ^0.4.9
+  nanoid: ^3.3.18
+  postcss: ^8.5.28
+  prismjs: ^1.30.0
+  protobufjs: ^7.6.6
+  sharp: ^0.35.4
+  tar: ^7.5.2
+  uuid: ^11.1.1
+  ws: ^8.21.3
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

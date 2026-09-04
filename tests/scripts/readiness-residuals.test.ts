@@ -13,6 +13,20 @@ function readJson(relativePath: string): { scripts?: Record<string, string> } {
 }
 
 describe('residual readiness contracts', () => {
+  it('keeps pnpm 10 security policy in the workspace configuration @contract', () => {
+    const manifest = JSON.parse(
+      readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    const workspace = parse(
+      readFileSync(path.join(repositoryRoot, 'pnpm-workspace.yaml'), 'utf8'),
+    ) as Record<string, unknown>;
+
+    expect(manifest).not.toHaveProperty('pnpm');
+    expect(workspace).toHaveProperty('overrides.protobufjs');
+    expect(workspace).toHaveProperty('overrides.sharp');
+    expect(workspace).toHaveProperty('onlyBuiltDependencies', ['esbuild', 'sharp']);
+  });
+
   it('keeps the Docker development runtime on the supported Node major @contract', () => {
     const dockerfile = readFileSync(path.join(repositoryRoot, '.devcontainer/Dockerfile'), 'utf8');
     const compose = readFileSync(path.join(repositoryRoot, 'compose.yaml'), 'utf8');

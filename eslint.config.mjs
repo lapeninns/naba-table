@@ -4,7 +4,6 @@ import url from 'node:url';
 import { FlatCompat } from '@eslint/eslintrc';
 import nextConfig from 'eslint-config-next';
 import importPlugin from 'eslint-plugin-import';
-import reactHooks from 'eslint-plugin-react-hooks';
 import sonarjs from 'eslint-plugin-sonarjs';
 
 import workerBoundaryConfigs from './config/eslint/worker-boundaries.mjs';
@@ -81,9 +80,6 @@ export default [
     },
   }),
   {
-    plugins: {
-      'react-hooks': reactHooks,
-    },
     rules: {
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',
