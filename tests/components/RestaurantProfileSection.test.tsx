@@ -372,6 +372,9 @@ describe('restaurant profile model', () => {
   it('derives profile values and readiness from profile data', () => {
     const values = buildProfileValues({
       ...profile,
+      name: 'Old Crown Girton',
+      slug: 'old-crown-girton',
+      timezone: 'Europe/London',
       businessDescription: 'Village pub',
       logoUrl: 'https://cdn.example/logo.png',
     });

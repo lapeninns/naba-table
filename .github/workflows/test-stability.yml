@@ -46,6 +46,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Repeat root tests without retries
-        run: pnpm test:stability -- --sequence.seed=${{ matrix.seed }}
+        run: pnpm test:stability --sequence.seed=${{ matrix.seed }}
       - name: Repeat Worker tests without retries
         run: pnpm --filter '@nabatable/*' -r test
