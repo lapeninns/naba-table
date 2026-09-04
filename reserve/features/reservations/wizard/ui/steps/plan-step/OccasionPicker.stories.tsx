@@ -1,6 +1,6 @@
-import { expect, fn, userEvent, waitFor, within } from '@storybook/test';
 import { SparklesIcon } from 'lucide-react';
 import { useArgs } from 'storybook/preview-api';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
 
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';

@@ -1,5 +1,5 @@
-import { expect, fn, userEvent, within } from '@storybook/test';
 import { useState } from 'react';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { Calendar24Field } from './components/Calendar24Field';
 

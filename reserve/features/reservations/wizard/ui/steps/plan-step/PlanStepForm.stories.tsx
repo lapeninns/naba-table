@@ -1,6 +1,6 @@
-import { expect, fn, userEvent, within } from '@storybook/test';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import { PlanStepForm } from './PlanStepForm';
 import { WizardProvider } from '../../../context/WizardContext';
