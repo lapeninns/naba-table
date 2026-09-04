@@ -21,7 +21,10 @@ function secureEqual(left: string, right: string): boolean {
   return timingSafeEqual(digest(left), digest(right));
 }
 
-function hasValidReviewLinkWebhookAuthorization(request: Request, expectedToken: string): boolean {
+function hasValidReviewLinkWebhookAuthorization(
+  request: Request,
+  expectedToken: string | null,
+): boolean {
   const header = request.headers.get('authorization');
   const token = header?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? '';
   return Boolean(expectedToken && token && secureEqual(token, expectedToken));
