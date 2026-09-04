@@ -1,3 +1,4 @@
+import { Heading } from '@/components/ui/typography';
 import { renderMonthlyReportEmail } from '@/server/emails/monthly-report';
 import { computeMonthlyVenueReport } from '@/server/reports/monthly-venue-report';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -47,7 +48,9 @@ export default async function MonthlyReportDevPage({ searchParams }: MonthlyRepo
     return (
       <main className="min-h-screen bg-slate-100 px-5 py-10 text-slate-950">
         <div className="mx-auto max-w-3xl rounded-2xl border border-red-200 bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-semibold">Monthly report dev harness</h1>
+          <Heading as="h1" variant="title" className="text-[1.5rem]">
+            Monthly report dev harness
+          </Heading>
           <p className="mt-3 text-sm text-red-700">No venue found for slug “{venueSlug}”.</p>
         </div>
       </main>
@@ -60,7 +63,9 @@ export default async function MonthlyReportDevPage({ searchParams }: MonthlyRepo
     return (
       <main className="min-h-screen bg-slate-100 px-5 py-10 text-slate-950">
         <div className="mx-auto max-w-3xl rounded-2xl border border-amber-200 bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-semibold">Monthly report dev harness</h1>
+          <Heading as="h1" variant="title" className="text-[1.5rem]">
+            Monthly report dev harness
+          </Heading>
           <p className="mt-3 text-sm text-amber-800">
             No reportable booking activity was found for {venueSlug} in {year}-
             {String(month).padStart(2, '0')}.
@@ -83,7 +88,9 @@ export default async function MonthlyReportDevPage({ searchParams }: MonthlyRepo
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
             Local preview · production renderer
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Monthly report dev harness</h1>
+          <Heading as="h1" variant="title" className="mt-2 text-[1.5rem] tracking-tight">
+            Monthly report dev harness
+          </Heading>
           <p className="mt-2 text-sm font-medium text-slate-600">
             {report.restaurantName} · {report.month}
           </p>

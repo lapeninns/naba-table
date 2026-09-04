@@ -9,7 +9,8 @@ Usage: pnpm db:<workflow> [--include-all] [--dry-run]
 Workflows: status, migrate, push, pull, check-drift, prepare-staging-legacy-drink-menu, remove-staging-test-phone
 Target: DB_TARGET_ENV=staging|production
 Production migration apply: CONFIRM_PRODUCTION=true
-Historical replay: --include-all is staging-only and requires migrate or push
+Historical replay: --include-all requires migrate or push
+Production historical replay: CONFIRM_PRODUCTION_INCLUDE_ALL=20260811160000
 Legacy drink-menu preparation: staging-only
 Legacy test-phone cleanup: staging-only; requires TEST_PHONE_E164
 `;
@@ -89,6 +90,8 @@ type ParsedRequest =
     }
   | { readonly kind: 'refusal'; readonly message: string };
 
+const PRODUCTION_INCLUDE_ALL_CONFIRMATION = '20260811160000';
+
 function isWorkflow(value: string): value is Workflow {
   return Object.hasOwn(WORKFLOW_PLANS, value);
 }
@@ -130,8 +133,16 @@ function parseRequest(args: readonly string[], env: NodeJS.ProcessEnv): ParsedRe
   if (includeAll && access !== 'migration') {
     return { kind: 'refusal', message: '--include-all requires migrate or push.' };
   }
-  if (includeAll && target !== 'staging') {
-    return { kind: 'refusal', message: '--include-all is staging-only.' };
+  if (
+    includeAll &&
+    target === 'production' &&
+    !dryRun &&
+    env.CONFIRM_PRODUCTION_INCLUDE_ALL !== PRODUCTION_INCLUDE_ALL_CONFIRMATION
+  ) {
+    return {
+      kind: 'refusal',
+      message: `CONFIRM_PRODUCTION_INCLUDE_ALL=${PRODUCTION_INCLUDE_ALL_CONFIRMATION} is required for production historical replay.`,
+    };
   }
   if (access === 'staging-preparation' && target !== 'staging') {
     return {

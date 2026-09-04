@@ -100,9 +100,33 @@ describe('Google Business Profile Pub/Sub parsing', () => {
     expect(JSON.stringify(parsed)).not.toContain('content must not escape');
   });
 
+  it('extracts a Google review resource identifier without retaining review content', async () => {
+    const request = pushRequest({
+      type: 'NEW_REVIEW',
+      accountName: 'accounts/account-1',
+      locationName: 'locations/location-1',
+      reviewName: 'accounts/account-1/locations/location-1/reviews/review-99',
+      comment: 'private guest feedback must not escape the parser',
+      reviewer: { displayName: 'Private Guest' },
+    });
+
+    const parsed = await parseGoogleBusinessProfilePush(request, CONFIG.subscription);
+
+    expect(parsed).toMatchObject({
+      kind: 'supported',
+      messageId: 'message-1',
+      eventType: 'NEW_REVIEW',
+      externalAccountId: 'account-1',
+      externalLocationId: 'location-1',
+      externalReviewId: 'review-99',
+    });
+    expect(JSON.stringify(parsed)).not.toContain('private guest feedback');
+    expect(JSON.stringify(parsed)).not.toContain('Private Guest');
+  });
+
   it('acknowledges unsupported and malformed decoded notifications as metadata-only poison', async () => {
     // Given
-    const unsupported = pushRequest({ type: 'NEW_REVIEW', locationName: 'locations/location-1' });
+    const unsupported = pushRequest({ type: 'PHOTO_UPDATE', locationName: 'locations/location-1' });
     const malformed = pushRequest({ title: 'provider content' });
 
     // When

@@ -5,6 +5,7 @@ import {
   type MobileAttemptStatus,
   type MobileNotificationType,
 } from '@/server/notifications/mobile';
+import { accelerateReviewEmailFollowup, recordReviewRequestEvent } from '@/server/reviews/journeys';
 import { sendClaimedBookingSmsFallback } from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -41,6 +42,7 @@ type WhatsAppAttemptLookup = {
   readonly notificationRecipientPhone: string;
   readonly recipientPhone: string;
   readonly restaurantId: string;
+  readonly reviewRequestId?: string | null;
   readonly status: MobileAttemptStatus;
 };
 
@@ -66,6 +68,12 @@ export type WhatsAppStatusDependencies = {
     readonly providerMessageId: string;
     readonly status: MobileAttemptStatus;
   }) => Promise<boolean>;
+  readonly recordStatus?: (input: {
+    readonly messageSid: string;
+    readonly restaurantId: string;
+    readonly reviewRequestId: string;
+    readonly status: MobileAttemptStatus;
+  }) => Promise<void>;
 };
 
 export function shouldApplyWhatsAppStatus(
@@ -137,9 +145,29 @@ export async function reconcileWhatsAppStatusWithDependencies(
     status: incoming,
   });
   if (!updated || (incoming !== 'failed' && incoming !== 'undelivered')) {
+    if (
+      updated &&
+      attempt.notificationType === 'booking_review_request' &&
+      attempt.reviewRequestId
+    ) {
+      await dependencies.recordStatus?.({
+        messageSid,
+        restaurantId: attempt.restaurantId,
+        reviewRequestId: attempt.reviewRequestId,
+        status: incoming,
+      });
+    }
     return { ignored: !updated, fallbackSent: false };
   }
   if (attempt.notificationType === 'booking_review_request') {
+    if (attempt.reviewRequestId) {
+      await dependencies.recordStatus?.({
+        messageSid,
+        restaurantId: attempt.restaurantId,
+        reviewRequestId: attempt.reviewRequestId,
+        status: incoming,
+      });
+    }
     return { ignored: false, fallbackSent: false };
   }
 
@@ -187,7 +215,7 @@ export async function processWhatsAppStatusCallback(
 
       const { data: notification, error: notificationError } = await client
         .from('mobile_notifications')
-        .select('notification_type,restaurant_id,recipient_phone')
+        .select('notification_type,restaurant_id,recipient_phone,review_request_id')
         .eq('id', attempt.notification_id)
         .single();
       if (notificationError || !notification) {
@@ -209,6 +237,7 @@ export async function processWhatsAppStatusCallback(
         notificationType,
         recipientPhone: attempt.recipient_phone,
         restaurantId: notification.restaurant_id,
+        reviewRequestId: notification.review_request_id,
         status,
       };
     },
@@ -241,5 +270,31 @@ export async function processWhatsAppStatusCallback(
     },
     sendFallback: ({ attemptId, notificationId }) =>
       sendClaimedBookingSmsFallback({ attemptId, notificationId }),
+    recordStatus: async ({ messageSid, restaurantId, reviewRequestId, status }) => {
+      const eventType =
+        status === 'delivered'
+          ? 'delivered'
+          : status === 'read'
+            ? 'read'
+            : status === 'failed' || status === 'undelivered'
+              ? 'failed'
+              : 'sent';
+      await recordReviewRequestEvent(
+        {
+          channel: 'whatsapp',
+          eventType,
+          idempotencyKey: `twilio:${messageSid}:${status}`,
+          occurredAt: new Date().toISOString(),
+          provider: 'twilio',
+          providerEventId: messageSid,
+          restaurantId,
+          reviewRequestId,
+        },
+        client,
+      );
+      if (status === 'failed' || status === 'undelivered') {
+        await accelerateReviewEmailFollowup({ restaurantId, reviewRequestId }, client);
+      }
+    },
   });
 }

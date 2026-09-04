@@ -11,6 +11,7 @@ import {
 import { addEmailToSuppressionList } from '@/server/emails/email-suppression-list';
 import { suppressProfilesByEmail } from '@/server/emails/recipient-suppression';
 import { recordObservabilityEvent } from '@/server/observability';
+import { recordReviewRequestEvent, type ReviewEventType } from '@/server/reviews/journeys';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import type { NextRequest } from 'next/server';
@@ -146,32 +147,56 @@ export async function POST(req: NextRequest) {
     };
 
     const mappedStatus = statusMap[event.type] ?? null;
+    const reviewEventMap: Partial<Record<ResendWebhookEvent['type'], ReviewEventType>> = {
+      'email.sent': 'sent',
+      'email.delivered': 'delivered',
+      'email.opened': 'opened',
+      'email.complained': 'complained',
+      'email.complaint': 'complained',
+      'email.bounced': 'bounced',
+      'email.failed': 'failed',
+    };
     const occurredAt = event.created_at || new Date().toISOString();
     const errorDetails = event.data.bounce?.message ?? null;
 
-    if (mappedStatus) {
-      for (const recipientEmail of recipients) {
-        const linkage = await findLatestEmailDeliveryByMessageId({
-          messageId: event.data.email_id,
-          recipientEmail,
-        });
+    for (const recipientEmail of recipients) {
+      const linkage = await findLatestEmailDeliveryByMessageId({
+        messageId: event.data.email_id,
+        recipientEmail,
+      });
 
+      if (mappedStatus) {
         await recordEmailDeliveryLog({
           bookingId: linkage?.bookingId ?? null,
           restaurantId: linkage?.restaurantId ?? null,
+          reviewRequestId: linkage?.reviewRequestId ?? null,
           emailType: linkage?.emailType ?? null,
           templateType: linkage?.templateType ?? null,
           recipientEmail,
           messageId: event.data.email_id,
           status: mappedStatus,
           provider: 'resend',
-          providerEventId: null,
+          providerEventId: svixId,
           occurredAt,
           error: errorDetails,
           metadata: {
             eventType: event.type,
             // Do not include raw recipient email in metadata; it's already stored in the column.
           },
+        });
+      }
+
+      const reviewEventType = reviewEventMap[event.type];
+      if (reviewEventType && linkage?.reviewRequestId && linkage.restaurantId) {
+        await recordReviewRequestEvent({
+          channel: 'email',
+          eventType: reviewEventType,
+          idempotencyKey: `resend:${svixId}:${linkage.reviewRequestId}`,
+          occurredAt,
+          provider: 'resend',
+          providerEventId: event.data.email_id,
+          restaurantId: linkage.restaurantId,
+          reviewRequestId: linkage.reviewRequestId,
         });
       }
     }

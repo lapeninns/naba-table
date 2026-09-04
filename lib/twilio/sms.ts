@@ -41,6 +41,8 @@ export type TwilioMessageRecord = {
   errorMessage: string | null;
   messagingServiceSid: string | null;
   uri: string | null;
+  price: string | null;
+  priceUnit: string | null;
 };
 
 type TwilioListMessagesRequest = {
@@ -93,6 +95,8 @@ type TwilioMessageApiPayload = {
   error_message?: string | null;
   messaging_service_sid?: string | null;
   uri?: string | null;
+  price?: string | null;
+  price_unit?: string | null;
 };
 
 function toBase64(value: string): string {
@@ -330,6 +334,8 @@ function parseTwilioMessageRecord(
     errorMessage: message.error_message ?? null,
     messagingServiceSid: message.messaging_service_sid ?? null,
     uri: message.uri ?? null,
+    price: message.price ?? null,
+    priceUnit: message.price_unit ?? null,
   };
 }
 

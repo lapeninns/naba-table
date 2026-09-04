@@ -6,7 +6,7 @@ x-nabatable-service: &nabatable-service
   volumes:
     - .:/workspace
     - node_modules:/workspace/node_modules
-    - pnpm_store:/home/node/.local/share/pnpm/store
+    - pnpm_store:/workspace/.pnpm-store
   init: true
 
 services:
@@ -28,9 +28,15 @@ services:
       RESEND_API_KEY: test-resend-api-key
       SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
     ports:
-      - "3000:3000"
+      - '${NABATABLE_WEB_PORT:-3000}:3000'
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const socket=require('node:net').connect(3000,'127.0.0.1',()=>socket.end());socket.on('error',()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -40,11 +46,17 @@ services:
     depends_on:
       install:
         condition: service_completed_successfully
-    command: pnpm --filter @nabatable/booking-short-links dev -- --ip 0.0.0.0 --port 8787
+    command: pnpm --filter @nabatable/booking-short-links dev --ip 0.0.0.0 --port 8787
     ports:
-      - "8787:8787"
+      - '${NABATABLE_SHORT_LINKS_PORT:-8787}:8787'
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -54,11 +66,17 @@ services:
     depends_on:
       install:
         condition: service_completed_successfully
-    command: pnpm --filter @nabatable/email-queue-gateway dev -- --ip 0.0.0.0 --port 8788
+    command: pnpm --filter @nabatable/email-queue-gateway dev --ip 0.0.0.0 --port 8788
     ports:
-      - "8788:8788"
+      - '${NABATABLE_EMAIL_GATEWAY_PORT:-8788}:8788'
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8788/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8788/health').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -68,11 +86,17 @@ services:
     depends_on:
       install:
         condition: service_completed_successfully
-    command: pnpm --filter @nabatable/sms-summary-gateway dev -- --ip 0.0.0.0 --port 8789
+    command: pnpm --filter @nabatable/sms-summary-gateway dev --ip 0.0.0.0 --port 8789
     ports:
-      - "8789:8789"
+      - '${NABATABLE_SMS_GATEWAY_PORT:-8789}:8789'
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8789/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8789/health').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
       interval: 10s
       timeout: 5s
       retries: 12

@@ -28,6 +28,7 @@ export type EmailDeliveryLogEntry = {
   id: string;
   bookingId: string | null;
   restaurantId: string | null;
+  reviewRequestId: string | null;
   emailType: string | null;
   templateType: string | null;
   recipientEmail: string;
@@ -52,6 +53,7 @@ export class EmailDeliveryRetryError extends Error {
 type InsertParams = {
   bookingId?: string | null;
   restaurantId?: string | null;
+  reviewRequestId?: string | null;
   emailType?: string | null;
   templateType?: string | null;
   recipientEmail: string;
@@ -100,6 +102,7 @@ export async function recordEmailDeliveryLog(
       .insert({
         booking_id: params.bookingId ?? null,
         restaurant_id: params.restaurantId ?? null,
+        review_request_id: params.reviewRequestId ?? null,
         email_type: params.emailType ?? null,
         template_type: params.templateType ?? null,
         recipient_email: params.recipientEmail,
@@ -112,7 +115,7 @@ export async function recordEmailDeliveryLog(
         metadata: params.metadata ?? null,
       })
       .select(
-        'id, booking_id, restaurant_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
+        'id, booking_id, restaurant_id, review_request_id, email_type, template_type, recipient_email, message_id, status, provider, occurred_at, error, metadata',
       )
       .single();
 
@@ -149,13 +152,14 @@ export async function findLatestEmailDeliveryByMessageId(params: {
 }): Promise<{
   bookingId: string | null;
   restaurantId: string | null;
+  reviewRequestId: string | null;
   emailType: string | null;
   templateType: string | null;
 } | null> {
   const supabase = getServiceSupabaseClient();
   const query = supabase
     .from('email_delivery_log')
-    .select('booking_id, restaurant_id, email_type, template_type')
+    .select('booking_id, restaurant_id, review_request_id, email_type, template_type')
     .eq('message_id', params.messageId)
     .order('occurred_at', { ascending: false })
     .limit(1);
@@ -174,6 +178,7 @@ export async function findLatestEmailDeliveryByMessageId(params: {
   return {
     bookingId: (data.booking_id as string | null) ?? null,
     restaurantId: (data.restaurant_id as string | null) ?? null,
+    reviewRequestId: (data.review_request_id as string | null) ?? null,
     emailType: (data.email_type as string | null) ?? null,
     templateType: (data.template_type as string | null) ?? null,
   };
@@ -214,6 +219,7 @@ type EmailDeliveryLogRow = {
   id: string;
   booking_id: string | null;
   restaurant_id: string | null;
+  review_request_id: string | null;
   email_type: string | null;
   template_type: string | null;
   recipient_email: string;
@@ -270,6 +276,7 @@ function toEntryDto(row: EmailDeliveryLogRow): EmailDeliveryLogEntry {
     id: row.id,
     bookingId: row.booking_id ?? null,
     restaurantId: row.restaurant_id ?? null,
+    reviewRequestId: row.review_request_id ?? null,
     emailType: row.email_type ?? null,
     templateType: row.template_type ?? null,
     recipientEmail: row.recipient_email,

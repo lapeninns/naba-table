@@ -167,6 +167,8 @@ describe('fetchTwilioMessage', () => {
             date_updated: 'Wed, 20 Apr 2026 10:00:00 +0000',
             error_code: null,
             error_message: null,
+            price: '-0.0475',
+            price_unit: 'GBP',
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         ),
@@ -176,6 +178,8 @@ describe('fetchTwilioMessage', () => {
     expect(message.status).toBe('delivered');
     expect(message.to).toBe('+447700900111');
     expect(message.dateUpdated).toBe('Wed, 20 Apr 2026 10:00:00 +0000');
+    expect(message.price).toBe('-0.0475');
+    expect(message.priceUnit).toBe('GBP');
   });
 });
 

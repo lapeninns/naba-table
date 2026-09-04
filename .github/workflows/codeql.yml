@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   security-events: write
 
@@ -31,3 +32,12 @@ jobs:
         uses: github/codeql-action/analyze@641a925cfafe92d0fdf8b239ba4053e3f8d99d6d
         with:
           category: /language:javascript-typescript
+          output: codeql-results
+          upload: never
+      - name: Upload CodeQL evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: codeql-results
+          path: codeql-results/
+          if-no-files-found: error
+          retention-days: 14

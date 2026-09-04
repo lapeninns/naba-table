@@ -16,6 +16,7 @@ import { recordObservabilityEvent } from '@/server/observability';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { cancelEmailIntents } from '@/server/queue/email-intents';
 import { scheduleMobileReviewIntent } from '@/server/queue/mobile-review-intents';
+import { createReviewJourney } from '@/server/reviews/journeys';
 import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { sendGuestBookingCancellationSms, sendGuestBookingUpdateSms } from '@/server/sms/bookings';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -504,12 +505,34 @@ async function scheduleReviewJob(
   // Always queue review requests when the email queue is enabled.
   // Avoid relying on setTimeout in serverless environments for delayed sends.
   const scheduledFor = new Date(Date.now() + Math.max(0, optimizedDelayMs)).toISOString();
-  if (options.allowWhatsApp) {
+  let journey;
+  try {
+    journey = await createReviewJourney(
+      {
+        bookingId: booking.id,
+        emailEligible: options.allowEmail,
+        restaurantId,
+        scheduledFor,
+        whatsappEligible: options.allowWhatsApp,
+      },
+      options.client,
+    );
+  } catch (error) {
+    console.warn('[jobs][review-job] failed to create review journey', {
+      bookingId: booking.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+  if (journey.state === 'suppressed') return;
+
+  if (journey.primaryChannel === 'whatsapp') {
     try {
       await scheduleMobileReviewIntent({
         booking,
         client: options.client,
         restaurantId,
+        reviewRequestId: journey.reviewRequestId,
         scheduledFor,
       });
     } catch (error) {
@@ -520,16 +543,24 @@ async function scheduleReviewJob(
     }
   }
 
-  if (options.allowEmail && isEmailQueueEnabled()) {
+  const emailScheduledFor =
+    journey.primaryChannel === 'email' ? journey.scheduledFor : journey.followupScheduledFor;
+  if (options.allowEmail && emailScheduledFor && isEmailQueueEnabled()) {
+    const reviewStage = journey.primaryChannel === 'email' ? 'primary' : 'followup';
     try {
       await enqueueEmailJob(
         {
           bookingId: booking.id,
           restaurantId,
           type: 'review_request',
-          scheduledFor,
+          scheduledFor: emailScheduledFor,
+          reviewRequestId: journey.reviewRequestId,
+          reviewStage,
         },
-        { jobId: `review_request:${booking.id}`, delayMs: Math.max(0, optimizedDelayMs) },
+        {
+          jobId: `review_request:${reviewStage}:${booking.id}`,
+          delayMs: Math.max(0, new Date(emailScheduledFor).getTime() - Date.now()),
+        },
       );
     } catch (error) {
       // Review requests are best-effort; do not block check-out flows.
@@ -541,7 +572,7 @@ async function scheduleReviewJob(
     return;
   }
 
-  if (!options.allowEmail) {
+  if (!options.allowEmail || journey.primaryChannel !== 'email') {
     return;
   }
 

@@ -97,7 +97,28 @@ export function createSupabaseGooglePubsubPersistence(
   client: SupabaseClient<Database>,
 ): GooglePubsubPersistencePort {
   return {
-    persist(input) {
+    async persist(input) {
+      if (
+        input.delivery.kind === 'supported' &&
+        input.delivery.eventType !== 'GOOGLE_UPDATE'
+      ) {
+        const result = await client.rpc('record_google_review_notification_v1', {
+          p_external_account_id: input.delivery.externalAccountId,
+          p_external_location_id: input.delivery.externalLocationId,
+          p_event_type: input.delivery.eventType,
+          p_provider_event_hash: input.delivery.eventHash,
+          p_observed_at: input.delivery.publishedAt ?? new Date().toISOString(),
+        });
+        if (result.error) throw result.error;
+        switch (result.data) {
+          case 'accepted':
+          case 'duplicate':
+          case 'unmatched':
+            return { outcome: result.data };
+          default:
+            throw new Error('Google review notification returned an invalid outcome.');
+        }
+      }
       return persistGooglePubsubDelivery(input, {
         async recordAtomic(receipt) {
           let registryId: string | null = null;

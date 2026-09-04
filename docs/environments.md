@@ -52,6 +52,9 @@
 - Every workflow runs through `scripts/db/safe-run.ts` and validates the environment first.
 - Set `DB_TARGET_ENV=staging|production`; production migration apply also requires
   `CONFIRM_PRODUCTION=true`.
+- Production historical replay with `--include-all` additionally requires
+  `CONFIRM_PRODUCTION_INCLUDE_ALL=20260811160000`. This confirmation is narrowly scoped to the
+  reviewed GBP lineage migration that predates the latest production migration.
 - Append `-- --dry-run` to preview the fixed, redacted command plan without running children.
 - Local reset, seed, full-reset, and wipe workflows are intentionally unsupported.
 

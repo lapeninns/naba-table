@@ -2259,6 +2259,7 @@ export type Database = {
           provider_event_id: string | null;
           recipient_email: string;
           restaurant_id: string | null;
+          review_request_id: string | null;
           status: string;
           template_type: string | null;
         };
@@ -2275,6 +2276,7 @@ export type Database = {
           provider_event_id?: string | null;
           recipient_email: string;
           restaurant_id?: string | null;
+          review_request_id?: string | null;
           status: string;
           template_type?: string | null;
         };
@@ -2291,6 +2293,7 @@ export type Database = {
           provider_event_id?: string | null;
           recipient_email?: string;
           restaurant_id?: string | null;
+          review_request_id?: string | null;
           status?: string;
           template_type?: string | null;
         };
@@ -2331,6 +2334,7 @@ export type Database = {
           notification_type: string;
           recipient_phone: string;
           restaurant_id: string;
+          review_request_id: string | null;
           updated_at: string;
         };
         Insert: {
@@ -2352,6 +2356,7 @@ export type Database = {
           notification_type: string;
           recipient_phone: string;
           restaurant_id: string;
+          review_request_id?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -2373,6 +2378,7 @@ export type Database = {
           notification_type?: string;
           recipient_phone?: string;
           restaurant_id?: string;
+          review_request_id?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -2536,6 +2542,7 @@ export type Database = {
           payload: Json;
           processed_at: string | null;
           restaurant_id: string | null;
+          review_request_id: string | null;
           scheduled_for: string;
           status: string;
           updated_at: string;
@@ -2557,6 +2564,7 @@ export type Database = {
           payload?: Json;
           processed_at?: string | null;
           restaurant_id?: string | null;
+          review_request_id?: string | null;
           scheduled_for: string;
           status?: string;
           updated_at?: string;
@@ -2578,6 +2586,7 @@ export type Database = {
           payload?: Json;
           processed_at?: string | null;
           restaurant_id?: string | null;
+          review_request_id?: string | null;
           scheduled_for?: string;
           status?: string;
           updated_at?: string;
@@ -7795,6 +7804,70 @@ export type Database = {
           p_subscription: string;
         };
         Returns: Database['public']['CompositeTypes']['gbp_pubsub_receipt_result_v1'];
+      };
+      record_google_review_notification_v1: {
+        Args: {
+          p_event_type: string;
+          p_external_account_id: string;
+          p_external_location_id: string;
+          p_observed_at?: string;
+          p_provider_event_hash: string;
+        };
+        Returns: string;
+      };
+      schedule_review_request_v1: {
+        Args: {
+          p_booking_id: string;
+          p_campaign_key?: string;
+          p_email_eligible: boolean;
+          p_experiment_arm?: string;
+          p_restaurant_id: string;
+          p_scheduled_for: string;
+          p_whatsapp_eligible: boolean;
+        };
+        Returns: Json;
+      };
+      can_send_review_request_v1: {
+        Args: {
+          p_channel: string;
+          p_now?: string;
+          p_restaurant_id: string;
+          p_review_request_id: string;
+        };
+        Returns: boolean;
+      };
+      record_review_request_event_v1: {
+        Args: {
+          p_channel: string | null;
+          p_cost_microunits?: number | null;
+          p_event_type: string;
+          p_idempotency_key: string;
+          p_metadata?: Json;
+          p_occurred_at: string;
+          p_provider: string;
+          p_provider_event_id: string | null;
+          p_restaurant_id: string;
+          p_review_request_id: string;
+        };
+        Returns: boolean;
+      };
+      record_review_link_click_v1: {
+        Args: {
+          p_booking_id: string;
+          p_channel: string;
+          p_event_id: string;
+          p_occurred_at: string;
+          p_restaurant_id: string;
+        };
+        Returns: boolean;
+      };
+      get_review_growth_dashboard_v1: {
+        Args: { p_from: string; p_restaurant_id: string; p_to: string };
+        Returns: Json;
+      };
+      accelerate_review_email_followup_v1: {
+        Args: { p_now?: string; p_restaurant_id: string; p_review_request_id: string };
+        Returns: boolean;
       };
       reconcile_missing_gbp_terminal_notices_v1: {
         Args: { p_limit?: number; p_now?: string };

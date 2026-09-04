@@ -8,6 +8,19 @@ const sendGuestBookingCancellationSmsMock = vi.hoisted(() => vi.fn());
 const enqueueEmailJobMock = vi.hoisted(() => vi.fn());
 const cancelEmailIntentsMock = vi.hoisted(() => vi.fn());
 const emailQueueEnabled = vi.hoisted(() => ({ value: false }));
+const createReviewJourneyMock = vi.hoisted(() =>
+  vi.fn(async (input: { emailEligible: boolean; scheduledFor: string; whatsappEligible: boolean }) => ({
+    reviewRequestId: 'review-request-1',
+    state: 'scheduled',
+    primaryChannel: input.whatsappEligible ? 'whatsapp' : input.emailEligible ? 'email' : null,
+    scheduledFor: input.scheduledFor,
+    followupScheduledFor:
+      input.whatsappEligible && input.emailEligible
+        ? new Date(new Date(input.scheduledFor).getTime() + 48 * 60 * 60 * 1000).toISOString()
+        : null,
+    suppressionReason: null,
+  })),
+);
 
 vi.mock('@/server/analytics', () => ({
   recordBookingCancelledEvent: vi.fn(),
@@ -46,6 +59,10 @@ vi.mock('@/server/queue/email-intents', () => ({
 
 vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: vi.fn(),
+}));
+
+vi.mock('@/server/reviews/journeys', () => ({
+  createReviewJourney: createReviewJourneyMock,
 }));
 
 import {
@@ -90,6 +107,7 @@ describe('processBookingCreatedSideEffects', () => {
     sendGuestBookingCancellationSmsMock.mockReset();
     enqueueEmailJobMock.mockReset();
     cancelEmailIntentsMock.mockReset();
+    createReviewJourneyMock.mockClear();
     emailQueueEnabled.value = false;
     recordBookingCreatedEventMock.mockResolvedValue(undefined);
     sendFirstBookingConfirmationNotificationsMock.mockResolvedValue({
@@ -229,7 +247,7 @@ describe('processBookingCreatedSideEffects', () => {
         type: 'review_request',
         scheduledFor: '2026-07-12T18:00:00.000Z',
       }),
-      expect.objectContaining({ jobId: `review_request:${completed.id}` }),
+      expect.objectContaining({ jobId: `review_request:primary:${completed.id}` }),
     );
   });
 
@@ -271,7 +289,7 @@ describe('processBookingCreatedSideEffects', () => {
         type: 'review_request',
         scheduledFor: '2026-07-12T18:30:00.000Z',
       }),
-      expect.objectContaining({ jobId: `review_request:${completed.id}` }),
+      expect.objectContaining({ jobId: `review_request:primary:${completed.id}` }),
     );
   });
 
@@ -400,6 +418,58 @@ describe('processBookingCreatedSideEffects', () => {
     // Then
     expect(scheduleReviewIntentMock).toHaveBeenCalledOnce();
     expect(enqueueEmailJobMock).not.toHaveBeenCalled();
+  });
+
+  it('sequences email 48 hours after WhatsApp when both review channels are eligible @contract', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime('2026-07-12T16:00:00.000Z');
+    emailQueueEnabled.value = true;
+    const completed = {
+      ...pendingBooking,
+      status: 'completed',
+      whatsapp_consent_actor_id: null,
+      whatsapp_consent_phone: pendingBooking.customer_phone,
+      whatsapp_consent_source: 'guest_reserve',
+      whatsapp_consent_version: 'booking-plus-review-v2',
+      whatsapp_opt_in: true,
+      end_at: '2026-07-12T15:30:00.000Z',
+    };
+    const updateQuery = { eq: vi.fn().mockResolvedValue({ error: null }) };
+    const client = {
+      rpc: vi.fn().mockResolvedValue({ data: completed.id, error: null }),
+      from: vi.fn((table: string) =>
+        table === 'restaurants'
+          ? {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      email_send_review_request: true,
+                      google_review_url: 'https://g.page/r/example/review',
+                      timezone: 'Europe/London',
+                    },
+                    error: null,
+                  }),
+                })),
+              })),
+            }
+          : { update: vi.fn(() => updateQuery) },
+      ),
+    };
+
+    await enqueueCheckOutSideEffects(completed as never, completed.restaurant_id, {
+      supabase: client as never,
+    });
+
+    expect(enqueueEmailJobMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewRequestId: 'review-request-1',
+        reviewStage: 'followup',
+        scheduledFor: '2026-07-14T18:30:00.000Z',
+        type: 'review_request',
+      }),
+      expect.objectContaining({ jobId: `review_request:followup:${completed.id}` }),
+    );
   });
 
   it('schedules mobile review once on a transition to completed @contract', async () => {

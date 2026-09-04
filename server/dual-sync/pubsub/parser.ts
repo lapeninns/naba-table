@@ -26,6 +26,7 @@ const notificationMetadataSchema = z
       .optional(),
     accountName: z.string().max(500).optional(),
     locationName: z.string().max(500).optional(),
+    reviewName: z.string().max(1000).optional(),
   })
   .passthrough();
 
@@ -34,6 +35,13 @@ export class GooglePubsubPushParseError extends Error {
     super(code);
     this.name = 'GooglePubsubPushParseError';
   }
+}
+
+function reviewId(value: string | undefined): string | null {
+  if (!value) return null;
+  const match = /(?:^|\/)reviews\/([^/]+)$/.exec(value);
+  const id = match?.[1];
+  return id && /^[A-Za-z0-9._~-]+$/.test(id) ? id : null;
 }
 
 function resourceId(value: string | undefined, resource: 'accounts' | 'locations'): string | null {
@@ -108,7 +116,12 @@ export async function parseGoogleBusinessProfilePush(
   }
   const locationId = resourceId(metadata.data.locationName, 'locations');
   const accountId = resourceId(metadata.data.accountName, 'accounts');
-  if (metadata.data.type !== 'GOOGLE_UPDATE' || !locationId || !accountId) {
+  const isSupportedType = ['GOOGLE_UPDATE', 'NEW_REVIEW', 'UPDATED_REVIEW'].includes(
+    metadata.data.type,
+  );
+  const externalReviewId = reviewId(metadata.data.reviewName);
+  const reviewEventHasId = metadata.data.type === 'GOOGLE_UPDATE' || externalReviewId !== null;
+  if (!isSupportedType || !locationId || !accountId || !reviewEventHasId) {
     return {
       kind: 'ignored',
       messageId: envelope.data.message.messageId,
@@ -122,9 +135,10 @@ export async function parseGoogleBusinessProfilePush(
     kind: 'supported',
     messageId: envelope.data.message.messageId,
     eventHash,
-    eventType: 'GOOGLE_UPDATE',
+    eventType: metadata.data.type as 'GOOGLE_UPDATE' | 'NEW_REVIEW' | 'UPDATED_REVIEW',
     externalAccountId: accountId,
     externalLocationId: locationId,
+    externalReviewId,
     publishedAt: envelope.data.message.publishTime ?? null,
   };
 }

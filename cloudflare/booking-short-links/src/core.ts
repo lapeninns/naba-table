@@ -19,6 +19,7 @@ export type ShortLinkRepository = {
   insertLink(record: ShortLinkRecord): Promise<void>;
   getLinkByToken(token: string): Promise<ShortLinkRecord | null>;
   touchLink(token: string, accessedAt: string): Promise<void>;
+  recordAccess?(token: string, accessedAt: string, eventId: string): Promise<void>;
 };
 
 function defaultRandomBytes(length: number): Uint8Array {
@@ -90,7 +91,10 @@ export function validateShortLinkRequest(
 
   switch (request.purpose) {
     case 'review':
-      if (request.createdBy !== 'guest_review_whatsapp') {
+      if (
+        request.createdBy !== 'guest_review_whatsapp' &&
+        request.createdBy !== 'guest_review_email'
+      ) {
         return { ok: false, error: 'Creation source is not allowed for this purpose.' };
       }
       if (!isAllowedGoogleReviewUrl(destinationUrl, allowedReviewHosts)) {
@@ -244,7 +248,7 @@ export async function resolveBookingShortLink(params: {
   purpose?: CreateShortLinkRequest['purpose'];
   now?: Date;
 }): Promise<
-  | { status: 'redirect'; record: ShortLinkRecord }
+  | { status: 'redirect'; record: ShortLinkRecord; accessEventId: string }
   | { status: 'missing' }
   | { status: 'expired'; record: ShortLinkRecord }
 > {
@@ -273,6 +277,11 @@ export async function resolveBookingShortLink(params: {
     return { status: 'expired', record };
   }
 
-  await params.repository.touchLink(record.token, now.toISOString());
-  return { status: 'redirect', record };
+  const accessEventId = crypto.randomUUID();
+  if (params.repository.recordAccess) {
+    await params.repository.recordAccess(record.token, now.toISOString(), accessEventId);
+  } else {
+    await params.repository.touchLink(record.token, now.toISOString());
+  }
+  return { status: 'redirect', record, accessEventId };
 }

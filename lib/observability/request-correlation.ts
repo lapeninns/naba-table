@@ -38,9 +38,7 @@ export function sanitizeCorrelationId(raw: string | null | undefined): string | 
  * when a span exists (so logs, events, and exceptions all join on the same
  * value), otherwise a sanitized inbound request id, otherwise a fresh UUID.
  */
-export function resolveRequestCorrelationId(
-  headers?: Pick<Headers, 'get'> | null,
-): string {
+export function resolveRequestCorrelationId(headers?: Pick<Headers, 'get'> | null): string {
   const active = getActiveTraceCorrelation();
   if (active) return active.traceId;
 

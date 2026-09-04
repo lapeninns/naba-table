@@ -109,4 +109,35 @@ describe('booking short-link storage', () => {
       destinationUrl,
     });
   });
+
+  it('appends an immutable access event while maintaining the latest-access projection', async () => {
+    const { db, prepare, bind } = makeDb(null);
+    const repository = createShortLinkRepository({ db });
+
+    await repository.recordAccess?.(
+      'Review123456',
+      '2026-09-05T10:05:00.000Z',
+      '11111111-1111-4111-8111-111111111111',
+    );
+
+    expect(prepare).toHaveBeenCalledWith(expect.stringContaining('UPDATE booking_short_links'));
+    expect(prepare).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT OR IGNORE INTO booking_short_link_access_events'),
+    );
+    expect(bind).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'Review123456',
+      '2026-09-05T10:05:00.000Z',
+    );
+  });
+
+  it('retains the legacy latest-access projection for management links', async () => {
+    const { db, prepare, bind } = makeDb(null);
+    const repository = createShortLinkRepository({ db });
+
+    await repository.touchLink('Manage123456', '2026-09-05T10:05:00.000Z');
+
+    expect(prepare).toHaveBeenCalledWith(expect.stringContaining('SET last_accessed_at = ?'));
+    expect(bind).toHaveBeenCalledWith('2026-09-05T10:05:00.000Z', 'Manage123456');
+  });
 });
