@@ -15,7 +15,7 @@ type Tab = {
 };
 
 export type CommunicationsDeliveryChannelTabsProps = {
-  active: 'overview' | 'email' | 'messages';
+  active: 'overview' | 'email' | 'messages' | 'reviews';
 };
 
 export function CommunicationsDeliveryChannelTabs({
@@ -42,15 +42,26 @@ export function CommunicationsDeliveryChannelTabs({
       active: active === 'messages',
       badge: 'Twilio',
     },
+    {
+      href: '/app/communications-delivery/reviews',
+      label: 'Reviews',
+      description: 'Post-visit conversion and channel efficiency',
+      active: active === 'reviews',
+      badge: 'Growth',
+    },
   ];
 
   return (
-    <section className="grid gap-3 lg:grid-cols-3" aria-label="Communications delivery sections">
+    <section
+      className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+      aria-label="Communications delivery sections"
+    >
       {tabs.map((tab) => (
         <Link
           key={tab.href}
           href={tab.href}
           prefetch={false}
+          aria-current={tab.active ? 'page' : undefined}
           className={cn(
             'rounded-xl border p-4 transition-colors',
             tab.active
@@ -66,7 +77,9 @@ export function CommunicationsDeliveryChannelTabs({
               </Badge>
             ) : null}
           </div>
-          <Text variant="caption" className="mt-1">{tab.description}</Text>
+          <Text variant="caption" className="mt-1">
+            {tab.description}
+          </Text>
         </Link>
       ))}
     </section>

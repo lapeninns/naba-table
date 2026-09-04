@@ -99,6 +99,29 @@ export function createShortLinkRepository(params: {
         .bind(accessedAt, token)
         .run();
     },
+
+    async recordAccess(token, accessedAt, eventId) {
+      await params.db
+        .prepare(
+          `
+            UPDATE booking_short_links
+            SET last_accessed_at = ?
+            WHERE token = ?
+          `,
+        )
+        .bind(accessedAt, token)
+        .run();
+      await params.db
+        .prepare(
+          `
+            INSERT OR IGNORE INTO booking_short_link_access_events (
+              event_id, token, accessed_at
+            ) VALUES (?, ?, ?)
+          `,
+        )
+        .bind(eventId, token, accessedAt)
+        .run();
+    },
   };
 }
 

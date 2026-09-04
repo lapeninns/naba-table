@@ -88,6 +88,62 @@ describe('review short-link Worker HTTP surface', () => {
     expect(resolveResponse.headers.get('location')).toBe('https://g.page/demo-venue/review');
   });
 
+  it('forwards an immutable review click event without exposing the destination', async () => {
+    const { env } = makeWorkerEnv();
+    const createResponse = await bookingShortLinkWorker.fetch(reviewRequest(), env);
+    const created = (await createResponse.json()) as { shortUrl: string };
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await bookingShortLinkWorker.fetch(new Request(created.shortUrl), {
+      ...env,
+      REVIEW_TRACKING_WEBHOOK_URL: 'https://nabatable.com/api/webhook/review-link',
+    });
+
+    expect(response.status).toBe(302);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://nabatable.com/api/webhook/review-link',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ authorization: 'Bearer internal-links-token' }),
+      }),
+    );
+    const requestInit = fetchMock.mock.calls[0]?.[1];
+    const body = JSON.parse(String(requestInit?.body)) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      bookingId: 'booking-1',
+      restaurantId: 'rest-1',
+      channel: 'whatsapp',
+    });
+    expect(body).not.toHaveProperty('destinationUrl');
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the redirect available and records a tracking webhook rejection', async () => {
+    const { env } = makeWorkerEnv();
+    const createResponse = await bookingShortLinkWorker.fetch(reviewRequest(), env);
+    const created = (await createResponse.json()) as { shortUrl: string };
+    const fetchMock = vi.fn(async () => new Response(null, { status: 503 }));
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await bookingShortLinkWorker.fetch(new Request(created.shortUrl), {
+      ...env,
+      REVIEW_TRACKING_WEBHOOK_URL: 'https://nabatable.com/api/webhook/review-link',
+    });
+
+    expect(response.status).toBe(302);
+    expect(
+      logSpy.mock.calls.some(([value]) =>
+        String(value).includes('booking_short_link.review_tracking_failed'),
+      ),
+    ).toBe(true);
+    expect(logSpy.mock.calls.flat().join(' ')).not.toContain('g.page/demo-venue/review');
+
+    logSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
   it('does not store a review link without internal authorization @contract', async () => {
     const { env, rows } = makeWorkerEnv();
 

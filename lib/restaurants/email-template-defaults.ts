@@ -67,8 +67,9 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Your table at {{venue}} is confirmed',
         preheader: '{{date}} at {{time}} for {{party}} is secured.',
         headline: 'Your reservation is confirmed',
-        intro: '{{firstName}}, your table for {{party}} at {{venue}} is confirmed for {{date}} at {{time}}.',
-        cue: 'If the meal turns into a favorite, feel free to snap a photo and add it to a quick review afterward.',
+        intro:
+          '{{firstName}}, your table for {{party}} at {{venue}} is confirmed for {{date}} at {{time}}.',
+        cue: '',
         ask: '',
         ctaLabel: 'Manage Booking',
       },
@@ -78,8 +79,9 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Confirmed: {{venue}} on {{date}}',
         preheader: 'Everything is set for {{time}}.',
         headline: 'You are all set',
-        intro: 'We have locked in your reservation at {{venue}} for {{date}} at {{time}} for {{party}}.',
-        cue: 'A quick photo and short review after your visit can help future guests choose with confidence.',
+        intro:
+          'We have locked in your reservation at {{venue}} for {{date}} at {{time}} for {{party}}.',
+        cue: '',
         ask: '',
         ctaLabel: 'Manage Booking',
       },
@@ -89,8 +91,9 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'See you soon at {{venue}}',
         preheader: 'Your reservation details are ready to go.',
         headline: 'Table secured',
-        intro: 'Your booking at {{venue}} is secured. You are booked for {{date}} at {{time}} for {{party}}.',
-        cue: 'If you end up taking a favorite photo, you can always add it to a review after your visit.',
+        intro:
+          'Your booking at {{venue}} is secured. You are booked for {{date}} at {{time}} for {{party}}.',
+        cue: '',
         ask: '',
         ctaLabel: 'Manage Booking',
       },
@@ -172,7 +175,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Changes confirmed for {{venue}}',
         preheader: 'Everything is updated and ready to go.',
         headline: 'Your changes are locked in',
-        intro: '{{firstName}}, your updated reservation at {{venue}} is all set for {{date}} at {{time}}.',
+        intro:
+          '{{firstName}}, your updated reservation at {{venue}} is all set for {{date}} at {{time}}.',
         cue: '',
         ask: '',
         ctaLabel: 'View Booking',
@@ -209,7 +213,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Your reservation at {{venue}} has been cancelled',
         preheader: 'You can rebook anytime if plans change.',
         headline: 'Your booking has been cancelled',
-        intro: 'As requested, we have cancelled your reservation at {{venue}} for {{date}} at {{time}}.',
+        intro:
+          'As requested, we have cancelled your reservation at {{venue}} for {{date}} at {{time}}.',
         cue: '',
         ask: '',
         ctaLabel: 'Book Again',
@@ -220,7 +225,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Cancellation confirmed for {{venue}}',
         preheader: 'Your table is no longer reserved.',
         headline: 'Cancellation confirmed',
-        intro: 'Your reservation at {{venue}} on {{date}} at {{time}} has been cancelled. We would love to welcome you another time.',
+        intro:
+          'Your reservation at {{venue}} on {{date}} at {{time}} has been cancelled. We would love to welcome you another time.',
         cue: '',
         ask: '',
         ctaLabel: 'Book Again',
@@ -231,7 +237,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Your booking at {{venue}} has been released',
         preheader: 'Need another date? Rebook in a few clicks.',
         headline: 'Your table has been released',
-        intro: 'We have released your reservation at {{venue}} for {{date}} at {{time}}. If your plans change, you can book again anytime.',
+        intro:
+          'We have released your reservation at {{venue}} for {{date}} at {{time}}. If your plans change, you can book again anytime.',
         cue: '',
         ask: '',
         ctaLabel: 'Book Again',
@@ -245,9 +252,7 @@ export const TEMPLATE_DEFINITIONS = [
     group: 'cancellation',
     supportsCtaLabel: true,
     recommendedVariables: ['venue', 'date', 'time'],
-    authoringHints: [
-      'Be direct about unavailability and offer a simple alternative next step.',
-    ],
+    authoringHints: ['Be direct about unavailability and offer a simple alternative next step.'],
     defaultVariants: [
       {
         id: 'booking-rejected-default-1',
@@ -267,7 +272,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'No table is available at {{venue}} for that time',
         preheader: 'A different slot may still be available.',
         headline: 'No table available for that slot',
-        intro: 'We could not confirm a table at {{venue}} for {{date}} at {{time}}. A nearby time may still be open.',
+        intro:
+          'We could not confirm a table at {{venue}} for {{date}} at {{time}}. A nearby time may still be open.',
         cue: '',
         ask: '',
         ctaLabel: 'See Other Times',
@@ -293,9 +299,7 @@ export const TEMPLATE_DEFINITIONS = [
     group: 'cancellation',
     supportsCtaLabel: true,
     recommendedVariables: ['venue', 'date', 'time'],
-    authoringHints: [
-      'Own the disruption and prioritize apology plus recovery language.',
-    ],
+    authoringHints: ['Own the disruption and prioritize apology plus recovery language.'],
     defaultVariants: [
       {
         id: 'restaurant-cancellation-default-1',
@@ -401,8 +405,9 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Reminder: your reservation at {{venue}} is tomorrow',
         preheader: '{{date}} at {{time}} for {{party}}.',
         headline: 'Your reservation is tomorrow',
-        intro: 'Just a reminder that you are booked at {{venue}} tomorrow at {{time}} for {{party}}.',
-        cue: 'If you end up having a great time, a quick photo and short review afterward is always appreciated.',
+        intro:
+          'Just a reminder that you are booked at {{venue}} tomorrow at {{time}} for {{party}}.',
+        cue: '',
         ask: '',
         ctaLabel: 'Get Directions',
       },
@@ -412,8 +417,9 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'See you tomorrow at {{venue}}',
         preheader: 'Your table is nearly ready.',
         headline: 'See you tomorrow',
-        intro: 'You are all set for {{venue}} tomorrow at {{time}}. We are looking forward to welcoming your party of {{party}}.',
-        cue: 'If the visit is worth sharing, a quick photo and short review afterward helps other guests too.',
+        intro:
+          'You are all set for {{venue}} tomorrow at {{time}}. We are looking forward to welcoming your party of {{party}}.',
+        cue: '',
         ask: '',
         ctaLabel: 'Get Directions',
       },
@@ -423,8 +429,9 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Your table at {{venue}} is almost ready',
         preheader: 'Everything is in place for tomorrow.',
         headline: 'We are ready for your visit',
-        intro: 'This is your day-before reminder for {{venue}} on {{date}} at {{time}} for {{party}}.',
-        cue: 'If you take a favorite photo tomorrow, you can always add it to a quick review afterward.',
+        intro:
+          'This is your day-before reminder for {{venue}} on {{date}} at {{time}} for {{party}}.',
+        cue: '',
         ask: '',
         ctaLabel: 'Plan Your Route',
       },
@@ -447,7 +454,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'Your table at {{venue}} is ready',
         preheader: 'Head to the host stand when you arrive.',
         headline: 'Your table is ready',
-        intro: 'We have prepared your table at {{venue}}. Please head to the host stand when you arrive.',
+        intro:
+          'We have prepared your table at {{venue}}. Please head to the host stand when you arrive.',
         cue: '',
         ask: '',
         ctaLabel: "I'm Here",
@@ -458,7 +466,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'See you shortly at {{venue}}',
         preheader: 'Please check in with the host stand when you arrive.',
         headline: 'See you shortly',
-        intro: 'You are due at {{venue}} around {{time}}. When you arrive, please check in with the host stand.',
+        intro:
+          'You are due at {{venue}} around {{time}}. When you arrive, please check in with the host stand.',
         cue: '',
         ask: '',
         ctaLabel: "I'm Here",
@@ -469,7 +478,8 @@ export const TEMPLATE_DEFINITIONS = [
         subject: 'We are ready for you at {{venue}}',
         preheader: 'Let the host know once you have arrived.',
         headline: 'We are ready when you are',
-        intro: 'Your visit to {{venue}} is coming up. Let the host stand know when you arrive and we will take it from there.',
+        intro:
+          'Your visit to {{venue}} is coming up. Let the host stand know when you arrive and we will take it from there.',
         cue: '',
         ask: '',
         ctaLabel: "I'm Here",

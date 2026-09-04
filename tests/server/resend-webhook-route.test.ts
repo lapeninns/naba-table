@@ -6,6 +6,7 @@ const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 const resendVerifyMock = vi.hoisted(() => vi.fn());
 const suppressProfilesByEmailMock = vi.hoisted(() => vi.fn());
 const addEmailToSuppressionListMock = vi.hoisted(() => vi.fn());
+const recordReviewRequestEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('resend', () => ({
   Resend: vi.fn(function ResendMock() {
@@ -34,6 +35,10 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
 
+vi.mock('@/server/reviews/journeys', () => ({
+  recordReviewRequestEvent: recordReviewRequestEventMock,
+}));
+
 process.env.RESEND_WEBHOOK_SECRET = 'webhook-secret';
 
 import { POST } from '@/src/app/api/webhook/resend/route';
@@ -52,12 +57,14 @@ describe('resend webhook route', () => {
     recordObservabilityEventMock.mockReset();
     resendVerifyMock.mockReset();
     suppressProfilesByEmailMock.mockReset();
+    recordReviewRequestEventMock.mockReset();
     process.env.RESEND_WEBHOOK_SECRET = 'webhook-secret';
     findLatestEmailDeliveryByMessageIdMock.mockResolvedValue({
       bookingId: 'booking-1',
       restaurantId: 'restaurant-1',
       emailType: 'created',
       templateType: 'booking_confirmation',
+      reviewRequestId: null,
     });
     recordEmailDeliveryLogMock.mockResolvedValue({ id: 'delivery-log-1' });
     recordObservabilityEventMock.mockResolvedValue(undefined);
@@ -67,6 +74,47 @@ describe('resend webhook route', () => {
     });
     addEmailToSuppressionListMock.mockReset();
     addEmailToSuppressionListMock.mockResolvedValue({ suppressed: true });
+  });
+
+  it('records review open events against the linked journey', async () => {
+    findLatestEmailDeliveryByMessageIdMock.mockResolvedValue({
+      bookingId: 'booking-1',
+      restaurantId: 'restaurant-1',
+      reviewRequestId: 'review-request-1',
+      emailType: 'review_request',
+      templateType: 'review_request',
+    });
+    recordReviewRequestEventMock.mockResolvedValue(true);
+    resendVerifyMock.mockReturnValue({
+      type: 'email.opened',
+      created_at: '2026-09-05T10:05:00.000Z',
+      data: { email_id: 'resend-message-1', to: ['guest@example.com'] },
+    });
+    const payload = '{"type":"email.opened"}';
+
+    const response = await POST(
+      buildRequest(
+        {
+          'svix-id': 'event-open-1',
+          'svix-timestamp': '1710000000',
+          'svix-signature': 'v1,sig',
+          'content-length': String(payload.length),
+        },
+        payload,
+      ) as never,
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordReviewRequestEventMock).toHaveBeenCalledWith({
+      channel: 'email',
+      eventType: 'opened',
+      idempotencyKey: 'resend:event-open-1:review-request-1',
+      occurredAt: '2026-09-05T10:05:00.000Z',
+      provider: 'resend',
+      providerEventId: 'resend-message-1',
+      restaurantId: 'restaurant-1',
+      reviewRequestId: 'review-request-1',
+    });
   });
 
   it('rejects missing verification headers before reading the body', async () => {

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const recordReviewRequestEventMock = vi.hoisted(() => vi.fn());
+const accelerateReviewEmailFollowupMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: getServiceSupabaseClientMock,
@@ -10,11 +12,19 @@ vi.mock('@/server/sms/bookings', () => ({
   sendClaimedBookingSmsFallback: vi.fn(),
 }));
 
+vi.mock('@/server/reviews/journeys', () => ({
+  accelerateReviewEmailFollowup: accelerateReviewEmailFollowupMock,
+  recordReviewRequestEvent: recordReviewRequestEventMock,
+}));
+
 import { processWhatsAppStatusCallback } from '@/server/notifications/whatsapp-status';
 
 describe('processWhatsAppStatusCallback', () => {
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
+    recordReviewRequestEventMock.mockReset();
+    recordReviewRequestEventMock.mockResolvedValue(true);
+    accelerateReviewEmailFollowupMock.mockResolvedValue(true);
   });
 
   it('finalizes a signed callback without the PostgREST mutation OR failure @worker', async () => {
@@ -46,6 +56,7 @@ describe('processWhatsAppStatusCallback', () => {
           notification_type: 'booking_review_request',
           recipient_phone: '+447700900001',
           restaurant_id: '55555555-5555-4555-8555-555555555555',
+          review_request_id: '66666666-6666-4666-8666-666666666666',
         },
         error: null,
       }),
@@ -96,5 +107,14 @@ describe('processWhatsAppStatusCallback', () => {
       p_status: 'delivered',
     });
     expect(updateQuery.or).not.toHaveBeenCalled();
+    expect(recordReviewRequestEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'whatsapp',
+        eventType: 'delivered',
+        providerEventId: 'MM123',
+        reviewRequestId: '66666666-6666-4666-8666-666666666666',
+      }),
+      expect.anything(),
+    );
   });
 });

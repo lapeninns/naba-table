@@ -29,6 +29,8 @@ export type EmailJobPayload = {
   failedReason?: string | null;
   failedAt?: string | null;
   cronAttemptsMade?: number | null;
+  reviewRequestId?: string | null;
+  reviewStage?: 'primary' | 'followup' | null;
 };
 
 export const EMAIL_QUEUE_NAME = 'pending-booking-emails';

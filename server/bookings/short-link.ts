@@ -14,7 +14,8 @@ type ShortLinkPurpose = 'booking_manage' | 'review';
 type ShortLinkCreateSource =
   | 'guest_confirmation_sms'
   | 'guest_update_sms'
-  | 'guest_review_whatsapp';
+  | 'guest_review_whatsapp'
+  | 'guest_review_email';
 
 type CreateShortLinkRequest = {
   purpose: ShortLinkPurpose;
@@ -153,6 +154,7 @@ export async function createReviewShortUrl(params: {
   destinationUrl: string;
   expiresAt: string;
   fetchImpl?: typeof fetch;
+  createdBy?: 'guest_review_whatsapp' | 'guest_review_email';
 }): Promise<string | null> {
   if (!isShortLinksConfigured()) {
     return null;
@@ -170,7 +172,7 @@ export async function createReviewShortUrl(params: {
       bookingId: params.bookingId,
       restaurantId: params.restaurantId,
       expiresAt: params.expiresAt,
-      createdBy: 'guest_review_whatsapp',
+      createdBy: params.createdBy ?? 'guest_review_whatsapp',
     },
     { fetchImpl: params.fetchImpl },
   );

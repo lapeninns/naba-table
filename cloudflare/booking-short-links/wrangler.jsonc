@@ -12,6 +12,7 @@
       "binding": "BOOKING_SHORT_LINKS_DB",
       "database_name": "nabatable-booking-short-links",
       "database_id": "f8257f81-bb92-4dc5-b3fd-def172090e06",
+      "migrations_dir": "migrations",
     },
   ],
   "kv_namespaces": [
@@ -28,6 +29,7 @@
     "ALLOWED_REVIEW_DESTINATION_HOSTS": "g.page,maps.app.goo.gl,google.com,google.co.uk,google.co.in,google.ca,google.com.au,google.ie,google.fr,google.de,google.es,google.it,google.nl",
     "POSTHOG_HOST": "https://eu.i.posthog.com",
     "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
+    "REVIEW_TRACKING_WEBHOOK_URL": "https://nabatable.com/api/webhook/review-link",
   },
   "observability": {
     "enabled": true,

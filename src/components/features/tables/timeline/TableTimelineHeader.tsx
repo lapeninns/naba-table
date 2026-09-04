@@ -47,7 +47,9 @@ export function TableTimelineHeader({
             <LayoutDashboard className="size-5" />
           </div>
           <div className="flex flex-col gap-0.5">
-            <Heading variant="title" as="h1">Capacity Timeline</Heading>
+            <Heading variant="title" as="h1">
+              Capacity Timeline
+            </Heading>
             <Text variant="caption">
               {service === 'all' ? 'All services' : service === 'lunch' ? 'Lunch' : 'Dinner'}
               {selectedZoneName ? ` • ${selectedZoneName}` : ''}
@@ -104,6 +106,7 @@ export function TableTimelineHeader({
                 <Calendar
                   mode="single"
                   selected={displayDate ?? undefined}
+                  defaultMonth={displayDate ?? undefined}
                   onSelect={(date) =>
                     onSelectedDateChange(date ? format(date, 'yyyy-MM-dd') : null)
                   }

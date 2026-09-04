@@ -102,8 +102,14 @@ describe('restaurant email template catalog', () => {
     ];
 
     const activeVariants = getActiveTemplateVariants(variants);
-    const first = pickDeterministicTemplateVariant(variants, 'booking-123|confirmation|alice@example.com');
-    const second = pickDeterministicTemplateVariant(variants, 'booking-123|confirmation|alice@example.com');
+    const first = pickDeterministicTemplateVariant(
+      variants,
+      'booking-123|confirmation|alice@example.com',
+    );
+    const second = pickDeterministicTemplateVariant(
+      variants,
+      'booking-123|confirmation|alice@example.com',
+    );
 
     expect(activeVariants.map((variant) => variant.id)).toEqual(['a', 'c']);
     expect(first.id).toBe(second.id);
@@ -134,15 +140,27 @@ describe('restaurant email template catalog', () => {
       'Manage Booking',
       'Manage Booking',
     ]);
-    expect(confirmation.map((variant) => variant.cue)).toEqual([
-      'If the meal turns into a favorite, feel free to snap a photo and add it to a quick review afterward.',
-      'A quick photo and short review after your visit can help future guests choose with confidence.',
-      'If you end up taking a favorite photo, you can always add it to a review after your visit.',
-    ]);
+    expect(confirmation.map((variant) => variant.cue)).toEqual(['', '', '']);
+  });
+
+  it('does not prime guests for reviews in confirmation or reminder messages', () => {
+    const preVisitCopy = [
+      ...getDefaultTemplateVariants('confirmation'),
+      ...getDefaultTemplateVariants('reminder_24h'),
+      ...getDefaultTemplateVariants('reminder_short'),
+    ]
+      .flatMap((variant) => [variant.intro, variant.cue, variant.ask])
+      .join(' ');
+
+    expect(preVisitCopy).not.toMatch(/review|photo|feedback/i);
   });
 
   it('flags unknown template variables without rejecting supported ones', () => {
-    expect(getUnknownRestaurantEmailTemplateTokens('Hi {{firstName}}, see you at {{venue}}')).toEqual([]);
-    expect(getUnknownRestaurantEmailTemplateTokens('Hi {{guestName}}, see you at {{venue}}')).toEqual(['guestName']);
+    expect(
+      getUnknownRestaurantEmailTemplateTokens('Hi {{firstName}}, see you at {{venue}}'),
+    ).toEqual([]);
+    expect(
+      getUnknownRestaurantEmailTemplateTokens('Hi {{guestName}}, see you at {{venue}}'),
+    ).toEqual(['guestName']);
   });
 });

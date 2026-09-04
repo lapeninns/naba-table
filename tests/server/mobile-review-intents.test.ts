@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const dispatchBookingReviewWhatsAppMock = vi.hoisted(() => vi.fn());
 const finalizeMobileWhatsAppAttemptMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const canSendReviewRequestMock = vi.hoisted(() => vi.fn());
+const recordReviewRequestEventMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/notifications/booking-whatsapp-content', () => ({
   dispatchBookingReviewWhatsApp: dispatchBookingReviewWhatsAppMock,
@@ -16,6 +18,11 @@ vi.mock('@/server/notifications/mobile', () => ({
   finalizeMobileWhatsAppAttempt: finalizeMobileWhatsAppAttemptMock,
 }));
 
+vi.mock('@/server/reviews/journeys', () => ({
+  canSendReviewRequest: canSendReviewRequestMock,
+  recordReviewRequestEvent: recordReviewRequestEventMock,
+}));
+
 import { drainMobileReviewIntents } from '@/server/queue/mobile-review-intents';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -25,6 +32,7 @@ const claimedIntent = {
   id: '33333333-3333-4333-8333-333333333333',
   booking_id: BOOKING_ID,
   restaurant_id: RESTAURANT_ID,
+  review_request_id: null,
   mobile_intent_attempts: 1,
   mobile_intent_attempt_error_code: null,
   mobile_intent_attempt_id: null,
@@ -104,6 +112,47 @@ describe('mobile review intent drain', () => {
       status: 'queued',
     });
     finalizeMobileWhatsAppAttemptMock.mockResolvedValue('queued');
+    canSendReviewRequestMock.mockResolvedValue(true);
+    recordReviewRequestEventMock.mockResolvedValue(true);
+  });
+
+  it('stops a claimed WhatsApp ask after the journey has converted', async () => {
+    canSendReviewRequestMock.mockResolvedValue(false);
+    const { updates } = createClient(
+      { id: BOOKING_ID, restaurant_id: RESTAURANT_ID, status: 'completed' },
+      { ...claimedIntent, review_request_id: 'review-request-1' },
+    );
+
+    const summary = await drainMobileReviewIntents({ maxJobs: 20 });
+
+    expect(summary).toEqual({ processed: 1, sent: 0, skipped: 1, failed: 0 });
+    expect(dispatchBookingReviewWhatsAppMock).not.toHaveBeenCalled();
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        mobile_intent_last_error: 'REVIEW_WHATSAPP_JOURNEY_STOPPED',
+        mobile_intent_status: 'skipped',
+      }),
+    );
+  });
+
+  it('attributes an accepted WhatsApp send to its review journey', async () => {
+    createClient(
+      { id: BOOKING_ID, restaurant_id: RESTAURANT_ID, status: 'completed' },
+      { ...claimedIntent, review_request_id: 'review-request-1' },
+    );
+
+    const summary = await drainMobileReviewIntents({ maxJobs: 20 });
+
+    expect(summary.sent).toBe(1);
+    expect(recordReviewRequestEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'whatsapp',
+        eventType: 'sent',
+        providerEventId: 'WA1',
+        reviewRequestId: 'review-request-1',
+      }),
+      expect.anything(),
+    );
   });
 
   it('claims due work and records a sent WhatsApp independently of email @contract', async () => {

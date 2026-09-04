@@ -10,6 +10,7 @@ import {
   sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
 import { EMAIL_JOB_TYPE_VALUES } from '@/server/queue/email-contract';
+import { canSendReviewRequest, recordReviewRequestEvent } from '@/server/reviews/journeys';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -25,6 +26,8 @@ export const emailJobPayloadSchema = z.object({
   failedReason: z.string().nullable().optional(),
   failedAt: z.string().datetime().nullable().optional(),
   cronAttemptsMade: z.number().int().min(0).nullable().optional(),
+  reviewRequestId: z.string().min(1).nullable().optional(),
+  reviewStage: z.enum(['primary', 'followup']).nullable().optional(),
 });
 
 export const emailJobEnvelopeSchema = z.object({
@@ -52,7 +55,11 @@ function isValidEmail(value?: string | null): boolean {
 
 async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
   const supabase = getServiceSupabaseClient();
-  const { data, error } = await supabase.from('bookings').select('*').eq('id', bookingId).maybeSingle();
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .maybeSingle();
 
   if (error) {
     console.error('[queue][email-processing] failed to fetch booking', {
@@ -158,6 +165,57 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
 
     if (!shouldSendByStatus(payload.type, booking)) {
       return { jobId: job.id, success: true, skipped: true };
+    }
+
+    if (payload.type === 'review_request' && payload.reviewRequestId) {
+      const trackingClient = getServiceSupabaseClient();
+      const permitted = await canSendReviewRequest(
+        {
+          channel: 'email',
+          restaurantId: payload.restaurantId,
+          reviewRequestId: payload.reviewRequestId,
+        },
+        trackingClient,
+      );
+      if (!permitted) {
+        return { jobId: job.id, success: true, skipped: true };
+      }
+
+      const delivery = await sendBookingReviewRequestEmail(booking);
+      if (!delivery) {
+        return { jobId: job.id, success: true, skipped: true };
+      }
+      const linkage = await trackingClient
+        .from('email_delivery_log')
+        .update({ review_request_id: payload.reviewRequestId })
+        .eq('id', delivery.id);
+      if (linkage.error) {
+        console.warn('[queue][email-processing] review delivery linkage failed', {
+          bookingId: payload.bookingId,
+          jobId: job.id,
+        });
+      }
+      try {
+        await recordReviewRequestEvent(
+          {
+            channel: 'email',
+            eventType: 'sent',
+            idempotencyKey: `review:${payload.reviewRequestId}:email:${payload.reviewStage ?? 'primary'}:sent`,
+            occurredAt: delivery.occurredAt ?? new Date().toISOString(),
+            provider: delivery.provider === 'resend' ? 'resend' : 'nabatable',
+            providerEventId: delivery.messageId,
+            restaurantId: payload.restaurantId,
+            reviewRequestId: payload.reviewRequestId,
+          },
+          trackingClient,
+        );
+      } catch {
+        console.warn('[queue][email-processing] review sent event recording failed', {
+          bookingId: payload.bookingId,
+          jobId: job.id,
+        });
+      }
+      return { jobId: job.id, success: true };
     }
 
     await dispatchEmail(payload.type, booking);

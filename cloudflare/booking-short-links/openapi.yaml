@@ -83,4 +83,5 @@ components:
           format: date-time
         createdBy:
           type: string
-          enum: [guest_confirmation_sms, guest_update_sms, guest_review_whatsapp]
+          enum:
+            [guest_confirmation_sms, guest_update_sms, guest_review_whatsapp, guest_review_email]

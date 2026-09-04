@@ -31,6 +31,7 @@ type WorkerEnv = {
   DEPLOY_SHA?: string;
   ERROR_INSIGHT_TOKEN?: string;
   ERROR_INSIGHT_WEBHOOK_URL?: string;
+  REVIEW_TRACKING_WEBHOOK_URL?: string;
   POSTHOG_PROJECT_API_KEY?: string;
   POSTHOG_HOST?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
@@ -78,7 +79,43 @@ async function readJsonBody<T>(request: Request): Promise<T | null> {
   }
 }
 
-async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
+async function notifyReviewAccess(
+  env: WorkerEnv,
+  record: ShortLinkRecord,
+  accessEventId: string,
+): Promise<void> {
+  if (
+    !env.REVIEW_TRACKING_WEBHOOK_URL ||
+    !env.INTERNAL_LINKS_TOKEN ||
+    !record.bookingId ||
+    !record.restaurantId
+  ) {
+    return;
+  }
+  const response = await fetch(env.REVIEW_TRACKING_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.INTERNAL_LINKS_TOKEN}`,
+      'content-type': 'application/json; charset=utf-8',
+    },
+    body: JSON.stringify({
+      eventId: accessEventId,
+      bookingId: record.bookingId,
+      restaurantId: record.restaurantId,
+      channel: record.createdBy === 'guest_review_email' ? 'email' : 'whatsapp',
+      occurredAt: new Date().toISOString(),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Review tracking webhook returned ${response.status}.`);
+  }
+}
+
+async function handleRequest(
+  request: Request,
+  env: WorkerEnv,
+  waitUntil?: (promise: Promise<unknown>) => void,
+): Promise<Response> {
   const url = new URL(request.url);
   const repository = createShortLinkRepository({
     db: env.BOOKING_SHORT_LINKS_DB,
@@ -183,6 +220,17 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       return json({ error: 'Not found' }, { status: 404 });
     }
 
+    const tracking = notifyReviewAccess(env, result.record, result.accessEventId).catch((error) => {
+      writeStructuredLog({
+        level: 'error',
+        event: 'booking_short_link.review_tracking_failed',
+        service: SERVICE_NAME,
+        fields: { error: error instanceof Error ? error.message : String(error) },
+      });
+    });
+    if (waitUntil) waitUntil(tracking);
+    else await tracking;
+
     return Response.redirect(result.record.destinationUrl, 302);
   }
 
@@ -214,7 +262,7 @@ const worker = {
         host: env.POSTHOG_HOST,
         waitUntil,
       },
-      handler: () => handleRequest(request, env),
+      handler: () => handleRequest(request, env, waitUntil),
     });
   },
 };

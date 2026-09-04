@@ -17,9 +17,10 @@ export type ParsedGoogleBusinessProfilePush =
       readonly kind: 'supported';
       readonly messageId: string;
       readonly eventHash: string;
-      readonly eventType: 'GOOGLE_UPDATE';
+      readonly eventType: 'GOOGLE_UPDATE' | 'NEW_REVIEW' | 'UPDATED_REVIEW';
       readonly externalAccountId: string;
       readonly externalLocationId: string;
+      readonly externalReviewId?: string | null;
       readonly publishedAt: string | null;
     }
   | {

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { dispatchBookingReviewWhatsApp } from '@/server/notifications/booking-whatsapp-content';
 import { finalizeMobileWhatsAppAttempt } from '@/server/notifications/mobile';
+import { canSendReviewRequest, recordReviewRequestEvent } from '@/server/reviews/journeys';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -9,7 +10,7 @@ import type { MobileAttemptStatus, MobileDispatchResult } from '@/server/notific
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type MobileIntentClient = Pick<SupabaseClient<Database>, 'rpc'>;
+type MobileIntentClient = Pick<SupabaseClient<Database>, 'from' | 'rpc'>;
 type MobileReviewIntent = Database['public']['Tables']['mobile_notifications']['Row'];
 type IntentStatus = 'pending' | 'processed' | 'skipped' | 'failed';
 type IntentResolution = {
@@ -37,6 +38,7 @@ export async function scheduleMobileReviewIntent(params: {
   readonly booking: BookingRecord;
   readonly client?: MobileIntentClient;
   readonly restaurantId: string;
+  readonly reviewRequestId: string;
   readonly scheduledFor: string;
 }): Promise<string | null> {
   const client = params.client ?? getServiceSupabaseClient();
@@ -48,6 +50,16 @@ export async function scheduleMobileReviewIntent(params: {
   });
   if (error) {
     throw new Error('Failed to schedule mobile review notification.');
+  }
+  if (data) {
+    const linkage = await client
+      .from('mobile_notifications')
+      .update({ review_request_id: params.reviewRequestId })
+      .eq('id', data)
+      .eq('restaurant_id', params.restaurantId);
+    if (linkage.error) {
+      throw new Error('Failed to link mobile review notification.');
+    }
   }
   return data;
 }
@@ -151,6 +163,34 @@ function isMobileAttemptStatus(value: string | null): value is MobileAttemptStat
   );
 }
 
+async function recordWhatsAppSent(
+  client: SupabaseClient<Database>,
+  intent: MobileReviewIntent,
+  providerMessageId: string | null,
+): Promise<void> {
+  if (!intent.review_request_id || !providerMessageId) return;
+  try {
+    await recordReviewRequestEvent(
+      {
+        channel: 'whatsapp',
+        eventType: 'sent',
+        idempotencyKey: `review:${intent.review_request_id}:whatsapp:sent`,
+        occurredAt: new Date().toISOString(),
+        provider: 'twilio',
+        providerEventId: providerMessageId,
+        restaurantId: intent.restaurant_id,
+        reviewRequestId: intent.review_request_id,
+      },
+      client,
+    );
+  } catch {
+    console.warn('[queue][mobile-review] sent event recording failed', {
+      notificationId: intent.id,
+      restaurantId: intent.restaurant_id,
+    });
+  }
+}
+
 async function finalizePendingAttempt(
   intent: MobileReviewIntent,
 ): Promise<IntentResolution | null> {
@@ -224,10 +264,30 @@ export async function drainMobileReviewIntents(params: {
       if (pendingFinalization) {
         await updateIntent(client, intent, pendingFinalization);
         if (pendingFinalization.status === 'processed') {
+          await recordWhatsAppSent(client, intent, intent.mobile_intent_provider_message_id);
           sent += 1;
         } else {
           failed += 1;
         }
+        continue;
+      }
+
+      if (
+        intent.review_request_id &&
+        !(await canSendReviewRequest(
+          {
+            channel: 'whatsapp',
+            restaurantId: intent.restaurant_id,
+            reviewRequestId: intent.review_request_id,
+          },
+          client,
+        ))
+      ) {
+        await updateIntent(client, intent, {
+          errorCode: 'REVIEW_WHATSAPP_JOURNEY_STOPPED',
+          status: 'skipped',
+        });
+        skipped += 1;
         continue;
       }
 
@@ -236,6 +296,11 @@ export async function drainMobileReviewIntents(params: {
       durableResolution = resolution.attemptFinalization ? resolution : null;
       await updateIntent(client, intent, resolution);
       if (resolution.status === 'processed') {
+        await recordWhatsAppSent(
+          client,
+          intent,
+          resolution.attemptFinalization?.providerMessageId ?? null,
+        );
         sent += 1;
       } else if (resolution.status === 'skipped') {
         skipped += 1;

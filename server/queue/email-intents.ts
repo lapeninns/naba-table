@@ -158,6 +158,14 @@ function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
         ? toIsoDateTime(row.last_attempt_at)
         : null,
     cronAttemptsMade: row.attempts_made,
+    reviewRequestId:
+      typeof payload.reviewRequestId === 'string'
+        ? payload.reviewRequestId
+        : row.review_request_id,
+    reviewStage:
+      payload.reviewStage === 'primary' || payload.reviewStage === 'followup'
+        ? payload.reviewStage
+        : null,
   };
 }
 
@@ -415,6 +423,7 @@ export async function scheduleEmailIntent(
     dedupe_key: dedupeKey,
     booking_id: payload.bookingId,
     restaurant_id: payload.restaurantId,
+    review_request_id: payload.reviewRequestId ?? null,
     email_type: payload.type,
     scheduled_for: scheduledFor,
     status: 'pending',

@@ -18,6 +18,17 @@ const DELIVERY = {
   publishedAt: '2026-08-09T10:00:00.000Z',
 } as const;
 
+const REVIEW_DELIVERY = {
+  kind: 'supported',
+  messageId: 'message-review-1',
+  eventHash: 'c'.repeat(64),
+  eventType: 'NEW_REVIEW',
+  externalAccountId: 'account-1',
+  externalLocationId: 'location-1',
+  externalReviewId: 'review-99',
+  publishedAt: '2026-08-09T10:00:00.000Z',
+} as const;
+
 describe('atomic Pub/Sub persistence orchestration', () => {
   it('lets the database derive the exact current fence from account and location metadata', async () => {
     // Given
@@ -87,6 +98,25 @@ describe('atomic Pub/Sub persistence orchestration', () => {
         p_consent_epoch: null,
       }),
     );
+  });
+
+  it('records review notifications in the privacy-preserving review outcome ledger', async () => {
+    const rpc = vi.fn(async () => ({ data: 'accepted', error: null }));
+    const client = { rpc } as unknown as SupabaseClient<Database>;
+
+    const result = await createSupabaseGooglePubsubPersistence(client).persist({
+      subscription: 'projects/p/subscriptions/s',
+      delivery: REVIEW_DELIVERY,
+    });
+
+    expect(result).toEqual({ outcome: 'accepted' });
+    expect(rpc).toHaveBeenCalledWith('record_google_review_notification_v1', {
+      p_external_account_id: 'account-1',
+      p_external_location_id: 'location-1',
+      p_event_type: 'NEW_REVIEW',
+      p_provider_event_hash: 'c'.repeat(64),
+      p_observed_at: '2026-08-09T10:00:00.000Z',
+    });
   });
 
   it('records poison and unmatched deliveries without a tenant fence and acknowledges duplicates', async () => {

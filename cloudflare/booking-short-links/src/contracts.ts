@@ -29,7 +29,8 @@ export type ShortLinkPurpose = (typeof SHORT_LINK_PURPOSES)[number];
 export type ShortLinkCreateSource =
   | 'guest_confirmation_sms'
   | 'guest_update_sms'
-  | 'guest_review_whatsapp';
+  | 'guest_review_whatsapp'
+  | 'guest_review_email';
 
 export type ShortLinkRecord = {
   token: string;

@@ -26,6 +26,7 @@ import {
   isEmailRecipientSuppressedError,
 } from '@/libs/resend';
 import { buildBookingManageUrl } from '@/server/bookings/manage-url';
+import { createReviewShortUrl } from '@/server/bookings/short-link';
 import {
   COLORS,
   renderButton,
@@ -75,6 +76,15 @@ type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 // Prefer the public root host for guest-facing booking links.
 const bookingSiteUrl = getTrustedSiteOrigin().replace(/\/+$/, '');
 const bookingAppUrl = getTrustedAppOrigin().replace(/\/+$/, '');
+const REVIEW_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const LEGACY_PRE_VISIT_REVIEW_CUES = new Set([
+  'If the meal turns into a favorite, feel free to snap a photo and add it to a quick review afterward.',
+  'A quick photo and short review after your visit can help future guests choose with confidence.',
+  'If you end up taking a favorite photo, you can always add it to a review after your visit.',
+  'If you end up having a great time, a quick photo and short review afterward is always appreciated.',
+  'If the visit is worth sharing, a quick photo and short review afterward helps other guests too.',
+  'If you take a favorite photo tomorrow, you can always add it to a quick review afterward.',
+]);
 
 function normalizeTimeLoose(value: string | null | undefined) {
   if (!value) return null;
@@ -731,6 +741,12 @@ async function dispatchEmail(
       name: resolvedTemplate.templateVariant.name,
       source: resolvedTemplate.source,
     };
+    if (
+      (resolvedTemplateKey === 'confirmation' || resolvedTemplateKey === 'reminder_24h') &&
+      LEGACY_PRE_VISIT_REVIEW_CUES.has(cue)
+    ) {
+      cue = '';
+    }
     ctaUrl = resolveCtaUrlForTemplate({
       templateKey: resolvedTemplateKey,
       booking,
@@ -738,6 +754,19 @@ async function dispatchEmail(
       manageUrl,
       restaurantBookingUrl,
     });
+    if (resolvedTemplateKey === 'review_request') {
+      const destinationUrl = safeGoogleReviewUrl(ctaUrl);
+      if (destinationUrl) {
+        ctaUrl =
+          (await createReviewShortUrl({
+            bookingId: booking.id,
+            createdBy: 'guest_review_email',
+            destinationUrl,
+            expiresAt: new Date(Date.now() + REVIEW_LINK_TTL_MS).toISOString(),
+            restaurantId: booking.restaurant_id,
+          })) ?? destinationUrl;
+      }
+    }
   }
 
   const html = renderHtml({

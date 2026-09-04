@@ -42,6 +42,10 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsEmailDeliverySummary.ts',
       ),
+      '@/hooks/ops/useOpsReviewGrowthSummary': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsReviewGrowthSummary.ts',
+      ),
       '@/hooks/ops/useOpsRestaurantDetails': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsRestaurantDetails.ts',

@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/monthly-venue-report",
       "schedule": "0 16 * * 3"
+    },
+    {
+      "path": "/api/cron/reconcile-review-costs",
+      "schedule": "20 * * * *"
     }
   ]
 }

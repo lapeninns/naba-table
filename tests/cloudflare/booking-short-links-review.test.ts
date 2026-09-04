@@ -52,6 +52,11 @@ describe('review short-link core', () => {
         ['nabatable.com'],
       ),
     ).toMatchObject({ ok: true });
+    expect(
+      validateShortLinkRequest({ ...reviewRequest, createdBy: 'guest_review_email' }, [
+        'nabatable.com',
+      ]),
+    ).toMatchObject({ ok: true });
   });
 
   it.each([
