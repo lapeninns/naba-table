@@ -83,8 +83,8 @@ describe('remote database safe runner historical replay', () => {
     expect(whenDryRunRuns.calls).toEqual([]);
   });
 
-  it('refuses include-all for production even when production migration is confirmed @contract', () => {
-    // Given: a production target with the ordinary confirmation flag present.
+  it('refuses production include-all without the exact historical migration confirmation @contract', () => {
+    // Given: a production target with only the ordinary confirmation flag present.
     const environment = { CONFIRM_PRODUCTION: 'true', DB_TARGET_ENV: 'production' };
 
     // When: historical replay is requested.
@@ -92,8 +92,42 @@ describe('remote database safe runner historical replay', () => {
 
     // Then: the runner stops before validation or Supabase execution.
     expect(whenProductionReplayRuns.status).toBe(2);
-    expect(whenProductionReplayRuns.output).toContain('--include-all is staging-only');
+    expect(whenProductionReplayRuns.output).toContain(
+      'CONFIRM_PRODUCTION_INCLUDE_ALL=20260811160000 is required',
+    );
     expect(whenProductionReplayRuns.calls).toEqual([]);
+  });
+
+  it('delegates production include-all only with both exact confirmations @contract', () => {
+    // Given: the reviewed missing historical migration and production apply are both confirmed.
+    const environment = {
+      CONFIRM_PRODUCTION: 'true',
+      CONFIRM_PRODUCTION_INCLUDE_ALL: '20260811160000',
+      DB_TARGET_ENV: 'production',
+    };
+
+    // When: the governed historical replay is requested.
+    const whenProductionReplayRuns = runCli(['push', '--include-all'], environment);
+
+    // Then: validation precedes the exact Supabase command.
+    expect(whenProductionReplayRuns.status).toBe(0);
+    expect(whenProductionReplayRuns.calls).toEqual([
+      'pnpm validate:env',
+      'supabase db push --include-all',
+    ]);
+  });
+
+  it('keeps production include-all dry-runs side-effect free without confirmation @contract', () => {
+    // Given: production is targeted without mutation confirmations.
+    const environment = { DB_TARGET_ENV: 'production' };
+
+    // When: the operator renders the historical replay plan.
+    const whenDryRunRuns = runCli(['push', '--include-all', '--dry-run'], environment);
+
+    // Then: the command is visible but no child process executes.
+    expect(whenDryRunRuns.status).toBe(0);
+    expect(whenDryRunRuns.output).toContain('supabase db push --include-all');
+    expect(whenDryRunRuns.calls).toEqual([]);
   });
 
   it('refuses include-all for a read-only workflow @contract', () => {
