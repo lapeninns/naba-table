@@ -27,6 +27,8 @@ const AUTHORIZATION_GUARD_PATTERNS = [
   /\brequireOpsAuth\b/,
   /\brequireSession\b/,
   /\brequireCronAuthAndRun\b/,
+  /\bhasValidReviewLinkWebhookAuthorization\b/,
+  /\bhandleGoogleBusinessProfilePush\b/,
   /\brequireRestaurantContext\b/,
   /\blistUserRestaurantMemberships\b/,
   /\bauth\.getUser\s*\(/,

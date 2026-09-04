@@ -21,11 +21,15 @@ function secureEqual(left: string, right: string): boolean {
   return timingSafeEqual(digest(left), digest(right));
 }
 
-export async function POST(request: Request): Promise<Response> {
-  const expectedToken = env.cloudflare.bookingShortLinksInternalToken;
+function hasValidReviewLinkWebhookAuthorization(request: Request, expectedToken: string): boolean {
   const header = request.headers.get('authorization');
   const token = header?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? '';
-  if (!expectedToken || !token || !secureEqual(token, expectedToken)) {
+  return Boolean(expectedToken && token && secureEqual(token, expectedToken));
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const expectedToken = env.cloudflare.bookingShortLinksInternalToken;
+  if (!hasValidReviewLinkWebhookAuthorization(request, expectedToken)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
