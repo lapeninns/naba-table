@@ -13,6 +13,20 @@ function readJson(relativePath: string): { scripts?: Record<string, string> } {
 }
 
 describe('residual readiness contracts', () => {
+  it('keeps the Docker development runtime on the supported Node major @contract', () => {
+    const dockerfile = readFileSync(path.join(repositoryRoot, '.devcontainer/Dockerfile'), 'utf8');
+    const compose = readFileSync(path.join(repositoryRoot, 'compose.yaml'), 'utf8');
+
+    expect(dockerfile).toContain('javascript-node:1-22-bookworm');
+    expect(compose).toContain('${NABATABLE_WEB_PORT:-3000}:3000');
+    expect(compose).toContain('${NABATABLE_SHORT_LINKS_PORT:-8787}:8787');
+    expect(compose).toContain('${NABATABLE_EMAIL_GATEWAY_PORT:-8788}:8788');
+    expect(compose).toContain('${NABATABLE_SMS_GATEWAY_PORT:-8789}:8789');
+    expect(compose).toContain('pnpm_store:/workspace/.pnpm-store');
+    expect(compose).not.toContain(' dev -- --ip ');
+    expect(compose).toContain("require('node:net').connect(3000");
+  });
+
   it('provides a profiling command for every deployable application @contract', () => {
     const manifests = [
       'package.json',
