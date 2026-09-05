@@ -402,3 +402,21 @@ Dedicated-account update steps:
 
 Never run the controller from a working tree with local modifications, and
 never `git pull` inside a release directory.
+
+### Private source acquisition
+
+The executor uses the configured local CI App and installation IDs (the same
+`NABATABLE_CI_GITHUB_*` / `NABATABLE_LOCAL_CI_*` aliases as the controller) and
+its owner's named Keychain App key to fetch the private repository. Conflicting
+identity aliases fail before Keychain or network access. Each fetch receives a
+fresh installation token narrowed to the configured repository ID and
+`contents: read`. GitHub App, installation, repository name/ID, returned token
+permissions and expiry are verified before Git receives it.
+
+The token enters only the host Git fetch environment as a URL-scoped HTTP header;
+redirects are disabled. It is never placed in command arguments, Git config files,
+bundles or guest environments. The executor revokes it after each fetch, including
+failure, and refuses if revocation fails. Authentication errors omit provider and
+Git diagnostics. The source remote must be a canonical
+`https://github.com/OWNER/REPOSITORY.git` URL. Source authentication does not
+register an Actions runner or replace the Release gate.

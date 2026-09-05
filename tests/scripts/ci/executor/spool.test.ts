@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SpawnCommandRunner } from '@/scripts/ci/executor/runner';
 import {
@@ -255,6 +255,53 @@ describe('createSpoolBundle (scripted git)', () => {
     expect(fetches[0].args).toContain('protocol.https.allow=always');
     expect(fetches[0].args).not.toContain('protocol.file.allow=always');
     expect(fetches[0].args).toContain('credential.helper=');
+  });
+
+  it('limits source credentials to fetch and revokes them even on failure', async () => {
+    const release = vi.fn(async () => undefined);
+    const token = 'test.installation.secret';
+    const runner = new FakeRunner([
+      when('git', ['fetch'], okResult({ exitCode: 128, stderr: token })),
+    ]);
+    await expect(
+      createSpoolBundle(
+        {
+          request: mainRequest(),
+          spoolRoot: makeTempDir('auth-spool-'),
+          remoteUrl: 'https://github.com/example/repo.git',
+          jobId: 'job',
+        },
+        { runner, pathEnv: '/usr/bin', acquireFetchToken: async () => ({ token, release }) },
+      ),
+    ).rejects.toThrow('authenticated source fetch failed');
+    expect(release).toHaveBeenCalledOnce();
+    const fetch = runner.find('git', 'fetch')[0];
+    expect(fetch.env?.GIT_CONFIG_VALUE_0).toContain(
+      Buffer.from(`x-access-token:${token}`).toString('base64'),
+    );
+    expect(fetch.env?.GIT_CONFIG_VALUE_1).toBe('false');
+    expect(fetch.args.join(' ')).not.toContain(token);
+    for (const call of runner.calls.filter((call) => !call.args.includes('fetch'))) {
+      expect(call.env?.GIT_CONFIG_COUNT).toBeUndefined();
+    }
+  });
+
+  it('rejects credential delivery to a different host before acquiring a token', async () => {
+    const acquireFetchToken = vi.fn();
+    const runner = new FakeRunner([]);
+    await expect(
+      createSpoolBundle(
+        {
+          request: mainRequest(),
+          spoolRoot: makeTempDir('auth-spool-'),
+          remoteUrl: 'https://evil.example/repo.git',
+          jobId: 'job',
+        },
+        { runner, pathEnv: '/usr/bin', acquireFetchToken },
+      ),
+    ).rejects.toThrow('authenticated source remote');
+    expect(acquireFetchToken).not.toHaveBeenCalled();
+    expect(runner.find('git', 'fetch')).toHaveLength(0);
   });
 
   it('refuses when the produced bundle does not carry the requested SHAs', async () => {

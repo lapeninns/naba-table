@@ -148,6 +148,7 @@ function deps(env: Record<string, string>, runner: FakeRunner, captured: Capture
   return {
     runner,
     fetch: fakeFetch(captured),
+    acquireFetchToken: async () => ({ token: 'test_source_token', release: async () => undefined }),
     env,
     repoRoot: repositoryRoot,
     now: () => NOW,

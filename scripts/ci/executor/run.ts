@@ -45,7 +45,8 @@ import {
 } from './r2/upload';
 import { ciJobId, parseRequestEnvelope } from './request';
 import { assertSucceeded, renderCommand, type CommandRunner } from './runner';
-import { createSpoolBundle, planSpool, type SpoolInput } from './spool/bundle';
+import { createSpoolBundle, planSpool, type SpoolDeps, type SpoolInput } from './spool/bundle';
+import { acquireSourceToken } from './spool/source-auth';
 import { runSupervisor } from './supervisor/run';
 import type {
   CiRequest,
@@ -64,6 +65,7 @@ import type {
 export interface ExecutorDeps {
   readonly runner: CommandRunner;
   readonly fetch: FetchLike;
+  readonly acquireFetchToken?: SpoolDeps['acquireFetchToken'];
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly repoRoot: string;
   readonly now?: () => Date;
@@ -518,7 +520,22 @@ export async function executeRequest(
 
     const bundle = await createSpoolBundle(
       { request, spoolRoot: config.spoolRoot, remoteUrl: config.sourceRemoteUrl, jobId },
-      { runner: deps.runner, pathEnv: pathEnv(deps.env) },
+      {
+        runner: deps.runner,
+        pathEnv: pathEnv(deps.env),
+        acquireFetchToken:
+          deps.acquireFetchToken ??
+          (() =>
+            acquireSourceToken(
+              {
+                repositoryId: config.repositoryId,
+                remoteUrl: config.sourceRemoteUrl,
+                keychainAccount: config.keychain.account,
+                env: deps.env,
+              },
+              deps,
+            )),
+      },
     );
     log(`job ${jobId}: bundle ready (${bundle.bundlePath})`);
 
