@@ -274,7 +274,7 @@ describe('deploy:workers', () => {
     const dir = tempDir();
     const separationEvidencePath = path.join(dir, 'separation-staging.json');
     writeFileSync(separationEvidencePath, JSON.stringify(separationEvidence()));
-    const { runner } = fakeWrangler({ supportsVersions: true });
+    const { runner, calls } = fakeWrangler({ supportsVersions: true });
     await expect(
       deployWorker({
         worker: 'sms-summary-gateway',
@@ -284,11 +284,16 @@ describe('deploy:workers', () => {
         rootDir: ROOT,
         separationEvidencePath,
         evidencePath: path.join(dir, 'worker.json'),
+        baseUrl: 'https://REPLACE_ME_SUBDOMAIN.workers.dev',
         runner,
+        fetchImpl: async () => {
+          throw new Error('Unexpected readiness request');
+        },
         env: {},
         now: () => NOW,
       }),
     ).rejects.toThrow(/no readiness URL/u);
+    expect(calls).toEqual([]);
   });
 
   it('resolves the email-queue-gateway readiness origin only from --url or WORKER_URL_EMAIL_QUEUE_GATEWAY @deploy', () => {

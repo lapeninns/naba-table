@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -145,11 +148,26 @@ describe('KV rebuild', () => {
   });
 
   it('refuses staging while the namespace id is a placeholder', async () => {
-    await expect(
-      runKvRebuild(
-        { envName: 'staging', repoRoot: process.cwd(), confirm: true, now: NOW },
-        { wrangler: fakeWrangler(), logger, tempDir: () => '/nonexistent' },
-      ),
-    ).rejects.toThrow(/unconfigured/);
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kv-unconfigured-'));
+    const configDir = path.join(repoRoot, 'cloudflare', 'booking-short-links');
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(configDir, 'wrangler.jsonc'),
+      JSON.stringify({
+        env: { staging: { name: 'short-links-staging', kv_namespaces: [{ id: 'REPLACE_ME_KV' }] } },
+      }),
+    );
+    const wrangler = fakeWrangler();
+    try {
+      await expect(
+        runKvRebuild(
+          { envName: 'staging', repoRoot, confirm: true, now: NOW },
+          { wrangler, logger, tempDir: () => '/nonexistent' },
+        ),
+      ).rejects.toThrow(/unconfigured/);
+      expect(wrangler.calls).toEqual([]);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });

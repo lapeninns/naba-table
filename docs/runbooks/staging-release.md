@@ -83,6 +83,32 @@ Record the real values in the places below; the validator fails closed until the
 6. Synthetic tenants in the staging Supabase project: two restaurants owned by
    the platform team, with guest contacts on reserved test domains only.
 
+## Provisioning record (2026-09-05)
+
+Verified in Cloudflare account `9b153af11227b03e23dea343d5fc232f`:
+
+| Staging resource                               | Provider identifier                    |
+| ---------------------------------------------- | -------------------------------------- |
+| `nabatable-booking-short-links-staging` D1     | `1d6fbc04-eb7f-48f5-a673-bb3420d39347` |
+| `BOOKING_SHORT_LINKS_CACHE_staging` KV         | `a4a50885b0fc47bc928fe602c53e4287`     |
+| `BOOKING_SHORT_LINKS_CACHE_staging_preview` KV | `5d3db9428e7d4a7ebad8557ae3de184b`     |
+| Worker account subdomain                       | `amanshresthaaaaa.workers.dev`         |
+
+The D1 database already existed. Both staging KV namespaces were created on
+2026-09-05 and are separate from production and its preview namespace. Recording
+these bindings does not deploy the Worker or verify its schema, secrets or readiness.
+The SMS staging hostname uses this account subdomain; that Worker still needs provisioning.
+
+The three production customer Workers are connected to `lapeninns/nabatable`
+through Cloudflare Workers Builds. Each build command runs its package-specific
+`verify` script, for example `pnpm --filter @nabatable/email-queue-gateway verify`.
+Each deploy command runs `deploy:validate-separation --env production` before
+`deploy:workers --env production --worker <name>`, passing the checked-out Git
+revision and the corresponding Worker origin. Non-production branch builds are disabled.
+The provider stores its deployment token. This connection does not establish
+release readiness: remaining identities, monitoring secrets and staging evidence
+must be supplied before deployment can pass.
+
 ## Commands
 
 All commands are `pnpm` scripts registered in the root `package.json`. Nothing
