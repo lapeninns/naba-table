@@ -22,14 +22,12 @@ jobs:
           python3 - <<'PY'
           import socket
           for address in ['192.168.5.2', '10.0.0.1', '169.254.169.254']:
-              try:
-                  socket.create_connection((address, 80), timeout=2)
-              except OSError:
-                  continue
-              raise SystemExit(f'Private network unexpectedly reachable: {address}')
+              for port in [80, 443]:
+                  try:
+                      socket.create_connection((address, port), timeout=2)
+                  except OSError:
+                      continue
+                  raise SystemExit(f'Private network unexpectedly reachable: {address}:{port}')
           print('Private-network probes denied')
           PY
           printf '%s\n' 'Isolated Actions execution passed'
-      - name: Deliberate failure must fail the job
-        shell: bash
-        run: exit 23

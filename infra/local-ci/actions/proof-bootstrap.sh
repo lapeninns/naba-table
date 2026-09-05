@@ -27,4 +27,44 @@ table inet actions_proof {
   }
 }
 NFT
+# The golden image also denies guest egress outside its proxy. Add a proof-only
+# exception for this account, with private destinations rejected first.
+nft insert rule inet nabatable_ci output meta nfproto ipv4 meta skuid 1100 tcp dport 443 accept
+nft insert rule inet nabatable_ci output meta skuid 1100 ip daddr @private_v4 tcp dport 443 reject
 sudo -u runnerproof bash -c 'cd /opt/actions-proof && ./bin/Runner.Listener --version'
+sudo -u runnerproof python3 - <<'PY'
+import socket
+import urllib.request
+with urllib.request.urlopen('https://api.github.com', timeout=15) as response:
+    assert response.status == 200
+for address in ['127.0.0.1', '192.168.5.2', '10.0.0.1', '169.254.169.254']:
+    for port in [80, 443]:
+        try:
+            socket.create_connection((address, port), timeout=2)
+        except OSError:
+            continue
+        raise SystemExit('Private network unexpectedly reachable')
+print('Public HTTPS passed; private HTTP/HTTPS denied')
+PY
+# A controlled listener distinguishes firewall denial from an absent service.
+python3 - <<'PY'
+import socket
+import subprocess
+with socket.socket() as listener:
+    listener.bind(('127.0.0.1', 443))
+    listener.listen(2)
+    with socket.create_connection(('127.0.0.1', 443), timeout=2):
+        accepted, _ = listener.accept()
+        accepted.close()
+    probe = subprocess.run(['sudo', '-n', '-u', 'runnerproof', 'python3', '-c', '''
+import socket, sys
+try:
+    socket.create_connection(('127.0.0.1', 443), timeout=2)
+except OSError:
+    sys.exit(0)
+sys.exit(1)
+'''], timeout=5, check=False)
+    if probe.returncode != 0:
+        raise SystemExit('Runner reached the controlled private HTTPS listener')
+print('Controlled private listener reachable by root, denied to runner')
+PY
