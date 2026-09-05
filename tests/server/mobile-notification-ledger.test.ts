@@ -212,9 +212,12 @@ describe('WhatsApp review notification ledger migration', () => {
     // Given: lifecycle timestamps are protected by database consistency constraints.
     const source = readReviewProof();
 
-    // When: the transactional proof chooses and prepares its fixture.
-    // Then: it selects a valid completed lifecycle and changes only notification prerequisites.
-    expect(source).toContain("WHERE booking.status = 'completed'");
+    // When: the transactional proof prepares its synthetic fixture booking.
+    // Then: it requires the shared fixtures, asserts the completed lifecycle instead of
+    // creating it, and changes only notification prerequisites on that booking.
+    expect(source).toContain('-- requires-fixtures: tests/db/fixtures/synthetic-fixtures.sql');
+    expect(source).toContain("AND status = 'completed'");
     expect(source).not.toContain("SET status = 'completed'");
+    expect(source).not.toMatch(/UPDATE public\.bookings\s+SET\s+status\b/u);
   });
 });

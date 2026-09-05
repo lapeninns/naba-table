@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -352,18 +353,33 @@ describe('migration immutability census', () => {
     );
   });
 
-  it('keeps the committed baseline consistent with the working tree, including the uncommitted GBP migration', () => {
+  it('keeps the committed baseline consistent with the committed migration tree', () => {
+    // Given: the baseline describes committed content. Comparing against HEAD (not the
+    // working tree) keeps this contract deterministic on CI and on a developer machine
+    // with uncommitted migration edits; the CLI (`pnpm db:check-migration-immutability`)
+    // is what flags working-tree edits to an applied migration.
     const baseline = parseChecksumBaseline(
       readFileSync(path.join(repoRoot, MIGRATION_CHECKSUMS_RELATIVE_PATH), 'utf8'),
     );
-    const census = computeMigrationCensus(path.join(repoRoot, MIGRATIONS_RELATIVE_PATH));
+    const committedRoot = makeTempDir('nabatable-committed-migrations-');
+    execFileSync(
+      'sh',
+      [
+        '-c',
+        `git -C "$0" archive HEAD -- "$1" | tar -x -C "$2"`,
+        repoRoot,
+        MIGRATIONS_RELATIVE_PATH,
+        committedRoot,
+      ],
+      { stdio: ['ignore', 'ignore', 'inherit'] },
+    );
+    const census = computeMigrationCensus(path.join(committedRoot, MIGRATIONS_RELATIVE_PATH));
     const report = compareCensus(baseline, census);
 
     expect(report.changed).toEqual([]);
     expect(report.missing).toEqual([]);
-    expect(baseline.files['20260809120000_gbp_write_safety_foundation.sql']?.sha256).toBe(
-      census['20260809120000_gbp_write_safety_foundation.sql']?.sha256,
-    );
+    expect(report.unrecorded).toEqual([]);
+    expect(baseline.files['20260809120000_gbp_write_safety_foundation.sql']).toBeDefined();
     expect(baseline.note).toContain('NOT assumed safely replayable');
     expect(readFileSync(path.join(repoRoot, 'config/db/census.md'), 'utf8')).toContain(
       baseline.reviewedBaselineDate,

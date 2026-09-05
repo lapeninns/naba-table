@@ -13,17 +13,19 @@ It is read by `pnpm db:check-migration-immutability` (and, before any remote pla
 
 ## Reviewed baseline
 
-| Field                    | Value                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| Reviewed baseline date   | 2026-09-04                                                                    |
-| Algorithm                | sha256 over the exact file bytes                                              |
-| Files recorded           | 120 (119 versioned migrations plus `CONSOLIDATED_ALL_MIGRATIONS.sql`)         |
-| Source of truth for hash | The working tree at the time of review, not any previously committed revision |
+| Field                    | Value                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Reviewed baseline date   | 2026-09-04                                                                                     |
+| Algorithm                | sha256 over the exact file bytes                                                               |
+| Files recorded           | 120 (112 versioned migrations plus `CONSOLIDATED_ALL_MIGRATIONS.sql`)                          |
+| Source of truth for hash | The committed content of each file at the reviewed revision, never an uncommitted working copy |
 
-`20260809120000_gbp_write_safety_foundation.sql` was recorded from its current working-tree
-content while it was still uncommitted. That content is the reviewed baseline. If the file is
-changed again before it is applied everywhere, the check fails until a reviewer deliberately
-removes and re-records the entry as part of the same review that changes the file.
+`20260809120000_gbp_write_safety_foundation.sql` is recorded from its committed content. A
+local, uncommitted edit to that file (or any other recorded migration) is reported as
+`CHANGED` by `pnpm db:check-migration-immutability` until a reviewer deliberately removes and
+re-records the entry as part of the same review that changes the file. The contract test
+(`tests/scripts/db-promotion-safety.test.ts`) compares the baseline against the committed tree
+so it is deterministic on CI and on developer machines.
 
 `CONSOLIDATED_ALL_MIGRATIONS.sql` is not a versioned migration (its name carries no version
 prefix, so the Supabase CLI ignores it) but it lives in the migrations directory and is
