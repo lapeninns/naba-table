@@ -9,6 +9,7 @@ import {
   harvestStagedArtefacts,
   stageArtefactsFromContainer,
 } from '@/scripts/ci/evidence/collect';
+import { evidenceObjectKey } from '@/scripts/ci/executor/r2/upload';
 
 import {
   cleanupTempDirs,
@@ -37,6 +38,39 @@ function stage(): { staging: string; evidence: string } {
 const roots = ['coverage', 'test-results', 'logs'];
 
 describe('harvestStagedArtefacts', () => {
+  it('records unsupported object names while retaining uploadable test evidence', () => {
+    const { staging, evidence } = stage();
+    writeFileSync(path.join(staging, 'test-results', '.last-run.json'), '{"status":"passed"}');
+    writeFileSync(path.join(staging, 'test-results', 'a b.json'), '{}');
+    const result = harvestStagedArtefacts({
+      stagingDir: staging,
+      evidenceDir: evidence,
+      allowedRoots: roots,
+    });
+    expect(result.rejected).toEqual(
+      expect.arrayContaining([
+        { path: 'test-results/.last-run.json', reason: 'object-key' },
+        { path: 'test-results/a b.json', reason: 'object-key' },
+      ]),
+    );
+    expect(result.files.some((file) => file.path === 'test-results/vitest/junit.xml')).toBe(true);
+    for (const file of result.files) {
+      expect(() =>
+        evidenceObjectKey(
+          {
+            endpoint: 'https://example.com',
+            bucket: 'evidence',
+            keyPrefix: 'ci-evidence/ttl-14d',
+            region: 'auto',
+          },
+          'ci-main-test-a1',
+          file.path,
+          new Date('2026-09-05T12:00:00Z'),
+        ),
+      ).not.toThrow();
+    }
+  });
+
   it('copies allowed files with deterministic digests and 0600 permissions', () => {
     const { staging, evidence } = stage();
     const first = harvestStagedArtefacts({

@@ -160,6 +160,7 @@ export interface EvidenceRejection {
     | 'per-file-size'
     | 'total-size'
     | 'extension'
+    | 'object-key'
     | 'not-allowed-root'
     | 'special-file';
 }

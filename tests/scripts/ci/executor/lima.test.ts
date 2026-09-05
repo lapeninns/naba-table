@@ -45,6 +45,29 @@ function limaConfig(root: string): LimaConfig {
   };
 }
 
+describe('Lima socket path limits', () => {
+  it('compacts long instance names without moving the private Lima home', () => {
+    const home = '/Users/amankumarshrestha/nabatable-ci/lima';
+    const config = limaConfig('/root');
+    const first = limaInstanceName(config, 'ci-main-bd55aee9e542-a1', home);
+    const second = limaInstanceName(config, 'ci-main-bd55aee9e542-a2', home);
+    expect(Buffer.byteLength(path.join(home, first, 'ssh.sock.1234567890123456'))).toBeLessThan(
+      104,
+    );
+    expect(first).not.toBe(second);
+    expect(first).toBe(limaInstanceName(config, 'ci-main-bd55aee9e542-a1', home));
+  });
+
+  it('counts UTF-8 bytes and refuses a home that leaves no safe instance name', () => {
+    const home = '/Users/利用者/nabatable-ci/lima';
+    const name = limaInstanceName(limaConfig('/root'), 'ci-nightly-bd55aee9e542-a1', home);
+    expect(Buffer.byteLength(path.join(home, name, 'ssh.sock.1234567890123456'))).toBeLessThan(104);
+    expect(() => limaInstanceName(limaConfig('/root'), 'job', `/tmp/${'x'.repeat(90)}`)).toThrow(
+      /LIMA_HOME.*too long/u,
+    );
+  });
+});
+
 describe('withLimaInstance', () => {
   it('creates, starts, binds the context, runs the body and destroys the instance', async () => {
     const root = makeTempDir();
@@ -54,7 +77,7 @@ describe('withLimaInstance', () => {
       jobId: 'ci-main-000000000000-a1',
       config,
       jobDir: path.join(root, 'job'),
-      limaHome: path.join(root, '.lima'),
+      limaHome: path.join('/tmp', path.basename(root), '.lima'),
     };
     const { value, destroy } = await withLimaInstance(
       input,
@@ -77,12 +100,12 @@ describe('withLimaInstance', () => {
     expect(value).toBe('done');
     expect(destroy.failures).toEqual([]);
     const rendered = runner.rendered();
-    const name = limaInstanceName(config, input.jobId);
+    const name = limaInstanceName(config, input.jobId, input.limaHome);
     expect(rendered).toEqual([
       `limactl create --tty=false --name=${name} ${path.join(root, 'job', 'lima.yaml')}`,
       `limactl start --tty=false ${name}`,
       'docker context rm --force nabatable-ci',
-      `docker context create nabatable-ci --docker host=unix://${path.join(root, '.lima', name, 'sock', 'docker.sock')}`,
+      `docker context create nabatable-ci --docker host=unix://${path.join(input.limaHome, name, 'sock', 'docker.sock')}`,
       `limactl copy /host/bundle ${name}:/home/ci/spool/job.bundle`,
       `limactl shell --tty=false ${name} -- echo hi`,
       `limactl stop --force ${name}`,
@@ -93,7 +116,7 @@ describe('withLimaInstance', () => {
     expect(rendered.some((line) => line.includes('snapshot'))).toBe(false);
     for (const call of runner.calls) {
       expect(call.env?.DOCKER_CONFIG).toBe(path.join(root, 'job', '.docker'));
-      expect(call.env?.LIMA_HOME).toBe(path.join(root, '.lima'));
+      expect(call.env?.LIMA_HOME).toBe(path.join('/tmp', path.basename(root), '.lima'));
     }
     const template = readFileSync(path.join(root, 'job', 'lima.yaml'), 'utf8');
     expect(template).toContain('mounts: []');
@@ -110,7 +133,7 @@ describe('withLimaInstance', () => {
       jobId: 'ci-main-000000000000-a1',
       config,
       jobDir: path.join(root, 'job'),
-      limaHome: path.join(root, '.lima'),
+      limaHome: path.join('/tmp', path.basename(root), '.lima'),
     };
     await expect(
       withLimaInstance(
@@ -145,7 +168,7 @@ describe('withLimaInstance', () => {
       jobId: 'ci-main-000000000000-a1',
       config,
       jobDir: path.join(root, 'job'),
-      limaHome: path.join(root, '.lima'),
+      limaHome: path.join('/tmp', path.basename(root), '.lima'),
     };
     const body = async () => 'never';
     let caught: unknown;
@@ -172,7 +195,7 @@ describe('withLimaInstance', () => {
       jobId: 'ci-main-000000000000-a1',
       config,
       jobDir: path.join(root, 'job'),
-      limaHome: path.join(root, '.lima'),
+      limaHome: path.join('/tmp', path.basename(root), '.lima'),
     };
     await expect(
       withLimaInstance(
@@ -193,7 +216,7 @@ describe('withLimaInstance', () => {
       jobId: 'ci-main-000000000000-a1',
       config,
       jobDir: path.join(root, 'job'),
-      limaHome: path.join(root, '.lima'),
+      limaHome: path.join('/tmp', path.basename(root), '.lima'),
     };
     await expect(
       withLimaInstance(

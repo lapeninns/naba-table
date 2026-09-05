@@ -9,12 +9,13 @@ runs it only as a digest-pinned reference
 
 ## Layers
 
-| Layer       | Content                                                                | Lifetime                                   |
-| ----------- | ---------------------------------------------------------------------- | ------------------------------------------ |
-| Base        | `node:22-bookworm-slim@sha256:<digest>` (activeRuntime `node22`)       | Until a reviewed release re-pins it        |
-| Job image   | pnpm 10.34.5 via corepack, Playwright 1.58.1 Chromium deps, user `ci`  | Rebuilt with the golden image              |
-| Seed cache  | `pnpm store` for one lockfile (design below; not yet used by executor) | Rebuilt when the cache key changes         |
-| Job overlay | `<jobId>-workspace` volume: source checkout, `node_modules`, artefacts | One request; removed with the job instance |
+| Layer       | Content                                                                   | Lifetime                                   |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| Base        | `node:22-bookworm-slim@sha256:<digest>` (activeRuntime `node22`)          | Until a reviewed release re-pins it        |
+| Job image   | pnpm 10.34.5 via corepack, Playwright 1.58.1 Chromium deps, user `ci`     | Rebuilt with the golden image              |
+| Seed cache  | `pnpm store` for one lockfile (design below; not yet used by executor)    | Rebuilt when the cache key changes         |
+| Job overlay | `<jobId>-workspace` volume: source checkout, `node_modules`, artefacts    | One request; removed with the job instance |
+| Job home    | `<jobId>-home` volume: home directory and pnpm store outside the checkout | One request; removed with the job instance |
 
 `candidateRuntime` is `node24`. It is built with the same Dockerfile by
 overriding `NODE_IMAGE_REF`/`NODE_IMAGE_DIGEST` and is only ever used for the
@@ -66,6 +67,7 @@ Every request gets, from the executor (`scripts/ci/executor/docker/command.ts`):
   `--pids-limit`, memory and CPU limits from the profile, `--user 1000:1000`,
   attached only to the internal job network `nabatable-ci-jobs`);
 - a fresh named volume `<jobId>-workspace` for `/workspace`;
+- a fresh named volume `<jobId>-home` for `/home/ci`, seeded from the image's non-root home;
 - a fresh Lima instance, so even the Docker image store is discarded with the
   job.
 

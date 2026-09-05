@@ -20,9 +20,11 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-function sandbox() {
-  const root = mkdtempSync(path.join(tmpdir(), 'nabatable-image-regression-'));
-  roots.push(root);
+function sandbox(relativeRoot = '') {
+  const base = mkdtempSync(path.join(tmpdir(), 'nabatable-image-regression-'));
+  roots.push(base);
+  const root = path.join(base, relativeRoot);
+  mkdirSync(root, { recursive: true });
   const bin = path.join(root, 'bin');
   mkdirSync(bin);
   const log = path.join(root, 'calls');
@@ -176,7 +178,7 @@ describe('golden image disk export', () => {
 
 describe('golden image daemon provisioning', () => {
   it('restarts the daemon after writing userns configuration, before completing provisioning', () => {
-    const f = sandbox();
+    const f = sandbox('home/ci');
     for (const directory of ['etc/apt/sources.list.d', 'etc/sysctl.d', 'home'])
       mkdirSync(path.join(f.root, directory), { recursive: true });
     writeFileSync(path.join(f.root, 'etc/os-release'), 'VERSION_CODENAME=noble\n');
@@ -207,9 +209,11 @@ describe('golden image daemon provisioning', () => {
     };
     const provision = template.provision.find((step) => step.mode === 'system');
     expect(provision).toBeDefined();
-    const script = provision!.script
-      .replaceAll('/etc/', `${f.root}/etc/`)
-      .replaceAll('/home/ci', `${f.root}/home/ci`);
+    // Replace only original paths, never /home/ci introduced inside the fixture root.
+    const script = provision!.script.replace(
+      /\/etc\/|\/home\/ci/gu,
+      (target) => `${f.root}${target}`,
+    );
     const result = spawnSync('/bin/bash', ['-c', script], {
       env: { ...f.env, LIMA_CIDATA_USER: 'synthetic-ci-user' },
       encoding: 'utf8',

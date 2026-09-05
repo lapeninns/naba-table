@@ -110,6 +110,33 @@ describe('resolveExecutorProfile', () => {
     expect(allowedEnvKeys(profile)).toContain('HOME');
   });
 
+  it('keeps home and the pnpm store outside the source checkout', () => {
+    const profile = resolveExecutorProfile({
+      request: mainRequest(),
+      changedPaths: null,
+      allocation: null,
+    });
+    expect(profile.env.HOME).toBe('/home/ci');
+    expect(profile.env.PNPM_HOME).toBe('/home/ci/.local/share/pnpm');
+    expect(profile.env.TMPDIR).toBe('/home/ci/tmp');
+    expect(allowedEnvKeys(profile)).toContain('PNPM_HOME');
+    expect(allowedEnvKeys(profile)).toContain('TMPDIR');
+  });
+
+  it('collects reports from the operational control Worker as well as guest Workers', () => {
+    const profile = resolveExecutorProfile({
+      request: mainRequest(),
+      changedPaths: null,
+      allocation: null,
+    });
+    expect(profile.artefactPaths).toEqual(
+      expect.arrayContaining([
+        'cloudflare/operational-control/coverage',
+        'cloudflare/operational-control/test-results',
+      ]),
+    );
+  });
+
   it('skips conditional suites when the changed paths do not match, and runs them when unknown', () => {
     const skipped = resolveExecutorProfile({
       request: prRequest(),

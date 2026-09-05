@@ -66,19 +66,14 @@ describe('CI request tuple', () => {
 });
 
 describe('CI policy', () => {
-  it('parses the committed policy with only placeholders unconfigured', () => {
+  it('pins provisioned identities and refuses an unqualified job image', () => {
     const resolution = loadPolicy(repositoryRoot);
     expect(resolution.errors).toEqual([]);
-    expect(resolution.unconfigured).toEqual([
-      'allowedImageDigests[0]',
-      'repositoryId',
-      'localCi.appId',
-      'localCi.installationId',
-      'dispatch.appId',
-      'requiredHostedWorkflows["Security guards"].id',
-      'requiredHostedWorkflows["CodeQL security review"].id',
-      'fallbackWorkflow.id',
-    ]);
+    expect(resolution.unconfigured).toEqual(['allowedImageDigests[0]']);
+    expect(resolution.policy.repositoryId).toBe(1105219228);
+    expect(resolution.policy.localCi.appId).toBe(4840724);
+    expect(resolution.policy.localCi.installationId).toBe(159278975);
+    expect(resolution.policy.dispatch.appId).toBe(4841783);
     expect(resolution.policy.freshnessHours).toEqual({ merge: null, 'main-deploy': 6 });
     expect(resolution.policy.runtime.activeRuntime).toBe('node22');
     expect(resolution.policy.runtime.candidateRuntime).toBe('node24');

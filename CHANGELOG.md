@@ -6,6 +6,10 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Disposable Lima instance names now fit macOS socket limits under longer current-user CI paths, retaining deterministic retry identity and the private CI home.
+
+- Private CI source fetches now use repository-scoped, read-only CI App installation tokens from Keychain, with identity checks, per-fetch revocation and credential-free guest bundles.
+
 - Explicit current-user Mac runner setup alongside the dedicated-account default, with UID checks, private CI paths, isolated Lima/Docker state, ambient-environment clearing, and a `--no-start` staging option. This mode shares the existing macOS user security boundary; golden-image provisioning and qualification remain in progress.
 
 - Golden image provisioning now handles Docker's blob CDN, applies daemon isolation before network creation, builds through the restricted job proxy, and removes the loopback build registry on failure as well as success, and exports both Lima disk layouts. A shared root-owned Corepack cache makes pinned pnpm available offline to non-root jobs.
@@ -22,6 +26,13 @@ All notable changes are recorded here by Release Please from Conventional Commit
 - Documentation: `docs/ci/local-first-ci.md`, `docs/ci/release-gate.md`, `docs/ci/governance.md`, `docs/runbooks/{local-ci,staging-release,monitoring,recovery}.md`.
 
 ### Changed
+
+- CI evidence collection now records unsupported object names before upload and includes operational-control Worker reports, preserving the strict R2 key policy and complete Worker results.
+
+- Executor jobs now keep home and the pnpm store on a disposable writable volume outside the source checkout, preserving the read-only container root and source-file checks.
+- Job images include Python for admission-hook tests; executable temporary fixtures use job-home storage while `/tmp` remains `noexec`. CI test fixtures now handle Linux home paths and offline package-manager isolation.
+
+- Record verified Nabatable CI repository, App, and workflow identities while retaining the unqualified-image release block. Document the approved bucket-scoped R2 evidence permission exception.
 
 - PR hosted-lane failures now trigger an explicit Release gate refusal, with another gate dispatch after a newer hosted attempt completes.
 

@@ -38,6 +38,11 @@ export interface SpoolDeps {
   readonly pathEnv: string;
   /** Remote protocols git may use. Production is https only; tests add `file`. */
   readonly allowedProtocols?: readonly SpoolProtocol[];
+  /** Host-only, repository-scoped installation token. Never supplied to guest commands. */
+  readonly acquireFetchToken?: () => Promise<{
+    readonly token: string;
+    readonly release: () => Promise<void>;
+  }>;
 }
 
 export interface SpoolBundle {
@@ -159,6 +164,50 @@ function fetchArgs(
     remoteUrl,
     ...shas,
   ];
+}
+
+async function fetchSource(
+  deps: SpoolDeps,
+  env: Readonly<Record<string, string>>,
+  input: SpoolInput,
+  shas: readonly string[],
+  purpose: string,
+  allowFailure = false,
+): Promise<void> {
+  const args = fetchArgs(spoolPaths(input).spoolRepo, input.remoteUrl, shas, hardeningFor(deps));
+  if (!deps.acquireFetchToken) {
+    await git(deps, env, args, purpose, { allowFailure });
+    return;
+  }
+  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.git$/u.test(input.remoteUrl)) {
+    throw new Error('authenticated source remote must be a canonical github.com repository URL');
+  }
+  const lease = await deps.acquireFetchToken();
+  try {
+    if (!/^[A-Za-z0-9_.-]+$/u.test(lease.token)) throw new Error('invalid source token');
+    const header = `Authorization: Basic ${Buffer.from(`x-access-token:${lease.token}`).toString('base64')}`;
+    // Environment-only Git configuration: no token in argv, persisted config,
+    // FETCH_HEAD, bundle, or any local merge/inspection command. Redirects denied.
+    await git(
+      deps,
+      {
+        ...env,
+        GIT_CONFIG_COUNT: '2',
+        GIT_CONFIG_KEY_0: `http.${input.remoteUrl}.extraheader`,
+        GIT_CONFIG_VALUE_0: header,
+        GIT_CONFIG_KEY_1: 'http.followRedirects',
+        GIT_CONFIG_VALUE_1: 'false',
+      },
+      args,
+      purpose,
+      { allowFailure },
+    );
+  } catch {
+    // Git/transport diagnostics can reflect headers. Never expose their output.
+    throw new Error('authenticated source fetch failed');
+  } finally {
+    await lease.release();
+  }
 }
 
 /** Ordered happy-path plan used by `--dry-run`. Nothing here executes. */
@@ -479,17 +528,7 @@ export async function createSpoolBundle(input: SpoolInput, deps: SpoolDeps): Pro
     );
   }
 
-  await git(
-    deps,
-    env,
-    fetchArgs(
-      paths.spoolRepo,
-      input.remoteUrl,
-      [request.headSha, request.baseSha],
-      hardeningFor(deps),
-    ),
-    'fetch head and base',
-  );
+  await fetchSource(deps, env, input, [request.headSha, request.baseSha], 'fetch head and base');
   for (const [name, sha] of [
     ['headSha', request.headSha],
     ['baseSha', request.baseSha],
@@ -501,12 +540,13 @@ export async function createSpoolBundle(input: SpoolInput, deps: SpoolDeps): Pro
 
   let syntheticMergeSha: string | null = null;
   if (request.profile === 'pr') {
-    await git(
+    await fetchSource(
       deps,
       env,
-      fetchArgs(paths.spoolRepo, input.remoteUrl, [request.testedSha], hardeningFor(deps)),
+      input,
+      [request.testedSha],
       'fetch synthetic merge candidate',
-      { allowFailure: true },
+      true,
     );
     const produced = await produceSyntheticMerge(deps, env, input);
     await verifyTestedSha(deps, env, input, produced);

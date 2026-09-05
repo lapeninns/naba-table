@@ -94,6 +94,15 @@ RUN test "$(pnpm --version)" = "$PNPM_VERSION" \
 RUN npx --yes "playwright@${PLAYWRIGHT_VERSION}" install chromium \
   && rm -rf /home/ci/.npm
 
+# Keep additional test tooling after the browser layer so a previously pinned
+# image can supply Docker's verified build cache without downloading Chromium again.
+USER root
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    python3 \
+  && rm -rf /var/lib/apt/lists/*
+USER ci
+
 # Marker consumed by the executor to verify it is running the expected image
 # generation before it trusts the layer (tuple: runtime + playwright + pnpm).
 RUN printf 'activeRuntime=node22\nplaywright=%s\npnpm=%s\n' "${PLAYWRIGHT_VERSION}" "${PNPM_VERSION}" \

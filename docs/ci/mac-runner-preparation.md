@@ -84,7 +84,7 @@ The [GitHub App registration settings](https://github.com/settings/apps/new) for
 
 1. Keep the existing-user opt-in explicit. Prepare the reviewed release under `$HOME/nabatable-ci/releases/<commit>` and its `current` symlink; do not point it at a developer checkout. Stage the agent with `sh infra/local-ci/bin/install.sh --current-user --no-start`.
 2. Complete the running golden-image build, inspect both generated image digests, and perform the isolation and correctness qualification checks. Do not treat a successful download, VM boot, or build alone as qualification.
-3. Provision the GitHub Apps, write-only R2 evidence credentials, and the operational heartbeat receiver. Keep the CI App key, evidence credentials, and heartbeat token in the selected owner's named CI Keychain items; hosted deployment credentials stay in their appropriate hosted secret stores.
+3. Provision the GitHub Apps, bucket-scoped R2 evidence credentials under the approved permission exception in `docs/runbooks/local-ci.md`, and the operational heartbeat receiver. Keep the CI App key, evidence credentials, and heartbeat token in the selected owner's named CI Keychain items; hosted deployment credentials stay in their appropriate hosted secret stores.
 4. Populate and review controller/policy/trust configuration using the verified identifiers and real output digests. Configure only explicitly trusted human actors for local PR execution.
 5. Run `pnpm ci:controller --check-config`, executor dry-run, and the runbook's isolation/correctness checks before starting the LaunchAgent.
 6. Prove a passing job, deliberate failing job, evidence-upload failure, and heartbeat end to end. Begin shadow mode before retiring any hosted workflow.

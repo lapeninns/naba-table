@@ -1,6 +1,7 @@
 import { isImageConfigured } from '../contracts/profile';
 import { resolveProfile } from '../profiles/conditional';
 import { getProfile } from '../profiles/registry';
+import { CONTAINER_HOME, CONTAINER_TMPDIR } from './docker/command';
 import type {
   CiProfileName,
   CiRequest,
@@ -35,7 +36,9 @@ export class ProfileResolutionError extends Error {
  * fixed constant; none is credential-shaped.
  */
 export const EXECUTOR_ENV: Readonly<Record<string, string>> = Object.freeze({
-  HOME: '/workspace/.home',
+  HOME: CONTAINER_HOME,
+  PNPM_HOME: `${CONTAINER_HOME}/.local/share/pnpm`,
+  TMPDIR: CONTAINER_TMPDIR,
   LANG: 'C.UTF-8',
   COREPACK_ENABLE_DOWNLOAD_PROMPT: '0',
   NEXT_TELEMETRY_DISABLED: '1',
@@ -129,6 +132,8 @@ export const ARTEFACT_PATHS: readonly string[] = Object.freeze([
   'cloudflare/email-queue-gateway/test-results',
   'cloudflare/sms-summary-gateway/coverage',
   'cloudflare/sms-summary-gateway/test-results',
+  'cloudflare/operational-control/coverage',
+  'cloudflare/operational-control/test-results',
 ]);
 
 export interface ResolveExecutorProfileInput {

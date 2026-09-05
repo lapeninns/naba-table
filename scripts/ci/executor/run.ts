@@ -20,6 +20,8 @@ import {
   buildDockerExecArgs,
   buildDockerRunArgs,
   buildDockerSimpleArgs,
+  CONTAINER_HOME,
+  CONTAINER_TMPDIR,
   CONTAINER_WORKDIR,
   dockerJobNames,
   PREPARE_PROXY_ENV_KEYS,
@@ -45,7 +47,8 @@ import {
 } from './r2/upload';
 import { ciJobId, parseRequestEnvelope } from './request';
 import { assertSucceeded, renderCommand, type CommandRunner } from './runner';
-import { createSpoolBundle, planSpool, type SpoolInput } from './spool/bundle';
+import { createSpoolBundle, planSpool, type SpoolDeps, type SpoolInput } from './spool/bundle';
+import { acquireSourceToken } from './spool/source-auth';
 import { runSupervisor } from './supervisor/run';
 import type {
   CiRequest,
@@ -64,6 +67,7 @@ import type {
 export interface ExecutorDeps {
   readonly runner: CommandRunner;
   readonly fetch: FetchLike;
+  readonly acquireFetchToken?: SpoolDeps['acquireFetchToken'];
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly repoRoot: string;
   readonly now?: () => Date;
@@ -130,7 +134,7 @@ function prepareProxyEnv(config: ExecutorConfig): Readonly<Record<string, string
 function checkoutCommands(jobId: string, testedSha: string): readonly (readonly string[])[] {
   const ref = `refs/ci/${jobId}/tested`;
   return [
-    ['mkdir', '-p', `${CONTAINER_WORKDIR}/.home`],
+    ['mkdir', '-p', CONTAINER_HOME, CONTAINER_TMPDIR],
     ['git', 'init', '--quiet', '--initial-branch=ci', CONTAINER_WORKDIR],
     [
       'git',
@@ -286,6 +290,7 @@ export function renderDryRunPlan(input: DryRunPlanInput): string {
     `retention: ${config.retention.maxAgeMs}ms / ${config.retention.maxTotalBytes} bytes under ${config.jobRoot}`,
   );
   lines.push(`container: ${names.container}; workspace volume: ${names.workspaceVolume}`);
+  lines.push(`home volume: ${names.homeVolume}`);
   lines.push('dry-run: nothing executed');
   return `${lines.join('\n')}\n`;
 }
@@ -366,6 +371,10 @@ async function runJobInInstance(ctx: JobContext): Promise<JobBody> {
   await dockerRun(
     buildDockerSimpleArgs(docker, 'volume', 'create', names.workspaceVolume),
     'create workspace volume',
+  );
+  await dockerRun(
+    buildDockerSimpleArgs(docker, 'volume', 'create', names.homeVolume),
+    'create home volume',
   );
   await dockerRun(
     buildDockerRunArgs({
@@ -518,7 +527,22 @@ export async function executeRequest(
 
     const bundle = await createSpoolBundle(
       { request, spoolRoot: config.spoolRoot, remoteUrl: config.sourceRemoteUrl, jobId },
-      { runner: deps.runner, pathEnv: pathEnv(deps.env) },
+      {
+        runner: deps.runner,
+        pathEnv: pathEnv(deps.env),
+        acquireFetchToken:
+          deps.acquireFetchToken ??
+          (() =>
+            acquireSourceToken(
+              {
+                repositoryId: config.repositoryId,
+                remoteUrl: config.sourceRemoteUrl,
+                keychainAccount: config.keychain.account,
+                env: deps.env,
+              },
+              deps,
+            )),
+      },
     );
     log(`job ${jobId}: bundle ready (${bundle.bundlePath})`);
 

@@ -11,6 +11,8 @@ import type { ExecutorResources } from '../types';
  */
 
 export const CONTAINER_WORKDIR = '/workspace';
+export const CONTAINER_HOME = '/home/ci';
+export const CONTAINER_TMPDIR = `${CONTAINER_HOME}/tmp`;
 export const CONTAINER_HOSTNAME = 'ci-job';
 
 /** Environment keys allowed on prepare steps in addition to the profile env. */
@@ -85,11 +87,16 @@ export interface DockerJobSpec extends DockerContextSpec {
 export interface DockerJobNames {
   readonly container: string;
   readonly workspaceVolume: string;
+  readonly homeVolume: string;
 }
 
 export function dockerJobNames(jobId: string): DockerJobNames {
   assertName(jobId, 'jobId');
-  return { container: `${jobId}-job`, workspaceVolume: `${jobId}-workspace` };
+  return {
+    container: `${jobId}-job`,
+    workspaceVolume: `${jobId}-workspace`,
+    homeVolume: `${jobId}-home`,
+  };
 }
 
 export function assertName(value: string, what: string): void {
@@ -252,6 +259,8 @@ export function buildDockerRunArgs(spec: DockerJobSpec): readonly string[] {
     `/tmp:rw,noexec,nosuid,nodev,size=${spec.resources.tmpfsSize}`,
     '--mount',
     `type=volume,src=${names.workspaceVolume},dst=${CONTAINER_WORKDIR}`,
+    '--mount',
+    `type=volume,src=${names.homeVolume},dst=${CONTAINER_HOME}`,
     '--workdir',
     CONTAINER_WORKDIR,
     '--init',

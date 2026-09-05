@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
+import { isSafeEvidencePath } from '../../evidence/path';
 import type { R2Config } from '../config';
 import {
   EMPTY_PAYLOAD_SHA256,
@@ -54,20 +55,16 @@ export class R2UploadError extends Error {
   }
 }
 
-const KEY_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u;
-
 export function evidenceObjectKey(
   config: R2Config,
   jobId: string,
   relativePath: string,
   now: Date,
 ): string {
-  const segments = relativePath.split('/');
-  for (const segment of segments) {
-    if (!KEY_SEGMENT.test(segment) || segment === '.' || segment === '..') {
-      throw new R2UploadError(`evidence path "${relativePath}" is not a safe object key`);
-    }
+  if (!isSafeEvidencePath(relativePath)) {
+    throw new R2UploadError(`evidence path "${relativePath}" is not a safe object key`);
   }
+  const segments = relativePath.split('/');
   const day = now.toISOString().slice(0, 10).replace(/-/gu, '/');
   return `${config.keyPrefix}/${day}/${jobId}/${segments.join('/')}`;
 }
