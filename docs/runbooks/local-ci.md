@@ -125,12 +125,12 @@ All four are generic passwords in the selected CI owner's login Keychain with
 `controller.sh` checks that each exists and refuses to start otherwise; the
 value is read only by the component that needs it.
 
-| Item (service)                                           | Content                                                  | Read by                                                                   |
-| -------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `nabatable-ci/github-app/nabatable-local-ci/private-key` | GitHub App PEM, verbatim or single-line base64           | `controller.sh` → 0600 file → `NABATABLE_LOCAL_CI_PRIVATE_KEY_PATH`       |
-| `nabatable-ci/monitoring/heartbeat-token`                | bearer token for the controller heartbeat (`ops:verify`) | `scripts/ci/controller` via `NABATABLE_CI_HEARTBEAT_KEYCHAIN_SERVICE`     |
-| `nabatable-ci/r2/evidence/access-key-id`                 | R2 access key id (evidence bucket, write-only token)     | `scripts/ci/executor/r2/credentials.ts` (item name from `operating.json`) |
-| `nabatable-ci/r2/evidence/secret-access-key`             | R2 secret access key                                     | `scripts/ci/executor/r2/credentials.ts` (item name from `operating.json`) |
+| Item (service)                                           | Content                                                                | Read by                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `nabatable-ci/github-app/nabatable-local-ci/private-key` | GitHub App PEM, verbatim or single-line base64                         | `controller.sh` → 0600 file → `NABATABLE_LOCAL_CI_PRIVATE_KEY_PATH`       |
+| `nabatable-ci/monitoring/heartbeat-token`                | bearer token for the controller heartbeat (`ops:verify`)               | `scripts/ci/controller` via `NABATABLE_CI_HEARTBEAT_KEYCHAIN_SERVICE`     |
+| `nabatable-ci/r2/evidence/access-key-id`                 | R2 access key id (evidence bucket, approved Object Read & Write token) | `scripts/ci/executor/r2/credentials.ts` (item name from `operating.json`) |
+| `nabatable-ci/r2/evidence/secret-access-key`             | R2 secret access key                                                   | `scripts/ci/executor/r2/credentials.ts` (item name from `operating.json`) |
 
 Create them with `security add-generic-password -s '<item>' -a nabatable-ci -w`
 as the selected CI owner; the value is prompted, never passed on a command line. In current-user mode the macOS login is your existing user, but the Keychain item account field remains `nabatable-ci`.
@@ -141,6 +141,14 @@ controller reads as a file: `controller.sh` copies it from the Keychain into
 echoed) on every start and exports the path. Dedicated-account uninstall removes this materialized file; current-user uninstall leaves credential files unchanged.
 The heartbeat item name and account are also the controller's compiled-in
 defaults, so an unset variable can never point at a different entry.
+
+### Approved R2 evidence permission exception
+
+On 2026-09-05 the owner approved Cloudflare's persistent **Object Read & Write** token, scoped only to `nabatable-ci-evidence`, expiring on 2026-10-05. Cloudflare's persistent S3 credentials do not offer a write-only object permission, and the uploader verifies each PUT with a signed HEAD. This scope also allows object reads, lists, and deletion within that bucket; it grants no access to the separate operational evidence or backup buckets. Do not describe it as write-only.
+
+The access key and secret remain in the two named login-Keychain items above. Renew or replace the credential before expiry through the operator process. Changing the bucket scope, duration, or permissions requires a separate review. This exception applies only to local CI evidence; it does not amend backup credential separation or permit deployment credentials on the Mac.
+
+A 70-byte non-sensitive object was uploaded with the repository uploader and verified by signed HEAD on 2026-09-05. This proves storage access only; it does not qualify the runner's complete CI profile or authorize its image digest in the release policy.
 
 Non-secret IDs (App ID, installation ID, repository, repository ID, source
 URL, policy version, golden image path/digest, job image reference and its

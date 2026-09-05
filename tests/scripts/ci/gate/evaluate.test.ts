@@ -161,7 +161,7 @@ describe('release gate evaluation: refusal matrix', () => {
     expect(decision.publishable).toBe(false);
     expect(codes(decision)).toEqual(['policy-unconfigured']);
     expect(decision.refusals[0].message).toContain(
-      'policy placeholders remain: allowedImageDigests[0], repositoryId',
+      'policy placeholders remain: allowedImageDigests[0]',
     );
   });
 

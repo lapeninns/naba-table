@@ -1,17 +1,17 @@
 {
   "policyVersion": "2026-09-04.1",
-  "repositoryId": "REPLACE_ME_REPOSITORY_ID",
+  "repositoryId": 1105219228,
   "protectedBranch": "main",
   "githubActionsAppId": 15368,
   "localCi": {
     "appSlug": "nabatable-local-ci",
-    "appId": "REPLACE_ME_LOCAL_CI_APP_ID",
-    "installationId": "REPLACE_ME_LOCAL_CI_INSTALLATION_ID",
+    "appId": 4840724,
+    "installationId": 159278975,
     "checkNamePrefix": "Local CI / "
   },
   "dispatch": {
     "appSlug": "nabatable-ci-dispatch",
-    "appId": "REPLACE_ME_CI_DISPATCH_APP_ID"
+    "appId": 4841783
   },
   "gateCheckName": "Release gate",
   "allowedControllerVersions": ["0.1.0"],
@@ -91,17 +91,17 @@
   },
   "requiredHostedWorkflows": {
     "Security guards": {
-      "id": "REPLACE_ME_SECURITY_GUARDS_WORKFLOW_ID",
+      "id": 274220806,
       "requiredJobs": ["Service-role route authorization"]
     },
     "CodeQL security review": {
-      "id": "REPLACE_ME_CODEQL_WORKFLOW_ID",
+      "id": 228506336,
       "requiredJobs": ["CodeQL JavaScript and TypeScript"]
     }
   },
   "fallbackWorkflow": {
     "displayName": "Hosted profile fallback",
-    "id": "REPLACE_ME_HOSTED_FALLBACK_WORKFLOW_ID",
+    "id": 350875947,
     "environment": "CI fallback",
     "checkNamePrefix": "Hosted profile fallback / "
   }

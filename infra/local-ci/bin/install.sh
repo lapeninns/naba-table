@@ -187,7 +187,7 @@ install: Keychain items (create as the $account user in its own login session; v
   security add-generic-password -s 'nabatable-ci/github-app/nabatable-local-ci/private-key' -a '$account' -w
   # Controller heartbeat bearer token (ops:verify):
   security add-generic-password -s 'nabatable-ci/monitoring/heartbeat-token' -a '$account' -w
-  # R2 evidence bucket credentials (write-only token):
+  # R2 evidence bucket credentials (bucket-scoped token; see runbook permission exception):
   security add-generic-password -s 'nabatable-ci/r2/evidence/access-key-id' -a '$account' -w
   security add-generic-password -s 'nabatable-ci/r2/evidence/secret-access-key' -a '$account' -w
 
