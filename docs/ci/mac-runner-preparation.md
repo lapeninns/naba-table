@@ -1,11 +1,11 @@
 # Mac runner preparation: 2026-09-05
 
-Status: **provisioning in progress** using the existing macOS login through the user-authorized `--current-user` option. The golden VM and job image have been built and the exported disk passed `qemu-img check`; disposable-clone tests passed the network, filesystem, and Chromium checks but exposed a pnpm cache location bug. The image is being rebuilt with a shared root-owned offline Corepack cache before qualification is repeated. The controller service is **not activated**. Local tests and rendered configuration are preparation evidence, not end-to-end CI qualification.
+Status: the existing-user runner is **staged, not activated**. The VM image was built and exported successfully, passed its integrity check, and passed local disposable-clone isolation/runtime checks. The LaunchAgent is installed with `RunAtLoad=false` and `KeepAlive=false` and is not loaded. GitHub App, R2 evidence, and heartbeat credentials are still required for an automated CI job. End-to-end and operating-window qualification remain pending.
 
 ## Host checks
 
 - Apple silicon, macOS 26.5.1, 18 logical CPUs, 64 GiB RAM.
-- AC power and more than 480 GiB free disk; configured minimum remains 100 GiB.
+- AC power and more than 400 GiB free disk during setup; configured minimum remains 100 GiB.
 - Lima 2.2.0 and Docker CLI 29.7.2 already installed. QEMU 11.1.1 and Homebrew Node 22.23.2 installed for the CI runtime.
 - Normal VM allocation remains 6 CPUs / 16 GiB; dedicated allocation remains 10 CPUs / 24 GiB.
 - Host preflight passes after provisioning fixes. Rendered Lima configuration passes `limactl validate`; this does not prove VM isolation or execution.
@@ -46,13 +46,23 @@ sh infra/local-ci/bin/build-base-image.sh --current-user --mode normal --plan
 # The actual build uses the same command without --plan; qualification is still pending.
 ```
 
-## Candidate image outputs
+## Image outputs and local proof
 
-The build completed on this Mac. The first export attempt exposed the Lima 2.2 disk filename change; the stopped raw disk was exported with `qemu-img convert` after confirming its format. The updated builder lookup has executable coverage for both layouts. The image is a qualification candidate until the remaining checks below pass.
+The updated builder exported the stopped VM disk, removed the golden instance, and recorded these candidate pins. `qemu-img check` found no errors. The executor then verified the image digest before creating a disposable clone and removed the clone and its private Docker context afterward.
 
-- Golden file: `$HOME/nabatable-ci/images/nabatable-ci-golden-20260905T124259Z.qcow2` (about 1.4 GiB), integrity check passed.
-- Golden SHA-256: `369f10746797f15a5d781b7a5e57b27ccde4e05beadff2945c7d6351b1812f0c`.
-- Job image: `ci-registry.local/nabatable/ci-job@sha256:26e874bd91441065b8b77c4bf5b09659492061880f7a0ad931808b4426ed4fc9`.
+- Golden file: `$HOME/nabatable-ci/images/nabatable-ci-golden-20260905T125505Z.qcow2` (about 1.8 GiB).
+- Golden SHA-256: `3da9a2c2f8d69acef957dd85926c62aeb95cfba10d1c182f1e08966c175b6aeb`.
+- Job image: `ci-registry.local/nabatable/ci-job@sha256:62c37bbb421e199e0de4ef49eb3a73b2e890312b257d4843a1244d50e2d92667`.
+
+Local clone checks passed with the executor's hardened container arguments:
+
+- No host filesystem mounts; cold clone starts in `test` phase; internal job network exists.
+- User 1000, writable workspace, read-only root, non-executable `/tmp`, no sudo, and blocked `unshare`/mount operations.
+- Node 22.23.2, pnpm 10.34.5 with the pinned package manager and executor HOME, git, and headless Chromium.
+- HTTPS npm access through the proxy during `prep`; unlisted hosts, metadata, and job DNS blocked; proxy access blocked in `test`.
+- Successful disposable-VM and private Docker-context teardown.
+
+The committed release is staged under `$HOME/nabatable-ci/releases/`, with a `current` symlink and dependencies installed offline from the pinned lockfile. Local evidence is retained under `$HOME/nabatable-ci/qualification/evidence/`. These checks do not establish R2 upload, GitHub check publication, heartbeat delivery, a full repository job inside the VM, or the runbook's reboot, lid, battery, and network interruption scenarios.
 
 ## Verified GitHub identifiers
 

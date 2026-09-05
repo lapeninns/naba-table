@@ -78,7 +78,8 @@ esac
 if grep -Eiq '^(NABATABLE_LOCAL_CI_PRIVATE_KEY|NABATABLE_CI_R2_ACCESS_KEY_ID|NABATABLE_CI_R2_SECRET_ACCESS_KEY|.*TOKEN|.*SECRET|.*PASSWORD)=' "$config_file"; then
   die "$config_file must not contain secrets; use Keychain items"
 fi
-if grep -q 'REPLACE_ME' "$config_file"; then
+# Template instructions may mention placeholders in full-line comments.
+if grep -Ev '^[[:space:]]*(#|$)' "$config_file" | grep -q 'REPLACE_ME'; then
   die "$config_file still contains REPLACE_ME placeholders"
 fi
 # shellcheck disable=SC1090

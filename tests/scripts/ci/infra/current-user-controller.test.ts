@@ -10,7 +10,7 @@ const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
-function fixture() {
+function fixture(configPrefix = '') {
   const root = mkdtempSync(path.join(tmpdir(), 'nabatable-current-controller-'));
   roots.push(root);
   mkdirSync(path.join(root, 'current'));
@@ -18,7 +18,8 @@ function fixture() {
   writeFileSync(path.join(root, 'current/package.json'), '{}');
   writeFileSync(
     path.join(root, 'config/controller.env'),
-    'if [ -n "${UNRELATED_TEST_CREDENTIAL:-}" ]; then exit 41; fi\necho CLEAN_ENV_CONFIRMED\nexit 42\n',
+    configPrefix +
+      'if [ -n "${UNRELATED_TEST_CREDENTIAL:-}" ]; then exit 41; fi\necho CLEAN_ENV_CONFIRMED\nexit 42\n',
   );
   return root;
 }
@@ -36,6 +37,29 @@ function run(root: string, owner: string) {
   });
 }
 describe('current-user controller startup', () => {
+  it.skipIf(process.getuid?.() === 0)(
+    'ignores placeholder instructions in full-line comments before loading configuration',
+    () => {
+      const result = run(
+        fixture('\n# Replace every REPLACE_ME value\n  # REPLACE_ME instructions\n\t\n'),
+        String(process.getuid?.() ?? 0),
+      );
+      expect(result.status, result.stderr).toBe(42);
+      expect(result.stdout).toContain('CLEAN_ENV_CONFIRMED');
+    },
+  );
+  it.skipIf(process.getuid?.() === 0).each(['', '  ', '\t'])(
+    'rejects placeholder assignments with leading whitespace %j',
+    (whitespace) => {
+      const result = run(
+        fixture(`${whitespace}NABATABLE_CI_VM_MODE=REPLACE_ME_MODE\n`),
+        String(process.getuid?.() ?? 0),
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('still contains REPLACE_ME placeholders');
+      expect(result.stdout).not.toContain('CLEAN_ENV_CONFIRMED');
+    },
+  );
   it('rejects a different owner before loading configuration', () => {
     const result = run(fixture(), String((process.getuid?.() ?? 0) + 1));
     expect(result.status).toBe(1);
