@@ -59,8 +59,7 @@ Record the real values in the places below; the validator fails closed until the
 4. Vercel: a custom environment named `staging` with its own env vars
    (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`, staging Supabase keys,
    `MONITORING_TOKEN`, `RESEND_USE_MOCK=true`) and the two staging aliases.
-   Record the project ids in `scripts/deploy/environments.ts`
-   (`REPLACE_ME_STAGING_VERCEL_PROJECT_ID`, `REPLACE_ME_PRODUCTION_VERCEL_PROJECT_ID`).
+   The verified project ids are recorded in `scripts/deploy/environments.ts`.
 5. GitHub: environments `Staging` and `Production`; the repository variable
    `STAGING_DEPLOY_LOCK` is created on first `deploy:staging-lock acquire`.
    Readiness origins for the two Workers without a public base URL `var` in
@@ -96,10 +95,16 @@ Verified in Cloudflare account `9b153af11227b03e23dea343d5fc232f`:
 | `nabatable-sms-daily-summary-staging-dlq` queue | `f8a2935814ab43b58a943fa281d4e38e`     |
 | Worker account subdomain                        | `amanshresthaaaaa.workers.dev`         |
 
-The D1 database already existed. Both staging KV namespaces were created on
-2026-09-05 and are separate from production and its preview namespace. Recording
-these bindings does not deploy the Worker or verify its schema, secrets or readiness.
-Both staging queues were created without producers or consumers on the same date. The SMS staging hostname uses this account subdomain; that Worker still needs provisioning.
+All four staging and production Workers were deployed and their authenticated readiness
+verified on 2026-09-05. The D1 migration and queue bindings are applied.
+
+Vercel staging uses project `prj_Tcr3HKMSJLo66DXNh5nUc8ggIUrl`, separate from
+production `prj_nz9GF5uWIsfmilFeIuyMIYzfPx3s`. Its custom environment is
+`env_wFNfYzdHzzgxeKNHnxXGv8LtdRNn` (`staging`); both documented staging domains
+are verified and attached to it. The project uses Node 22. Its environment contains
+only staging Supabase credentials and Worker tokens, with `RESEND_USE_MOCK=true`
+and `GBP_WRITE_ROLLOUT_MODE=off`. Provisioned configuration alone does not prove
+a deployed web journey; retain the deployment and browser evidence separately.
 
 The three production customer Workers are connected to `lapeninns/nabatable`
 through Cloudflare Workers Builds. Each build command runs its package-specific
