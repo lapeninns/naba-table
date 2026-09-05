@@ -85,10 +85,14 @@ describe('operational-control wrangler contract', () => {
       const [bucket] = r2 as Record<string, unknown>[];
       expect(bucket?.binding).toBe('EVIDENCE_BUCKET');
       expect(typeof bucket?.bucket_name).toBe('string');
-      expect(bucket?.bucket_name).toMatch(/^nabatable-ci-evidence(?:-staging)?$/u);
+      expect(bucket?.bucket_name).toMatch(
+        /^nabatable-(?:operational-evidence|ci-evidence-staging)$/u,
+      );
       buckets.add(String(bucket?.bucket_name));
     }
-    expect(buckets).toEqual(new Set(['nabatable-ci-evidence', 'nabatable-ci-evidence-staging']));
+    expect(buckets).toEqual(
+      new Set(['nabatable-operational-evidence', 'nabatable-ci-evidence-staging']),
+    );
     expect(config.r2_buckets).toEqual(section(config, 'production').r2_buckets);
     expect(config.r2_buckets).not.toEqual(section(config, 'staging').r2_buckets);
   });

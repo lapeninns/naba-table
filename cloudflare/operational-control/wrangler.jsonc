@@ -27,7 +27,7 @@
   "r2_buckets": [
     {
       "binding": "EVIDENCE_BUCKET",
-      "bucket_name": "nabatable-ci-evidence",
+      "bucket_name": "nabatable-operational-evidence",
     },
   ],
   // R2 bucket names must be lowercase, so bucket placeholders use `replace-me-*`; the Worker
@@ -109,7 +109,7 @@
       "r2_buckets": [
         {
           "binding": "EVIDENCE_BUCKET",
-          "bucket_name": "nabatable-ci-evidence",
+          "bucket_name": "nabatable-operational-evidence",
         },
       ],
       "vars": {
