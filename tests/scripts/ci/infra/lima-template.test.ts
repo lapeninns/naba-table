@@ -63,10 +63,8 @@ describe('infra/local-ci/lima/nabatable-ci.yaml', () => {
     expect(image.arch).toBe('aarch64');
     expect(image.location).toContain('ubuntu-24.04-server-cloudimg-arm64.img');
     expect(image.location.startsWith('https://cloud-images.ubuntu.com/releases/noble/')).toBe(true);
-    // The digest field must exist and be a sha256 reference; the placeholder is
-    // documented and is rejected by bin/preflight.sh and bin/build-base-image.sh.
-    expect(image.digest).toMatch(/^sha256:[A-Za-z0-9_]+$/);
-    expect(image.digest).toContain('REPLACE_ME_UBUNTU_2404_ARM64_DIGEST');
+    expect(image.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(image.location).toMatch(/release-\d{8}\//u);
   });
 
   it('shares nothing with the host: no mounts, no port forwards, no agent/X11, no env', () => {
@@ -104,9 +102,7 @@ describe('infra/local-ci/lima/nabatable-ci.yaml', () => {
     const system = template.provision.find((step) => step.mode === 'system');
     expect(system).toBeDefined();
     const script = system?.script ?? '';
-    expect(script).toContain(
-      "DOCKER_CE_VERSION='5:REPLACE_ME_DOCKER_CE_VERSION~ubuntu.24.04~noble'",
-    );
+    expect(script).toContain("DOCKER_CE_VERSION='5:29.7.2-1~ubuntu.24.04~noble'");
     expect(script).toContain('*REPLACE_ME*)');
     expect(script).toContain('exit 1');
     expect(script).toContain('"docker-ce=${DOCKER_CE_VERSION}"');

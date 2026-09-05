@@ -22,7 +22,7 @@
 # -----
 # All egress from the guest goes through tinyproxy running as the `tinyproxy`
 # user on 10.90.0.1:8888 (job side: gateway of the internal job network) and
-# 127.0.0.1:8888 (guest side for dockerd, apt and image builds). tinyproxy is
+# 127.0.0.1:8888 (guest side for dockerd and apt). tinyproxy is
 # the only principal allowed to open outbound 80/443 and systemd-resolved is
 # the only principal allowed to resolve names (via the fixed resolver). Job
 # containers live on the pre-created `--internal` Docker network
@@ -38,8 +38,8 @@
 #   - DNS (53/udp, 53/tcp) from anything except systemd-resolved to the single
 #     configured resolver; jobs have no DNS path at all
 #   - any forwarding of job traffic, and any direct egress from other
-#     containers (the default Docker pool 10.200/16; image builds use
-#     --network=host + the loopback proxy)
+#     containers (the default Docker pool 10.200/16; image builds use the
+#     internal job network and its phase-gated proxy)
 #
 # DNS rebinding: jobs never resolve names (no DNS path exists for them) and
 # only ever CONNECT to the proxy by IP. The proxy resolves allowlisted

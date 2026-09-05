@@ -38,9 +38,9 @@ images:
   # path and the sha256 digest from
   # https://cloud-images.ubuntu.com/releases/noble/release-<date>/SHA256SUMS
   # when qualifying a new base image, and record the change in the runbook.
-  - location: 'https://cloud-images.ubuntu.com/releases/noble/release-REPLACE_ME_UBUNTU_2404_RELEASE_DATE/ubuntu-24.04-server-cloudimg-arm64.img'
+  - location: 'https://cloud-images.ubuntu.com/releases/noble/release-20260826/ubuntu-24.04-server-cloudimg-arm64.img'
     arch: aarch64
-    digest: 'sha256:REPLACE_ME_UBUNTU_2404_ARM64_DIGEST'
+    digest: 'sha256:afa139bac6f2629c1e1f2f8f34215f3a9ad9779801bcb945521ba1a45016743f'
 
 # Mode "normal" (shared workstation): 6 vCPU / 16GiB. Mode "dedicated":
 # 10 vCPU / 24GiB. See bin/render-lima.sh. Job instances receive the same
@@ -106,7 +106,7 @@ provision:
       # Pinned Docker Engine version from https://download.docker.com/linux/ubuntu
       # (apt policy docker-ce). Replace before first boot; the script refuses
       # placeholders so a wildcard/latest install can never happen.
-      DOCKER_CE_VERSION='5:REPLACE_ME_DOCKER_CE_VERSION~ubuntu.24.04~noble'
+      DOCKER_CE_VERSION='5:29.7.2-1~ubuntu.24.04~noble'
       case "$DOCKER_CE_VERSION" in
         *REPLACE_ME*)
           echo 'nabatable-ci: DOCKER_CE_VERSION is unconfigured; refusing to provision' >&2
@@ -169,7 +169,10 @@ provision:
       modprobe br_netfilter || true
       sysctl --system >/dev/null
 
-      systemctl enable --now docker
+      # apt may have started Docker before daemon.json was written. Restart
+      # now so userns storage is selected before setup creates the job network.
+      systemctl enable docker
+      systemctl restart docker
       systemctl enable nftables
       systemctl disable --now tinyproxy || true
       usermod -aG docker "${LIMA_CIDATA_USER}"

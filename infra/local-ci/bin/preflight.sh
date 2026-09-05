@@ -77,7 +77,7 @@ fi
 # FileVault: informational. After a cold reboot the agent cannot start until
 # the disk is unlocked and the service account session exists.
 if fdesetup status 2>/dev/null | grep -q 'FileVault is On'; then
-  warn 'FileVault is On: after a cold reboot unlock the disk as nabatable-ci so its session and Keychain come up (runbook: FileVault)'
+  warn 'FileVault is On: after a cold reboot unlock the disk as the configured CI owner so its session and Keychain come up (runbook: FileVault)'
 else
   warn 'FileVault is Off: consider enabling it; the service account keychain is stored on this disk'
 fi
@@ -102,7 +102,7 @@ fi
 # Placeholders in the template must be replaced before the golden image is built.
 template="$root/infra/local-ci/lima/nabatable-ci.yaml"
 if [ -f "$template" ]; then
-  if grep -q 'REPLACE_ME' "$template"; then
+  if grep -Eq '^[[:space:]]*(- location:|digest:|DOCKER_CE_VERSION=).*REPLACE_ME' "$template"; then
     fail 'lima/nabatable-ci.yaml still contains REPLACE_ME placeholders (image digest / Docker version)'
   else
     pass 'lima template has no placeholders'
