@@ -18,7 +18,7 @@ import {
   HEARTBEAT_FALLBACK_AFTER_MS,
   INCIDENT_ESCALATION_AFTER_MS,
 } from '../src/contracts';
-import { computeCandidateKey, heartbeatStateFor } from '../src/coordinator';
+import { Coordinator, computeCandidateKey, heartbeatStateFor } from '../src/coordinator';
 import { GitHubConfigurationError, GitHubTransportError } from '../src/github';
 
 import type { InProcessCoordinator } from './helpers/fixtures';
@@ -233,7 +233,7 @@ describe('coordinator coalescing', () => {
     expect(h.dispatchCalls).toHaveLength(0);
   });
 
-  it('a failed hosted run rejects the candidate and a newer successful re-run revives it once', async () => {
+  it('dispatches a hosted failure and a newer successful rerun once each', async () => {
     const h = await harness();
     await h.coordinator.recordDelivery(localCheckDelivery(), h.clock.nowMs);
     for (const path of REQUIRED_WORKFLOWS.slice(1)) {
@@ -243,22 +243,113 @@ describe('coordinator coalescing', () => {
       hostedRunDelivery(REQUIRED_WORKFLOWS[0], { conclusion: 'failure' }),
       h.clock.nowMs,
     );
-    expect(h.coordinator.status().candidates.rejected).toBe(1);
-    // An older attempt arriving late must not override the newer record.
+    expect(h.coordinator.status().candidates.ready).toBe(1);
+    await h.coordinator.tick(h.clock.nowMs);
+    expect(h.dispatchCalls).toHaveLength(1);
+    for (const overrides of [
+      { runId: 100 },
+      { status: 'in_progress' as const, conclusion: null },
+      { conclusion: 'success' },
+    ]) {
+      await h.coordinator.recordDelivery(
+        hostedRunDelivery(REQUIRED_WORKFLOWS[0], overrides),
+        h.clock.nowMs,
+      );
+    }
+    await h.coordinator.tick(h.clock.nowMs);
+    expect(h.dispatchCalls).toHaveLength(1);
     await h.coordinator.recordDelivery(
-      hostedRunDelivery(REQUIRED_WORKFLOWS[0], { runId: 100, conclusion: 'success' }),
+      hostedRunDelivery(REQUIRED_WORKFLOWS[0], {
+        runAttempt: 2,
+        status: 'in_progress',
+        conclusion: null,
+      }),
       h.clock.nowMs,
     );
-    expect(h.coordinator.status().candidates.rejected).toBe(1);
+    expect(h.coordinator.status().candidates.pending).toBe(1);
+    await h.coordinator.tick(h.clock.nowMs);
+    expect(h.dispatchCalls).toHaveLength(1);
     await h.coordinator.recordDelivery(
-      hostedRunDelivery(REQUIRED_WORKFLOWS[0], { runAttempt: 2, conclusion: 'success' }),
+      hostedRunDelivery(REQUIRED_WORKFLOWS[0], { runAttempt: 2 }),
+      h.clock.nowMs,
+    );
+    await h.coordinator.tick(h.clock.nowMs);
+    await h.coordinator.recordDelivery(
+      hostedRunDelivery(REQUIRED_WORKFLOWS[0], { runAttempt: 2 }),
+      h.clock.nowMs,
+    );
+    await h.coordinator.tick(h.clock.nowMs);
+    expect(h.dispatchCalls).toHaveLength(2);
+  });
+
+  it('upgrades queued dispatches from storage created before generation tracking', async () => {
+    const h = await harness();
+    await seedReadyCandidate(h);
+    h.storage.sql.exec('DROP TABLE dispatch_generations');
+    let calls = 0;
+    const restarted = new Coordinator({ storage: h.storage }, baseEnv(), {
+      now: () => h.clock.nowMs,
+      sink: () => {},
+      async dispatchGate() {
+        calls += 1;
+        return { result: 'dispatched', workflowId: '1001', ref: 'refs/heads/main' };
+      },
+      async writeEvidence() {
+        return { ok: true, key: 'test', bytes: 1 };
+      },
+    });
+    await restarted.tick(h.clock.nowMs);
+    expect(calls).toBe(1);
+    expect(restarted.status().retryQueue.depth).toBe(0);
+  });
+
+  it('does not let a delayed in-progress local event cancel a completed check', async () => {
+    const h = await harness();
+    await seedReadyCandidate(h);
+    await h.coordinator.recordDelivery(
+      localCheckDelivery(tuple(), { status: 'in_progress', conclusion: null }),
       h.clock.nowMs,
     );
     expect(h.coordinator.status().candidates.ready).toBe(1);
     await h.coordinator.tick(h.clock.nowMs);
-    await h.coordinator.tick(h.clock.nowMs);
     expect(h.dispatchCalls).toHaveLength(1);
   });
+
+  it('withdraws a queued completion while a newer hosted attempt is pending', async () => {
+    const h = await harness();
+    await seedReadyCandidate(h);
+    await h.coordinator.recordDelivery(
+      hostedRunDelivery(REQUIRED_WORKFLOWS[0], {
+        runAttempt: 2,
+        status: 'in_progress',
+        conclusion: null,
+      }),
+      h.clock.nowMs,
+    );
+    expect(h.coordinator.status().retryQueue.depth).toBe(0);
+    await h.coordinator.tick(h.clock.nowMs);
+    expect(h.dispatchCalls).toHaveLength(0);
+  });
+
+  it.each(['closed', 'synchronize'])(
+    'never revives dispatched candidates after PR %s',
+    async (action) => {
+      const h = await harness();
+      await seedReadyCandidate(h);
+      await h.coordinator.tick(h.clock.nowMs);
+      await h.coordinator.recordDelivery(
+        pullRequestDelivery(action, 'f'.repeat(40)),
+        h.clock.nowMs,
+      );
+      await h.coordinator.recordDelivery(
+        hostedRunDelivery(REQUIRED_WORKFLOWS[0], { runAttempt: 2 }),
+        h.clock.nowMs,
+      );
+      await h.coordinator.tick(h.clock.nowMs);
+      expect(h.coordinator.status().candidates.closed).toBe(1);
+      expect(h.dispatchCalls).toHaveLength(1);
+    },
+  );
 
   it('closes candidates when their pull request closes or its head moves', async () => {
     const h = await harness();
@@ -285,6 +376,67 @@ describe('coordinator coalescing', () => {
 });
 
 describe('coordinator dispatch retries', () => {
+  it.each(['dispatched', 'rejected', 'not_ready', 'error'] as const)(
+    'preserves a newer hosted generation when an older dispatch returns %s',
+    async (result) => {
+      let release = () => {};
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let calls = 0;
+      const h = await harness({
+        async dispatchGate() {
+          calls += 1;
+          if (calls === 1) {
+            await pending;
+            if (result === 'error') throw new GitHubConfigurationError('test failure');
+            if (result === 'not_ready' || result === 'rejected')
+              return { result, reason: 'old_readback' };
+          }
+          return { result: 'dispatched', workflowId: '1001', ref: 'refs/heads/main' };
+        },
+      });
+      await seedReadyCandidate(h);
+      const firstTick = h.coordinator.tick(h.clock.nowMs);
+      expect(calls).toBe(1);
+      await h.coordinator.recordDelivery(
+        hostedRunDelivery(REQUIRED_WORKFLOWS[0], { runAttempt: 2 }),
+        h.clock.nowMs,
+      );
+      // A second tick cannot concurrently dispatch the same candidate.
+      await h.coordinator.tick(h.clock.nowMs);
+      expect(calls).toBe(1);
+      release();
+      await firstTick;
+      expect(h.coordinator.status().candidates.ready).toBe(1);
+      expect(h.coordinator.status().retryQueue.depth).toBe(1);
+      await h.coordinator.tick(h.clock.nowMs);
+      expect(calls).toBe(2);
+      expect(h.coordinator.status().candidates.dispatched).toBe(1);
+      expect(h.coordinator.status().incidents.active).toHaveLength(0);
+    },
+  );
+
+  it('keeps a candidate closed when its dispatch completes after a close webhook', async () => {
+    let release = () => {};
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const h = await harness({
+      async dispatchGate() {
+        await pending;
+        return { result: 'dispatched', workflowId: '1001', ref: 'refs/heads/main' };
+      },
+    });
+    await seedReadyCandidate(h);
+    const ticking = h.coordinator.tick(h.clock.nowMs);
+    await h.coordinator.recordDelivery(pullRequestDelivery('closed'), h.clock.nowMs);
+    release();
+    await ticking;
+    expect(h.coordinator.status().candidates.closed).toBe(1);
+    expect(h.coordinator.status().retryQueue.depth).toBe(0);
+  });
+
   it('retries transport failures with bounded exponential backoff and then fails the candidate', async () => {
     let attempts = 0;
     const h = await harness({

@@ -128,7 +128,7 @@ paths:
       operationId: acknowledgeIncident
       summary: Acknowledge an active incident so it stops escalating.
       security:
-        - monitoringBearer: []
+        - incidentAcknowledgementBearer: []
       parameters:
         - name: incidentId
           in: path
@@ -140,7 +140,7 @@ paths:
         '200':
           description: Incident acknowledged.
         '401':
-          description: Missing or invalid MONITORING_TOKEN bearer.
+          description: Missing or invalid INCIDENT_ACKNOWLEDGEMENT_TOKEN bearer.
         '404':
           description: Incident unknown, resolved, or already acknowledged.
         '503':
@@ -151,6 +151,10 @@ components:
       type: http
       scheme: bearer
       description: MONITORING_TOKEN shared with the hosted monitoring workflow.
+    incidentAcknowledgementBearer:
+      type: http
+      scheme: bearer
+      description: Dedicated INCIDENT_ACKNOWLEDGEMENT_TOKEN for operators; distinct from monitoring credentials.
     heartbeatBearer:
       type: http
       scheme: bearer

@@ -106,6 +106,18 @@ describe('monitoring.yaml contract', () => {
     });
   });
 
+  it('keeps monitoring independent of execution workflows retired in Phase 4', () => {
+    for (const legacy of [
+      'test-suite.yml',
+      'e2e-smoke.yml',
+      'test-stability.yml',
+      'shadcn-primitives.yml',
+    ]) {
+      expect(config.evidence.requiredWorkflowFiles).not.toContain(legacy);
+    }
+    expect(config.evidence.requiredWorkflowFiles).toContain('release-gate.yml');
+  });
+
   it('declares the web target, all four Workers, and the operational control plane audit', () => {
     expect(config.targets.map((target) => [target.name, target.service, target.kind])).toEqual([
       ['web', 'nabatable-web', 'web'],

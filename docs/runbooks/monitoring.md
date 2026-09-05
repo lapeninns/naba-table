@@ -50,6 +50,8 @@ Thresholds for queue age, DLQ depth, latency, and failure rate are **not** dupli
 | `MONITORING_OPERATIONAL_CONTROL_BASE_URL` | `https://` origin of the operational-control Worker (no committed hostname). Unset means the control plane cannot be verified and the cycle fails. |
 | `MONITORING_*_BASE_URL` (optional)        | Overrides for the other targets, e.g. when probing staging.                                                                                        |
 
+The operational-control Worker accepts incident acknowledgement only with the separate `INCIDENT_ACKNOWLEDGEMENT_TOKEN` secret. Provision it for incident operators; do not put it in readiness monitors or the `Monitoring` workflow. A missing or placeholder token refuses acknowledgement. Rotate it independently on the Worker and in the operator password manager.
+
 Rotate `MONITORING_TOKEN` by setting the new value on Vercel and every Worker first, then in UptimeRobot headers, then in the `Monitoring` environment. The endpoints accept exactly one token, so rotate in a maintenance window or accept one failed cycle.
 
 ## Running the verifier
@@ -90,7 +92,9 @@ Run these after any change to monitors, tokens, or the verifier, and quarterly a
 
 Incidents are deduplicated by `(service, environment, failureClass)` in `lib/observability/incidents.ts`; the error-insight webhook forwards at most 10 updates per incident to the GitHub issue and then counts further occurrences locally (`incident_action: suppressed`).
 
-**Known limitation.** The incident store behind the webhook is process-local (`getErrorInsightIncidentStore`), so on Vercel each serverless instance and cold start keeps its own occurrence counts, update budget and escalation state. Issue-level deduplication still holds because the `Error to insight` workflow matches the existing open issue by title before commenting, but repeated observations across instances can dispatch extra workflow runs and escalation timing is best-effort. Replacing the store with a durable adapter (for example a Supabase table with atomic updates) is a reviewed follow-up; the `IncidentStore` interface is already injectable for it.
+**Durable incident state.** The webhook stores global operational lifecycle snapshots in `public.operational_incidents` through service-role-only read and compare-and-swap RPCs. Atomic version checks preserve counts and ensure concurrent receivers cannot both claim an opening or escalation. Request paths are hashed before persistence; no guest payload is stored. Apply `20260905113000_durable_operational_incidents.sql` through the staging-first `pnpm db:*` promotion process before deploying the receiver. If storage is unavailable or contention exceeds the bounded retry budget, the route returns a generic `503` and does not dispatch; there is no process-local fallback. Resolved snapshots retain their version to prevent stale writers reopening old state.
+
+GitHub dispatch is a separate network operation after the state commit. This change does not provide a transactional delivery outbox; a dispatch failure returns `502` and requires operational follow-up. Database RPC execution, privileges, and concurrency must be verified against staging before promotion.
 
 1. UptimeRobot email or a GitHub `[automated error]` issue arrives. Open the linked runbook (`service-degradation.md` or `worker-degradation.md`).
 2. **Acknowledge within 15 minutes** for `severity: critical` by assigning yourself to the GitHub issue and commenting `ack`. Unacknowledged critical incidents escalate (`incident_action: escalated`) and the issue receives an escalation comment; the on-call lead is paged by email.

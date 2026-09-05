@@ -63,10 +63,7 @@ describe('validateRepositoryContracts against the real .github/workflows', () =>
   it('passes cleanly once the policy is configured and contract scripts are registered', () => {
     const report = validateWorkflowContracts(realInput());
     expect(report.violations).toEqual([]);
-    // The only tolerated warning is the documented secret-scan fallback until the scanners are provisioned.
-    expect(report.warnings).toEqual([
-      `security-guards.yml: job "service-role-routes" runs secret:scan with the built-in scanner only (${SECRET_SCAN_BUILT_IN_ONLY_ENV}); provision SHA-pinned gitleaks and trufflehog installs`,
-    ]);
+    expect(report.warnings).toEqual([]);
   });
 
   it('keeps the validator environment list identical to the shared contract names', () => {
@@ -543,7 +540,7 @@ describe('validateWorkflowContracts violations', () => {
   it('rejects a secret scan that has neither scanner installs nor the explicit built-in fallback', () => {
     const input = realInput();
     input.workflows = replaceWorkflow(input.workflows, 'security-guards.yml', (content) =>
-      content.replace(`        env:\n          ${SECRET_SCAN_BUILT_IN_ONLY_ENV}: 'true'\n`, ''),
+      content.replace(/ {6}- name: Install secret scanners[\s\S]*?(?= {6}- name: Secret scan)/, ''),
     );
     const report = validateWorkflowContracts(input);
     expect(report.violations).toContain(
@@ -554,24 +551,39 @@ describe('validateWorkflowContracts violations', () => {
     );
   });
 
-  it('accepts a secret scan preceded by gitleaks and trufflehog installs without the fallback', () => {
+  it('warns when scanner installs are replaced with the explicit local fallback', () => {
     const input = realInput();
     input.workflows = replaceWorkflow(input.workflows, 'security-guards.yml', (content) =>
       content
-        .replace(`        env:\n          ${SECRET_SCAN_BUILT_IN_ONLY_ENV}: 'true'\n`, '')
+        .replace(/ {6}- name: Install secret scanners[\s\S]*?(?= {6}- name: Secret scan)/, '')
         .replace(
           '      - name: Secret scan\n',
-          [
-            `      - uses: gitleaks/gitleaks-action@${'a'.repeat(40)}`,
-            `      - uses: trufflesecurity/trufflehog@${'b'.repeat(40)}`,
-            '      - name: Secret scan',
-            '',
-          ].join('\n'),
+          `      - name: Secret scan\n        env:\n          ${SECRET_SCAN_BUILT_IN_ONLY_ENV}: 'true'\n`,
         ),
     );
     const report = validateWorkflowContracts(input);
     expect(report.violations).toEqual([]);
-    expect(report.warnings.some((warning) => warning.includes('secret:scan'))).toBe(false);
+    expect(report.warnings).toContain(
+      `security-guards.yml: job "service-role-routes" runs secret:scan with the built-in scanner only (${SECRET_SCAN_BUILT_IN_ONLY_ENV}); provision SHA-pinned gitleaks and trufflehog installs`,
+    );
+  });
+
+  it('installs checksum-pinned scanner binaries before running the hosted scan', () => {
+    const content = readFileSync(path.join(workflowsDir, 'security-guards.yml'), 'utf8');
+    const installStart = content.indexOf('      - name: Install secret scanners');
+    const scanStart = content.indexOf('      - name: Secret scan');
+    expect(installStart).toBeGreaterThan(0);
+    expect(scanStart).toBeGreaterThan(installStart);
+    const install = content.slice(installStart, scanStart);
+    expect(install).toContain('set -euo pipefail');
+    expect(install).toMatch(/[0-9a-f]{64} {2}gitleaks\.tar\.gz/);
+    expect(install).toMatch(/[0-9a-f]{64} {2}trufflehog\.tar\.gz/);
+    expect(install).toContain('sha256sum --check --strict');
+    expect(install.indexOf('sha256sum --check --strict')).toBeLessThan(install.indexOf('tar -xzf'));
+    expect(install).toContain('bin/gitleaks" --version');
+    expect(install).toContain('bin/trufflehog" --version');
+    expect(content).not.toContain(SECRET_SCAN_BUILT_IN_ONLY_ENV);
+    expect(validateWorkflowContracts(realInput()).violations).toEqual([]);
   });
 
   it('rejects an automated delivery entry point without the PROTECTED_DELIVERY_AUTOMATION guard', () => {

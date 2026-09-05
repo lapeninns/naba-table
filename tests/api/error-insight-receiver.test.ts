@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { setErrorInsightIncidentStore } from '@/lib/observability/error-insight';
+import { createInMemoryIncidentStore } from '@/lib/observability/incidents';
 import { POST } from '@/src/app/api/webhook/error-insight/route';
 
 const payload = {
@@ -19,12 +21,14 @@ const payload = {
 
 describe('error insight webhook receiver', () => {
   beforeEach(() => {
+    setErrorInsightIncidentStore(createInMemoryIncidentStore());
     vi.stubEnv('ERROR_INSIGHT_RECEIVER_TOKEN', 'receiver-secret');
     vi.stubEnv('ERROR_INSIGHT_GITHUB_TOKEN', 'github-token');
     vi.stubEnv('ERROR_INSIGHT_GITHUB_REPOSITORY', 'lapeninns/nabatable');
   });
 
   afterEach(() => {
+    setErrorInsightIncidentStore(null);
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });

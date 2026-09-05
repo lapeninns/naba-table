@@ -112,7 +112,7 @@ Full runbook: `docs/runbooks/staging-release.md`. Staging is a distinct target t
 
 ## Operational control Worker (`cloudflare/operational-control`)
 
-Runbook: `cloudflare/operational-control/README.md`. Secrets, set per environment with `wrangler secret put <NAME> --env <env>`: `GITHUB_WEBHOOK_SECRET` (16+ chars), `GITHUB_DISPATCH_APP_ID`, `GITHUB_DISPATCH_APP_PRIVATE_KEY` (PKCS#8), `GITHUB_DISPATCH_INSTALLATION_ID`, `HEARTBEAT_TOKEN` (shared only with the Mac controller), `MONITORING_TOKEN`, `UPTIME_HEARTBEAT_URL`. Vars in `wrangler.jsonc`: `REPOSITORY_ID`, `LOCAL_CI_APP_ID`, `GATE_WORKFLOW_ID`, `FALLBACK_WORKFLOW_ID`, `SCHEDULED_VALIDATION_WORKFLOW_ID`, `PROTECTED_REF`, `TARGETS_JSON`. Any `REPLACE_ME_*` / `replace-me-*` value is rejected as unconfigured (the Worker answers `503` and never dispatches).
+Runbook: `cloudflare/operational-control/README.md`. Secrets, set per environment with `wrangler secret put <NAME> --env <env>`: `GITHUB_WEBHOOK_SECRET` (16+ chars), `GITHUB_DISPATCH_APP_ID`, `GITHUB_DISPATCH_APP_PRIVATE_KEY` (PKCS#8), `GITHUB_DISPATCH_INSTALLATION_ID`, `HEARTBEAT_TOKEN` (shared only with the Mac controller), `MONITORING_TOKEN`, `INCIDENT_ACKNOWLEDGEMENT_TOKEN` (dedicated incident-operator bearer; never shared with readiness monitors), `UPTIME_HEARTBEAT_URL`. Vars in `wrangler.jsonc`: `REPOSITORY_ID`, `LOCAL_CI_APP_ID`, `GATE_WORKFLOW_ID`, `FALLBACK_WORKFLOW_ID`, `SCHEDULED_VALIDATION_WORKFLOW_ID`, `PROTECTED_REF`, `TARGETS_JSON`. Any `REPLACE_ME_*` / `replace-me-*` value is rejected as unconfigured (the Worker answers `503` and never dispatches).
 
 ## Local CI (Mac controller and executor)
 

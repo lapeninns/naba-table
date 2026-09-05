@@ -8,6 +8,7 @@ import {
   createInProcessCoordinator,
   HEARTBEAT_TOKEN,
   IMAGE_DIGEST,
+  INCIDENT_ACKNOWLEDGEMENT_TOKEN,
   MONITORING_TOKEN,
   NOW_ISO,
   NOW_MS,
@@ -406,7 +407,29 @@ describe('POST /heartbeat', () => {
 });
 
 describe('POST /incidents/{id}/acknowledge', () => {
-  it('requires the monitoring token and acknowledges known incidents once', async () => {
+  it.each([undefined, '', 'short', 'REPLACE_ME_INCIDENT_ACKNOWLEDGEMENT_TOKEN'])(
+    'fails closed for an unconfigured acknowledgement token: %s',
+    async (token) => {
+      const { env } = await createHarness({ INCIDENT_ACKNOWLEDGEMENT_TOKEN: token });
+      const response = await handleRequest(
+        bearerRequest('/incidents/incident-1/acknowledge', token || MONITORING_TOKEN, {
+          method: 'POST',
+        }),
+        env,
+        deps,
+      );
+      expect(response.status).toBe(401);
+    },
+  );
+
+  it('does not accept the acknowledgement token for readiness', async () => {
+    const { env } = await createHarness();
+    expect(
+      (await handleRequest(bearerRequest('/ready', INCIDENT_ACKNOWLEDGEMENT_TOKEN), env, deps))
+        .status,
+    ).toBe(401);
+  });
+  it('requires the dedicated acknowledgement token and acknowledges known incidents once', async () => {
     const { env, coordinator } = await createHarness();
     coordinator.coordinator.applyObservations(
       [{ service: 'web', environment: 'production', failureClass: 'readiness', healthy: false }],
@@ -421,15 +444,27 @@ describe('POST /incidents/{id}/acknowledge', () => {
         )
       ).status,
     ).toBe(401);
+    for (const token of [MONITORING_TOKEN, HEARTBEAT_TOKEN]) {
+      const denied = await handleRequest(
+        bearerRequest('/incidents/incident-1/acknowledge', token, { method: 'POST' }),
+        env,
+        deps,
+      );
+      expect(denied.status).toBe(401);
+    }
     const acknowledged = await handleRequest(
-      bearerRequest('/incidents/incident-1/acknowledge', MONITORING_TOKEN, { method: 'POST' }),
+      bearerRequest('/incidents/incident-1/acknowledge', INCIDENT_ACKNOWLEDGEMENT_TOKEN, {
+        method: 'POST',
+      }),
       env,
       deps,
     );
     expect(acknowledged.status).toBe(200);
     expect(await acknowledged.json()).toEqual({ acknowledged: true });
     const again = await handleRequest(
-      bearerRequest('/incidents/incident-1/acknowledge', MONITORING_TOKEN, { method: 'POST' }),
+      bearerRequest('/incidents/incident-1/acknowledge', INCIDENT_ACKNOWLEDGEMENT_TOKEN, {
+        method: 'POST',
+      }),
       env,
       deps,
     );
@@ -437,7 +472,9 @@ describe('POST /incidents/{id}/acknowledge', () => {
     expect(
       (
         await handleRequest(
-          bearerRequest('/incidents/incident-1/acknowledge', MONITORING_TOKEN, { method: 'POST' }),
+          bearerRequest('/incidents/incident-1/acknowledge', INCIDENT_ACKNOWLEDGEMENT_TOKEN, {
+            method: 'POST',
+          }),
           { ...env, COORDINATOR: undefined },
           deps,
         )

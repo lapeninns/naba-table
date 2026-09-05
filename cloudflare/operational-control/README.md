@@ -5,8 +5,10 @@ local-first CI/CD pipeline. It never runs tests or deploys anything itself. It:
 
 - verifies GitHub webhooks and records them in a SQLite-backed Durable Object;
 - coalesces the Mac controller's `Local CI / <profile>` check run and the
-  required hosted workflow runs into **exactly one** `Release gate` dispatch per
-  CI request tuple, after an authoritative GitHub API readback;
+  required hosted workflow completions into one queued `Release gate` dispatch per
+  CI request tuple and hosted run attempt set, after an authoritative GitHub API
+  readback. Completed failures dispatch too; a newer successful rerun can recover
+  the gate. Persisted attempt fingerprints ignore duplicates and stale events;
 - tracks the Mac controller heartbeat (alert at 15 minutes, fallback-eligible
   at 60 minutes);
 - probes the readiness endpoints of the web app and the three customer Workers
@@ -23,14 +25,14 @@ is a qualification candidate only; nothing here flips runtimes.
 
 ## Routes
 
-| Route                              | Auth                                 | Purpose                                                                   |
-| ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------- |
-| `GET /health`                      | none                                 | Liveness only.                                                            |
-| `GET /ready`                       | `Bearer MONITORING_TOKEN`            | Revision from `CF_VERSION_METADATA` plus bounded coordinator + R2 checks. |
-| `POST /github/webhook`             | `X-Hub-Signature-256` over raw bytes | Webhook intake (see contract below).                                      |
-| `POST /heartbeat`                  | `Bearer HEARTBEAT_TOKEN`             | Mac controller heartbeat; credential-like keys are rejected.              |
-| `POST /incidents/{id}/acknowledge` | `Bearer MONITORING_TOKEN`            | Stops escalation for one active incident.                                 |
-| cron `*/5 * * * *`                 | n/a                                  | Readiness probes, heartbeat/evidence freshness, retry queue tick.         |
+| Route                              | Auth                                    | Purpose                                                                   |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
+| `GET /health`                      | none                                    | Liveness only.                                                            |
+| `GET /ready`                       | `Bearer MONITORING_TOKEN`               | Revision from `CF_VERSION_METADATA` plus bounded coordinator + R2 checks. |
+| `POST /github/webhook`             | `X-Hub-Signature-256` over raw bytes    | Webhook intake (see contract below).                                      |
+| `POST /heartbeat`                  | `Bearer HEARTBEAT_TOKEN`                | Mac controller heartbeat; credential-like keys are rejected.              |
+| `POST /incidents/{id}/acknowledge` | `Bearer INCIDENT_ACKNOWLEDGEMENT_TOKEN` | Stops escalation for one active incident.                                 |
+| cron `*/5 * * * *`                 | n/a                                     | Readiness probes, heartbeat/evidence freshness, retry queue tick.         |
 
 The full schema is in [`openapi.yaml`](./openapi.yaml).
 
@@ -147,7 +149,13 @@ Set per environment with `wrangler secret put <NAME> --env <env>`:
 | `GITHUB_DISPATCH_INSTALLATION_ID` | Installation id of `nabatable-ci-dispatch` on the repository. |
 | `HEARTBEAT_TOKEN`                 | Bearer for `POST /heartbeat` (Mac controller only).           |
 | `MONITORING_TOKEN`                | Bearer for `/ready` and for outbound readiness probes.        |
+| `INCIDENT_ACKNOWLEDGEMENT_TOKEN`  | Bearer for incident acknowledgement; operator use only.       |
 | `UPTIME_HEARTBEAT_URL`            | https URL pinged after a fully valid cycle.                   |
+
+Incident acknowledgement requires a dedicated `INCIDENT_ACKNOWLEDGEMENT_TOKEN`, distinct
+from readiness and heartbeat credentials. Missing, short, or placeholder values fail
+closed; the monitoring token cannot authorize incident mutation. Provision this secret
+through the approved operator process, never on the developer machine or local CI Mac.
 
 Optional: `ERROR_INSIGHT_TOKEN`, `POSTHOG_PROJECT_API_KEY` (shared Worker
 observability), `GITHUB_API_BASE_URL` (tests/GHES only).
@@ -190,7 +198,7 @@ Rollback uses the `rollback:` command printed by `deploy:workers`
   (15 min) or `fallback_eligible` (60 min). Fallback is _eligible_, never
   automatic; a human dispatches `Hosted profile fallback`.
 - **Incident escalated**: acknowledge with
-  `curl -X POST -H "Authorization: Bearer $MONITORING_TOKEN" https://<host>/incidents/<id>/acknowledge`.
+  `curl -X POST -H "Authorization: Bearer $INCIDENT_ACKNOWLEDGEMENT_TOKEN" https://<host>/incidents/<id>/acknowledge`.
   Incidents resolve on their own after three healthy five-minute cycles.
 - **Candidate failed**: `ci.gate.dispatch_failed` logs carry the candidate key
   and reason; evidence for the dispatch attempt lives under

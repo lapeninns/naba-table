@@ -101,6 +101,7 @@ evidence:
     warningDays: 21
     blockDays: 30
   # Workflow files that must exist in the checked-out `main` for the control plane to be considered configured.
+  # Execution lanes are covered by Release gate evidence; legacy lanes retire in Phase 4.
   requiredWorkflowFiles:
     - backup.yml
     - recovery-drill.yml
@@ -108,7 +109,6 @@ evidence:
     - release-gate.yml
     - error-to-insight.yml
     - quality-gates.yml
-    - test-suite.yml
 
 requiredChecks:
   branch: main

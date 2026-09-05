@@ -57,6 +57,7 @@ Operational control is the CI/monitoring control plane (GitHub webhooks, release
 - Capacity, holds, booking lifecycle transitions, and tenant isolation are database invariants. Do not replace security-definer RPCs with client-side read/modify/write logic.
 - Treat request bodies, provider payloads, menu files, and query parameters as untrusted. Validate at the boundary and return safe errors.
 - Never log guest names, email addresses, phone numbers, tokens, authorization headers, or provider secrets. Use `lib/logger.ts` and structured context.
+- Readiness uses `MONITORING_TOKEN`; operational incident acknowledgement requires the separate `INCIDENT_ACKNOWLEDGEMENT_TOKEN`, held only by incident operators.
 - Never commit `.env*` values, credentials, generated coverage, build output, or local Wrangler state.
 - Supabase operations are remote-only and staging-first. Use `pnpm db:*`; never run raw production migrations or destructive resets.
 - UI work uses the shared shadcn layer in `components/ui/**` and requires browser proof on a shipped route.

@@ -209,7 +209,7 @@ async function handleAcknowledge(
   incidentId: string,
   deps: WorkerDeps,
 ): Promise<Response> {
-  if (!isBearerAuthorized(request, env.MONITORING_TOKEN))
+  if (!isBearerAuthorized(request, env.INCIDENT_ACKNOWLEDGEMENT_TOKEN))
     return json({ error: 'Unauthorized' }, { status: 401 });
   const coordinator = coordinatorFor(env);
   if (!coordinator) return json({ error: 'Coordinator binding is missing.' }, { status: 503 });

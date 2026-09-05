@@ -1,5 +1,5 @@
 {
-  "policyVersion": "2026.09.2",
+  "policyVersion": "2026.09.3",
   "failOnLevels": ["error"],
   "warnOnLevels": ["warning"],
   "baselineFingerprints": [
@@ -15,7 +15,7 @@
       "ruleId": "js/bad-code-sanitization",
       "location": "src/app/layout.tsx:56",
       "reason": "Theme bootstrap inline script embeds JSON.stringify(APP_THEME_PATH_PATTERN), a compile-time constant, not request data. Pre-existing on main before PR #133.",
-      "trackedIssue": "REPLACE_ME_TRACKED_ISSUE",
+      "trackedIssue": "https://github.com/lapeninns/nabatable/issues/134",
       "reviewedAt": "2026-09-05"
     },
     {
@@ -23,7 +23,7 @@
       "ruleId": "js/log-injection",
       "location": "scripts/route-smoke.cjs:38",
       "reason": "Local route smoke script logs the socket error code/message to the operator console; never runs in production or CI. Pre-existing on main before PR #133.",
-      "trackedIssue": "REPLACE_ME_TRACKED_ISSUE",
+      "trackedIssue": "https://github.com/lapeninns/nabatable/issues/135",
       "reviewedAt": "2026-09-05"
     },
     {
@@ -31,7 +31,7 @@
       "ruleId": "js/log-injection",
       "location": "src/app/api/events/route.ts:80",
       "reason": "console.debug of validated analytics events behind a non-production guard. Pre-existing on main before PR #133; candidate for structured logging via lib/logger.ts.",
-      "trackedIssue": "REPLACE_ME_TRACKED_ISSUE",
+      "trackedIssue": "https://github.com/lapeninns/nabatable/issues/136",
       "reviewedAt": "2026-09-05"
     },
     {
@@ -39,7 +39,7 @@
       "ruleId": "js/user-controlled-bypass",
       "location": "src/app/api/auth/callback/route.ts:204",
       "reason": "Supabase PKCE code exchange branch (exchangeCodeForSession); the server verifies the code with Supabase before any session is written. Pre-existing on main before PR #133; needs an explicit security review, not an autofix.",
-      "trackedIssue": "REPLACE_ME_TRACKED_ISSUE",
+      "trackedIssue": "https://github.com/lapeninns/nabatable/issues/137",
       "reviewedAt": "2026-09-05"
     },
     {
@@ -47,10 +47,10 @@
       "ruleId": "js/user-controlled-bypass",
       "location": "src/app/api/auth/callback/route.ts:245",
       "reason": "Supabase magic-link token_hash branch (verifyOtp); the token is verified server-side by Supabase. Pre-existing on main before PR #133; needs an explicit security review, not an autofix.",
-      "trackedIssue": "REPLACE_ME_TRACKED_ISSUE",
+      "trackedIssue": "https://github.com/lapeninns/nabatable/issues/138",
       "reviewedAt": "2026-09-05"
     }
   ],
   "ignoredRuleIds": [],
-  "note": "Fingerprints listed in baselineFingerprints are pre-existing error-level alerts accepted with a tracked issue; every entry must have a matching baselineReview record (tests/scripts/ci/gate/codeql-policy.test.ts enforces this) and REPLACE_ME_TRACKED_ISSUE must be replaced with the real issue before the next policyVersion bump. Any error-level result whose fingerprint (or rule+location fallback) is not listed fails the CodeQL workflow. Warnings are reported but never block."
+  "note": "Fingerprints listed in baselineFingerprints are pre-existing error-level alerts accepted with a tracked issue; every entry must have a matching baselineReview record (tests/scripts/ci/gate/codeql-policy.test.ts enforces this). Any error-level result whose fingerprint (or rule+location fallback) is not listed fails the CodeQL workflow. Warnings are reported but never block."
 }

@@ -12,6 +12,7 @@ import {
   toIncidentContext,
 } from '@/lib/observability/error-insight';
 
+import type { IncidentOutcome } from '@/lib/observability/incidents';
 import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -53,12 +54,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid error insight payload' }, { status: 400 });
   }
 
-  const outcome = await recordErrorInsightIncident({
-    insight,
-    environment: resolveInsightEnvironment(process.env),
-    severity: classifyInsightSeverity(event).severity,
-    observedAt: new Date(),
-  });
+  let outcome: IncidentOutcome;
+  try {
+    outcome = await recordErrorInsightIncident({
+      insight,
+      environment: resolveInsightEnvironment(process.env),
+      severity: classifyInsightSeverity(event).severity,
+      observedAt: new Date(),
+    });
+  } catch {
+    return NextResponse.json({ error: 'Incident persistence unavailable' }, { status: 503 });
+  }
   const incident = toIncidentContext(outcome);
 
   if (!shouldDispatchIncident(outcome.transition)) {

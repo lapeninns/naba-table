@@ -112,7 +112,8 @@ function run(command: string, args: string[]): CommandResult {
 }
 
 function commandExists(command: string): boolean {
-  return run('sh', ['-lc', `command -v ${command} >/dev/null 2>&1`]).status === 0;
+  // Preserve the job PATH, including tools installed through GITHUB_PATH.
+  return run('sh', ['-c', `command -v ${command} >/dev/null 2>&1`]).status === 0;
 }
 
 function gitTrackedAndUntrackedFiles(): string[] {
@@ -196,8 +197,9 @@ function runExternalScanners(): ExternalScannerResult {
 
   if (commandExists('gitleaks')) {
     const result = run('gitleaks', ['detect', '--no-banner', '--redact']);
-    process.stdout.write(result.stdout ?? '');
-    process.stderr.write(result.stderr ?? '');
+    // Scanner output can contain discovered credentials, even on stderr.
+    // Keep the CI log limited to status; investigate findings in a secure local run.
+    if (result.status !== 0) console.error(`[secret:scan] gitleaks exited ${result.status}.`);
     if (result.status !== 0) failures += 1;
   } else {
     missing.push('gitleaks');
@@ -211,8 +213,7 @@ function runExternalScanners(): ExternalScannerResult {
       '--fail',
       '.',
     ]);
-    process.stdout.write(result.stdout ?? '');
-    process.stderr.write(result.stderr ?? '');
+    if (result.status !== 0) console.error(`[secret:scan] trufflehog exited ${result.status}.`);
     if (result.status !== 0) failures += 1;
   } else {
     missing.push('trufflehog');

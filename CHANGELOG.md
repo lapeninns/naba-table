@@ -16,6 +16,13 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- PR hosted-lane failures now trigger an explicit Release gate refusal, with another gate dispatch after a newer hosted attempt completes.
+
+- Error-insight incident counts and escalation state persist through service-role-only atomic Supabase updates; the new migration must be promoted before deploying the receiver.
+
+- Security guards install checksum-pinned Gitleaks and TruffleHog; the five pre-existing CodeQL baseline alerts now link to review issues.
+- Operational incident acknowledgement uses a dedicated bearer token; monitoring no longer requires a legacy execution workflow scheduled for Phase 4 retirement.
+
 - `sms-summary-gateway` honours `DELIVERY_MODE=sink` (staging kill switch); staging Workers never deliver to providers.
 - Legacy hosted suites (`test-suite.yml`, `e2e-smoke.yml`, `test-stability.yml`, `shadcn-primitives.yml`) carry removal headers; their required-check names are now mirrored by the release gate.
 - `config/observability/monitoring.yaml` names `operational-verification.yml` as the hourly verifier; `RESTORE_VERIFY_DB_URL` is the single name for the drill's scratch DB URL.

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setErrorInsightIncidentStore } from '@/lib/observability/error-insight';
@@ -73,7 +74,7 @@ describe('error insight webhook incident dedupe', () => {
     expect(opened).toMatchObject({
       service: 'booking-short-links',
       environment: 'staging',
-      failure_class: 'POST:/internal/links',
+      failure_class: `POST:sha256:${createHash('sha256').update('/internal/links').digest('hex')}`,
       severity: 'critical',
       incident_action: 'opened',
       occurrence_count: 1,
@@ -83,7 +84,7 @@ describe('error insight webhook incident dedupe', () => {
     expect(JSON.stringify(opened)).not.toContain('provider unavailable');
   });
 
-  it('stops dispatching after the bounded update budget and counts occurrences locally', async () => {
+  it('stops dispatching after the bounded update budget and persists occurrence counts', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetcher);
 
@@ -128,6 +129,20 @@ describe('error insight webhook incident dedupe', () => {
       incident_action: 'escalated',
     });
     vi.useRealTimers();
+  });
+
+  it('fails closed without dispatch or leaking database errors when persistence fails', async () => {
+    const store = createInMemoryIncidentStore();
+    const failure = async () => {
+      throw new Error('database provider-secret guest@example.test');
+    };
+    setErrorInsightIncidentStore({ ...store, getActive: failure, update: failure });
+    const fetcher = vi.fn();
+    vi.stubGlobal('fetch', fetcher);
+    const response = await post();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'Incident persistence unavailable' });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it('still returns 502 when GitHub rejects the dispatch', async () => {

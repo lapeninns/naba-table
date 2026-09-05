@@ -128,6 +128,11 @@ const SCHEMA_STATEMENTS = [
     last_error TEXT,
     created_at INTEGER NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS dispatch_generations (
+    candidate_key TEXT PRIMARY KEY,
+    generation TEXT NOT NULL,
+    dispatched_generation TEXT
+  )`,
   `CREATE TABLE IF NOT EXISTS incidents (
     id TEXT PRIMARY KEY,
     incident_key TEXT NOT NULL,
@@ -252,6 +257,7 @@ type CandidateRow = {
   readonly state: CandidateState;
   readonly localStatus: string;
   readonly localConclusion: string | null;
+  readonly localCheckRunId: number;
   readonly reason: string | null;
 };
 
@@ -264,6 +270,7 @@ export class Coordinator {
   private readonly sql: CoordinatorSql;
   private readonly deps: CoordinatorDeps;
   private readonly config: ControlPlaneConfig | null;
+  private readonly dispatching = new Set<string>();
 
   constructor(
     ctx: CoordinatorContext,
@@ -276,6 +283,16 @@ export class Coordinator {
     const resolved = resolveControlPlaneConfig(env);
     this.config = resolved.ok ? resolved.config : null;
     for (const statement of SCHEMA_STATEMENTS) this.sql.exec(statement);
+    // Backfill ready jobs created before hosted generation tracking. No table is
+    // rebuilt, and existing generation retry counters remain intact on restart.
+    for (const row of this.sql
+      .exec(
+        `SELECT candidates.candidate_key FROM candidates
+       LEFT JOIN dispatch_generations USING (candidate_key)
+       WHERE candidates.state = 'ready' AND dispatch_generations.candidate_key IS NULL`,
+      )
+      .toArray())
+      this.evaluateCandidate(text(row, 'candidate_key'), this.deps.now());
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -388,6 +405,12 @@ export class Coordinator {
   private async applyLocalCheck(event: LocalCheckEvent, nowMs: number): Promise<CandidateRow> {
     const candidateKey = await computeCandidateKey(event.tuple);
     const current = this.loadCandidate(candidateKey);
+    if (
+      current &&
+      (event.checkRunId < current.localCheckRunId ||
+        (event.checkRunId === current.localCheckRunId && current.localStatus === 'completed'))
+    )
+      return current;
     if (!current) {
       this.sql.exec(
         `INSERT INTO candidates (candidate_key, tuple_json, head_sha, pr_number, state, local_status, local_conclusion, local_check_run_id, created_at, updated_at)
@@ -426,9 +449,10 @@ export class Coordinator {
     event: Extract<NormalizedEvent, { type: 'hosted_run' }>,
     nowMs: number,
   ): void {
+    if (event.status === 'completed' && !event.conclusion) return;
     const existing = this.sql
       .exec(
-        'SELECT run_id, run_attempt FROM hosted_runs WHERE head_sha = ? AND workflow_path = ?',
+        'SELECT run_id, run_attempt, status FROM hosted_runs WHERE head_sha = ? AND workflow_path = ?',
         event.headSha,
         event.workflowPath,
       )
@@ -439,6 +463,13 @@ export class Coordinator {
       const isNewer =
         event.runId > runId || (event.runId === runId && event.runAttempt >= runAttempt);
       if (!isNewer) return;
+      if (event.runId === runId && event.runAttempt === runAttempt) {
+        const rank = (status: string): number =>
+          status === 'completed' ? 2 : status === 'in_progress' ? 1 : 0;
+        // A completed attempt is immutable; delayed requested/in_progress deliveries
+        // and duplicate completions cannot regress it or manufacture a new dispatch.
+        if (rank(event.status) <= rank(text(existing, 'status'))) return;
+      }
     }
     this.sql.exec(
       `INSERT INTO hosted_runs (head_sha, workflow_path, workflow_id, run_id, run_attempt, status, conclusion, updated_at)
@@ -456,17 +487,17 @@ export class Coordinator {
     );
     const keys = this.sql
       .exec(
-        "SELECT candidate_key FROM candidates WHERE head_sha = ? AND state IN ('pending', 'ready', 'rejected')",
+        "SELECT candidate_key FROM candidates WHERE head_sha = ? AND state IN ('pending', 'ready', 'rejected', 'dispatched')",
         event.headSha,
       )
       .toArray();
-    for (const row of keys) this.evaluateCandidate(text(row, 'candidate_key'), nowMs);
+    for (const row of keys) this.evaluateCandidate(text(row, 'candidate_key'), nowMs, true);
   }
 
   private applyPullRequest(action: string, prNumber: number, headSha: string, nowMs: number): void {
     if (action === 'closed') {
       this.sql.exec(
-        "UPDATE candidates SET state = 'closed', reason = 'pull_request_closed', updated_at = ? WHERE pr_number = ? AND state IN ('pending', 'ready', 'rejected')",
+        "UPDATE candidates SET state = 'closed', reason = 'pull_request_closed', updated_at = ? WHERE pr_number = ? AND state IN ('pending', 'ready', 'rejected', 'dispatched')",
         nowMs,
         prNumber,
       );
@@ -479,7 +510,7 @@ export class Coordinator {
     }
     if (action === 'synchronize') {
       this.sql.exec(
-        "UPDATE candidates SET state = 'closed', reason = 'pull_request_head_moved', updated_at = ? WHERE pr_number = ? AND head_sha <> ? AND state IN ('pending', 'ready', 'rejected')",
+        "UPDATE candidates SET state = 'closed', reason = 'pull_request_head_moved', updated_at = ? WHERE pr_number = ? AND head_sha <> ? AND state IN ('pending', 'ready', 'rejected', 'dispatched')",
         nowMs,
         prNumber,
         headSha,
@@ -503,6 +534,7 @@ export class Coordinator {
       state: candidateStateOf(text(row, 'state')),
       localStatus: text(row, 'local_status'),
       localConclusion: nullableText(row, 'local_conclusion'),
+      localCheckRunId: integer(row, 'local_check_run_id'),
       reason: nullableText(row, 'reason'),
     };
   }
@@ -523,18 +555,24 @@ export class Coordinator {
   }
 
   /** Coalesces local + hosted completion into at most one queued dispatch per candidate. */
-  private evaluateCandidate(candidateKey: string, nowMs: number): CandidateRow | null {
+  private evaluateCandidate(
+    candidateKey: string,
+    nowMs: number,
+    hostedChanged = false,
+  ): CandidateRow | null {
     const candidate = this.loadCandidate(candidateKey);
     if (!candidate || !this.config) return candidate;
     const revivable =
       candidate.state === 'pending' ||
       candidate.state === 'ready' ||
+      (candidate.state === 'dispatched' && hostedChanged) ||
       (candidate.state === 'rejected' && candidate.reason?.startsWith('hosted_run'));
     if (!revivable) return candidate;
 
     if (candidate.localStatus !== 'completed') {
       if (candidate.state !== 'pending')
         this.setCandidateState(candidateKey, 'pending', null, nowMs);
+      this.sql.exec('DELETE FROM dispatch_jobs WHERE candidate_key = ?', candidateKey);
       return this.loadCandidate(candidateKey);
     }
     if (candidate.localConclusion !== 'success') {
@@ -545,30 +583,48 @@ export class Coordinator {
 
     const runs = this.sql
       .exec(
-        'SELECT workflow_path, status, conclusion FROM hosted_runs WHERE head_sha = ?',
+        'SELECT workflow_path, run_id, run_attempt, status, conclusion FROM hosted_runs WHERE head_sha = ?',
         candidate.tuple.headSha,
       )
       .toArray();
+    const completedRuns: SqlRow[] = [];
     for (const path of this.config.requiredHostedWorkflows) {
       const run = runs.find((row) => text(row, 'workflow_path') === path);
-      if (!run || text(run, 'status') !== 'completed') {
+      if (!run || text(run, 'status') !== 'completed' || !nullableText(run, 'conclusion')) {
         if (candidate.state !== 'pending')
           this.setCandidateState(candidateKey, 'pending', null, nowMs);
-        return this.loadCandidate(candidateKey);
-      }
-      if (text(run, 'conclusion') !== 'success') {
-        this.setCandidateState(
-          candidateKey,
-          'rejected',
-          `hosted_run_not_successful:${path}`,
-          nowMs,
-        );
         this.sql.exec('DELETE FROM dispatch_jobs WHERE candidate_key = ?', candidateKey);
         return this.loadCandidate(candidateKey);
       }
+      completedRuns.push(run);
     }
 
+    // Completion, including failure, wakes the protected gate. Only that gate
+    // decides whether the hosted results satisfy merge/deploy policy.
+    const generation = JSON.stringify(
+      completedRuns.map((run) => [
+        text(run, 'workflow_path'),
+        integer(run, 'run_id'),
+        integer(run, 'run_attempt'),
+      ]),
+    );
+    const previous = this.sql
+      .exec(
+        'SELECT generation, dispatched_generation FROM dispatch_generations WHERE candidate_key = ?',
+        candidateKey,
+      )
+      .toArray()[0];
+    if (previous && nullableText(previous, 'dispatched_generation') === generation)
+      return candidate;
+    const changed = !previous || text(previous, 'generation') !== generation;
+    this.sql.exec(
+      `INSERT INTO dispatch_generations (candidate_key, generation) VALUES (?, ?)
+       ON CONFLICT(candidate_key) DO UPDATE SET generation = excluded.generation`,
+      candidateKey,
+      generation,
+    );
     if (candidate.state !== 'ready') this.setCandidateState(candidateKey, 'ready', null, nowMs);
+    if (changed) this.sql.exec('DELETE FROM dispatch_jobs WHERE candidate_key = ?', candidateKey);
     this.sql.exec(
       'INSERT OR IGNORE INTO dispatch_jobs (candidate_key, attempt, next_run_at, created_at) VALUES (?, 0, ?, ?)',
       candidateKey,
@@ -597,16 +653,22 @@ export class Coordinator {
       )
       .toArray();
     for (const job of jobs) {
-      report.processedJobs += 1;
       const candidateKey = text(job, 'candidate_key');
+      if (this.dispatching.has(candidateKey)) continue;
+      report.processedJobs += 1;
       const attempt = integer(job, 'attempt');
       const candidate = this.loadCandidate(candidateKey);
       if (!candidate || candidate.state !== 'ready') {
         this.sql.exec('DELETE FROM dispatch_jobs WHERE candidate_key = ?', candidateKey);
         continue;
       }
-      const outcome = await this.runDispatch(candidate, attempt, nowMs);
-      report[outcome] += 1;
+      this.dispatching.add(candidateKey);
+      try {
+        const outcome = await this.runDispatch(candidate, attempt, nowMs);
+        if (outcome !== 'superseded') report[outcome] += 1;
+      } finally {
+        this.dispatching.delete(candidateKey);
+      }
     }
     report.escalated = this.escalateIncidents(nowMs);
     this.pruneDeliveries(nowMs);
@@ -618,12 +680,29 @@ export class Coordinator {
     candidate: CandidateRow,
     attempt: number,
     nowMs: number,
-  ): Promise<'dispatched' | 'rejected' | 'retried' | 'failed'> {
+  ): Promise<'dispatched' | 'rejected' | 'retried' | 'failed' | 'superseded'> {
     const { candidateKey } = candidate;
+    const generationRow = this.sql
+      .exec('SELECT generation FROM dispatch_generations WHERE candidate_key = ?', candidateKey)
+      .toArray()[0];
+    const generation = generationRow ? text(generationRow, 'generation') : '';
+    const stillCurrent = (): boolean => {
+      const current = this.sql
+        .exec(
+          `SELECT generations.generation FROM dispatch_generations generations
+         JOIN dispatch_jobs jobs USING (candidate_key)
+         JOIN candidates USING (candidate_key)
+         WHERE candidate_key = ? AND candidates.state = 'ready'`,
+          candidateKey,
+        )
+        .toArray()[0];
+      return current !== undefined && text(current, 'generation') === generation;
+    };
     let outcome: GateDispatchOutcome;
     try {
       outcome = await this.deps.dispatchGate(candidate.tuple, candidateKey);
     } catch (error) {
+      if (!stillCurrent()) return 'superseded';
       const retryable = error instanceof GitHubTransportError && error.retryable;
       const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
       if (retryable)
@@ -636,7 +715,15 @@ export class Coordinator {
         );
       return this.failCandidate(candidateKey, 'dispatch_error', message, nowMs);
     }
+    // Another delivery can arrive while GitHub is awaited. It owns the newer
+    // queue generation (or closed state); never clear it with this stale result.
+    if (!stillCurrent()) return 'superseded';
     if (outcome.result === 'dispatched') {
+      this.sql.exec(
+        'UPDATE dispatch_generations SET dispatched_generation = ? WHERE candidate_key = ?',
+        generation,
+        candidateKey,
+      );
       this.sql.exec(
         "UPDATE candidates SET state = 'dispatched', reason = NULL, gate_dispatched_at = ?, updated_at = ? WHERE candidate_key = ?",
         new Date(nowMs).toISOString(),
@@ -650,11 +737,12 @@ export class Coordinator {
         testedSha: candidate.tuple.testedSha,
         workflowId: outcome.workflowId,
       });
-      await this.recordEvidence('dispatch', candidateKey, {
+      await this.recordEvidence('dispatch', `${candidateKey}.${crypto.randomUUID()}`, {
         tuple: candidate.tuple,
         workflowId: outcome.workflowId,
         ref: outcome.ref,
         attempt: attempt + 1,
+        hostedGeneration: generation,
       });
       return 'dispatched';
     }

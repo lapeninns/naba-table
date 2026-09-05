@@ -89,10 +89,10 @@ async function readbackHostedRuns(
       runs.filter((entry) => entry.path === path && entry.headSha === tuple.headSha),
     );
     if (!run) return { result: 'not_ready', reason: `hosted_run_missing:${path}` };
-    if (run.status !== 'completed')
+    if (run.status !== 'completed' || !run.conclusion)
       return { result: 'not_ready', reason: `hosted_run_incomplete:${path}` };
-    if (run.conclusion !== 'success')
-      return { result: 'rejected', reason: `hosted_run_not_successful:${path}` };
+    // The protected release gate must publish a failing check for completed
+    // failures too. This bridge establishes readiness, never policy success.
   }
   return null;
 }
@@ -117,7 +117,7 @@ export function gateDispatchInputs(tuple: CiRequestTuple): Readonly<Record<strin
 
 /**
  * Authoritative readback followed by a single gate dispatch. Webhook payloads only wake this
- * path; every success signal is re-read from the GitHub API before the dispatch is issued.
+ * path; every prerequisite is re-read from the GitHub API before the dispatch is issued.
  */
 export async function readbackAndDispatchGate(input: {
   readonly client: GitHubClient;

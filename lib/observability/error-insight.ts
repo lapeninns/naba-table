@@ -1,7 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
-import { createInMemoryIncidentStore, recordFailureObservation } from './incidents';
+import { recordFailureObservation } from './incidents';
 
 import type {
   FailureObservation,
@@ -188,7 +188,7 @@ export function buildIncidentObservation(input: {
   return {
     service: input.insight.service,
     environment: input.environment,
-    failureClass: `${input.insight.method}:${input.insight.path}`,
+    failureClass: `${input.insight.method}:sha256:${createHash('sha256').update(input.insight.path).digest('hex')}`,
     severity: input.severity,
     observedAt: input.observedAt,
     note: 'error-insight',
@@ -210,7 +210,7 @@ export function toIncidentContext(outcome: IncidentOutcome): ErrorInsightInciden
 /**
  * Whether a transition should reach GitHub. Opened/updated/escalated
  * observations dispatch; suppressed observations (beyond the bounded update
- * budget) are counted locally only.
+ * budget) are persisted without dispatch.
  */
 export function shouldDispatchIncident(transition: IncidentTransition): boolean {
   return transition === 'opened' || transition === 'updated' || transition === 'escalated';
@@ -218,14 +218,11 @@ export function shouldDispatchIncident(transition: IncidentTransition): boolean 
 
 let incidentStore: IncidentStore | null = null;
 
-/**
- * Process-local store used by the webhook receiver. It is intentionally
- * injectable so tests and future durable adapters (for example a Supabase
- * table) can replace it without touching the route.
- */
-export function getErrorInsightIncidentStore(): IncidentStore {
-  incidentStore ??= createInMemoryIncidentStore();
-  return incidentStore;
+/** Uses durable storage by default; tests may explicitly inject a store. */
+async function getErrorInsightIncidentStore(): Promise<IncidentStore> {
+  if (incidentStore) return incidentStore;
+  const { createSupabaseIncidentStore } = await import('./supabase-incident-store');
+  return createSupabaseIncidentStore();
 }
 
 export function setErrorInsightIncidentStore(store: IncidentStore | null): void {
@@ -241,7 +238,7 @@ export async function recordErrorInsightIncident(input: {
   readonly policy?: IncidentPolicy;
 }): Promise<IncidentOutcome> {
   return recordFailureObservation(
-    input.store ?? getErrorInsightIncidentStore(),
+    input.store ?? (await getErrorInsightIncidentStore()),
     buildIncidentObservation(input),
     input.policy,
   );

@@ -92,7 +92,11 @@ export type IncidentOutcome = {
 export interface IncidentStore {
   /** Returns the single active (non-resolved) incident for the key, if any. */
   getActive(key: IncidentKey): Promise<Incident | null>;
-  save(incident: Incident): Promise<void>;
+  /** Atomically applies a pure reducer; only the committed transition is returned. */
+  update(
+    key: IncidentKey,
+    reduce: (current: Incident | null) => IncidentOutcome | null,
+  ): Promise<IncidentOutcome | null>;
 }
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._:/-]{1,200}$/u;
@@ -301,14 +305,14 @@ export async function recordFailureObservation(
   observation: FailureObservation,
   policy: IncidentPolicy = DEFAULT_INCIDENT_POLICY,
 ): Promise<IncidentOutcome> {
-  const active = await store.getActive(observation);
-  const applied = applyFailure(active, observation, policy);
-  const escalated = evaluateEscalation(applied.incident, observation.observedAt, policy);
-  const outcome: IncidentOutcome =
-    escalated.transition === 'escalated'
+  const outcome = await store.update(observation, (active) => {
+    const applied = applyFailure(active, observation, policy);
+    const escalated = evaluateEscalation(applied.incident, observation.observedAt, policy);
+    return escalated.transition === 'escalated'
       ? { incident: escalated.incident, transition: 'escalated' }
       : applied;
-  await store.save(outcome.incident);
+  });
+  if (!outcome) throw new Error('Incident update did not commit.');
   return outcome;
 }
 
@@ -317,10 +321,7 @@ export async function recordHealthyObservation(
   observation: HealthyObservation,
   policy: IncidentPolicy = DEFAULT_INCIDENT_POLICY,
 ): Promise<IncidentOutcome | null> {
-  const active = await store.getActive(observation);
-  const outcome = applyHealthy(active, observation, policy);
-  if (outcome) await store.save(outcome.incident);
-  return outcome;
+  return store.update(observation, (active) => applyHealthy(active, observation, policy));
 }
 
 export type InMemoryIncidentStore = IncidentStore & {
@@ -335,8 +336,13 @@ export function createInMemoryIncidentStore(): InMemoryIncidentStore {
       const incident = incidents.get(buildIncidentKey(key)) ?? null;
       return isActive(incident) ? incident : null;
     },
-    async save(incident) {
-      incidents.set(buildIncidentKey(incident), incident);
+    async update(key, reduce) {
+      // The synchronous reducer and write are indivisible within this process.
+      const storageKey = buildIncidentKey(key);
+      const current = incidents.get(storageKey) ?? null;
+      const outcome = reduce(isActive(current) ? current : null);
+      if (outcome) incidents.set(storageKey, outcome.incident);
+      return outcome;
     },
     list: () => Array.from(incidents.values()),
     clear: () => incidents.clear(),

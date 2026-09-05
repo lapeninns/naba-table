@@ -233,7 +233,7 @@ describe('release gate readback and dispatch', () => {
     }
   });
 
-  it('requires every hosted workflow to have a successful latest run for the head SHA', async () => {
+  it('requires every hosted workflow to complete and lets the trusted gate judge its conclusion', async () => {
     // The default list mirrors config/ci/policy.json requiredHostedWorkflows; the
     // scenarios below address entries by path so the list may grow or shrink.
     expect(REQUIRED_WORKFLOWS.length).toBeGreaterThanOrEqual(2);
@@ -265,10 +265,8 @@ describe('release gate readback and dispatch', () => {
 
     const failed = fakeGitHub(tuple());
     failed.workflowRuns = replace(failed.workflowRuns, last, { conclusion: 'failure' });
-    await expect(evaluate(failed, tuple())).resolves.toEqual({
-      result: 'rejected',
-      reason: `hosted_run_not_successful:${last}`,
-    });
+    await expect(evaluate(failed, tuple())).resolves.toMatchObject({ result: 'dispatched' });
+    expect(failed.dispatches).toHaveLength(1);
 
     const otherSha = fakeGitHub(tuple());
     otherSha.workflowRuns = replace(otherSha.workflowRuns, first, { headSha: 'f'.repeat(40) });

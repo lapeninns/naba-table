@@ -45,14 +45,33 @@ jobs:
       - name: Dependency vulnerability audit
         run: pnpm audit --audit-level high
 
-      # gitleaks and trufflehog are not provisioned on the hosted runner yet, so the
-      # scan runs the repository's built-in scanner only. The variable is required by
-      # scripts/security/secret-scan.ts for that mode and is asserted by
-      # `pnpm ci:contracts:validate`; remove it once SHA-pinned installs of both
-      # scanners precede this step (docs/ci/governance.md, "Contract validation").
+      # Official release archives are verified against committed SHA-256 digests
+      # before extraction. Updating a version also requires reviewing its digest.
+      - name: Install secret scanners (SHA-256 pinned)
+        shell: bash
+        run: |
+          set -euo pipefail
+          scanner_dir="$(mktemp -d "$RUNNER_TEMP/secret-scanners.XXXXXX")"
+          cd "$scanner_dir"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz \
+            --output gitleaks.tar.gz
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/trufflesecurity/trufflehog/releases/download/v3.90.8/trufflehog_3.90.8_linux_amd64.tar.gz \
+            --output trufflehog.tar.gz
+          sha256sum --check --strict <<'CHECKSUMS'
+          a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb  gitleaks.tar.gz
+          aa2258dc4e76d93518730331e69ca01a638c365ab862a828c566e025f6c8150c  trufflehog.tar.gz
+          CHECKSUMS
+          mkdir bin
+          tar -xzf gitleaks.tar.gz -C bin gitleaks
+          tar -xzf trufflehog.tar.gz -C bin trufflehog
+          chmod 755 bin/gitleaks bin/trufflehog
+          "$scanner_dir/bin/gitleaks" --version
+          "$scanner_dir/bin/trufflehog" --version
+          echo "$scanner_dir/bin" >> "$GITHUB_PATH"
+
       - name: Secret scan
-        env:
-          SECRET_SCAN_ALLOW_BUILT_IN_ONLY: 'true'
         run: pnpm secret:scan
 
       - name: Validate trusted CI contracts

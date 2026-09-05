@@ -20,6 +20,7 @@ export const FALLBACK_WORKFLOW_ID = '1002';
 export const SCHEDULED_VALIDATION_WORKFLOW_ID = '1003';
 export const WEBHOOK_SECRET = 'webhook-secret-with-enough-length';
 export const HEARTBEAT_TOKEN = 'heartbeat-token-with-enough-length';
+export const INCIDENT_ACKNOWLEDGEMENT_TOKEN = 'incident-acknowledgement-token-test-only';
 export const MONITORING_TOKEN = 'monitoring-token-with-enough-length';
 export const NOW_MS = Date.parse('2026-09-04T10:00:00.000Z');
 export const NOW_ISO = new Date(NOW_MS).toISOString();
@@ -89,6 +90,7 @@ export function baseEnv(overrides: Partial<OperationalControlEnv> = {}): Operati
     GITHUB_WEBHOOK_SECRET: WEBHOOK_SECRET,
     HEARTBEAT_TOKEN,
     MONITORING_TOKEN,
+    INCIDENT_ACKNOWLEDGEMENT_TOKEN,
     REPOSITORY_ID,
     LOCAL_CI_APP_ID: String(LOCAL_CI_APP_ID),
     GATE_WORKFLOW_ID,

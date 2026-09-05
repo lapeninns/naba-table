@@ -153,6 +153,15 @@ describe('incident state machine', () => {
     expect(applyFailure(outcome!.incident, failure(minutesAfter(T0, 8))).transition).toBe('opened');
   });
 
+  it('atomically counts concurrent failures and emits one opening transition', async () => {
+    const store = createInMemoryIncidentStore();
+    const outcomes = await Promise.all(
+      Array.from({ length: 20 }, () => recordFailureObservation(store, failure(T0))),
+    );
+    expect(outcomes.filter((outcome) => outcome.transition === 'opened')).toHaveLength(1);
+    expect(store.list()[0]?.occurrenceCount).toBe(20);
+  });
+
   it('orchestrates through the store with escalation winning over updates', async () => {
     const store = createInMemoryIncidentStore();
     const opened = await recordFailureObservation(store, failure(T0));

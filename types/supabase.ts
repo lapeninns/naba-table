@@ -7162,6 +7162,11 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      read_operational_incident: { Args: { p_key: string }; Returns: Json };
+      compare_and_swap_operational_incident: {
+        Args: { p_key: string; p_expected_version: number; p_incident: Json };
+        Returns: boolean;
+      };
       all_sha256_text: { Args: { p_values: string[] }; Returns: boolean };
       array_sort_unique_text: { Args: { p_values: string[] }; Returns: string[] };
       apply_gbp_profile_import_to_core_v1: {

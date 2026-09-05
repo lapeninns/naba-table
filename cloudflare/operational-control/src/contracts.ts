@@ -273,6 +273,7 @@ export type OperationalControlEnv = {
   readonly GITHUB_DISPATCH_INSTALLATION_ID?: string;
   readonly HEARTBEAT_TOKEN?: string;
   readonly MONITORING_TOKEN?: string;
+  readonly INCIDENT_ACKNOWLEDGEMENT_TOKEN?: string;
   readonly UPTIME_HEARTBEAT_URL?: string;
   readonly REPOSITORY_ID?: string;
   readonly LOCAL_CI_APP_ID?: string;
