@@ -27,6 +27,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Executor jobs now keep the pnpm store in their writable workspace so dependency preparation works with a read-only container root.
+
 - Record verified Nabatable CI repository, App, and workflow identities while retaining the unqualified-image release block. Document the approved bucket-scoped R2 evidence permission exception.
 
 - PR hosted-lane failures now trigger an explicit Release gate refusal, with another gate dispatch after a newer hosted attempt completes.

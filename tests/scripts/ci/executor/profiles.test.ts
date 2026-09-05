@@ -110,6 +110,16 @@ describe('resolveExecutorProfile', () => {
     expect(allowedEnvKeys(profile)).toContain('HOME');
   });
 
+  it('keeps the pnpm store in the writable job workspace', () => {
+    const profile = resolveExecutorProfile({
+      request: mainRequest(),
+      changedPaths: null,
+      allocation: null,
+    });
+    expect(profile.env.PNPM_HOME).toBe('/workspace/.home/.local/share/pnpm');
+    expect(allowedEnvKeys(profile)).toContain('PNPM_HOME');
+  });
+
   it('skips conditional suites when the changed paths do not match, and runs them when unknown', () => {
     const skipped = resolveExecutorProfile({
       request: prRequest(),

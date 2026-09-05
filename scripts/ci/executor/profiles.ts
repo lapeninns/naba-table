@@ -36,6 +36,7 @@ export class ProfileResolutionError extends Error {
  */
 export const EXECUTOR_ENV: Readonly<Record<string, string>> = Object.freeze({
   HOME: '/workspace/.home',
+  PNPM_HOME: '/workspace/.home/.local/share/pnpm',
   LANG: 'C.UTF-8',
   COREPACK_ENABLE_DOWNLOAD_PROMPT: '0',
   NEXT_TELEMETRY_DISABLED: '1',
