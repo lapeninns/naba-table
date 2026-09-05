@@ -95,3 +95,12 @@ Run after a repository transfer, rename, App reinstall, or environment recreatio
 - Rollback is a routing change: promote a previously verified deployment (`deploy:vercel:promote`), redeploy a previous Worker version, or restore from an independent backup through the drill tooling.
 - Migrations run under non-cancelling concurrency groups. Do not cancel a `Protected delivery` run that has started `Apply migrations to production`.
 - Evidence artifacts (`candidate-evidence`, `staging-release-evidence`, `production-release-evidence`, `recovery-drill-evidence-*`) are retained for at least 90 days (400 for production and drills) and are redacted: manifests, digests, decisions; never dumps, tokens or guest data.
+
+## CodeQL findings policy
+
+`codeql.yml` uploads the SARIF artifact and then runs `scripts/ci/gate/codeql-policy.ts` against `config/ci/codeql-policy.json`. Every error-level result whose fingerprint is not listed in `baselineFingerprints` fails the lane; warnings are reported but never block. The baseline is for pre-existing alerts only:
+
+1. Each `baselineFingerprints` entry needs a matching `baselineReview` record (fingerprint, rule, location, reason, tracked issue, review date). The policy test suite enforces the pairing.
+2. Open a tracked issue per baselined alert and replace `REPLACE_ME_TRACKED_ISSUE` with it; a fix removes the alert and its baseline entry together.
+3. Bump `policyVersion` whenever the baseline changes and have the change reviewed independently of the PR that introduced the code.
+4. Never baseline an alert introduced by the PR under review; fix it instead.

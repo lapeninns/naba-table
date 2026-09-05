@@ -142,3 +142,58 @@ describe('codeql findings policy', () => {
     expect(result.stderr).toContain('refusing to pass without evidence');
   }, 60_000);
 });
+
+describe('config/ci/codeql-policy.json', () => {
+  const raw = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'config/ci/codeql-policy.json'), 'utf8'),
+  ) as {
+    baselineFingerprints: string[];
+    baselineReview: Array<{
+      fingerprint: string;
+      ruleId: string;
+      location: string;
+      reason: string;
+      trackedIssue: string;
+      reviewedAt: string;
+    }>;
+  };
+
+  it('parses under the policy loader and fails on error-level results', () => {
+    const policy = parseCodeqlPolicy(raw);
+    expect(policy.failOnLevels).toContain('error');
+    expect(policy.baselineFingerprints).toEqual(raw.baselineFingerprints);
+  });
+
+  it('pairs every baselined fingerprint with exactly one review record', () => {
+    const reviewed = raw.baselineReview.map((entry) => entry.fingerprint);
+    expect([...reviewed].sort()).toEqual([...raw.baselineFingerprints].sort());
+    expect(new Set(reviewed).size).toBe(reviewed.length);
+    for (const entry of raw.baselineReview) {
+      expect(entry.fingerprint.startsWith(`${entry.ruleId}|`)).toBe(true);
+      expect(entry.location).toMatch(/^[^\s]+:\d+$/u);
+      expect(entry.reason.length).toBeGreaterThan(20);
+      expect(entry.trackedIssue.length).toBeGreaterThan(0);
+      expect(entry.reviewedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+    }
+  });
+
+  it('baselines the recorded fingerprints and still fails a new error-level result', () => {
+    const policy = parseCodeqlPolicy(raw);
+    const known = raw.baselineFingerprints.map((fingerprint) => ({
+      ruleId: fingerprint.split('|')[0] ?? 'unknown-rule',
+      level: 'error',
+      fingerprint,
+      location: 'x:1',
+      message: '',
+    }));
+    expect(evaluateCodeqlPolicy(known, policy).ok).toBe(true);
+    const fresh = {
+      ruleId: 'js/xss',
+      level: 'error',
+      fingerprint: 'js/xss|new:1',
+      location: 'y:2',
+      message: '',
+    };
+    expect(evaluateCodeqlPolicy([...known, fresh], policy).ok).toBe(false);
+  });
+});
