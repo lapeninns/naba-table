@@ -91,3 +91,47 @@
    - `pnpm db:status`
 
 If any provider restricts immediate rotation, record the exception in the provider or incident-management system and schedule a follow-up.
+
+## Staging (separate deployment target)
+
+Full runbook: `docs/runbooks/staging-release.md`. Staging is a distinct target that must never share an identity with production; `pnpm deploy:validate-separation --env staging` proves it before every staging deploy and fails closed on any inherited id, production host or `REPLACE_ME_*` placeholder.
+
+- Hosts: `https://nabatable-staging.vercel.app` (public) and `https://nabatable-staging-ops.vercel.app` (ops); only `staging*.nabatable.com` subdomains are tolerated on the apex domain, everything else is production.
+- Supabase project: `ndxmivcrehsacuerwxtm` (staging); `vrdiqfudmwydclqpydee` is production and is refused by every staging tool.
+- Workers: `nabatable-booking-short-links-staging`, `nabatable-email-queue-gateway-staging`, `nabatable-sms-summary-gateway-staging`, `nabatable-operational-control-staging` (the `env.staging` blocks in each `wrangler.jsonc`; D1/KV ids are `REPLACE_ME_STAGING_*` until provisioned).
+- Delivery kill switches: `DELIVERY_MODE=sink` on the staging SMS gateway (no Twilio/WhatsApp sends), `RESEND_USE_MOCK=true` on the staging Vercel project, GBP publishing flag off.
+- Inputs for `pnpm e2e:staging`: `STAGING_PUBLIC_URL`, `STAGING_OPS_URL`, `MONITORING_TOKEN`, `NABATABLE_SOURCE_REVISION`, `STAGING_SYNTHETIC_TENANT_ID`, `STAGING_SYNTHETIC_TENANT_SLUG`, `STAGING_SYNTHETIC_TENANT_B_ID`, `STAGING_SYNTHETIC_TENANT_B_SLUG`, `STAGING_SYNTHETIC_GUEST_EMAIL` (reserved test domain only), `STAGING_SYNTHETIC_GUEST_PHONE`. The config throws at load time on any production host.
+- Deploy inputs: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, optional `VERCEL_AUTOMATION_BYPASS_SECRET` (readiness header only), `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `STAGING_LOCK_GITHUB_TOKEN` (writes the `STAGING_DEPLOY_LOCK` repository variable), `WORKER_URL_<WORKER>` overrides for Workers without a public base URL var (`WORKER_URL_EMAIL_QUEUE_GATEWAY`, `WORKER_URL_OPERATIONAL_CONTROL`).
+
+## Runtime identity and readiness
+
+- `NABATABLE_SOURCE_REVISION` — immutable source SHA (7–64 hex) baked at build; `/api/ready` and Worker `/ready` report it and deploy scripts compare it with the candidate SHA. Web falls back to `VERCEL_GIT_COMMIT_SHA`, Workers to `DEPLOY_SHA` / `CF_VERSION_METADATA.id` until it is baked.
+- `NABATABLE_BUILD_ID` — provider deployment id baked at build (Vercel `dpl_*`, Worker version id).
+- `MONITORING_TOKEN` — bearer token (>= 32 chars) for the read-only readiness endpoints. Set on Vercel (`/api/ready`), as a Wrangler **secret** (never a var) on all four Workers (`/ready`), in the GitHub `Monitoring` environment, and in the UptimeRobot custom headers. Endpoints answer a generic `401` until it is configured.
+- Monitoring-environment-only inputs for `pnpm ops:verify`: `MONITORING_GITHUB_TOKEN` (fine-grained, this repository only, `actions:read` + `administration:read`), `MONITORING_HEARTBEAT_URL` (UptimeRobot heartbeat; sent only after a fully valid cycle), `MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL` (required https origin; the email gateway has no committed hostname), optional `MONITORING_WEB_BASE_URL`, `MONITORING_BOOKING_SHORT_LINKS_BASE_URL`, `MONITORING_SMS_SUMMARY_GATEWAY_BASE_URL`.
+
+## Operational control Worker (`cloudflare/operational-control`)
+
+Runbook: `cloudflare/operational-control/README.md`. Secrets, set per environment with `wrangler secret put <NAME> --env <env>`: `GITHUB_WEBHOOK_SECRET` (16+ chars), `GITHUB_DISPATCH_APP_ID`, `GITHUB_DISPATCH_APP_PRIVATE_KEY` (PKCS#8), `GITHUB_DISPATCH_INSTALLATION_ID`, `HEARTBEAT_TOKEN` (shared only with the Mac controller), `MONITORING_TOKEN`, `UPTIME_HEARTBEAT_URL`. Vars in `wrangler.jsonc`: `REPOSITORY_ID`, `LOCAL_CI_APP_ID`, `GATE_WORKFLOW_ID`, `FALLBACK_WORKFLOW_ID`, `SCHEDULED_VALIDATION_WORKFLOW_ID`, `PROTECTED_REF`, `TARGETS_JSON`. Any `REPLACE_ME_*` / `replace-me-*` value is rejected as unconfigured (the Worker answers `503` and never dispatches).
+
+## Local CI (Mac controller and executor)
+
+Runbooks: `docs/runbooks/local-ci.md`, `scripts/ci/controller/README.md`. Non-secret configuration lives in `~/nabatable-ci/config/controller.env` on the CI Mac; secrets live only in the `nabatable-ci` login Keychain (App private key `nabatable-ci/github-app/nabatable-local-ci/private-key`, heartbeat token `nabatable-ci/monitoring/heartbeat-token`, R2 evidence key pair `nabatable-ci/r2/evidence/*`). No production or staging credential ever exists on that machine.
+
+Controller: `NABATABLE_CI_GITHUB_APP_ID`, `NABATABLE_CI_GITHUB_APP_INSTALLATION_ID`, `NABATABLE_CI_GITHUB_REPOSITORY_ID`, `NABATABLE_CI_GITHUB_REPOSITORY`, `NABATABLE_CI_HEARTBEAT_URL`, `NABATABLE_CI_JOB_IMAGE` (digest-pinned), `NABATABLE_CI_JOB_IMAGE_DIGEST`, optional `NABATABLE_CI_POLICY_VERSION` (must equal `scripts/ci/profiles/catalog.ts`), `NABATABLE_CI_KEYCHAIN_ACCOUNT`; the aliases accepted by `scripts/ci/controller/main.ts` must agree when both are set.
+
+Executor: `NABATABLE_CI_REPOSITORY_ID`, `NABATABLE_CI_SOURCE_REMOTE_URL` (https, no credentials), `NABATABLE_CI_SPOOL_ROOT`, `NABATABLE_CI_JOB_ROOT`, `NABATABLE_CI_BASE_IMAGE_PATH` + `NABATABLE_CI_BASE_IMAGE_DIGEST` (pre-provisioned Lima golden image, sha256), `NABATABLE_CI_JOB_IMAGE` or `NABATABLE_CI_JOB_IMAGE_NAME` + `NABATABLE_CI_JOB_IMAGE_DIGEST` (the tuple `imageDigest` must equal it), `NABATABLE_CI_R2_ENDPOINT`, `NABATABLE_CI_R2_BUCKET`, `NABATABLE_CI_R2_KEY_PREFIX` (default `ci-evidence/ttl-14d`), `NABATABLE_CI_R2_ACCESS_KEY_ID` / `NABATABLE_CI_R2_SECRET_ACCESS_KEY` (or the Keychain items named in `infra/local-ci/operating.json`), optional `NABATABLE_CI_EXECUTOR_CONFIG`, `NABATABLE_CI_OPERATING_FACTS` (default `infra/local-ci/operating.json`), `NABATABLE_CI_EGRESS_PROXY_URL`, `NABATABLE_CI_LIMA_*` sizing. The controller passes `NABATABLE_CI_CONTROL_FILE` and `NABATABLE_CI_ALLOCATION_FILE` as side-channel files. Placeholders (`REPLACE_ME_*`, `<...>`, zero digests) are reported as unconfigured and refuse a real run; `--dry-run` still prints the plan.
+
+Jobs themselves see only a sanitized environment (`APP_ENV=test`, `CI=true`, `TZ=UTC`, `QA_TARGET_ENV=ci-ephemeral`, `test-*` dummies for every credential-shaped key).
+
+## Database promotion safety
+
+Reference: `docs/DATABASE_MIGRATIONS.md` (Promotion safety workflows). Inputs: `DB_BACKUP_ROLE_URL` (dedicated read-only backup role whose name contains `backup`; `postgres`, `service_role` and pooler users are refused; must not reuse `SUPABASE_DB_PASSWORD`), `DB_BACKUP_BUCKET` (lowercase bucket name), `RESTORE_VERIFY_PROJECT_REF` (scratch project only; `ndxmivcrehsacuerwxtm` and `vrdiqfudmwydclqpydee` are refused), `RESTORE_VERIFY_BACKUP_ID`, `RESTORE_VERIFY_DB_URL` (must address the scratch ref), `DB_DRIFT_SCOPE` (`public|extended`; `extended` is the safe-run default and needs `SUPABASE_DB_URL` plus the committed `config/db/schema-inventory.json`), `DB_DRIFT_RECORD_INVENTORY=true` (staging only, records the baseline), `DB_MIGRATION_CHECKSUMS_PATH` (test override). `DB_TARGET_ENV=staging|production` names the backup source for `pnpm db:restore-verify`; the destination can never be staging or production.
+
+## Backup and recovery environments
+
+Runbook: `docs/runbooks/recovery.md`. GitHub environment `Backup` (`backup.yml`): `DB_BACKUP_ROLE_URL`, `BACKUP_ENCRYPTION_KEY` (32 bytes hex; escrow offline), `BACKUP_S3_ENDPOINT`, `BACKUP_S3_REGION`, `BACKUP_S3_WRITE_ACCESS_KEY_ID` / `BACKUP_S3_WRITE_SECRET_ACCESS_KEY`, `STORAGE_BACKUP_API_URL` / `STORAGE_BACKUP_TOKEN`; variable `DB_BACKUP_BUCKET`. Environment `Recovery` (`recovery-drill.yml`): `RECOVERY_DRILL_PROJECT_REF`, `RESTORE_VERIFY_DB_URL`, `RECOVERY_SUPABASE_MANAGEMENT_TOKEN` (exposed to the drill as `SUPABASE_MANAGEMENT_TOKEN`), `RECOVERY_EVIDENCE_HMAC_KEY`, `BACKUP_ENCRYPTION_KEY`, `BACKUP_S3_DRILL_*` read credentials; variable `RESTORE_PROJECT_REF_DENYLIST`. `Production` additionally holds `RECOVERY_EVIDENCE_HMAC_KEY` and read-only `BACKUP_S3_READ_*` so `pnpm recovery:evidence:check` can verify drill evidence before delivery. Queue reconciliation uses `QUEUE_RECONCILE_SUPABASE_URL/KEY`, `QUEUE_RECONCILE_TWILIO_*` (read scope) and `QUEUE_RECONCILE_GATEWAY_URL/TOKEN`. The backup bucket is separate from the CI evidence bucket.
+
+## GitHub environments
+
+`Staging`, `Production` (2 required reviewers), `CI fallback` (1 required reviewer), `Monitoring`, `Backup`, `Recovery`. Names and per-environment secret lists are in `docs/ci/governance.md`; environment protection for a private repository requires GitHub Enterprise, so fallback evidence and automated delivery are untrusted until that is in place.

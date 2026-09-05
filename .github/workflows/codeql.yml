@@ -41,3 +41,22 @@ jobs:
           path: codeql-results/
           if-no-files-found: error
           retention-days: 14
+      # Code scanning ingestion depends on the plan (GitHub Advanced Security
+      # for private repositories); the SARIF artifact above and the findings
+      # policy below are the blocking controls, so ingestion is best effort.
+      - name: Upload SARIF to code scanning
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@641a925cfafe92d0fdf8b239ba4053e3f8d99d6d
+        with:
+          sarif_file: codeql-results
+          category: /language:javascript-typescript
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+      # Fails on any error-level result not accepted in config/ci/codeql-policy.json.
+      # tsx is pinned to the lockfile version; the policy script uses Node built-ins only.
+      - name: Enforce findings policy
+        run: pnpm dlx tsx@4.21.0 scripts/ci/gate/codeql-policy.ts --sarif codeql-results --policy config/ci/codeql-policy.json

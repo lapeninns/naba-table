@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "description": "VM-side operating facts for the Nabatable local CI runner, read by scripts/ci/executor/config.ts (loadOperatingFacts) and infra/local-ci/bin/*.sh. Scheduling policy (dedicated window, nightly start, disk caps, retention, polling, heartbeat, fallback) is owned by config/ci/operating-config.json and the controller; this file only names the physical shape the controller and executor drive and points back at the policy source.",
+  "policySource": {
+    "path": "config/ci/operating-config.json",
+    "owner": "scripts/ci/controller",
+    "schema": "scripts/ci/contracts/operating-config.ts",
+    "rule": "Values that appear in config/ci/operating-config.json are never copied here. Fields below that say `source` are JSON pointers into that file; the controller resolves them at runtime and the VM side must not read them independently."
+  },
+  "window": {
+    "source": "config/ci/operating-config.json#/dedicatedWindow",
+    "nightlySource": "config/ci/operating-config.json#/nightlyStart",
+    "timezoneSource": "config/ci/operating-config.json#/timezone",
+    "vmSideBehaviour": "Inside the dedicated window the controller runs job instances in mode `dedicated`, otherwise `normal`. Job instances never persist between requests, so there is nothing to pause or resume at the window edge: a request that overruns is aborted and its instance destroyed."
+  },
+  "allocations": {
+    "source": "config/ci/operating-config.json#/disk",
+    "vmModeByWindow": {
+      "insideDedicatedWindow": "dedicated",
+      "outsideDedicatedWindow": "normal"
+    }
+  },
+  "runtime": {
+    "activeRuntime": "node22",
+    "candidateRuntime": "node24",
+    "qualificationNote": "Hosted workflows run Node 22; production Vercel runs Node 24. The job image stays on node22 until the Node 24 candidate image has passed the Phase 2 qualification list in docs/runbooks/local-ci.md and the package engines/workflow node-version are flipped in a reviewed release."
+  },
+  "vm": {
+    "goldenName": "nabatable-ci-golden",
+    "jobInstancePrefix": "nabatable-ci",
+    "vmType": "vz",
+    "arch": "aarch64",
+    "template": "infra/local-ci/lima/nabatable-ci.yaml",
+    "renderScript": "infra/local-ci/bin/render-lima.sh",
+    "modeScript": "infra/local-ci/bin/vm-mode.sh",
+    "buildScript": "infra/local-ci/bin/build-base-image.sh",
+    "disk": "120GiB",
+    "modes": {
+      "normal": { "cpus": 6, "memory": "16GiB" },
+      "dedicated": { "cpus": 10, "memory": "24GiB" }
+    },
+    "modeEnv": {
+      "cpus": "NABATABLE_CI_LIMA_CPUS",
+      "memoryGiB": "NABATABLE_CI_LIMA_MEMORY_GIB",
+      "diskGiB": "NABATABLE_CI_LIMA_DISK_GIB"
+    },
+    "baseImageEnv": {
+      "path": "NABATABLE_CI_BASE_IMAGE_PATH",
+      "digest": "NABATABLE_CI_BASE_IMAGE_DIGEST"
+    },
+    "hostFilesystemShared": false,
+    "hostPortsForwarded": false,
+    "dockerContext": "nabatable-ci",
+    "dockerContextProtectedNames": ["default", "desktop-linux"],
+    "guestSpoolDir": "/home/ci/spool"
+  },
+  "job": {
+    "image": {
+      "dockerfile": "infra/local-ci/images/ci-job/Dockerfile",
+      "localRegistryAlias": "ci-registry.local",
+      "repository": "ci-registry.local/nabatable/ci-job",
+      "imageEnv": "NABATABLE_CI_JOB_IMAGE",
+      "requestTupleDigestEnv": "NABATABLE_CI_IMAGE_DIGEST",
+      "requestTupleDigestRule": "The request tuple's imageDigest (NABATABLE_CI_IMAGE_DIGEST, stamped by the controller) is the job image digest, the sha256 in NABATABLE_CI_JOB_IMAGE; the executor rejects a request whose imageDigest differs from the image it runs. The golden disk digest (NABATABLE_CI_BASE_IMAGE_DIGEST) is a separate executor-only check.",
+      "seedCacheKey": ["pnpm-lock.yaml sha256", "runtime", "arch", "base image digest"],
+      "user": "ci",
+      "uid": 1000,
+      "gid": 1000
+    },
+    "seccompProfile": "infra/local-ci/seccomp/ci-job.json",
+    "guestPaths": {
+      "seccompProfile": "/etc/nabatable-ci/seccomp/ci-job.json",
+      "egressScript": "/etc/nabatable-ci/network/egress.sh",
+      "proxyAllowlist": "/etc/nabatable-ci/network/allowlist.txt",
+      "proxyConfig": "/etc/nabatable-ci/network/tinyproxy.conf"
+    },
+    "network": {
+      "jobNetwork": {
+        "name": "nabatable-ci-jobs",
+        "subnet": "10.90.0.0/24",
+        "bridge": "nbci-jobs",
+        "internal": true
+      },
+      "containerPool": "10.200.0.0/16",
+      "proxy": { "jobFacingAddress": "10.90.0.1", "port": 8888 },
+      "egressProxyUrl": "http://10.90.0.1:8888",
+      "phases": ["prep", "test"],
+      "phaseRule": "Job containers can reach the proxy only while the executor holds the guest in phase `prep` (sudo -n egress.sh phase prep); phase `test` empties the gate chain in both directions and the executor verifies `egress.sh status` reports `phase: test` before running repository code."
+    }
+  },
+  "controller": {
+    "launchdLabel": "com.nabatable.ci-controller",
+    "launchdKind": "LaunchAgent",
+    "plist": "infra/local-ci/launchd/com.nabatable.ci-controller.plist",
+    "serviceAccount": "nabatable-ci",
+    "wrapper": "infra/local-ci/bin/controller.sh",
+    "command": "pnpm ci:controller",
+    "keychainAccount": "nabatable-ci",
+    "keychainItems": {
+      "githubAppPrivateKey": "nabatable-ci/github-app/nabatable-local-ci/private-key",
+      "heartbeatToken": "nabatable-ci/monitoring/heartbeat-token",
+      "r2EvidenceAccessKeyId": "nabatable-ci/r2/evidence/access-key-id",
+      "r2EvidenceSecretAccessKey": "nabatable-ci/r2/evidence/secret-access-key"
+    },
+    "keychainEnv": {
+      "account": "NABATABLE_CI_KEYCHAIN_ACCOUNT",
+      "heartbeatService": "NABATABLE_CI_HEARTBEAT_KEYCHAIN_SERVICE",
+      "heartbeatAccount": "NABATABLE_CI_HEARTBEAT_KEYCHAIN_ACCOUNT"
+    },
+    "privateKeyPathEnv": "NABATABLE_LOCAL_CI_PRIVATE_KEY_PATH",
+    "keychainRule": "Every item is a generic password with service = item name and account = keychainAccount (`security add-generic-password -s <item> -a nabatable-ci -w`). githubAppPrivateKey holds the PEM verbatim or as single-line base64; controller.sh copies it into a 0600 file under ~/nabatable-ci/run and exports its path as privateKeyPathEnv for the controller. The executor reads the two R2 items by the names above."
+  }
+}

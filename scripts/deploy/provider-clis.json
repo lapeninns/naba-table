@@ -1,0 +1,11 @@
+{
+  "$comment": "Exact provider CLI versions installed by .github/workflows/deploy.yml before any deploy:* or db:* script runs. scripts/deploy/provider-clis.ts refuses a CLI whose --version does not match. Bump deliberately, in one reviewed change, together with the setup-cli action SHA in deploy.yml.",
+  "vercel": {
+    "version": "59.11.7",
+    "install": "npm install -g vercel@<version> (deploy.yml step 'Install Vercel CLI (pinned)')"
+  },
+  "supabase": {
+    "version": "2.116.0",
+    "install": "supabase/setup-cli pinned by commit SHA in deploy.yml with version: <version>"
+  }
+}

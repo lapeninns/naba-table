@@ -1,53 +1,36 @@
+-- requires-fixtures: tests/db/fixtures/synthetic-fixtures.sql
+--
+-- Terminal booking states must release table state atomically.
+--
+-- Run through `DB_TARGET_ENV=staging pnpm db:sql-regression`, which executes the synthetic
+-- fixtures inside the same transaction and verifies the trailing ROLLBACK by comparing row
+-- counts. Assertion failures raise SQLSTATE NB001, which no handler in this file catches.
+-- Transactional rollback undoes rows only; nothing here may enqueue an external message.
 BEGIN;
 SET LOCAL app.capacity.post_assignment.enabled = 'off';
 
 DO $regression$
 DECLARE
-  v_restaurant_id uuid := gen_random_uuid();
-  v_customer_id uuid := gen_random_uuid();
-  v_zone_id uuid := gen_random_uuid();
-  v_table_id uuid := gen_random_uuid();
-  v_cancelled_booking_id uuid := gen_random_uuid();
-  v_confirmed_booking_id uuid := gen_random_uuid();
-  v_failed_booking_id uuid := gen_random_uuid();
-  v_checked_in_booking_id uuid := gen_random_uuid();
-  v_after_check_in_booking_id uuid := gen_random_uuid();
+  v_restaurant_id constant uuid := '00000000-0000-4000-8000-00000000a001';
+  v_customer_id constant uuid := '00000000-0000-4000-8000-00000000c001';
+  v_table_id constant uuid := '00000000-0000-4000-8000-00000000e001';
+  v_cancelled_booking_id constant uuid := '00000000-0000-4000-8000-00000000b101';
+  v_confirmed_booking_id constant uuid := '00000000-0000-4000-8000-00000000b102';
+  v_failed_booking_id constant uuid := '00000000-0000-4000-8000-00000000b103';
+  v_checked_in_booking_id constant uuid := '00000000-0000-4000-8000-00000000b104';
+  v_after_check_in_booking_id constant uuid := '00000000-0000-4000-8000-00000000b105';
   v_assignment_count integer;
   v_allocation_count integer;
   v_cancelled_again boolean;
   v_failure text;
 BEGIN
-  INSERT INTO public.restaurants (id, name, slug)
-  VALUES (
-    v_restaurant_id,
-    'Terminal allocation regression fixture',
-    'terminal-allocation-' || replace(v_restaurant_id::text, '-', '')
-  );
-
-  INSERT INTO public.customers (id, restaurant_id, full_name, email)
-  VALUES (v_customer_id, v_restaurant_id, 'Synthetic fixture', 'terminal-allocation@test.invalid');
-
-  INSERT INTO public.zones (id, restaurant_id, name)
-  VALUES (v_zone_id, v_restaurant_id, 'Regression zone');
-
-  INSERT INTO public.allowed_capacities (restaurant_id, capacity)
-  VALUES (v_restaurant_id, 4);
-
-  INSERT INTO public.table_inventory (
-    id,
-    restaurant_id,
-    table_number,
-    capacity,
-    zone_id,
-    category
-  ) VALUES (
-    v_table_id,
-    v_restaurant_id,
-    'REG-1',
-    4,
-    v_zone_id,
-    'dining'
-  );
+  IF NOT EXISTS (
+    SELECT 1 FROM public.table_inventory
+    WHERE id = v_table_id AND restaurant_id = v_restaurant_id
+  ) THEN
+    RAISE EXCEPTION 'synthetic fixture table is missing; run through the sql-regression runner'
+      USING ERRCODE = 'NB001';
+  END IF;
 
   INSERT INTO public.bookings (
     id,
@@ -77,8 +60,8 @@ BEGIN
       2,
       'confirmed',
       'Synthetic fixture',
-      'terminal-allocation@test.invalid',
-      '0000000000',
+      'synthetic-regression@test.invalid',
+      '+447000000020',
       'REG-CANCELLED'
     ),
     (
@@ -93,8 +76,8 @@ BEGIN
       2,
       'confirmed',
       'Synthetic fixture',
-      'terminal-allocation@test.invalid',
-      '0000000000',
+      'synthetic-regression@test.invalid',
+      '+447000000020',
       'REG-CONFIRMED'
     ),
     (
@@ -109,8 +92,8 @@ BEGIN
       2,
       'confirmed',
       'Synthetic fixture',
-      'terminal-allocation@test.invalid',
-      '0000000000',
+      'synthetic-regression@test.invalid',
+      '+447000000020',
       'REG-FAILED'
     );
 
@@ -144,7 +127,8 @@ BEGIN
     RAISE EXCEPTION
       'cancelled booking retained active table state: assignments=%, allocations=%',
       v_assignment_count,
-      v_allocation_count;
+      v_allocation_count
+      USING ERRCODE = 'NB001';
   END IF;
 
   SELECT result.cancelled
@@ -155,7 +139,8 @@ BEGIN
   ) AS result;
 
   IF v_cancelled_again THEN
-    RAISE EXCEPTION 'idempotent cancellation reported a duplicate state transition';
+    RAISE EXCEPTION 'idempotent cancellation reported a duplicate state transition'
+      USING ERRCODE = 'NB001';
   END IF;
 
   IF NOT public.is_table_available_v2(
@@ -164,7 +149,8 @@ BEGIN
     TIMESTAMPTZ '2099-08-08 20:30:00+00',
     v_confirmed_booking_id
   ) THEN
-    RAISE EXCEPTION 'planner availability still treats the cancelled booking as blocking';
+    RAISE EXCEPTION 'planner availability still treats the cancelled booking as blocking'
+      USING ERRCODE = 'NB001';
   END IF;
 
   PERFORM public.assign_tables_atomic_v2(
@@ -193,9 +179,12 @@ BEGIN
     AND table_id = v_table_id;
 
   IF v_assignment_count <> 1 THEN
-    RAISE EXCEPTION 'confirmation retry created % assignments instead of exactly one', v_assignment_count;
+    RAISE EXCEPTION 'confirmation retry created % assignments instead of exactly one',
+      v_assignment_count
+      USING ERRCODE = 'NB001';
   END IF;
 
+  -- Negative test: the assertion (NB001) is re-raised before the generic handler runs.
   BEGIN
     PERFORM public.assign_tables_atomic_v2(
       v_failed_booking_id,
@@ -206,8 +195,11 @@ BEGIN
       TIMESTAMPTZ '2099-08-08 19:00:00+00',
       TIMESTAMPTZ '2099-08-08 20:30:00+00'
     );
-    RAISE EXCEPTION 'overlapping active booking assignment unexpectedly succeeded';
+    RAISE EXCEPTION 'overlapping active booking assignment unexpectedly succeeded'
+      USING ERRCODE = 'NB001';
   EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN
+      RAISE;
     WHEN OTHERS THEN
       v_failure := SQLERRM;
   END;
@@ -226,7 +218,8 @@ BEGIN
       'failed assignment left partial state: assignments=%, allocations=%, cause=%',
       v_assignment_count,
       v_allocation_count,
-      v_failure;
+      v_failure
+      USING ERRCODE = 'NB001';
   END IF;
 
   INSERT INTO public.bookings (
@@ -257,8 +250,8 @@ BEGIN
       2,
       'confirmed',
       'Synthetic fixture',
-      'terminal-allocation@test.invalid',
-      '0000000000',
+      'synthetic-regression@test.invalid',
+      '+447000000020',
       'REG-CHECKED-IN'
     ),
     (
@@ -273,8 +266,8 @@ BEGIN
       2,
       'confirmed',
       'Synthetic fixture',
-      'terminal-allocation@test.invalid',
-      '0000000000',
+      'synthetic-regression@test.invalid',
+      '+447000000020',
       'REG-AFTER-CHECK-IN'
     );
 
@@ -301,7 +294,8 @@ BEGIN
     TIMESTAMPTZ '2099-08-09 20:30:00+00',
     v_after_check_in_booking_id
   ) THEN
-    RAISE EXCEPTION 'planner availability still treats checked-in allocation state as blocking';
+    RAISE EXCEPTION 'planner availability still treats checked-in allocation state as blocking'
+      USING ERRCODE = 'NB001';
   END IF;
 
   PERFORM public.assign_tables_atomic_v2(
@@ -328,7 +322,8 @@ BEGIN
     RAISE EXCEPTION
       'checked-in state was not deactivated before reassignment: new assignments=%, old allocations=%',
       v_assignment_count,
-      v_allocation_count;
+      v_allocation_count
+      USING ERRCODE = 'NB001';
   END IF;
 
   UPDATE public.bookings
@@ -356,8 +351,15 @@ BEGIN
     RAISE EXCEPTION
       'completed or no-show booking retained active table state: assignments=%, allocations=%',
       v_assignment_count,
-      v_allocation_count;
+      v_allocation_count
+      USING ERRCODE = 'NB001';
   END IF;
+
+  RAISE NOTICE 'nabatable-regression: terminal-booking-table-release passed';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: terminal-booking-table-release FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
 END;
 $regression$;
 

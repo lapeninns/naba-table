@@ -1,0 +1,81 @@
+name: Database backup
+
+# Independent logical backup of production every 12 hours (RPO evidence),
+# encrypted client-side and written to the backup bucket by a dedicated
+# read-only database identity. `pnpm ops:verify` warns when the last successful
+# run is older than 18h and fails at 24h (config/observability/monitoring.yaml).
+# The "Backup" environment holds only this identity; see docs/ci/governance.md.
+on:
+  schedule:
+    - cron: '23 */12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Independent database backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: Backup
+    env:
+      DB_TARGET_ENV: production
+      TZ: UTC
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The backup runner requires pg_dump 17 (scripts/db/backup/pg-dump.ts).
+      - name: Install PostgreSQL 17 client
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Run independent backup
+        env:
+          DB_BACKUP_ROLE_URL: ${{ secrets.DB_BACKUP_ROLE_URL }}
+          DB_BACKUP_BUCKET: ${{ vars.DB_BACKUP_BUCKET }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_WRITE_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_WRITE_SECRET_ACCESS_KEY }}
+          STORAGE_BACKUP_API_URL: ${{ secrets.STORAGE_BACKUP_API_URL }}
+          STORAGE_BACKUP_TOKEN: ${{ secrets.STORAGE_BACKUP_TOKEN }}
+        run: pnpm db:backup
+
+      - name: Record run summary
+        if: always()
+        run: |
+          {
+            echo '## Database backup'
+            echo
+            echo "- Target: production (dedicated read-only backup role)"
+            echo "- Run: $GITHUB_RUN_ID, revision: $GITHUB_SHA"
+            echo "- Dumps are written encrypted to the backup bucket only; nothing is uploaded as an artifact."
+          } >> "$GITHUB_STEP_SUMMARY"

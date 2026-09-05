@@ -1,0 +1,617 @@
+name: Protected delivery
+
+# Staging-first delivery of a main revision that already passed the release
+# gate. Every job is guarded by `github.ref == 'refs/heads/main'`; nothing here
+# runs for pull requests, tags or other branches. Production requires a fresh
+# (<= 6h) main-deploy gate verdict, native environment approval, and recovery
+# evidence (backup <= 24h, drill <= 30d). Rollback is a routing change
+# (deploy:vercel:promote to a previous verified deployment, wrangler versions
+# deploy) and never a disabled check; see docs/ci/release-gate.md.
+#
+# Runtime: hosted jobs pin Node 22 (activeRuntime); production Vercel builds
+# run Node 24 (candidateRuntime) inside `vercel build` per project settings.
+#
+# Automation: the `workflow_run` path is inert until the repository variable
+# PROTECTED_DELIVERY_AUTOMATION equals `enabled` (Phase 5, once native
+# environment protection is enforceable for this repository; see
+# docs/ci/governance.md). Until then deliveries run by `workflow_dispatch`
+# only. `pnpm ci:contracts:validate` asserts the guard is present.
+on:
+  workflow_dispatch:
+    inputs:
+      head_sha:
+        description: Merged main commit to deliver (must already carry a passing Release gate)
+        required: true
+        type: string
+      attempt:
+        description: Attempt counter of the CI request tuple that evidenced the commit
+        required: false
+        default: '1'
+        type: string
+  workflow_run:
+    workflows: ['Release gate']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Deliveries are serialized and never cancelled: a cancelled migration is worse
+# than a late one.
+concurrency:
+  group: protected-delivery-main
+  cancel-in-progress: false
+
+jobs:
+  resolve-candidate:
+    name: Resolve candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The Release gate also runs `merge` evaluations for pull requests on ref main; only a
+    # `main-deploy` evaluation (advertised in its run-name / display_title) may deliver.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (vars.PROTECTED_DELIVERY_AUTOMATION == 'enabled' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && contains(github.event.workflow_run.display_title, 'main-deploy')))
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    outputs:
+      head_sha: ${{ steps.candidate.outputs.head_sha }}
+      base_sha: ${{ steps.candidate.outputs.base_sha }}
+      attempt: ${{ steps.candidate.outputs.attempt }}
+      policy_version: ${{ steps.candidate.outputs.policy_version }}
+      deliver: ${{ steps.delivered.outputs.deliver }}
+    steps:
+      - name: Checkout protected main (gate policy and scripts)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies (main lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve candidate revision
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          IN_HEAD_SHA: ${{ github.event.inputs.head_sha }}
+          IN_ATTEMPT: ${{ github.event.inputs.attempt }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then head="$IN_HEAD_SHA"; attempt="${IN_ATTEMPT:-1}"; else head="$RUN_HEAD_SHA"; attempt=1; fi
+          if ! printf '%s' "$head" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::head_sha must be a full lowercase SHA"
+            exit 1
+          fi
+          # The candidate must be reachable from protected main.
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/compare/$head...main" --jq '.status')" != "ahead" ] && \
+             [ "$(gh api "repos/$GITHUB_REPOSITORY/compare/$head...main" --jq '.status')" != "identical" ]; then
+            echo "::error::$head is not an ancestor of main"
+            exit 1
+          fi
+          base="$(gh api "repos/$GITHUB_REPOSITORY/commits/$head" --jq '.parents[0].sha')"
+          policy_version="$(jq -r '.policyVersion' config/ci/policy.json)"
+          {
+            echo "head_sha=$head"
+            echo "base_sha=$base"
+            echo "attempt=$attempt"
+            echo "policy_version=$policy_version"
+          } >> "$GITHUB_OUTPUT"
+
+      # Two hosted lanes complete per main push, so the gate (and this workflow) can fire
+      # twice for one revision. A revision that already completed a production delivery
+      # (marker artifact uploaded by the production job on success) is not delivered again
+      # automatically; an explicit workflow_dispatch always delivers.
+      - name: Detect a completed production delivery for this revision
+        id: delivered
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ steps.candidate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          count="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=production-delivered-$HEAD_SHA&per_page=10" --jq '[.artifacts[] | select(.expired == false)] | length')"
+          if [ "$EVENT_NAME" != "workflow_dispatch" ] && [ "$count" -gt 0 ]; then
+            echo "::notice::$HEAD_SHA already completed a production delivery ($count marker artifact(s)); skipping duplicate delivery"
+            echo "deliver=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deliver=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify main-deploy release gate evidence (<= 6h)
+        if: steps.delivered.outputs.deliver == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.candidate.outputs.head_sha }}
+          BASE_SHA: ${{ steps.candidate.outputs.base_sha }}
+          ATTEMPT: ${{ steps.candidate.outputs.attempt }}
+        run: |
+          pnpm ci:gate --no-publish --mode main-deploy --profile main \
+            --repository-id "$GITHUB_REPOSITORY_ID" \
+            --head-sha "$HEAD_SHA" --base-sha "$BASE_SHA" --tested-sha "$HEAD_SHA" \
+            --attempt "$ATTEMPT" \
+            --output test-results/release-gate/decision.json
+          jq -e '.ok == true and .tuple != null' test-results/release-gate/decision.json > /dev/null
+          jq '.tuple' test-results/release-gate/decision.json > test-results/release-gate/tuple.json
+
+      - name: Upload candidate evidence
+        if: steps.delivered.outputs.deliver == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: candidate-evidence
+          path: test-results/release-gate/
+          if-no-files-found: error
+          retention-days: 90
+
+  staging:
+    name: Staging delivery
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: resolve-candidate
+    if: github.ref == 'refs/heads/main' && needs.resolve-candidate.outputs.deliver == 'true'
+    environment:
+      name: Staging
+      url: https://nabatable-staging.vercel.app
+    concurrency:
+      group: staging-delivery
+      cancel-in-progress: false
+    env:
+      DB_TARGET_ENV: staging
+      NABATABLE_SOURCE_REVISION: ${{ needs.resolve-candidate.outputs.head_sha }}
+      NABATABLE_CI_POLICY_VERSION: ${{ needs.resolve-candidate.outputs.policy_version }}
+      TZ: UTC
+    steps:
+      - name: Checkout candidate (verified ancestor of main)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ needs.resolve-candidate.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # vercel and supabase are not workspace dependencies; install the versions pinned in
+      # scripts/deploy/provider-clis.json before any deploy:* or db:* script spawns them.
+      - name: Resolve pinned provider CLI versions
+        id: provider_clis
+        run: |
+          set -euo pipefail
+          vercel_version="$(jq -r '.vercel.version' scripts/deploy/provider-clis.json)"
+          supabase_version="$(jq -r '.supabase.version' scripts/deploy/provider-clis.json)"
+          for version in "$vercel_version" "$supabase_version"; do
+            if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::scripts/deploy/provider-clis.json must pin exact semver versions (got '$version')"
+              exit 1
+            fi
+          done
+          {
+            echo "vercel=$vercel_version"
+            echo "supabase=$supabase_version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Supabase CLI (pinned)
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: ${{ steps.provider_clis.outputs.supabase }}
+
+      - name: Install Vercel CLI (pinned)
+        env:
+          VERCEL_CLI_VERSION: ${{ steps.provider_clis.outputs.vercel }}
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Verify provider CLIs match the pins
+        run: pnpm exec tsx scripts/deploy/provider-clis.ts vercel supabase
+
+      - name: Download candidate evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: candidate-evidence
+          path: test-results/release-gate/
+
+      - name: Acquire staging lock for this tuple
+        env:
+          STAGING_LOCK_GITHUB_TOKEN: ${{ secrets.STAGING_LOCK_GITHUB_TOKEN }}
+        run: pnpm deploy:staging-lock acquire --owner "protected-delivery-$GITHUB_RUN_ID" --tuple-file test-results/release-gate/tuple.json --ttl-seconds 3600
+
+      - name: Validate staging/production separation
+        run: pnpm deploy:validate-separation --env staging
+
+      # The committed link state (supabase/.temp/project-ref) is validated, never
+      # trusted: db:link re-links the checkout to the target project and refuses
+      # unless the resulting link names the expected ref for DB_TARGET_ENV.
+      - name: Link staging Supabase project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm db:link
+
+      - name: Plan remote migrations (dry-run)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm db:plan-remote
+
+      - name: Apply migrations to staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm db:migrate
+
+      - name: Build and deploy immutable staging web deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+        run: pnpm deploy:vercel:prebuilt --env staging
+
+      - name: Build Workers
+        run: pnpm build:workspaces
+
+      - name: Record release manifest
+        run: pnpm release:manifest --out test-results/release/manifest.json
+
+      - name: Deploy Workers to staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          # operational-control and email-queue-gateway have no public base URL var in
+          # wrangler.jsonc; their /ready origins come from these repository variables
+          # (deploy:workers refuses the worker when its variable is missing or REPLACE_ME).
+          WORKER_URL_OPERATIONAL_CONTROL: ${{ vars.STAGING_OPERATIONAL_CONTROL_URL }}
+          WORKER_URL_EMAIL_QUEUE_GATEWAY: ${{ vars.STAGING_EMAIL_QUEUE_GATEWAY_URL }}
+        run: |
+          for worker in booking-short-links email-queue-gateway sms-summary-gateway operational-control; do
+            pnpm deploy:workers --env staging --worker "$worker"
+          done
+
+      - name: Staging browser proofs
+        env:
+          STAGING_PUBLIC_URL: ${{ vars.STAGING_PUBLIC_URL }}
+          STAGING_OPS_URL: ${{ vars.STAGING_OPS_URL }}
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          STAGING_SYNTHETIC_TENANT_ID: ${{ secrets.STAGING_SYNTHETIC_TENANT_ID }}
+          STAGING_SYNTHETIC_TENANT_SLUG: ${{ secrets.STAGING_SYNTHETIC_TENANT_SLUG }}
+          STAGING_SYNTHETIC_TENANT_B_ID: ${{ secrets.STAGING_SYNTHETIC_TENANT_B_ID }}
+          STAGING_SYNTHETIC_TENANT_B_SLUG: ${{ secrets.STAGING_SYNTHETIC_TENANT_B_SLUG }}
+          STAGING_SYNTHETIC_GUEST_EMAIL: ${{ secrets.STAGING_SYNTHETIC_GUEST_EMAIL }}
+          STAGING_SYNTHETIC_GUEST_PHONE: ${{ secrets.STAGING_SYNTHETIC_GUEST_PHONE }}
+        run: |
+          pnpm exec playwright install chromium --with-deps
+          pnpm e2e:staging
+
+      - name: SQL regression against staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_URL: ${{ secrets.STAGING_SUPABASE_DB_URL }}
+        run: pnpm db:sql-regression
+
+      - name: Upload staging release evidence (redacted manifests only)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: staging-release-evidence
+          path: |
+            test-results/release/
+            test-results/deploy/
+            test-results/staging/junit.xml
+            test-results/staging/results.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Release staging lock
+        if: always()
+        env:
+          STAGING_LOCK_GITHUB_TOKEN: ${{ secrets.STAGING_LOCK_GITHUB_TOKEN }}
+        run: pnpm deploy:staging-lock release --owner "protected-delivery-$GITHUB_RUN_ID" --tuple-file test-results/release-gate/tuple.json
+
+  production-approval:
+    name: Production approval
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [resolve-candidate, staging]
+    if: github.ref == 'refs/heads/main' && needs.resolve-candidate.outputs.deliver == 'true'
+    # Native protected environment: required reviewers approve here.
+    environment: Production
+    concurrency:
+      group: production-approval
+      cancel-in-progress: false
+    steps:
+      - name: Record approval
+        env:
+          HEAD_SHA: ${{ needs.resolve-candidate.outputs.head_sha }}
+        run: |
+          {
+            echo '## Production approval'
+            echo
+            echo "Approved candidate: \`$HEAD_SHA\` (actor: $GITHUB_ACTOR, run: $GITHUB_RUN_ID)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  production:
+    name: Production delivery
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [resolve-candidate, staging, production-approval]
+    if: github.ref == 'refs/heads/main' && needs.resolve-candidate.outputs.deliver == 'true'
+    environment:
+      name: Production
+      url: https://app.nabatable.com
+    # Never cancel: a migration in flight must run to completion.
+    concurrency:
+      group: production-delivery
+      cancel-in-progress: false
+    # No id-token / attestations here: this job holds the delivery secrets, so OIDC minting
+    # and third-party attestation code run in the separate `attest` job on the uploaded
+    # evidence only (ci:contracts:validate refuses identity permissions in delivery jobs).
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    env:
+      DB_TARGET_ENV: production
+      NABATABLE_SOURCE_REVISION: ${{ needs.resolve-candidate.outputs.head_sha }}
+      NABATABLE_CI_POLICY_VERSION: ${{ needs.resolve-candidate.outputs.policy_version }}
+      TZ: UTC
+    steps:
+      - name: Checkout candidate (verified ancestor of main)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ needs.resolve-candidate.outputs.head_sha }}
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Same pinned provider CLIs as the staging job (db:migrate spawns supabase,
+      # deploy:vercel:* spawn vercel).
+      - name: Resolve pinned provider CLI versions
+        id: provider_clis
+        run: |
+          set -euo pipefail
+          vercel_version="$(jq -r '.vercel.version' scripts/deploy/provider-clis.json)"
+          supabase_version="$(jq -r '.supabase.version' scripts/deploy/provider-clis.json)"
+          for version in "$vercel_version" "$supabase_version"; do
+            if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "::error::scripts/deploy/provider-clis.json must pin exact semver versions (got '$version')"
+              exit 1
+            fi
+          done
+          {
+            echo "vercel=$vercel_version"
+            echo "supabase=$supabase_version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install Supabase CLI (pinned)
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: ${{ steps.provider_clis.outputs.supabase }}
+
+      - name: Install Vercel CLI (pinned)
+        env:
+          VERCEL_CLI_VERSION: ${{ steps.provider_clis.outputs.vercel }}
+        run: npm install -g "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Verify provider CLIs match the pins
+        run: pnpm exec tsx scripts/deploy/provider-clis.ts vercel supabase
+
+      - name: Download staging release evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: staging-release-evidence
+          path: test-results/
+
+      - name: Revalidate release gate freshness (<= 6h)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ needs.resolve-candidate.outputs.head_sha }}
+          BASE_SHA: ${{ needs.resolve-candidate.outputs.base_sha }}
+          ATTEMPT: ${{ needs.resolve-candidate.outputs.attempt }}
+        run: |
+          pnpm ci:gate --no-publish --mode main-deploy --profile main \
+            --repository-id "$GITHUB_REPOSITORY_ID" \
+            --head-sha "$HEAD_SHA" --base-sha "$BASE_SHA" --tested-sha "$HEAD_SHA" \
+            --attempt "$ATTEMPT" \
+            --output test-results/release-gate/production-decision.json
+          jq -e '.ok == true' test-results/release-gate/production-decision.json > /dev/null
+
+      - name: Require fresh recovery evidence (backup <= 24h, drill <= 30d)
+        env:
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_READ_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_READ_SECRET_ACCESS_KEY }}
+          RECOVERY_EVIDENCE_HMAC_KEY: ${{ secrets.RECOVERY_EVIDENCE_HMAC_KEY }}
+        run: |
+          set +e
+          pnpm recovery:evidence:check --json
+          code=$?
+          set -e
+          # 0 = ok, 10 = warn (thresholds approaching, still deliverable), anything else blocks.
+          if [ "$code" -ne 0 ] && [ "$code" -ne 10 ]; then
+            echo "::error::recovery evidence check blocked delivery (exit $code)"
+            exit 1
+          fi
+
+      - name: Validate staging/production separation
+        run: pnpm deploy:validate-separation --env production
+
+      # The checkout is linked to staging by default; production migrations must
+      # first re-link to the production project and prove the link before the
+      # dry-run plan and the apply (docs/DATABASE_MIGRATIONS.md, target validation).
+      - name: Link production Supabase project
+        env:
+          CONFIRM_PRODUCTION: 'true'
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm db:link
+
+      - name: Plan remote migrations (dry-run)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm db:plan-remote
+
+      - name: Apply migrations to production
+        env:
+          CONFIRM_PRODUCTION: 'true'
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm db:migrate
+
+      - name: Build Workers
+        run: pnpm build:workspaces
+
+      - name: Build and deploy immutable production deployment (no domain assignment)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+        run: pnpm deploy:vercel:prebuilt --env production
+
+      - name: Record release manifest and SBOM
+        run: |
+          pnpm release:manifest --out test-results/release/manifest.json
+          pnpm release:sbom --out test-results/release/sbom.cdx.json
+
+      - name: Smoke immutable deployment before promotion
+        env:
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          HEAD_SHA: ${{ needs.resolve-candidate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          url="$(jq -r '.deploymentUrl' test-results/deploy/vercel-production.json)"
+          revision="$(curl -fsS --max-time 20 -H "authorization: Bearer $MONITORING_TOKEN" "$url/api/ready" | jq -r '.revision')"
+          if [ "$revision" != "$HEAD_SHA" ]; then
+            echo "::error::immutable deployment reports revision $revision, expected $HEAD_SHA"
+            exit 1
+          fi
+
+      - name: Promote verified deployment to production domains
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: pnpm deploy:vercel:promote
+
+      - name: Deploy Workers to production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          # operational-control and email-queue-gateway have no public base URL var in
+          # wrangler.jsonc; their /ready origins come from these repository variables
+          # (deploy:workers refuses the worker when its variable is missing or REPLACE_ME).
+          WORKER_URL_OPERATIONAL_CONTROL: ${{ vars.PRODUCTION_OPERATIONAL_CONTROL_URL }}
+          WORKER_URL_EMAIL_QUEUE_GATEWAY: ${{ vars.PRODUCTION_EMAIL_QUEUE_GATEWAY_URL }}
+        run: |
+          for worker in booking-short-links email-queue-gateway sms-summary-gateway operational-control; do
+            pnpm deploy:workers --env production --worker "$worker"
+          done
+
+      - name: Production smoke
+        env:
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          HEAD_SHA: ${{ needs.resolve-candidate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          body="$(curl -fsS --max-time 20 -H "authorization: Bearer $MONITORING_TOKEN" https://app.nabatable.com/api/ready)"
+          status="$(printf '%s' "$body" | jq -r '.status')"
+          revision="$(printf '%s' "$body" | jq -r '.revision')"
+          if [ "$status" != "ok" ] || [ "$revision" != "$HEAD_SHA" ]; then
+            echo "::error::production readiness status=$status revision=$revision (expected ok / $HEAD_SHA)"
+            exit 1
+          fi
+
+      # Only reached when every delivery step above succeeded (no `if: always()`): the
+      # marker is what `resolve-candidate` consults to skip duplicate automatic deliveries.
+      - name: Record completed production delivery
+        env:
+          HEAD_SHA: ${{ needs.resolve-candidate.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/delivered
+          jq -n --arg headSha "$HEAD_SHA" --arg runId "$GITHUB_RUN_ID" --arg completedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{kind:"production-delivered", headSha:$headSha, runId:$runId, completedAt:$completedAt}' \
+            > test-results/delivered/production.json
+
+      - name: Upload completed-delivery marker
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-delivered-${{ needs.resolve-candidate.outputs.head_sha }}
+          path: test-results/delivered/
+          if-no-files-found: error
+          retention-days: 400
+
+      - name: Record release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-release-evidence-${{ needs.resolve-candidate.outputs.head_sha }}
+          path: |
+            test-results/release/
+            test-results/release-gate/
+            test-results/deploy/
+          if-no-files-found: error
+          retention-days: 400
+
+  attest:
+    name: Attest release provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [resolve-candidate, production]
+    if: github.ref == 'refs/heads/main' && needs.resolve-candidate.outputs.deliver == 'true'
+    # Holds no environment and no deploy secrets: the only inputs are the redacted
+    # evidence files the production job uploaded, so a compromised attestation action
+    # cannot reach VERCEL_TOKEN, CLOUDFLARE_API_TOKEN, SUPABASE_* or MONITORING_TOKEN.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download production release evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: production-release-evidence-${{ needs.resolve-candidate.outputs.head_sha }}
+          path: test-results/
+
+      - name: Attest build provenance
+        # v2.4.0; `git ls-remote https://github.com/actions/attest-build-provenance refs/tags/v2` resolved to this commit on 2026-09-05.
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-path: |
+            test-results/release/manifest.json
+            test-results/release/sbom.cdx.json

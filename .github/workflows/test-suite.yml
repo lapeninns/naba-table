@@ -1,5 +1,9 @@
 name: Test suite
 
+# Scheduled for removal after Phase 4 evidence: the local CI profile evidences
+# this suite and the release gate republishes the "Full Vitest suite" check from it.
+# Kept until the transition evidence window closes; do not add new steps here.
+
 # Run the Vitest suite on pull requests and pushes to main.
 on:
   pull_request:

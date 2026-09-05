@@ -1,0 +1,133 @@
+{
+  "name": "nabatable-operational-control",
+  "main": "src/index.ts",
+  "upload_source_maps": true,
+  "compatibility_date": "2026-04-11",
+  "workers_dev": false,
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"],
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COORDINATOR",
+        "class_name": "Coordinator",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Coordinator"],
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "EVIDENCE_BUCKET",
+      "bucket_name": "replace-me-evidence-bucket",
+    },
+  ],
+  // R2 bucket names must be lowercase, so bucket placeholders use `replace-me-*`; the Worker
+  // and the separation validator treat any `replace_me`/`replace-me` value as unconfigured.
+  // Secrets (never in vars; set with `wrangler secret put --env <env>`):
+  //   GITHUB_WEBHOOK_SECRET, GITHUB_DISPATCH_APP_ID, GITHUB_DISPATCH_APP_PRIVATE_KEY,
+  //   GITHUB_DISPATCH_INSTALLATION_ID, HEARTBEAT_TOKEN, MONITORING_TOKEN, UPTIME_HEARTBEAT_URL
+  "vars": {
+    "REPOSITORY_ID": "REPLACE_ME_REPOSITORY_ID",
+    "LOCAL_CI_APP_ID": "REPLACE_ME_LOCAL_CI_APP_ID",
+    "GATE_WORKFLOW_ID": "REPLACE_ME_GATE_WORKFLOW_ID",
+    "FALLBACK_WORKFLOW_ID": "REPLACE_ME_FALLBACK_WORKFLOW_ID",
+    "SCHEDULED_VALIDATION_WORKFLOW_ID": "REPLACE_ME_SCHEDULED_VALIDATION_WORKFLOW_ID",
+    "PROTECTED_REF": "refs/heads/main",
+    "TARGETS_JSON": "[]",
+    "POSTHOG_HOST": "https://eu.i.posthog.com",
+    "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "invocation_logs": false,
+    },
+  },
+  "env": {
+    "staging": {
+      "name": "nabatable-operational-control-staging",
+      "workers_dev": false,
+      "triggers": {
+        "crons": ["*/5 * * * *"],
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "COORDINATOR",
+            "class_name": "Coordinator",
+          },
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "EVIDENCE_BUCKET",
+          "bucket_name": "replace-me-staging-evidence-bucket",
+        },
+      ],
+      "vars": {
+        "REPOSITORY_ID": "REPLACE_ME_REPOSITORY_ID",
+        "LOCAL_CI_APP_ID": "REPLACE_ME_LOCAL_CI_APP_ID",
+        "GATE_WORKFLOW_ID": "REPLACE_ME_GATE_WORKFLOW_ID",
+        "FALLBACK_WORKFLOW_ID": "REPLACE_ME_FALLBACK_WORKFLOW_ID",
+        "SCHEDULED_VALIDATION_WORKFLOW_ID": "REPLACE_ME_SCHEDULED_VALIDATION_WORKFLOW_ID",
+        "PROTECTED_REF": "refs/heads/main",
+        "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"staging\",\"url\":\"https://nabatable-staging.vercel.app/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"staging\",\"url\":\"https://nabatable-booking-short-links-staging.REPLACE_ME_STAGING_WORKERS_HOST/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"staging\",\"url\":\"https://nabatable-email-queue-gateway-staging.REPLACE_ME_STAGING_WORKERS_HOST/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"staging\",\"url\":\"https://nabatable-sms-summary-gateway-staging.REPLACE_ME_STAGING_WORKERS_HOST/ready\"}]",
+        "POSTHOG_HOST": "https://eu.i.posthog.com",
+        "ERROR_INSIGHT_WEBHOOK_URL": "https://nabatable-staging-ops.vercel.app/api/webhook/error-insight",
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "invocation_logs": false,
+        },
+      },
+    },
+    "production": {
+      "name": "nabatable-operational-control",
+      "workers_dev": false,
+      "triggers": {
+        "crons": ["*/5 * * * *"],
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "COORDINATOR",
+            "class_name": "Coordinator",
+          },
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "EVIDENCE_BUCKET",
+          "bucket_name": "replace-me-production-evidence-bucket",
+        },
+      ],
+      "vars": {
+        "REPOSITORY_ID": "REPLACE_ME_REPOSITORY_ID",
+        "LOCAL_CI_APP_ID": "REPLACE_ME_LOCAL_CI_APP_ID",
+        "GATE_WORKFLOW_ID": "REPLACE_ME_GATE_WORKFLOW_ID",
+        "FALLBACK_WORKFLOW_ID": "REPLACE_ME_FALLBACK_WORKFLOW_ID",
+        "SCHEDULED_VALIDATION_WORKFLOW_ID": "REPLACE_ME_SCHEDULED_VALIDATION_WORKFLOW_ID",
+        "PROTECTED_REF": "refs/heads/main",
+        "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"production\",\"url\":\"https://app.nabatable.com/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"production\",\"url\":\"https://go.nabatable.com/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-email-queue-gateway.REPLACE_ME_PRODUCTION_WORKERS_HOST/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-sms-summary-gateway.REPLACE_ME_PRODUCTION_WORKERS_HOST/ready\"}]",
+        "POSTHOG_HOST": "https://eu.i.posthog.com",
+        "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "invocation_logs": false,
+        },
+      },
+    },
+  },
+}

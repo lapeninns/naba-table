@@ -1,0 +1,117 @@
+# Monitoring contract for `pnpm ops:verify` (scripts/monitoring/verify.ts).
+# Parsed by the dependency-free YAML subset parser in scripts/monitoring/yaml-subset.ts:
+# nested maps, scalars, and inline arrays only (no anchors, flow maps, or multi-line scalars).
+#
+# Thresholds reference keys in config/observability/alerts.yaml by `alertRef`
+# (`<service>.<alertName>`) so numeric values are never duplicated here.
+version: 1
+owner: platform-engineering
+repository: lapeninns/nabatable
+
+runtime:
+  activeRuntime: node22
+  candidateRuntime: node24
+  qualificationNote: 'Hosted workflows run Node 22 today. Node 24 (production Vercel runtime) becomes the active monitoring runtime only after one full 30-day evidence window passes under Node 24 with coverage >= 99% and no runtime-attributed failures.'
+
+auth:
+  tokenEnv: MONITORING_TOKEN
+  githubTokenEnv: MONITORING_GITHUB_TOKEN
+
+intervals:
+  external: 5m
+  worker: 5m
+  github: 1h
+
+timeouts:
+  readyRequestMs: 5000
+  githubRequestMs: 10000
+  heartbeatRequestMs: 5000
+
+heartbeat:
+  urlEnv: MONITORING_HEARTBEAT_URL
+  # UptimeRobot heartbeat monitor grace period; must exceed the hosted schedule (hourly) plus jitter.
+  graceMinutes: 75
+
+targets:
+  web:
+    service: nabatable-web
+    kind: web
+    interval: external
+    readyPath: /api/ready
+    baseUrl: https://app.nabatable.com
+    baseUrlEnv: MONITORING_WEB_BASE_URL
+  booking-short-links:
+    service: booking-short-links
+    kind: worker
+    interval: worker
+    readyPath: /ready
+    baseUrl: https://go.nabatable.com
+    baseUrlEnv: MONITORING_BOOKING_SHORT_LINKS_BASE_URL
+  email-queue-gateway:
+    service: email-queue-gateway
+    kind: worker
+    interval: worker
+    readyPath: /ready
+    # No public hostname is committed for the email gateway; the Monitoring environment must set the env var.
+    baseUrl: null
+    baseUrlEnv: MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL
+  sms-summary-gateway:
+    service: sms-summary-gateway
+    kind: worker
+    interval: worker
+    readyPath: /ready
+    baseUrl: https://nabatable-sms-summary-gateway.amanshresthaaaaa.workers.dev
+    baseUrlEnv: MONITORING_SMS_SUMMARY_GATEWAY_BASE_URL
+  operational-control-worker:
+    service: operational-control
+    kind: worker
+    interval: worker
+    readyPath: /ready
+    # The control-plane Worker has no committed public hostname; the Monitoring environment must set the variable.
+    # Fails closed as `unconfigured` until it is set. Its /ready reports checks as a keyed map (coordinator, evidenceBucket).
+    baseUrl: null
+    baseUrlEnv: MONITORING_OPERATIONAL_CONTROL_BASE_URL
+  operational-control:
+    service: operational-control
+    kind: github
+    interval: github
+
+thresholds:
+  queueAge:
+    alertRef: email-queue-gateway.queueHealth
+  deadLetterQueue:
+    alertRef: email-queue-gateway.queueHealth
+  latency:
+    alertRef: nabatable-web.latency
+  failureRate:
+    alertRef: sms-summary-gateway.delivery
+  workerAvailability:
+    alertRef: booking-short-links.availability
+
+evidence:
+  coverageMinimumPercent: 99
+  warmUpDays: 14
+  windowDays: 30
+  backup:
+    workflowFile: backup.yml
+    warningHours: 18
+    maxHours: 24
+  drill:
+    workflowFile: recovery-drill.yml
+    warningDays: 21
+    blockDays: 30
+  # Workflow files that must exist in the checked-out `main` for the control plane to be considered configured.
+  requiredWorkflowFiles:
+    - backup.yml
+    - recovery-drill.yml
+    - operational-verification.yml
+    - release-gate.yml
+    - error-to-insight.yml
+    - quality-gates.yml
+    - test-suite.yml
+
+requiredChecks:
+  branch: main
+  # Fail closed when branch protection cannot be read; set to false only on plans without branch protection.
+  enforce: true
+  contexts: ['Release gate', 'Local CI / pr']

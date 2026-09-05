@@ -1,0 +1,8 @@
+{
+  "policyVersion": "2026.09.1",
+  "failOnLevels": ["error"],
+  "warnOnLevels": ["warning"],
+  "baselineFingerprints": [],
+  "ignoredRuleIds": [],
+  "note": "Fingerprints listed in baselineFingerprints are pre-existing error-level alerts accepted with a tracked issue. Any error-level result whose fingerprint (or rule+location fallback) is not listed fails the CodeQL workflow. Warnings are reported but never block."
+}

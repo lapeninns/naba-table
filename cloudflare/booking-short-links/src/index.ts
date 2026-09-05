@@ -9,6 +9,12 @@ import {
 } from './core';
 import { createShortLinkRepository } from './storage';
 import { observeWorkerRequest, writeStructuredLog } from '../../shared/observability';
+import {
+  createD1Probe,
+  createKvProbe,
+  handleReadinessRequest,
+  isReadinessRequest,
+} from '../../shared/readiness';
 
 type WorkerEnv = {
   BOOKING_SHORT_LINKS_DB: {
@@ -35,6 +41,7 @@ type WorkerEnv = {
   POSTHOG_PROJECT_API_KEY?: string;
   POSTHOG_HOST?: string;
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
+  MONITORING_TOKEN?: string;
 };
 
 const storageCircuitBreaker = createCircuitBreaker({
@@ -126,6 +133,18 @@ async function handleRequest(
     return json({
       status: 'ok',
       service: SERVICE_NAME,
+    });
+  }
+
+  if (isReadinessRequest(request)) {
+    return handleReadinessRequest({
+      request,
+      env,
+      service: SERVICE_NAME,
+      probes: [
+        createD1Probe(env.BOOKING_SHORT_LINKS_DB, { name: 'd1' }),
+        createKvProbe(env.BOOKING_SHORT_LINKS_CACHE, { name: 'kv-cache' }),
+      ],
     });
   }
 

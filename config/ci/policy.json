@@ -1,0 +1,108 @@
+{
+  "policyVersion": "2026-09-04.1",
+  "repositoryId": "REPLACE_ME_REPOSITORY_ID",
+  "protectedBranch": "main",
+  "githubActionsAppId": 15368,
+  "localCi": {
+    "appSlug": "nabatable-local-ci",
+    "appId": "REPLACE_ME_LOCAL_CI_APP_ID",
+    "installationId": "REPLACE_ME_LOCAL_CI_INSTALLATION_ID",
+    "checkNamePrefix": "Local CI / "
+  },
+  "dispatch": {
+    "appSlug": "nabatable-ci-dispatch",
+    "appId": "REPLACE_ME_CI_DISPATCH_APP_ID"
+  },
+  "gateCheckName": "Release gate",
+  "allowedControllerVersions": ["0.1.0"],
+  "allowedImageDigests": ["REPLACE_ME_CI_JOB_IMAGE_DIGEST"],
+  "runtime": {
+    "activeRuntime": "node22",
+    "candidateRuntime": "node24",
+    "qualificationNote": "Hosted workflows and the local executor image run Node 22 today; production Vercel builds on Node 24. Node 24 becomes active only after a full nightly profile and a staging release pass on a node24 image digest listed in allowedImageDigests, with package engines and workflow node-version bumped in the same reviewed change."
+  },
+  "freshnessHours": {
+    "merge": null,
+    "main-deploy": 6
+  },
+  "profiles": {
+    "pr": {
+      "requiredSuites": [
+        "fast-static-gates",
+        "migration-integrity",
+        "full-vitest-suite",
+        "coverage-and-performance-evidence",
+        "browser-smoke-packs"
+      ],
+      "conditionalSuites": [
+        "shuffle-seed-20260715",
+        "shuffle-seed-20260716",
+        "shuffle-seed-20260717"
+      ]
+    },
+    "main": {
+      "requiredSuites": [
+        "fast-static-gates",
+        "migration-integrity",
+        "full-vitest-suite",
+        "coverage-and-performance-evidence",
+        "browser-smoke-packs",
+        "shuffle-seed-20260715",
+        "shuffle-seed-20260716",
+        "shuffle-seed-20260717"
+      ],
+      "conditionalSuites": []
+    },
+    "nightly": {
+      "requiredSuites": [
+        "fast-static-gates",
+        "migration-integrity",
+        "full-vitest-suite",
+        "coverage-and-performance-evidence",
+        "browser-smoke-packs",
+        "shuffle-seed-20260715",
+        "shuffle-seed-20260716",
+        "shuffle-seed-20260717",
+        "nightly-browser-functional"
+      ],
+      "conditionalSuites": []
+    }
+  },
+  "suiteInventory": {
+    "fast-static-gates": "Fast static gates",
+    "migration-integrity": "Migration integrity",
+    "full-vitest-suite": "Full Vitest suite",
+    "coverage-and-performance-evidence": "Coverage and performance evidence",
+    "browser-smoke-packs": "Browser smoke packs",
+    "shuffle-seed-20260715": "Shuffle seed 20260715",
+    "shuffle-seed-20260716": "Shuffle seed 20260716",
+    "shuffle-seed-20260717": "Shuffle seed 20260717",
+    "nightly-browser-functional": "Nightly browser functional packs"
+  },
+  "compatibilityChecks": {
+    "Full Vitest suite": "full-vitest-suite",
+    "Fast static gates": "fast-static-gates",
+    "Coverage and performance evidence": "coverage-and-performance-evidence",
+    "Browser smoke packs": "browser-smoke-packs",
+    "Primitive coverage": "fast-static-gates",
+    "Shuffle seed 20260715": "shuffle-seed-20260715",
+    "Shuffle seed 20260716": "shuffle-seed-20260716",
+    "Shuffle seed 20260717": "shuffle-seed-20260717"
+  },
+  "requiredHostedWorkflows": {
+    "Security guards": {
+      "id": "REPLACE_ME_SECURITY_GUARDS_WORKFLOW_ID",
+      "requiredJobs": ["Service-role route authorization"]
+    },
+    "CodeQL security review": {
+      "id": "REPLACE_ME_CODEQL_WORKFLOW_ID",
+      "requiredJobs": ["CodeQL JavaScript and TypeScript"]
+    }
+  },
+  "fallbackWorkflow": {
+    "displayName": "Hosted profile fallback",
+    "id": "REPLACE_ME_HOSTED_FALLBACK_WORKFLOW_ID",
+    "environment": "CI fallback",
+    "checkNamePrefix": "Hosted profile fallback / "
+  }
+}

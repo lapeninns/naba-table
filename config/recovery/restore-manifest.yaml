@@ -1,0 +1,76 @@
+# Which parts of the Supabase Postgres database the independent logical backup
+# captures, and how each part is restored. Consumed by scripts/db/backup/run.ts
+# (pg_dump argument planning) and scripts/db/restore/verify.ts (restore checks).
+manifestVersion: 1
+
+# Schemas captured by pg_dump (schema + data unless dataMode says otherwise).
+schemas:
+  - name: public
+    mode: schema_and_data
+    purpose: application schema and tenant data
+  - name: auth
+    mode: data_only_required_tables
+    purpose: auth users/identities needed to re-attach tenant membership
+    tables:
+      - users
+      - identities
+  - name: supabase_migrations
+    mode: schema_and_data
+    purpose: migration ledger (schema_migrations history)
+  - name: cron
+    mode: definitions_only
+    purpose: pg_cron job definitions (job table) exported for re-creation, never auto-scheduled on restore
+
+# Objects captured via dedicated SQL exports (outside pg_dump) because pg_dump
+# does not serialise them reliably across managed Postgres projects.
+sqlExports:
+  - id: grants
+    query: >-
+      select grantee, table_schema, table_name, privilege_type
+      from information_schema.role_table_grants
+      where table_schema in ('public') order by 1,2,3,4
+  - id: extensions
+    query: select extname, extversion from pg_extension order by extname
+  - id: cron_jobs
+    query: >-
+      select jobid, schedule, command, nodename, nodeport, database, username, active, jobname
+      from cron.job order by jobid
+    optional: true
+  - id: migration_ledger
+    query: select version, name from supabase_migrations.schema_migrations order by version
+  - id: row_counts
+    query: >-
+      select table_name,
+      (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, table_name), false, true, '')))[1]::text::bigint as row_count
+      from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by table_name
+
+# Provider-managed schemas that are NOT restored from our logical backup. They are
+# recreated by the provider when a project is created and must be restored only via
+# the supported procedure.
+providerManaged:
+  - name: storage
+    restore: restore via supported procedure (Supabase Storage objects are backed up separately by storage-objects.ts)
+  - name: realtime
+    restore: restore via supported procedure
+  - name: vault
+    restore: restore via supported procedure
+  - name: pgsodium
+    restore: restore via supported procedure
+  - name: supabase_functions
+    restore: restore via supported procedure
+  - name: graphql
+    restore: restore via supported procedure
+  - name: graphql_public
+    restore: restore via supported procedure
+  - name: pgbouncer
+    restore: restore via supported procedure
+  - name: extensions
+    restore: restore via supported procedure (extension objects are re-created from the extensions export)
+  - name: net
+    restore: restore via supported procedure
+
+# Storage buckets whose objects are captured by scripts/db/backup/storage-objects.ts.
+storageBuckets:
+  - restaurant-branding
+  - profile-avatars
+  - menus

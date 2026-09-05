@@ -1,26 +1,12 @@
 name: Security guards
 
+# Runs on every pull request and every push to main without path filters: the
+# release gate requires a successful run of this workflow on the tested
+# revision, so a skipped run would block merges (fail closed) rather than pass.
 on:
   pull_request:
-    paths:
-      - '.github/workflows/security-guards.yml'
-      - 'config/env.schema.ts'
-      - 'docs/security/**'
-      - 'lib/api/**'
-      - 'lib/auth/**'
-      - 'lib/export/**'
-      - 'lib/security/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'scripts/security/**'
-      - 'server/**'
-      - 'src/app/api/**'
-      - 'src/app/**/route.ts'
-      - 'src/app/**/middleware.ts'
-      - 'supabase/migrations/**'
-      - 'tests/lib/security/**'
-      - 'tests/server/**'
-      - 'tests/scripts/**'
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -30,6 +16,7 @@ jobs:
   service-role-routes:
     name: Service-role route authorization
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -54,3 +41,19 @@ jobs:
 
       - name: Run security regression pack
         run: pnpm run security:regression
+
+      - name: Dependency vulnerability audit
+        run: pnpm audit --audit-level high
+
+      # gitleaks and trufflehog are not provisioned on the hosted runner yet, so the
+      # scan runs the repository's built-in scanner only. The variable is required by
+      # scripts/security/secret-scan.ts for that mode and is asserted by
+      # `pnpm ci:contracts:validate`; remove it once SHA-pinned installs of both
+      # scanners precede this step (docs/ci/governance.md, "Contract validation").
+      - name: Secret scan
+        env:
+          SECRET_SCAN_ALLOW_BUILT_IN_ONLY: 'true'
+        run: pnpm secret:scan
+
+      - name: Validate trusted CI contracts
+        run: pnpm ci:contracts:validate

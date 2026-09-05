@@ -40,4 +40,42 @@
   "observability": {
     "enabled": true,
   },
+  // Staging is a separate Worker (its own Durable Object namespaces are created per
+  // Worker name) whose only outbound destination is the staging ops host. Real email
+  // delivery happens in the Next.js app (APP_PROCESS_EMAILS_URL); the staging app must
+  // run with RESEND_USE_MOCK=true so no guest email is ever sent from staging.
+  // Secrets (GATEWAY_TOKEN, APP_PROCESS_EMAILS_URL, APP_PROCESS_EMAILS_TOKEN) are set per
+  // environment with `wrangler secret put --env staging`, never in this file.
+  "env": {
+    "staging": {
+      "name": "nabatable-email-queue-gateway-staging",
+      "workers_dev": true,
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA",
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "EMAIL_QUEUE_STATE",
+            "class_name": "EmailQueueState",
+          },
+          {
+            "name": "RATE_LIMIT_STATE",
+            "class_name": "RateLimitState",
+          },
+          {
+            "name": "CAPACITY_VERSION_STATE",
+            "class_name": "CapacityVersionState",
+          },
+        ],
+      },
+      "vars": {
+        "POSTHOG_HOST": "https://eu.i.posthog.com",
+        "ERROR_INSIGHT_WEBHOOK_URL": "https://nabatable-staging-ops.vercel.app/api/webhook/error-insight",
+      },
+      "observability": {
+        "enabled": true,
+      },
+    },
+  },
 }

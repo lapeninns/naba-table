@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server';
 
 import {
   buildGitHubDispatchRequest,
+  classifyInsightSeverity,
   isAuthorizedInsightRequest,
   parseErrorInsight,
+  parseErrorInsightEvent,
+  recordErrorInsightIncident,
+  resolveInsightEnvironment,
+  shouldDispatchIncident,
+  toIncidentContext,
 } from '@/lib/observability/error-insight';
 
 import type { NextRequest } from 'next/server';
@@ -42,18 +48,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const insight = parseErrorInsight(payload);
-  if (!insight) {
+  const event = parseErrorInsightEvent(payload);
+  if (!insight || !event) {
     return NextResponse.json({ error: 'Invalid error insight payload' }, { status: 400 });
   }
 
-  const dispatch = buildGitHubDispatchRequest(insight, {
-    token: githubToken,
-    repository,
+  const outcome = await recordErrorInsightIncident({
+    insight,
+    environment: resolveInsightEnvironment(process.env),
+    severity: classifyInsightSeverity(event).severity,
+    observedAt: new Date(),
   });
+  const incident = toIncidentContext(outcome);
+
+  if (!shouldDispatchIncident(outcome.transition)) {
+    return NextResponse.json({ accepted: true, incident }, { status: 202 });
+  }
+
+  const dispatch = buildGitHubDispatchRequest(
+    insight,
+    {
+      token: githubToken,
+      repository,
+    },
+    incident,
+  );
   const response = await fetch(dispatch.url, dispatch.init);
   if (!response.ok) {
     return NextResponse.json({ error: 'GitHub dispatch failed' }, { status: 502 });
   }
 
-  return NextResponse.json({ accepted: true }, { status: 202 });
+  return NextResponse.json({ accepted: true, incident }, { status: 202 });
 }

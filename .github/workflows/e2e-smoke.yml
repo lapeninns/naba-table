@@ -1,5 +1,9 @@
 name: E2E smoke
 
+# Scheduled for removal after Phase 4 evidence: the local CI profile evidences
+# this suite and the release gate republishes the "Browser smoke packs" check from it.
+# Kept until the transition evidence window closes; do not add new steps here.
+
 # Three unauthenticated browser smoke packs run with local mocks and no real
 # credentials or remote targets.
 on:

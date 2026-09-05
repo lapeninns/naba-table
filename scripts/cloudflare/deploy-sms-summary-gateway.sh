@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-
+# Deploys the SMS summary gateway.
+#   bash scripts/cloudflare/deploy-sms-summary-gateway.sh [--env staging|production] [--hosted] [--interactive]
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CONFIG_PATH="$ROOT_DIR/cloudflare/sms-summary-gateway/wrangler.jsonc"
+# shellcheck source=scripts/cloudflare/deploy-common.sh
+source "$ROOT_DIR/scripts/cloudflare/deploy-common.sh"
 
-npx wrangler deploy --config "$CONFIG_PATH"
+run_worker_deploy sms-summary-gateway "$@"

@@ -6,16 +6,41 @@ import { processQueueBatch } from './queue-consumer';
 import { selectDueDispatches } from './scheduling';
 import { listRestaurantDailySummaryTargets } from './supabase';
 import { observeWorkerRequest, writeStructuredLog } from '../../shared/observability';
+import {
+  createDurableObjectProbe,
+  createQueueBindingProbe,
+  handleReadinessRequest,
+  isReadinessRequest,
+} from '../../shared/readiness';
 
 import type { DailySummaryQueueMessage } from './contracts';
 import type { SmsSummaryWorkerEnv } from './worker-env';
+import type { ReadinessEnv } from '../../shared/readiness';
+
+type SmsSummaryRuntimeEnv = SmsSummaryWorkerEnv & ReadinessEnv;
+
+function handleReadiness(request: Request, env: SmsSummaryRuntimeEnv): Promise<Response> {
+  return handleReadinessRequest({
+    request,
+    env,
+    service: SERVICE_NAME,
+    probes: [
+      createQueueBindingProbe(env.DAILY_BOOKING_SUMMARY_QUEUE, { name: 'daily-summary-queue' }),
+      createDurableObjectProbe(env.DAILY_BOOKING_SUMMARY_STATE, {
+        name: 'daily-summary-state',
+        objectName: 'readiness',
+        path: '/status',
+      }),
+    ],
+  });
+}
 
 export { DailyBookingSummaryState } from './daily-booking-summary-state';
 
 const worker = {
   async fetch(
     request: Request,
-    env: SmsSummaryWorkerEnv,
+    env: SmsSummaryRuntimeEnv,
     ctx?: ExecutionContext,
   ): Promise<Response> {
     const waitUntil = (promise: Promise<unknown>): void => ctx?.waitUntil(promise);
@@ -38,6 +63,9 @@ const worker = {
         const url = new URL(request.url);
         if (request.method === 'GET' && url.pathname === '/health') {
           return json({ ok: true, service: SERVICE_NAME });
+        }
+        if (isReadinessRequest(request)) {
+          return handleReadiness(request, env);
         }
         if (request.method === 'POST' && url.pathname === '/internal/dispatch-daily-summary') {
           return handleManualDispatch(request, env);

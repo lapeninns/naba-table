@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Nabatable local CI controller. Installed as a per-user LaunchAgent
+    (/Users/nabatable-ci/Library/LaunchAgents) for the dedicated service
+    account "nabatable-ci" and loaded into that account's GUI session
+    (gui/<uid>). It is an agent rather than a daemon on purpose: the
+    controller reads its secrets from the account's login Keychain, which is
+    only unlocked inside a login session, and Virtualization.framework VMs
+    are supported from a user session. bin/install.sh copies this file
+    verbatim; bin/uninstall.sh removes it. See docs/runbooks/local-ci.md
+    (Service account, FileVault and cold reboot).
+  -->
+  <key>Label</key>
+  <string>com.nabatable.ci-controller</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/Users/nabatable-ci/nabatable-ci/current/infra/local-ci/bin/controller.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/nabatable-ci/nabatable-ci/current</string>
+
+  <!-- The wrapper sets PATH itself; launchd supplies only the home. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/nabatable-ci</string>
+    <key>NABATABLE_CI_HOME</key>
+    <string>/Users/nabatable-ci/nabatable-ci</string>
+  </dict>
+
+  <!-- Only in a GUI login session: that is where the login Keychain is unlocked. -->
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>ExitTimeOut</key>
+  <integer>120</integer>
+
+  <key>ProcessType</key>
+  <string>Standard</string>
+  <key>LowPriorityIO</key>
+  <false/>
+  <key>AbandonProcessGroup</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/nabatable-ci/Library/Logs/nabatable-ci/controller.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/nabatable-ci/Library/Logs/nabatable-ci/controller.err.log</string>
+</dict>
+</plist>

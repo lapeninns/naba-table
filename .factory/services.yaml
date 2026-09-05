@@ -28,3 +28,17 @@ services:
     healthcheck: curl --fail --silent http://127.0.0.1:8789/health
     port: 8789
     depends_on: []
+  operational-control:
+    start: pnpm --filter @nabatable/operational-control dev
+    healthcheck: curl --fail --silent http://127.0.0.1:8790/health
+    port: 8790
+    depends_on: []
+
+# Readiness routes (bearer MONITORING_TOKEN, read-only probes, no-store):
+#   web                  GET /api/ready
+#   booking-short-links  GET /ready
+#   email-queue-gateway  GET /ready
+#   sms-summary-gateway  GET /ready
+#   operational-control  GET /ready
+# Every Worker needs MONITORING_TOKEN as a Wrangler secret (never a var); the readiness
+# handlers fail closed with 401 until it is set.

@@ -1,0 +1,294 @@
+openapi: 3.1.0
+info:
+  title: Nabatable operational-control API
+  version: 1.0.0
+  description: >-
+    Control-plane Worker that verifies GitHub webhooks, coalesces local and hosted CI signals
+    into a single release-gate dispatch, tracks the Mac CI controller heartbeat, probes service
+    readiness every five minutes, and keeps incident state. No endpoint returns payload bodies or
+    credentials.
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Unauthenticated liveness probe.
+      responses:
+        '200':
+          description: Worker is serving requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+                  service:
+                    type: string
+                    const: operational-control
+  /ready:
+    get:
+      operationId: getReadiness
+      summary: Authenticated readiness with bounded dependency checks.
+      security:
+        - monitoringBearer: []
+      responses:
+        '200':
+          description: Configuration, coordinator and evidence bucket are all reachable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessReport'
+        '401':
+          description: Missing or invalid MONITORING_TOKEN bearer.
+        '503':
+          description: Degraded; at least one dependency or configuration value is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessReport'
+  /github/webhook:
+    post:
+      operationId: receiveGitHubWebhook
+      summary: Signed GitHub webhook intake.
+      description: >-
+        Verifies X-Hub-Signature-256 over the raw request bytes, requires repository.id to equal
+        REPOSITORY_ID, accepts only check_run, check_suite, pull_request, push and workflow_run,
+        requires check_run.app.id to be LOCAL_CI_APP_ID or GitHub Actions (15368), caps payloads at
+        512 KiB, rejects deliveries outside a one-hour replay window, and deduplicates
+        X-GitHub-Delivery ids. Webhook success flags are never trusted; the coordinator performs an
+        authoritative API readback before dispatching the release gate.
+      parameters:
+        - $ref: '#/components/parameters/HubSignature'
+        - $ref: '#/components/parameters/Delivery'
+        - $ref: '#/components/parameters/Event'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: GitHub webhook payload (opaque; validated per event type).
+      responses:
+        '200':
+          description: Delivery id already processed; nothing re-applied.
+        '202':
+          description: Delivery accepted and recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accepted]
+                properties:
+                  accepted:
+                    type: boolean
+                  candidateState:
+                    type: [string, 'null']
+                    enum: [pending, ready, dispatched, rejected, closed, failed, null]
+        '400':
+          description: Missing delivery id, unsupported event, or invalid payload.
+        '401':
+          description: Invalid or missing signature.
+        '403':
+          description: Wrong repository, unexpected GitHub App, or stale delivery.
+        '413':
+          description: Payload larger than 512 KiB.
+        '422':
+          description: Local check run carries an invalid CI request tuple.
+        '503':
+          description: Control plane vars or coordinator binding are unconfigured.
+  /heartbeat:
+    post:
+      operationId: recordControllerHeartbeat
+      summary: Mac CI controller heartbeat.
+      security:
+        - heartbeatBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControllerHeartbeat'
+      responses:
+        '202':
+          description: Heartbeat recorded.
+        '400':
+          description: Body is not valid JSON.
+        '401':
+          description: Missing or invalid HEARTBEAT_TOKEN bearer.
+        '413':
+          description: Body larger than 8 KiB.
+        '422':
+          description: Body violates the heartbeat contract (including credential-like keys).
+        '503':
+          description: Coordinator binding is unconfigured.
+  /incidents/{incidentId}/acknowledge:
+    post:
+      operationId: acknowledgeIncident
+      summary: Acknowledge an active incident so it stops escalating.
+      security:
+        - monitoringBearer: []
+      parameters:
+        - name: incidentId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9-]{1,64}$'
+      responses:
+        '200':
+          description: Incident acknowledged.
+        '401':
+          description: Missing or invalid MONITORING_TOKEN bearer.
+        '404':
+          description: Incident unknown, resolved, or already acknowledged.
+        '503':
+          description: Coordinator binding is unconfigured.
+components:
+  securitySchemes:
+    monitoringBearer:
+      type: http
+      scheme: bearer
+      description: MONITORING_TOKEN shared with the hosted monitoring workflow.
+    heartbeatBearer:
+      type: http
+      scheme: bearer
+      description: HEARTBEAT_TOKEN held only by the Mac CI controller.
+  parameters:
+    HubSignature:
+      name: X-Hub-Signature-256
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^sha256=[0-9a-f]{64}$'
+    Delivery:
+      name: X-GitHub-Delivery
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9-]{8,64}$'
+    Event:
+      name: X-GitHub-Event
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [check_run, check_suite, pull_request, push, workflow_run]
+  schemas:
+    ControllerHeartbeat:
+      type: object
+      additionalProperties: false
+      required:
+        - controllerId
+        - controllerVersion
+        - imageDigest
+        - activeRuntime
+        - candidateRuntime
+        - status
+        - sentAt
+        - queueDepth
+        - running
+        - maxConcurrent
+      properties:
+        controllerId:
+          type: string
+          pattern: '^[A-Za-z0-9._+-]{1,64}$'
+        controllerVersion:
+          type: string
+          pattern: '^[A-Za-z0-9._+-]{1,64}$'
+        imageDigest:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+        activeRuntime:
+          type: string
+          enum: [node22, node24]
+        candidateRuntime:
+          type: string
+          enum: [node22, node24]
+        status:
+          type: string
+          enum: [idle, busy, draining]
+        sentAt:
+          type: string
+          format: date-time
+          description: Must be within five minutes of the Worker clock.
+        queueDepth:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        running:
+          type: integer
+          minimum: 0
+          maximum: 64
+        maxConcurrent:
+          type: integer
+          minimum: 1
+          maximum: 64
+        lastCompletedAt:
+          type: string
+          format: date-time
+    ReadinessReport:
+      type: object
+      required: [status, service, revision, activeRuntime, candidateRuntime, config, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        service:
+          type: string
+          const: operational-control
+        revision:
+          type: [object, 'null']
+          description: CF_VERSION_METADATA for the running deployment.
+          properties:
+            id:
+              type: string
+            tag:
+              type: string
+            timestamp:
+              type: string
+        activeRuntime:
+          type: string
+          const: node22
+        candidateRuntime:
+          type: string
+          const: node24
+        config:
+          type: object
+          required: [ok]
+          properties:
+            ok:
+              type: boolean
+            missing:
+              type: array
+              items:
+                type: string
+        checks:
+          type: object
+          required: [coordinator, evidenceBucket]
+          properties:
+            coordinator:
+              type: object
+              required: [ok, controller]
+              properties:
+                ok:
+                  type: boolean
+                controller:
+                  type: [object, 'null']
+                  properties:
+                    state:
+                      type: string
+                      enum: [unknown, fresh, alert, fallback_eligible]
+                    ageSeconds:
+                      type: [integer, 'null']
+            evidenceBucket:
+              type: object
+              required: [ok, latestPresent]
+              properties:
+                ok:
+                  type: boolean
+                latestPresent:
+                  type: boolean

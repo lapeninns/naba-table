@@ -131,3 +131,19 @@ jobs:
             docs/api/
           if-no-files-found: error
           retention-days: 14
+      # Visual route snapshots stay hosted: the local job image has no
+      # pixel-identical browser build (scripts/ci/profiles HOSTED_ONLY_SPECS).
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium --with-deps
+      - name: UI visual routes
+        env:
+          QA_USE_MOCKS: '1'
+        run: pnpm exec playwright test tests/e2e/ui-visual-routes.spec.ts
+      - name: Upload visual route screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ui-visual-routes
+          path: test-results/qa/
+          if-no-files-found: warn
+          retention-days: 14

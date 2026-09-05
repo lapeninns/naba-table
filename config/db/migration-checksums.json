@@ -1,0 +1,729 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "sha256",
+  "migrationsDirectory": "supabase/migrations",
+  "reviewedBaselineDate": "2026-09-04",
+  "note": "Recorded migrations are immutable. Historical migrations are NOT assumed safely replayable; see config/db/census.md.",
+  "files": {
+    "20251219002800_remove_seating_floorplan_capacity.sql": {
+      "sha256": "ba350fa808f90198ad250875e80a6f2a120ed2d29e356ddeac3af16cc9d17fdd",
+      "bytes": 941,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20251219003000_add_reservation_lifecycle_grace_minutes.sql": {
+      "sha256": "59f2a5582dda143a9b641ea2d8098717bcd6a18dc582f2e11d6683d660b6dabf",
+      "bytes": 456,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20251226_add_email_templates.sql": {
+      "sha256": "ef13e897b1d9afea44043722041122f387bc76ffa2fa617a05ff226ec75cfa83",
+      "bytes": 892,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20251231_optional_contact_fields.sql": {
+      "sha256": "2b834991eb1a7095bca2230ea22059396a2f0aa0369e9ca19ea60886397b2493",
+      "bytes": 1221,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260117_add_soft_holds.sql": {
+      "sha256": "12af20d5817da4850c88a8c732d7e2693793e94ad876818dacd130bdedc81e50",
+      "bytes": 12839,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260118_cascade_delete_table_assignments.sql": {
+      "sha256": "88e98764e810b7781a151f0b529d01eaa7863ada445b5cb29af3468560b487f8",
+      "bytes": 3273,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260120_restore_capacity_rules.sql": {
+      "sha256": "61579e401c8ad77f73c23df7a81d9c08c1364a1197296b64f60326f49c3f5bb1",
+      "bytes": 22739,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260124_fix_booking_rpc_day_of_week.sql": {
+      "sha256": "0868b32ff10e524b30d69a338f0e64d590b9893208a04b96cc2dd4d78b1d0797",
+      "bytes": 15328,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260126125806_add_email_delivery_log.sql": {
+      "sha256": "5e87c9b7bfd2b05cc710dd532f89fc6731e4ccb9881a591520f575c8672c37de",
+      "bytes": 1675,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260203_add_operating_hours_reservation_slots.sql": {
+      "sha256": "0bcfcce8fbfc6573825b947eb33e6c4120f3caf48224bf3897a7e6c15e87b76c",
+      "bytes": 5002,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260206213430_ops_email_delivery_attempts_dashboard.sql": {
+      "sha256": "1bca14cfa8ae4c421d4730122969ac04ce0338cd33ef920cec5026d607468461",
+      "bytes": 12262,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260207144113_rls_hardening_internal_tables.sql": {
+      "sha256": "2e86bade63ed31eeb1dbaa2963e8118eca8b01ee3cd954960cbaa9556c5f7926",
+      "bytes": 9886,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260207170000_add_remaining_fk_indexes.sql": {
+      "sha256": "3be03bf34675b7b74f46a0c428a10f68a8bbe5ae1a2d1b9e5c569485722101fd",
+      "bytes": 1364,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013000_ensure_soft_holds_primitives.sql": {
+      "sha256": "23284ce30417927b5bb178e83afde0e309bf0ff5f8b8315b7e3444af1b94e43a",
+      "bytes": 3496,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013100_create_acquire_soft_holds_atomic.sql": {
+      "sha256": "884e3d435ed8f115c9f8abc1c16c6e059f4862383e5cc1f42850b55dd26bc0f1",
+      "bytes": 4163,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013110_create_release_soft_holds.sql": {
+      "sha256": "529bd5b7164c381a84464e8749fd8422d034e1a664a209a75d2e88f170dd572d",
+      "bytes": 591,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013120_create_cleanup_expired_soft_holds.sql": {
+      "sha256": "9efe0b8ee47beea626b0487aa48cecef496e6c86378e044a83855a5d9d3605e4",
+      "bytes": 461,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013130_create_check_soft_hold_ownership.sql": {
+      "sha256": "4d00bce1c90cf1f4f76891e2c1f657d3ad57916b5fc63dd7a3a8de7e5e9da782",
+      "bytes": 872,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013140_grant_acquire_soft_holds_atomic.sql": {
+      "sha256": "ebf65a5df22966c4c72c073d006d03d121981f97bad8c3be889127af88d007bc",
+      "bytes": 138,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013150_grant_release_soft_holds.sql": {
+      "sha256": "369b6c7956ff29b1c0c8152394747ec08f01335309642fc8593ab4d73e04ba1c",
+      "bytes": 99,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013160_grant_cleanup_expired_soft_holds.sql": {
+      "sha256": "2ab866d9be3bf052e6510970bf68c9fe937b64b84e02ad4bdba6318654770b1d",
+      "bytes": 87,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208013170_grant_check_soft_hold_ownership.sql": {
+      "sha256": "b331de26540c16fd1a70dbc5c1c713d25de77538f81e81f530cf0038290bbfaa",
+      "bytes": 117,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208162105_drop_non_repo_public_objects.sql": {
+      "sha256": "9479fee2abfa9d3ef3a5d395cec94648bfe2b0d12f9d32fb032741674c23ae35",
+      "bytes": 5157,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260208180100_auto_zone_adjacencies.sql": {
+      "sha256": "e4cca5b14d342e01d46f57bc3a72bf4e10de7f82cf2781dca16939a4bfbb831e",
+      "bytes": 11023,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260323124100_align_lunch_occasion_window.sql": {
+      "sha256": "7ce0d083454dade4022bc7d050d6dd709072c506d6a1456dcf2370111f860013",
+      "bytes": 518,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260323132600_remove_builtin_occasion_time_windows.sql": {
+      "sha256": "65e1bff49ad1fc13e9beef1567da80f43829e2010437a43ff7f3637b43fe3f46",
+      "bytes": 309,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260323135000_set_old_crown_interval_30m.sql": {
+      "sha256": "8e5dc9fa2e63b375115212fed2936d9a56c5596cc5df41697f35c98647f72048",
+      "bytes": 354,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260327090000_add_email_dispatch_intents.sql": {
+      "sha256": "5b63399194d304680886b65f7f1a7b74b29cb2edf2ad4d2c8cdf05bf69763814",
+      "bytes": 5066,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260329190000_add_ops_customers_history_rpc.sql": {
+      "sha256": "dec75bb633eec45c58104ae765b25aa49eb529cc4299973f4154cefb1c4fa9df",
+      "bytes": 8434,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260411113000_add_restaurant_whatsapp_summary_settings.sql": {
+      "sha256": "82ba77baecfc21c89113487193b9be1fbde080e78c2d912c1025d21cac157039",
+      "bytes": 2836,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260411130500_add_manager_notification_phone.sql": {
+      "sha256": "4481844d99c95671d691ac7b7f9f82285e68958df13b3fb52ffe93a007e61a9b",
+      "bytes": 1102,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260411143000_manager_daily_summary_sms_cutover.sql": {
+      "sha256": "ca762946a7126c396b1d2bae239dcc3b3b4e8a91b3d2f58b8af2911fb23a396b",
+      "bytes": 1169,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260413130000_add_sms_delivery_log.sql": {
+      "sha256": "eb31f128d174d15157b873038ab24cfa94322916e1c226e3418df3645046a13a",
+      "bytes": 1588,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260418073000_add_restaurant_menu_management.sql": {
+      "sha256": "e92d882bac8f64abdb3453aa5c7cc382320c56c436ac02c5422309b8079377c3",
+      "bytes": 37851,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260418091500_add_restaurant_drink_menu_management.sql": {
+      "sha256": "cecc7e635fcc0b5b8e4c91a9e3ec8869b87fd3f6ae36e7ccd4d7d07bc9552068",
+      "bytes": 42070,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260418101000_add_restaurant_business_profile_subsystem.sql": {
+      "sha256": "1cf0316a8c3765ce916fcbb8e63d36d0d423098ef71929a8f6527e98713e3a40",
+      "bytes": 26856,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260418113000_add_restaurant_gbp_connection_flow.sql": {
+      "sha256": "2f3ae94294adb3c0cddc9d7790cf021735265d73addd5f489bdebdf43494dbb3",
+      "bytes": 4479,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260418121500_add_restaurant_field_sync_statuses.sql": {
+      "sha256": "3f85f1ad8dc0a364c70f828d2f215f0a4ad2432116477a6a2a528ff101227044",
+      "bytes": 2501,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260418173800_expand_restaurant_gbp_canonical_tables.sql": {
+      "sha256": "7d4cb1f633dcf004ab4f33ba7df0190a79f4d05ca23cbabaf6b42df49ce0ca7d",
+      "bytes": 4926,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260425095800_add_gbp_approval_workflow.sql": {
+      "sha256": "2f36a5c48bafbacc59475d8b86569a45a52ad5dd6169055d8d03035f5283a1fa",
+      "bytes": 5388,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260425111500_allow_restaurant_attribute_provider_overrides.sql": {
+      "sha256": "eec09964865e28fc9d130c385068c58623eeac4e604954f1658391ad9c1641fb",
+      "bytes": 691,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260425124700_align_gbp_provider_core_foundation.sql": {
+      "sha256": "8ac41c20e021e93fda88fd2f4de8d87d8ffc1bd0b2c834d3867b40cb5348dc3e",
+      "bytes": 4259,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260426113300_add_gbp_publish_jobs.sql": {
+      "sha256": "d55ab2ed669d19cbc501b81ddbfde42133aff45a450ecae2d26bda6b2961f114",
+      "bytes": 4270,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260428121200_add_gbp_read_only_sync_runs.sql": {
+      "sha256": "758d36fb27b8b555a575579dd9bb64fe37c212f67ead03f507c6ac6ae4c7ddb9",
+      "bytes": 2516,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260428143700_allow_gbp_google_only_publish_jobs.sql": {
+      "sha256": "e464049cdd3bdf9c1e2a444c514b2c4e5916df008b2b4d9488a2bd01a0766306",
+      "bytes": 629,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260428232200_add_gbp_sync_v2.sql": {
+      "sha256": "b91cc0917018fc8746d3e7cc42922696a7e4677db36167d5ac96394a1487b872",
+      "bytes": 13739,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260429133000_add_gbp_profile_provenance_and_change_log.sql": {
+      "sha256": "35a4f6252c06c70ea381677ba37eab01b999dd458c88dedc29d56c4dbadc8b42",
+      "bytes": 9180,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260429141000_complete_gbp_coverage_sprint1.sql": {
+      "sha256": "ee62ab340574971107161b554502440a4240a36e3008f45020aa8e5221bc4f63",
+      "bytes": 6900,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260429210000_add_unified_dual_sync_domain.sql": {
+      "sha256": "273677cdd1347bf7b7751fe5ea81e26050f7f7664b4ae15adf76ae651a7b18c6",
+      "bytes": 11444,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260430120000_drop_gbp_sync_v2.sql": {
+      "sha256": "0d9a7d728bd0822d52736dac163adccbcece80308359003fad30ab4509ad03e3",
+      "bytes": 1166,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260502190006_add_gbp_foodmenus_sync_storage.sql": {
+      "sha256": "827059e9ece2d2137d5778d7cb981793070cb77f7fd89c3ae810525a8f406b46",
+      "bytes": 11759,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260502213700_add_menu_item_nutrition_and_serves.sql": {
+      "sha256": "15923a5f6d424de27a4229d83e1ee4f0b54972e0040b1a3d0de1979fbd5449d0",
+      "bytes": 2532,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260502222000_add_menu_nutrition_serves_fields.sql": {
+      "sha256": "7dee42329f2725f51485b6003dd6d8444d8efccc7f5c2a434af58fb8e74f30a9",
+      "bytes": 3940,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260502233000_extend_gbp_foodmenus_import_parity.sql": {
+      "sha256": "08464f8dbc27e51255605a95f38b7e237503d9e6ab04cfa19b46b031fce4413d",
+      "bytes": 3151,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260505134500_accept_restaurant_invite_atomically.sql": {
+      "sha256": "1d40ec9e31d8fa1ea9d4906527872dcdfee464e4f8f443501cebdfc181677fa3",
+      "bytes": 1618,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260505141000_restrict_capacity_settings_mutations.sql": {
+      "sha256": "eaaafc55198bfb248e14ff14eab1f58dd486d485a2a16e370eecbe35e18c022b",
+      "bytes": 4306,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260507212700_add_canonical_menu_hierarchy.sql": {
+      "sha256": "57fb688935cb7a36bf3056b34060226d74ad472e6aa7bddb2a50f94117b54bf4",
+      "bytes": 14940,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260507223000_backfill_canonical_menu_hierarchy.sql": {
+      "sha256": "9437971ff77e6ef8c637dcc81f5234604cacc0aed16360367dc11e2a1adf2b24",
+      "bytes": 15267,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260509071600_retire_legacy_menu_modifier_objects.sql": {
+      "sha256": "342d5f038ba2ab3218b31dc595d9a5674e2da1375f36d491baac53587b08df06",
+      "bytes": 1338,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260509141000_add_dual_sync_locks.sql": {
+      "sha256": "a4b0d2d7cd07a8253bf408228458d34cb43715769877c31a95e3d8021d9ddf3a",
+      "bytes": 2876,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260509153500_add_dual_sync_publish_batches.sql": {
+      "sha256": "795904896093e8744497af1c793424f0964161f61cf14e515ad17de67316bda2",
+      "bytes": 6776,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260509155440_add_dual_sync_google_edit_budget.sql": {
+      "sha256": "5d9c965b10f23212a2f85de118df182085c31847a447a438b4e39f2ad237ffa9",
+      "bytes": 4583,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260509162000_add_dual_sync_job_queue.sql": {
+      "sha256": "893e51a6ed41af69f1641fab283923c5ecc191afbbc333a2d35f1622e2787678",
+      "bytes": 3214,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260509173500_add_dual_sync_restaurant_controls.sql": {
+      "sha256": "263d5df2aaa238279f6cdcd1b46dc89c53a1146a23a953dcf3ac93a1f358a433",
+      "bytes": 2204,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260510110100_add_sms_delivery_log_query_indexes.sql": {
+      "sha256": "1a0b4c308df327eef051711066718d3aa30ce036dec7881d11dcc8606c141c7c",
+      "bytes": 950,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260510114600_add_dual_sync_google_request_logs.sql": {
+      "sha256": "b635945b18686f77544b1ab9e9203e42d24b75fb82d5c5d010071f0ebbeda84f",
+      "bytes": 3490,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260510120200_add_dual_sync_field_policy_versions.sql": {
+      "sha256": "b924afda2c111f3322e5a25285a24c8ae8ef8cfc1d1e5a2e81e5ebec91db57f3",
+      "bytes": 2263,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260510121600_link_publish_batches_to_field_policy_versions.sql": {
+      "sha256": "43080a154d0c03e9ad99d50be48dfb7bab9162bd163e4999e4889ca02214c2d6",
+      "bytes": 994,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260510122800_add_dual_sync_google_request_log_archives.sql": {
+      "sha256": "9e3cd84917890f8446929a8e12bb45b672146a561ab54f1ef7603080092a0f81",
+      "bytes": 2002,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260515180000_allow_overnight_operating_hours.sql": {
+      "sha256": "2f926590ab8110a2dadc8aab778e99f88e22b482597b9532b92c0938a4541eac",
+      "bytes": 485,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516070700_harden_soft_hold_rpc_authorization.sql": {
+      "sha256": "d9eafd98931920d0365ec036abd6e4f0eea3baa7dfa29ac63d73d228db364ed0",
+      "bytes": 7097,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516082800_atomic_restaurant_schedule_replacements.sql": {
+      "sha256": "1b97a716e15c3adf8eb2c66776fa8f4a49162c403d8faf0877878f7ca753500d",
+      "bytes": 8488,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516082900_atomic_business_context_replacements.sql": {
+      "sha256": "cca7e0a12d2dd6e105c72b2b970477fcb0eb48c3e4037272744d5e3b510f66ca",
+      "bytes": 13642,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516083600_guard_table_inventory_delete.sql": {
+      "sha256": "bc91c371a3e31e4dc52db14b2846669baa2e6867918efce3d67f80a125fd1646",
+      "bytes": 1305,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516090500_atomic_gbp_canonical_business_info.sql": {
+      "sha256": "0d11ae76cd6f490b43ebb0c27d02c4af45ef4a3b9b1f80a1ab4815807723a036",
+      "bytes": 20960,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516092900_atomic_unassign_tables_status.sql": {
+      "sha256": "143c2c0b55d81b16ae53a41b2ddc1477e8de72d9589ab3dbb61c75ac6a8fc19b",
+      "bytes": 1649,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516093900_atomic_create_restaurant_with_owner.sql": {
+      "sha256": "fd83d2ebb20d6cf9b7ba026f383e4d7144c7fef4baee6110e05e09a0221bf135",
+      "bytes": 5077,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516094700_atomic_foodmenus_import_reviews.sql": {
+      "sha256": "91635451106da62f2113682c3ea1a9aecfe343a8f04604f4cd04b16acd544fe6",
+      "bytes": 2678,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516095200_atomic_booking_modification_cleanup.sql": {
+      "sha256": "a12ce315475ece4916a9a059066921093ff26ebcee7bf55b822f337b1d84c95b",
+      "bytes": 3402,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516114919_atomic_customer_profile_aggregates.sql": {
+      "sha256": "c59a31eda2e40b8f81b1a3c31b2b70633713c7261ae6afd9318c9b16313d2ae4",
+      "bytes": 3455,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516115600_expose_email_delivery_attempt_retry_id.sql": {
+      "sha256": "76d12b2cbcb8ea0edb39cfee496373a7bad17d1eb2a6c71a8c534bf227d21763",
+      "bytes": 5480,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260516120400_atomic_profile_update_idempotency.sql": {
+      "sha256": "6e4da894f66d4d241b15138486c21b91832ff92cc1be7dbc51e3fede4ba2a419",
+      "bytes": 3120,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260519115100_fix_email_delivery_attempts_feed_ambiguous_id.sql": {
+      "sha256": "6d6f71dc71e3f43530ace9f70d17dffb1acf48816b87c0a186f316c2f58aab55",
+      "bytes": 5330,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260519141500_relax_table_holds_expiry_constraint.sql": {
+      "sha256": "ae159b78e4f503785a6316af175dc3b66137a61df85813e818eec46001468f58",
+      "bytes": 599,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260519183000_sync_booking_modification_instants.sql": {
+      "sha256": "484a015a8ca5a051fd48daf666fed854ec3e275ef735b5fcb22ca7a0367a5e1b",
+      "bytes": 3626,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260520120000_fix_unassign_tables_atomic_ambiguous_table_id.sql": {
+      "sha256": "fb7381fe274c34bebe221ad557411db7a9cd52914198a243a15e1cb77a1f371d",
+      "bytes": 1404,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260520180000_remote_migration_placeholder.sql": {
+      "sha256": "cecb348bf69294f3193daf3f14e907d69b0ea9be5b48526e6d69e4d37146456d",
+      "bytes": 723,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260527111100_harden_service_only_rpc_privileges.sql": {
+      "sha256": "130746d0dfb5fd7fed34828a28371e4ecff3414059a6600cfeb75da7d77882f5",
+      "bytes": 4008,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260531084500_atomic_booking_lifecycle_assignment_release.sql": {
+      "sha256": "7a0998aacfef5ac954f3bcd5d807efa6087fb2e39c9447b82b8c01df95b9a4b7",
+      "bytes": 2340,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260531085000_atomic_booking_table_unassign.sql": {
+      "sha256": "54cf9a11507729a9d18561909d8816dccf81ef3beb9ccb169c14acd0680d1f05",
+      "bytes": 1670,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260531085500_atomic_menu_hierarchy_deletes.sql": {
+      "sha256": "5df299999f94d856ee34ed90fd7ef9c8f76f54758749705865e0717fec23ade8",
+      "bytes": 3458,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260531090000_lock_operating_hours_replacement.sql": {
+      "sha256": "f4df2c0497246227b8481ddc01db0f3a9eee19c171f7144210e0815be811950b",
+      "bytes": 3383,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260531091000_foodmenus_import_review_failed_status.sql": {
+      "sha256": "a2de2d30443f68e3b1abbf00224c6ccb466eab0819c5cfe81fa46f08bbb87860",
+      "bytes": 405,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260531093000_booking_confirmation_notification_claims.sql": {
+      "sha256": "8f171f5fb14efc50546d841b789332b02c01f3cb94bca8cd050843399bc51efe",
+      "bytes": 1407,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260601203000_restaurant_game_scores.sql": {
+      "sha256": "800df0feb19b3776b5fa85ad3b9f4b2ceae29b50b7435b6faf800580ffb14392",
+      "bytes": 2886,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260601215500_weekly_game_rewards.sql": {
+      "sha256": "27cb8dfca3d311eef3efef6a4ebd843bdca069d3461515d84f6cdffee4335df3",
+      "bytes": 1801,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260602090500_weekly_leaderboard_reward_sends.sql": {
+      "sha256": "6125f110718056601e2733431bbb4122556497b1ce607757a576c5513b4ea3e4",
+      "bytes": 2149,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260602200053_fix_booking_state_transition_status_ambiguity.sql": {
+      "sha256": "0a2a417d8c275818bdfc835ad6fd99cafb893eb450d5d309e1d60c382949991a",
+      "bytes": 1975,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260610085500_repair_booking_confirmation_notification_claims.sql": {
+      "sha256": "cf32ab4208d67c930f33260f23e78990f449ff5660867b1f35776f205c1da92b",
+      "bytes": 1439,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260621120000_email_unsubscribes.sql": {
+      "sha256": "f9424c57b5f0b0ed08966c9def6f6c4b0a83e6cd6e55a770c624e492e4737eff",
+      "bytes": 1373,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260621120001_harden_assignment_rpc_privileges.sql": {
+      "sha256": "7bd0d934f0ac1d9d353874957bf45697e5ce54f35034a1863a0fa3fe3b5f57d1",
+      "bytes": 3000,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260629120000_add_manager_name.sql": {
+      "sha256": "62ccd9f8391e47a9a7c6455171b88bfcfd46c64e050270a4dbc232e1adbbe11f",
+      "bytes": 915,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260704120000_add_monthly_report_enabled.sql": {
+      "sha256": "cf4cb4d7b28666f3ddef67b803f84c43a6c249b3c3f3e589bd68374ad15eb6f9",
+      "bytes": 481,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260705133500_partial_unique_customer_contact_keys.sql": {
+      "sha256": "a4581bfb1f1c1ba1509d0eca992de67083ebcca3ccb6353ceeade4bea97b895b",
+      "bytes": 1071,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260711143000_whatsapp_first_mobile_notifications.sql": {
+      "sha256": "14c7c7e802f6509229beff005673da992d940d737ed2486eaf345097afccc3c5",
+      "bytes": 8881,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260712204500_add_whatsapp_review_notification_ledger.sql": {
+      "sha256": "7a5a18525086a6bfc71f35cfe90958bf9f22f07dee81e53ff19a2a4c3f4290e6",
+      "bytes": 18035,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260716120000_ops_email_delivery_summary_stuck_in_flight.sql": {
+      "sha256": "ecd7c07a60545508de56e71d232e2d55dd522a740d0de2aab0181ec1fd1e109e",
+      "bytes": 6977,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260716210000_finalize_mobile_sms_attempt.sql": {
+      "sha256": "ae10d1874f0ba1f0a62bdf9934f137229c388f993680264d5a37ca3213dc2492",
+      "bytes": 2236,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260716220000_restrict_ops_email_delivery_summary_execute.sql": {
+      "sha256": "62a03e0287dfeecbc551b99703bdf72d071bd73ef5aceef8ed559ae801d56636",
+      "bytes": 295,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260719120000_add_sunday_roast_enabled.sql": {
+      "sha256": "eedddaeb2e46ff7d6195df688eae7a551dd37f1c5de55d37a9530a95f2f2e560",
+      "bytes": 254,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260719160000_remove_sunday_roast_enabled.sql": {
+      "sha256": "3cab442d89334ea82ac2d90b2d3929b73c65266939d38acacbd266de1f77f5a3",
+      "bytes": 77,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260720120000_account_session_activity.sql": {
+      "sha256": "11b2a4fedf74b8d4cee21895b89ba00ee5f9698005a9904b3ef310c262ba6d0b",
+      "bytes": 13585,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260720150000_customers_optional_contact_columns.sql": {
+      "sha256": "366e69bc7739716b72f89867e815f33f2bdea3959cd70a90b227933164d4e6c0",
+      "bytes": 2231,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260729195000_add_restaurant_sms_display_name.sql": {
+      "sha256": "47a824a2a8918f1d7b05efd022acdf52ecebccf75d40559261d51b0742b9c9e7",
+      "bytes": 1162,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260808120000_release_terminal_booking_table_state.sql": {
+      "sha256": "640921ffd0e2266e5c7351128e8932b21b8f5a40424dfb809812cf79dd1e5405",
+      "bytes": 15791,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260809120000_gbp_write_safety_foundation.sql": {
+      "sha256": "a746e03a7748320b3a57cdcaec99d96b85e35c5c4aeadec9c6a7a7855e66f8d0",
+      "bytes": 255262,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260811160000_repair_gbp_linked_profile_lineage.sql": {
+      "sha256": "38954bc3cca68d1fa49d92a5fb715e854da8f7bb59ceade044aacdfb361eb984",
+      "bytes": 1597,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260822210500_repair_gbp_digest_search_paths.sql": {
+      "sha256": "80d99d24166252f9086bfb9a06fee76034647d1c8acb938d75502e4a448a7ee5",
+      "bytes": 1701,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "20260904150000_review_growth_engine.sql": {
+      "sha256": "8318fdbb6da6b766441b603783e2b26a0408b76fc56718ef72670d3e05e9ad16",
+      "bytes": 23793,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    },
+    "CONSOLIDATED_ALL_MIGRATIONS.sql": {
+      "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
+      "bytes": 31275,
+      "recordedAt": "2026-09-04T21:06:02.076Z",
+      "reviewed": true
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "timezone": "Europe/London",
+  "dedicatedWindow": { "start": "00:30", "end": "06:30" },
+  "nightlyStart": "00:45",
+  "disk": { "minFreeGiB": 100, "ciCapGiB": 120 },
+  "retention": {
+    "logs": { "days": 7, "maxGiB": 10 },
+    "evidence": { "days": 14 }
+  },
+  "polling": { "intervalSeconds": 30, "jitterSeconds": 10 },
+  "heartbeat": { "alertAfterMinutes": 15 },
+  "fallback": { "eligibilityAfterMinutes": 60 }
+}

@@ -37,4 +37,48 @@
       "invocation_logs": false,
     },
   },
+  // Staging is a fully separate Worker with its own D1 database, KV namespace and
+  // destination hosts. Wrangler does not inherit bindings or vars into named
+  // environments, so every value is restated here on purpose. REPLACE_ME_* values
+  // are placeholders: `pnpm deploy:validate-separation --env staging` rejects them
+  // until the staging resources have been provisioned and the real IDs recorded.
+  "env": {
+    "staging": {
+      "name": "nabatable-booking-short-links-staging",
+      "workers_dev": true,
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA",
+      },
+      "d1_databases": [
+        {
+          "binding": "BOOKING_SHORT_LINKS_DB",
+          "database_name": "nabatable-booking-short-links-staging",
+          "database_id": "REPLACE_ME_STAGING_SHORT_LINKS_D1_ID",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "BOOKING_SHORT_LINKS_CACHE",
+          "id": "REPLACE_ME_STAGING_SHORT_LINKS_KV_ID",
+          "preview_id": "REPLACE_ME_STAGING_SHORT_LINKS_KV_PREVIEW_ID",
+        },
+      ],
+      "vars": {
+        "SHORT_LINKS_PUBLIC_BASE_URL": "https://nabatable-booking-short-links-staging.REPLACE_ME_STAGING_WORKERS_SUBDOMAIN.workers.dev",
+        "BOOKING_SITE_URL": "https://nabatable-staging.vercel.app",
+        "ALLOWED_DESTINATION_HOSTS": "nabatable-staging.vercel.app,nabatable-staging-ops.vercel.app",
+        "ALLOWED_REVIEW_DESTINATION_HOSTS": "g.page,maps.app.goo.gl,google.com,google.co.uk,google.co.in,google.ca,google.com.au,google.ie,google.fr,google.de,google.es,google.it,google.nl",
+        "POSTHOG_HOST": "https://eu.i.posthog.com",
+        "ERROR_INSIGHT_WEBHOOK_URL": "https://nabatable-staging-ops.vercel.app/api/webhook/error-insight",
+        "REVIEW_TRACKING_WEBHOOK_URL": "https://nabatable-staging.vercel.app/api/webhook/review-link",
+      },
+      "observability": {
+        "enabled": true,
+        "logs": {
+          "invocation_logs": false,
+        },
+      },
+    },
+  },
 }
