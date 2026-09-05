@@ -27,6 +27,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- CI evidence collection now records unsupported object names before upload and includes operational-control Worker reports, preserving the strict R2 key policy and complete Worker results.
+
 - Executor jobs now keep home and the pnpm store on a disposable writable volume outside the source checkout, preserving the read-only container root and source-file checks.
 - Job images include Python for admission-hook tests; executable temporary fixtures use job-home storage while `/tmp` remains `noexec`. CI test fixtures now handle Linux home paths and offline package-manager isolation.
 

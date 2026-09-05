@@ -132,6 +132,8 @@ export const ARTEFACT_PATHS: readonly string[] = Object.freeze([
   'cloudflare/email-queue-gateway/test-results',
   'cloudflare/sms-summary-gateway/coverage',
   'cloudflare/sms-summary-gateway/test-results',
+  'cloudflare/operational-control/coverage',
+  'cloudflare/operational-control/test-results',
 ]);
 
 export interface ResolveExecutorProfileInput {

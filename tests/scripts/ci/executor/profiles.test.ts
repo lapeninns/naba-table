@@ -123,6 +123,20 @@ describe('resolveExecutorProfile', () => {
     expect(allowedEnvKeys(profile)).toContain('TMPDIR');
   });
 
+  it('collects reports from the operational control Worker as well as guest Workers', () => {
+    const profile = resolveExecutorProfile({
+      request: mainRequest(),
+      changedPaths: null,
+      allocation: null,
+    });
+    expect(profile.artefactPaths).toEqual(
+      expect.arrayContaining([
+        'cloudflare/operational-control/coverage',
+        'cloudflare/operational-control/test-results',
+      ]),
+    );
+  });
+
   it('skips conditional suites when the changed paths do not match, and runs them when unknown', () => {
     const skipped = resolveExecutorProfile({
       request: prRequest(),

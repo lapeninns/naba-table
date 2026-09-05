@@ -9,6 +9,7 @@ import {
 } from '../executor/docker/command';
 import type { CommandRunner } from '../executor/runner';
 import type { EvidenceFile, EvidenceRejection } from '../executor/types';
+import { isSafeEvidencePath } from './path';
 import { redactText } from './redact';
 
 /**
@@ -171,6 +172,10 @@ export function harvestStagedArtefacts(input: HarvestInput): HarvestResult {
 
   let total = 0;
   for (const candidate of candidates) {
+    if (!isSafeEvidencePath(candidate.relativePath)) {
+      rejected.push({ path: candidate.relativePath, reason: 'object-key' });
+      continue;
+    }
     const extension = path.extname(candidate.relativePath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(extension)) {
       rejected.push({ path: candidate.relativePath, reason: 'extension' });
