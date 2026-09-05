@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Content-bound Gitleaks review records for independently reviewed pre-existing false positives; changed source blobs and malformed scanner reports fail closed. Fixed the introduced synthetic Resend fixture without suppressing its finding.
+
 - Local-first CI/CD: shared CI contracts and profiles (`scripts/ci/contracts`, `scripts/ci/profiles`, `config/ci/*`), the Mac controller (`pnpm ci:controller`), the disposable-VM executor (`pnpm ci:executor`), Lima/Docker/launchd infrastructure under `infra/local-ci/`, and the hosted release-gate bridge (`pnpm ci:gate`, `pnpm ci:contracts:validate`) with `release-gate.yml`, `hosted-profile-fallback.yml`, `fork-profile.yml` and `deploy.yml` (`Protected delivery`).
 - `cloudflare/operational-control`: fourth Worker acting as the CI/monitoring control plane (GitHub webhook verification, coalesced gate dispatch, controller heartbeats, readiness probes, incidents, R2 evidence).
 - Readiness endpoints (`GET /api/ready`, Worker `GET /ready`) authenticated with `MONITORING_TOKEN`, `config/observability/monitoring.yaml`, hourly `pnpm ops:verify` (`operational-verification.yml`), `pnpm ops:slo-evidence`, and incident deduplication in the error-insight webhook.

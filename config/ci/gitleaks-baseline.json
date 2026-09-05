@@ -1,0 +1,675 @@
+{
+  "schemaVersion": 1,
+  "baselineReview": [
+    {
+      "ruleId": "generic-api-key",
+      "file": ".omo/evidence/gbp-wave1a-schema-driver.sql",
+      "startLine": 2479,
+      "endLine": 2479,
+      "sourceSha256": "c4c15abd107ef7e32094c69f2b54f6d82beaf6fecdd917559353d08586667e2c",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Schema-driver assertion compares a synthetic dotted encryption-format sentinel with literal IV/cipher/tag labels; used in synthetic OAuth completion calls, not real encrypted provider credentials."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": ".omo/evidence/gbp-wave2c-producers.broad.log",
+      "startLine": 237,
+      "endLine": 237,
+      "sourceSha256": "299a627e6b08411b0f57da001c638d93be811e823dc787709b7a5298865cc739",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Pre-existing operating-hours domain field identifier in captured test-diff output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": ".omo/evidence/gbp-wave2c-producers.broad.log",
+      "startLine": 245,
+      "endLine": 245,
+      "sourceSha256": "299a627e6b08411b0f57da001c638d93be811e823dc787709b7a5298865cc739",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Pre-existing operating-hours domain field identifier in captured test-diff output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": ".omo/evidence/gbp-wave2c-runtime-controls-red.log",
+      "startLine": 236,
+      "endLine": 236,
+      "sourceSha256": "f9893ec427a2ded4feee41b797119f443cd95501a9d741d7668ef9ede9b23253",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": ".omo/evidence/gbp-wave2c-runtime-controls-red.log",
+      "startLine": 244,
+      "endLine": 244,
+      "sourceSha256": "f9893ec427a2ded4feee41b797119f443cd95501a9d741d7668ef9ede9b23253",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/FINAL-PRODUCTION-DIAGNOSTIC.md",
+      "startLine": 146,
+      "endLine": 147,
+      "sourceSha256": "3c341e5e83b5af90b4214a99bf016571ae0e5f3f4d257724ee7eeb945bf9d906",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/RESOLUTION-QUEUE-WORKING.md",
+      "startLine": 225,
+      "endLine": 226,
+      "sourceSha256": "1074a13f34fc68f08888f318d1760553717f12937e0315a26e273ddd49a66ce5",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/URGENT-JOBS-BEING-LOST.md",
+      "startLine": 155,
+      "endLine": 156,
+      "sourceSha256": "ced8688aec3c5a5ebc68a51ec3a94e281b1bb9ff4e6452dad742886e235dce35",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/deep-dive-queue-missing-redis.md",
+      "startLine": 286,
+      "endLine": 287,
+      "sourceSha256": "a1a00837f7e64e04ff7f2f54c772ec2f0f33dda009df6e0eb362dc6090980622",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/email-queue-not-creating-jobs.md",
+      "startLine": 237,
+      "endLine": 238,
+      "sourceSha256": "f0519be2f61764867e91ab1aeb9c2b29dd82b7c87ea7c3b246fd8039f043380c",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/email-queue-not-creating-jobs.md",
+      "startLine": 316,
+      "endLine": 317,
+      "sourceSha256": "f0519be2f61764867e91ab1aeb9c2b29dd82b7c87ea7c3b246fd8039f043380c",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/diagnostics/production-diagnostic-report.md",
+      "startLine": 270,
+      "endLine": 271,
+      "sourceSha256": "ff3ef94ea39caf278c7c8626cfc77c7ff6ce255d7dc3d58c24d04406c863e6bc",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "curl-auth-header",
+      "file": "docs/redis-vercel-tasks.md",
+      "startLine": 286,
+      "endLine": 290,
+      "sourceSha256": "d661cd294a6947d5fc2e2fe12b4db3a5b4343eb77e2e2af34fc8bd50eb97492d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Example Authorization header contains an explicit operator-replacement placeholder, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/AvailabilitySettingsComponents.test.tsx",
+      "startLine": 425,
+      "endLine": 425,
+      "sourceSha256": "970f7c6e320c9d66361ddd4d819a7411229935090f414b4001d83639caaa0de5",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/GbpOmnichannelDriftProvider.test.tsx",
+      "startLine": 117,
+      "endLine": 117,
+      "sourceSha256": "000dab034f94e8955ff58981025fb5460e04ee0d0c31b8b2cf2a5e315ea5249c",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "startLine": 26,
+      "endLine": 26,
+      "sourceSha256": "8d50c74bd9f28df6346f8368363da302598c2096c140a1cd36978db94cf5139b",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "startLine": 85,
+      "endLine": 85,
+      "sourceSha256": "8d50c74bd9f28df6346f8368363da302598c2096c140a1cd36978db94cf5139b",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "startLine": 108,
+      "endLine": 108,
+      "sourceSha256": "8d50c74bd9f28df6346f8368363da302598c2096c140a1cd36978db94cf5139b",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-entry-gate.test.ts",
+      "startLine": 26,
+      "endLine": 26,
+      "sourceSha256": "1215f964f211ab85a8146852bce518ae02016fde76fc5f948dc609c8310e440e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Deterministic human-readable idempotency identifier in a mocked booking request or workflow row; used for duplicate-operation identity, not authorization."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-entry-gate.test.ts",
+      "startLine": 35,
+      "endLine": 35,
+      "sourceSha256": "1215f964f211ab85a8146852bce518ae02016fde76fc5f948dc609c8310e440e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Deterministic human-readable idempotency identifier in a mocked booking request or workflow row; used for duplicate-operation identity, not authorization."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-auto-export.test.ts",
+      "startLine": 69,
+      "endLine": 69,
+      "sourceSha256": "335db57e9509943e094605f9860b4f96a04d8b7a07fc94e0ad49d44ce3b1c5fc",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 226,
+      "endLine": 226,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 627,
+      "endLine": 627,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 631,
+      "endLine": 631,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 635,
+      "endLine": 635,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 673,
+      "endLine": 673,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 688,
+      "endLine": 688,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-export-ports.test.ts",
+      "startLine": 689,
+      "endLine": 689,
+      "sourceSha256": "1b2f26794305a3e10a4aa83b5c55a5bb8ac714343a9ba0ffc488b6a940ec3a49",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-operating-hours-import-port.test.ts",
+      "startLine": 60,
+      "endLine": 60,
+      "sourceSha256": "f65c2f8be514034ec6d8a88a644c234e0946a9b71bb2f413924afcc22ebb1249",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-operating-hours-import-port.test.ts",
+      "startLine": 144,
+      "endLine": 144,
+      "sourceSha256": "f65c2f8be514034ec6d8a88a644c234e0946a9b71bb2f413924afcc22ebb1249",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-batch-export.test.ts",
+      "startLine": 46,
+      "endLine": 46,
+      "sourceSha256": "d880d88331a60bf9f94ddb0dd3b6c8d94cc94552e836121ec64bbd90ab9a28d5",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-batch-export.test.ts",
+      "startLine": 72,
+      "endLine": 72,
+      "sourceSha256": "d880d88331a60bf9f94ddb0dd3b6c8d94cc94552e836121ec64bbd90ab9a28d5",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 113,
+      "endLine": 113,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 301,
+      "endLine": 301,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 309,
+      "endLine": 309,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 321,
+      "endLine": 321,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 340,
+      "endLine": 340,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 349,
+      "endLine": 349,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 431,
+      "endLine": 431,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-execution-phase.test.ts",
+      "startLine": 441,
+      "endLine": 441,
+      "sourceSha256": "725dd935755c6884b03b7ac638ffbd7dcfbf734c5da7dc5cc1f633090e670d6d",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 67,
+      "endLine": 67,
+      "sourceSha256": "2a7649f9129b3ee3be63b28a1f2f2b80e717d4e73317122947db3bace883e082",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 124,
+      "endLine": 124,
+      "sourceSha256": "2a7649f9129b3ee3be63b28a1f2f2b80e717d4e73317122947db3bace883e082",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-preflight.test.ts",
+      "startLine": 30,
+      "endLine": 30,
+      "sourceSha256": "d88a4ff2bf6fcd3ddbe3264512270cfbd1baf9c2fc3b716c1345c647c75a9a94",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-preflight.test.ts",
+      "startLine": 45,
+      "endLine": 45,
+      "sourceSha256": "d88a4ff2bf6fcd3ddbe3264512270cfbd1baf9c2fc3b716c1345c647c75a9a94",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-snapshot-pins.test.ts",
+      "startLine": 140,
+      "endLine": 140,
+      "sourceSha256": "f199207b0764fb94001254ff5ad3c0f83f2401bc51e305bedefb2fe4531fd0b4",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-snapshot-pins.test.ts",
+      "startLine": 221,
+      "endLine": 221,
+      "sourceSha256": "f199207b0764fb94001254ff5ad3c0f83f2401bc51e305bedefb2fe4531fd0b4",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 670,
+      "endLine": 670,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 731,
+      "endLine": 731,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1039,
+      "endLine": 1039,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1044,
+      "endLine": 1044,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1220,
+      "endLine": 1220,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1227,
+      "endLine": 1227,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1252,
+      "endLine": 1252,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1257,
+      "endLine": 1257,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1281,
+      "endLine": 1281,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1300,
+      "endLine": 1300,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1317,
+      "endLine": 1317,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1324,
+      "endLine": 1324,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1343,
+      "endLine": 1343,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1348,
+      "endLine": 1348,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1365,
+      "endLine": 1365,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1372,
+      "endLine": 1372,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1391,
+      "endLine": 1391,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator.test.ts",
+      "startLine": 1396,
+      "endLine": 1396,
+      "sourceSha256": "2497a7246103acf9a5f2e5e6b1b245309abcf86ac127035a9e783e0cf9cc671e",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-replay-runner.test.ts",
+      "startLine": 458,
+      "endLine": 458,
+      "sourceSha256": "3feb2879ebc8341b8c4ee8e70d99cb9fd1b3b69ad60dee3aeeffde00c839bcb8",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/google-business-profile-workflow-mappers.test.ts",
+      "startLine": 178,
+      "endLine": 178,
+      "sourceSha256": "6058e98e5d1f57bf10e11d5137929c402b1853d3e2252833cc3bac4112435bd8",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Deterministic human-readable idempotency identifier in a mocked booking request or workflow row; used for duplicate-operation identity, not authorization."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/google-business-profile-workflow-rollback.test.ts",
+      "startLine": 54,
+      "endLine": 54,
+      "sourceSha256": "9b5c56f33499bb7ce3ed004c0bbc27e496c09dbf71044eca5b56e049003d3f77",
+      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
+      "reviewedAt": "2026-09-05",
+      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    }
+  ]
+}

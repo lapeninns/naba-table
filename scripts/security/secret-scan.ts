@@ -1,8 +1,15 @@
 #!/usr/bin/env tsx
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  filterGitleaksFindings,
+  parseGitleaksBaseline,
+  parseGitleaksReport,
+} from './gitleaks-baseline';
 
 type SecretPattern = {
   name: string;
@@ -191,16 +198,55 @@ function scanFile(file: string): SecretFinding[] {
   return scanSecretText(buffer.toString('utf8'), file);
 }
 
+function runGitleaks(): boolean {
+  const directory = fs.mkdtempSync(path.join(tmpdir(), 'nabatable-gitleaks-'));
+  try {
+    const reportPath = path.join(directory, 'report.json');
+    fs.writeFileSync(reportPath, '', { mode: 0o600 });
+    const result = run('gitleaks', [
+      'detect',
+      '--no-banner',
+      '--redact=100',
+      '--report-format=json',
+      '--report-path',
+      reportPath,
+    ]);
+    if (result.status !== 0 && result.status !== 1) throw new Error('Unexpected scanner exit');
+    if (fs.statSync(reportPath).size > 20 * 1024 * 1024)
+      throw new Error('Oversized scanner report');
+    const findings = parseGitleaksReport(JSON.parse(fs.readFileSync(reportPath, 'utf8')));
+    if ((result.status === 0) !== (findings.length === 0))
+      throw new Error('Inconsistent scanner result');
+    const baseline = parseGitleaksBaseline(
+      JSON.parse(fs.readFileSync('config/ci/gitleaks-baseline.json', 'utf8')),
+    );
+    const filtered = filterGitleaksFindings(findings, baseline);
+    if (filtered.unmatched.length > 0) {
+      console.error(
+        `[secret:scan] gitleaks reported ${filtered.unmatched.length} unreviewed finding(s).`,
+      );
+      return false;
+    }
+    if (filtered.baselined > 0)
+      console.log(
+        `[secret:scan] gitleaks matched ${filtered.baselined} content-bound reviewed finding(s).`,
+      );
+    return true;
+  } catch {
+    // Never expose scanner output, report contents, or Git/provider errors.
+    console.error('[secret:scan] gitleaks scan or baseline validation failed.');
+    return false;
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 function runExternalScanners(): ExternalScannerResult {
   let failures = 0;
   const missing: string[] = [];
 
   if (commandExists('gitleaks')) {
-    const result = run('gitleaks', ['detect', '--no-banner', '--redact']);
-    // Scanner output can contain discovered credentials, even on stderr.
-    // Keep the CI log limited to status; investigate findings in a secure local run.
-    if (result.status !== 0) console.error(`[secret:scan] gitleaks exited ${result.status}.`);
-    if (result.status !== 0) failures += 1;
+    if (!runGitleaks()) failures += 1;
   } else {
     missing.push('gitleaks');
   }

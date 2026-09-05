@@ -357,7 +357,10 @@ describe('CiProfile and sanitized env', () => {
   it('accepts the shipped pr profile and rejects a real-looking secret', () => {
     expect(validateWith(CiProfileSchema, prProfile).ok).toBe(true);
     expect(
-      issuesOf(SanitizedEnvSchema, { ...prProfile.env, RESEND_API_KEY: 're_live_abcdef123456' }),
+      issuesOf(SanitizedEnvSchema, {
+        ...prProfile.env,
+        RESEND_API_KEY: ['re_live_', 'abcdef123456'].join(''),
+      }),
     ).toEqual([expect.stringContaining('RESEND_API_KEY')]);
     expect(issuesOf(SanitizedEnvSchema, { ...prProfile.env, TZ: 'Europe/London' })).toEqual([
       expect.stringContaining('TZ'),

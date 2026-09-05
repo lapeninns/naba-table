@@ -66,7 +66,7 @@ Hosted workflows pin Node 22 (`activeRuntime`). Production Vercel builds already
 - required hosted lanes have no `paths`/`paths-ignore`/`branches` filters on `pull_request` and run on every push to main;
 - no `pull_request_target` workflow checks out the PR head;
 - every `uses:` is pinned to a 40-character commit SHA (a `TODO-PIN` comment downgrades to a warning, except in `Release gate`, `Protected delivery` and any job under the `Production` or `Staging` environment, where a tag pin is always a violation);
-- the `Security guards` step that runs `pnpm secret:scan` is preceded by Gitleaks and TruffleHog installs from SHA-256-verified release archives; the hosted workflow does not allow the built-in-only fallback. The wrapper preserves the job PATH and logs external scanner exit status only, because raw scanner output can expose discovered credentials; investigate scanner failures in a secure local environment;
+- the `Security guards` step that runs `pnpm secret:scan` is preceded by Gitleaks and TruffleHog installs from SHA-256-verified release archives; the hosted workflow does not allow the built-in-only fallback. The wrapper preserves the job PATH and logs only scanner status and finding counts, because raw scanner output can expose discovered credentials; investigate scanner failures in a secure local environment;
 - every checkout sets `persist-credentials: false`; every `setup-node` pins Node 22;
 - `release-gate.yml` checks out `main` only, has `timeout-minutes: 3`, exactly the contract permissions, a concurrency group, and a `tsx` pin equal to the lockfile;
 - `Protected delivery` jobs are guarded by `github.ref == 'refs/heads/main'` and Production jobs never cancel in progress; while it carries a `workflow_run` trigger, its root job is additionally guarded by `vars.PROTECTED_DELIVERY_AUTOMATION == 'enabled'`; every job that runs `pnpm db:migrate` first runs `pnpm deploy:validate-separation --env <DB_TARGET_ENV>`, `pnpm db:link` and `pnpm db:plan-remote`, in that order;
@@ -104,3 +104,11 @@ Run after a repository transfer, rename, App reinstall, or environment recreatio
 2. Open a tracked issue per baselined alert and replace `REPLACE_ME_TRACKED_ISSUE` with it; a fix removes the alert and its baseline entry together.
 3. Bump `policyVersion` whenever the baseline changes and have the change reviewed independently of the PR that introduced the code.
 4. Never baseline an alert introduced by the PR under review; fix it instead.
+
+### Reviewed Gitleaks findings
+
+`config/ci/gitleaks-baseline.json` records only independently reviewed, pre-existing false positives. Each `baselineReview` entry names the rule, file, line range, full source blob SHA-256, source commit, review date, and reason. The initial 67 records cover domain identifiers, documentation placeholders, deterministic test identifiers, and a synthetic encrypted-token sentinel already present on `main`. The introduced Resend test fixture was fixed without suppression.
+
+The scanner wrapper hashes the file from the finding's reported Git commit before accepting a review. Changing that file, including replacing a value at the same location, invalidates the review. Missing source blobs, malformed reports, inconsistent exit codes, and invalid manifests fail closed. Reports are redacted, privately stored, and removed after use. No path or rule is excluded wholesale. Never add a review for a finding introduced by the PR under review.
+
+Hosted checkout depth determines the history Gitleaks inspects. Local full-history scans can expose older findings outside these reviewed blobs and must be investigated separately; this baseline does not claim that all repository history is clean.

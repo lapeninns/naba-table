@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -15,11 +16,57 @@ afterEach(() => {
   }
 });
 
-function runWithScanners(exitCode: number) {
+const reviewedBlob = 'reviewed synthetic fixture bytes';
+const reportedFinding = {
+  RuleID: 'test-rule',
+  File: 'fixture.ts',
+  StartLine: 1,
+  EndLine: 1,
+  Commit: 'a'.repeat(40),
+  Secret: 'REDACTED',
+  Match: 'REDACTED',
+};
+
+function runWithScanners(
+  exitCode: number,
+  options: {
+    report?: string;
+    missingReport?: boolean;
+    reviewed?: boolean;
+    blob?: string;
+    trufflehogExit?: number;
+  } = {},
+) {
   const directory = mkdtempSync(path.join(tmpdir(), 'secret-scan-cli-'));
   temporaryDirectories.push(directory);
   const bin = path.join(directory, 'bin');
   mkdirSync(bin);
+  mkdirSync(path.join(directory, 'config', 'ci'), { recursive: true });
+  writeFileSync(
+    path.join(directory, 'config', 'ci', 'gitleaks-baseline.json'),
+    JSON.stringify({
+      schemaVersion: 1,
+      baselineReview: options.reviewed
+        ? [
+            {
+              ruleId: reportedFinding.RuleID,
+              file: reportedFinding.File,
+              startLine: 1,
+              endLine: 1,
+              sourceSha256: createHash('sha256').update(reviewedBlob).digest('hex'),
+              sourceCommit: 'b'.repeat(40),
+              reviewedAt: '2026-09-05',
+              reason: 'Reviewed synthetic fixture.',
+            },
+          ]
+        : [],
+    }),
+  );
+  writeFileSync(
+    path.join(directory, 'fixture-report.json'),
+    options.report ?? JSON.stringify(exitCode === 0 ? [] : [reportedFinding]),
+  );
+  writeFileSync(path.join(directory, 'fixture-blob'), options.blob ?? reviewedBlob);
   // Model a hosted runner login profile that resets PATH to system directories.
   writeFileSync(
     path.join(bin, 'sh'),
@@ -29,14 +76,22 @@ function runWithScanners(exitCode: number) {
   const sensitiveOutput = 'scanner-sensitive-output-must-stay-private';
   for (const name of ['gitleaks', 'trufflehog']) {
     const file = path.join(bin, name);
+    const reportCommand =
+      name === 'gitleaks' && !options.missingReport
+        ? 'while [ "$#" -gt 0 ]; do if [ "$1" = "--report-path" ]; then shift; /bin/cp fixture-report.json "$1"; break; fi; shift; done\n'
+        : '';
+    const status = name === 'trufflehog' ? (options.trufflehogExit ?? exitCode) : exitCode;
     writeFileSync(
       file,
-      `#!/bin/sh\necho '${sensitiveOutput}'\necho '${sensitiveOutput}' >&2\nexit ${exitCode}\n`,
+      `#!/bin/sh\n${reportCommand}echo '${sensitiveOutput}'\necho '${sensitiveOutput}' >&2\nexit ${status}\n`,
     );
     chmodSync(file, 0o755);
   }
   // The scan only needs a file inventory, so no repository or external tools are contacted.
-  writeFileSync(path.join(bin, 'git'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(
+    path.join(bin, 'git'),
+    '#!/bin/sh\nif [ "$1" = "show" ]; then /bin/cat fixture-blob; fi\nexit 0\n',
+  );
   chmodSync(path.join(bin, 'git'), 0o755);
   const result = spawnSync(process.execPath, [require.resolve('tsx/cli'), scannerPath], {
     cwd: directory,
@@ -57,6 +112,37 @@ describe('secret scanner CLI integration', () => {
     expect(result.error).toBeUndefined();
     expect(result.status, result.output).toBe(0);
     expect(result.output).not.toContain('missing required external scanner');
+  });
+
+  it('allows a reviewed finding only when the scanned Git blob matches', () => {
+    const result = runWithScanners(1, { reviewed: true, trufflehogExit: 0 });
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).toContain('1 content-bound reviewed finding');
+    expect(result.output).not.toContain(result.sensitiveOutput);
+  });
+
+  it('fails when a previously reviewed file contains replacement bytes', () => {
+    const result = runWithScanners(1, {
+      reviewed: true,
+      blob: 'replacement bytes',
+      trufflehogExit: 0,
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('1 unreviewed finding');
+  });
+
+  it.each([
+    { exit: 1, options: { report: '[]' } },
+    { exit: 0, options: { report: '{}' } },
+    { exit: 0, options: { report: 'private malformed report' } },
+    { exit: 0, options: { missingReport: true } },
+    { exit: 2, options: { report: '[]' } },
+  ])('fails closed for scanner errors or invalid reports: %j', ({ exit, options }) => {
+    const result = runWithScanners(exit, options);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('gitleaks scan or baseline validation failed');
+    expect(result.output).not.toContain('private malformed report');
+    expect(result.output).not.toContain(result.sensitiveOutput);
   });
 
   it('fails closed on scanner findings without printing their raw credential output', () => {
