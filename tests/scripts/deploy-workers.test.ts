@@ -11,6 +11,7 @@ import {
   envArgs,
   main,
   parseLatestVersionId,
+  parseActiveVersionId,
   parseVersionId,
   resolveWorkerBaseUrl,
   versionsUnsupported,
@@ -52,12 +53,15 @@ function fakeWrangler(options: { supportsVersions: boolean }): {
   const runner: CommandRunner = (command, args) => {
     calls.push([command, ...args]);
     const [group, action] = args;
-    if (group === 'versions' && action === 'list') {
+    if (group === 'deployments' && action === 'list') {
       return options.supportsVersions
         ? {
             status: 0,
             stdout: JSON.stringify([
-              { id: OLD_VERSION, metadata: { created_on: '2026-09-01T00:00:00Z' } },
+              {
+                versions: [{ version_id: OLD_VERSION, percentage: 100 }],
+                created_on: '2026-09-01T00:00:00Z',
+              },
               {
                 id: 'older-version-id-0000-0000-000000000000',
                 metadata: { created_on: '2026-08-01T00:00:00Z' },
@@ -78,6 +82,9 @@ function fakeWrangler(options: { supportsVersions: boolean }): {
     }
     if (group === 'versions' && action === 'deploy') {
       return { status: 0, stdout: 'Deployed', stderr: '' };
+    }
+    if (group === 'triggers' && action === 'deploy') {
+      return { status: 0, stdout: 'Triggers configured', stderr: '' };
     }
     if (group === 'deploy') {
       return { status: 0, stdout: `Current Version ID: ${NEW_VERSION}`, stderr: '' };
@@ -100,6 +107,37 @@ function readyFetch(revision: string) {
 }
 
 describe('deploy:workers', () => {
+  it('selects the currently deployed version, not a newer uploaded version @deploy', () => {
+    expect(
+      parseActiveVersionId(
+        JSON.stringify([
+          {
+            created_on: '2026-09-01T00:00:00Z',
+            versions: [{ version_id: NEW_VERSION, percentage: 100 }],
+          },
+          {
+            created_on: '2026-09-05T00:00:00Z',
+            versions: [{ version_id: OLD_VERSION, percentage: 100 }],
+          },
+        ]),
+      ),
+    ).toBe(OLD_VERSION);
+    expect(
+      parseActiveVersionId(
+        JSON.stringify([
+          {
+            created_on: '2026-09-05',
+            versions: [
+              { version_id: OLD_VERSION, percentage: 50 },
+              { version_id: NEW_VERSION, percentage: 50 },
+            ],
+          },
+        ]),
+      ),
+    ).toBeNull();
+    expect(parseActiveVersionId('invalid')).toBeNull();
+  });
+
   const tempDirs: string[] = [];
   const tempDir = () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'worker-deploy-'));
@@ -187,9 +225,10 @@ describe('deploy:workers', () => {
     expect(evidence.rollbackCommand).toContain('--env staging');
     const configPath = path.join(ROOT, 'cloudflare', 'sms-summary-gateway', 'wrangler.jsonc');
     expect(calls.map((call) => call.slice(0, 3).join(' '))).toEqual([
-      'wrangler versions list',
+      'wrangler deployments list',
       'wrangler versions upload',
       'wrangler versions deploy',
+      'wrangler triggers deploy',
     ]);
     for (const call of calls) {
       expect(call).toContain('--config');
@@ -234,7 +273,7 @@ describe('deploy:workers', () => {
     expect(evidence.strategy).toBe('deploy');
     expect(evidence.previousVersionId).toBeNull();
     expect(calls.map((call) => call.slice(0, 3).join(' '))).toEqual([
-      'wrangler versions list',
+      'wrangler deployments list',
       'wrangler d1 migrations',
       'wrangler versions upload',
       'wrangler deploy --config',
@@ -365,9 +404,10 @@ describe('deploy:workers', () => {
     }
     expect(seen).toEqual(['https://email-staging.example.workers.dev/ready']);
     expect(calls.map((call) => call.slice(0, 3).join(' '))).toEqual([
-      'wrangler versions list',
+      'wrangler deployments list',
       'wrangler versions upload',
       'wrangler versions deploy',
+      'wrangler triggers deploy',
     ]);
     const written = JSON.parse(readFileSync(evidencePath, 'utf8')) as {
       worker: string;

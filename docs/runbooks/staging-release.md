@@ -87,26 +87,28 @@ Record the real values in the places below; the validator fails closed until the
 
 Verified in Cloudflare account `9b153af11227b03e23dea343d5fc232f`:
 
-| Staging resource                               | Provider identifier                    |
-| ---------------------------------------------- | -------------------------------------- |
-| `nabatable-booking-short-links-staging` D1     | `1d6fbc04-eb7f-48f5-a673-bb3420d39347` |
-| `BOOKING_SHORT_LINKS_CACHE_staging` KV         | `a4a50885b0fc47bc928fe602c53e4287`     |
-| `BOOKING_SHORT_LINKS_CACHE_staging_preview` KV | `5d3db9428e7d4a7ebad8557ae3de184b`     |
-| Worker account subdomain                       | `amanshresthaaaaa.workers.dev`         |
+| Staging resource                                | Provider identifier                    |
+| ----------------------------------------------- | -------------------------------------- |
+| `nabatable-booking-short-links-staging` D1      | `1d6fbc04-eb7f-48f5-a673-bb3420d39347` |
+| `BOOKING_SHORT_LINKS_CACHE_staging` KV          | `a4a50885b0fc47bc928fe602c53e4287`     |
+| `BOOKING_SHORT_LINKS_CACHE_staging_preview` KV  | `5d3db9428e7d4a7ebad8557ae3de184b`     |
+| `nabatable-sms-daily-summary-staging` queue     | `35972083eaaf4ab892d0a7d6f9010190`     |
+| `nabatable-sms-daily-summary-staging-dlq` queue | `f8a2935814ab43b58a943fa281d4e38e`     |
+| Worker account subdomain                        | `amanshresthaaaaa.workers.dev`         |
 
 The D1 database already existed. Both staging KV namespaces were created on
 2026-09-05 and are separate from production and its preview namespace. Recording
 these bindings does not deploy the Worker or verify its schema, secrets or readiness.
-The SMS staging hostname uses this account subdomain; that Worker still needs provisioning.
+Both staging queues were created without producers or consumers on the same date. The SMS staging hostname uses this account subdomain; that Worker still needs provisioning.
 
 The three production customer Workers are connected to `lapeninns/nabatable`
 through Cloudflare Workers Builds. Each build command runs its package-specific
 `verify` script, for example `pnpm --filter @nabatable/email-queue-gateway verify`.
-Each deploy command runs `deploy:validate-separation --env production` before
+Each deploy command runs `deploy:validate-separation --env production --workers-only` before
 `deploy:workers --env production --worker <name>`, passing the checked-out Git
 revision and the corresponding Worker origin. Non-production branch builds are disabled.
 The provider stores its deployment token. This connection does not establish
-release readiness: remaining identities, monitoring secrets and staging evidence
+release readiness: monitoring secrets, runtime provisioning and staging evidence
 must be supplied before deployment can pass.
 
 ## Commands
@@ -218,3 +220,11 @@ done
 Hosted workflows run Node 22 (`activeRuntime: node22`); production Vercel runs
 Node 24 (`candidateRuntime: node24`). Deployment and release evidence records
 both until the CI profiles are qualified on Node 24.
+
+### Worker-only releases
+
+Use `pnpm deploy:validate-separation --env staging --workers-only` (or `--env production`) when releasing only Cloudflare Workers. This checks every Worker, including operational control, and rejects shared storage, production hosts in staging, placeholders, and production process identities. It does not require a Vercel project. Full-stack releases must continue using the default validation command, which also checks Vercel configuration and project separation.
+
+GitHub repository, CI App and workflow numeric IDs may be shared between environments only in operational-control. They identify the common source repository and trusted workflows; R2 buckets, Worker names, readiness targets and storage remain separate. The scheduled validation ID is the registered `operational-verification.yml` workflow. Operational control is configured to expose its signed-webhook and bearer-authenticated endpoints through its workers.dev hostname; it carries no guest traffic.
+
+Worker version deployments apply routes and cron schedules with `wrangler triggers deploy` before readiness verification. Rollback evidence records the version from the latest active deployment, including when production was rolled back to an older upload.

@@ -32,6 +32,7 @@ Run the narrowest relevant test while iterating, then `pnpm verify` before hando
 - Release gate bridge (hosted): `pnpm ci:gate`
 - Database promotion safety: `pnpm db:plan-remote`, `pnpm db:sql-regression`, `pnpm db:check-migration-immutability`, `pnpm db:backup`, `pnpm db:restore-verify`
 - Staging separation and deploys: `pnpm deploy:validate-separation --env staging`, `pnpm deploy:staging-lock`, `pnpm deploy:vercel:prebuilt --env staging`, `pnpm deploy:vercel:promote`, `pnpm deploy:workers --env staging --worker <name>`, `pnpm e2e:staging`
+- Worker-only separation: `pnpm deploy:validate-separation --env staging --workers-only` validates all Worker resources and process identities without requiring an unrelated Vercel project. Omit the flag for a complete web/Worker release.
 - Release evidence: `pnpm release:manifest`, `pnpm release:sbom`
 - Operations and recovery: `pnpm ops:verify`, `pnpm ops:slo-evidence`, `pnpm recovery:drill`, `pnpm recovery:evidence:check`
 

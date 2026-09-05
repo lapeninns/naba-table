@@ -80,6 +80,63 @@ describe('deploy:validate-separation', () => {
     for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
 
+  it('validates Worker releases without requiring a Vercel project @deploy', () => {
+    const report = validateSeparation({
+      target: 'staging',
+      scope: 'workers',
+      workers: [shortLinksConfig({})],
+    });
+    expect(report.ok).toBe(true);
+    expect(report.scope).toBe('workers');
+    expect(
+      validateSeparation({
+        target: 'staging',
+        scope: 'workers',
+        workers: [shortLinksConfig({ stagingKvId: 'prodkv0000000000000000000000009' })],
+      }).ok,
+    ).toBe(false);
+  });
+
+  it('allows shared numeric GitHub identities only in operational control and rejects placeholders @deploy @security', () => {
+    const make = (id: string): WorkerConfigInput => ({
+      worker: 'operational-control',
+      source: 'memory://control',
+      config: {
+        name: 'control',
+        vars: { REPOSITORY_ID: id },
+        env: { staging: { name: 'control-staging', vars: { REPOSITORY_ID: id } } },
+      },
+    });
+    expect(
+      validateSeparation({
+        target: 'staging',
+        workers: [make('123')],
+        environments: CONFIGURED_ENVIRONMENTS,
+      }).ok,
+    ).toBe(true);
+    expect(
+      validateSeparation({
+        target: 'staging',
+        workers: [make('REPLACE_ME_ID')],
+        environments: CONFIGURED_ENVIRONMENTS,
+      }).findings,
+    ).toContainEqual(expect.objectContaining({ reason: 'placeholder' }));
+    expect(
+      validateSeparation({
+        target: 'staging',
+        workers: [make('invalid')],
+        environments: CONFIGURED_ENVIRONMENTS,
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateSeparation({
+        target: 'staging',
+        workers: [{ ...make('123'), worker: 'email-queue-gateway' }],
+        environments: CONFIGURED_ENVIRONMENTS,
+      }).ok,
+    ).toBe(false);
+  });
+
   it('passes a fully separated staging config @deploy @contract', () => {
     const report = validateSeparation({
       target: 'staging',
@@ -211,9 +268,8 @@ describe('deploy:validate-separation', () => {
       false,
     );
     expect(reasons.has('missing-env-block')).toBe(false);
-    // Placeholders are expected until staging resources exist; they must fail closed.
-    expect(staging.ok).toBe(false);
-    expect([...reasons]).toEqual(['placeholder']);
+    expect(staging.ok).toBe(true);
+    expect([...reasons]).toEqual([]);
 
     const production = validateSeparation({
       target: 'production',
@@ -226,16 +282,8 @@ describe('deploy:validate-separation', () => {
       (finding) => finding.scope !== 'operational-control',
     );
     expect(customerFindings, JSON.stringify(production.findings, null, 2)).toEqual([]);
-    // The control-plane Worker ships with REPLACE_ME_* identifiers (GitHub ids, R2 bucket) that
-    // only exist after provisioning; they must fail closed for production too, never inherit.
-    const controlFindings = production.findings.filter(
-      (finding) => finding.scope === 'operational-control',
-    );
-    expect(controlFindings.length).toBeGreaterThan(0);
-    expect(new Set(controlFindings.map((finding) => finding.reason))).toEqual(
-      new Set(['placeholder']),
-    );
-    expect(production.ok).toBe(false);
+    expect(production.findings).toEqual([]);
+    expect(production.ok).toBe(true);
   });
 
   it('fails closed with the default descriptors until Vercel project ids are recorded @deploy', () => {
