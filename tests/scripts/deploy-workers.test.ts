@@ -248,6 +248,42 @@ describe('deploy:workers', () => {
     expect(JSON.stringify(written)).not.toContain('fake-monitoring-token');
   });
 
+  it('creates a missing Worker on the provider first-deploy response and still verifies readiness @deploy', async () => {
+    const dir = tempDir();
+    const evidenceFile = path.join(dir, 'separation.json');
+    writeFileSync(evidenceFile, JSON.stringify(separationEvidence()));
+    const fake = fakeWrangler({ supportsVersions: true });
+    const runner: CommandRunner = (command, args, options) => {
+      if (args[0] === 'deployments') return { status: 1, stdout: '', stderr: 'Worker not found' };
+      if (args[0] === 'versions' && args[1] === 'upload')
+        return {
+          status: 1,
+          stdout: '',
+          stderr:
+            'You cannot upload a new version of a Worker that does not yet exist. Please run the `deploy` command first.',
+        };
+      return fake.runner(command, args, options);
+    };
+    const result = await deployWorker({
+      worker: 'sms-summary-gateway',
+      target: 'staging',
+      sourceRevision: SHA,
+      monitoringToken: 'fake-monitoring-token',
+      rootDir: ROOT,
+      separationEvidencePath: evidenceFile,
+      evidencePath: path.join(dir, 'deploy.json'),
+      baseUrl: 'https://sms-staging.example.workers.dev',
+      runner,
+      fetchImpl: readyFetch(SHA),
+      env: {},
+      now: () => NOW,
+    });
+    expect(result.strategy).toBe('deploy');
+    expect(result.verified).toBe(true);
+    expect(result.previousVersionId).toBeNull();
+    expect(fake.calls[0]?.slice(0, 2)).toEqual(['wrangler', 'deploy']);
+  });
+
   it('falls back to wrangler deploy when versions are unsupported and applies D1 migrations first @deploy', async () => {
     const dir = tempDir();
     const separationEvidencePath = path.join(dir, 'separation-production.json');

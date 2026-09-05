@@ -309,7 +309,12 @@ export async function deployWorker(
     invokeOrThrow(['versions', 'deploy', `${versionId}@100%`, ...commonArgs, '--yes']);
     // Version uploads do not apply routes, workers.dev or cron schedules.
     invokeOrThrow(['triggers', 'deploy', ...commonArgs]);
-  } else if (versionsUnsupported(upload)) {
+  } else if (
+    versionsUnsupported(upload) ||
+    /You cannot upload a new version of a Worker that does not yet exist\. Please run the `deploy` command first\./u.test(
+      upload.stderr,
+    )
+  ) {
     strategy = 'deploy';
     const deployed = invokeOrThrow(['deploy', ...commonArgs, ...varArgs]);
     versionId = parseVersionId(`${deployed.stdout}\n${deployed.stderr}`);
