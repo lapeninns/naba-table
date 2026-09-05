@@ -7,7 +7,11 @@ const workerBoundaryConfigs = [
         {
           patterns: [
             {
-              group: ['../../email-queue-gateway/**', '../../sms-summary-gateway/**'],
+              group: [
+                '../../email-queue-gateway/**',
+                '../../sms-summary-gateway/**',
+                '../../operational-control/**',
+              ],
               message:
                 'Booking short-links must not depend on another deployable Worker. Move shared contracts to cloudflare/shared.',
             },
@@ -24,7 +28,11 @@ const workerBoundaryConfigs = [
         {
           patterns: [
             {
-              group: ['../../booking-short-links/**', '../../sms-summary-gateway/**'],
+              group: [
+                '../../booking-short-links/**',
+                '../../sms-summary-gateway/**',
+                '../../operational-control/**',
+              ],
               message:
                 'Email queue gateway must not depend on another deployable Worker. Move shared contracts to cloudflare/shared.',
             },
@@ -41,9 +49,34 @@ const workerBoundaryConfigs = [
         {
           patterns: [
             {
-              group: ['../../booking-short-links/**', '../../email-queue-gateway/**'],
+              group: [
+                '../../booking-short-links/**',
+                '../../email-queue-gateway/**',
+                '../../operational-control/**',
+              ],
               message:
                 'SMS summary gateway must not depend on another deployable Worker. Move shared contracts to cloudflare/shared.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['cloudflare/operational-control/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '../../booking-short-links/**',
+                '../../email-queue-gateway/**',
+                '../../sms-summary-gateway/**',
+              ],
+              message:
+                'Operational control must not depend on another deployable Worker. Move shared contracts to cloudflare/shared.',
             },
           ],
         },

@@ -1,0 +1,55 @@
+# Nabatable recovery policy (source of truth for backup cadence, drill cadence and
+# recovery objectives). Validated by scripts/db/backup/policy.ts; every consumer must
+# load it through that validator and fail closed on any deviation.
+#
+# Format: YAML. Time units are explicit in the key names.
+policyVersion: 1
+rpoHours: 24
+rtoHours: 4
+
+# Provider-managed daily physical backup. We never assume it is restorable for us
+# without the supported Supabase procedure; it is one copy, not the recovery plan.
+nativeBackup: supabase-daily-physical
+nativeRetentionDays: 7
+
+# Independent logical backup taken by scripts/db/backup/run.ts with a dedicated
+# read-only identity, encrypted client-side and stored in a bucket that is separate
+# from CI evidence storage.
+independentBackup:
+  intervalHours: 12
+  retentionDays: 7
+  maxAgeHours: 24
+  warnAtHours: 18
+
+# Point-in-time recovery. `disabled_optional` means PITR is a paid add-on we have not
+# enabled. It MUST NEVER be rendered as "enabled" anywhere (checks, evidence, docs).
+# inspectedAt is a placeholder until an operator records a real inspection.
+pitr:
+  state: disabled_optional
+  inspectedAt: REPLACE_ME_PITR_INSPECTED_AT
+  rule: disabled_optional must never be rendered as enabled
+
+# Restore drill cadence and the evidence freshness thresholds used by
+# scripts/db/restore/evidence-check.ts.
+drill:
+  intervalDays: 14
+  maxSuccessfulAgeDays: 30
+  warnAtDays: 21
+
+# Encrypted backup bucket. Separate from the CI evidence bucket by construction; the
+# validator refuses any value that still carries the REPLACE_ME_ placeholder prefix
+# as "unconfigured" and the CLI refuses to upload.
+bucket: REPLACE_ME_ENCRYPTED_BACKUP_BUCKET
+ciEvidenceBucket: REPLACE_ME_CI_EVIDENCE_BUCKET
+
+# Denylisted Supabase project refs for restore drills. These can never be a drill
+# target. Additional refs can be added at runtime via RESTORE_PROJECT_REF_DENYLIST.
+protectedProjectRefs:
+  production: vrdiqfudmwydclqpydee
+  staging: ndxmivcrehsacuerwxtm
+
+# Effective recovery window inputs (see scripts/db/backup/recovery-window.ts).
+# overhangDays covers the time a copy can outlive its nominal retention because
+# backups are taken at intervals and deletion runs after the last interval expires.
+recoveryWindow:
+  overhangDays: 1

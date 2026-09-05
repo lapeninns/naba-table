@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "trustedRepositoryId": "REPLACE_ME_REPOSITORY_ID",
+  "actorPolicy": {
+    "localActors": [],
+    "automationIdentities": [
+      "dependabot[bot]",
+      "github-actions[bot]",
+      "github-merge-queue[bot]",
+      "release-please[bot]",
+      "renovate[bot]"
+    ],
+    "automationRoute": "hosted",
+    "unknownActorRoute": "hosted"
+  },
+  "ignoredSignals": ["labels", "branchNames", "commitMessages", "pullRequestTitles"]
+}

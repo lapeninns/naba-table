@@ -88,7 +88,12 @@ before its delegated command.
 - `pnpm db:status` — list remote migration status.
 - `pnpm db:migrate` or `pnpm db:push` — apply pending migrations.
 - `pnpm db:pull` — pull the linked remote schema.
-- `pnpm db:check-drift` — compare the linked remote schema with the repository baseline.
+- `pnpm db:check-drift` — compare the linked remote schema with the repository baseline (extended inventory by default; needs `SUPABASE_DB_URL` and the committed `config/db/schema-inventory.json`).
+- `pnpm db:plan-remote` — real `supabase db push --dry-run` against the validated linked target (link/host/user/API ref checks, ledger reconciliation, immutability census) in an isolated workdir.
+- `pnpm db:sql-regression` — staging-only SQL regression pack with synthetic fixtures inside `BEGIN..ROLLBACK`.
+- `pnpm db:check-migration-immutability` — compare applied migrations with `config/db/migration-checksums.json`; `--record --reviewed` appends new files only.
+- `pnpm db:backup` — guarded delegation to the encrypted backup runner under the dedicated read-only `DB_BACKUP_ROLE_URL` identity.
+- `pnpm db:restore-verify` — guarded restore verification into a scratch project only (never staging or production).
 - Append `-- --dry-run` to preview the fixed, redacted command plan without running children.
 - Production migration apply additionally requires `CONFIRM_PRODUCTION=true`.
 - Local reset, seed, full-reset, and wipe workflows are intentionally unsupported.
@@ -109,6 +114,17 @@ Menu import threat model: menu source files are untrusted content. Import script
 - `pnpm build` — Next.js build
 - `pnpm secret:scan` — gitleaks + trufflehog
 - `pnpm audit --prod --audit-level=high` — dependency audit
+
+## CI/CD: local-first, hosted gate
+
+Pull requests and `main` are tested by a Mac controller in disposable Lima VMs and gated by a hosted `Release gate` that runs from protected `main` only. The full design (architecture, job mapping, rollout phases, qualification and provisioning checklists) is in [`docs/ci/local-first-ci.md`](docs/ci/local-first-ci.md); the GitHub-side contract is in [`docs/ci/release-gate.md`](docs/ci/release-gate.md) and [`docs/ci/governance.md`](docs/ci/governance.md).
+
+- `pnpm ci:profile pr --json` — print the resolved CI profile (`pr|main|nightly`).
+- `pnpm ci:contracts:validate` — validate workflows, job names, profiles and policy version (runs in `Security guards`).
+- `pnpm ci:controller --check-config` / `--once` — validate and smoke-test the Mac controller (see `scripts/ci/controller/README.md` and `docs/runbooks/local-ci.md` for the launchd and Keychain assumptions).
+- `pnpm ci:executor --request @tuple.json --dry-run` — print the executor plan for one request tuple without running anything.
+- `pnpm ci:gate` — release-gate bridge used by `release-gate.yml` and `deploy.yml`.
+- Staging and production delivery: `docs/runbooks/staging-release.md`; monitoring: `docs/runbooks/monitoring.md`; backup and recovery: `docs/runbooks/recovery.md`.
 
 ## Design-system invariants (CI-enforced)
 
@@ -142,6 +158,8 @@ guard:typography-scale` ratchets raw heading-scale usage outside `components/ui`
 
 - `docs/technical/` — product and integration design notes.
 - `docs/environments.md` — environment profiles and safety flags.
+- `docs/ci/local-first-ci.md` — local-first CI/CD architecture, rollout and provisioning.
+- `docs/runbooks/` — local CI runner, staging release, monitoring and recovery runbooks.
 - Email Delivery dev/test validation fixtures:
   - Retry flow fixture: `/email-delivery?fixture=retry-actions`
   - Forced retry failure: `/email-delivery?fixture=retry-actions&simulateRetryMutationError=1`

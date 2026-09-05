@@ -1,0 +1,151 @@
+name: Fork profile
+
+# Fork pull requests never reach the local runner. This workflow runs the same
+# `pr` profile commands on a hosted runner with no repository secrets and no
+# credential-bearing caches, and produces the same evidence document shape as
+# the hosted fallback so reviewers can compare like with like. Its tuple carries
+# hosted sentinel image/controller identifiers, so the release gate rejects it
+# by design: fork evidence is informational until a maintainer dispatches a real
+# CI request for the revision.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-profile-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: test
+  CI: 'true'
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  QA_TARGET_ENV: ci-ephemeral
+  RESEND_API_KEY: test-resend-api-key
+  SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+  TZ: UTC
+
+jobs:
+  profile:
+    name: Fork profile pr
+    # Only when the head repository is not this repository.
+    if: github.event.pull_request.head.repo.id != github.repository_id
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # fallback-run.ts gives profile commands a private HOME/TMPDIR inside the candidate
+      # tree; tool caches are addressed explicitly so the runner HOME is never needed.
+      COREPACK_HOME: ${{ github.workspace }}/.cache/corepack
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+      XDG_CACHE_HOME: ${{ github.workspace }}/.cache/xdg
+    steps:
+      - name: Checkout base repository main (trusted profile definition and runner)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      # No dependency cache: caches are keyed per repository and could carry
+      # state between trusted and untrusted runs.
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - name: Install trusted workspace (main lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve pr profile from main
+        run: |
+          mkdir -p fork
+          pnpm ci:profile pr --json > fork/profile.json
+
+      - name: Record request tuple
+        env:
+          THIS_REPOSITORY_ID: ${{ github.repository_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          # Hosted runners have no executor image; the sentinel digest below is
+          # never listed in config/ci/policy.json allowedImageDigests.
+          sentinel="sha256:$(printf 'nabatable-hosted-runner:ubuntu-latest' | sha256sum | cut -d' ' -f1)"
+          policy_version="$(jq -r '.policyVersion' fork/profile.json)"
+          jq -n \
+            --arg repositoryId "$THIS_REPOSITORY_ID" \
+            --arg prNumber "$PR_NUMBER" \
+            --arg headSha "$HEAD_SHA" \
+            --arg baseSha "$BASE_SHA" \
+            --arg testedSha "$MERGE_SHA" \
+            --arg policyVersion "$policy_version" \
+            --arg imageDigest "$sentinel" \
+            '{repositoryId:$repositoryId, profile:"pr", prNumber:$prNumber, headSha:$headSha, baseSha:$baseSha, testedSha:$testedSha, policyVersion:$policyVersion, imageDigest:$imageDigest, controllerVersion:"hosted-fork", attempt:"1"}' \
+            > fork/tuple.json
+          {
+            echo '## Fork profile tuple'
+            echo
+            echo '```json'
+            cat fork/tuple.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout pull request merge commit (separate directory)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          path: candidate
+          persist-credentials: false
+
+      - name: Verify candidate checkout
+        env:
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          actual="$(git -C candidate rev-parse HEAD)"
+          if [ "$actual" != "$MERGE_SHA" ]; then
+            echo "::error::merge commit moved ($actual != $MERGE_SHA); superseded run"
+            exit 1
+          fi
+
+      - name: Install candidate dependencies
+        working-directory: candidate
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        working-directory: candidate
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Run pr profile against candidate
+        id: run
+        continue-on-error: true
+        run: |
+          pnpm exec tsx scripts/ci/gate/fallback-run.ts run \
+            --profile-json fork/profile.json \
+            --tuple-json fork/tuple.json \
+            --run-id "$GITHUB_RUN_ID" \
+            --workdir candidate \
+            --out fork/evidence
+
+      - name: Upload fork evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fork-profile-evidence-${{ github.event.pull_request.head.sha }}
+          path: |
+            fork/tuple.json
+            fork/profile.json
+            fork/evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Fail when the profile failed
+        if: steps.run.outcome != 'success'
+        run: |
+          echo "::error::pr profile failed for fork revision ${{ github.event.pull_request.head.sha }}"
+          exit 1

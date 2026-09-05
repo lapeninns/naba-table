@@ -1,0 +1,107 @@
+name: Recovery drill
+
+# Restores the newest independent backup into a disposable Supabase project,
+# verifies it, publishes signed redacted evidence, and always destroys the
+# temporary project. `pnpm ops:verify` warns at 21 days without a successful
+# drill and fails at 30 days; production delivery blocks on the same evidence.
+on:
+  schedule:
+    # Twice a month (1st and 15th) approximates the 14-day interval with a stable calendar.
+    - cron: '41 3 1,15 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    name: Restore verification drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: Recovery
+    env:
+      TZ: UTC
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc > /dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          psql --version
+
+      - name: Run recovery drill with temporary credentials
+        env:
+          RECOVERY_DRILL_PROJECT_REF: ${{ secrets.RECOVERY_DRILL_PROJECT_REF }}
+          RESTORE_VERIFY_DB_URL: ${{ secrets.RESTORE_VERIFY_DB_URL }}
+          SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.RECOVERY_SUPABASE_MANAGEMENT_TOKEN }}
+          RECOVERY_EVIDENCE_HMAC_KEY: ${{ secrets.RECOVERY_EVIDENCE_HMAC_KEY }}
+          RESTORE_PROJECT_REF_DENYLIST: ${{ vars.RESTORE_PROJECT_REF_DENYLIST }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_DRILL_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_DRILL_SECRET_ACCESS_KEY }}
+        run: pnpm recovery:drill --out .recovery/evidence
+
+      - name: Retain signed redacted evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: recovery-drill-evidence-${{ github.run_id }}
+          path: .recovery/evidence/*.json
+          if-no-files-found: warn
+          retention-days: 400
+
+      # Belt and braces: the drill destroys the temp project itself, but if the
+      # runner died mid-way the project must not survive. Refuses protected refs.
+      - name: Destroy temporary project
+        if: always()
+        env:
+          RECOVERY_DRILL_PROJECT_REF: ${{ secrets.RECOVERY_DRILL_PROJECT_REF }}
+          SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.RECOVERY_SUPABASE_MANAGEMENT_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RECOVERY_DRILL_PROJECT_REF:-}" ] || [ -z "${SUPABASE_MANAGEMENT_TOKEN:-}" ]; then
+            echo "Drill project or management token unconfigured; nothing to destroy."
+            exit 0
+          fi
+          if ! printf '%s' "$RECOVERY_DRILL_PROJECT_REF" | grep -Eq '^[a-z0-9]{20}$'; then
+            echo "::error::drill project ref is not a valid Supabase ref"
+            exit 1
+          fi
+          if grep -Eq "^\s*(production|staging):\s*['\"]?$RECOVERY_DRILL_PROJECT_REF" config/recovery/policy.yaml; then
+            echo "::error::refusing to destroy a protected project ref"
+            exit 1
+          fi
+          status="$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "authorization: Bearer $SUPABASE_MANAGEMENT_TOKEN" \
+            "https://api.supabase.com/v1/projects/$RECOVERY_DRILL_PROJECT_REF")"
+          case "$status" in
+            200|202|204|404) echo "Temporary project destroyed or already absent (HTTP $status).";;
+            *) echo "::error::destroy returned HTTP $status"; exit 1;;
+          esac

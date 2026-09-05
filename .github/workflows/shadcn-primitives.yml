@@ -1,7 +1,12 @@
 name: Shadcn primitives
 
+# Scheduled for removal after Phase 4 evidence: the local CI profile evidences
+# this suite and the release gate republishes the "Primitive coverage" check from it.
+# Kept until the transition evidence window closes; do not add new steps here.
+
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

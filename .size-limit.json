@@ -13,5 +13,10 @@
     "name": "SMS summary gateway Worker",
     "path": "cloudflare/sms-summary-gateway/dist/index.js",
     "limit": "800 kB"
+  },
+  {
+    "name": "Operational control Worker",
+    "path": "cloudflare/operational-control/dist/index.js",
+    "limit": "100 kB"
   }
 ]

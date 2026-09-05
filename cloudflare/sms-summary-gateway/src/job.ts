@@ -143,6 +143,7 @@ export async function sendDailySummaryViaWhatsApp(params: {
     TWILIO_WHATSAPP_SENDER: string;
     TWILIO_WHATSAPP_MANAGER_SUMMARY_CONTENT_SID: string;
     SMS_SUMMARY_GATEWAY_PUBLIC_URL: string;
+    DELIVERY_MODE?: string;
   };
   restaurantId: string;
   localDate: string;
@@ -151,6 +152,8 @@ export async function sendDailySummaryViaWhatsApp(params: {
   message: string;
   fetchImpl?: typeof fetch;
 }): Promise<{ messageSid: string | null }> {
+  // Staging kill switch: DELIVERY_MODE=sink never reaches Twilio (wrangler.jsonc env.staging).
+  if (params.env.DELIVERY_MODE === 'sink') return { messageSid: null };
   const statusCallback = new URL(
     '/webhook/twilio/manager-whatsapp-status',
     params.env.SMS_SUMMARY_GATEWAY_PUBLIC_URL,
@@ -179,11 +182,14 @@ export async function sendDailySummaryViaTwilio(params: {
     TWILIO_API_KEY_SID: string;
     TWILIO_API_KEY_SECRET: string;
     TWILIO_MESSAGING_SERVICE_SID: string;
+    DELIVERY_MODE?: string;
   };
   recipient: string;
   message: string;
   fetchImpl?: typeof fetch;
 }): Promise<{ messageSid: string | null }> {
+  // Staging kill switch: DELIVERY_MODE=sink never reaches Twilio (wrangler.jsonc env.staging).
+  if (params.env.DELIVERY_MODE === 'sink') return { messageSid: null };
   const result = await sendTwilioSmsMessage({
     accountSid: params.env.TWILIO_ACCOUNT_SID,
     apiKeySid: params.env.TWILIO_API_KEY_SID,

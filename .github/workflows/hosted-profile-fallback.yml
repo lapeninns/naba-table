@@ -1,0 +1,389 @@
+name: Hosted profile fallback
+
+# Runs a complete CI profile on GitHub-hosted runners when the local controller
+# is unavailable. The profile definition and this runner come from protected
+# `main`; only the profile commands execute against the candidate checkout.
+# The evidence is published as the check "Hosted profile fallback / <profile>"
+# with the same document shape the local controller publishes, and the release
+# gate accepts it only when this exact workflow id ran under an approved
+# "CI fallback" environment deployment for the exact tuple.
+#
+# Two jobs, two trust levels:
+#   profile  - checks out the candidate and runs it. Read-only permissions, no
+#              secret other than the installation token, evidence uploaded as an
+#              artifact. Candidate code that tampers with the runner can only
+#              affect this job.
+#   publish  - checks out `main` only, downloads the artifact, re-validates the
+#              evidence against the tuple it rebuilds from the workflow inputs
+#              and the job result the runner computed, then publishes the check
+#              with `checks: write`. It never executes anything from the candidate.
+on:
+  workflow_dispatch:
+    inputs:
+      repository_id:
+        description: GitHub repository id the request was created for
+        required: true
+        type: string
+      profile:
+        description: Profile to run
+        required: true
+        type: choice
+        options: [pr, main]
+      pr_number:
+        description: Pull request number (empty for main)
+        required: false
+        default: ''
+        type: string
+      head_sha:
+        description: PR head SHA (or merged commit on main)
+        required: true
+        type: string
+      base_sha:
+        description: PR base SHA (or first parent of the merged commit)
+        required: true
+        type: string
+      tested_sha:
+        description: Synthetic merge SHA for PRs, merged commit SHA for main
+        required: true
+        type: string
+      policy_version:
+        description: Policy version from the CI request tuple
+        required: true
+        type: string
+      image_digest:
+        description: Executor image digest from the CI request tuple (sha256:...)
+        required: true
+        type: string
+      controller_version:
+        description: Controller version from the CI request tuple
+        required: true
+        type: string
+      attempt:
+        description: Attempt counter from the CI request tuple
+        required: false
+        default: '1'
+        type: string
+
+# Workflow-level permissions are read-only; only the `publish` job escalates to checks: write.
+permissions:
+  contents: read
+  # Read-only: needed to bind the tuple to the pull request before any candidate code runs.
+  pull-requests: read
+
+concurrency:
+  group: hosted-fallback-${{ inputs.head_sha }}-${{ inputs.attempt }}
+  cancel-in-progress: false
+
+env:
+  # Sanitized offline env only, mirroring scripts/ci/profiles SANITIZED_ENV.
+  APP_ENV: test
+  CI: 'true'
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  QA_TARGET_ENV: ci-ephemeral
+  RESEND_API_KEY: test-resend-api-key
+  SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+  TZ: UTC
+
+jobs:
+  profile:
+    name: Hosted fallback ${{ inputs.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    # Approval-gated: the gate later requires an approved deployment record for this run.
+    environment: CI fallback
+    env:
+      # fallback-run.ts gives profile commands a private HOME/TMPDIR inside the candidate
+      # tree and never passes the runner HOME or RUNNER_TEMP through; tool caches are
+      # addressed explicitly so the commands do not need the runner HOME at all.
+      COREPACK_HOME: ${{ github.workspace }}/.cache/corepack
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+      XDG_CACHE_HOME: ${{ github.workspace }}/.cache/xdg
+    steps:
+      - name: Checkout protected main (trusted profile definition and runner)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Bind request to this repository
+        env:
+          IN_REPOSITORY_ID: ${{ inputs.repository_id }}
+          THIS_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          if [ "$IN_REPOSITORY_ID" != "$THIS_REPOSITORY_ID" ]; then
+            echo "::error::repository_id $IN_REPOSITORY_ID does not match this repository ($THIS_REPOSITORY_ID)"
+            exit 1
+          fi
+
+      - name: Bind request tuple to the pull request or to protected main
+        # Refuses fork heads and unrelated tested_sha values before anything from the
+        # candidate is fetched. The gate re-checks the same facts, but this job must
+        # never execute code that the tuple does not vouch for.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          THIS_REPOSITORY_ID: ${{ github.repository_id }}
+          IN_PROFILE: ${{ inputs.profile }}
+          IN_PR_NUMBER: ${{ inputs.pr_number }}
+          IN_HEAD_SHA: ${{ inputs.head_sha }}
+          IN_BASE_SHA: ${{ inputs.base_sha }}
+          IN_TESTED_SHA: ${{ inputs.tested_sha }}
+        run: |
+          set -euo pipefail
+          for sha in "$IN_HEAD_SHA" "$IN_BASE_SHA" "$IN_TESTED_SHA"; do
+            if ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "::error::tuple SHAs must be 40-character lowercase hex"
+              exit 1
+            fi
+          done
+          if [ "$IN_PROFILE" = "pr" ]; then
+            if ! printf '%s' "$IN_PR_NUMBER" | grep -Eq '^[1-9][0-9]*$'; then
+              echo "::error::pr profile requires a numeric pr_number"
+              exit 1
+            fi
+            pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$IN_PR_NUMBER")"
+            pr_state="$(jq -r '.state // empty' <<< "$pr")"
+            head_repo_id="$(jq -r '.head.repo.id // empty' <<< "$pr")"
+            base_repo_id="$(jq -r '.base.repo.id // empty' <<< "$pr")"
+            head_sha="$(jq -r '.head.sha // empty' <<< "$pr")"
+            base_sha="$(jq -r '.base.sha // empty' <<< "$pr")"
+            base_ref="$(jq -r '.base.ref // empty' <<< "$pr")"
+            merge_sha="$(jq -r '.merge_commit_sha // empty' <<< "$pr")"
+            if [ "$pr_state" != "open" ]; then
+              echo "::error::pull request #$IN_PR_NUMBER is not open"
+              exit 1
+            fi
+            if [ "$head_repo_id" != "$THIS_REPOSITORY_ID" ]; then
+              echo "::error::pull request head repository is not this repository (forks never run here)"
+              exit 1
+            fi
+            if [ "$base_repo_id" != "$THIS_REPOSITORY_ID" ] || [ "$base_ref" != "main" ]; then
+              echo "::error::pull request does not target protected main of this repository"
+              exit 1
+            fi
+            if [ "$head_sha" != "$IN_HEAD_SHA" ]; then
+              echo "::error::pull request head is $head_sha, request head_sha is $IN_HEAD_SHA (superseded)"
+              exit 1
+            fi
+            if [ "$base_sha" != "$IN_BASE_SHA" ]; then
+              echo "::error::pull request base is $base_sha, request base_sha is $IN_BASE_SHA"
+              exit 1
+            fi
+            if [ -z "$merge_sha" ] || [ "$merge_sha" != "$IN_TESTED_SHA" ]; then
+              echo "::error::pull request merge commit is ${merge_sha:-absent}, request tested_sha is $IN_TESTED_SHA"
+              exit 1
+            fi
+          else
+            if [ -n "$IN_PR_NUMBER" ]; then
+              echo "::error::main profile must not carry pr_number"
+              exit 1
+            fi
+            if [ "$IN_TESTED_SHA" != "$IN_HEAD_SHA" ]; then
+              echo "::error::main requests must use the merged commit as both head_sha and tested_sha"
+              exit 1
+            fi
+            parent="$(gh api "repos/$GITHUB_REPOSITORY/commits/$IN_TESTED_SHA" --jq '.parents[0].sha // empty')"
+            if [ "$parent" != "$IN_BASE_SHA" ]; then
+              echo "::error::first parent of $IN_TESTED_SHA is ${parent:-absent}, request base_sha is $IN_BASE_SHA"
+              exit 1
+            fi
+            status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$IN_TESTED_SHA...main" --jq '.status // empty')"
+            case "$status" in
+              identical|ahead) ;;
+              *)
+                echo "::error::$IN_TESTED_SHA is not an ancestor of main (${status:-unknown})"
+                exit 1
+                ;;
+            esac
+          fi
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install trusted workspace (main lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve profile from main
+        run: |
+          mkdir -p fallback
+          pnpm ci:profile "${{ inputs.profile }}" --json > fallback/profile.json
+
+      - name: Record request tuple
+        env:
+          IN_REPOSITORY_ID: ${{ inputs.repository_id }}
+          IN_PROFILE: ${{ inputs.profile }}
+          IN_PR_NUMBER: ${{ inputs.pr_number }}
+          IN_HEAD_SHA: ${{ inputs.head_sha }}
+          IN_BASE_SHA: ${{ inputs.base_sha }}
+          IN_TESTED_SHA: ${{ inputs.tested_sha }}
+          IN_POLICY_VERSION: ${{ inputs.policy_version }}
+          IN_IMAGE_DIGEST: ${{ inputs.image_digest }}
+          IN_CONTROLLER_VERSION: ${{ inputs.controller_version }}
+          IN_ATTEMPT: ${{ inputs.attempt }}
+        run: |
+          jq -n \
+            --arg repositoryId "$IN_REPOSITORY_ID" \
+            --arg profile "$IN_PROFILE" \
+            --arg prNumber "$IN_PR_NUMBER" \
+            --arg headSha "$IN_HEAD_SHA" \
+            --arg baseSha "$IN_BASE_SHA" \
+            --arg testedSha "$IN_TESTED_SHA" \
+            --arg policyVersion "$IN_POLICY_VERSION" \
+            --arg imageDigest "$IN_IMAGE_DIGEST" \
+            --arg controllerVersion "$IN_CONTROLLER_VERSION" \
+            --arg attempt "${IN_ATTEMPT:-1}" \
+            '{repositoryId:$repositoryId, profile:$profile, headSha:$headSha, baseSha:$baseSha, testedSha:$testedSha, policyVersion:$policyVersion, imageDigest:$imageDigest, controllerVersion:$controllerVersion, attempt:$attempt} + (if $prNumber == "" then {} else {prNumber:$prNumber} end)' \
+            > fallback/tuple.json
+          {
+            echo '## Hosted profile fallback tuple'
+            echo
+            echo '```json'
+            cat fallback/tuple.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout candidate at tested_sha (separate directory)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ inputs.tested_sha }}
+          path: candidate
+          persist-credentials: false
+
+      - name: Verify candidate checkout
+        env:
+          IN_TESTED_SHA: ${{ inputs.tested_sha }}
+        run: |
+          actual="$(git -C candidate rev-parse HEAD)"
+          if [ "$actual" != "$IN_TESTED_SHA" ]; then
+            echo "::error::candidate checkout is $actual, expected $IN_TESTED_SHA"
+            exit 1
+          fi
+
+      - name: Install candidate dependencies
+        working-directory: candidate
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        working-directory: candidate
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Run profile against candidate
+        id: run
+        continue-on-error: true
+        run: |
+          pnpm exec tsx scripts/ci/gate/fallback-run.ts run \
+            --profile-json fallback/profile.json \
+            --tuple-json fallback/tuple.json \
+            --run-id "$GITHUB_RUN_ID" \
+            --workdir candidate \
+            --out fallback/evidence
+
+      - name: Upload fallback evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hosted-fallback-evidence-${{ inputs.head_sha }}-${{ inputs.attempt }}
+          path: |
+            fallback/tuple.json
+            fallback/profile.json
+            fallback/evidence/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Fail when the profile failed
+        if: steps.run.outcome != 'success'
+        run: |
+          echo "::error::profile ${{ inputs.profile }} failed for ${{ inputs.tested_sha }}"
+          exit 1
+
+  publish:
+    name: Publish hosted fallback ${{ inputs.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: profile
+    # Publishes a failure check when the profile failed, but nothing when the profile job
+    # was cancelled or skipped (there is no evidence bound to a completed job).
+    if: always() && (needs.profile.result == 'success' || needs.profile.result == 'failure')
+    permissions:
+      checks: write
+      contents: read
+    steps:
+      - name: Checkout protected main (publisher and validators)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install trusted workspace (main lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Download fallback evidence
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: hosted-fallback-evidence-${{ inputs.head_sha }}-${{ inputs.attempt }}
+          path: fallback/
+
+      # Rebuilt from the workflow inputs, never read from the artifact: the artifact was
+      # written next to candidate code and is only trusted where it agrees with this tuple.
+      - name: Record expected request tuple
+        env:
+          IN_REPOSITORY_ID: ${{ inputs.repository_id }}
+          IN_PROFILE: ${{ inputs.profile }}
+          IN_PR_NUMBER: ${{ inputs.pr_number }}
+          IN_HEAD_SHA: ${{ inputs.head_sha }}
+          IN_BASE_SHA: ${{ inputs.base_sha }}
+          IN_TESTED_SHA: ${{ inputs.tested_sha }}
+          IN_POLICY_VERSION: ${{ inputs.policy_version }}
+          IN_IMAGE_DIGEST: ${{ inputs.image_digest }}
+          IN_CONTROLLER_VERSION: ${{ inputs.controller_version }}
+          IN_ATTEMPT: ${{ inputs.attempt }}
+        run: |
+          jq -n \
+            --arg repositoryId "$IN_REPOSITORY_ID" \
+            --arg profile "$IN_PROFILE" \
+            --arg prNumber "$IN_PR_NUMBER" \
+            --arg headSha "$IN_HEAD_SHA" \
+            --arg baseSha "$IN_BASE_SHA" \
+            --arg testedSha "$IN_TESTED_SHA" \
+            --arg policyVersion "$IN_POLICY_VERSION" \
+            --arg imageDigest "$IN_IMAGE_DIGEST" \
+            --arg controllerVersion "$IN_CONTROLLER_VERSION" \
+            --arg attempt "${IN_ATTEMPT:-1}" \
+            '{repositoryId:$repositoryId, profile:$profile, headSha:$headSha, baseSha:$baseSha, testedSha:$testedSha, policyVersion:$policyVersion, imageDigest:$imageDigest, controllerVersion:$controllerVersion, attempt:$attempt} + (if $prNumber == "" then {} else {prNumber:$prNumber} end)' \
+            > fallback/expected-tuple.json
+
+      - name: Publish fallback check run
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PROFILE_JOB_RESULT: ${{ needs.profile.result }}
+        run: |
+          pnpm exec tsx scripts/ci/gate/fallback-run.ts publish \
+            --out fallback/evidence \
+            --tuple-json fallback/expected-tuple.json \
+            --run-id "$GITHUB_RUN_ID" \
+            --profile-job-result "$PROFILE_JOB_RESULT" \
+            --check-name-prefix 'Hosted profile fallback / ' \
+            --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+      # The run conclusion must reflect the profile: the release gate requires a
+      # successful run before it trusts the published check.
+      - name: Fail when the profile failed
+        if: needs.profile.result != 'success'
+        run: |
+          echo "::error::profile ${{ inputs.profile }} failed for ${{ inputs.tested_sha }} (job result ${{ needs.profile.result }})"
+          exit 1

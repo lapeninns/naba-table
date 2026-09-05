@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-
+# Deploys the booking short links worker (applies remote D1 migrations first).
+#   bash scripts/cloudflare/deploy-booking-short-links.sh [--env staging|production] [--hosted] [--interactive]
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-CONFIG_PATH="$ROOT_DIR/cloudflare/booking-short-links/wrangler.jsonc"
+# shellcheck source=scripts/cloudflare/deploy-common.sh
+source "$ROOT_DIR/scripts/cloudflare/deploy-common.sh"
 
-npx wrangler d1 migrations apply BOOKING_SHORT_LINKS_DB --remote --config "$CONFIG_PATH"
-npx wrangler deploy --config "$CONFIG_PATH"
+run_worker_deploy booking-short-links "$@"

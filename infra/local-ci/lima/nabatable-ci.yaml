@@ -1,0 +1,198 @@
+# Nabatable local CI golden virtual machine (Lima, Virtualization.framework).
+#
+# This template builds the GOLDEN base image, not a job VM. The executor
+# (scripts/ci/executor/lima/instance.ts) creates a fresh, disposable Lima
+# instance for every CI request from the exported golden image
+# (`file://<path>` + sha256 digest) and destroys it afterwards. Nothing in a
+# job instance survives the job; everything a job needs (Docker Engine,
+# nftables egress policy, tinyproxy, the job image) is baked in here once by
+# `infra/local-ci/bin/build-base-image.sh`.
+#
+# Render the per-mode variants with `infra/local-ci/bin/render-lima.sh
+# <normal|dedicated>`; never edit the rendered copy by hand. Resource values
+# per mode live in `infra/local-ci/operating.json` (vm.modes) and are
+# asserted against this template by tests/scripts/ci/infra/lima-template.test.ts.
+#
+# Placeholders (REPLACE_ME_*) are deliberately invalid. `bin/preflight.sh`
+# and `bin/build-base-image.sh` refuse to start a VM while any placeholder
+# remains, and Lima itself rejects an image whose digest does not match, so
+# an unreplaced value can never be silently used.
+#
+# Threat model summary:
+# - No host filesystem is shared with the guest (`mounts: []`).
+# - No guest port is forwarded to the host (`portForwards` ignore-all rule);
+#   the host reaches the guest only over Lima's SSH channel. Job instances
+#   forward exactly one unix socket (dockerd) and that forward is rendered by
+#   the executor, not by this file.
+# - The SSH agent and X11 are never forwarded; host proxy/env vars are not
+#   propagated into the guest.
+# - Lima's own containerd/nerdctl is disabled; the guest runs Docker Engine
+#   only, pinned to a reviewed version.
+
+vmType: vz
+os: Linux
+arch: aarch64
+
+images:
+  # Ubuntu 24.04 LTS (Noble) ARM64 cloud image. Pin BOTH the dated release
+  # path and the sha256 digest from
+  # https://cloud-images.ubuntu.com/releases/noble/release-<date>/SHA256SUMS
+  # when qualifying a new base image, and record the change in the runbook.
+  - location: 'https://cloud-images.ubuntu.com/releases/noble/release-REPLACE_ME_UBUNTU_2404_RELEASE_DATE/ubuntu-24.04-server-cloudimg-arm64.img'
+    arch: aarch64
+    digest: 'sha256:REPLACE_ME_UBUNTU_2404_ARM64_DIGEST'
+
+# Mode "normal" (shared workstation): 6 vCPU / 16GiB. Mode "dedicated":
+# 10 vCPU / 24GiB. See bin/render-lima.sh. Job instances receive the same
+# numbers through NABATABLE_CI_LIMA_CPUS / _MEMORY_GIB / _DISK_GIB, resolved
+# by bin/vm-mode.sh from operating.json.
+cpus: 6
+memory: '16GiB'
+disk: '120GiB'
+
+# No host directory is ever mounted into the guest. Source enters a job
+# instance as a git bundle over `limactl copy` (executor), never as a mount.
+mounts: []
+
+ssh:
+  # 0 lets Lima pick an ephemeral localhost port for its own SSH channel.
+  localPort: 0
+  loadDotSSHPubKeys: false
+  forwardAgent: false
+  forwardX11: false
+  forwardX11Trusted: false
+
+# Lima forwards every guest port to localhost by default. This single rule
+# disables that behaviour for the whole port range.
+portForwards:
+  - guestIP: '0.0.0.0'
+    guestPortRange: [1, 65535]
+    ignore: true
+
+# Do not propagate HTTP_PROXY/HTTPS_PROXY/NO_PROXY or any host env into the
+# guest. Egress policy is enforced inside the guest (network/).
+propagateProxyEnv: false
+env: {}
+
+containerd:
+  system: false
+  user: false
+
+hostResolver:
+  enabled: true
+  ipv6: false
+
+rosetta:
+  enabled: false
+  binfmt: false
+
+video:
+  display: 'none'
+audio:
+  device: 'none'
+
+firmware:
+  legacyBIOS: false
+
+# Guest-side provisioning. Runs as root once at first boot of the golden
+# instance (mode: system). Job instances are clones of the resulting disk and
+# run no provisioning at all.
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # Pinned Docker Engine version from https://download.docker.com/linux/ubuntu
+      # (apt policy docker-ce). Replace before first boot; the script refuses
+      # placeholders so a wildcard/latest install can never happen.
+      DOCKER_CE_VERSION='5:REPLACE_ME_DOCKER_CE_VERSION~ubuntu.24.04~noble'
+      case "$DOCKER_CE_VERSION" in
+        *REPLACE_ME*)
+          echo 'nabatable-ci: DOCKER_CE_VERSION is unconfigured; refusing to provision' >&2
+          exit 1
+          ;;
+      esac
+
+      export DEBIAN_FRONTEND=noninteractive
+      install -d -m 0755 /etc/apt/keyrings
+      if [ ! -f /etc/apt/keyrings/docker.asc ]; then
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+      fi
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        "docker-ce=${DOCKER_CE_VERSION}" \
+        "docker-ce-cli=${DOCKER_CE_VERSION}" \
+        containerd.io \
+        nftables \
+        conntrack \
+        tinyproxy
+      apt-mark hold docker-ce docker-ce-cli containerd.io
+
+      # Docker Engine hardening. The seccomp profile, egress policy, proxy
+      # config and the internal job network (nabatable-ci-jobs, 10.90.0.0/24)
+      # are installed by infra/local-ci/bin/sync-vm-config.sh after first boot
+      # (network/setup.sh). Other containers are allocated from 10.200.0.0/16
+      # (DOCKER_POOL in network/egress.sh) and have no egress at all.
+      install -d -m 0755 /etc/docker /etc/nabatable-ci/seccomp /etc/nabatable-ci/network
+      cat > /etc/docker/daemon.json <<'JSON'
+      {
+        "userns-remap": "default",
+        "no-new-privileges": true,
+        "icc": false,
+        "ipv6": false,
+        "ip6tables": false,
+        "live-restore": false,
+        "log-driver": "local",
+        "log-opts": { "max-size": "20m", "max-file": "3" },
+        "default-ulimits": { "nofile": { "Name": "nofile", "Hard": 65536, "Soft": 65536 } },
+        "default-address-pools": [{ "base": "10.200.0.0/16", "size": 24 }],
+        "insecure-registries": ["ci-registry.local"]
+      }
+      JSON
+
+      # Local, build-time-only registry alias used to give the job image a
+      # RepoDigest so the executor can run it as name@sha256:<digest>.
+      grep -q 'ci-registry.local' /etc/hosts || echo '127.0.0.1 ci-registry.local' >> /etc/hosts
+
+      # Disable IPv6 in the guest entirely; egress policy is IPv4-only.
+      cat > /etc/sysctl.d/90-nabatable-ci.conf <<'SYSCTL'
+      net.ipv6.conf.all.disable_ipv6 = 1
+      net.ipv6.conf.default.disable_ipv6 = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+      SYSCTL
+      modprobe br_netfilter || true
+      sysctl --system >/dev/null
+
+      systemctl enable --now docker
+      systemctl enable nftables
+      systemctl disable --now tinyproxy || true
+      usermod -aG docker "${LIMA_CIDATA_USER}"
+
+      # Guest spool directory the executor copies the job bundle into
+      # (`limactl copy` as the Lima user, then `docker cp` into the container).
+      install -d -m 0750 -o "${LIMA_CIDATA_USER}" -g docker /home/ci /home/ci/spool
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -euo pipefail
+      # Docker CLI in the guest must never fall back to a remote context.
+      mkdir -p "$HOME/.docker"
+      [ -f "$HOME/.docker/config.json" ] || printf '{}\n' > "$HOME/.docker/config.json"
+
+probes:
+  - mode: readiness
+    description: 'docker daemon ready'
+    script: |
+      #!/bin/bash
+      set -eu
+      if ! timeout 60s bash -c 'until sudo docker info >/dev/null 2>&1; do sleep 3; done'; then
+        echo >&2 'docker is not running yet'
+        exit 1
+      fi
+    hint: 'See "limactl shell nabatable-ci-golden sudo journalctl -u docker" for details.'

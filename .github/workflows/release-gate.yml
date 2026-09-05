@@ -1,0 +1,185 @@
+name: Release gate
+
+# Protected delivery filters its workflow_run trigger on this title: only
+# `main-deploy` evaluations may start a delivery, never a PR `merge` evaluation
+# that happens to run on ref main.
+run-name: Release gate ${{ inputs.pr_number && 'merge' || 'main-deploy' }} ${{ inputs.head_sha || github.event.workflow_run.head_sha }}
+
+# Trusted bridge between local CI evidence and branch protection / delivery.
+#
+# This workflow only ever checks out the protected `main` branch. It NEVER checks
+# out the candidate revision: the policy (config/ci/policy.json) and the gate
+# script (scripts/ci/gate/evaluate.ts) must come from a revision that already
+# passed the gate, otherwise a pull request could weaken the rules that judge it.
+#
+# Runtime: Node 22 (activeRuntime). Node 24 is the candidateRuntime and is
+# qualified separately; see config/ci/policy.json `runtime`.
+on:
+  workflow_dispatch:
+    inputs:
+      repository_id:
+        description: GitHub repository id (databaseId) the request was created for
+        required: true
+        type: string
+      pr_number:
+        description: Pull request number (empty for main)
+        required: false
+        default: ''
+        type: string
+      head_sha:
+        description: PR head SHA (or the merged commit on main)
+        required: true
+        type: string
+      base_sha:
+        description: PR base SHA (or the first parent of the merged commit)
+        required: true
+        type: string
+      tested_sha:
+        description: Synthetic merge SHA for PRs, merged commit SHA for main
+        required: true
+        type: string
+      attempt:
+        description: Attempt counter from the CI request tuple
+        required: false
+        default: '1'
+        type: string
+      requested_by:
+        description: Login that requested the evaluation
+        required: false
+        default: ''
+        type: string
+  # Hosted lanes completing on main re-evaluate the main-deploy gate so the
+  # "Release gate" check on the merged commit reflects every required source.
+  workflow_run:
+    workflows: ['Security guards', 'CodeQL security review']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  checks: write
+  contents: read
+  actions: read
+  pull-requests: read
+
+# One evaluation per tuple at a time; never cancel a running evaluation.
+concurrency:
+  group: release-gate-${{ github.event.inputs.head_sha || github.event.workflow_run.head_sha }}-${{ github.event.inputs.attempt || '1' }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    # The gate reads a handful of REST resources and publishes checks; anything
+    # slower than this is an outage, and a hung gate must not block merges silently.
+    timeout-minutes: 3
+    # Main-branch hosted lanes reach the gate whatever their conclusion so a failed
+    # lane is recorded as a failing Release gate instead of a silently missing one;
+    # only push-triggered runs of the base repository qualify. Fork PRs never
+    # reach this path, and the evaluator fails closed on any non-success result.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.id == github.repository_id)
+    steps:
+      - name: Checkout protected main (never the candidate)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Resolve request tuple
+        id: request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          IN_REPOSITORY_ID: ${{ github.event.inputs.repository_id }}
+          IN_PR_NUMBER: ${{ github.event.inputs.pr_number }}
+          IN_HEAD_SHA: ${{ github.event.inputs.head_sha }}
+          IN_BASE_SHA: ${{ github.event.inputs.base_sha }}
+          IN_TESTED_SHA: ${{ github.event.inputs.tested_sha }}
+          IN_ATTEMPT: ${{ github.event.inputs.attempt }}
+          IN_REQUESTED_BY: ${{ github.event.inputs.requested_by }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          THIS_REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$IN_REPOSITORY_ID" != "$THIS_REPOSITORY_ID" ]; then
+              echo "::error::repository_id $IN_REPOSITORY_ID does not match this repository ($THIS_REPOSITORY_ID)"
+              exit 1
+            fi
+            if [ -n "$IN_PR_NUMBER" ]; then mode=merge; profile=pr; else mode=main-deploy; profile=main; fi
+            {
+              echo "repository_id=$IN_REPOSITORY_ID"
+              echo "pr_number=$IN_PR_NUMBER"
+              echo "head_sha=$IN_HEAD_SHA"
+              echo "base_sha=$IN_BASE_SHA"
+              echo "tested_sha=$IN_TESTED_SHA"
+              echo "attempt=${IN_ATTEMPT:-1}"
+              echo "requested_by=$IN_REQUESTED_BY"
+              echo "mode=$mode"
+              echo "profile=$profile"
+            } >> "$GITHUB_OUTPUT"
+          else
+            # workflow_run on main: tested == head == merged commit; base is its first parent.
+            base_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RUN_HEAD_SHA" --jq '.parents[0].sha')"
+            {
+              echo "repository_id=$THIS_REPOSITORY_ID"
+              echo "pr_number="
+              echo "head_sha=$RUN_HEAD_SHA"
+              echo "base_sha=$base_sha"
+              echo "tested_sha=$RUN_HEAD_SHA"
+              echo "attempt=1"
+              echo "requested_by=workflow_run"
+              echo "mode=main-deploy"
+              echo "profile=main"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      # The gate script depends on Node built-ins only, so the workspace is NOT
+      # installed: a 1,000+ package install would both blow the 3-minute budget
+      # and widen the supply chain of the very component that judges the supply
+      # chain. `tsx` is fetched at the exact version resolved in main's
+      # pnpm-lock.yaml (ci:contracts:validate fails when the pin drifts). This is
+      # the same entrypoint as `pnpm ci:gate`, which is for use after a local
+      # `pnpm install --frozen-lockfile` from main's lockfile.
+      - name: Evaluate release gate and publish checks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REQ_REPOSITORY_ID: ${{ steps.request.outputs.repository_id }}
+          REQ_PROFILE: ${{ steps.request.outputs.profile }}
+          REQ_PR_NUMBER: ${{ steps.request.outputs.pr_number }}
+          REQ_HEAD_SHA: ${{ steps.request.outputs.head_sha }}
+          REQ_BASE_SHA: ${{ steps.request.outputs.base_sha }}
+          REQ_TESTED_SHA: ${{ steps.request.outputs.tested_sha }}
+          REQ_ATTEMPT: ${{ steps.request.outputs.attempt }}
+          REQ_REQUESTED_BY: ${{ steps.request.outputs.requested_by }}
+          REQ_MODE: ${{ steps.request.outputs.mode }}
+        run: |
+          pnpm dlx tsx@4.21.0 scripts/ci/gate/evaluate.ts \
+            --repository-id "$REQ_REPOSITORY_ID" \
+            --profile "$REQ_PROFILE" \
+            --pr-number "$REQ_PR_NUMBER" \
+            --head-sha "$REQ_HEAD_SHA" \
+            --base-sha "$REQ_BASE_SHA" \
+            --tested-sha "$REQ_TESTED_SHA" \
+            --attempt "$REQ_ATTEMPT" \
+            --requested-by "$REQ_REQUESTED_BY" \
+            --mode "$REQ_MODE" \
+            --output test-results/release-gate/decision.json
+
+      - name: Upload gate decision
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-gate-decision-${{ steps.request.outputs.head_sha }}-${{ steps.request.outputs.attempt }}
+          path: test-results/release-gate/
+          if-no-files-found: ignore
+          retention-days: 30

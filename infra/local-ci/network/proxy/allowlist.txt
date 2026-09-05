@@ -1,0 +1,33 @@
+# tinyproxy destination allowlist for Nabatable local CI jobs.
+# One exact hostname per line. No wildcards: every host must be named, and a
+# new host is added only in a reviewed release (tests reject '*' and regex
+# metacharacters). Matching is FilterType fnmatch with FilterDefaultDeny Yes.
+#
+# npm registry (pnpm fetch)
+registry.npmjs.org
+# Playwright browser downloads
+cdn.playwright.dev
+playwright.download.prss.microsoft.com
+playwright.azureedge.net
+# Container registries (job image base, digest pinned)
+registry-1.docker.io
+auth.docker.io
+production.cloudflare.docker.com
+docker-images-prod.6aa30f8b08e16409b46e0173d6de2f56.r2.cloudflarestorage.com
+ghcr.io
+pkg-containers.githubusercontent.com
+# Ubuntu / Docker apt repositories (arm64 lives on ports.ubuntu.com)
+ports.ubuntu.com
+archive.ubuntu.com
+security.ubuntu.com
+download.docker.com
+# Debian (job image base is bookworm-slim)
+deb.debian.org
+security.debian.org
+# Node.js corepack / pnpm distribution
+nodejs.org
+# GitHub: source archives fetched by the executor at testedSha
+github.com
+api.github.com
+codeload.github.com
+objects.githubusercontent.com

@@ -10,6 +10,7 @@ const DOCUMENTS = [
   'cloudflare/booking-short-links/openapi.yaml',
   'cloudflare/email-queue-gateway/openapi.yaml',
   'cloudflare/sms-summary-gateway/openapi.yaml',
+  'cloudflare/operational-control/openapi.yaml',
 ] as const;
 
 function main(): void {

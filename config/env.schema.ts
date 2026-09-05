@@ -243,6 +243,15 @@ const baseEnvSchema = z
     POSTHOG_CLI_API_KEY: z.string().min(1).optional(),
     POSTHOG_CLI_PROJECT_ID: z.string().min(1).optional(),
     POSTHOG_SOURCEMAP_UPLOAD: booleanStringOptional,
+    /** Bearer token for authenticated readiness probes (`/api/ready`, Worker `/ready`). */
+    MONITORING_TOKEN: z.string().min(32).optional(),
+    /** Immutable source SHA baked at build time; surfaced by readiness endpoints. */
+    NABATABLE_SOURCE_REVISION: z
+      .string()
+      .regex(/^[0-9a-f]{7,64}$/u)
+      .optional(),
+    /** Provider deployment identifier baked at build time; surfaced by readiness endpoints. */
+    NABATABLE_BUILD_ID: z.string().min(1).max(200).optional(),
     ERROR_INSIGHT_RECEIVER_TOKEN: z.string().min(32).optional(),
     ERROR_INSIGHT_GITHUB_TOKEN: z.string().min(1).optional(),
     ERROR_INSIGHT_GITHUB_REPOSITORY: z

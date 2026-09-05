@@ -60,6 +60,8 @@ tasks/
 
 # backups
 /backups/
+# local recovery work files (backup staging, drill evidence, D1 exports, queue reports)
+.recovery/
 
 # generated route maps
 /route-map-ascii.txt

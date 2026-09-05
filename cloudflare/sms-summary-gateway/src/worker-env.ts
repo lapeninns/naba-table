@@ -20,6 +20,8 @@ export type SmsSummaryWorkerEnv = {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   INTERNAL_TRIGGER_TOKEN: string;
+  /** `sink` disables all Twilio sends (staging). Unset/other values deliver normally. */
+  DELIVERY_MODE?: string;
   DEPLOY_SHA?: string;
   ERROR_INSIGHT_TOKEN?: string;
   ERROR_INSIGHT_WEBHOOK_URL?: string;

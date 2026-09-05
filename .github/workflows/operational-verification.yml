@@ -1,0 +1,74 @@
+name: Operational verification
+
+# Hourly hosted verification of readiness, evidence freshness and control-plane
+# configuration (`scripts/monitoring/verify.ts`). The heartbeat to the uptime
+# provider is emitted by the script only after a fully valid cycle, so a missed
+# heartbeat is itself an alert.
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_run:
+    workflows: ['Protected delivery']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: operational-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Operational verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: Monitoring
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      # `scripts/monitoring/verify.ts` imports Node built-ins and its sibling
+      # modules only, so the application dependency tree is never installed
+      # here: the Monitoring identity should not execute 1,000+ third-party
+      # install scripts every hour. `pnpm dlx tsx@<lockfile version>` runs the
+      # same entrypoint as `pnpm ops:verify`; the pin is checked against
+      # pnpm-lock.yaml by `pnpm ci:contracts:validate`. Node's native type
+      # stripping was rejected because the scripts use extensionless relative
+      # imports, which the ESM loader does not resolve without a bundler.
+      - name: Verify operational sources
+        env:
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          MONITORING_GITHUB_TOKEN: ${{ secrets.MONITORING_GITHUB_TOKEN }}
+          MONITORING_HEARTBEAT_URL: ${{ secrets.MONITORING_HEARTBEAT_URL }}
+          MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL: ${{ vars.MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL }}
+          MONITORING_OPERATIONAL_CONTROL_BASE_URL: ${{ vars.MONITORING_OPERATIONAL_CONTROL_BASE_URL }}
+        # `shell: bash` runs with `-eo pipefail`, so the step fails on the verifier's exit
+        # code (1 = failures, 2 = crash) instead of tee's; the default shell would mask it.
+        shell: bash
+        run: |
+          mkdir -p test-results/monitoring
+          pnpm dlx tsx@4.21.0 scripts/monitoring/verify.ts | tee test-results/monitoring/verify.json
+
+      - name: Upload verification summary (redacted JSON)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: operational-verification-${{ github.run_id }}
+          path: test-results/monitoring/
+          if-no-files-found: ignore
+          retention-days: 30

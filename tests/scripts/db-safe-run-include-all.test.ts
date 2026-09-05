@@ -48,6 +48,19 @@ function runCli(args: readonly string[], overrides: Readonly<Record<string, stri
   };
 }
 
+const STAGING_REF = 'ndxmivcrehsacuerwxtm';
+const PRODUCTION_REF = 'vrdiqfudmwydclqpydee';
+
+/** A private Supabase workdir linked to the given project ref, so tests never depend on the repo link state. */
+function createLinkedWorkdir(projectRef: string): string {
+  const root = mkdtempSync(path.join(tmpdir(), 'nabatable-db-include-all-workdir-'));
+  temporaryDirectories.push(root);
+  mkdirSync(path.join(root, 'supabase', 'migrations'), { recursive: true });
+  mkdirSync(path.join(root, 'supabase', '.temp'), { recursive: true });
+  writeFileSync(path.join(root, 'supabase', '.temp', 'project-ref'), `${projectRef}\n`);
+  return root;
+}
+
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { force: true, recursive: true });
@@ -56,17 +69,18 @@ afterEach(() => {
 
 describe('remote database safe runner historical replay', () => {
   it.each(['migrate', 'push'])(
-    'delegates include-all only after validation for staging migration alias %s @contract',
+    'delegates include-all only after the in-process environment guard for staging migration alias %s @contract',
     (workflow) => {
       // Given: an explicitly targeted staging migration with historical replay approved.
-      const environment = { DB_TARGET_ENV: 'staging' };
+      const root = createLinkedWorkdir(STAGING_REF);
+      const environment = { DB_TARGET_ENV: 'staging', SUPABASE_WORKDIR: root };
 
       // When: the operator invokes the governed include-all path.
       const whenReplayRuns = runCli([workflow, '--include-all'], environment);
 
-      // Then: validation precedes the exact Supabase historical replay command.
+      // Then: the guard passes in-process (no validation child) and the exact replay command runs.
       expect(whenReplayRuns.status).toBe(0);
-      expect(whenReplayRuns.calls).toEqual(['pnpm validate:env', 'supabase db push --include-all']);
+      expect(whenReplayRuns.calls).toEqual([`supabase db push --include-all --workdir ${root}`]);
     },
   );
 
@@ -100,20 +114,21 @@ describe('remote database safe runner historical replay', () => {
 
   it('delegates production include-all only with both exact confirmations @contract', () => {
     // Given: the reviewed missing historical migration and production apply are both confirmed.
+    const root = createLinkedWorkdir(PRODUCTION_REF);
     const environment = {
       CONFIRM_PRODUCTION: 'true',
       CONFIRM_PRODUCTION_INCLUDE_ALL: '20260811160000',
       DB_TARGET_ENV: 'production',
+      SUPABASE_WORKDIR: root,
     };
 
     // When: the governed historical replay is requested.
     const whenProductionReplayRuns = runCli(['push', '--include-all'], environment);
 
-    // Then: validation precedes the exact Supabase command.
+    // Then: the in-process guard passes and only the exact Supabase command runs.
     expect(whenProductionReplayRuns.status).toBe(0);
     expect(whenProductionReplayRuns.calls).toEqual([
-      'pnpm validate:env',
-      'supabase db push --include-all',
+      `supabase db push --include-all --workdir ${root}`,
     ]);
   });
 
@@ -143,19 +158,19 @@ describe('remote database safe runner historical replay', () => {
     expect(whenReadReplayRuns.calls).toEqual([]);
   });
 
-  it('validates then delegates the two fixed staging legacy preparation steps @contract', () => {
+  it('guards then delegates the two fixed staging legacy preparation steps @contract', () => {
     // Given: staging is explicitly targeted for the approved legacy drink-menu preparation.
-    const environment = { DB_TARGET_ENV: 'staging' };
+    const root = createLinkedWorkdir(STAGING_REF);
+    const environment = { DB_TARGET_ENV: 'staging', SUPABASE_WORKDIR: root };
 
     // When: the governed preparation workflow runs.
     const whenPreparationRuns = runCli(['prepare-staging-legacy-drink-menu'], environment);
 
-    // Then: validation precedes the canonical backfill and archive/retirement transaction.
+    // Then: the in-process guard precedes the canonical backfill and archive/retirement transaction.
     expect(whenPreparationRuns.status).toBe(0);
     expect(whenPreparationRuns.calls).toEqual([
-      'pnpm validate:env',
-      'supabase db query --linked --file supabase/migrations/20260507223000_backfill_canonical_menu_hierarchy.sql',
-      'supabase db query --linked --file scripts/db/prepare-staging-legacy-drink-menu.sql',
+      `supabase db query --linked --file supabase/migrations/20260507223000_backfill_canonical_menu_hierarchy.sql --workdir ${root}`,
+      `supabase db query --linked --file scripts/db/prepare-staging-legacy-drink-menu.sql --workdir ${root}`,
     ]);
   });
 
@@ -195,7 +210,7 @@ describe('remote database safe runner historical replay', () => {
     expect(whenDryRunRuns.calls).toEqual([]);
   });
 
-  it('validates then delegates runtime-parametrized test-phone cleanup for staging @contract', () => {
+  it('guards then delegates runtime-parametrized test-phone cleanup for staging @contract', () => {
     const environment = {
       DB_TARGET_ENV: 'staging',
       TEST_PHONE_E164: '+447700900999',
@@ -205,7 +220,6 @@ describe('remote database safe runner historical replay', () => {
 
     expect(whenCleanupRuns.status).toBe(0);
     expect(whenCleanupRuns.calls).toEqual([
-      'pnpm validate:env',
       'pnpm exec tsx scripts/db/remove-staging-test-phone.ts',
     ]);
   });
@@ -235,19 +249,34 @@ describe('remote database safe runner historical replay', () => {
   });
 
   it('targets an explicitly linked absolute Supabase workdir for production migration @contract', () => {
+    const root = createLinkedWorkdir(PRODUCTION_REF);
     const environment = {
       CONFIRM_PRODUCTION: 'true',
       DB_TARGET_ENV: 'production',
-      SUPABASE_WORKDIR: '/tmp/nabatable-production',
+      SUPABASE_WORKDIR: root,
     };
 
     const whenMigrationRuns = runCli(['migrate'], environment);
 
     expect(whenMigrationRuns.status).toBe(0);
-    expect(whenMigrationRuns.calls).toEqual([
-      'pnpm validate:env',
-      'supabase db push --workdir /tmp/nabatable-production',
-    ]);
+    expect(whenMigrationRuns.calls).toEqual([`supabase db push --workdir ${root}`]);
+  });
+
+  it('refuses a confirmed production migration when the workdir is linked to staging @contract', () => {
+    const root = createLinkedWorkdir(STAGING_REF);
+    const environment = {
+      CONFIRM_PRODUCTION: 'true',
+      DB_TARGET_ENV: 'production',
+      SUPABASE_WORKDIR: root,
+    };
+
+    const whenMigrationRuns = runCli(['migrate'], environment);
+
+    expect(whenMigrationRuns.status).toBe(2);
+    expect(whenMigrationRuns.output).toContain(
+      `Linked Supabase project ref does not match production: expected ${PRODUCTION_REF}, linked ${STAGING_REF}`,
+    );
+    expect(whenMigrationRuns.calls).toEqual([]);
   });
 
   it('refuses a relative Supabase workdir before any child runs @contract', () => {
