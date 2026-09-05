@@ -130,6 +130,7 @@ Everything below is done by a human administrator outside the repository. Every 
 - [ ] PostgreSQL 17 client tools on the `Backup` and `Recovery` runners (installed at run time from apt.postgresql.org today; pin or cache if availability becomes a concern).
 - [ ] Record a real PITR inspection (`REPLACE_ME_PITR_INSPECTED_AT` in `config/recovery/policy.yaml`); keep `disabled_optional` unless PITR is actually purchased.
 - [ ] Record the extended drift baseline from staging once (`DB_TARGET_ENV=staging SUPABASE_DB_URL=<staging url> DB_DRIFT_RECORD_INVENTORY=true pnpm db:check-drift`) and commit `config/db/schema-inventory.json`; run `pnpm db:sql-regression` and `pnpm db:plan-remote` against real staging once to confirm CLI output parsing.
+- [ ] Clear any pending production historical replay before enabling `Protected delivery`. At the time of writing `20260811160000_repair_gbp_linked_profile_lineage.sql` is older than the already-applied `20260822210500` migration, so `pnpm db:plan-remote` fails closed on production until an operator runs the confirmed `--include-all` exception from `docs/environments.md`. Protected delivery never performs historical replays itself.
 - [ ] Staging synthetic fixtures: two synthetic restaurants (tenant A/B) with slugs and ids as `STAGING_SYNTHETIC_TENANT_*`, a guest contact on a reserved test domain and a Twilio test number. Optional: a delivery sink (`STAGING_DELIVERY_SINK_URL`), an ops auth relay and a hold/capacity fixture endpoint to unlock the `test.fixme` staging proofs.
 
 ## Assumptions and constraints

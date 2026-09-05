@@ -73,7 +73,11 @@ jobs:
     # The gate reads a handful of REST resources and publishes checks; anything
     # slower than this is an outage, and a hung gate must not block merges silently.
     timeout-minutes: 3
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    # Main-branch hosted lanes reach the gate whatever their conclusion so a failed
+    # lane is recorded as a failing Release gate instead of a silently missing one;
+    # only push-triggered runs of the base repository qualify. Fork PRs never
+    # reach this path, and the evaluator fails closed on any non-success result.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.id == github.repository_id)
     steps:
       - name: Checkout protected main (never the candidate)
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10

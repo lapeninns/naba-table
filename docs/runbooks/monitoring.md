@@ -90,6 +90,8 @@ Run these after any change to monitors, tokens, or the verifier, and quarterly a
 
 Incidents are deduplicated by `(service, environment, failureClass)` in `lib/observability/incidents.ts`; the error-insight webhook forwards at most 10 updates per incident to the GitHub issue and then counts further occurrences locally (`incident_action: suppressed`).
 
+**Known limitation.** The incident store behind the webhook is process-local (`getErrorInsightIncidentStore`), so on Vercel each serverless instance and cold start keeps its own occurrence counts, update budget and escalation state. Issue-level deduplication still holds because the `Error to insight` workflow matches the existing open issue by title before commenting, but repeated observations across instances can dispatch extra workflow runs and escalation timing is best-effort. Replacing the store with a durable adapter (for example a Supabase table with atomic updates) is a reviewed follow-up; the `IncidentStore` interface is already injectable for it.
+
 1. UptimeRobot email or a GitHub `[automated error]` issue arrives. Open the linked runbook (`service-degradation.md` or `worker-degradation.md`).
 2. **Acknowledge within 15 minutes** for `severity: critical` by assigning yourself to the GitHub issue and commenting `ack`. Unacknowledged critical incidents escalate (`incident_action: escalated`) and the issue receives an escalation comment; the on-call lead is paged by email.
 3. Record the owner in the issue. The incident `owner`/`acknowledgedBy` fields mirror the assignee.

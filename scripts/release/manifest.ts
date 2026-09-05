@@ -29,6 +29,7 @@ export const DEFAULT_OUTPUTS: readonly string[] = [
   'cloudflare/booking-short-links/dist',
   'cloudflare/email-queue-gateway/dist',
   'cloudflare/sms-summary-gateway/dist',
+  'cloudflare/operational-control/dist',
 ];
 
 export const PROVIDER_PACKAGES: readonly string[] = [

@@ -471,6 +471,12 @@ jobs:
       # The checkout is linked to staging by default; production migrations must
       # first re-link to the production project and prove the link before the
       # dry-run plan and the apply (docs/DATABASE_MIGRATIONS.md, target validation).
+      #
+      # Historical replays (a migration older than the latest applied version,
+      # e.g. 20260811160000_repair_gbp_linked_profile_lineage) are deliberately
+      # outside this workflow: db:plan-remote fails closed on them and an operator
+      # must run the confirmed --include-all exception documented in
+      # docs/environments.md before enabling Protected delivery for that revision.
       - name: Link production Supabase project
         env:
           CONFIRM_PRODUCTION: 'true'

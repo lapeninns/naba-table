@@ -90,3 +90,8 @@ Rollback is a routing change, never a disabled check:
 - Database: forward-only migrations; recovery is a restore drill, not a rollback.
 
 Never remove a required check, lower `freshnessHours.main-deploy`, or add a digest to `allowedImageDigests` to unblock a release. If the gate refuses, fix the evidence.
+
+## Hosted lane failures
+
+- **Main.** `release-gate.yml` runs for every completed push-triggered hosted lane on `main` regardless of conclusion, so a failed `Security guards` or `CodeQL security review` run is recorded as a failing `Release gate` check on the merged SHA rather than a missing one. Protected delivery therefore sees an explicit refusal.
+- **Pull requests.** The operational Worker coalesces local and hosted completion and only dispatches the gate once every required run succeeded. A failed hosted lane leaves the candidate `rejected` without a dispatch: the failing hosted check is already visible on the PR and the required `Release gate` context stays missing, which blocks merging. Publishing an explicit failing gate for PR candidates is a follow-up that requires the coordinator to dispatch on hosted failure and re-dispatch on a successful re-run.

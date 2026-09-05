@@ -103,6 +103,14 @@ describe('GET /ready', () => {
     ).toBe(401);
   });
 
+  it('reports the baked DEPLOY_SHA as the revision when present', async () => {
+    const deploySha = 'a'.repeat(40);
+    const { env } = await createHarness({ DEPLOY_SHA: deploySha });
+    const response = await handleRequest(bearerRequest('/ready', MONITORING_TOKEN), env, deps);
+    const body = JSON.parse(await response.text()) as { revision: unknown };
+    expect(body.revision).toBe(deploySha);
+  });
+
   it('returns a bounded report with the revision and check summaries only', async () => {
     const { env, coordinator } = await createHarness();
     coordinator.coordinator.recordHeartbeat(JSON.parse(heartbeatBody()), NOW_MS);
@@ -123,7 +131,7 @@ describe('GET /ready', () => {
     expect(body).toMatchObject({
       status: 'ok',
       service: 'operational-control',
-      revision: { id: 'ver-1', tag: 'v1', timestamp: NOW_ISO },
+      revision: 'ver-1',
       activeRuntime: 'node22',
       candidateRuntime: 'node24',
       config: { ok: true },

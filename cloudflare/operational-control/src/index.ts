@@ -191,7 +191,9 @@ async function handleReady(request: Request, env: OperationalControlEnv): Promis
     {
       status: ready ? 'ok' : 'degraded',
       service: SERVICE_NAME,
-      revision: env.CF_VERSION_METADATA ?? null,
+      // Same contract as the customer Workers: the baked source SHA wins so
+      // deploy:workers can bind /ready to the exact revision it just shipped.
+      revision: env.DEPLOY_SHA?.trim() || env.CF_VERSION_METADATA?.id || null,
       activeRuntime: ACTIVE_RUNTIME,
       candidateRuntime: CANDIDATE_RUNTIME,
       config: config.ok ? { ok: true } : { ok: false, missing: config.missing },
