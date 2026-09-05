@@ -102,6 +102,7 @@ export const VERCEL_NEUTRAL_PATHS: readonly RegExp[] = [
 export const VERCEL_IDENTITY_KEYS: readonly string[] = ['alias', 'env', 'build', 'scope', 'name'];
 
 export type SeparationInput = {
+  readonly scope?: 'all' | 'workers';
   readonly target: DeployTarget;
   readonly workers: readonly WorkerConfigInput[];
   readonly vercel?: VercelConfigInput | null;
@@ -111,6 +112,7 @@ export type SeparationInput = {
 
 export type SeparationReport = {
   readonly kind: 'separation-validation';
+  readonly scope: 'all' | 'workers';
   readonly target: DeployTarget;
   readonly ok: boolean;
   readonly findings: readonly SeparationFinding[];
@@ -168,6 +170,16 @@ function compareSections(params: {
       });
       continue;
     }
+    // These GitHub resources govern the same repository in both environments.
+    // Keep placeholder checks above and restrict the exception to numeric control-plane IDs.
+    if (
+      params.scope === 'operational-control' &&
+      /^vars\.(REPOSITORY_ID|LOCAL_CI_APP_ID|GATE_WORKFLOW_ID|FALLBACK_WORKFLOW_ID|SCHEDULED_VALIDATION_WORKFLOW_ID)$/u.test(
+        leaf.path,
+      ) &&
+      /^[1-9][0-9]*$/u.test(value)
+    )
+      continue;
     const otherPath = otherValues.get(value);
     if (otherPath !== undefined) {
       findings.push({
@@ -311,23 +323,25 @@ export function validateSeparation(input: SeparationInput): SeparationReport {
     checkedFields += result.checked;
   }
 
-  const descriptorResult = compareSections({
-    scope: 'environments',
-    target: input.target,
-    targetSection: environments[input.target] as unknown as Record<string, unknown>,
-    otherSection: environments[other] as unknown as Record<string, unknown>,
-  });
-  findings.push(...descriptorResult.findings);
-  checkedFields += descriptorResult.checked;
-
-  if (input.vercel) {
-    const vercelResult = checkVercelConfig({
+  if (input.scope !== 'workers') {
+    const descriptorResult = compareSections({
+      scope: 'environments',
       target: input.target,
-      vercel: input.vercel,
-      environments,
+      targetSection: environments[input.target] as unknown as Record<string, unknown>,
+      otherSection: environments[other] as unknown as Record<string, unknown>,
     });
-    findings.push(...vercelResult.findings);
-    checkedFields += vercelResult.checked;
+    findings.push(...descriptorResult.findings);
+    checkedFields += descriptorResult.checked;
+
+    if (input.vercel) {
+      const vercelResult = checkVercelConfig({
+        target: input.target,
+        vercel: input.vercel,
+        environments,
+      });
+      findings.push(...vercelResult.findings);
+      checkedFields += vercelResult.checked;
+    }
   }
 
   if (input.target === 'staging' && input.processEnv) {
@@ -353,12 +367,13 @@ export function validateSeparation(input: SeparationInput): SeparationReport {
 
   return {
     kind: 'separation-validation',
+    scope: input.scope ?? 'all',
     target: input.target,
     ok: findings.length === 0,
     findings,
     checkedFields,
     configDigest: digestWorkerConfigs(input.workers),
-    vercelConfigDigest: digestVercelConfig(input.vercel),
+    vercelConfigDigest: input.scope === 'workers' ? null : digestVercelConfig(input.vercel),
     workers,
     checkedAt: new Date().toISOString(),
   };
@@ -406,6 +421,7 @@ export function main(argv: readonly string[], env: NodeJS.ProcessEnv = process.e
   const rootDir = flagString(flags, 'root') ?? process.cwd();
   const report = validateSeparation({
     target,
+    scope: flagBoolean(flags, 'workers-only') ? 'workers' : 'all',
     workers: loadWorkerConfigs(rootDir),
     vercel: loadVercelConfig(rootDir),
     processEnv: env,

@@ -97,7 +97,7 @@
         "DELIVERY_MODE": "sink",
         "POSTHOG_HOST": "https://eu.i.posthog.com",
         "ERROR_INSIGHT_WEBHOOK_URL": "https://nabatable-staging-ops.vercel.app/api/webhook/error-insight",
-        "SMS_SUMMARY_GATEWAY_PUBLIC_URL": "https://nabatable-sms-summary-gateway-staging.REPLACE_ME_STAGING_WORKERS_SUBDOMAIN.workers.dev",
+        "SMS_SUMMARY_GATEWAY_PUBLIC_URL": "https://nabatable-sms-summary-gateway-staging.amanshresthaaaaa.workers.dev",
       },
       "observability": {
         "enabled": true,

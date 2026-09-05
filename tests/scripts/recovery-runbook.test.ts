@@ -118,7 +118,15 @@ describe('wrangler.jsonc binding resolution', () => {
 
   it('reports staging as unconfigured while REPLACE_ME_ ids remain, naming each placeholder', () => {
     const staging = resolveWorkerBindings(
-      loadWranglerConfig(path.join('cloudflare', 'booking-short-links')),
+      {
+        env: {
+          staging: {
+            name: 'short-links-staging',
+            d1_databases: [{ database_id: 'REPLACE_ME_D1' }],
+            kv_namespaces: [{ id: 'REPLACE_ME_KV' }],
+          },
+        },
+      },
       'staging',
     );
     expect(staging.kind).toBe('unconfigured');

@@ -3,7 +3,7 @@
   "main": "src/index.ts",
   "upload_source_maps": true,
   "compatibility_date": "2026-04-11",
-  "workers_dev": false,
+  "workers_dev": true,
   "version_metadata": {
     "binding": "CF_VERSION_METADATA",
   },
@@ -27,7 +27,7 @@
   "r2_buckets": [
     {
       "binding": "EVIDENCE_BUCKET",
-      "bucket_name": "replace-me-evidence-bucket",
+      "bucket_name": "nabatable-operational-evidence",
     },
   ],
   // R2 bucket names must be lowercase, so bucket placeholders use `replace-me-*`; the Worker
@@ -37,13 +37,13 @@
   //   GITHUB_DISPATCH_INSTALLATION_ID, HEARTBEAT_TOKEN, MONITORING_TOKEN,
   //   INCIDENT_ACKNOWLEDGEMENT_TOKEN, UPTIME_HEARTBEAT_URL
   "vars": {
-    "REPOSITORY_ID": "REPLACE_ME_REPOSITORY_ID",
-    "LOCAL_CI_APP_ID": "REPLACE_ME_LOCAL_CI_APP_ID",
-    "GATE_WORKFLOW_ID": "REPLACE_ME_GATE_WORKFLOW_ID",
-    "FALLBACK_WORKFLOW_ID": "REPLACE_ME_FALLBACK_WORKFLOW_ID",
-    "SCHEDULED_VALIDATION_WORKFLOW_ID": "REPLACE_ME_SCHEDULED_VALIDATION_WORKFLOW_ID",
+    "REPOSITORY_ID": "1105219228",
+    "LOCAL_CI_APP_ID": "4840724",
+    "GATE_WORKFLOW_ID": "350875950",
+    "FALLBACK_WORKFLOW_ID": "350875947",
+    "SCHEDULED_VALIDATION_WORKFLOW_ID": "350875948",
     "PROTECTED_REF": "refs/heads/main",
-    "TARGETS_JSON": "[]",
+    "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"production\",\"url\":\"https://app.nabatable.com/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"production\",\"url\":\"https://go.nabatable.com/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-email-queue-gateway.amanshresthaaaaa.workers.dev/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-sms-summary-gateway.amanshresthaaaaa.workers.dev/ready\"}]",
     "POSTHOG_HOST": "https://eu.i.posthog.com",
     "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
   },
@@ -56,7 +56,7 @@
   "env": {
     "staging": {
       "name": "nabatable-operational-control-staging",
-      "workers_dev": false,
+      "workers_dev": true,
       "triggers": {
         "crons": ["*/5 * * * *"],
       },
@@ -71,17 +71,17 @@
       "r2_buckets": [
         {
           "binding": "EVIDENCE_BUCKET",
-          "bucket_name": "replace-me-staging-evidence-bucket",
+          "bucket_name": "nabatable-ci-evidence-staging",
         },
       ],
       "vars": {
-        "REPOSITORY_ID": "REPLACE_ME_REPOSITORY_ID",
-        "LOCAL_CI_APP_ID": "REPLACE_ME_LOCAL_CI_APP_ID",
-        "GATE_WORKFLOW_ID": "REPLACE_ME_GATE_WORKFLOW_ID",
-        "FALLBACK_WORKFLOW_ID": "REPLACE_ME_FALLBACK_WORKFLOW_ID",
-        "SCHEDULED_VALIDATION_WORKFLOW_ID": "REPLACE_ME_SCHEDULED_VALIDATION_WORKFLOW_ID",
+        "REPOSITORY_ID": "1105219228",
+        "LOCAL_CI_APP_ID": "4840724",
+        "GATE_WORKFLOW_ID": "350875950",
+        "FALLBACK_WORKFLOW_ID": "350875947",
+        "SCHEDULED_VALIDATION_WORKFLOW_ID": "350875948",
         "PROTECTED_REF": "refs/heads/main",
-        "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"staging\",\"url\":\"https://nabatable-staging.vercel.app/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"staging\",\"url\":\"https://nabatable-booking-short-links-staging.REPLACE_ME_STAGING_WORKERS_HOST/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"staging\",\"url\":\"https://nabatable-email-queue-gateway-staging.REPLACE_ME_STAGING_WORKERS_HOST/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"staging\",\"url\":\"https://nabatable-sms-summary-gateway-staging.REPLACE_ME_STAGING_WORKERS_HOST/ready\"}]",
+        "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"staging\",\"url\":\"https://nabatable-staging.vercel.app/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"staging\",\"url\":\"https://nabatable-booking-short-links-staging.amanshresthaaaaa.workers.dev/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"staging\",\"url\":\"https://nabatable-email-queue-gateway-staging.amanshresthaaaaa.workers.dev/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"staging\",\"url\":\"https://nabatable-sms-summary-gateway-staging.amanshresthaaaaa.workers.dev/ready\"}]",
         "POSTHOG_HOST": "https://eu.i.posthog.com",
         "ERROR_INSIGHT_WEBHOOK_URL": "https://nabatable-staging-ops.vercel.app/api/webhook/error-insight",
       },
@@ -94,7 +94,7 @@
     },
     "production": {
       "name": "nabatable-operational-control",
-      "workers_dev": false,
+      "workers_dev": true,
       "triggers": {
         "crons": ["*/5 * * * *"],
       },
@@ -109,17 +109,17 @@
       "r2_buckets": [
         {
           "binding": "EVIDENCE_BUCKET",
-          "bucket_name": "replace-me-production-evidence-bucket",
+          "bucket_name": "nabatable-operational-evidence",
         },
       ],
       "vars": {
-        "REPOSITORY_ID": "REPLACE_ME_REPOSITORY_ID",
-        "LOCAL_CI_APP_ID": "REPLACE_ME_LOCAL_CI_APP_ID",
-        "GATE_WORKFLOW_ID": "REPLACE_ME_GATE_WORKFLOW_ID",
-        "FALLBACK_WORKFLOW_ID": "REPLACE_ME_FALLBACK_WORKFLOW_ID",
-        "SCHEDULED_VALIDATION_WORKFLOW_ID": "REPLACE_ME_SCHEDULED_VALIDATION_WORKFLOW_ID",
+        "REPOSITORY_ID": "1105219228",
+        "LOCAL_CI_APP_ID": "4840724",
+        "GATE_WORKFLOW_ID": "350875950",
+        "FALLBACK_WORKFLOW_ID": "350875947",
+        "SCHEDULED_VALIDATION_WORKFLOW_ID": "350875948",
         "PROTECTED_REF": "refs/heads/main",
-        "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"production\",\"url\":\"https://app.nabatable.com/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"production\",\"url\":\"https://go.nabatable.com/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-email-queue-gateway.REPLACE_ME_PRODUCTION_WORKERS_HOST/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-sms-summary-gateway.REPLACE_ME_PRODUCTION_WORKERS_HOST/ready\"}]",
+        "TARGETS_JSON": "[{\"name\":\"web\",\"environment\":\"production\",\"url\":\"https://app.nabatable.com/api/ready\"},{\"name\":\"booking-short-links\",\"environment\":\"production\",\"url\":\"https://go.nabatable.com/ready\"},{\"name\":\"email-queue-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-email-queue-gateway.amanshresthaaaaa.workers.dev/ready\"},{\"name\":\"sms-summary-gateway\",\"environment\":\"production\",\"url\":\"https://nabatable-sms-summary-gateway.amanshresthaaaaa.workers.dev/ready\"}]",
         "POSTHOG_HOST": "https://eu.i.posthog.com",
         "ERROR_INSIGHT_WEBHOOK_URL": "https://app.nabatable.com/api/webhook/error-insight",
       },

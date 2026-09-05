@@ -11,6 +11,7 @@ import {
   envArgs,
   main,
   parseLatestVersionId,
+  parseActiveVersionId,
   parseVersionId,
   resolveWorkerBaseUrl,
   versionsUnsupported,
@@ -52,12 +53,15 @@ function fakeWrangler(options: { supportsVersions: boolean }): {
   const runner: CommandRunner = (command, args) => {
     calls.push([command, ...args]);
     const [group, action] = args;
-    if (group === 'versions' && action === 'list') {
+    if (group === 'deployments' && action === 'list') {
       return options.supportsVersions
         ? {
             status: 0,
             stdout: JSON.stringify([
-              { id: OLD_VERSION, metadata: { created_on: '2026-09-01T00:00:00Z' } },
+              {
+                versions: [{ version_id: OLD_VERSION, percentage: 100 }],
+                created_on: '2026-09-01T00:00:00Z',
+              },
               {
                 id: 'older-version-id-0000-0000-000000000000',
                 metadata: { created_on: '2026-08-01T00:00:00Z' },
@@ -78,6 +82,9 @@ function fakeWrangler(options: { supportsVersions: boolean }): {
     }
     if (group === 'versions' && action === 'deploy') {
       return { status: 0, stdout: 'Deployed', stderr: '' };
+    }
+    if (group === 'triggers' && action === 'deploy') {
+      return { status: 0, stdout: 'Triggers configured', stderr: '' };
     }
     if (group === 'deploy') {
       return { status: 0, stdout: `Current Version ID: ${NEW_VERSION}`, stderr: '' };
@@ -100,6 +107,37 @@ function readyFetch(revision: string) {
 }
 
 describe('deploy:workers', () => {
+  it('selects the currently deployed version, not a newer uploaded version @deploy', () => {
+    expect(
+      parseActiveVersionId(
+        JSON.stringify([
+          {
+            created_on: '2026-09-01T00:00:00Z',
+            versions: [{ version_id: NEW_VERSION, percentage: 100 }],
+          },
+          {
+            created_on: '2026-09-05T00:00:00Z',
+            versions: [{ version_id: OLD_VERSION, percentage: 100 }],
+          },
+        ]),
+      ),
+    ).toBe(OLD_VERSION);
+    expect(
+      parseActiveVersionId(
+        JSON.stringify([
+          {
+            created_on: '2026-09-05',
+            versions: [
+              { version_id: OLD_VERSION, percentage: 50 },
+              { version_id: NEW_VERSION, percentage: 50 },
+            ],
+          },
+        ]),
+      ),
+    ).toBeNull();
+    expect(parseActiveVersionId('invalid')).toBeNull();
+  });
+
   const tempDirs: string[] = [];
   const tempDir = () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'worker-deploy-'));
@@ -187,9 +225,10 @@ describe('deploy:workers', () => {
     expect(evidence.rollbackCommand).toContain('--env staging');
     const configPath = path.join(ROOT, 'cloudflare', 'sms-summary-gateway', 'wrangler.jsonc');
     expect(calls.map((call) => call.slice(0, 3).join(' '))).toEqual([
-      'wrangler versions list',
+      'wrangler deployments list',
       'wrangler versions upload',
       'wrangler versions deploy',
+      'wrangler triggers deploy',
     ]);
     for (const call of calls) {
       expect(call).toContain('--config');
@@ -207,6 +246,42 @@ describe('deploy:workers', () => {
     expect(written.kind).toBe('worker-deployment');
     expect(written.verified).toBe(true);
     expect(JSON.stringify(written)).not.toContain('fake-monitoring-token');
+  });
+
+  it('creates a missing Worker on the provider first-deploy response and still verifies readiness @deploy', async () => {
+    const dir = tempDir();
+    const evidenceFile = path.join(dir, 'separation.json');
+    writeFileSync(evidenceFile, JSON.stringify(separationEvidence()));
+    const fake = fakeWrangler({ supportsVersions: true });
+    const runner: CommandRunner = (command, args, options) => {
+      if (args[0] === 'deployments') return { status: 1, stdout: '', stderr: 'Worker not found' };
+      if (args[0] === 'versions' && args[1] === 'upload')
+        return {
+          status: 1,
+          stdout: '',
+          stderr:
+            'You cannot upload a new version of a Worker that does not yet exist. Please run the `deploy` command first.',
+        };
+      return fake.runner(command, args, options);
+    };
+    const result = await deployWorker({
+      worker: 'sms-summary-gateway',
+      target: 'staging',
+      sourceRevision: SHA,
+      monitoringToken: 'fake-monitoring-token',
+      rootDir: ROOT,
+      separationEvidencePath: evidenceFile,
+      evidencePath: path.join(dir, 'deploy.json'),
+      baseUrl: 'https://sms-staging.example.workers.dev',
+      runner,
+      fetchImpl: readyFetch(SHA),
+      env: {},
+      now: () => NOW,
+    });
+    expect(result.strategy).toBe('deploy');
+    expect(result.verified).toBe(true);
+    expect(result.previousVersionId).toBeNull();
+    expect(fake.calls[0]?.slice(0, 2)).toEqual(['wrangler', 'deploy']);
   });
 
   it('falls back to wrangler deploy when versions are unsupported and applies D1 migrations first @deploy', async () => {
@@ -234,7 +309,7 @@ describe('deploy:workers', () => {
     expect(evidence.strategy).toBe('deploy');
     expect(evidence.previousVersionId).toBeNull();
     expect(calls.map((call) => call.slice(0, 3).join(' '))).toEqual([
-      'wrangler versions list',
+      'wrangler deployments list',
       'wrangler d1 migrations',
       'wrangler versions upload',
       'wrangler deploy --config',
@@ -274,7 +349,7 @@ describe('deploy:workers', () => {
     const dir = tempDir();
     const separationEvidencePath = path.join(dir, 'separation-staging.json');
     writeFileSync(separationEvidencePath, JSON.stringify(separationEvidence()));
-    const { runner } = fakeWrangler({ supportsVersions: true });
+    const { runner, calls } = fakeWrangler({ supportsVersions: true });
     await expect(
       deployWorker({
         worker: 'sms-summary-gateway',
@@ -284,11 +359,16 @@ describe('deploy:workers', () => {
         rootDir: ROOT,
         separationEvidencePath,
         evidencePath: path.join(dir, 'worker.json'),
+        baseUrl: 'https://REPLACE_ME_SUBDOMAIN.workers.dev',
         runner,
+        fetchImpl: async () => {
+          throw new Error('Unexpected readiness request');
+        },
         env: {},
         now: () => NOW,
       }),
     ).rejects.toThrow(/no readiness URL/u);
+    expect(calls).toEqual([]);
   });
 
   it('resolves the email-queue-gateway readiness origin only from --url or WORKER_URL_EMAIL_QUEUE_GATEWAY @deploy', () => {
@@ -360,9 +440,10 @@ describe('deploy:workers', () => {
     }
     expect(seen).toEqual(['https://email-staging.example.workers.dev/ready']);
     expect(calls.map((call) => call.slice(0, 3).join(' '))).toEqual([
-      'wrangler versions list',
+      'wrangler deployments list',
       'wrangler versions upload',
       'wrangler versions deploy',
+      'wrangler triggers deploy',
     ]);
     const written = JSON.parse(readFileSync(evidencePath, 'utf8')) as {
       worker: string;

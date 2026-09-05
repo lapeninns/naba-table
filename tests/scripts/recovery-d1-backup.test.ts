@@ -152,6 +152,24 @@ describe('runD1Backup', () => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   });
 
+  function unconfiguredRepo(): string {
+    const repoRoot = path.join(tempRoot, 'repo');
+    const configDir = path.join(repoRoot, 'cloudflare', 'booking-short-links');
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(configDir, 'wrangler.jsonc'),
+      JSON.stringify({
+        env: {
+          staging: {
+            name: 'short-links-staging',
+            d1_databases: [{ database_id: 'REPLACE_ME_D1' }],
+          },
+        },
+      }),
+    );
+    return repoRoot;
+  }
+
   it('exports, verifies integrity, encrypts and removes the plaintext export', async () => {
     const wrangler = fakeWrangler();
     const tempDirs: string[] = [];
@@ -215,11 +233,12 @@ describe('runD1Backup', () => {
   });
 
   it('refuses the staging environment while its D1 id is a REPLACE_ME_ placeholder', async () => {
+    const repoRoot = unconfiguredRepo();
     await expect(
       runD1Backup(
         {
           envName: 'staging',
-          repoRoot: REPO_ROOT,
+          repoRoot,
           outDir,
           exportedAt: new Date(),
           key: BACKUP_KEY,
@@ -231,7 +250,7 @@ describe('runD1Backup', () => {
       runD1Backup(
         {
           envName: 'staging',
-          repoRoot: REPO_ROOT,
+          repoRoot,
           outDir,
           exportedAt: new Date(),
           key: BACKUP_KEY,
@@ -257,7 +276,11 @@ describe('runD1Backup', () => {
     });
     expect(await main(['--env', 'production', '--out', outDir], {}, io)).toBe(2);
     expect(
-      await main(['--env', 'staging'], { BACKUP_ENCRYPTION_KEY: BACKUP_KEY.toString('hex') }, io),
+      await main(
+        ['--env', 'staging'],
+        { BACKUP_ENCRYPTION_KEY: BACKUP_KEY.toString('hex') },
+        { ...io, cwd: unconfiguredRepo() },
+      ),
     ).toBe(2);
     expect(fs.readdirSync(outDir)).toEqual([]);
   });

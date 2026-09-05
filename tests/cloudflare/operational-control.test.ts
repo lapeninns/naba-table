@@ -57,14 +57,14 @@ describe('operational-control wrangler contract', () => {
   const config = readJson('wrangler.jsonc');
   const environments = [config, section(config, 'staging'), section(config, 'production')];
 
-  it('names the Worker, disables workers.dev and exposes version metadata', () => {
+  it('names the Worker, enables authenticated workers.dev endpoints and exposes version metadata', () => {
     expect(config.name).toBe('nabatable-operational-control');
     expect(config.main).toBe('src/index.ts');
     expect(config.version_metadata).toEqual({ binding: 'CF_VERSION_METADATA' });
     expect(section(config, 'staging').name).toBe('nabatable-operational-control-staging');
     expect(section(config, 'production').name).toBe('nabatable-operational-control');
     for (const environment of environments) {
-      expect(environment.workers_dev).toBe(false);
+      expect(environment.workers_dev).toBe(true);
       expect(environment.observability).toEqual({
         enabled: true,
         logs: { invocation_logs: false },
@@ -85,13 +85,19 @@ describe('operational-control wrangler contract', () => {
       const [bucket] = r2 as Record<string, unknown>[];
       expect(bucket?.binding).toBe('EVIDENCE_BUCKET');
       expect(typeof bucket?.bucket_name).toBe('string');
-      expect(bucket?.bucket_name).toMatch(/^replace-me-[a-z0-9-]+$/u);
+      expect(bucket?.bucket_name).toMatch(
+        /^nabatable-(?:operational-evidence|ci-evidence-staging)$/u,
+      );
       buckets.add(String(bucket?.bucket_name));
     }
-    expect(buckets.size).toBe(3);
+    expect(buckets).toEqual(
+      new Set(['nabatable-operational-evidence', 'nabatable-ci-evidence-staging']),
+    );
+    expect(config.r2_buckets).toEqual(section(config, 'production').r2_buckets);
+    expect(config.r2_buckets).not.toEqual(section(config, 'staging').r2_buckets);
   });
 
-  it('declares the control-plane vars with placeholders and never places secrets in vars', () => {
+  it('declares configured numeric control-plane identities and never places secrets in vars', () => {
     for (const environment of environments) {
       const vars = isRecord(environment.vars) ? environment.vars : {};
       for (const name of REQUIRED_VARS) expect(Object.keys(vars)).toContain(name);
@@ -100,7 +106,7 @@ describe('operational-control wrangler contract', () => {
       for (const name of REQUIRED_VARS.filter(
         (key) => key !== 'PROTECTED_REF' && key !== 'TARGETS_JSON',
       )) {
-        expect(vars[name]).toMatch(/^REPLACE_ME_/u);
+        expect(vars[name]).toMatch(/^[1-9][0-9]*$/u);
       }
     }
   });

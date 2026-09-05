@@ -53,19 +53,19 @@
         {
           "binding": "BOOKING_SHORT_LINKS_DB",
           "database_name": "nabatable-booking-short-links-staging",
-          "database_id": "REPLACE_ME_STAGING_SHORT_LINKS_D1_ID",
+          "database_id": "1d6fbc04-eb7f-48f5-a673-bb3420d39347",
           "migrations_dir": "migrations",
         },
       ],
       "kv_namespaces": [
         {
           "binding": "BOOKING_SHORT_LINKS_CACHE",
-          "id": "REPLACE_ME_STAGING_SHORT_LINKS_KV_ID",
-          "preview_id": "REPLACE_ME_STAGING_SHORT_LINKS_KV_PREVIEW_ID",
+          "id": "a4a50885b0fc47bc928fe602c53e4287",
+          "preview_id": "5d3db9428e7d4a7ebad8557ae3de184b",
         },
       ],
       "vars": {
-        "SHORT_LINKS_PUBLIC_BASE_URL": "https://nabatable-booking-short-links-staging.REPLACE_ME_STAGING_WORKERS_SUBDOMAIN.workers.dev",
+        "SHORT_LINKS_PUBLIC_BASE_URL": "https://nabatable-booking-short-links-staging.amanshresthaaaaa.workers.dev",
         "BOOKING_SITE_URL": "https://nabatable-staging.vercel.app",
         "ALLOWED_DESTINATION_HOSTS": "nabatable-staging.vercel.app,nabatable-staging-ops.vercel.app",
         "ALLOWED_REVIEW_DESTINATION_HOSTS": "g.page,maps.app.goo.gl,google.com,google.co.uk,google.co.in,google.ca,google.com.au,google.ie,google.fr,google.de,google.es,google.it,google.nl",

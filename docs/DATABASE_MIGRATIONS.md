@@ -17,6 +17,34 @@
 
 ---
 
+## 2026-09-05: Durable operational incidents
+
+**Status:** Applied and verified in staging and production on 2026-09-05.
+
+Migration: `supabase/migrations/20260905113000_durable_operational_incidents.sql`.
+Adds global operational incident snapshots and service-role-only compare-and-swap
+RPCs. No tenant or guest data is stored in this table.
+
+The owner explicitly authorized a one-time authenticated Supabase SQL Editor
+execution because a database deployment runner was unavailable. Staging was
+applied and verified first. Production's physical backup dated
+2026-09-05 05:25:17 UTC was verified as available before applying the migration.
+This does not change the normal `pnpm db:*` requirement.
+
+Each application recorded the actual migration SQL in
+`supabase_migrations.schema_migrations` in the same transaction as the schema
+change. Both records contain 3,313 bytes and match the committed source
+(MD5 `ed36037323bac6ea87547a551729440a`; source SHA-256
+`2d3923f16bfd4bca109057bae40056c93c6e17c639e672c6fae4b8dfb3737300`).
+
+Verified on both databases: RLS enabled; anonymous and authenticated roles denied
+RPC execution; service-role RPC execution granted while direct table access is
+denied; initial insert succeeds, duplicate insert is rejected, matching-version
+update succeeds and stale update is rejected. Synthetic verification transactions
+were rolled back, and a separate query confirmed zero remaining test rows.
+
+---
+
 ## Pending Migrations (Apply to Production)
 
 | Date (UTC) | Description | Staging | Production | Priority |

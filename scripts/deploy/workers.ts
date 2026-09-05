@@ -132,6 +132,32 @@ export function parseLatestVersionId(output: string): string | null {
   }
 }
 
+/** Rollback targets the active deployment, which may be older than an uploaded version. */
+export function parseActiveVersionId(output: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(output);
+    if (!Array.isArray(parsed)) return null;
+    const deployments = parsed
+      .filter(isRecord)
+      .filter(
+        (entry) =>
+          typeof entry.created_on === 'string' && Number.isFinite(Date.parse(entry.created_on)),
+      )
+      .sort((a, b) => Date.parse(String(b.created_on)) - Date.parse(String(a.created_on)));
+    const versions = deployments[0]?.versions;
+    if (!Array.isArray(versions) || versions.length !== 1) return null;
+    const version: unknown = versions[0];
+    return isRecord(version) &&
+      version.percentage === 100 &&
+      typeof version.version_id === 'string' &&
+      /^[0-9a-f-]{36}$/u.test(version.version_id)
+      ? version.version_id
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export type WorkerDeploymentEvidence = {
   readonly kind: 'worker-deployment';
   readonly worker: CustomerWorker;
@@ -252,8 +278,8 @@ export async function deployWorker(
     return runOrThrow(runner, 'wrangler', args, { cwd: options.rootDir, env: options.env });
   };
 
-  const listing = invoke(['versions', 'list', ...commonArgs, '--json']);
-  const previousVersionId = listing.status === 0 ? parseLatestVersionId(listing.stdout) : null;
+  const listing = invoke(['deployments', 'list', ...commonArgs, '--json']);
+  const previousVersionId = listing.status === 0 ? parseActiveVersionId(listing.stdout) : null;
 
   if (options.worker === 'booking-short-links' && !options.skipMigrations) {
     invokeOrThrow([
@@ -281,7 +307,14 @@ export async function deployWorker(
     if (!versionId)
       throw new WorkerDeployRefusedError('wrangler versions upload did not report a version id.');
     invokeOrThrow(['versions', 'deploy', `${versionId}@100%`, ...commonArgs, '--yes']);
-  } else if (versionsUnsupported(upload)) {
+    // Version uploads do not apply routes, workers.dev or cron schedules.
+    invokeOrThrow(['triggers', 'deploy', ...commonArgs]);
+  } else if (
+    versionsUnsupported(upload) ||
+    /You cannot upload a new version of a Worker that does not yet exist\. Please run the `deploy` command first\./u.test(
+      upload.stderr,
+    )
+  ) {
     strategy = 'deploy';
     const deployed = invokeOrThrow(['deploy', ...commonArgs, ...varArgs]);
     versionId = parseVersionId(`${deployed.stdout}\n${deployed.stderr}`);
