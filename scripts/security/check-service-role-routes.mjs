@@ -27,6 +27,8 @@ const AUTHORIZATION_GUARD_PATTERNS = [
   /\brequireOpsAuth\b/,
   /\brequireSession\b/,
   /\brequireCronAuthAndRun\b/,
+  // Dedicated monitoring-token bearer check (timing-safe) used by GET /api/ready.
+  /\bisAuthorizedMonitoringRequest\b/,
   /\bhasValidReviewLinkWebhookAuthorization\b/,
   /\bhandleGoogleBusinessProfilePush\b/,
   /\brequireRestaurantContext\b/,
