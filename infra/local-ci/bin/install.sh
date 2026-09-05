@@ -1,5 +1,7 @@
 #!/bin/sh
 # Install the Nabatable local CI controller on this Mac. Idempotent.
+# --current-user explicitly opts into this non-root account and isolated CI assets.
+# --no-start stages the current-user agent with automatic startup disabled.
 #
 # Run as an administrator (sudo) AFTER the service account exists. The script
 # never creates accounts, never stores secrets, never touches the default
@@ -29,6 +31,119 @@ die() {
   printf 'install: %s\n' "$*" >&2
   exit 1
 }
+
+account_mode='dedicated'
+no_start=0
+for arg in "$@"; do
+  case "$arg" in
+    --current-user) account_mode='current-user' ;;
+    --no-start) no_start=1 ;;
+    *) die "unknown flag $arg" ;;
+  esac
+done
+
+if [ "$account_mode" = 'current-user' ]; then
+  uid=$(id -u)
+  [ "$uid" -ne 0 ] || die '--current-user must not run as root or through sudo'
+  account=$(id -un)
+  home_dir="${HOME:?HOME is required}"
+  ci_home="$home_dir/nabatable-ci"
+  plist_dst="$home_dir/Library/LaunchAgents/$label.plist"
+  export LIMA_HOME="$ci_home/lima"
+  export DOCKER_CONFIG="$ci_home/docker"
+  umask 077
+  command -v node >/dev/null || die 'Node 22 is required'
+  [ -f "$plist_src" ] || die "plist missing at $plist_src"
+
+  # Validate every managed path before mutation. The reviewed release is read-only
+  # to this installer: it must already exist under releases and be linked as current.
+  node - "$home_dir" "$uid" <<'CHECK_CURRENT_PATHS' || die 'unsafe current-user paths or missing reviewed current release'
+const fs = require('node:fs');
+const path = require('node:path');
+const [home, owner] = process.argv.slice(2);
+const uid = Number(owner);
+if (!path.isAbsolute(home) || /[\r\n]/.test(home) || uid !== process.getuid()) process.exit(1);
+const homeStat = fs.lstatSync(home);
+if (!homeStat.isDirectory() || homeStat.isSymbolicLink() || homeStat.uid !== uid) process.exit(1);
+const managed = ['nabatable-ci', 'nabatable-ci/config', 'nabatable-ci/config/controller.env', 'nabatable-ci/releases', 'nabatable-ci/run', 'nabatable-ci/images', 'nabatable-ci/spool', 'nabatable-ci/jobs', 'nabatable-ci/lima', 'nabatable-ci/docker', 'Library/LaunchAgents', 'Library/LaunchAgents/com.nabatable.ci-controller.plist', 'Library/Logs/nabatable-ci'];
+for (const relative of managed) {
+  let target = home;
+  for (const segment of relative.split('/')) {
+    target = path.join(target, segment);
+    if (!fs.existsSync(target) && !fs.lstatSync(target, { throwIfNoEntry: false })) continue;
+    const stat = fs.lstatSync(target);
+    if (stat.isSymbolicLink() || stat.uid !== uid) process.exit(1);
+  }
+}
+const current = path.join(home, 'nabatable-ci/current');
+if (!fs.lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink()) process.exit(1);
+const release = fs.realpathSync(current);
+const releases = fs.realpathSync(path.join(home, 'nabatable-ci/releases'));
+if (!release.startsWith(releases + path.sep) || fs.statSync(release).uid !== uid) process.exit(1);
+for (const file of ['package.json', 'infra/local-ci/bin/controller.sh']) {
+  const target = path.join(release, file);
+  if (!fs.statSync(target).isFile() || !fs.realpathSync(target).startsWith(release + path.sep)) process.exit(1);
+}
+CHECK_CURRENT_PATHS
+  sh "$here/preflight.sh" || die 'preflight failed; fix the FAIL lines above and re-run'
+  mkdir -p "$ci_home/config" "$ci_home/releases" "$ci_home/run" "$ci_home/images" "$ci_home/spool" "$ci_home/jobs" "$ci_home/lima" "$ci_home/docker" "$home_dir/Library/Logs/nabatable-ci" "$home_dir/Library/LaunchAgents"
+  chmod 700 "$ci_home" "$ci_home/run" "$ci_home/lima" "$ci_home/docker"
+  if ! docker context inspect nabatable-ci >/dev/null 2>&1; then
+    docker context create nabatable-ci --description 'Nabatable local CI (rebound per job by the executor)' --docker 'host=unix:///var/empty/nabatable-ci-unbound.sock' >/dev/null
+  fi
+  config="$ci_home/config/controller.env"
+  if [ ! -f "$config" ]; then
+    # Reuse the dedicated template; quote path values as data, never shell source.
+    node - "$0" "$config" "$ci_home" <<'WRITE_CURRENT_CONFIG'
+const fs = require('node:fs');
+const [source, config, ciHome] = process.argv.slice(2);
+const template = fs.readFileSync(source, 'utf8').match(/<<'ENV'\n([\s\S]*?)\nENV\n/)[1];
+const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+const rendered = template.split('\n').map(line => {
+  const prefix = '/Users/nabatable-ci/nabatable-ci';
+  const equal = line.indexOf('=');
+  if (equal < 0 || !line.slice(equal + 1).startsWith(prefix)) return line;
+  return line.slice(0, equal + 1) + quote(ciHome + line.slice(equal + 1 + prefix.length));
+}).join('\n') + '\n';
+fs.writeFileSync(config, rendered, { mode: 0o600, flag: 'wx' });
+WRITE_CURRENT_CONFIG
+    say "wrote non-secret template $config; replace placeholders before starting"
+  fi
+  temporary_plist=$(mktemp "$ci_home/run/agent.XXXXXX")
+  trap 'rm -f "$temporary_plist"' EXIT HUP INT TERM
+  cp "$plist_src" "$temporary_plist"
+  plutil -replace ProgramArguments.1 -string "$ci_home/current/infra/local-ci/bin/controller.sh" "$temporary_plist"
+  plutil -replace WorkingDirectory -string "$ci_home/current" "$temporary_plist"
+  plutil -replace EnvironmentVariables.HOME -string "$home_dir" "$temporary_plist"
+  plutil -replace EnvironmentVariables.NABATABLE_CI_HOME -string "$ci_home" "$temporary_plist"
+  plutil -insert EnvironmentVariables.NABATABLE_CI_ACCOUNT_MODE -string current-user "$temporary_plist"
+  plutil -insert EnvironmentVariables.NABATABLE_CI_OWNER_UID -string "$uid" "$temporary_plist"
+  plutil -insert EnvironmentVariables.LIMA_HOME -string "$ci_home/lima" "$temporary_plist"
+  plutil -insert EnvironmentVariables.DOCKER_CONFIG -string "$ci_home/docker" "$temporary_plist"
+  plutil -replace StandardOutPath -string "$home_dir/Library/Logs/nabatable-ci/controller.log" "$temporary_plist"
+  plutil -replace StandardErrorPath -string "$home_dir/Library/Logs/nabatable-ci/controller.err.log" "$temporary_plist"
+  if [ "$no_start" -eq 1 ]; then
+    plutil -replace RunAtLoad -bool false "$temporary_plist"
+    plutil -replace KeepAlive -bool false "$temporary_plist"
+  fi
+  plutil -lint "$temporary_plist" >/dev/null || die 'rendered plist failed validation'
+  cp "$temporary_plist" "$plist_dst"
+  chmod 600 "$plist_dst"
+  if [ "$no_start" -eq 1 ]; then
+    say 'staged with RunAtLoad=false and KeepAlive=false; no agent was started (an already loaded agent is unchanged)'
+  elif launchctl print "gui/$uid" >/dev/null 2>&1; then
+    if launchctl print "gui/$uid/$label" >/dev/null 2>&1; then
+      # kickstart reuses the loaded definition, including KeepAlive=false from
+      # a staged install. Reload so activation applies the newly rendered plist.
+      launchctl bootout "gui/$uid/$label"
+    fi
+    launchctl bootstrap "gui/$uid" "$plist_dst"
+  else
+    say 'no GUI session; the agent will load at the next login'
+  fi
+  say "current-user assets installed under $ci_home; credentials were not read or changed"
+  exit 0
+fi
 
 [ "$(id -u)" -eq 0 ] || die 'run with sudo (writes into the service account home)'
 [ -f "$plist_src" ] || die "plist missing at $plist_src"
@@ -157,7 +272,9 @@ else
 fi
 plutil -lint "$plist_dst" >/dev/null || die 'installed plist failed plutil -lint'
 
-if launchctl print "gui/${uid}" >/dev/null 2>&1; then
+if [ "$no_start" -eq 1 ]; then
+  say 'agent not started (--no-start); dedicated template still auto-loads at next login'
+elif launchctl print "gui/${uid}" >/dev/null 2>&1; then
   if launchctl print "gui/${uid}/${label}" >/dev/null 2>&1; then
     say '  agent already loaded; kickstarting so the new wrapper/config is picked up'
     launchctl kickstart -k "gui/${uid}/${label}"

@@ -1,5 +1,7 @@
 #!/bin/sh
 # Remove the Nabatable local CI controller from this Mac. Idempotent.
+# --current-user explicitly targets only this non-root account's isolated CI assets.
+# In that mode, credential files and Keychain entries are left unchanged.
 #
 # Unloads and deletes the LaunchAgent, removes the materialised App key file,
 # and removes ONLY the "nabatable-ci" Docker context. It never touches the
@@ -19,9 +21,11 @@ home_dir="/Users/${account}"
 plist_dst="${home_dir}/Library/LaunchAgents/${label}.plist"
 delete_vm=0
 delete_config=0
+account_mode=dedicated
 
 for arg in "$@"; do
   case "$arg" in
+    --current-user) account_mode=current-user ;;
     --delete-vm) delete_vm=1 ;;
     --delete-config) delete_config=1 ;;
     *)
@@ -32,6 +36,53 @@ for arg in "$@"; do
 done
 
 say() { printf 'uninstall: %s\n' "$*"; }
+if [ "$account_mode" = 'current-user' ]; then
+  uid=$(id -u)
+  [ "$uid" -ne 0 ] || { say '--current-user must not run as root or through sudo' >&2; exit 1; }
+  account=$(id -un)
+  home_dir="${HOME:?HOME is required}"
+  ci_home="$home_dir/nabatable-ci"
+  plist_dst="$home_dir/Library/LaunchAgents/$label.plist"
+  export LIMA_HOME="$ci_home/lima"
+  export DOCKER_CONFIG="$ci_home/docker"
+  # Never follow redirected asset directories into another account or unrelated tree.
+  node - "$home_dir" "$uid" <<'CHECK_CURRENT_UNINSTALL' || { say 'unsafe current-user asset paths' >&2; exit 1; }
+const fs = require('node:fs');
+const path = require('node:path');
+const [home, owner] = process.argv.slice(2);
+const uid = Number(owner);
+if (!path.isAbsolute(home) || /[\r\n]/.test(home) || uid !== process.getuid()) process.exit(1);
+const homeStat = fs.lstatSync(home);
+if (!homeStat.isDirectory() || homeStat.isSymbolicLink() || homeStat.uid !== uid) process.exit(1);
+for (const relative of ['nabatable-ci', 'nabatable-ci/config', 'nabatable-ci/lima', 'nabatable-ci/docker', 'Library/LaunchAgents', 'Library/LaunchAgents/com.nabatable.ci-controller.plist']) {
+  let target = home;
+  for (const segment of relative.split('/')) {
+    target = path.join(target, segment);
+    const stat = fs.lstatSync(target, { throwIfNoEntry: false });
+    if (stat && (stat.isSymbolicLink() || stat.uid !== uid)) process.exit(1);
+  }
+}
+CHECK_CURRENT_UNINSTALL
+  if launchctl print "gui/$uid/$label" >/dev/null 2>&1; then
+    launchctl bootout "gui/$uid/$label"
+  fi
+  rm -f "$plist_dst"
+  if docker context inspect nabatable-ci >/dev/null 2>&1; then
+    docker context rm -f nabatable-ci >/dev/null
+  fi
+  if [ "$delete_vm" -eq 1 ] && [ -d "$LIMA_HOME" ]; then
+    for vm in $(limactl list --format '{{.Name}}' | grep -E '^nabatable-ci(-golden|-[a-z0-9-]+)?$' || true); do
+      limactl stop --force "$vm" >/dev/null 2>&1 || true
+      limactl delete --force "$vm"
+    done
+  fi
+  if [ "$delete_config" -eq 1 ]; then
+    rm -rf "$ci_home/config"
+  fi
+  say 'current-user agent and CI Docker context removed; credentials and release checkouts left unchanged'
+  exit 0
+fi
+
 [ "$(id -u)" -eq 0 ] || {
   echo 'uninstall: run with sudo' >&2
   exit 1

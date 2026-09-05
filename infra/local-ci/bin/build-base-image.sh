@@ -2,7 +2,7 @@
 # Build and export the golden base image that every disposable CI job
 # instance is cloned from (see scripts/ci/executor/lima/instance.ts).
 #
-#   build-base-image.sh [--mode normal|dedicated] [--out <dir>] [--keep-instance] [--plan]
+#   build-base-image.sh [--current-user] [--mode normal|dedicated] [--out <dir>] [--keep-instance] [--plan]
 #
 # Steps (each printed by --plan without executing anything):
 #   1. refuse while any REPLACE_ME placeholder remains in the template, the
@@ -11,9 +11,9 @@
 #      nabatable-ci-golden instance (provisioning installs Docker Engine,
 #      nftables, tinyproxy; see lima/nabatable-ci.yaml)
 #   3. bin/sync-vm-config.sh: seccomp profile, egress policy, proxy config
-#   4. build the job image inside the guest through the loopback proxy, give
+#   4. build the job image inside the guest through the restricted job proxy, give
 #      it a RepoDigest via a throwaway local registry, and record the digest
-#   5. stop the instance and flatten its disk into <out>/nabatable-ci-golden-<stamp>.qcow2
+#   5. stop the instance and flatten disk (legacy: diffdisk) into <out>/nabatable-ci-golden-<stamp>.qcow2
 #   6. print the sha256 digest and the controller.env lines to set
 #
 # Required on the Mac: limactl, qemu-img (brew install lima qemu). Required
@@ -33,16 +33,21 @@ golden='nabatable-ci-golden'
 image_repo='ci-registry.local/nabatable/ci-job'
 
 mode='normal'
+account_mode='dedicated'
 out_dir="${HOME}/nabatable-ci/images"
 keep_instance=0
 plan=0
 
 usage() {
-  echo 'usage: build-base-image.sh [--mode normal|dedicated] [--out <dir>] [--keep-instance] [--plan]' >&2
+  echo 'usage: build-base-image.sh [--current-user] [--mode normal|dedicated] [--out <dir>] [--keep-instance] [--plan]' >&2
   exit 2
 }
 while [ $# -gt 0 ]; do
   case "$1" in
+    --current-user)
+      account_mode='current-user'
+      shift
+      ;;
     --mode)
       [ $# -ge 2 ] || usage
       mode="$2"
@@ -82,6 +87,10 @@ node_digest="${NABATABLE_CI_NODE_IMAGE_DIGEST:-sha256:REPLACE_ME_NODE_22_BOOKWOR
 registry_digest="${NABATABLE_CI_REGISTRY_IMAGE_DIGEST:-sha256:REPLACE_ME_REGISTRY_2_ARM64_DIGEST}"
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 out_file="$out_dir/${golden}-${stamp}.qcow2"
+if [ "$account_mode" = current-user ]; then
+  # A separate Lima root keeps personal VMs outside this runner's lifecycle.
+  export LIMA_HOME="${NABATABLE_CI_HOME:-$HOME/nabatable-ci}/lima"
+fi
 lima_home="${LIMA_HOME:-$HOME/.lima}"
 
 # 1. fail-closed configuration check
@@ -93,11 +102,17 @@ is_digest "$node_digest" || add_problem 'NABATABLE_CI_NODE_IMAGE_DIGEST must be 
 is_digest "$registry_digest" || add_problem 'NABATABLE_CI_REGISTRY_IMAGE_DIGEST must be sha256:<64 hex> (registry:2 arm64)'
 command -v limactl >/dev/null 2>&1 || add_problem 'limactl not found (brew install lima)'
 command -v qemu-img >/dev/null 2>&1 || add_problem 'qemu-img not found (brew install qemu)'
-[ "$(id -un)" = 'nabatable-ci' ] || add_problem "must run as the nabatable-ci service account (got $(id -un))"
+if [ "$account_mode" = current-user ]; then
+  [ "$(id -u)" -ne 0 ] || add_problem 'current-user mode must not run as root'
+else
+  [ "$(id -un)" = 'nabatable-ci' ] || add_problem "must run as the nabatable-ci service account (got $(id -un))"
+fi
 
 if [ "$plan" -eq 1 ]; then
   cat <<PLAN
 build-base-image plan (mode=$mode, nothing executed)
+  account mode:    $account_mode
+  Lima storage:    $lima_home
   golden instance: $golden
   template:        $(basename "$template") rendered via bin/render-lima.sh $mode
   job image:       $image_repo (Dockerfile $(basename "$dockerfile"), base digest $node_digest)
@@ -107,8 +122,8 @@ build-base-image plan (mode=$mode, nothing executed)
     1. render template          -> bin/render-lima.sh $mode
     2. create + start instance  -> limactl create --tty=false --name=$golden <rendered>; limactl start --tty=false $golden
     3. sync guest config        -> bin/sync-vm-config.sh $golden
-    4. build job image in guest -> limactl copy Dockerfile; docker build --network=host (proxy 127.0.0.1:8888); push/pull via ci-registry.local; docker builder prune
-    5. stop + export            -> limactl stop $golden; qemu-img convert -O qcow2 -c <diffdisk> <output>
+    4. build job image in guest -> limactl copy Dockerfile; docker build --network=nabatable-ci-jobs (proxy 10.90.0.1:8888); push/pull via ci-registry.local; docker builder prune
+    5. stop + export            -> limactl stop $golden; qemu-img convert -O qcow2 -c <disk (legacy: diffdisk)> <output>
     6. digest + env lines       -> shasum -a 256 <output>; NABATABLE_CI_IMAGE_DIGEST = job image digest
 PLAN
   if [ -n "$problems" ]; then
@@ -139,22 +154,35 @@ limactl shell "$golden" -- mkdir -p /tmp/ci-job/empty
 limactl copy "$dockerfile" "${golden}:/tmp/ci-job/Dockerfile"
 job_image=$(limactl shell "$golden" -- sudo sh -c "
   set -eu
-  docker run --detach --name ci-registry --publish 127.0.0.1:80:5000 'registry@${registry_digest}' >/dev/null
-  docker build --network=host \
-    --build-arg HTTP_PROXY=http://127.0.0.1:8888 --build-arg HTTPS_PROXY=http://127.0.0.1:8888 \
-    --build-arg http_proxy=http://127.0.0.1:8888 --build-arg https_proxy=http://127.0.0.1:8888 \
+  # The pinned, build-only registry binds guest loopback. Host networking is
+  # limited to this registry, never a CI job or build container.
+  cleanup() {
+    result=\$?
+    trap - EXIT HUP INT TERM
+    /etc/nabatable-ci/network/egress.sh phase test || result=1
+    docker rm --force --volumes ci-registry >/dev/null 2>&1 || result=1
+    docker image rm 'registry@${registry_digest}' >/dev/null 2>&1 || true
+    exit \"\$result\"
+  }
+  trap cleanup EXIT HUP INT TERM
+  docker run --detach --name ci-registry --network=host --userns=host \
+    --env REGISTRY_HTTP_ADDR=127.0.0.1:80 'registry@${registry_digest}' >/dev/null
+  /etc/nabatable-ci/network/egress.sh phase prep
+  docker build --network=nabatable-ci-jobs \
+    --build-arg HTTP_PROXY=http://10.90.0.1:8888 --build-arg HTTPS_PROXY=http://10.90.0.1:8888 \
+    --build-arg http_proxy=http://10.90.0.1:8888 --build-arg https_proxy=http://10.90.0.1:8888 \
     --build-arg NODE_IMAGE_DIGEST='${node_digest}' \
-    --tag '${image_repo}:build' --file /tmp/ci-job/Dockerfile /tmp/ci-job/empty >/dev/null
+    --tag '${image_repo}:build' --file /tmp/ci-job/Dockerfile /tmp/ci-job/empty >&2
+  /etc/nabatable-ci/network/egress.sh phase test
   docker push '${image_repo}:build' >/dev/null
   digest=\$(docker image inspect --format '{{index .RepoDigests 0}}' '${image_repo}:build')
   docker image rm '${image_repo}:build' >/dev/null
   docker pull \"\$digest\" >/dev/null
-  docker rm --force ci-registry >/dev/null
-  docker image rm 'registry@${registry_digest}' >/dev/null 2>&1 || true
   docker builder prune --all --force >/dev/null
   rm -rf /tmp/ci-job
   printf '%s\n' \"\$digest\"
-" | tr -d '\r' | tail -n 1)
+") || die 'guest image build or cleanup failed'
+job_image=$(printf '%s' "$job_image" | tr -d '\r' | tail -n 1)
 case "$job_image" in
   "${image_repo}@sha256:"*) ;;
   *) die "job image digest capture failed (got '$job_image')" ;;
@@ -165,9 +193,14 @@ say "job image: $job_image"
 say "stopping $golden and exporting its disk"
 limactl stop "$golden"
 mkdir -p "$out_dir"
-diffdisk="$lima_home/$golden/diffdisk"
-[ -f "$diffdisk" ] || die "expected disk at $diffdisk"
-qemu-img convert -O qcow2 -c "$diffdisk" "$out_file"
+# Lima 2.2 VZ uses disk; older instances use diffdisk. Prefer the current
+# layout if both exist, and let qemu-img detect the raw/qcow2 input format.
+source_disk="$lima_home/$golden/disk"
+if [ ! -f "$source_disk" ]; then
+  source_disk="$lima_home/$golden/diffdisk"
+fi
+[ -f "$source_disk" ] || die "expected disk or diffdisk under $lima_home/$golden"
+qemu-img convert -O qcow2 -c "$source_disk" "$out_file"
 chmod 600 "$out_file"
 if [ "$keep_instance" -eq 0 ]; then
   limactl delete --force "$golden"

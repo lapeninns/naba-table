@@ -38,6 +38,8 @@ ARG CI_GID=1000
 ENV DEBIAN_FRONTEND=noninteractive \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     COREPACK_ENABLE_STRICT=1 \
+    COREPACK_HOME=/opt/corepack \
+    COREPACK_DEFAULT_TO_LATEST=0 \
     PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright \
     PNPM_HOME=/opt/pnpm \
     CI=1 \
@@ -57,7 +59,12 @@ RUN apt-get update \
 # pnpm via corepack, pinned to the repository packageManager version.
 RUN corepack enable \
   && corepack prepare "pnpm@${PNPM_VERSION}" --activate \
-  && pnpm --version
+  && pnpm --version \
+  && chmod -R a+rX,go-w "${COREPACK_HOME}"
+
+# All runtime users share this root-owned cache even when the executor changes HOME.
+# Package-manager resolution must not download or update the prepared version.
+ENV COREPACK_ENABLE_NETWORK=0
 
 # Chromium system dependencies for exactly the pinned @playwright/test
 # version. `install-deps` resolves the package list that this Playwright
@@ -77,6 +84,10 @@ RUN userdel --remove node \
 
 USER ci
 WORKDIR /workspace
+
+# Exercise the runtime identity and executor HOME before accepting the image.
+RUN test "$(pnpm --version)" = "$PNPM_VERSION" \
+  && test "$(HOME=/workspace/.home pnpm --version)" = "$PNPM_VERSION"
 
 # Browser binaries are installed as the job user so no root-owned files sit in
 # the browsers path. The version is the same pinned Playwright release.

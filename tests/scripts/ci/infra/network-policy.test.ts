@@ -29,6 +29,7 @@ describe('infra/local-ci/network/proxy/allowlist.txt', () => {
       'ghcr.io',
       'registry-1.docker.io',
       'auth.docker.io',
+      'production.cloudfront.docker.com',
       'ports.ubuntu.com',
       'archive.ubuntu.com',
       'security.ubuntu.com',

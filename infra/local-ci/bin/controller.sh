@@ -18,8 +18,24 @@
 # Portable to /bin/sh on macOS (bash 3.2 syntax only).
 set -eu
 
-export PATH='/opt/homebrew/opt/node@22/bin:/Users/nabatable-ci/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+export PATH="/opt/homebrew/opt/node@22/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 umask 077
+
+# The normal entry point discards unrelated host environment, including
+# developer credentials and NODE_OPTIONS, before sourcing CI-only settings.
+case "${1:-}" in
+  '')
+    exec /usr/bin/env -i HOME="$HOME" PATH="$PATH" \
+      NABATABLE_CI_HOME="${NABATABLE_CI_HOME:-$HOME/nabatable-ci}" \
+      NABATABLE_CI_ACCOUNT_MODE="${NABATABLE_CI_ACCOUNT_MODE:-dedicated}" \
+      NABATABLE_CI_OWNER_UID="${NABATABLE_CI_OWNER_UID:-}" \
+      /bin/sh "$0" --clean-env
+    ;;
+  --clean-env) [ "$#" -eq 1 ] || exit 2 ;;
+  *) echo 'controller.sh: unexpected argument' >&2; exit 2 ;;
+esac
+account_mode="${NABATABLE_CI_ACCOUNT_MODE:-dedicated}"
+readonly account_mode
 
 NABATABLE_CI_HOME="${NABATABLE_CI_HOME:-$HOME/nabatable-ci}"
 release_dir="$NABATABLE_CI_HOME/current"
@@ -43,7 +59,16 @@ die() {
   exit 1
 }
 
-[ "$(id -un)" = 'nabatable-ci' ] || die "must run as the nabatable-ci service account (got $(id -un))"
+case "$account_mode" in
+  dedicated)
+    [ "$(id -un)" = 'nabatable-ci' ] || die "must run as the nabatable-ci service account (got $(id -un))"
+    ;;
+  current-user)
+    [ "$(id -u)" -ne 0 ] || die 'current-user mode must not run as root'
+    [ "${NABATABLE_CI_OWNER_UID:-}" = "$(id -u)" ] || die 'current-user owner UID does not match this login'
+    ;;
+  *) die 'NABATABLE_CI_ACCOUNT_MODE must be dedicated or current-user' ;;
+esac
 [ -d "$release_dir" ] || die "release checkout missing at $release_dir (see docs/runbooks/local-ci.md, Updates)"
 [ -f "$release_dir/package.json" ] || die "$release_dir is not a repository checkout"
 [ -r "$config_file" ] || die "config missing at $config_file (bin/install.sh writes a template)"
@@ -60,6 +85,10 @@ fi
 set -a
 . "$config_file"
 set +a
+if [ "$account_mode" = current-user ]; then
+  export LIMA_HOME="$NABATABLE_CI_HOME/lima"
+  export DOCKER_CONFIG="$NABATABLE_CI_HOME/docker"
+fi
 
 # VM resource mode -> executor limits, from the single source of truth.
 vm_mode="${NABATABLE_CI_VM_MODE:-normal}"
@@ -87,7 +116,7 @@ export NABATABLE_CI_HEARTBEAT_KEYCHAIN_ACCOUNT="$KC_ACCOUNT"
 # Existence checks only (no -w): the value is never printed.
 for item in "$KC_HEARTBEAT" "$KC_R2_ACCESS_KEY_ID" "$KC_R2_SECRET_ACCESS_KEY"; do
   if ! security find-generic-password -s "$item" -a "$KC_ACCOUNT" >/dev/null 2>&1; then
-    die "Keychain item '$item' (account $KC_ACCOUNT) is missing or the login Keychain is locked (log in as nabatable-ci once; see runbook)"
+    die "Keychain item '$item' (account $KC_ACCOUNT) is missing or the login Keychain is locked (log in as the configured runner account; see runbook)"
   fi
 done
 

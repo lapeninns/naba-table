@@ -12,6 +12,9 @@ playwright.azureedge.net
 # Container registries (job image base, digest pinned)
 registry-1.docker.io
 auth.docker.io
+# Docker's documented blob CDN; observed on pinned registry image pulls.
+# https://docs.docker.com/desktop/setup/allow-list/
+production.cloudfront.docker.com
 production.cloudflare.docker.com
 docker-images-prod.6aa30f8b08e16409b46e0173d6de2f56.r2.cloudflarestorage.com
 ghcr.io

@@ -64,7 +64,7 @@ package engines and the workflow `node-version` together.
 
 ## Service account
 
-The controller runs as a dedicated standard (non-admin) macOS account,
+By default, the controller runs as a dedicated standard (non-admin) macOS account,
 `nabatable-ci`, home `/Users/nabatable-ci`. `bin/install.sh` prints the
 `sysadminctl` command; it never creates the account itself. The account:
 
@@ -86,9 +86,40 @@ unlocked, and Virtualization.framework VMs are supported from a user session.
 The session may sit behind the lock screen or a fast-user-switch to an
 operator account; agents keep running.
 
+## Existing-user opt-in
+
+The user may explicitly choose the existing non-root macOS login with `--current-user`. This is an accepted alternative to creating `nabatable-ci`; it does **not** provide a separate OS user boundary. Other processes running as that same user retain that user's filesystem and login-Keychain privileges. The dedicated-account installation above remains the default.
+
+Current-user installation validates the owner UID and managed paths, rejects redirected asset directories, and requires an existing `current` symlink to a reviewed release under `$HOME/nabatable-ci/releases/`. The installer reads that release without cloning or modifying it. Keep release checkouts free of developer credentials, real `.env` files, and local modifications.
+
+The current-user paths are:
+
+| Setting                                | Fixed location                                                 |
+| -------------------------------------- | -------------------------------------------------------------- |
+| CI root (`0700`)                       | `$HOME/nabatable-ci`                                           |
+| Lima instances (`LIMA_HOME`)           | `$HOME/nabatable-ci/lima`                                      |
+| Docker configuration (`DOCKER_CONFIG`) | `$HOME/nabatable-ci/docker`                                    |
+| Non-secret settings                    | `$HOME/nabatable-ci/config/controller.env`                     |
+| Reviewed release                       | `$HOME/nabatable-ci/current` → `releases/<commit>`             |
+| LaunchAgent                            | `$HOME/Library/LaunchAgents/com.nabatable.ci-controller.plist` |
+
+The rendered LaunchAgent records `NABATABLE_CI_ACCOUNT_MODE=current-user` and `NABATABLE_CI_OWNER_UID` from the installing user's actual UID. The controller refuses root or a different UID. Its normal entry point re-executes with an empty ambient environment and an explicit Node 22 PATH before loading CI-only settings; personal credentials and `NODE_OPTIONS` are not inherited. It then forces the isolated Lima and Docker paths. Only the named CI App/evidence/heartbeat credentials belong in the CI runtime. Disposable job VMs still mount no host directories (`mounts: []`) and use the same sanitized test environment, network restrictions, and privilege limits as dedicated-account mode.
+
+After preparing the reviewed release and `current` symlink, run these commands as the selected owner, without sudo:
+
+```sh
+export PATH="/opt/homebrew/opt/node@22/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+sh infra/local-ci/bin/build-base-image.sh --current-user --mode normal --plan
+sh infra/local-ci/bin/install.sh --current-user --no-start
+```
+
+The image builder also requires `--current-user`; omit `--plan` to perform the reviewed build. Stage the controller with `--no-start` while image qualification, CI credentials, and configuration are incomplete. In current-user mode that flag writes both `RunAtLoad=false` and `KeepAlive=false` and skips bootstrap/kickstart, so a future login does not start the staged agent. It leaves an already loaded agent unchanged. After qualification and configuration checks pass, rerun `install.sh --current-user` to activate it. A VM boot or successful image build alone is not qualification.
+
+Current-user removal uses `sh infra/local-ci/bin/uninstall.sh --current-user [--delete-vm] [--delete-config]`. It removes only this user's CI LaunchAgent and the `nabatable-ci` context in the isolated Docker directory. VM deletion is opt-in and limited to CI-named instances inside the isolated Lima directory; config deletion is also opt-in. Release checkouts, materialized credential files, and Keychain items remain unchanged. Personal Docker contexts and personal Lima instances are outside these operations.
+
 ## Keychain items
 
-All four are generic passwords in the `nabatable-ci` login Keychain with
+All four are generic passwords in the selected CI owner's login Keychain with
 **service = item name** and **account = `nabatable-ci`**
 (`NABATABLE_CI_KEYCHAIN_ACCOUNT`, the controller's and executor's default).
 `controller.sh` checks that each exists and refuses to start otherwise; the
@@ -102,12 +133,12 @@ value is read only by the component that needs it.
 | `nabatable-ci/r2/evidence/secret-access-key`             | R2 secret access key                                     | `scripts/ci/executor/r2/credentials.ts` (item name from `operating.json`) |
 
 Create them with `security add-generic-password -s '<item>' -a nabatable-ci -w`
-as the service account; the value is prompted, never passed on a command line.
+as the selected CI owner; the value is prompted, never passed on a command line. In current-user mode the macOS login is your existing user, but the Keychain item account field remains `nabatable-ci`.
 The prompt takes one line, so for the PEM run `base64 < key.pem | pbcopy` and
 paste. Rotation is the same command with `-U`. The App key is the one item the
 controller reads as a file: `controller.sh` copies it from the Keychain into
 `~/nabatable-ci/run/github-app.pem` (dir 0700, file 0600, umask 077, never
-echoed) on every start and exports the path; `uninstall.sh` removes the file.
+echoed) on every start and exports the path. Dedicated-account uninstall removes this materialized file; current-user uninstall leaves credential files unchanged.
 The heartbeat item name and account are also the controller's compiled-in
 defaults, so an unset variable can never point at a different entry.
 
@@ -129,6 +160,8 @@ the executor against the file on disk before every clone.
 `build-base-image.sh` prints all of them.
 
 ## Install
+
+The following steps describe the default dedicated-account installation. For the existing login, use the explicit current-user procedure above.
 
 Prerequisites: macOS 14+ on Apple silicon, `brew install lima docker qemu node@22`
 (Docker CLI only; Docker Desktop is optional and untouched; `qemu-img` for
@@ -155,7 +188,7 @@ the golden export), AC power, 100GiB free disk.
    `infra/local-ci/bin/build-base-image.sh --mode normal` (preview with
    `--plan`). It creates `nabatable-ci-golden`, runs `sync-vm-config.sh`
    (job network, proxy, egress policy in phase `test`), builds the job image
-   inside the guest through the loopback proxy, exports
+   inside the guest through the restricted job proxy, exports
    `~/nabatable-ci/images/nabatable-ci-golden-<stamp>.qcow2`, and prints the
    `NABATABLE_CI_BASE_IMAGE_*`, `NABATABLE_CI_JOB_IMAGE` and
    `NABATABLE_CI_IMAGE_DIGEST` lines for `controller.env`.
@@ -221,6 +254,8 @@ revoked in their consoles.
   the queue until AC returns (preflight FAILs without AC).
 
 ## FileVault and cold reboot
+
+In current-user mode, the selected existing login must be unlocked and have a GUI session before its activated agent can run. A staged `--no-start` agent remains stopped. The remaining instructions in this section describe the default dedicated account.
 
 With FileVault on, the disk is locked until a FileVault-enabled user
 authenticates at the pre-boot unlock screen, and macOS then logs that user in
@@ -339,7 +374,9 @@ PR.
 
 ## Updates
 
-The controller only ever runs code from a reviewed release checkout:
+The controller only ever runs code from a reviewed release checkout. The steps below use the default dedicated account; current-user installations perform release preparation as the existing owner and rerun `install.sh --current-user` (or `--no-start` while staging), without sudo. Rebuild with `build-base-image.sh --current-user` to retain the isolated Lima home.
+
+Dedicated-account update steps:
 
 1. Release Please tags a release on `main`.
 2. As `nabatable-ci`: `git -C ~/nabatable-ci/releases clone --branch <tag> --depth 1 <repo> <tag>`

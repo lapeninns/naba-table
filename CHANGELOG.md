@@ -6,6 +6,9 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Explicit current-user Mac runner setup alongside the dedicated-account default, with UID checks, private CI paths, isolated Lima/Docker state, ambient-environment clearing, and a `--no-start` staging option. This mode shares the existing macOS user security boundary; golden-image provisioning and qualification remain in progress.
+
+- Golden image provisioning now handles Docker's blob CDN, applies daemon isolation before network creation, builds through the restricted job proxy, and removes the loopback build registry on failure as well as success, and exports both Lima disk layouts. A shared root-owned Corepack cache makes pinned pnpm available offline to non-root jobs.
 - Mac runner preparation: pinned Ubuntu and Docker inputs, Node 22 service-account PATH, and provisioning checks that distinguish unresolved configuration from intentional rejection patterns.
 
 - Content-bound Gitleaks review records for independently reviewed pre-existing false positives; changed source blobs and malformed scanner reports fail closed. Fixed the introduced synthetic Resend fixture without suppressing its finding.

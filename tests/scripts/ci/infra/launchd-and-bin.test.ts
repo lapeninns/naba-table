@@ -104,10 +104,8 @@ describe('infra/local-ci/bin/*.sh', () => {
 
   it('controller.sh execs pnpm ci:controller from a fixed PATH and refuses secrets in the env file', () => {
     expect(controller).toContain('exec pnpm ci:controller');
-    expect(controller).toMatch(/^export PATH='[^']+'$/m);
-    expect(controller).toContain(
-      "export PATH='/opt/homebrew/opt/node@22/bin:/Users/nabatable-ci/.local/bin:",
-    );
+    expect(controller).toMatch(/^export PATH="[^"]+"$/m);
+    expect(controller).toContain('export PATH="/opt/homebrew/opt/node@22/bin:$HOME/.local/bin:');
     expect(controller).toContain('die "$config_file must not contain secrets; use Keychain items"');
     expect(controller).toContain('REPLACE_ME');
     expect(controller).toContain('[ "$(id -un)" = \'nabatable-ci\' ]');
@@ -261,13 +259,13 @@ describe('infra/local-ci/bin/build-base-image.sh', () => {
     expect(runShell('sh', [script, '--bogus']).status).toBe(2);
   });
 
-  it('builds the job image only inside the guest, through the loopback proxy, with digest pins', () => {
+  it('builds the job image only inside the guest, through the job proxy, with digest pins', () => {
     expect(buildBaseImage).toContain('limactl shell "$golden" -- sudo sh -c');
-    expect(buildBaseImage).toContain('docker build --network=host');
-    expect(buildBaseImage).toContain('--build-arg HTTPS_PROXY=http://127.0.0.1:8888');
+    expect(buildBaseImage).toContain('docker build --network=nabatable-ci-jobs');
+    expect(buildBaseImage).toContain('--build-arg HTTPS_PROXY=http://10.90.0.1:8888');
     expect(buildBaseImage).toContain("--build-arg NODE_IMAGE_DIGEST='${node_digest}'");
     expect(buildBaseImage).toContain("'registry@${registry_digest}'");
-    expect(buildBaseImage).toContain('--publish 127.0.0.1:80:5000');
+    expect(buildBaseImage).toContain('--env REGISTRY_HTTP_ADDR=127.0.0.1:80');
     expect(buildBaseImage).toContain('shasum -a 256');
     expect(buildBaseImage).toContain('job_digest=${job_image#*@}');
     expect(buildBaseImage).toContain('NABATABLE_CI_IMAGE_DIGEST=$job_digest');

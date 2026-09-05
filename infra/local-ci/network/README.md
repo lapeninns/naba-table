@@ -37,7 +37,7 @@ internet: allowlisted hosts, ports 80/443 only
 - `status` derives the phase from the live chain (`prep` if it contains
   `accept`, `test` if empty, `unknown` if the table is missing), so a stale or
   missing ruleset can never be reported as a valid phase.
-- Image builds run with `--network=host` and `HTTPS_PROXY=http://127.0.0.1:8888`
+- Image builds retain user namespace remapping and run with `--network=nabatable-ci-jobs` and `HTTPS_PROXY=http://10.90.0.1:8888` during the `prep` phase
   so they are subject to the same allowlist. Containers on Docker's default
   pool (10.200/16) have no forwarding at all.
 

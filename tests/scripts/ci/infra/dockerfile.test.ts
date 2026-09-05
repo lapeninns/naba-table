@@ -100,6 +100,27 @@ describe('infra/local-ci/images/ci-job/Dockerfile', () => {
     expect(dockerfile).not.toMatch(/playwright@latest/);
   });
 
+  it('shares the pinned Corepack cache with non-root jobs independently of HOME', () => {
+    const preparation = dockerfile.indexOf('corepack prepare "pnpm@${PNPM_VERSION}" --activate');
+    expect(dockerfile).toContain('COREPACK_HOME=/opt/corepack');
+    expect(dockerfile).toContain('COREPACK_DEFAULT_TO_LATEST=0');
+    expect(dockerfile.indexOf('COREPACK_HOME=/opt/corepack')).toBeLessThan(preparation);
+    expect(dockerfile).toContain('chmod -R a+rX,go-w "${COREPACK_HOME}"');
+    expect(dockerfile.indexOf('chmod -R a+rX,go-w "${COREPACK_HOME}"')).toBeGreaterThan(
+      preparation,
+    );
+    expect(dockerfile).not.toMatch(/chown[^\n]*corepack/);
+    const networkOff = dockerfile.indexOf('ENV COREPACK_ENABLE_NETWORK=0');
+    expect(networkOff).toBeGreaterThan(preparation);
+    expect(networkOff).toBeLessThan(dockerfile.indexOf('USER ci'));
+    const proof = 'RUN test "$(pnpm --version)" = "$PNPM_VERSION"';
+    expect(dockerfile).toContain(proof);
+    expect(dockerfile.indexOf(proof)).toBeGreaterThan(dockerfile.indexOf('WORKDIR /workspace'));
+    expect(dockerfile).toContain(
+      'test "$(HOME=/workspace/.home pnpm --version)" = "$PNPM_VERSION"',
+    );
+  });
+
   it('writes the image marker the executor can verify', () => {
     expect(dockerfile).toContain('/home/ci/.nabatable-ci-image');
   });

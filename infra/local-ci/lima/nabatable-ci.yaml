@@ -169,7 +169,10 @@ provision:
       modprobe br_netfilter || true
       sysctl --system >/dev/null
 
-      systemctl enable --now docker
+      # apt may have started Docker before daemon.json was written. Restart
+      # now so userns storage is selected before setup creates the job network.
+      systemctl enable docker
+      systemctl restart docker
       systemctl enable nftables
       systemctl disable --now tinyproxy || true
       usermod -aG docker "${LIMA_CIDATA_USER}"
