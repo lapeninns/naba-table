@@ -342,6 +342,8 @@ PR.
    `/workspace`, `/home/ci` and `/tmp` fails (read-only root); `/tmp` is `noexec`.
    The job home and pnpm store use a separate disposable volume at `/home/ci`,
    keeping dependency caches outside source scans in `/workspace`.
+   `TMPDIR=/home/ci/tmp` supports executable test fixtures on that same job volume;
+   the separately mounted `/tmp` retains `noexec`.
 7. Pinning: a request with an `imageDigest` different from the job image
    digest, a golden file whose sha256 differs from
    `NABATABLE_CI_BASE_IMAGE_DIGEST`, a placeholder anywhere in

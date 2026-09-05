@@ -1,7 +1,7 @@
 import { isImageConfigured } from '../contracts/profile';
 import { resolveProfile } from '../profiles/conditional';
 import { getProfile } from '../profiles/registry';
-import { CONTAINER_HOME } from './docker/command';
+import { CONTAINER_HOME, CONTAINER_TMPDIR } from './docker/command';
 import type {
   CiProfileName,
   CiRequest,
@@ -38,6 +38,7 @@ export class ProfileResolutionError extends Error {
 export const EXECUTOR_ENV: Readonly<Record<string, string>> = Object.freeze({
   HOME: CONTAINER_HOME,
   PNPM_HOME: `${CONTAINER_HOME}/.local/share/pnpm`,
+  TMPDIR: CONTAINER_TMPDIR,
   LANG: 'C.UTF-8',
   COREPACK_ENABLE_DOWNLOAD_PROMPT: '0',
   NEXT_TELEMETRY_DISABLED: '1',

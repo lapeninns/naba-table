@@ -55,6 +55,10 @@ describe('infra/local-ci/images/ci-job/Dockerfile', () => {
     expect(copyRemote).toEqual([]);
   });
 
+  it('includes the Python interpreter needed to test the admission hook', () => {
+    expect(dockerfile).toMatch(/^\s+python3 \\/m);
+  });
+
   it('drops to the non-root user before the final stage ends', () => {
     const userLines = lines.filter((line) => /^USER\b/.test(line));
     expect(userLines.length).toBeGreaterThan(0);

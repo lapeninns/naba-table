@@ -12,6 +12,7 @@ import type { ExecutorResources } from '../types';
 
 export const CONTAINER_WORKDIR = '/workspace';
 export const CONTAINER_HOME = '/home/ci';
+export const CONTAINER_TMPDIR = `${CONTAINER_HOME}/tmp`;
 export const CONTAINER_HOSTNAME = 'ci-job';
 
 /** Environment keys allowed on prepare steps in addition to the profile env. */

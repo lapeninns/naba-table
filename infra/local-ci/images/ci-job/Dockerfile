@@ -52,6 +52,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     git \
+    python3 \
     tini \
     xz-utils \
   && rm -rf /var/lib/apt/lists/*

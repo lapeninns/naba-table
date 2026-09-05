@@ -21,6 +21,7 @@ import {
   buildDockerRunArgs,
   buildDockerSimpleArgs,
   CONTAINER_HOME,
+  CONTAINER_TMPDIR,
   CONTAINER_WORKDIR,
   dockerJobNames,
   PREPARE_PROXY_ENV_KEYS,
@@ -133,7 +134,7 @@ function prepareProxyEnv(config: ExecutorConfig): Readonly<Record<string, string
 function checkoutCommands(jobId: string, testedSha: string): readonly (readonly string[])[] {
   const ref = `refs/ci/${jobId}/tested`;
   return [
-    ['mkdir', '-p', CONTAINER_HOME],
+    ['mkdir', '-p', CONTAINER_HOME, CONTAINER_TMPDIR],
     ['git', 'init', '--quiet', '--initial-branch=ci', CONTAINER_WORKDIR],
     [
       'git',

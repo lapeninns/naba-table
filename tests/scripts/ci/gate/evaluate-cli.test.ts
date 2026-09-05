@@ -1,14 +1,23 @@
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { HEAD_SHA, MERGE_SHA, repositoryRoot } from './helpers';
 
 function runGate(args: string[], env: NodeJS.ProcessEnv = {}) {
-  return spawnSync('pnpm', ['exec', 'tsx', 'scripts/ci/gate/evaluate.ts', ...args], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
-  });
+  return spawnSync(
+    process.execPath,
+    [
+      path.join(repositoryRoot, 'node_modules/tsx/dist/cli.mjs'),
+      'scripts/ci/gate/evaluate.ts',
+      ...args,
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
+    },
+  );
 }
 
 describe('ci:gate CLI', () => {

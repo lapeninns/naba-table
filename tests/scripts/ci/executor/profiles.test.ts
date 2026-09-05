@@ -118,7 +118,9 @@ describe('resolveExecutorProfile', () => {
     });
     expect(profile.env.HOME).toBe('/home/ci');
     expect(profile.env.PNPM_HOME).toBe('/home/ci/.local/share/pnpm');
+    expect(profile.env.TMPDIR).toBe('/home/ci/tmp');
     expect(allowedEnvKeys(profile)).toContain('PNPM_HOME');
+    expect(allowedEnvKeys(profile)).toContain('TMPDIR');
   });
 
   it('skips conditional suites when the changed paths do not match, and runs them when unknown', () => {
