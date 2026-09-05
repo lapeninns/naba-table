@@ -719,6 +719,12 @@
       "recordedAt": "2026-09-04T21:06:02.076Z",
       "reviewed": true
     },
+    "20260905113000_durable_operational_incidents.sql": {
+      "sha256": "2d3923f16bfd4bca109057bae40056c93c6e17c639e672c6fae4b8dfb3737300",
+      "bytes": 3313,
+      "recordedAt": "2026-09-05T10:28:31.494Z",
+      "reviewed": true
+    },
     "CONSOLIDATED_ALL_MIGRATIONS.sql": {
       "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
       "bytes": 31275,

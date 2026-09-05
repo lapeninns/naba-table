@@ -17,7 +17,7 @@ It is read by `pnpm db:check-migration-immutability` (and, before any remote pla
 | ------------------------ | ---------------------------------------------------------------------------------------------- |
 | Reviewed baseline date   | 2026-09-04                                                                                     |
 | Algorithm                | sha256 over the exact file bytes                                                               |
-| Files recorded           | 120 (119 versioned migrations plus `CONSOLIDATED_ALL_MIGRATIONS.sql`)                          |
+| Files recorded           | 121 (120 versioned migrations plus `CONSOLIDATED_ALL_MIGRATIONS.sql`)                          |
 | Source of truth for hash | The committed content of each file at the reviewed revision, never an uncommitted working copy |
 
 `20260809120000_gbp_write_safety_foundation.sql` is recorded from its committed content. A
