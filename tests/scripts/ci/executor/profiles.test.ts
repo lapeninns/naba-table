@@ -110,13 +110,14 @@ describe('resolveExecutorProfile', () => {
     expect(allowedEnvKeys(profile)).toContain('HOME');
   });
 
-  it('keeps the pnpm store in the writable job workspace', () => {
+  it('keeps home and the pnpm store outside the source checkout', () => {
     const profile = resolveExecutorProfile({
       request: mainRequest(),
       changedPaths: null,
       allocation: null,
     });
-    expect(profile.env.PNPM_HOME).toBe('/workspace/.home/.local/share/pnpm');
+    expect(profile.env.HOME).toBe('/home/ci');
+    expect(profile.env.PNPM_HOME).toBe('/home/ci/.local/share/pnpm');
     expect(allowedEnvKeys(profile)).toContain('PNPM_HOME');
   });
 

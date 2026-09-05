@@ -20,6 +20,7 @@ import {
   buildDockerExecArgs,
   buildDockerRunArgs,
   buildDockerSimpleArgs,
+  CONTAINER_HOME,
   CONTAINER_WORKDIR,
   dockerJobNames,
   PREPARE_PROXY_ENV_KEYS,
@@ -132,7 +133,7 @@ function prepareProxyEnv(config: ExecutorConfig): Readonly<Record<string, string
 function checkoutCommands(jobId: string, testedSha: string): readonly (readonly string[])[] {
   const ref = `refs/ci/${jobId}/tested`;
   return [
-    ['mkdir', '-p', `${CONTAINER_WORKDIR}/.home`],
+    ['mkdir', '-p', CONTAINER_HOME],
     ['git', 'init', '--quiet', '--initial-branch=ci', CONTAINER_WORKDIR],
     [
       'git',
@@ -288,6 +289,7 @@ export function renderDryRunPlan(input: DryRunPlanInput): string {
     `retention: ${config.retention.maxAgeMs}ms / ${config.retention.maxTotalBytes} bytes under ${config.jobRoot}`,
   );
   lines.push(`container: ${names.container}; workspace volume: ${names.workspaceVolume}`);
+  lines.push(`home volume: ${names.homeVolume}`);
   lines.push('dry-run: nothing executed');
   return `${lines.join('\n')}\n`;
 }
@@ -368,6 +370,10 @@ async function runJobInInstance(ctx: JobContext): Promise<JobBody> {
   await dockerRun(
     buildDockerSimpleArgs(docker, 'volume', 'create', names.workspaceVolume),
     'create workspace volume',
+  );
+  await dockerRun(
+    buildDockerSimpleArgs(docker, 'volume', 'create', names.homeVolume),
+    'create home volume',
   );
   await dockerRun(
     buildDockerRunArgs({

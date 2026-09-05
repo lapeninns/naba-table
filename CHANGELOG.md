@@ -27,7 +27,7 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
-- Executor jobs now keep the pnpm store in their writable workspace so dependency preparation works with a read-only container root.
+- Executor jobs now keep home and the pnpm store on a disposable writable volume outside the source checkout, preserving the read-only container root and source-file checks.
 
 - Record verified Nabatable CI repository, App, and workflow identities while retaining the unqualified-image release block. Document the approved bucket-scoped R2 evidence permission exception.
 
