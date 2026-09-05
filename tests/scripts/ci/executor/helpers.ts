@@ -184,7 +184,7 @@ export function configuredEnv(overrides: Record<string, string> = {}): ExecutorE
   const env: Record<string, string> = {
     PATH: '/usr/bin:/bin',
     HOME: path.join(root, 'home'),
-    LIMA_HOME: path.join(root, 'home', '.lima'),
+    LIMA_HOME: path.join('/tmp', path.basename(root), 'home', '.lima'),
     NABATABLE_CI_REPOSITORY_ID: String(REPOSITORY_ID),
     NABATABLE_CI_SOURCE_REMOTE_URL: 'https://github.com/example/nabatable.git',
     NABATABLE_CI_SPOOL_ROOT: spoolRoot,

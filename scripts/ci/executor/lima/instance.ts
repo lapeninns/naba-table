@@ -63,10 +63,25 @@ export function dockerContextSpec(config: LimaConfig): DockerContextSpec {
   return { context: config.dockerContext, protectedContexts: config.protectedDockerContexts };
 }
 
-export function limaInstanceName(config: LimaConfig, jobId: string): string {
+/** Lima reserves this temporary SSH control-socket suffix on macOS. */
+const LIMA_SSH_SOCKET_SUFFIX = 'ssh.sock.1234567890123456';
+const MACOS_UNIX_PATH_MAX = 104;
+
+export function limaInstanceName(config: LimaConfig, jobId: string, limaHome: string): string {
   const name = `${config.instancePrefix}-${jobId}`.toLowerCase().replace(/[^a-z0-9-]/gu, '-');
   assertName(name, 'lima instance name');
-  return name;
+  const overhead = Buffer.byteLength(path.join(limaHome, 'x', LIMA_SSH_SOCKET_SUFFIX)) - 1;
+  const available = MACOS_UNIX_PATH_MAX - 1 - overhead;
+  if (available < 18) {
+    throw new Error(
+      'LIMA_HOME is too long for a private Lima SSH socket; configure a shorter CI root',
+    );
+  }
+  if (name.length <= available) return name;
+  // Keep the CI home isolated. Hash the whole name, including retry identity,
+  // rather than truncating distinct requests into the same VM name.
+  const digest = createHash('sha256').update(name).digest('hex').slice(0, 16);
+  return `${name.slice(0, available - digest.length - 1)}-${digest}`;
 }
 
 export function limaDockerSocket(limaHome: string, instanceName: string): string {
@@ -166,7 +181,7 @@ function limaEnv(deps: LimaDeps, limaHome: string): Readonly<Record<string, stri
 }
 
 export function planLima(input: LimaInstanceInput, bundlePath: string): readonly PlannedCommand[] {
-  const name = limaInstanceName(input.config, input.jobId);
+  const name = limaInstanceName(input.config, input.jobId, input.limaHome);
   const templatePath = path.join(input.jobDir, 'lima.yaml');
   const socket = limaDockerSocket(input.limaHome, name);
   const context = input.config.dockerContext;
@@ -254,7 +269,7 @@ export async function withLimaInstance<T>(
   const digestFile = deps.digestFile ?? sha256File;
   await verifyBaseImageDigest(input.config, digestFile);
 
-  const name = limaInstanceName(input.config, input.jobId);
+  const name = limaInstanceName(input.config, input.jobId, input.limaHome);
   const env = limaEnv(deps, input.limaHome);
   const socket = limaDockerSocket(input.limaHome, name);
   const context = input.config.dockerContext;

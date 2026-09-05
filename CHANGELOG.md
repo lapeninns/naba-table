@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Disposable Lima instance names now fit macOS socket limits under longer current-user CI paths, retaining deterministic retry identity and the private CI home.
+
 - Private CI source fetches now use repository-scoped, read-only CI App installation tokens from Keychain, with identity checks, per-fetch revocation and credential-free guest bundles.
 
 - Explicit current-user Mac runner setup alongside the dedicated-account default, with UID checks, private CI paths, isolated Lima/Docker state, ambient-environment clearing, and a `--no-start` staging option. This mode shares the existing macOS user security boundary; golden-image provisioning and qualification remain in progress.
