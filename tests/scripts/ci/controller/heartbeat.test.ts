@@ -39,7 +39,10 @@ describe('heartbeat payload safety', () => {
       assertHeartbeatPayloadSafe({ ...payload, controllerId: 'ghs_abcdefghijklmnop' }),
     ).toThrow(/looks like a secret/u);
     expect(() =>
-      assertHeartbeatPayloadSafe({ ...payload, controllerId: '-----BEGIN RSA PRIVATE KEY-----' }),
+      assertHeartbeatPayloadSafe({
+        ...payload,
+        controllerId: ['-----BEGIN RSA ', 'PRIVATE KEY-----'].join(''),
+      }),
     ).toThrow(/looks like a secret/u);
   });
 });

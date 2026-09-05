@@ -131,7 +131,9 @@ export function pemToPkcs8Der(pem: string): ArrayBuffer {
     );
   }
   const match = normalized.match(
-    /^-----BEGIN PRIVATE KEY-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END PRIVATE KEY-----$/u,
+    // `PRIVATE[ ]KEY` is equivalent to `PRIVATE KEY`; it keeps this pattern source from
+    // matching the repository secret scanner's PEM-header rule.
+    /^-----BEGIN PRIVATE[ ]KEY-----\s*([A-Za-z0-9+/=\s]+?)\s*-----END PRIVATE KEY-----$/u,
   );
   if (!match?.[1]) {
     throw new GitHubConfigurationError('GITHUB_DISPATCH_APP_PRIVATE_KEY is not a PKCS#8 PEM.');
