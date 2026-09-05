@@ -193,7 +193,9 @@ describe('shared Worker readiness helper', () => {
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(prepare.mock.calls[0]?.[0]).toMatch(/^select 1/iu);
     expect(bind).toHaveBeenCalledWith();
-    await expect(runReadinessProbe(createD1Probe(undefined, { name: 'db' }))).resolves.toEqual({
+    await expect(
+      runReadinessProbe(createD1Probe(undefined, { name: 'db' }), () => 0),
+    ).resolves.toEqual({
       name: 'db',
       status: 'down',
       latencyMs: 0,
