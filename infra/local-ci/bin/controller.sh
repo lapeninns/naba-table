@@ -18,7 +18,7 @@
 # Portable to /bin/sh on macOS (bash 3.2 syntax only).
 set -eu
 
-export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+export PATH='/opt/homebrew/opt/node@22/bin:/Users/nabatable-ci/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
 umask 077
 
 NABATABLE_CI_HOME="${NABATABLE_CI_HOME:-$HOME/nabatable-ci}"

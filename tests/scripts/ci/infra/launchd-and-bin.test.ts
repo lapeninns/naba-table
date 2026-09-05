@@ -105,6 +105,9 @@ describe('infra/local-ci/bin/*.sh', () => {
   it('controller.sh execs pnpm ci:controller from a fixed PATH and refuses secrets in the env file', () => {
     expect(controller).toContain('exec pnpm ci:controller');
     expect(controller).toMatch(/^export PATH='[^']+'$/m);
+    expect(controller).toContain(
+      "export PATH='/opt/homebrew/opt/node@22/bin:/Users/nabatable-ci/.local/bin:",
+    );
     expect(controller).toContain('die "$config_file must not contain secrets; use Keychain items"');
     expect(controller).toContain('REPLACE_ME');
     expect(controller).toContain('[ "$(id -un)" = \'nabatable-ci\' ]');
@@ -216,7 +219,7 @@ describe('infra/local-ci/bin/*.sh', () => {
     expect(preflight).toContain('-ge 100');
     expect(preflight).toContain('fdesetup status');
     expect(preflight).toContain('scutil --nc list');
-    expect(preflight).toContain('grep -q \'REPLACE_ME\' "$template"');
+    expect(preflight).toContain('(- location:|digest:|DOCKER_CE_VERSION=).*REPLACE_ME');
   });
 
   it('sync-vm-config.sh refuses placeholders, only targets golden instances, and uses limactl copy (no mounts)', () => {
@@ -235,7 +238,6 @@ describe('infra/local-ci/bin/build-base-image.sh', () => {
     const result = runShell('sh', [script]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('refusing to build');
-    expect(result.stderr).toContain('REPLACE_ME');
     expect(result.stderr).toContain('NABATABLE_CI_NODE_IMAGE_DIGEST');
     expect(result.stderr).toContain('NABATABLE_CI_REGISTRY_IMAGE_DIGEST');
   });
@@ -251,9 +253,7 @@ describe('infra/local-ci/bin/build-base-image.sh', () => {
     expect(result.stdout).toContain('qemu-img convert -O qcow2');
     expect(result.stdout).toContain('NABATABLE_CI_IMAGE_DIGEST = job image digest');
     expect(result.stdout).toContain('UNCONFIGURED: a real run would refuse because:');
-    expect(result.stdout).toContain(
-      'lima/nabatable-ci.yaml still contains REPLACE_ME placeholders',
-    );
+    expect(result.stdout).not.toContain('lima/nabatable-ci.yaml still contains');
   });
 
   it('rejects unknown modes and flags', () => {

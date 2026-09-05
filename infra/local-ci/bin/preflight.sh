@@ -102,7 +102,7 @@ fi
 # Placeholders in the template must be replaced before the golden image is built.
 template="$root/infra/local-ci/lima/nabatable-ci.yaml"
 if [ -f "$template" ]; then
-  if grep -q 'REPLACE_ME' "$template"; then
+  if grep -Eq '^[[:space:]]*(- location:|digest:|DOCKER_CE_VERSION=).*REPLACE_ME' "$template"; then
     fail 'lima/nabatable-ci.yaml still contains REPLACE_ME placeholders (image digest / Docker version)'
   else
     pass 'lima template has no placeholders'

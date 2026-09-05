@@ -7,8 +7,8 @@
 # reverted with bin/uninstall.sh.
 #
 # Steps:
-#   1. preflight (bin/preflight.sh)
-#   2. print the service-account and Keychain instructions (operator actions)
+#   1. require the service account (print creation instructions if missing)
+#   2. preflight as that account and print Keychain instructions
 #   3. create the docker context "nabatable-ci" for the service account
 #   4. write the non-secret config template if absent
 #   5. install the LaunchAgent into the service account and load it into the
@@ -33,11 +33,6 @@ die() {
 [ "$(id -u)" -eq 0 ] || die 'run with sudo (writes into the service account home)'
 [ -f "$plist_src" ] || die "plist missing at $plist_src"
 
-say 'running preflight'
-if ! sh "$here/preflight.sh"; then
-  die 'preflight failed; fix the FAIL lines above and re-run'
-fi
-
 if ! id "$account" >/dev/null 2>&1; then
   cat <<TXT
 
@@ -50,13 +45,22 @@ install: service account "$account" does not exist. Create it as an administrato
   #   sudo sysadminctl -secureTokenOn $account -password - -adminUser <admin> -adminPassword -
   #   sudo fdesetup add -usertoadd $account
   # Log in once as $account in a GUI session so its login Keychain is created,
-  # then run \`corepack enable\` and \`brew install lima docker qemu\` (CLI only) as that user.
+  # then install its account-local pnpm shim as described in docs/runbooks/local-ci.md.
 
 TXT
   exit 1
 fi
 uid=$(id -u "$account")
 say "service account $account present (uid $uid)"
+
+# Check the account that will own the VMs, not root's disk/tool configuration.
+# This is the same fixed PATH used by controller.sh (Node 22 + account-local pnpm).
+say 'running preflight as the service account'
+if ! sudo -u "$account" -H env \
+  PATH='/opt/homebrew/opt/node@22/bin:/Users/nabatable-ci/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin' \
+  sh "$here/preflight.sh"; then
+  die 'preflight failed; fix the FAIL lines above and re-run'
+fi
 
 cat <<TXT
 

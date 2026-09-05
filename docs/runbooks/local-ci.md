@@ -130,14 +130,27 @@ the executor against the file on disk before every clone.
 
 ## Install
 
-Prerequisites: macOS 14+ on Apple silicon, `brew install lima docker qemu`
+Prerequisites: macOS 14+ on Apple silicon, `brew install lima docker qemu node@22`
 (Docker CLI only; Docker Desktop is optional and untouched; `qemu-img` for
 the golden export), AC power, 100GiB free disk.
 
-1. In a reviewed release, replace the placeholders in
+1. In a reviewed release, verify the pinned versions in
    `infra/local-ci/lima/nabatable-ci.yaml` (Ubuntu release date + sha256
-   digest, `docker-ce` apt version). `bin/preflight.sh` fails while they remain.
-2. As `nabatable-ci`, with `NABATABLE_CI_NODE_IMAGE_DIGEST` (node:22-bookworm-slim
+   digest, `docker-ce` apt version). `bin/preflight.sh` fails if configuration fields contain placeholders.
+2. As `nabatable-ci`, install the pinned package-manager shim in that account's own directory:
+
+   ```sh
+   export PATH="/opt/homebrew/opt/node@22/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+   mkdir -p "$HOME/.local/bin"
+   corepack enable --install-directory "$HOME/.local/bin"
+   corepack prepare pnpm@10.34.5 --activate
+   node --version
+   pnpm --version
+   ```
+
+   The LaunchAgent wrapper puts Homebrew's Node 22 and this account-local shim ahead of other runtimes. It does not depend on a developer's nvm installation.
+
+   Then, with `NABATABLE_CI_NODE_IMAGE_DIGEST` (node:22-bookworm-slim
    arm64) and `NABATABLE_CI_REGISTRY_IMAGE_DIGEST` (registry:2 arm64) exported:
    `infra/local-ci/bin/build-base-image.sh --mode normal` (preview with
    `--plan`). It creates `nabatable-ci-golden`, runs `sync-vm-config.sh`
@@ -146,8 +159,9 @@ the golden export), AC power, 100GiB free disk.
    `~/nabatable-ci/images/nabatable-ci-golden-<stamp>.qcow2`, and prints the
    `NABATABLE_CI_BASE_IMAGE_*`, `NABATABLE_CI_JOB_IMAGE` and
    `NABATABLE_CI_IMAGE_DIGEST` lines for `controller.env`.
+
 3. As an administrator: `sudo infra/local-ci/bin/install.sh`. It runs
-   preflight, creates the `nabatable-ci` Docker context (unbound until a job
+   preflight under the service account with the controller PATH, creates the `nabatable-ci` Docker context (unbound until a job
    starts), writes the config template, installs
    `~nabatable-ci/Library/LaunchAgents/com.nabatable.ci-controller.plist` and
    bootstraps it into `gui/<uid>` if the account is logged in (otherwise it

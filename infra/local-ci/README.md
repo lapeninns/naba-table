@@ -1,9 +1,10 @@
 # Local CI infrastructure
 
 Configuration for the Mac-hosted, VM-isolated CI runner described in
-`docs/runbooks/local-ci.md`. Nothing here contains credentials; every ID,
-digest, and version that must be pinned per installation is a `REPLACE_ME_*`
-placeholder that the scripts refuse to use.
+`docs/runbooks/local-ci.md`. Nothing here contains credentials. The Ubuntu image and Docker Engine inputs
+are pinned for qualification; installation-specific IDs and generated image
+digests still use `REPLACE_ME_*` placeholders that the scripts refuse to use.
+See `docs/ci/mac-runner-preparation.md` for preparation evidence and remaining setup.
 
 The executor (`scripts/ci/executor`) clones a **disposable Lima instance per
 request** from a golden base image and destroys it afterwards. The files here

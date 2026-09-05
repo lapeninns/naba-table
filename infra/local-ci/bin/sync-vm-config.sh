@@ -39,7 +39,9 @@ for f in \
     echo "sync-vm-config.sh: missing $root/$f" >&2
     exit 1
   }
-  if grep -q 'REPLACE_ME' "$root/$f"; then
+  # Shell scripts validate their dynamic inputs at runtime; their rejection
+  # patterns mention REPLACE_ME deliberately. Scan static configuration only.
+  if [ "${f##*.}" != sh ] && grep -q 'REPLACE_ME' "$root/$f"; then
     echo "sync-vm-config.sh: $f contains REPLACE_ME placeholders; refusing" >&2
     exit 1
   fi

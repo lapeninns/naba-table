@@ -88,7 +88,7 @@ lima_home="${LIMA_HOME:-$HOME/.lima}"
 problems=''
 add_problem() { problems="${problems}
   - $1"; }
-grep -q 'REPLACE_ME' "$template" && add_problem 'lima/nabatable-ci.yaml still contains REPLACE_ME placeholders (Ubuntu release date/digest, docker-ce version)'
+grep -Eq '^[[:space:]]*(- location:|digest:|DOCKER_CE_VERSION=).*REPLACE_ME' "$template" && add_problem 'lima/nabatable-ci.yaml still contains REPLACE_ME placeholders (Ubuntu release date/digest, docker-ce version)'
 is_digest "$node_digest" || add_problem 'NABATABLE_CI_NODE_IMAGE_DIGEST must be sha256:<64 hex> (node:22-bookworm-slim arm64)'
 is_digest "$registry_digest" || add_problem 'NABATABLE_CI_REGISTRY_IMAGE_DIGEST must be sha256:<64 hex> (registry:2 arm64)'
 command -v limactl >/dev/null 2>&1 || add_problem 'limactl not found (brew install lima)'
