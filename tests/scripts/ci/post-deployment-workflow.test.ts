@@ -10,6 +10,7 @@ describe('Option A post-deployment observation workflow', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' });
     const job = workflow.jobs.verify;
     expect(job['runs-on']).toBe('ubuntu-latest');
+    expect(job.if).toContain("vars.HOSTED_POST_DEPLOY_VERIFICATION_ENABLED == 'true'");
     expect(job.environment).toBe('Monitoring');
     expect(job['timeout-minutes']).toBeLessThanOrEqual(10);
     expect(job.if).toContain("github.repository_id == '1105219228'");

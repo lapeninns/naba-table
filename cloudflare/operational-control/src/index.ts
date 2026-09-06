@@ -9,6 +9,7 @@ import {
   WEBHOOK_MAX_BYTES,
 } from './contracts';
 import { createCoordinatorClient } from './coordinator-client';
+import { handleDeploymentVerification, runDeploymentObservation } from './deployment-verification';
 import { writeEvidence } from './evidence';
 import { validateHeartbeat } from './heartbeat';
 import { isBearerAuthorized, json, parseJsonBytes, readBoundedBody, withTimeout } from './http';
@@ -230,6 +231,8 @@ export async function handleRequest(
     return json({ status: 'ok', service: SERVICE_NAME });
   }
   if (request.method === 'GET' && url.pathname === '/ready') return handleReady(request, env);
+  if (request.method === 'GET' && url.pathname === '/deployment-verification')
+    return handleDeploymentVerification(request, env, (deps.now ?? Date.now)());
   if (request.method === 'POST' && url.pathname === '/github/webhook')
     return handleWebhook(request, env, deps);
   if (request.method === 'POST' && url.pathname === '/heartbeat')
@@ -261,13 +264,21 @@ const worker = {
     });
   },
 
-  async scheduled(_controller: ScheduledController, env: OperationalControlEnv): Promise<void> {
-    await runScheduledCycle({
-      env,
-      coordinator: coordinatorFor(env),
-      fetcher: fetch,
-      now: Date.now,
-    });
+  async scheduled(controller: ScheduledController, env: OperationalControlEnv): Promise<void> {
+    const results = await Promise.allSettled([
+      Promise.resolve().then(() =>
+        runScheduledCycle({ env, coordinator: coordinatorFor(env), fetcher: fetch, now: Date.now }),
+      ),
+      runDeploymentObservation({ env, scheduledTime: controller.scheduledTime }),
+    ]);
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'rejected')
+        log('error', 'scheduled.cycle_failed', {
+          cycle: index === 0 ? 'legacy' : 'deployment-observation',
+        });
+    }
+    if (results.some((result) => result.status === 'rejected'))
+      throw new Error('One or more scheduled cycles failed.');
   },
 };
 

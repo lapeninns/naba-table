@@ -247,10 +247,11 @@ export type EvidenceBucket = {
     options?: {
       httpMetadata?: { contentType?: string };
       customMetadata?: Record<string, string>;
+      onlyIf?: { etagMatches?: string; etagDoesNotMatch?: string };
     },
   ): Promise<unknown>;
   head(key: string): Promise<{ uploaded: Date; size: number } | null>;
-  get(key: string): Promise<{ text(): Promise<string> } | null>;
+  get(key: string): Promise<{ etag?: string; size?: number; text(): Promise<string> } | null>;
 };
 
 export type CoordinatorStubLike = {
@@ -265,6 +266,8 @@ export type CoordinatorNamespace = {
 };
 
 export type OperationalControlEnv = {
+  readonly POST_DEPLOY_OBSERVER_ENABLED?: string;
+  readonly DEPLOYMENT_ENVIRONMENT?: string;
   readonly COORDINATOR?: CoordinatorNamespace;
   readonly EVIDENCE_BUCKET?: EvidenceBucket;
   readonly GITHUB_WEBHOOK_SECRET?: string;

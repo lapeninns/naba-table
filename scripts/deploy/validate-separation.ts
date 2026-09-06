@@ -180,6 +180,14 @@ function compareSections(params: {
       /^[1-9][0-9]*$/u.test(value)
     )
       continue;
+    // This is a feature switch, not a resource identity. Restrict the exception to
+    // the control plane and its two exact boolean string values.
+    if (
+      params.scope === 'operational-control' &&
+      leaf.path === 'vars.POST_DEPLOY_OBSERVER_ENABLED' &&
+      (value === 'true' || value === 'false')
+    )
+      continue;
     const otherPath = otherValues.get(value);
     if (otherPath !== undefined) {
       findings.push({

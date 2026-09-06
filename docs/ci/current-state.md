@@ -2,7 +2,7 @@
 
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This
 page records what is actually running, verified against the GitHub API and this repository on
-**2026-09-06**. Where the two disagree, this page is correct.
+**2026-09-07**. Where the two disagree, this page is correct.
 
 Update this page whenever a row moves between tables.
 
@@ -13,12 +13,15 @@ Cloudflare Workers Builds as the sanctioned production delivery path behind the 
 seven required PR checks. `Protected delivery` remains an inactive alternative; its contracts
 are retained. The owner explicitly declined external heartbeat implementation.
 
-The new `Git deployment verification` workflow observes the web app and three customer Workers
-after pushes to protected main with bounded retries, hourly, or by manual dispatch from main. It is
-**prepared, not commissioned**: hosted execution, enforced main-only Monitoring environment access, monitoring authentication, and Worker source
-identity must be verified before claiming it is operating. See the
-[Git delivery runbook](../runbooks/git-delivery.md). This observation cannot stop a deployment,
-make multi-provider releases atomic, or automatically roll back a failed release.
+The hosted `Git deployment verification` workflow is prepared but disabled unless the repository
+variable `HOSTED_POST_DEPLOY_VERIFICATION_ENABLED` is explicitly `true`. The owner declined paid
+GitHub Actions; the account remains capped at $0 with all included minutes consumed. Production
+credentials must not move onto the shared PR runner.
+
+An hourly observer in the existing operational-control Worker is being qualified as the
+independent executor. It remains disabled pending reviewed code, provider deployment, CPU-limit
+qualification, and successful scheduled evidence. See the [Git delivery runbook](../runbooks/git-delivery.md).
+Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
 
 ## What actually deploys production
 
@@ -45,9 +48,35 @@ account configuration before expecting that author's Git deployments to succeed.
 `0e9ada467e4449a9a4b5f7ac0ce534c4606a32cf`. This is provider metadata, not authenticated
 readiness or end-to-end booking proof. The Monitoring environment still contained zero secrets, and operational
 verification run `34060479324` failed with no job steps. Do not label that main revision live.
-A later readback found Monitoring has no deployment branch policy and no protection rules;
-an administrator must enforce main-only access before storing its readiness secret. The
-authorized review account `amanshresthaa` has push access but no repository admin permission.
+Subsequent administrator configuration enforced an exact `main` branch policy for Monitoring.
+A non-main dispatch of operational verification (run `34065272131`) was rejected by the environment
+before any job step. Monitoring still holds no secret because hosted execution remains disabled.
+The authorized account `lapeninns` has administrator access; `amanshresthaa` has push access.
+
+Authenticated readiness probes later returned HTTP 200 and `status: ok` with complete dependency
+checks for all four customer services using the existing matching token. The web still served
+`0e9ada467e4449a9a4b5f7ac0ce534c4606a32cf`, while all three Workers served
+`b2f1611442456f4167f4c9e7cf1b63cb5b9e8cfe`. This is a source mismatch, not a verified current-main release.
+PR #147's actual `lapeninns`-authored head received a READY Vercel preview, supporting a legitimate
+owner rebase merge without purchasing an additional Vercel seat. Production remains unverified
+until the resulting Git build and authenticated served revision pass.
+
+At approximately 00:11 BST on 2026-09-07, owner-dashboard readback confirmed all three customer
+Workers build `lapeninns/nabatable` from `main`, root `/`, include path `*`, no exclusions, and
+non-production branch builds disabled. Each runs its package `verify`, followed by production
+Worker separation validation and `deploy:workers --revision "$(git rev-parse HEAD)"` with its
+correct production URL. Existing build secrets supply `MONITORING_TOKEN`; no commands or secrets
+were changed. Operational-control was subsequently connected through the Builds API to the same protected-main,
+all-path repository source (trigger `7ae8d730-6c18-4325-988b-db83a47ac4b2`), with its package verification,
+separation check, revision-aware deploy command and encrypted monitoring build secret. This is
+configuration evidence; it still serves the preceding manual Wrangler release until a build succeeds. The existing Cloudflare account is on Workers Free (10 ms CPU per invocation);
+low request usage alone does not establish that the new observer fits that limit.
+
+The dispatch App `4841783` installation `159307594` was granted the required read-only contents
+permission and accepted by the owner. Installation readback remains limited to the single
+`lapeninns/nabatable` repository; existing permissions are actions write, and checks, contents,
+metadata and pull requests read. No App key was copied. The existing operational R2 bucket's
+`operational-evidence-14d` lifecycle applies to all prefixes, including `post-deploy/v1/`.
 
 `Protected delivery` (`.github/workflows/deploy.yml`) — the evidence-gated, staged, approved pipeline
 that `docs/runbooks/staging-release.md` describes — **has never run successfully**. Its last twenty
@@ -63,22 +92,22 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 | Secret scanning             | ✅ live | gitleaks + trufflehog, SHA-256 pinned, architecture-aware                  |
 | Local runner crash recovery | ✅ live | launchd supervisor restarts the VM and the agent                           |
 | Vercel production deploy    | ⚠️ live | Sanctioned Git integration; latest attempt blocked — see above             |
-| Cloudflare Workers deploy   | ⚠️ live | Sanctioned Workers Builds; provider settings need readback                 |
+| Cloudflare Workers deploy   | ⚠️ live | Sanctioned Workers Builds; main/all-path settings verified                 |
 
 ## What is not operating
 
-| Capability                    | State             | Why                                                                                |
-| ----------------------------- | ----------------- | ---------------------------------------------------------------------------------- |
-| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured                    |
-| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`                      |
-| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                                |
-| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets                         |
-| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                             |
-| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                                |
-| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                                          |
-| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A              |
-| Git deployment verification   | Prepared          | Hosted capacity, Monitoring token, email origin and Worker source identity pending |
-| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                             |
+| Capability                    | State             | Why                                                                     |
+| ----------------------------- | ----------------- | ----------------------------------------------------------------------- |
+| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured         |
+| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`           |
+| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                     |
+| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets              |
+| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                  |
+| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                     |
+| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                               |
+| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A   |
+| Git deployment verification   | Prepared          | Hosted version opt-in disabled; Cloudflare observer under qualification |
+| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                  |
 
 **No independent backup of this database has ever been taken, and no restore has ever been timed.**
 
@@ -87,7 +116,7 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 1. **Hosted Actions minutes are exhausted.** Every `ubuntu-latest` job fails to start with
    _"The job was not started because recent account payments have failed or your spending limit needs
    to be increased."_ This alone explains every `startup_failure` above. Resolve in
-   GitHub → Settings → Billing, or migrate the affected workflows to `[self-hosted, nabatable]`.
+   GitHub → Settings → Billing only if the owner later authorizes it. Paid Actions is currently disabled by request. Secret-bearing jobs cannot migrate to the shared PR runner; qualify an isolated executor.
 2. **`config/recovery/policy.yaml` still reads `bucket: REPLACE_ME_ENCRYPTED_BACKUP_BUCKET`.** Both
    `scripts/db/restore/verify.ts` and `evidence-check.ts` hard-refuse on it, with no environment or
    CLI override, so the restore drill and the production recovery gate cannot run whatever the
@@ -105,16 +134,16 @@ Only these repository-level secrets exist today: `NEXT_PUBLIC_APP_URL`, `NEXT_PU
 
 ### Values that must be provisioned or securely reused
 
-| Secret                      | Where to get it                                                                                                                                                                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `MONITORING_TOKEN`          | Vercel Production metadata confirms this key already exists (2026-09-06); do not rotate blindly. Securely reuse the matching value for the three customer Workers and main-restricted Monitoring environment. Worker matching values remain unverified |
-| `VERCEL_TOKEN`              | Vercel → Account Settings → Tokens → Create Token, scoped to the owning team                                                                                                                                                                           |
-| `SUPABASE_ACCESS_TOKEN`     | Supabase → Account → Access Tokens → Generate new token (one token covers both projects)                                                                                                                                                               |
-| `SUPABASE_DB_PASSWORD`      | Supabase → Project Settings → Database → Database password. **Different per environment**, so it must be an environment secret, not a repository secret                                                                                                |
-| `CLOUDFLARE_API_TOKEN`      | Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers" template                                                                                                                                                                              |
-| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare → Workers & Pages → Account ID, or `wrangler whoami`. Genuinely absent from the repo                                                                                                                                                        |
-| `STAGING_LOCK_GITHUB_TOKEN` | GitHub PAT with `variables:write`, so the staging job can hold the deploy lock                                                                                                                                                                         |
-| `MONITORING_HEARTBEAT_URL`  | An uptime provider's heartbeat URL, if one is adopted. Grace period must exceed 75 minutes                                                                                                                                                             |
+| Secret                      | Where to get it                                                                                                                                                                                                                                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MONITORING_TOKEN`          | Vercel Production metadata confirms this key already exists (2026-09-06); do not rotate blindly. Securely reuse the matching value for the three customer Workers and main-restricted Monitoring environment. Authenticated probes confirmed the existing value matches all four customer services; hosted Monitoring remains intentionally empty |
+| `VERCEL_TOKEN`              | Vercel → Account Settings → Tokens → Create Token, scoped to the owning team                                                                                                                                                                                                                                                                      |
+| `SUPABASE_ACCESS_TOKEN`     | Supabase → Account → Access Tokens → Generate new token (one token covers both projects)                                                                                                                                                                                                                                                          |
+| `SUPABASE_DB_PASSWORD`      | Supabase → Project Settings → Database → Database password. **Different per environment**, so it must be an environment secret, not a repository secret                                                                                                                                                                                           |
+| `CLOUDFLARE_API_TOKEN`      | Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers" template                                                                                                                                                                                                                                                                         |
+| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare → Workers & Pages → Account ID, or `wrangler whoami`. Genuinely absent from the repo                                                                                                                                                                                                                                                   |
+| `STAGING_LOCK_GITHUB_TOKEN` | GitHub PAT with `variables:write`, so the staging job can hold the deploy lock                                                                                                                                                                                                                                                                    |
+| `MONITORING_HEARTBEAT_URL`  | An uptime provider's heartbeat URL, if one is adopted. Grace period must exceed 75 minutes                                                                                                                                                                                                                                                        |
 
 ### Values that already exist in the repository — copy, do not hunt
 

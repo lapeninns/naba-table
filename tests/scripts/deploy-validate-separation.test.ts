@@ -137,6 +137,31 @@ describe('deploy:validate-separation', () => {
     ).toBe(false);
   });
 
+  it('allows only boolean observer flags as shared operational configuration @deploy @security', () => {
+    const check = (value: string) =>
+      validateSeparation({
+        target: 'staging',
+        scope: 'workers',
+        workers: [
+          {
+            worker: 'operational-control',
+            source: 'memory://observer',
+            config: {
+              name: 'control',
+              vars: { POST_DEPLOY_OBSERVER_ENABLED: value },
+              env: {
+                staging: { name: 'control-staging', vars: { POST_DEPLOY_OBSERVER_ENABLED: value } },
+              },
+            },
+          },
+        ],
+      });
+    expect(check('false').ok).toBe(true);
+    expect(check('true').ok).toBe(true);
+    expect(check('REPLACE_ME_FLAG').ok).toBe(false);
+    expect(check('https://app.nabatable.com').ok).toBe(false);
+  });
+
   it('passes a fully separated staging config @deploy @contract', () => {
     const report = validateSeparation({
       target: 'staging',

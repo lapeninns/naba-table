@@ -12,8 +12,11 @@ This document records the GitHub-side configuration that the workflows under `.g
 
 The owner selected option A on 2026-09-06: retain Git integration deployments behind the
 seven existing required branch checks. See the [Git delivery runbook](../runbooks/git-delivery.md).
-`Git deployment verification` uses the separate `Monitoring` environment and an ephemeral
-hosted runner, with only a readiness token and the automatic read-only GitHub token. It does
+The optional hosted `Git deployment verification` uses the main-restricted `Monitoring` environment
+and an ephemeral hosted runner, with only a readiness token and the automatic read-only GitHub token.
+It is disabled at job admission unless explicitly opted in; paid Actions remains disabled by owner request.
+The alternative Cloudflare observer uses the existing remote App key with a validated, repository-scoped
+contents-read token revoked after each observation. It remains under qualification. Neither observer does
 not implement a human approval, a promotion gate, a backup check, or a heartbeat. Agent-performed
 reviews must be labelled as such, even when submitted through an owner-authorized account.
 The environment-review requirements below describe the inactive alternative pipeline.
@@ -37,7 +40,7 @@ The environment-review requirements below describe the inactive alternative pipe
 GitHub Apps:
 
 - `nabatable-local-ci` (Mac controller): `checks: write`; `metadata`, `contents`, `pull_requests`, `actions`: read. Publishes `Local CI / <profile>`.
-- `nabatable-ci-dispatch` (Cloudflare Worker): `actions: write`; everything else read. Dispatches `Hosted profile fallback` and `Release gate`.
+- `nabatable-ci-dispatch` (Cloudflare Worker): `actions: write`; `checks`, `contents`, `metadata` and `pull_requests`: read. Dispatches `Hosted profile fallback` and `Release gate`.
 
 ### Environments
 
