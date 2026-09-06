@@ -41,6 +41,32 @@ describe('script DB safety', () => {
     ).toThrow(/Unable to determine Supabase project ref/);
   });
 
+  it('recognizes the authenticated CLI login role without weakening exact target checks', () => {
+    const url =
+      'postgresql://cli_login_postgres.actualrefabcdefghijk:test-password@aws-1-eu-west-2.pooler.supabase.com:5432/postgres';
+    expect(assertExactSupabaseProjectRef(url, 'actualrefabcdefghijk')).toBe('actualrefabcdefghijk');
+    expect(() => assertExactSupabaseProjectRef(url, 'otherrefabcdefghijkl')).toThrow(/mismatch/);
+    expect(() =>
+      assertExactSupabaseProjectRef(
+        url.replace('pooler.supabase.com', 'pooler.supabase.com.attacker.example'),
+        'actualrefabcdefghijk',
+      ),
+    ).toThrow(/Unable to determine/);
+    expect(() =>
+      assertExactSupabaseProjectRef(
+        url.replace('cli_login_postgres.', 'untrusted_role.'),
+        'actualrefabcdefghijk',
+      ),
+    ).toThrow(/Unable to determine/);
+    expect(() =>
+      assertProductionScriptSafety({
+        connectionString: url,
+        expectedProjectRef: 'actualrefabcdefghijk',
+        apply: true,
+      }),
+    ).toThrow(/CONFIRM_PRODUCTION=true/);
+  });
+
   it('validates Supabase API project refs by exact HTTPS Supabase host', () => {
     expect(
       assertExactSupabaseApiProjectRef(

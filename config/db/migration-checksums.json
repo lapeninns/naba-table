@@ -725,6 +725,12 @@
       "recordedAt": "2026-09-05T10:28:31.494Z",
       "reviewed": true
     },
+    "20260906110000_atomic_manual_assignment_release.sql": {
+      "sha256": "395997e86827951a10a19a9a6b2fbcf946a7dfbca310b84827076d5a5360412a",
+      "bytes": 6537,
+      "recordedAt": "2026-09-06T10:20:17.107Z",
+      "reviewed": true
+    },
     "CONSOLIDATED_ALL_MIGRATIONS.sql": {
       "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
       "bytes": 31275,

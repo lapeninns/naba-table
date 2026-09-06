@@ -4,6 +4,11 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ## Unreleased
 
+### Fixed
+
+- Release manual table assignments atomically with their allocation and idempotency state, allowing fresh-key reassignment while preserving partial merge groups, tenant boundaries and service-role-only RPC access. Add rollback SQL coverage for partial, final, repeated and legacy-wrapper releases.
+- Recognize authenticated Supabase CLI temporary pooler roles in exact-project database safety validation.
+
 ### Added
 
 - Support project-scoped Vercel automation protection credentials for the staging email consumer and exact-origin operational probes, without following redirects or weakening application authentication.

@@ -37,9 +37,10 @@ const OUTER_RERAISE =
   /EXCEPTION\s*\n\s*WHEN OTHERS THEN\s*\n\s*RAISE NOTICE[^\n]*FAILED[^\n]*\n\s*RAISE;\s*\nEND;\s*\n\$regression\$;\s*\n\s*ROLLBACK;\s*$/;
 
 describe('SQL regression files', () => {
-  it('registers exactly the three reviewed regression files', () => {
+  it('registers exactly the four reviewed regression files', () => {
     expect(SQL_REGRESSION_FILES).toEqual([
       'tests/db/terminal-booking-table-release.sql',
+      'tests/db/manual-table-unassignment.sql',
       'supabase/tests/mobile_sms_attempt_finalization.sql',
       'supabase/tests/whatsapp_review_notification_ledger.sql',
     ]);
