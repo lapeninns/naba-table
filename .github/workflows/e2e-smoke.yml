@@ -16,10 +16,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     name: Browser smoke packs
-    runs-on: ubuntu-latest
+    # Functional smoke only (no pixel comparison), so aarch64 Chromium is fine.
+    # Pixel-comparing specs stay hosted - see quality-gates.yml visual-routes.
+    runs-on: [self-hosted, nabatable]
     # A hung dev server must not burn hours of CI.
     timeout-minutes: 30
     env:
