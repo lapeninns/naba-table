@@ -105,10 +105,38 @@ export function parseProbeTargets(raw: string | undefined): ProbeTargetsResult {
   return { ok: true, targets };
 }
 
+/** Only the explicitly configured staging HTTPS origin may receive this deployment secret. */
+function matchesVercelBypassOrigin(
+  target: ProbeTarget,
+  configuredOrigin: string | undefined,
+): boolean {
+  if (target.environment !== 'staging' || !isConfiguredValue(configuredOrigin)) return false;
+  try {
+    const origin = new URL(configuredOrigin);
+    const url = new URL(target.url);
+    return (
+      origin.protocol === 'https:' &&
+      origin.pathname === '/' &&
+      origin.search === '' &&
+      origin.hash === '' &&
+      origin.username === '' &&
+      origin.password === '' &&
+      url.protocol === 'https:' &&
+      url.username === '' &&
+      url.password === '' &&
+      url.origin === origin.origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** GET-only readiness probe: bounded timeout, no redirects followed, response body discarded. */
 export async function probeTarget(input: {
   readonly target: ProbeTarget;
   readonly monitoringToken: string;
+  readonly vercelAutomationBypassSecret?: string;
+  readonly vercelAutomationBypassOrigin?: string;
   readonly fetcher: typeof fetch;
   readonly now: () => number;
   readonly timeoutMs?: number;
@@ -116,9 +144,19 @@ export async function probeTarget(input: {
   const startedAt = input.now();
   const base = { name: input.target.name, environment: input.target.environment };
   try {
+    const headers = new Headers({
+      authorization: `Bearer ${input.monitoringToken}`,
+      accept: 'application/json',
+    });
+    if (
+      isConfiguredValue(input.vercelAutomationBypassSecret) &&
+      matchesVercelBypassOrigin(input.target, input.vercelAutomationBypassOrigin)
+    ) {
+      headers.set('x-vercel-protection-bypass', input.vercelAutomationBypassSecret);
+    }
     const response = await input.fetcher(input.target.url, {
       method: 'GET',
-      headers: { authorization: `Bearer ${input.monitoringToken}`, accept: 'application/json' },
+      headers,
       redirect: 'manual',
       signal: AbortSignal.timeout(input.timeoutMs ?? PROBE_TIMEOUT_MS),
     });
@@ -199,7 +237,14 @@ export async function runScheduledCycle(input: {
     targets.ok && tokenConfigured
       ? await Promise.all(
           targets.targets.map((target) =>
-            probeTarget({ target, monitoringToken, fetcher: input.fetcher, now: input.now }),
+            probeTarget({
+              target,
+              monitoringToken,
+              vercelAutomationBypassSecret: input.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+              vercelAutomationBypassOrigin: input.env.VERCEL_AUTOMATION_BYPASS_ORIGIN,
+              fetcher: input.fetcher,
+              now: input.now,
+            }),
           ),
         )
       : [];

@@ -12,6 +12,7 @@ export type GatewayBinding<Id> = {
 export type EmailQueueGatewayEnv<Id = DurableObjectId> = {
   APP_PROCESS_EMAILS_TOKEN: string;
   APP_PROCESS_EMAILS_URL: string;
+  VERCEL_AUTOMATION_BYPASS_SECRET?: string;
   CAPACITY_VERSION_STATE: GatewayBinding<Id>;
   EMAIL_QUEUE_STATE: GatewayBinding<Id>;
   GATEWAY_TOKEN: string;

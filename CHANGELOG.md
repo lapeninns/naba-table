@@ -6,6 +6,10 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Support project-scoped Vercel automation protection credentials for the staging email consumer and exact-origin operational probes, without following redirects or weakening application authentication.
+
+- Exercise synthetic guest recovery and cancellation, cross-tenant recovery denial and authenticated membership isolation, email queue persistence and deduplication, and exact SMS preview contracts in staging. Keep protection credentials scoped to staging web origins and disable credential-bearing traces.
+
 - Apply Vercel `--skip-domain` only to production; custom staging deployments use their isolated environment aliases.
 
 - Verify Resend webhook signatures locally without requiring an email-sending API key at build time. Preserve raw-body and timestamp verification for isolated staging.
