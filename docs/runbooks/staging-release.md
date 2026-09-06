@@ -6,6 +6,9 @@
 > drill and the hourly verifier have never run at all. See [current state](../ci/current-state.md) for what is
 > actually operating and what it would take to commission the rest.
 
+The owner selected [option A Git delivery](git-delivery.md) for production on 2026-09-06.
+This runbook remains the uncommissioned alternative and the staging safety reference.
+
 Operating guide for the separated staging environment and the promotion path to
 production. Code lives under `scripts/deploy/**` and `scripts/release/**`; the
 staging browser proofs live under `tests/e2e/staging/**` and run through

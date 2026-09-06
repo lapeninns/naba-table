@@ -8,6 +8,16 @@
 
 This document records the GitHub-side configuration that the workflows under `.github/workflows/` assume, and the checklist to run when the repository, its GitHub Apps, or its environments change. `pnpm ci:contracts:validate` enforces the parts that can be checked from the repository; the rest must be verified by an administrator.
 
+## Selected production delivery
+
+The owner selected option A on 2026-09-06: retain Git integration deployments behind the
+seven existing required branch checks. See the [Git delivery runbook](../runbooks/git-delivery.md).
+`Git deployment verification` uses the separate `Monitoring` environment and an ephemeral
+hosted runner, with only a readiness token and the automatic read-only GitHub token. It does
+not implement a human approval, a promotion gate, a backup check, or a heartbeat. Agent-performed
+reviews must be labelled as such, even when submitted through an owner-authorized account.
+The environment-review requirements below describe the inactive alternative pipeline.
+
 ## Workflows and identities
 
 | Workflow (display name)    | File                                | Trigger                                                                                                               | Identity / environment                         |

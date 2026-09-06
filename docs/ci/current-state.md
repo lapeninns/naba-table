@@ -6,16 +6,48 @@ page records what is actually running, verified against the GitHub API and this 
 
 Update this page whenever a row moves between tables.
 
+## Selected delivery model: option A
+
+On 2026-09-06 the owner selected **option A**: retain Vercel Git integration and
+Cloudflare Workers Builds as the sanctioned production delivery path behind the existing
+seven required PR checks. `Protected delivery` remains an inactive alternative; its contracts
+are retained. The owner explicitly declined external heartbeat implementation.
+
+The new `Git deployment verification` workflow observes the web app and three customer Workers
+after pushes to protected main with bounded retries, hourly, or by manual dispatch from main. It is
+**prepared, not commissioned**: hosted execution, enforced main-only Monitoring environment access, monitoring authentication, and Worker source
+identity must be verified before claiming it is operating. See the
+[Git delivery runbook](../runbooks/git-delivery.md). This observation cannot stop a deployment,
+make multi-provider releases atomic, or automatically roll back a failed release.
+
 ## What actually deploys production
 
-**Vercel's Git integration deploys every push to `main` directly to production.** GitHub deployment
+**Vercel's Git integration attempts production deployment on every push to `main`.** GitHub deployment
 records show `vercel[bot]` creating `Production` deployments for recent `main` commits, including the
 two `[skip ci]` commits that carried no CI evidence at all. Cloudflare Workers Builds deploys the
 three customer-facing Workers on push.
 
-Neither path consults the release gate, an approval, a staging soak, or a smoke test.
+Neither provider path consults the inactive release gate, a deployment approval, a staging soak,
+or a smoke test. The existing main ruleset is the pre-merge control for option A.
 
-> **Treat any commit merged to `main` as immediately live in production.**
+> **Treat merging to `main` as initiating a production release. Verify the provider outcome
+> and live source revision; an attempted deployment is not proof the commit became live.**
+
+Live GitHub readback at approximately **23:27 BST on 2026-09-06** confirmed all seven required
+contexts. Vercel deployment `6298664970` for main `b2f1611442456f4167f4c9e7cf1b63cb5b9e8cfe`
+reported **failure / "Deployment was blocked"**. Vercel API readback later confirmed
+`readyState: BLOCKED` because the commit author lacks permission to create deployments for
+this project; no alias was assigned. GitHub identifies that author as `amanshresthaa`;
+the preceding READY source commit was authored by `lapeninns`. Resolve provider author/team access through legitimate
+account configuration before expecting that author's Git deployments to succeed. A later Vercel alias/API readback at approximately
+23:39 BST resolved `app.nabatable.com` to READY deployment
+`dpl_4sWK9u5T6MhUg8C6REzeKd9e84fe`, whose provider source SHA is
+`0e9ada467e4449a9a4b5f7ac0ce534c4606a32cf`. This is provider metadata, not authenticated
+readiness or end-to-end booking proof. The Monitoring environment still contained zero secrets, and operational
+verification run `34060479324` failed with no job steps. Do not label that main revision live.
+A later readback found Monitoring has no deployment branch policy and no protection rules;
+an administrator must enforce main-only access before storing its readiness secret. The
+authorized review account `amanshresthaa` has push access but no repository admin permission.
 
 `Protected delivery` (`.github/workflows/deploy.yml`) — the evidence-gated, staged, approved pipeline
 that `docs/runbooks/staging-release.md` describes — **has never run successfully**. Its last twenty
@@ -30,22 +62,23 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 | CI contract validation      | ✅ live | `pnpm ci:contracts:validate` runs inside `Security guards`                 |
 | Secret scanning             | ✅ live | gitleaks + trufflehog, SHA-256 pinned, architecture-aware                  |
 | Local runner crash recovery | ✅ live | launchd supervisor restarts the VM and the agent                           |
-| Vercel production deploy    | ⚠️ live | Automatic and **ungated** — see above                                      |
-| Cloudflare Workers deploy   | ⚠️ live | Automatic and **ungated** via Workers Builds                               |
+| Vercel production deploy    | ⚠️ live | Sanctioned Git integration; latest attempt blocked — see above             |
+| Cloudflare Workers deploy   | ⚠️ live | Sanctioned Workers Builds; provider settings need readback                 |
 
 ## What is not operating
 
-| Capability                    | State        | Why                                                             |
-| ----------------------------- | ------------ | --------------------------------------------------------------- |
-| `Protected delivery`          | ❌ never ran | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured |
-| `Release gate`                | ❌ never ran | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`   |
-| CodeQL                        | ❌ never ran | `ubuntu-latest` + exhausted minutes                             |
-| Hourly operational verifier   | ❌ never ran | `ubuntu-latest`; `Monitoring` environment holds no secrets      |
-| Database backup (12-hourly)   | ❌ never ran | `ubuntu-latest`; `Backup` environment holds no secrets          |
-| Restore drill                 | ❌ never ran | Also blocked by a placeholder backup bucket (below)             |
-| DAST                          | ❌ never ran | `ubuntu-latest`; `DAST_*` variables unset                       |
-| External alerting / heartbeat | ❌ not armed | `MONITORING_HEARTBEAT_URL` unset by owner choice                |
-| Local-first CI controller     | ❌ not built | Superseded in practice by the stock self-hosted runner          |
+| Capability                    | State             | Why                                                                                |
+| ----------------------------- | ----------------- | ---------------------------------------------------------------------------------- |
+| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured                    |
+| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`                      |
+| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                                |
+| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets                         |
+| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                             |
+| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                                |
+| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                                          |
+| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A              |
+| Git deployment verification   | Prepared          | Hosted capacity, Monitoring token, email origin and Worker source identity pending |
+| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                             |
 
 **No independent backup of this database has ever been taken, and no restore has ever been timed.**
 
@@ -70,18 +103,18 @@ Only these repository-level secrets exist today: `NEXT_PUBLIC_APP_URL`, `NEXT_PU
 `RESEND_API_KEY`, `RESEND_FROM`, `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`,
 `SUPABASE_SERVICE_ROLE_KEY`.
 
-### Values that must be created
+### Values that must be provisioned or securely reused
 
-| Secret                      | Where to get it                                                                                                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MONITORING_TOKEN`          | Invent: `openssl rand -hex 32`. Must also be set in Vercel env, on all four Workers via `wrangler secret put`, and in any uptime monitor's request headers, or every readiness probe 401s |
-| `VERCEL_TOKEN`              | Vercel → Account Settings → Tokens → Create Token, scoped to the owning team                                                                                                              |
-| `SUPABASE_ACCESS_TOKEN`     | Supabase → Account → Access Tokens → Generate new token (one token covers both projects)                                                                                                  |
-| `SUPABASE_DB_PASSWORD`      | Supabase → Project Settings → Database → Database password. **Different per environment**, so it must be an environment secret, not a repository secret                                   |
-| `CLOUDFLARE_API_TOKEN`      | Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers" template                                                                                                                 |
-| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare → Workers & Pages → Account ID, or `wrangler whoami`. Genuinely absent from the repo                                                                                           |
-| `STAGING_LOCK_GITHUB_TOKEN` | GitHub PAT with `variables:write`, so the staging job can hold the deploy lock                                                                                                            |
-| `MONITORING_HEARTBEAT_URL`  | An uptime provider's heartbeat URL, if one is adopted. Grace period must exceed 75 minutes                                                                                                |
+| Secret                      | Where to get it                                                                                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MONITORING_TOKEN`          | Vercel Production metadata confirms this key already exists (2026-09-06); do not rotate blindly. Securely reuse the matching value for the three customer Workers and main-restricted Monitoring environment. Worker matching values remain unverified |
+| `VERCEL_TOKEN`              | Vercel → Account Settings → Tokens → Create Token, scoped to the owning team                                                                                                                                                                           |
+| `SUPABASE_ACCESS_TOKEN`     | Supabase → Account → Access Tokens → Generate new token (one token covers both projects)                                                                                                                                                               |
+| `SUPABASE_DB_PASSWORD`      | Supabase → Project Settings → Database → Database password. **Different per environment**, so it must be an environment secret, not a repository secret                                                                                                |
+| `CLOUDFLARE_API_TOKEN`      | Cloudflare → My Profile → API Tokens → "Edit Cloudflare Workers" template                                                                                                                                                                              |
+| `CLOUDFLARE_ACCOUNT_ID`     | Cloudflare → Workers & Pages → Account ID, or `wrangler whoami`. Genuinely absent from the repo                                                                                                                                                        |
+| `STAGING_LOCK_GITHUB_TOKEN` | GitHub PAT with `variables:write`, so the staging job can hold the deploy lock                                                                                                                                                                         |
+| `MONITORING_HEARTBEAT_URL`  | An uptime provider's heartbeat URL, if one is adopted. Grace period must exceed 75 minutes                                                                                                                                                             |
 
 ### Values that already exist in the repository — copy, do not hunt
 
@@ -112,7 +145,8 @@ does not degrade CI -- it stops merges entirely, and silently.** The launchd sup
   accepts no jobs, so required checks stay pending forever.
 
 `NABATABLE_RUNNER_HEARTBEAT_URL` is unset by default, which means runner death is currently visible
-only on this machine. Setting it to an uptime provider's heartbeat URL is the cheapest way to make
+only on this machine. The owner explicitly chose to skip external heartbeat implementation on 2026-09-06. If that
+decision changes, setting it to an uptime provider's heartbeat URL is the cheapest way to make
 that reach a phone; the provider's grace period must exceed the poll interval (60s by default).
 
 A related failure mode worth knowing: on 2026-09-06 a pull request was opened and GitHub did not
