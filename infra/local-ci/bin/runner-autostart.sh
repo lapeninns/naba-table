@@ -42,6 +42,8 @@ case "${1:-}" in
   <dict>
     <key>NABATABLE_LIMACTL</key>
     <string>${LIMACTL}</string>
+    <key>NABATABLE_RUNNER_HEARTBEAT_URL</key>
+    <string>${NABATABLE_RUNNER_HEARTBEAT_URL:-}</string>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>

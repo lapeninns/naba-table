@@ -99,6 +99,28 @@ Only these repository-level secrets exist today: `NEXT_PUBLIC_APP_URL`, `NEXT_PU
 a zero-credential way to prove runner allocation works, before investing in any of the above. It
 requires only that the workflow can get a runner.
 
+## Runner health
+
+The self-hosted runner publishes the seven checks the `main` ruleset requires, so **a dead runner
+does not degrade CI -- it stops merges entirely, and silently.** The launchd supervisor
+(`infra/local-ci/bin/runner-vm-supervise.sh`) now records health on every poll:
+
+- `~/Library/Logs/nabatable-ci/runner-state.json` -- current state, updated each cycle.
+- A macOS notification on each health _transition_ (not per poll).
+- A dead-man's-switch ping to `NABATABLE_RUNNER_HEARTBEAT_URL`, sent **only** after a fully healthy
+  check (VM running _and_ agent active). A VM that is up with a dead agent must not look healthy: it
+  accepts no jobs, so required checks stay pending forever.
+
+`NABATABLE_RUNNER_HEARTBEAT_URL` is unset by default, which means runner death is currently visible
+only on this machine. Setting it to an uptime provider's heartbeat URL is the cheapest way to make
+that reach a phone; the provider's grace period must exceed the poll interval (60s by default).
+
+A related failure mode worth knowing: on 2026-09-06 a pull request was opened and GitHub did not
+dispatch any of the `pull_request` workflows. The PR sat `BLOCKED` on required checks that were never
+queued, with no signal anywhere. Pushing an empty commit (a `synchronize` event) dispatched all five
+immediately. If a PR shows required checks as missing rather than failing, check that runs were
+actually created before assuming the runner is at fault.
+
 ## Known good properties worth preserving
 
 Not everything here is broken, and these were verified:
