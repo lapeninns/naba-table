@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Apply Vercel `--skip-domain` only to production; custom staging deployments use their isolated environment aliases.
+
 - Verify Resend webhook signatures locally without requiring an email-sending API key at build time. Preserve raw-body and timestamp verification for isolated staging.
 
 - Record the isolated Vercel staging project and custom environment, enabling full environment-separation validation. Document the owner's choice to use provider health checks without an external alert service.

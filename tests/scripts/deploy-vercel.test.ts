@@ -71,16 +71,10 @@ describe('deploy:vercel:prebuilt', () => {
     for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
 
-  it('relies on prebuilt + skip-domain flags and selects the target environment @deploy @contract', () => {
+  it('uses skip-domain only for production and selects the target environment @deploy @contract', () => {
     expect(pullArgs('staging')).toEqual(['pull', '--yes', '--environment=staging']);
     expect(buildArgs('staging')).toEqual(['build', '--yes', '--target=staging']);
-    expect(deployArgs('staging')).toEqual([
-      'deploy',
-      '--prebuilt',
-      '--skip-domain',
-      '--yes',
-      '--target=staging',
-    ]);
+    expect(deployArgs('staging')).toEqual(['deploy', '--prebuilt', '--yes', '--target=staging']);
     expect(deployArgs('production')).toEqual([
       'deploy',
       '--prebuilt',
@@ -136,9 +130,7 @@ describe('deploy:vercel:prebuilt', () => {
       commands: string[];
     };
     expect(written.target).toBe('staging');
-    expect(written.commands[2]).toBe(
-      'vercel deploy --prebuilt --skip-domain --yes --target=staging',
-    );
+    expect(written.commands[2]).toBe('vercel deploy --prebuilt --yes --target=staging');
     expect(JSON.stringify(written)).not.toContain('fake-monitoring-token');
     expect(JSON.stringify(written)).not.toContain('bypass-fake');
   });

@@ -28,12 +28,13 @@ import { verifyReadiness, type FetchLike } from './readiness';
  *   NABATABLE_SOURCE_REVISION is exported into the build process so the compiled app bakes
  *   the exact source SHA that readiness later reports. Vercel supplies VERCEL_DEPLOYMENT_ID
  *   itself at deploy time, which the app exposes as NABATABLE_BUILD_ID.
- * - `vercel deploy --prebuilt --skip-domain --yes [--prod|--target=staging]`:
+ * - `vercel deploy --prebuilt --yes [--prod --skip-domain|--target=staging]`:
  *   `--prebuilt` uploads `.vercel/output` verbatim (no remote rebuild, so the artifact we
  *   verified is the artifact that ships); `--skip-domain` stops Vercel from aliasing the
  *   deployment onto the environment domain, keeping it immutable and un-promoted until
  *   `deploy:vercel:promote` runs against verified evidence; `--prod`/`--target` selects the
- *   environment configuration without promoting because of `--skip-domain`; `--yes`
+ *   environment configuration. Only production supports `--skip-domain`; custom staging
+ *   deployments update their own environment aliases. `--yes`
  *   disables interactive prompts. The immutable deployment URL is printed on stdout.
  * - `vercel inspect <url>`: resolves the immutable deployment id (`dpl_...`) for promotion
  *   and rollback evidence.
@@ -108,7 +109,7 @@ export function deployArgs(target: DeployTarget): readonly string[] {
   return [
     'deploy',
     '--prebuilt',
-    '--skip-domain',
+    ...(target === 'production' ? ['--skip-domain'] : []),
     '--yes',
     ...ENVIRONMENTS[target].vercelTargetFlag,
   ];
