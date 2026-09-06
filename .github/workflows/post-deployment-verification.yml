@@ -1,0 +1,70 @@
+name: Git deployment verification
+
+# Option A observes the Git integrations after deployment; it cannot block or roll back them.
+# Keep this secret-bearing job off the shared PR runner. Hosted capacity must be restored.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: git-deployment-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Git deployment verification
+    if: >-
+      github.repository_id == '1105219228' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    environment: Monitoring
+    timeout-minutes: 10
+    steps:
+      - name: Checkout protected main verifier
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: 22
+
+      - name: Verify current production source and readiness
+        env:
+          MONITORING_TOKEN: ${{ secrets.MONITORING_TOKEN }}
+          MONITORING_GITHUB_TOKEN: ${{ github.token }}
+          MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL: ${{ vars.MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL }}
+        shell: bash
+        run: |
+          mkdir -p test-results/post-deploy
+          for attempt in 1 2 3 4 5 6; do
+            if pnpm dlx tsx@4.21.0 scripts/monitoring/post-deploy.ts --json | tee test-results/post-deploy/verify.json; then
+              exit 0
+            fi
+            # Stop on configuration/trust failures; retry only potentially transient observations.
+            if ! node -e 'const r = JSON.parse(require("node:fs").readFileSync("test-results/post-deploy/verify.json", "utf8")); process.exit(r.failures.some(f => ["missing_token", "invalid_config", "untrusted_event", "main_changed"].includes(f)) ? 1 : 0)'; then
+              exit 1
+            fi
+            if [ "$attempt" -lt 6 ]; then sleep 30; fi
+          done
+          exit 1
+
+      - name: Upload redacted observation
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: git-deployment-verification-${{ github.run_id }}
+          path: test-results/post-deploy/
+          if-no-files-found: ignore
+          retention-days: 30
