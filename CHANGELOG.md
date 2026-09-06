@@ -17,7 +17,7 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
-- Record sanctioned protected-main Git delivery and add isolated, read-only post-deployment verification of customer-service health and source revisions, with explicit commissioning requirements.
+- Record sanctioned protected-main Git delivery and add read-only post-deployment verification of customer-service health and source revisions, with a shared strict engine, an optional hourly Cloudflare observer, and an opt-in hosted executor.
 
 - Support project-scoped Vercel automation protection credentials for the staging email consumer and exact-origin operational probes, without following redirects or weakening application authentication.
 

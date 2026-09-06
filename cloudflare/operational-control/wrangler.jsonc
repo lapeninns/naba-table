@@ -39,6 +39,8 @@
   //   GITHUB_DISPATCH_INSTALLATION_ID, HEARTBEAT_TOKEN, MONITORING_TOKEN,
   //   INCIDENT_ACKNOWLEDGEMENT_TOKEN, UPTIME_HEARTBEAT_URL
   "vars": {
+    "POST_DEPLOY_OBSERVER_ENABLED": "false",
+    "DEPLOYMENT_ENVIRONMENT": "production",
     "REPOSITORY_ID": "1105219228",
     "LOCAL_CI_APP_ID": "4840724",
     "GATE_WORKFLOW_ID": "350875950",
@@ -78,6 +80,8 @@
         },
       ],
       "vars": {
+        "POST_DEPLOY_OBSERVER_ENABLED": "false",
+        "DEPLOYMENT_ENVIRONMENT": "staging",
         "REPOSITORY_ID": "1105219228",
         "LOCAL_CI_APP_ID": "4840724",
         "GATE_WORKFLOW_ID": "350875950",
@@ -117,6 +121,8 @@
         },
       ],
       "vars": {
+        "POST_DEPLOY_OBSERVER_ENABLED": "false",
+        "DEPLOYMENT_ENVIRONMENT": "production",
         "REPOSITORY_ID": "1105219228",
         "LOCAL_CI_APP_ID": "4840724",
         "GATE_WORKFLOW_ID": "350875950",

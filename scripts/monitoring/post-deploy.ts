@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+import { observePostDeployment, requestPostDeployJson } from '../../cloudflare/shared/post-deploy';
+import type { Service, Diagnostic } from '../../cloudflare/shared/post-deploy';
+
 import { loadMonitoringConfig } from './config';
 import type { MonitoringConfig } from './config';
 
@@ -37,25 +40,6 @@ const SERVICES = [
     readyPath: '/ready',
   },
 ] as const;
-const REQUIRED_CHECKS = {
-  'nabatable-web': ['database', 'storage', 'email-gateway'],
-  'booking-short-links': ['d1', 'kv-cache'],
-  'email-queue-gateway': ['email-queue-state', 'capacity-version-state'],
-  'sms-summary-gateway': ['daily-summary-queue', 'daily-summary-state'],
-} as const;
-const MAX_RESPONSE_BYTES = 64 * 1024;
-type Service = (typeof SERVICES)[number]['service'];
-type Diagnostic =
-  | 'ok'
-  | 'missing_token'
-  | 'invalid_config'
-  | 'untrusted_event'
-  | 'main_unavailable'
-  | 'main_changed'
-  | 'request_failed'
-  | 'http_error'
-  | 'invalid_readiness'
-  | 'revision_mismatch';
 export type PostDeployResult = {
   ok: boolean;
   observedAt: string;
@@ -152,104 +136,13 @@ function targets(
   return resolved;
 }
 
-function validChecks(value: unknown, service: Service): boolean {
-  if (!Array.isArray(value)) return false;
-  const names = new Set<string>();
-  for (const entry of value) {
-    const check = record(entry);
-    if (
-      typeof check.name !== 'string' ||
-      !check.name.trim() ||
-      check.status !== 'ok' ||
-      names.has(check.name)
-    )
-      return false;
-    names.add(check.name);
-  }
-  return REQUIRED_CHECKS[service].every((name) => names.has(name));
-}
-
-async function request(
-  deps: PostDeployDependencies,
-  url: string,
-  token: string,
-  timeout: number,
-): Promise<{ status: number; body: unknown } | null> {
-  // The timeout covers response headers AND body consumption, including injected fetchers in tests.
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      (async () => {
-        const response = await deps.fetcher(url, {
-          method: 'GET',
-          redirect: 'error',
-          cache: 'no-store',
-          signal: controller.signal,
-          headers: {
-            authorization: `Bearer ${token}`,
-            accept: 'application/json',
-            'cache-control': 'no-cache',
-            'user-agent': 'nabatable-post-deploy',
-            'x-github-api-version': '2022-11-28',
-          },
-        });
-        if (response.status !== 200 || response.redirected)
-          return { status: response.redirected ? 302 : response.status, body: null };
-        const length = response.headers.get('content-length');
-        if (length !== null && (!/^\d+$/u.test(length) || Number(length) > MAX_RESPONSE_BYTES)) {
-          controller.abort();
-          void response.body?.cancel().catch(() => {});
-          return null;
-        }
-        if (!response.body) return null;
-        const reader = response.body.getReader();
-        const chunks: Uint8Array[] = [];
-        let size = 0;
-        try {
-          while (true) {
-            const next = await reader.read();
-            if (next.done) break;
-            size += next.value.byteLength;
-            if (size > MAX_RESPONSE_BYTES) {
-              controller.abort();
-              void reader.cancel().catch(() => {});
-              return null;
-            }
-            chunks.push(next.value);
-          }
-        } finally {
-          reader.releaseLock();
-        }
-        const bytes = new Uint8Array(size);
-        let offset = 0;
-        for (const chunk of chunks) {
-          bytes.set(chunk, offset);
-          offset += chunk.byteLength;
-        }
-        return {
-          status: response.status,
-          body: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown,
-        };
-      })(),
-      new Promise<null>((resolve) => {
-        timer = setTimeout(
-          () => {
-            controller.abort();
-            resolve(null);
-          },
-          Math.min(30_000, Math.max(1, timeout)),
-        );
-      }),
-    ]);
-  } catch {
-    return null;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 async function mainSha(deps: PostDeployDependencies, token: string): Promise<string | null> {
-  const response = await request(deps, BRANCH_URL, token, deps.config.timeouts.githubRequestMs);
+  const response = await requestPostDeployJson(
+    deps.fetcher,
+    BRANCH_URL,
+    token,
+    deps.config.timeouts.githubRequestMs,
+  );
   const body = record(response?.body);
   const sha = record(body.commit).sha;
   return response?.status === 200 && body.name === 'main' && body.protected === true && fullSha(sha)
@@ -296,27 +189,16 @@ export async function runPostDeployVerification(
   if (!expected) return fail('main_unavailable');
   if (!validatePostDeployEvent(deps.env.GITHUB_EVENT_NAME, deps.event, deps.env, expected))
     return fail('untrusted_event');
-  result.targets = await Promise.all(
-    resolved.map(async (target) => {
-      const response = await request(deps, target.url, token, deps.config.timeouts.readyRequestMs);
-      const body = record(response?.body);
-      const observedSha = fullSha(body.revision) ? body.revision : null;
-      let status: Diagnostic = 'ok';
-      if (!response) status = 'request_failed';
-      else if (response.status !== 200) status = 'http_error';
-      else if (
-        body.service !== target.service ||
-        body.status !== 'ok' ||
-        !validChecks(body.checks, target.service)
-      )
-        status = 'invalid_readiness';
-      else if (observedSha !== expected) status = 'revision_mismatch';
-      return { service: target.service, status, observedSha };
-    }),
-  );
-  for (const target of result.targets)
-    if (target.status !== 'ok' && !result.failures.includes(target.status))
-      result.failures.push(target.status);
+  const observation = await observePostDeployment({
+    expectedRepository: REPOSITORY,
+    expectedSha: expected,
+    targets: resolved,
+    token,
+    fetcher: deps.fetcher,
+    timeoutMs: deps.config.timeouts.readyRequestMs,
+  });
+  result.targets = observation.targets;
+  result.failures = observation.failures;
   result.observedMainSha = await mainSha(deps, githubToken);
   if (!result.observedMainSha) return fail('main_unavailable');
   if (result.observedMainSha !== expected) return fail('main_changed');

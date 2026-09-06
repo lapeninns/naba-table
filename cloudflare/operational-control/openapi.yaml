@@ -48,6 +48,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessReport'
+  /deployment-verification:
+    get:
+      operationId: getDeploymentVerification
+      summary: Read cached hourly production deployment evidence.
+      description: >-
+        Requires an explicitly enabled production observer. Returns redacted schema-version-1
+        evidence for the four fixed customer services and a protected-main SHA. Evidence must
+        be healthy, nonfuture and at most 75 minutes old. This GET does not probe providers,
+        freshly recheck main, emit a heartbeat or make a promotion decision.
+      security:
+        - monitoringBearer: []
+      responses:
+        '200':
+          description: Healthy cached observation for the reported SHA, within 75 minutes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, cached, ageSeconds, evidence]
+                properties:
+                  status:
+                    const: ok
+                  cached:
+                    const: true
+                  ageSeconds:
+                    type: integer
+                    minimum: 0
+                    maximum: 4500
+                  evidence:
+                    type: object
+                    required:
+                      [
+                        schemaVersion,
+                        repository,
+                        environment,
+                        scheduledAt,
+                        observedAt,
+                        expectedSha,
+                        ok,
+                        targets,
+                        failures,
+                      ]
+                    properties:
+                      schemaVersion:
+                        const: 1
+                      repository:
+                        const: lapeninns/nabatable
+                      environment:
+                        const: production
+                      scheduledAt:
+                        type: string
+                        format: date-time
+                      observedAt:
+                        type: string
+                        format: date-time
+                      expectedSha:
+                        type: string
+                        pattern: '^[a-f0-9]{40}$'
+                      ok:
+                        const: true
+                      targets:
+                        type: array
+                        minItems: 4
+                        maxItems: 4
+                        items:
+                          type: object
+                          required: [service, status, observedSha]
+                          properties:
+                            service:
+                              enum:
+                                [
+                                  nabatable-web,
+                                  booking-short-links,
+                                  email-queue-gateway,
+                                  sms-summary-gateway,
+                                ]
+                            status:
+                              const: ok
+                            observedSha:
+                              type: string
+                              pattern: '^[a-f0-9]{40}$'
+                      failures:
+                        type: array
+                        maxItems: 0
+        '401':
+          description: Missing or invalid MONITORING_TOKEN bearer.
+        '503':
+          description: Cached observation failed, is stale or unavailable, or observer is disabled.
   /github/webhook:
     post:
       operationId: receiveGitHubWebhook

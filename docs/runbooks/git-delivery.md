@@ -13,6 +13,32 @@ changes still require the staging-first database runbook.
 
 ## Post-deployment observation
 
+The owner declined paid GitHub Actions on 2026-09-06. The hosted workflow below now requires
+`HOSTED_POST_DEPLOY_VERIFICATION_ENABLED=true` at job admission; absent/false skips allocation.
+It must remain disabled until hosted execution is separately authorized.
+
+The alternative under qualification is an hourly observer in the existing operational-control
+Worker, using the same runtime-neutral engine in `cloudflare/shared/post-deploy.ts`. It requires
+an explicit production environment and enable flag, independently of the legacy scheduled
+control-plane cycle. It uses the existing remote dispatch App key to mint a fresh token limited
+to this repository and `contents: read`, validates the returned grant, and revokes that token
+after observation. It never imports a host CI key or uses the dispatch client's broader token.
+The App key remains a broader control-plane credential; token downscoping is not a separate
+runtime security boundary.
+
+Redacted results belong to a separate R2 namespace, including failed observations, with
+conditional latest-pointer updates. An authenticated GET retrieves cached evidence and must
+validate its schema, four unique services, timestamp and 75-minute freshness. Cached success
+only describes the recorded SHA; it does not freshly prove that GitHub main is unchanged.
+There is no new heartbeat or incident mutation.
+
+Do not call this alternative commissioned until its code is reviewed, deployed through an
+authorized provider path, and has produced successful scheduled evidence within the existing
+Workers Free CPU limit. The operational-control Worker now has a protected-main Git-build connection with its monitoring
+secret, but its first successful build and observation remain commissioning requirements.
+
+### Optional hosted executor
+
 `.github/workflows/post-deployment-verification.yml` runs the standalone
 `scripts/monitoring/post-deploy.ts` verifier on an ephemeral hosted Node 22 runner under the
 `Monitoring` environment. It starts on pushes to main and also runs hourly or by manual
@@ -41,26 +67,25 @@ URLs. Output contains redacted diagnostics rather than tokens, raw payloads or p
 
 This is read-only observation after release. It cannot prevent an unhealthy release, make
 Vercel and Workers deployment atomic, perform rollback, prove migration compatibility, or
-prove booking/provider journeys. The operational-control Worker is excluded because it is a
-separate control plane. Existing `ops:verify` retains its broader backup/recovery/control-plane
+prove booking/provider journeys. The operational-control Worker is excluded from the four observed customer services because it is a
+separate control plane; it can host the observer without certifying itself. Existing `ops:verify` retains its broader backup/recovery/control-plane
 semantics and is not substituted for strict deployment acceptance.
 
 ## Commissioning requirements
 
-1. Restore hosted GitHub Actions capacity, or separately design and qualify an isolated
-   monitoring executor. Do not place production credentials on the shared PR runner.
-2. Before adding a secret, have a repository administrator configure and verify an enforced
+1. Qualify the existing Cloudflare monitoring executor, or restore hosted GitHub Actions capacity only after explicit owner authorization. Do not place production credentials on the shared PR runner.
+2. For the optional hosted executor, before adding a secret, have a repository administrator configure and verify an enforced
    `Monitoring` deployment branch policy allowing only the protected `main` branch, with no
    tags or other branches. A job-level condition and `checkout: main` cannot protect a secret
    from workflow YAML modified on a writable branch. Test that a non-main dispatch/deployment
    cannot access the environment. If the account plan cannot satisfy that policy, keep credentials unconfigured until that
    restriction can be enforced; never open the environment to all branches.
-3. Configure a matching `MONITORING_TOKEN` in the production web app, three customer Workers,
+3. For the optional hosted executor, configure a matching `MONITORING_TOKEN` in the production web app, three customer Workers,
    and GitHub's `Monitoring` environment. Use secure provider configuration, never commit or
    paste values in a review. Do not rotate a currently configured token without coordinating
    its consumers. The verifier uses `github.token` for read-only main queries; it does not need
    a separate personal GitHub token or Vercel/Cloudflare/DB deployment credentials.
-4. Set `MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL` in `Monitoring` to the actual production HTTPS
+4. For the optional hosted executor, set `MONITORING_EMAIL_QUEUE_GATEWAY_BASE_URL` in `Monitoring` to the actual production HTTPS
    origin. Verify all four targets against the providers; the other three origins are fixed in
    `config/observability/monitoring.yaml` and are not overridden by event input.
 5. Inspect each Worker's actual Git-build root, production branch, deploy command and path

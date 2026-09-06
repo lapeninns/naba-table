@@ -1,7 +1,7 @@
 name: Git deployment verification
 
 # Option A observes the Git integrations after deployment; it cannot block or roll back them.
-# Keep this secret-bearing job off the shared PR runner. Hosted capacity must be restored.
+# Keep this secret-bearing job off the shared PR runner. Explicitly opt in only after hosted capacity is authorized.
 on:
   push:
     branches: [main]
@@ -20,6 +20,7 @@ jobs:
   verify:
     name: Git deployment verification
     if: >-
+      vars.HOSTED_POST_DEPLOY_VERIFICATION_ENABLED == 'true' &&
       github.repository_id == '1105219228' && github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
     runs-on: ubuntu-latest

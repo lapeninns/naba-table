@@ -25,16 +25,40 @@ is a qualification candidate only; nothing here flips runtimes.
 
 ## Routes
 
-| Route                              | Auth                                    | Purpose                                                                   |
-| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------- |
-| `GET /health`                      | none                                    | Liveness only.                                                            |
-| `GET /ready`                       | `Bearer MONITORING_TOKEN`               | Revision from `CF_VERSION_METADATA` plus bounded coordinator + R2 checks. |
-| `POST /github/webhook`             | `X-Hub-Signature-256` over raw bytes    | Webhook intake (see contract below).                                      |
-| `POST /heartbeat`                  | `Bearer HEARTBEAT_TOKEN`                | Mac controller heartbeat; credential-like keys are rejected.              |
-| `POST /incidents/{id}/acknowledge` | `Bearer INCIDENT_ACKNOWLEDGEMENT_TOKEN` | Stops escalation for one active incident.                                 |
-| cron `*/5 * * * *`                 | n/a                                     | Readiness probes, heartbeat/evidence freshness, retry queue tick.         |
+| Route                              | Auth                                    | Purpose                                                                                         |
+| ---------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `GET /health`                      | none                                    | Liveness only.                                                                                  |
+| `GET /ready`                       | `Bearer MONITORING_TOKEN`               | Revision from `CF_VERSION_METADATA` plus bounded coordinator + R2 checks.                       |
+| `GET /deployment-verification`     | `Bearer MONITORING_TOKEN`               | Cached, redacted four-service deployment evidence; 503 when disabled, stale, invalid or failed. |
+| `POST /github/webhook`             | `X-Hub-Signature-256` over raw bytes    | Webhook intake (see contract below).                                                            |
+| `POST /heartbeat`                  | `Bearer HEARTBEAT_TOKEN`                | Mac controller heartbeat; credential-like keys are rejected.                                    |
+| `POST /incidents/{id}/acknowledge` | `Bearer INCIDENT_ACKNOWLEDGEMENT_TOKEN` | Stops escalation for one active incident.                                                       |
+| cron `*/5 * * * *`                 | n/a                                     | Readiness probes, heartbeat/evidence freshness, retry queue tick.                               |
 
 The full schema is in [`openapi.yaml`](./openapi.yaml).
+
+### Optional hourly deployment observation
+
+`POST_DEPLOY_OBSERVER_ENABLED=true` and `DEPLOYMENT_ENVIRONMENT=production` enable an independent
+observation at the exact hourly slot of the existing five-minute cron. Both environments default
+to disabled. It probes the four fixed production customer services against one protected-main
+SHA, rechecks main, and stores redacted results under `post-deploy/v1/` in the existing evidence
+bucket. The dedicated GitHub installation token grants only repository-scoped contents read and
+is revoked after the attempt, including failed attempts. The existing remote App key stays in
+the Worker; never transfer a host CI key to enable this feature.
+
+`GET /deployment-verification` returns `cached: true` with `status: ok` only when validated
+schema-version-1 evidence is healthy and at most 75 minutes old. It includes the observed SHA,
+all four services, their finite diagnostics and timestamps. It returns 503 for failed, stale,
+malformed, missing or disabled evidence; 401 for missing or invalid monitoring authentication.
+GET does not perform new probes or freshly establish GitHub main. There is no POST endpoint,
+new heartbeat, deployment mutation, automatic rollback or promotion decision. The legacy cycle
+and observer settle independently; rejected cycles preserve failed scheduled-invocation status.
+
+Commissioning and current live limitations are recorded in
+[Git delivery](../../docs/runbooks/git-delivery.md) and
+[current state](../../docs/ci/current-state.md). The account's CPU limit, real App token response,
+first hourly evidence and bucket lifecycle must be verified before enabling this observer.
 
 ### Webhook contract (fail closed)
 
