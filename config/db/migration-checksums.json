@@ -732,8 +732,8 @@
       "reviewed": true
     },
     "20260906130000_atomic_table_hold_enforcement.sql": {
-      "sha256": "881215c6533ad9ede6c5c8e27a033212c5c6a9907f0b4cf89b55a51537582313",
-      "bytes": 31878,
+      "sha256": "6a5da1618250ac65727bd56816891fcdeebc60ee53155c353feb04907fbfd609",
+      "bytes": 31893,
       "recordedAt": "2026-09-06T10:55:37.011Z",
       "reviewed": true
     },

@@ -1,3 +1,4 @@
+BEGIN;
 -- Restore strict hold invariants from authoritative hold/member rows. No session
 -- settings or asynchronous sweep are part of admission. Existing live conflicts
 -- stop this migration; no booking or hold is silently selected as the winner.
@@ -703,3 +704,4 @@ BEGIN
 END;
 $function$
 ;
+COMMIT;
