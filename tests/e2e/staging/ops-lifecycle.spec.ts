@@ -97,10 +97,45 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
     bookingId = body.booking?.id;
     expect(bookingId).toBeTruthy();
     expect(body.booking?.restaurant_id).toBe(staging.tenantB.id);
+    const detail = await request.get(`${origin}/api/ops/bookings/${bookingId}`, {
+      headers,
+      maxRedirects: 0,
+    });
+    expect(detail.status()).toBe(200);
+    const persisted = (await detail.json()) as {
+      id?: string;
+      restaurantId?: string;
+      tableAssignments?: Array<{ members: Array<{ tableId: string }> }>;
+    };
+    expect(persisted.id).toBe(bookingId);
+    expect(persisted.restaurantId).toBe(staging.tenantB.id);
+    const initialTableIds =
+      persisted.tableAssignments?.flatMap((group) =>
+        group.members.map((member) => member.tableId),
+      ) ?? [];
+    const knownSyntheticTableIds = new Set(
+      tables.tables?.filter((item) => item.table_number.startsWith('SYN-')).map((item) => item.id),
+    );
+    for (const initialId of initialTableIds)
+      expect(knownSyntheticTableIds.has(initialId)).toBe(true);
+    // Create can allocate automatically. Exercise a real manual assignment by releasing
+    // only this new booking's synthetic allocation, then assigning that table again.
+    const assignmentTableId = initialTableIds[0] ?? table!.id;
+    if (initialTableIds.length > 0) {
+      const unassigned = await request.delete(
+        `${origin}/api/ops/bookings/${bookingId}/assign-tables`,
+        {
+          headers,
+          maxRedirects: 0,
+          data: { tableIds: initialTableIds },
+        },
+      );
+      expect(unassigned.status()).toBe(200);
+    }
     const assigned = await request.post(`${origin}/api/ops/bookings/${bookingId}/assign-tables`, {
       headers,
       maxRedirects: 0,
-      data: { tableIds: [table!.id], idempotencyKey: randomUUID() },
+      data: { tableIds: [assignmentTableId], idempotencyKey: randomUUID() },
     });
     const assignmentResult = (await assigned.json()) as { code?: string };
     expect(assigned.status(), `assignment code: ${assignmentResult.code ?? 'none'}`).toBe(200);

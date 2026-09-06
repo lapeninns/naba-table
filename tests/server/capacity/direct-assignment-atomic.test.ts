@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const assignTableToBookingMock = vi.hoisted(() => vi.fn());
@@ -248,6 +249,32 @@ describe('assignTablesDirectly', () => {
 
     expect(loadBookingMock).not.toHaveBeenCalled();
     expect(assignTableToBookingMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves the real Supabase client receiver when unassigning atomically', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response('1', {
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    const client = createClient('https://staging-proof.invalid', 'test-api-key', {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: fetchMock },
+    });
+    ensureClientMock.mockReturnValue(client);
+
+    await expect(
+      unassignTablesDirect({
+        bookingId: BOOKING_ID,
+        tableIds: [TABLE_ID],
+        client: client as never,
+      }),
+    ).resolves.toEqual({ success: true, removedCount: 1 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      'https://staging-proof.invalid/rest/v1/rpc/remove_booking_table_assignments_and_reopen_if_empty',
+    );
   });
 
   it('removes assignments through the atomic unassign-and-reopen RPC', async () => {
