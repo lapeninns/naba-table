@@ -174,11 +174,21 @@ describe('operational-control package contract', () => {
     expect(document.openapi).toBe('3.1.0');
     const paths = isRecord(document.paths) ? document.paths : {};
     expect(Object.keys(paths).sort()).toEqual([
+      '/deployment-verification',
       '/github/webhook',
       '/health',
       '/heartbeat',
       '/incidents/{incidentId}/acknowledge',
       '/ready',
+    ]);
+    const observation = paths['/deployment-verification'];
+    expect(isRecord(observation) && Object.keys(observation)).toEqual(['get']);
+    const get = isRecord(observation) && isRecord(observation.get) ? observation.get : {};
+    expect(get.security).toEqual([{ monitoringBearer: [] }]);
+    expect(Object.keys(get.responses as Record<string, unknown>).sort()).toEqual([
+      '200',
+      '401',
+      '503',
     ]);
     for (const item of Object.values(paths)) {
       if (!isRecord(item)) continue;

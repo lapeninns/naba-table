@@ -40,8 +40,8 @@ The full schema is in [`openapi.yaml`](./openapi.yaml).
 ### Optional hourly deployment observation
 
 `POST_DEPLOY_OBSERVER_ENABLED=true` and `DEPLOYMENT_ENVIRONMENT=production` enable an independent
-observation at the exact hourly slot of the existing five-minute cron. Both environments default
-to disabled. It probes the four fixed production customer services against one protected-main
+observation at the exact hourly slot of the existing five-minute cron. The production configuration is explicitly enabled for qualification; staging stays disabled.
+Missing enablement or a non-production environment disables the observer. It probes the four fixed production customer services against one protected-main
 SHA, rechecks main, and stores redacted results under `post-deploy/v1/` in the existing evidence
 bucket. The dedicated GitHub installation token grants only repository-scoped contents read and
 is revoked after the attempt, including failed attempts. The existing remote App key stays in
@@ -58,7 +58,7 @@ and observer settle independently; rejected cycles preserve failed scheduled-inv
 Commissioning and current live limitations are recorded in
 [Git delivery](../../docs/runbooks/git-delivery.md) and
 [current state](../../docs/ci/current-state.md). The account's CPU limit, real App token response,
-first hourly evidence and bucket lifecycle must be verified before enabling this observer.
+first hourly evidence and bucket lifecycle must be verified before declaring this observer commissioned.
 
 ### Webhook contract (fail closed)
 

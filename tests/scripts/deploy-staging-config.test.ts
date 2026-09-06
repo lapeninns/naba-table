@@ -13,6 +13,7 @@ import {
   environmentSection,
   flattenLeaves,
   readWranglerConfig,
+  productionSection,
   wranglerConfigPath,
 } from '@/scripts/deploy/wrangler-config';
 import { STAGING_REQUIRED_ENV, resolveStagingEnv } from '@/tests/e2e/staging/env';
@@ -173,6 +174,22 @@ describe('staging web host topology', () => {
         expect(stagingWebHosts, `${worker} env.staging points at ${host}`).toContain(host);
       }
     }
+  });
+
+  it('enables qualified observation only in the production configuration selected by deploy:workers @staging @contract', () => {
+    const config = readWranglerConfig(wranglerConfigPath(process.cwd(), 'operational-control'));
+    const production = productionSection(config).vars as Record<string, unknown>;
+    const productionMirror = environmentSection(config, 'production')?.vars as Record<
+      string,
+      unknown
+    >;
+    const staging = environmentSection(config, 'staging')?.vars as Record<string, unknown>;
+    expect(production.POST_DEPLOY_OBSERVER_ENABLED).toBe('true');
+    expect(production.DEPLOYMENT_ENVIRONMENT).toBe('production');
+    expect(productionMirror.POST_DEPLOY_OBSERVER_ENABLED).toBe('true');
+    expect(productionMirror.DEPLOYMENT_ENVIRONMENT).toBe('production');
+    expect(staging.POST_DEPLOY_OBSERVER_ENABLED).toBe('false');
+    expect(staging.DEPLOYMENT_ENVIRONMENT).toBe('staging');
   });
 
   it('probes the staging web readiness endpoint and posts error insight on the staging web hosts @staging @contract', () => {
