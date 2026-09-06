@@ -102,7 +102,8 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
       maxRedirects: 0,
       data: { tableIds: [table!.id], idempotencyKey: randomUUID() },
     });
-    expect(assigned.status()).toBe(200);
+    const assignmentResult = (await assigned.json()) as { code?: string };
+    expect(assigned.status(), `assignment code: ${assignmentResult.code ?? 'none'}`).toBe(200);
     const checkIn = await request.post(`${origin}/api/ops/bookings/${bookingId}/check-in`, {
       headers,
       maxRedirects: 0,
@@ -129,17 +130,15 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
     );
     expect(repeatedCheckout.status()).toBe(200);
     expect(await repeatedCheckout.json()).toMatchObject({ status: 'completed' });
-    await page
-      .context()
-      .addCookies(
-        cookies.map((cookie) => ({
-          ...cookie,
-          url: origin,
-          secure: true,
-          httpOnly: true,
-          sameSite: 'Lax' as const,
-        })),
-      );
+    await page.context().addCookies(
+      cookies.map((cookie) => ({
+        ...cookie,
+        url: origin,
+        secure: true,
+        httpOnly: true,
+        sameSite: 'Lax' as const,
+      })),
+    );
     const rendered = await page.goto(`${origin}/dashboard?restaurantId=${staging.tenantB.id}`, {
       waitUntil: 'domcontentloaded',
     });

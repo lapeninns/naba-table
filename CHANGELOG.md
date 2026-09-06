@@ -37,7 +37,7 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
-- Route the ops app through an exact configured HTTPS origin, keep Supabase and CSRF cookies host-only on Vercel aliases, and bootstrap staging browser protection with separately scoped secure cookies.
+- Route the ops app through an exact configured HTTPS origin, keep Supabase and CSRF cookies host-only on Vercel aliases, and bootstrap staging browser protection with separately scoped secure cookies. Preserve complete Vercel hostnames instead of inventing a `www` canonical alias.
 
 - Route operational readiness probes through Cloudflare public Worker endpoints with `global_fetch_strictly_public`, covering same-account Worker destinations.
 
