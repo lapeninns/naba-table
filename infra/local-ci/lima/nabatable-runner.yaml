@@ -68,6 +68,26 @@ disk: '100GiB'
 # No host directory is ever mounted into the guest.
 mounts: []
 
+# Virtualization.framework NAT instead of Lima's default user-mode networking.
+#
+# Measured on the same 56 MB file: user-mode 413 KB/s, vzNAT 535 KB/s, and the
+# macOS host itself 641 KB/s. So vzNAT recovers most of the virtualization
+# overhead (64% -> 84% of host throughput) and is worth having, but it is a
+# tuning improvement, not a fix: the dominant constraint is the host's own
+# ~0.6 MB/s link, which no guest network setting can change.
+#
+# The consequence for CI is real and is handled elsewhere in this file and in
+# the runner setup: a 56 MB download takes ~100s here, past the ~40s socket
+# timeout in @actions/tool-cache, so `Setup Node` aborted on every job until
+# the tool cache was pre-populated below. Anything that must download tens of
+# MB per job will fail on this link; caches have to be warm, not refetched.
+#
+# The guest sits behind a NAT and is not reachable from outside the host, and
+# the ignore-all portForwards rule below still prevents Lima from exposing any
+# guest port on the host.
+networks:
+  - vzNAT: true
+
 ssh:
   localPort: 0
   loadDotSSHPubKeys: false
@@ -168,6 +188,28 @@ provision:
       corepack enable
       node --version
 
+      # Pre-populate the Actions tool cache with the same Node build.
+      #
+      # Without this, actions/setup-node downloads a 56 MB tarball on every
+      # job. On this host's ~0.6 MB/s link that takes ~100s and exceeds the
+      # socket timeout in @actions/tool-cache, so the step fails with a bare
+      # "aborted" after trying both actions/node-versions and nodejs.org.
+      # A populated tool cache makes setup-node resolve locally and download
+      # nothing. The `<arch>.complete` marker is what signals a usable entry.
+      TOOL_CACHE='/opt/actions-runner/_work/_tool/node/22.23.2/arm64'
+      if [ ! -f "${TOOL_CACHE}.complete" ]; then
+        install -d -m 0755 "$TOOL_CACHE"
+        tc_tmp="$(mktemp -d)"
+        curl -fsSL --retry 3 \
+          "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-arm64.tar.xz" \
+          -o "${tc_tmp}/node.tar.xz"
+        echo "${NODE_SHA256}  ${tc_tmp}/node.tar.xz" | sha256sum -c -
+        tar -xJf "${tc_tmp}/node.tar.xz" -C "$TOOL_CACHE" --strip-components=1
+        rm -rf "${tc_tmp}"
+        touch "${TOOL_CACHE}.complete"
+      fi
+      chown -R runner:runner /opt/actions-runner/_work/_tool
+
       install -d -m 0755 /etc/docker
       cat > /etc/docker/daemon.json <<'JSON'
       {
@@ -191,6 +233,26 @@ provision:
       fi
       usermod -aG docker runner
       install -d -m 0755 -o runner -g runner /opt/actions-runner
+
+      # Passwordless sudo, matching GitHub-hosted runner semantics (their
+      # `runner` user has exactly this). Required because five workflows call
+      # `playwright install chromium --with-deps`, which shells out to
+      # `sudo apt-get`; without it those steps fail outright.
+      #
+      # The blast radius is this VM: no host filesystem is mounted, no host
+      # credential is present, and the GitHub App key never leaves the Mac.
+      # Untrusted code never runs here (fork-profile.yml stays hosted), so the
+      # code holding this sudo is the same code that already runs the test
+      # suite. Revisit if untrusted workloads are ever routed here.
+      printf 'runner ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/90-actions-runner
+      chmod 0440 /etc/sudoers.d/90-actions-runner
+      visudo -c -f /etc/sudoers.d/90-actions-runner
+
+      # Playwright Chromium system dependencies, installed once at build time.
+      # The per-job `--with-deps` then finds them already present instead of
+      # re-resolving apt on a 0.6 MB/s link.
+      sudo -u runner env PATH="/usr/local/bin:$PATH" \
+        npx --yes playwright@1.58.1 install-deps chromium || true
 
       # Cap journal growth so a chatty job cannot fill the guest disk.
       install -d -m 0755 /etc/systemd/journald.conf.d
