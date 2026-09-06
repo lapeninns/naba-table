@@ -1,5 +1,39 @@
 name: Protected delivery
 
+# ---------------------------------------------------------------------------
+# STATUS: THIS WORKFLOW HAS NEVER RUN. IT IS NOT THE DELIVERY PATH.
+#
+# Verified 2026-09-06 against the GitHub API: the last twenty runs are eleven
+# `startup_failure`, one `skipped`, zero successes. The cause is NOT a defect in
+# this file -- it parses correctly, references no reusable workflow, and every
+# action it uses is permitted by the repository's allowed-actions policy. The
+# single `skipped` run proves GitHub parsed the file and evaluated job-level
+# `if:` conditions. The cause is that all five jobs are `runs-on: ubuntu-latest`
+# while hosted Actions minutes are exhausted, so no runner is ever allocated.
+# This is the only delivery-path workflow that was never migrated to the
+# self-hosted runner used by the PR lanes.
+#
+# It is also unconfigured: this file reads 21 secrets and 6 repository
+# variables, and the `Production`, `Monitoring`, `Backup` and `Preview`
+# environments each hold zero secrets and zero variables. The `Staging` and
+# `Recovery` environments it names do not exist.
+#
+# WHAT ACTUALLY DEPLOYS PRODUCTION TODAY: Vercel's Git integration builds and
+# aliases every push to `main` (`vercel[bot]` deployment records exist for the
+# recent main commits), and Cloudflare Workers Builds deploys the Workers.
+# Neither consults the release gate, an approval, a staging soak or a smoke
+# test. Treat anything merged to `main` as immediately live in production.
+#
+# This file is kept, not deleted, deliberately. `Protected delivery` is listed
+# in REQUIRED_WORKFLOW_NAMES (scripts/ci/gate/workflow-contracts.ts), so
+# deleting it would fail `pnpm ci:contracts:validate` inside `Security guards`
+# -- one of the seven checks the `main` ruleset requires -- and would break 19
+# named contract tests across four files.
+#
+# See docs/ci/current-state.md for what is and is not operating, and for the
+# commissioning checklist that would make this workflow real.
+# ---------------------------------------------------------------------------
+#
 # Staging-first delivery of a main revision that already passed the release
 # gate. Every job is guarded by `github.ref == 'refs/heads/main'`; nothing here
 # runs for pull requests, tags or other branches. Production requires a fresh

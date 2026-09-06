@@ -1,5 +1,11 @@
 # Recovery runbook
 
+> **This page describes the intended design, not what is running.** Verified 2026-09-06: production
+> is deployed automatically and **ungated** by Vercel's Git integration on every push to `main`;
+> `Protected delivery` has never run successfully, and the release gate, CodeQL, backups, the restore
+> drill and the hourly verifier have never run at all. See [current state](../ci/current-state.md) for what is
+> actually operating and what it would take to commission the rest.
+
 Owner: platform-engineering. Policy: `config/recovery/policy.yaml` (validated by `scripts/db/backup/policy.ts`). Scope: `config/recovery/restore-manifest.yaml`. Commands: `pnpm db:backup`, `pnpm db:restore-verify`, `pnpm recovery:drill`, `pnpm recovery:evidence:check`, plus the Cloudflare tools under `scripts/cloudflare/recovery/`.
 
 ## Objectives

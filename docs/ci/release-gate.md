@@ -1,5 +1,11 @@
 # Release gate
 
+> **This page describes the intended design, not what is running.** Verified 2026-09-06: production
+> is deployed automatically and **ungated** by Vercel's Git integration on every push to `main`;
+> `Protected delivery` has never run successfully, and the release gate, CodeQL, backups, the restore
+> drill and the hourly verifier have never run at all. See [current state](current-state.md) for what is
+> actually operating and what it would take to commission the rest.
+
 The release gate (`pnpm ci:gate`, `scripts/ci/gate/evaluate.ts`, workflow `.github/workflows/release-gate.yml`) is the only component that turns CI evidence into a merge or deploy decision. It reads evidence published by the local controller (or the hosted fallback), verifies it against `config/ci/policy.json` from protected `main`, and publishes the `Release gate` check plus the compatibility checks that branch protection already requires. It never runs tests itself, and it never checks out the candidate revision.
 
 ## The tuple

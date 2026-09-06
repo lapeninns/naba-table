@@ -117,7 +117,7 @@ Menu import threat model: menu source files are untrusted content. Import script
 
 ## CI/CD: local-first, hosted gate
 
-Pull requests and `main` are tested by a Mac controller in disposable Lima VMs and gated by a hosted `Release gate` that runs from protected `main` only. The full design (architecture, job mapping, rollout phases, qualification and provisioning checklists) is in [`docs/ci/local-first-ci.md`](docs/ci/local-first-ci.md); the GitHub-side contract is in [`docs/ci/release-gate.md`](docs/ci/release-gate.md) and [`docs/ci/governance.md`](docs/ci/governance.md).
+Pull requests and `main` are tested today by the self-hosted `nabatable` runner lanes, and those seven checks are the only ones the `main` ruleset requires. **Production is not gated:** Vercel's Git integration deploys every push to `main` automatically, and `Protected delivery` has never run. See [`docs/ci/current-state.md`](docs/ci/current-state.md) for what is actually operating. The Mac controller and hosted `Release gate` below are the planned design, not the running system. The full design (architecture, job mapping, rollout phases, qualification and provisioning checklists) is in [`docs/ci/local-first-ci.md`](docs/ci/local-first-ci.md); the GitHub-side contract is in [`docs/ci/release-gate.md`](docs/ci/release-gate.md) and [`docs/ci/governance.md`](docs/ci/governance.md).
 
 - `pnpm ci:profile pr --json` — print the resolved CI profile (`pr|main|nightly`).
 - `pnpm ci:contracts:validate` — validate workflows, job names, profiles and policy version (runs in `Security guards`).
