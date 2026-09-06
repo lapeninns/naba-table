@@ -153,10 +153,4 @@ test.describe('guest booking lifecycle on synthetic tenant', () => {
     // Requires the staging hold fixture endpoint (STAGING_SYNTHETIC_* hold seat + capacity
     // reset) so two concurrent creates can contend for one slot. Interface not shipped yet.
   });
-
-  test.fixme('assignment, cancellation and terminal transitions are monotonic @staging @p0', async () => {
-    // Requires an ops session for the synthetic tenant (STAGING_SYNTHETIC_OPS_EMAIL /
-    // magic-link relay) to drive assign -> seat -> complete and assert that no transition
-    // out of a terminal state is accepted. Ops auth relay for staging is not provisioned.
-  });
 });
