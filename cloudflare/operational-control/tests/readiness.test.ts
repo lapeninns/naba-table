@@ -116,6 +116,73 @@ describe('probe target parsing', () => {
 describe('readiness probes', () => {
   const target: ProbeTarget = { name: 'web', environment: 'production', url: WEB_URL };
 
+  it('calls an injected Workers fetch without an object receiver', async () => {
+    let outboundCalls = 0;
+    const fetcher: typeof fetch = async function (this: unknown) {
+      if (this !== undefined) throw new TypeError('Illegal invocation');
+      outboundCalls += 1;
+      return new Response('ok');
+    };
+    const result = await probeTarget({
+      target,
+      monitoringToken: MONITORING_TOKEN,
+      fetcher,
+      now: () => NOW_MS,
+    });
+    expect(result).toMatchObject({ healthy: true, status: 200, failureClass: null });
+    expect(outboundCalls).toBe(1);
+  });
+
+  it.each([
+    ['https://app.example.test', WEB_URL, 'staging', true],
+    ['https://app.example.test/', WEB_URL, 'staging', true],
+    ['https://app.example.test', WEB_URL, 'production', false],
+    ['https://app.example.test', LINKS_URL, 'staging', false],
+    ['https://app.example.test', 'https://app.example.test.evil.test/ready', 'staging', false],
+    ['https://app.example.test', 'https://app.example.test:8443/ready', 'staging', false],
+    ['https://app.example.test', 'http://app.example.test/ready', 'staging', false],
+    ['http://app.example.test', WEB_URL, 'staging', false],
+    ['https://user:pw@app.example.test', WEB_URL, 'staging', false],
+    ['https://app.example.test/path', WEB_URL, 'staging', false],
+    ['https://app.example.test?token=x', WEB_URL, 'staging', false],
+    ['https://app.example.test#hash', WEB_URL, 'staging', false],
+    ['invalid', WEB_URL, 'staging', false],
+    [undefined, WEB_URL, 'staging', false],
+  ] as const)(
+    'scopes automation bypass for %s and %s (%s)',
+    async (origin, url, environment, expected) => {
+      const fake = okFetcher();
+      await probeTarget({
+        target: { name: 'web', environment, url },
+        monitoringToken: MONITORING_TOKEN,
+        vercelAutomationBypassOrigin: origin,
+        vercelAutomationBypassSecret: 'synthetic-bypass-secret',
+        fetcher: fake.fetcher,
+        now: () => NOW_MS,
+      });
+      expect(fake.calls[0]?.headers.get('x-vercel-protection-bypass')).toBe(
+        expected ? 'synthetic-bypass-secret' : null,
+      );
+      expect(fake.calls[0]?.redirect).toBe('manual');
+    },
+  );
+
+  it.each([undefined, '', 'REPLACE_ME_BYPASS'])(
+    'omits an unconfigured bypass secret (%s)',
+    async (secret) => {
+      const fake = okFetcher();
+      await probeTarget({
+        target: { ...target, environment: 'staging' },
+        monitoringToken: MONITORING_TOKEN,
+        vercelAutomationBypassOrigin: 'https://app.example.test',
+        vercelAutomationBypassSecret: secret,
+        fetcher: fake.fetcher,
+        now: () => NOW_MS,
+      });
+      expect(fake.calls[0]?.headers.get('x-vercel-protection-bypass')).toBeNull();
+    },
+  );
+
   it('issues a GET with the monitoring bearer, no redirects, and classifies the outcome', async () => {
     const healthy = okFetcher();
     await expect(
@@ -202,6 +269,40 @@ describe('scheduled control cycle', () => {
     expect([...bucket.objects.keys()].some((key) => key.includes('/cycle/'))).toBe(true);
     expect(logs.some((line) => line.includes('scheduled.cycle_completed'))).toBe(true);
     expect(logs.join('\n')).not.toContain(MONITORING_TOKEN);
+  });
+
+  it('keeps bypass secrets and provider error details out of cycle evidence and logs', async () => {
+    const { env, coordinator, bucket } = await healthyHarness();
+    const secret = 'synthetic-bypass-secret-never-persist';
+    const fake = createFakeFetcher((call) => {
+      if (call.url === WEB_URL) throw new Error(`provider echoed ${secret}`);
+      return jsonResponse({ status: 'ok' });
+    });
+    const logs: string[] = [];
+    const report = await runScheduledCycle({
+      env: {
+        ...env,
+        TARGETS_JSON: JSON.stringify([
+          { name: 'web', environment: 'staging', url: WEB_URL },
+          { name: 'links', environment: 'staging', url: LINKS_URL },
+        ]),
+        VERCEL_AUTOMATION_BYPASS_ORIGIN: 'https://app.example.test',
+        VERCEL_AUTOMATION_BYPASS_SECRET: secret,
+      },
+      coordinator,
+      fetcher: fake.fetcher,
+      now: () => NOW_MS,
+      sink: (record) => logs.push(record),
+    });
+    expect(fake.calls[0]?.headers.get('x-vercel-protection-bypass')).toBe(secret);
+    expect(fake.calls[1]?.headers.get('x-vercel-protection-bypass')).toBeNull();
+    expect(report.valid).toBe(false);
+    expect(report.probes[0]?.failureClass).toBe('network');
+    for (const value of [JSON.stringify(report), logs.join('\n'), ...bucket.objects.values()]) {
+      expect(value).not.toContain(secret);
+      expect(value).not.toContain('provider echoed');
+      expect(value).not.toContain('x-vercel-protection-bypass');
+    }
   });
 
   it('withholds the uptime ping when a target is unhealthy and opens an incident', async () => {

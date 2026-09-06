@@ -258,6 +258,7 @@ export async function POST(request: Request) {
         message: `Processed ${result.processed} jobs`,
         processed: result.processed,
         stats: result.stats,
+        results: result.results,
       });
     } catch (error) {
       console.error('[cron][process-emails] POST error:', {

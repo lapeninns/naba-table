@@ -25,15 +25,17 @@ import { verifyReadiness, type FetchLike } from './readiness';
  * - `vercel pull --yes --environment=<env>`: fetches project settings + env for the target
  *   so `vercel build` compiles with the same configuration the deployment will run with.
  * - `vercel build --yes [--prod|--target=staging]`: compiles into `.vercel/output` locally.
- *   NABATABLE_SOURCE_REVISION is exported into the build process so the compiled app bakes
- *   the exact source SHA that readiness later reports. Vercel supplies VERCEL_DEPLOYMENT_ID
- *   itself at deploy time, which the app exposes as NABATABLE_BUILD_ID.
- * - `vercel deploy --prebuilt --skip-domain --yes [--prod|--target=staging]`:
+ *   NABATABLE_SOURCE_REVISION is exported into the build process. Dynamic server routes
+ *   read process.env at runtime, so the deploy command separately binds the same SHA with
+ *   --env NABATABLE_SOURCE_REVISION=<sha>; exporting it to the CLI process is insufficient.
+ *   This revision is public provenance, not a credential. Vercel supplies deployment ids.
+ * - `vercel deploy --prebuilt --yes [--prod --skip-domain|--target=staging]`:
  *   `--prebuilt` uploads `.vercel/output` verbatim (no remote rebuild, so the artifact we
  *   verified is the artifact that ships); `--skip-domain` stops Vercel from aliasing the
  *   deployment onto the environment domain, keeping it immutable and un-promoted until
  *   `deploy:vercel:promote` runs against verified evidence; `--prod`/`--target` selects the
- *   environment configuration without promoting because of `--skip-domain`; `--yes`
+ *   environment configuration. Only production supports `--skip-domain`; custom staging
+ *   deployments update their own environment aliases. `--yes`
  *   disables interactive prompts. The immutable deployment URL is printed on stdout.
  * - `vercel inspect <url>`: resolves the immutable deployment id (`dpl_...`) for promotion
  *   and rollback evidence.
@@ -104,13 +106,18 @@ export function buildArgs(target: DeployTarget): readonly string[] {
   return ['build', '--yes', ...ENVIRONMENTS[target].vercelTargetFlag];
 }
 
-export function deployArgs(target: DeployTarget): readonly string[] {
+export function deployArgs(target: DeployTarget, sourceRevision: string): readonly string[] {
+  if (!/^[0-9a-f]{40}$/u.test(sourceRevision)) {
+    throw new Error('sourceRevision must be a 40-hex git SHA (NABATABLE_SOURCE_REVISION).');
+  }
   return [
     'deploy',
     '--prebuilt',
-    '--skip-domain',
+    ...(target === 'production' ? ['--skip-domain'] : []),
     '--yes',
     ...ENVIRONMENTS[target].vercelTargetFlag,
+    '--env',
+    `NABATABLE_SOURCE_REVISION=${sourceRevision}`,
   ];
 }
 
@@ -145,7 +152,7 @@ export async function deployVercelPrebuilt(
 
   run(pullArgs(options.target), buildEnv);
   run(buildArgs(options.target), buildEnv);
-  const deployment = run(deployArgs(options.target), buildEnv);
+  const deployment = run(deployArgs(options.target, options.sourceRevision), buildEnv);
   const deploymentUrl = parseDeploymentUrl(deployment.stdout);
   const inspect = run(['inspect', deploymentUrl], buildEnv);
   const deploymentId = parseDeploymentId(`${inspect.stdout}\n${inspect.stderr}`);
@@ -206,7 +213,7 @@ export async function main(
       `${JSON.stringify(
         {
           target,
-          commands: [pullArgs(target), buildArgs(target), deployArgs(target)].map(
+          commands: [pullArgs(target), buildArgs(target), deployArgs(target, sourceRevision)].map(
             (args) => `vercel ${args.join(' ')}`,
           ),
           readiness: '/api/ready',

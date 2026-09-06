@@ -59,8 +59,7 @@ Record the real values in the places below; the validator fails closed until the
 4. Vercel: a custom environment named `staging` with its own env vars
    (`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`, staging Supabase keys,
    `MONITORING_TOKEN`, `RESEND_USE_MOCK=true`) and the two staging aliases.
-   Record the project ids in `scripts/deploy/environments.ts`
-   (`REPLACE_ME_STAGING_VERCEL_PROJECT_ID`, `REPLACE_ME_PRODUCTION_VERCEL_PROJECT_ID`).
+   The verified project ids are recorded in `scripts/deploy/environments.ts`.
 5. GitHub: environments `Staging` and `Production`; the repository variable
    `STAGING_DEPLOY_LOCK` is created on first `deploy:staging-lock acquire`.
    Readiness origins for the two Workers without a public base URL `var` in
@@ -96,10 +95,18 @@ Verified in Cloudflare account `9b153af11227b03e23dea343d5fc232f`:
 | `nabatable-sms-daily-summary-staging-dlq` queue | `f8a2935814ab43b58a943fa281d4e38e`     |
 | Worker account subdomain                        | `amanshresthaaaaa.workers.dev`         |
 
-The D1 database already existed. Both staging KV namespaces were created on
-2026-09-05 and are separate from production and its preview namespace. Recording
-these bindings does not deploy the Worker or verify its schema, secrets or readiness.
-Both staging queues were created without producers or consumers on the same date. The SMS staging hostname uses this account subdomain; that Worker still needs provisioning.
+All four staging and production Workers were deployed and their authenticated readiness
+verified on 2026-09-05. The D1 migration and queue bindings are applied.
+
+Vercel staging uses project `prj_Tcr3HKMSJLo66DXNh5nUc8ggIUrl`, separate from
+production `prj_nz9GF5uWIsfmilFeIuyMIYzfPx3s`. Its custom environment is
+`env_wFNfYzdHzzgxeKNHnxXGv8LtdRNn` (`staging`); both documented staging domains
+are verified and attached to it. The project setting is Node 22; the existing
+`engines.node >=22.0.0` range makes Vercel select Node 24 for deployment, as it does
+in production. No engine or hosted CI runtime policy was changed. Its environment contains
+only staging Supabase credentials and Worker tokens, with `RESEND_USE_MOCK=true`
+and `GBP_WRITE_ROLLOUT_MODE=off`. Provisioned configuration alone does not prove
+a deployed web journey; retain the deployment and browser evidence separately.
 
 The three production customer Workers are connected to `lapeninns/nabatable`
 through Cloudflare Workers Builds. Each build command runs its package-specific
@@ -120,7 +127,7 @@ here reads `.env*` files; pass configuration through the environment of the job.
 | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm deploy:validate-separation --env X`                                                                   | Compares every id/name/url between `env.staging` and top-level production in all three `wrangler.jsonc`, `vercel.json` and the environment descriptors; fails on equality, `REPLACE_ME`, or a production host in staging. Writes `test-results/deploy/separation-<env>.json`.                |
 | `pnpm deploy:staging-lock acquire\|release\|status --owner <name> --tuple-file <path> [--ttl-seconds 1800]` | Lock held by (owner, CI tuple) in the `STAGING_DEPLOY_LOCK` repository variable; a different tuple cannot acquire or release while the lock is live. Needs `GITHUB_REPOSITORY` and `GITHUB_TOKEN`.                                                                                           |
-| `pnpm deploy:vercel:prebuilt --env X`                                                                       | `vercel pull` + `vercel build` + `vercel deploy --prebuilt --skip-domain`, then verifies `GET <deployment>/api/ready` with `MONITORING_TOKEN` reports `NABATABLE_SOURCE_REVISION`. Writes `test-results/deploy/vercel-<env>.json`. `--dry-run` prints the plan.                              |
+| `pnpm deploy:vercel:prebuilt --env X`                                                                       | `vercel pull` + `vercel build` + `vercel deploy --prebuilt` (`--skip-domain` for production only), then verifies `GET <deployment>/api/ready` with `MONITORING_TOKEN` reports `NABATABLE_SOURCE_REVISION`. Writes `test-results/deploy/vercel-<env>.json`. `--dry-run` prints the plan.      |
 | `pnpm deploy:vercel:promote`                                                                                | `vercel promote <deploymentId> --yes` only when `vercel-production.json` says `target: production`, `verified: true` and the readiness revision matches. Staging evidence is refused.                                                                                                        |
 | `pnpm deploy:workers --env X --worker <name>`                                                               | `wrangler versions upload` + `wrangler versions deploy <id>@100%` (falls back to `wrangler deploy`), bakes `DEPLOY_SHA`/`NABATABLE_SOURCE_REVISION`, verifies `/ready`, records the previous version id and the rollback command. Refuses without fresh separation evidence for that target. |
 | `pnpm e2e:staging`                                                                                          | Staging proof pack (`playwright.staging.config.ts`): no webServer, no mocks, retries 0, workers 1.                                                                                                                                                                                           |

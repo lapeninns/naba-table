@@ -754,7 +754,7 @@ describe('database promotion safety workflows', () => {
       SUPABASE_DB_URL: STAGING_DB_URL,
     };
     const delegate =
-      'pnpm exec tsx scripts/db/migrations/sql-regression.ts --fixtures tests/db/fixtures/synthetic-fixtures.sql tests/db/terminal-booking-table-release.sql supabase/tests/mobile_sms_attempt_finalization.sql supabase/tests/whatsapp_review_notification_ledger.sql';
+      'pnpm exec tsx scripts/db/migrations/sql-regression.ts --fixtures tests/db/fixtures/synthetic-fixtures.sql tests/db/terminal-booking-table-release.sql tests/db/manual-table-unassignment.sql tests/db/atomic-table-hold-enforcement.sql supabase/tests/mobile_sms_attempt_finalization.sql supabase/tests/whatsapp_review_notification_ledger.sql';
 
     const whenRendered = runCli(['sql-regression', '--dry-run'], environment);
     expect(whenRendered.status).toBe(0);

@@ -819,7 +819,8 @@ export async function unassignTablesDirect(params: {
       p_table_ids: string[];
     },
   ) => Promise<{ data: number | null; error: { message: string } | null }>;
-  const { data: removedCount, error } = await rpc(
+  const { data: removedCount, error } = await rpc.call(
+    supabase,
     'remove_booking_table_assignments_and_reopen_if_empty',
     {
       p_booking_id: bookingId,

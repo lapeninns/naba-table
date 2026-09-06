@@ -62,7 +62,11 @@ function extractProjectRefFromConnectionString(connectionString: string): string
     return hostParts[1] ?? null;
   }
 
-  const userMatch = decodeURIComponent(url.username).match(/^postgres\.([a-z0-9]{20})$/i);
+  // The authenticated Supabase CLI issues a short-lived cli_login_postgres role.
+  // Both supported pooler roles must still carry the exact project suffix.
+  const userMatch = decodeURIComponent(url.username).match(
+    /^(?:postgres|cli_login_postgres)\.([a-z0-9]{20})$/i,
+  );
   if (userMatch && hostname.endsWith('.pooler.supabase.com')) {
     return userMatch[1];
   }

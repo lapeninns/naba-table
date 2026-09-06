@@ -27,6 +27,16 @@ Readiness endpoints never mutate anything. The web route runs a bounded `select`
 
 Thresholds for queue age, DLQ depth, latency, and failure rate are **not** duplicated in `monitoring.yaml`; each entry references an `alerts.yaml` key by `alertRef` and `ops:verify` fails when a reference does not resolve.
 
+## Current operator choice (2026-09-05)
+
+The owner elected to use Vercel, Supabase and Cloudflare for operational health
+checks and to skip an external uptime provider and external alerts. The
+operational-control Worker continues its five-minute readiness probes and R2
+evidence recording. `UPTIME_HEARTBEAT_URL` remains unset by choice. This is not
+independent outage alerting: inspect provider health and stored cycle evidence.
+The UptimeRobot instructions below are an optional future integration, not a
+provisioning requirement for this deployment. GitHub Actions work remains deferred.
+
 ## UptimeRobot setup (free plan)
 
 1. Create an account with the platform-engineering shared mailbox. The free plan supports 50 monitors at a 5-minute interval, email alerts, and heartbeat monitors.

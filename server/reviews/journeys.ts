@@ -37,6 +37,17 @@ export type ReviewEventType =
   | 'cost_settled';
 export type ReviewEventProvider = 'twilio' | 'resend' | 'google_business_profile' | 'nabatable';
 
+export class ReviewJourneySchedulingError extends Error {
+  readonly databaseCode: string;
+
+  constructor(code: string) {
+    const safeCode = /^[A-Z0-9]{5}$/.test(code) ? code : 'unknown';
+    super(`Failed to create review journey (${safeCode}).`);
+    this.name = 'ReviewJourneySchedulingError';
+    this.databaseCode = safeCode;
+  }
+}
+
 export async function createReviewJourney(
   input: {
     readonly bookingId: string;
@@ -58,7 +69,7 @@ export async function createReviewJourney(
     p_campaign_key: input.campaignKey ?? 'review-growth-v1',
     p_experiment_arm: input.experimentArm ?? 'sequenced',
   });
-  if (error) throw new Error('Failed to create review journey.');
+  if (error) throw new ReviewJourneySchedulingError(error.code);
   return reviewJourneySchema.parse(data);
 }
 

@@ -12,6 +12,7 @@ import {
   buildRedirect,
   buildRequestHeadersWithAppPath,
   forwardRequest,
+  getConfiguredAppOrigin,
   getOpsRewritePath,
   getRootDomain,
   isAppHost,
@@ -33,7 +34,7 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   const searchParams = url.searchParams.toString();
   const rootDomain = getRootDomain().toLowerCase();
   const { host, hostname, port } = parseHost(req);
-  const isApp = isAppHost(hostname, rootDomain);
+  const isApp = isAppHost(hostname, rootDomain, host);
   const isSingleHost = isSingleHostMode(hostname, host);
 
   if (isStaticOrFramework(url.pathname)) {
@@ -41,7 +42,8 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
   }
 
   const rootHost = buildHostWithPort(rootDomain, port);
-  const appHost = buildHostWithPort(`app.${rootDomain}`, port);
+  const appOrigin = getConfiguredAppOrigin();
+  const appHost = appOrigin?.host ?? buildHostWithPort(`app.${rootDomain}`, port);
 
   if (isApp) {
     // ─────────────────────────────────────────────────────────────────────
@@ -174,7 +176,14 @@ export async function handleRouting(req: NextRequest): Promise<NextResponse> {
       // Strip /app prefix before redirecting to avoid double redirect
       // localhost/app/dashboard -> app.localhost/dashboard
       const stripped = stripLeadingAppPrefix(url.pathname);
-      return buildRedirect(req, appHost, stripped, searchParams);
+      return buildRedirect(
+        req,
+        appHost,
+        stripped,
+        searchParams,
+        308,
+        appOrigin ? 'https:' : undefined,
+      );
     }
 
     // In single-host mode, redirect /app to /app/dashboard

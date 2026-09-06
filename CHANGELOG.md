@@ -4,7 +4,26 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ## Unreleased
 
+### Fixed
+
+- Qualify the review scheduler hash function and persist booking-completion scheduling jobs with fenced retries, truthful cron failures and review-email deduplication. Add tenant-scoped historical recovery without automatic backfill.
+
+- Create staff table holds through one atomic RPC and enforce live hold conflicts in database mutation paths. Keep the hold-window projection synchronized and release booking holds during terminal cleanup. Add deployed contention and persisted out-of-order SMS callback proofs.
+
+- Release manual table assignments atomically with their allocation and idempotency state, allowing fresh-key reassignment while preserving partial merge groups, tenant boundaries and service-role-only RPC access. Add rollback SQL coverage for partial, final, repeated and legacy-wrapper releases.
+- Recognize authenticated Supabase CLI temporary pooler roles in exact-project database safety validation.
+
 ### Added
+
+- Support project-scoped Vercel automation protection credentials for the staging email consumer and exact-origin operational probes, without following redirects or weakening application authentication.
+
+- Exercise synthetic guest recovery and cancellation, cross-tenant recovery denial and authenticated membership isolation, email queue persistence and deduplication, and exact SMS preview contracts in staging. Keep protection credentials scoped to staging web origins and disable credential-bearing traces.
+
+- Apply Vercel `--skip-domain` only to production; custom staging deployments use their isolated environment aliases.
+
+- Verify Resend webhook signatures locally without requiring an email-sending API key at build time. Preserve raw-body and timestamp verification for isolated staging.
+
+- Record the isolated Vercel staging project and custom environment, enabling full environment-separation validation. Document the owner's choice to use provider health checks without an external alert service.
 
 - Disposable Lima instance names now fit macOS socket limits under longer current-user CI paths, retaining deterministic retry identity and the private CI home.
 
@@ -26,6 +45,16 @@ All notable changes are recorded here by Release Please from Conventional Commit
 - Documentation: `docs/ci/local-first-ci.md`, `docs/ci/release-gate.md`, `docs/ci/governance.md`, `docs/runbooks/{local-ci,staging-release,monitoring,recovery}.md`.
 
 ### Changed
+
+- Preserve the Supabase RPC client receiver when atomically removing table assignments, fixing operator unassignment failures before database access. Verify reassignment and terminal booking transitions with a genuine synthetic operator session.
+
+- Route the ops app through an exact configured HTTPS origin, keep Supabase and CSRF cookies host-only on Vercel aliases, and bootstrap staging browser protection with separately scoped secure cookies. Preserve complete Vercel hostnames instead of inventing a `www` canonical alias.
+
+- Route operational readiness probes through Cloudflare public Worker endpoints with `global_fetch_strictly_public`, covering same-account Worker destinations.
+
+- Bind the public source SHA explicitly into the Vercel deployment runtime so readiness can verify prebuilt artifacts; retain exact-revision rejection. Sanitize Playwright transport errors before authenticated staging requests reach reports.
+
+- Return per-job outcomes from the authenticated email-processing callback so the Cloudflare consumer can complete successful jobs. Call monitoring fetch without an object receiver so native Cloudflare requests reach their targets.
 
 - Record verified staging short-link D1 and dedicated KV resources and the Cloudflare Worker subdomain. Placeholder-rejection tests now use explicit fixtures so provisioning cannot remove their coverage.
 

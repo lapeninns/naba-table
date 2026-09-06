@@ -8,13 +8,9 @@ const suppressProfilesByEmailMock = vi.hoisted(() => vi.fn());
 const addEmailToSuppressionListMock = vi.hoisted(() => vi.fn());
 const recordReviewRequestEventMock = vi.hoisted(() => vi.fn());
 
-vi.mock('resend', () => ({
-  Resend: vi.fn(function ResendMock() {
-    return {
-      webhooks: {
-        verify: resendVerifyMock,
-      },
-    };
+vi.mock('svix', () => ({
+  Webhook: vi.fn(function WebhookMock() {
+    return { verify: resendVerifyMock };
   }),
 }));
 
@@ -195,14 +191,10 @@ describe('resend webhook route', () => {
     const response = await POST(request as never);
 
     expect(response.status).toBe(200);
-    expect(resendVerifyMock).toHaveBeenCalledWith({
-      payload: '{"type":"email.bounced"}',
-      headers: {
-        id: 'msg_1',
-        timestamp: '1710000000',
-        signature: 'v1,sig',
-      },
-      webhookSecret: 'webhook-secret',
+    expect(resendVerifyMock).toHaveBeenCalledWith('{"type":"email.bounced"}', {
+      'svix-id': 'msg_1',
+      'svix-timestamp': '1710000000',
+      'svix-signature': 'v1,sig',
     });
     expect(recordEmailDeliveryLogMock).toHaveBeenCalledTimes(2);
     expect(recordEmailDeliveryLogMock).toHaveBeenCalledWith(

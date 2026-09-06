@@ -29,7 +29,8 @@ export default defineConfig({
   ],
   use: {
     baseURL: staging.publicUrl,
-    trace: 'retain-on-failure',
+    // API/browser traces capture monitoring, recovery, provider and protection credentials.
+    trace: 'off',
     screenshot: 'only-on-failure',
     video: 'off',
     ignoreHTTPSErrors: false,

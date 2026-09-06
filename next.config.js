@@ -126,7 +126,14 @@ const nextConfig = {
 
     // --- WWW Canonicalization ---
     // Redirect naked domain to www (aligns with DNS/hosting provider settings)
-    if (rootDomain !== 'localhost' && process.env.NODE_ENV === 'production') {
+    // Platform aliases are complete hostnames; a prefixed www alias is not provisioned.
+    const hostedVercelDomain =
+      rootDomain.toLowerCase() === 'vercel.app' || rootDomain.toLowerCase().endsWith('.vercel.app');
+    if (
+      rootDomain !== 'localhost' &&
+      !hostedVercelDomain &&
+      process.env.NODE_ENV === 'production'
+    ) {
       redirects.unshift({
         source: '/:path*',
         has: [{ type: 'host', value: rootDomain }],

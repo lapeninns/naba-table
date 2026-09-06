@@ -24,7 +24,7 @@ export const ENVIRONMENTS: Readonly<Record<DeployTarget, EnvironmentDescriptor>>
     publicUrl: 'https://nabatable-staging.vercel.app',
     opsUrl: 'https://nabatable-staging-ops.vercel.app',
     supabaseProjectRef: STAGING_SUPABASE_PROJECT_REF,
-    vercelProjectId: 'REPLACE_ME_STAGING_VERCEL_PROJECT_ID',
+    vercelProjectId: 'prj_Tcr3HKMSJLo66DXNh5nUc8ggIUrl',
     // `--target=staging` deploys into the Vercel custom environment named "staging";
     // it never touches the production alias.
     vercelTargetFlag: ['--target=staging'],
@@ -34,7 +34,7 @@ export const ENVIRONMENTS: Readonly<Record<DeployTarget, EnvironmentDescriptor>>
     publicUrl: 'https://nabatable.com',
     opsUrl: 'https://app.nabatable.com',
     supabaseProjectRef: PRODUCTION_SUPABASE_PROJECT_REF,
-    vercelProjectId: 'REPLACE_ME_PRODUCTION_VERCEL_PROJECT_ID',
+    vercelProjectId: 'prj_nz9GF5uWIsfmilFeIuyMIYzfPx3s',
     vercelTargetFlag: ['--prod'],
   },
 };

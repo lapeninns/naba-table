@@ -39,6 +39,38 @@ describe('public link configuration', () => {
     expect(sitemapConfig.siteUrl).toBe('https://www.nabatable.com');
   });
 
+  it.each(['vercel.app', 'nabatable-staging.vercel.app', 'nabatable-staging-ops.vercel.app'])(
+    'does not invent a www alias for hosted platform root %s',
+    async (rootDomain) => {
+      process.env = { ...process.env, NODE_ENV: 'production' };
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN = rootDomain;
+      const config = loadConfig<{
+        redirects: () => Promise<Array<{ source: string; destination: string }>>;
+      }>('../../next.config.js');
+      const redirects = await config.redirects();
+      expect(redirects.some((redirect) => redirect.destination.startsWith('https://www.'))).toBe(
+        false,
+      );
+      expect(redirects).toContainEqual(
+        expect.objectContaining({ source: '/signin', destination: '/auth/signin' }),
+      );
+    },
+  );
+
+  it('retains the production nabatable.com canonical redirect', async () => {
+    process.env = { ...process.env, NODE_ENV: 'production' };
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'nabatable.com';
+    const config = loadConfig<{
+      redirects: () => Promise<Array<{ source: string; destination: string }>>;
+    }>('../../next.config.js');
+    expect(await config.redirects()).toContainEqual({
+      source: '/:path*',
+      has: [{ type: 'host', value: 'nabatable.com' }],
+      destination: 'https://www.nabatable.com/:path*',
+      permanent: true,
+    });
+  });
+
   it('keeps legacy thank-you redirects on a real route and does not rewrite invite pages away', async () => {
     const nextConfig = loadConfig<{
       redirects: () => Promise<

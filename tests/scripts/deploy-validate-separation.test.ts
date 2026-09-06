@@ -286,18 +286,15 @@ describe('deploy:validate-separation', () => {
     expect(production.ok).toBe(true);
   });
 
-  it('fails closed with the default descriptors until Vercel project ids are recorded @deploy', () => {
+  it('validates the provisioned Vercel project identities with default descriptors @deploy', () => {
+    expect(ENVIRONMENTS.staging.vercelProjectId).toBe('prj_Tcr3HKMSJLo66DXNh5nUc8ggIUrl');
+    expect(ENVIRONMENTS.production.vercelProjectId).toBe('prj_nz9GF5uWIsfmilFeIuyMIYzfPx3s');
     const report = validateSeparation({
       target: 'staging',
       workers: [shortLinksConfig({})],
     });
-    expect(report.findings).toEqual([
-      expect.objectContaining({
-        scope: 'environments',
-        path: 'vercelProjectId',
-        reason: 'placeholder',
-      }),
-    ]);
+    expect(report.findings).toEqual([]);
+    expect(report.ok).toBe(true);
   });
 
   it('digests worker configs deterministically and independent of order @deploy', () => {
@@ -319,7 +316,7 @@ describe('deploy:validate-separation', () => {
     expect(productionSection({ name: 'w', env: { staging: {} } })).toEqual({ name: 'w' });
   });
 
-  it('main writes evidence and exits non-zero for the unprovisioned repository staging target @deploy', () => {
+  it('main writes successful evidence for the provisioned repository staging target @deploy', () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'separation-'));
     tempDirs.push(dir);
     const evidencePath = path.join(dir, 'separation-staging.json');
@@ -327,7 +324,7 @@ describe('deploy:validate-separation', () => {
       ['--env', 'staging', '--root', ROOT, '--evidence', evidencePath, '--json'],
       {},
     );
-    expect(code).toBe(1);
+    expect(code).toBe(0);
     const evidence = JSON.parse(readFileSync(evidencePath, 'utf8')) as {
       kind: string;
       target: string;
@@ -336,7 +333,7 @@ describe('deploy:validate-separation', () => {
     };
     expect(evidence.kind).toBe('separation-validation');
     expect(evidence.target).toBe('staging');
-    expect(evidence.ok).toBe(false);
+    expect(evidence.ok).toBe(true);
     expect(evidence.vercelConfigDigest).toMatch(/^[0-9a-f]{64}$/u);
     expect(() => main(['--env', 'preview'], {})).toThrow(/--env must be one of/u);
   });

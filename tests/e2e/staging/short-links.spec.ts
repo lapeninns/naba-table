@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
 import { stagingEnv } from './env';
+import { expect, test } from './test';
 
 const staging = stagingEnv();
 

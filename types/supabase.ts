@@ -7944,6 +7944,23 @@ export type Database = {
         };
         Returns: Database['public']['Tables']['gbp_pending_update_masks_v1']['Row'];
       };
+      claim_review_scheduling_jobs_v1: {
+        Args: { p_limit?: number };
+        Returns: { booking_id: string; restaurant_id: string; claim_token: string }[];
+      };
+      finish_review_scheduling_job_v1: {
+        Args: {
+          p_booking_id: string;
+          p_restaurant_id: string;
+          p_claim_token: string;
+          p_error_code?: string | null;
+        };
+        Returns: boolean;
+      };
+      recover_review_scheduling_jobs_v1: {
+        Args: { p_restaurant_id: string; p_booking_ids: string[] };
+        Returns: number;
+      };
       claim_due_mobile_review_notifications: {
         Args: { p_limit?: number };
         Returns: Database['public']['Tables']['mobile_notifications']['Row'][];
@@ -8154,6 +8171,20 @@ export type Database = {
           owned: boolean;
           table_id: string;
         }[];
+      };
+      create_table_hold_atomic: {
+        Args: {
+          p_booking_id: string | null;
+          p_restaurant_id: string;
+          p_zone_id: string;
+          p_table_ids: string[];
+          p_start_at: string;
+          p_end_at: string;
+          p_expires_at: string;
+          p_created_by?: string | null;
+          p_metadata?: Json | null;
+        };
+        Returns: Database['public']['Tables']['table_holds']['Row'][];
       };
       cleanup_expired_soft_holds: {
         Args: { p_batch_size?: number };

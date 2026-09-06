@@ -141,16 +141,18 @@ uptime URL until the real ids are recorded.
 
 Set per environment with `wrangler secret put <NAME> --env <env>`:
 
-| Secret                            | Used by                                                       |
-| --------------------------------- | ------------------------------------------------------------- |
-| `GITHUB_WEBHOOK_SECRET`           | Webhook signature verification (16+ chars).                   |
-| `GITHUB_DISPATCH_APP_ID`          | `nabatable-ci-dispatch` GitHub App id.                        |
-| `GITHUB_DISPATCH_APP_PRIVATE_KEY` | **PKCS#8** PEM (`openssl pkcs8 -topk8 -nocrypt -in key.pem`). |
-| `GITHUB_DISPATCH_INSTALLATION_ID` | Installation id of `nabatable-ci-dispatch` on the repository. |
-| `HEARTBEAT_TOKEN`                 | Bearer for `POST /heartbeat` (Mac controller only).           |
-| `MONITORING_TOKEN`                | Bearer for `/ready` and for outbound readiness probes.        |
-| `INCIDENT_ACKNOWLEDGEMENT_TOKEN`  | Bearer for incident acknowledgement; operator use only.       |
-| `UPTIME_HEARTBEAT_URL`            | https URL pinged after a fully valid cycle.                   |
+| Secret                            | Used by                                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `GITHUB_WEBHOOK_SECRET`           | Webhook signature verification (16+ chars).                                                     |
+| `GITHUB_DISPATCH_APP_ID`          | `nabatable-ci-dispatch` GitHub App id.                                                          |
+| `GITHUB_DISPATCH_APP_PRIVATE_KEY` | **PKCS#8** PEM (`openssl pkcs8 -topk8 -nocrypt -in key.pem`).                                   |
+| `GITHUB_DISPATCH_INSTALLATION_ID` | Installation id of `nabatable-ci-dispatch` on the repository.                                   |
+| `HEARTBEAT_TOKEN`                 | Bearer for `POST /heartbeat` (Mac controller only).                                             |
+| `MONITORING_TOKEN`                | Bearer for `/ready` and for outbound readiness probes.                                          |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Optional Vercel automation bypass secret for a protected staging web deployment.                |
+| `VERCEL_AUTOMATION_BYPASS_ORIGIN` | Exact HTTPS origin allowed to receive that secret, e.g. `https://nabatable-staging.vercel.app`. |
+| `INCIDENT_ACKNOWLEDGEMENT_TOKEN`  | Bearer for incident acknowledgement; operator use only.                                         |
+| `UPTIME_HEARTBEAT_URL`            | https URL pinged after a fully valid cycle.                                                     |
 
 Incident acknowledgement requires a dedicated `INCIDENT_ACKNOWLEDGEMENT_TOKEN`, distinct
 from readiness and heartbeat credentials. Missing, short, or placeholder values fail
@@ -236,3 +238,34 @@ src/
   config.ts, contracts.ts, http.ts
 tests/                   vitest (fakes only)
 ```
+
+### Protected staging web probes
+
+Keep Vercel Deployment Protection enabled. When a staging web readiness target is
+protected, configure `VERCEL_AUTOMATION_BYPASS_SECRET` as a Worker secret and
+`VERCEL_AUTOMATION_BYPASS_ORIGIN` as its exact HTTPS origin (no credentials, path,
+query or fragment). Only staging targets matching that origin receive the
+`x-vercel-protection-bypass` header; production and other origins do not. The
+separate `MONITORING_TOKEN` bearer still authenticates the application readiness
+endpoint. Redirects are not followed and neither headers nor provider error
+messages enter probe reports, logs or stored cycle evidence.
+
+These optional bindings do not enable the controller, workflow dispatch, or an
+external alert provider. A paused controller still makes the complete monitoring
+cycle invalid under the existing heartbeat freshness policy.
+
+### Public Worker readiness routes
+
+All operational-control environments enable `global_fetch_strictly_public` so
+readiness requests to customer Workers, including same-account `workers.dev`
+URLs, go through Cloudflare's public routing. This monitors the published endpoint
+and preserves its authentication and edge protections. Without this flag,
+same-zone global fetch can bypass the Worker mapped to the URL and reach its
+origin instead. See Cloudflare's [fetch documentation](https://developers.cloudflare.com/workers/runtime-apis/fetch/)
+and [compatibility flag documentation](https://developers.cloudflare.com/workers/configuration/compatibility-flags/#global-fetch-strictly-public).
+
+The target list remains explicitly separated by environment. Probes still send the
+monitoring bearer, use GET with a bounded timeout, and reject redirects. No service
+binding bypasses the public route. Verify the deployed configuration and a fresh
+stored monitoring cycle after release; local tests cannot establish Cloudflare's
+live account routing.

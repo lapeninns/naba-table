@@ -1,6 +1,5 @@
-import { expect, test } from '@playwright/test';
-
 import { stagingEnv } from './env';
+import { expect, test } from './test';
 
 const staging = stagingEnv();
 

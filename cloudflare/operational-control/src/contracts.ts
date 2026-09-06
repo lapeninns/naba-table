@@ -273,6 +273,8 @@ export type OperationalControlEnv = {
   readonly GITHUB_DISPATCH_INSTALLATION_ID?: string;
   readonly HEARTBEAT_TOKEN?: string;
   readonly MONITORING_TOKEN?: string;
+  readonly VERCEL_AUTOMATION_BYPASS_SECRET?: string;
+  readonly VERCEL_AUTOMATION_BYPASS_ORIGIN?: string;
   readonly INCIDENT_ACKNOWLEDGEMENT_TOKEN?: string;
   readonly UPTIME_HEARTBEAT_URL?: string;
   readonly REPOSITORY_ID?: string;

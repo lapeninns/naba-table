@@ -209,6 +209,7 @@ export class EmailQueueState extends DurableObject<EmailQueueGatewayEnv> {
         storage: this.ctx.storage,
         appProcessingUrl: this.env.APP_PROCESS_EMAILS_URL,
         appProcessingToken: this.env.APP_PROCESS_EMAILS_TOKEN,
+        vercelAutomationBypassSecret: this.env.VERCEL_AUTOMATION_BYPASS_SECRET,
         getMeta: () => this.getMeta(),
         putMeta: (meta) => this.putMeta(meta),
         scheduleNextAlarm: () => this.scheduleNextAlarm(),

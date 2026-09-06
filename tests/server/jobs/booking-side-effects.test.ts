@@ -9,17 +9,19 @@ const enqueueEmailJobMock = vi.hoisted(() => vi.fn());
 const cancelEmailIntentsMock = vi.hoisted(() => vi.fn());
 const emailQueueEnabled = vi.hoisted(() => ({ value: false }));
 const createReviewJourneyMock = vi.hoisted(() =>
-  vi.fn(async (input: { emailEligible: boolean; scheduledFor: string; whatsappEligible: boolean }) => ({
-    reviewRequestId: 'review-request-1',
-    state: 'scheduled',
-    primaryChannel: input.whatsappEligible ? 'whatsapp' : input.emailEligible ? 'email' : null,
-    scheduledFor: input.scheduledFor,
-    followupScheduledFor:
-      input.whatsappEligible && input.emailEligible
-        ? new Date(new Date(input.scheduledFor).getTime() + 48 * 60 * 60 * 1000).toISOString()
-        : null,
-    suppressionReason: null,
-  })),
+  vi.fn(
+    async (input: { emailEligible: boolean; scheduledFor: string; whatsappEligible: boolean }) => ({
+      reviewRequestId: 'review-request-1',
+      state: 'scheduled',
+      primaryChannel: input.whatsappEligible ? 'whatsapp' : input.emailEligible ? 'email' : null,
+      scheduledFor: input.scheduledFor,
+      followupScheduledFor:
+        input.whatsappEligible && input.emailEligible
+          ? new Date(new Date(input.scheduledFor).getTime() + 48 * 60 * 60 * 1000).toISOString()
+          : null,
+      suppressionReason: null,
+    }),
+  ),
 );
 
 vi.mock('@/server/analytics', () => ({
@@ -123,6 +125,90 @@ describe('processBookingCreatedSideEffects', () => {
     });
     enqueueEmailJobMock.mockResolvedValue(undefined);
     cancelEmailIntentsMock.mockResolvedValue(0);
+  });
+
+  it.each(['journey', 'email', 'preference'])(
+    'keeps strict review scheduling retryable after %s failure',
+    async (stage) => {
+      emailQueueEnabled.value = true;
+      const client = {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { email_send_review_request: true, timezone: 'Europe/London' },
+                error: stage === 'preference' ? { code: '08006' } : null,
+              }),
+            })),
+          })),
+        })),
+      };
+      if (stage === 'journey')
+        createReviewJourneyMock.mockRejectedValueOnce(new Error('scheduler unavailable'));
+      if (stage === 'email')
+        enqueueEmailJobMock.mockRejectedValueOnce(new Error('queue unavailable'));
+      await expect(
+        enqueueCheckOutSideEffects(
+          { ...pendingBooking, status: 'completed', end_at: '2026-09-06T10:00:00.000Z' } as never,
+          'rest-1',
+          { supabase: client as never, retryOnFailure: true },
+        ),
+      ).rejects.toThrow();
+    },
+  );
+
+  it('retains a failed WhatsApp enqueue for retry and preserves the existing journey time', async () => {
+    emailQueueEnabled.value = true;
+    const originalTime = '2026-09-05T10:00:00.000Z';
+    createReviewJourneyMock.mockResolvedValueOnce({
+      reviewRequestId: 'review-request-1',
+      state: 'scheduled',
+      primaryChannel: 'whatsapp',
+      scheduledFor: originalTime,
+      followupScheduledFor: null,
+      suppressionReason: null,
+    });
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: '08006' } });
+    const client = {
+      rpc,
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({
+                data: {
+                  email_send_review_request: true,
+                  google_review_url: 'https://g.page/r/example/review',
+                  timezone: 'Europe/London',
+                },
+                error: null,
+              }),
+          })),
+        })),
+      })),
+    };
+    await expect(
+      enqueueCheckOutSideEffects(
+        {
+          ...pendingBooking,
+          status: 'completed',
+          customer_email: 'invalid',
+          end_at: '2026-09-05T07:00:00.000Z',
+          whatsapp_consent_actor_id: null,
+          whatsapp_opt_in: true,
+          whatsapp_consent_version: 'booking-plus-review-v2',
+          whatsapp_consent_source: 'guest_reserve',
+          whatsapp_consent_phone: pendingBooking.customer_phone,
+        } as never,
+        'rest-1',
+        { supabase: client as never, retryOnFailure: true },
+      ),
+    ).rejects.toThrow('Failed to schedule mobile');
+    expect(rpc).toHaveBeenCalledWith(
+      'schedule_mobile_review_notification',
+      expect.objectContaining({ p_scheduled_for: originalTime }),
+    );
   });
 
   it('durably schedules a completed review job without a valid guest email @contract', async () => {

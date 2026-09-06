@@ -20,6 +20,7 @@ export type QueueProcessorContext = {
   storage: QueueProcessorStorage;
   appProcessingUrl: string;
   appProcessingToken: string;
+  vercelAutomationBypassSecret?: string;
   getMeta: () => Promise<QueueMeta>;
   putMeta: (meta: QueueMeta) => Promise<void>;
   scheduleNextAlarm: () => Promise<void>;
@@ -78,11 +79,15 @@ export async function processDueJobs(
 
   let batchResult: BatchResult;
   try {
+    const bypassSecret = context.vercelAutomationBypassSecret?.trim();
     const response = await fetch(context.appProcessingUrl, {
       method: 'POST',
+      // Keep both credentials on this configured destination when the app redirects.
+      redirect: 'manual',
       headers: {
         authorization: `Bearer ${context.appProcessingToken}`,
         'content-type': 'application/json',
+        ...(bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {}),
       },
       body: JSON.stringify({
         jobs: selected.map((job) => ({ id: job.id, payload: job.payload })),
