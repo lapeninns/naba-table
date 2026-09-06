@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import { safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { recordBookingCancelledEvent, recordBookingCreatedEvent } from '@/server/analytics';
 import { isBookingWhatsAppEventEligible } from '@/server/booking/whatsapp-consent';
@@ -154,6 +155,7 @@ const ALWAYS_ENABLED_EMAIL_PREFS: EmailPrefs = {
 async function fetchRestaurantEmailPrefs(
   restaurantId: string,
   client: SupabaseClient<Database, 'public', 'public'> = getServiceSupabaseClient(),
+  retryOnFailure = false,
 ): Promise<EmailPrefs> {
   const { data, error } = await client
     .from('restaurants')
@@ -161,6 +163,7 @@ async function fetchRestaurantEmailPrefs(
     .eq('id', restaurantId)
     .maybeSingle();
 
+  if (retryOnFailure && (error || !data)) throw new Error('Review preference unavailable.');
   if (error) {
     console.warn('[jobs][review-job] failed to load venue review preference', {
       restaurantId,
@@ -478,13 +481,17 @@ async function scheduleReviewJob(
     readonly allowWhatsApp: boolean;
     readonly client: SupabaseLike;
     readonly timezone?: string;
+    readonly retryOnFailure?: boolean;
   },
 ) {
   // Default anchor: end_at then start_at then updated_at.
   const anchorIso = booking.end_at ?? booking.start_at ?? booking.updated_at ?? booking.created_at;
   const baseDelayMs = computeDelayMs(anchorIso, -REVIEW_DELAY_MINUTES); // 3 hours after visit ends
 
-  if (baseDelayMs === null) return;
+  if (baseDelayMs === null) {
+    if (options.retryOnFailure) throw new Error('Review scheduling anchor unavailable.');
+    return;
+  }
 
   // Calculate the proposed send time
   const proposedSendTime = Date.now() + baseDelayMs;
@@ -499,6 +506,7 @@ async function scheduleReviewJob(
 
   // If smart scheduling returns null, it means we can't schedule this email
   if (optimizedDelayMs === null) {
+    if (options.retryOnFailure) throw new Error('Review send time unavailable.');
     return;
   }
 
@@ -518,13 +526,14 @@ async function scheduleReviewJob(
       options.client,
     );
   } catch (error) {
-    console.warn('[jobs][review-job] failed to create review journey', {
+    logger.warn('[jobs][review-job] failed to create review journey', {
       bookingId: booking.id,
       error: error instanceof Error ? error.message : String(error),
     });
+    if (options.retryOnFailure) throw error;
     return;
   }
-  if (journey.state === 'suppressed') return;
+  if (['suppressed', 'clicked', 'observed', 'expired'].includes(journey.state)) return;
 
   if (journey.primaryChannel === 'whatsapp') {
     try {
@@ -533,18 +542,22 @@ async function scheduleReviewJob(
         client: options.client,
         restaurantId,
         reviewRequestId: journey.reviewRequestId,
-        scheduledFor,
+        scheduledFor: journey.scheduledFor,
       });
     } catch (error) {
-      console.warn('[jobs][review-job] failed to enqueue review WhatsApp', {
+      logger.warn('[jobs][review-job] failed to enqueue review WhatsApp', {
         bookingId: booking.id,
         error: error instanceof Error ? error.message : String(error),
       });
+      if (options.retryOnFailure) throw error;
     }
   }
 
   const emailScheduledFor =
     journey.primaryChannel === 'email' ? journey.scheduledFor : journey.followupScheduledFor;
+  if (options.retryOnFailure && options.allowEmail && emailScheduledFor && !isEmailQueueEnabled()) {
+    throw new Error('Durable review email queue is disabled.');
+  }
   if (options.allowEmail && emailScheduledFor && isEmailQueueEnabled()) {
     const reviewStage = journey.primaryChannel === 'email' ? 'primary' : 'followup';
     try {
@@ -564,10 +577,11 @@ async function scheduleReviewJob(
       );
     } catch (error) {
       // Review requests are best-effort; do not block check-out flows.
-      console.warn('[jobs][review-job] failed to enqueue review request email', {
+      logger.warn('[jobs][review-job] failed to enqueue review request email', {
         bookingId: booking.id,
         error: error instanceof Error ? error.message : String(error),
       });
+      if (options.retryOnFailure) throw error;
     }
     return;
   }
@@ -939,10 +953,10 @@ export async function enqueueBookingCancelledSideEffects(
 export async function enqueueCheckOutSideEffects(
   booking: BookingRecord,
   restaurantId: string,
-  options?: { supabase?: SupabaseLike },
+  options?: { supabase?: SupabaseLike; retryOnFailure?: boolean },
 ): Promise<void> {
   const client = resolveSupabase(options?.supabase);
-  const prefs = await fetchRestaurantEmailPrefs(restaurantId, client);
+  const prefs = await fetchRestaurantEmailPrefs(restaurantId, client, options?.retryOnFailure);
 
   if (!prefs.sendReviewRequest) return;
 
@@ -956,6 +970,7 @@ export async function enqueueCheckOutSideEffects(
     allowWhatsApp,
     client,
     timezone,
+    retryOnFailure: options?.retryOnFailure,
   });
 }
 

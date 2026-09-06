@@ -21,6 +21,7 @@ export const SQL_REGRESSION_FILES: readonly string[] = [
   'tests/db/terminal-booking-table-release.sql',
   'tests/db/manual-table-unassignment.sql',
   'tests/db/atomic-table-hold-enforcement.sql',
+  'tests/db/review-scheduling-recovery.sql',
   'supabase/tests/mobile_sms_attempt_finalization.sql',
   'supabase/tests/whatsapp_review_notification_ledger.sql',
 ];
@@ -62,4 +63,7 @@ export const TRACKED_TABLES: readonly string[] = [
   'table_hold_windows',
   'mobile_notifications',
   'mobile_notification_attempts',
+  'review_requests',
+  'review_request_events',
+  'review_scheduling_jobs',
 ];

@@ -159,9 +159,7 @@ function toPayload(row: EmailDispatchIntentRow): EmailJobPayload {
         : null,
     cronAttemptsMade: row.attempts_made,
     reviewRequestId:
-      typeof payload.reviewRequestId === 'string'
-        ? payload.reviewRequestId
-        : row.review_request_id,
+      typeof payload.reviewRequestId === 'string' ? payload.reviewRequestId : row.review_request_id,
     reviewStage:
       payload.reviewStage === 'primary' || payload.reviewStage === 'followup'
         ? payload.reviewStage
@@ -448,9 +446,11 @@ export async function scheduleEmailIntent(
 
   const supabase = getServiceSupabaseClient();
 
-  const { error } = await supabase
-    .from('email_dispatch_intents')
-    .upsert(row, { onConflict: 'dedupe_key' });
+  const { error } = await supabase.from('email_dispatch_intents').upsert(row, {
+    onConflict: 'dedupe_key',
+    // Retry scheduling must never reset a claimed, sent or terminal review intent.
+    ignoreDuplicates: payload.type === 'review_request',
+  });
 
   if (!error) {
     return;

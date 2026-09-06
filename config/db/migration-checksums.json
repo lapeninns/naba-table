@@ -737,6 +737,12 @@
       "recordedAt": "2026-09-06T10:55:37.011Z",
       "reviewed": true
     },
+    "20260906140000_review_scheduling_recovery.sql": {
+      "sha256": "4aa4ed893e29f1ff64220fd8a9f12d8233d9861441f906645646796608ff0874",
+      "bytes": 9135,
+      "recordedAt": "2026-09-06T12:32:07.373Z",
+      "reviewed": true
+    },
     "CONSOLIDATED_ALL_MIGRATIONS.sql": {
       "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
       "bytes": 31275,

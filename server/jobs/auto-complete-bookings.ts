@@ -413,6 +413,7 @@ export async function autoCompletePastBookings(
             });
           }
         } catch (sideEffectsError) {
+          errors += 1;
           console.warn('[cron][auto-complete] failed to schedule review email', {
             bookingId: currentBooking.id,
             error: formatError(sideEffectsError),

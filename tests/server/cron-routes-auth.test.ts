@@ -10,6 +10,7 @@ const reconcileDeliveryAnomaliesMock = vi.hoisted(() => vi.fn());
 const triggerEmailQueueDrainMock = vi.hoisted(() => vi.fn());
 const drainMobileReviewIntentsMock = vi.hoisted(() => vi.fn());
 const processEmailJobsMock = vi.hoisted(() => vi.fn());
+const drainReviewSchedulingJobsMock = vi.hoisted(() => vi.fn());
 const autoCompletePastBookingsMock = vi.hoisted(() => vi.fn());
 const runScheduledRefreshForAllTenantsMock = vi.hoisted(() => vi.fn());
 const enqueueScheduledRefreshJobsMock = vi.hoisted(() => vi.fn());
@@ -59,6 +60,10 @@ vi.mock('@/server/queue/email-processing', async () => {
     processEmailJobs: processEmailJobsMock,
   };
 });
+
+vi.mock('@/server/reviews/scheduling-retry', () => ({
+  drainReviewSchedulingJobs: drainReviewSchedulingJobsMock,
+}));
 
 vi.mock('@/server/jobs/auto-complete-bookings', () => ({
   autoCompletePastBookings: autoCompletePastBookingsMock,
@@ -204,6 +209,22 @@ const cronRoutes = [
 ] as const;
 
 describe('cron route authentication', () => {
+  it('reports retry failures with HTTP 500 and a truthful summary', async () => {
+    drainReviewSchedulingJobsMock.mockResolvedValueOnce({ processed: 0, failed: 1 });
+    const response = await autoCompleteGET(cronRequest('/api/cron/auto-complete-bookings'));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      success: false,
+      reviewScheduling: { failed: 1 },
+    });
+  });
+  it('does not drain scheduling jobs during a dry run', async () => {
+    const response = await autoCompleteGET(
+      cronRequest('/api/cron/auto-complete-bookings?dryRun=1'),
+    );
+    expect(response.status).toBe(200);
+    expect(drainReviewSchedulingJobsMock).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     setCronEnv(CURRENT_SECRET);
@@ -236,6 +257,7 @@ describe('cron route authentication', () => {
       stats: { sent: 1, skipped: 0, failed: 0 },
       results: [{ jobId: 'job-1', success: true }],
     });
+    drainReviewSchedulingJobsMock.mockResolvedValue({ processed: 0, failed: 0 });
     autoCompletePastBookingsMock.mockResolvedValue({
       mode: 'dry-run',
       nowUtc: '2026-05-05T00:00:00.000Z',

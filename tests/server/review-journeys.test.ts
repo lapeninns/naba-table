@@ -44,6 +44,33 @@ describe('review journey service', () => {
     });
   });
 
+  it('preserves the safe database error code without leaking provider details', async () => {
+    const rpc = vi.fn(async () => ({
+      data: null,
+      error: {
+        code: '42883',
+        message: 'private@example.invalid',
+        details: 'sensitive payload',
+        hint: 'secret',
+      },
+    }));
+    await expect(
+      createReviewJourney(
+        {
+          bookingId: 'booking-1',
+          restaurantId: 'restaurant-1',
+          scheduledFor: '2026-09-06T10:00:00.000Z',
+          emailEligible: true,
+          whatsappEligible: false,
+        },
+        { rpc } as never,
+      ),
+    ).rejects.toMatchObject({
+      message: 'Failed to create review journey (42883).',
+      databaseCode: '42883',
+    });
+  });
+
   it('fails closed when a send is no longer allowed', async () => {
     const rpc = vi.fn(async () => ({ data: false, error: null }));
 
