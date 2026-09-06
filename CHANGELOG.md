@@ -37,6 +37,10 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Route the ops app through an exact configured HTTPS origin, keep Supabase and CSRF cookies host-only on Vercel aliases, and bootstrap staging browser protection with separately scoped secure cookies.
+
+- Route operational readiness probes through Cloudflare public Worker endpoints with `global_fetch_strictly_public`, covering same-account Worker destinations.
+
 - Bind the public source SHA explicitly into the Vercel deployment runtime so readiness can verify prebuilt artifacts; retain exact-revision rejection. Sanitize Playwright transport errors before authenticated staging requests reach reports.
 
 - Return per-job outcomes from the authenticated email-processing callback so the Cloudflare consumer can complete successful jobs. Call monitoring fetch without an object receiver so native Cloudflare requests reach their targets.

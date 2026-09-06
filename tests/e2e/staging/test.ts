@@ -18,25 +18,33 @@ export const test = base.extend({
   },
   page: async ({ page }, runFixture) => {
     const staging = stagingEnv();
-    const allowed = new Set([new URL(staging.publicUrl).origin, new URL(staging.opsUrl).origin]);
     const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
     if (secret) {
-      await page.route('**/*', async (route) => {
-        const url = new URL(route.request().url());
-        if (!allowed.has(url.origin)) {
-          await route.continue();
-          return;
-        }
-        // Fetch one hop, then let the browser navigate the response's redirect through
-        // this origin guard again. This prevents forwarding the bypass to another host.
-        await safeStagingTransport(route.request().method(), url.origin, async () => {
-          const response = await route.fetch({
-            headers: { ...route.request().headers(), 'x-vercel-protection-bypass': secret },
+      for (const origin of [staging.publicUrl, staging.opsUrl]) {
+        // Vercel issues a secure, host-only browser cookie. Subsequent navigations use
+        // normal browser networking, with no globally forwarded secret headers.
+        const response = await safeStagingTransport('GET', origin, () =>
+          page.context().request.get(`${origin}/api/ready`, {
+            headers: {
+              'x-vercel-protection-bypass': secret,
+              'x-vercel-set-bypass-cookie': 'true',
+            },
             maxRedirects: 0,
-          });
-          await route.fulfill({ response });
-        });
-      });
+          }),
+        );
+        expect(response.status(), 'Vercel browser protection cookie bootstrap').toBe(307);
+        const cookies = await page.context().cookies(origin);
+        expect(
+          cookies.some(
+            (cookie) =>
+              cookie.name === '_vercel_jwt' &&
+              cookie.domain === new URL(origin).hostname &&
+              cookie.secure &&
+              cookie.httpOnly,
+          ),
+          'Vercel protection cookie must be scoped to this exact staging host',
+        ).toBe(true);
+      }
     }
     await runFixture(page);
   },

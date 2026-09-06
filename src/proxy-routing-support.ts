@@ -52,8 +52,34 @@ export function isSingleHostMode(hostname: string, host: string): boolean {
   return localHosts.has(host) || localHosts.has(hostname);
 }
 
-export function isAppHost(hostname: string, rootDomain: string): boolean {
+/** Only server configuration can identify an alternate ops origin; request headers cannot. */
+export function getConfiguredAppOrigin(): URL | null {
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (!raw || !raw.startsWith('https://') || raw.includes('\\')) return null;
+  try {
+    const url = new URL(raw);
+    if (
+      url.protocol !== 'https:' ||
+      !url.hostname ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash ||
+      url.hostname === 'localhost' ||
+      url.hostname.endsWith('.localhost')
+    )
+      return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+export function isAppHost(hostname: string, rootDomain: string, host = hostname): boolean {
   if (!hostname) return false;
+  const configured = getConfiguredAppOrigin();
+  if (configured) return host === configured.host;
   return rootDomain === 'localhost'
     ? hostname.startsWith('app.localhost')
     : hostname === `app.${rootDomain}`;
@@ -97,8 +123,9 @@ export function buildRedirect(
   pathname: string,
   searchParams: string,
   status = 308,
+  targetProtocol?: 'https:',
 ): NextResponse {
-  const base = `${req.nextUrl.protocol}//${targetHost}`;
+  const base = `${targetProtocol ?? req.nextUrl.protocol}//${targetHost}`;
   const suffix = searchParams ? `?${searchParams}` : '';
   const destination = new URL(`${normalizeProxyRedirectPath(pathname)}${suffix}`, base).toString();
   return new NextResponse(null, { status, headers: { Location: destination } });

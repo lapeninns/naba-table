@@ -253,3 +253,19 @@ messages enter probe reports, logs or stored cycle evidence.
 These optional bindings do not enable the controller, workflow dispatch, or an
 external alert provider. A paused controller still makes the complete monitoring
 cycle invalid under the existing heartbeat freshness policy.
+
+### Public Worker readiness routes
+
+All operational-control environments enable `global_fetch_strictly_public` so
+readiness requests to customer Workers, including same-account `workers.dev`
+URLs, go through Cloudflare's public routing. This monitors the published endpoint
+and preserves its authentication and edge protections. Without this flag,
+same-zone global fetch can bypass the Worker mapped to the URL and reach its
+origin instead. See Cloudflare's [fetch documentation](https://developers.cloudflare.com/workers/runtime-apis/fetch/)
+and [compatibility flag documentation](https://developers.cloudflare.com/workers/configuration/compatibility-flags/#global-fetch-strictly-public).
+
+The target list remains explicitly separated by environment. Probes still send the
+monitoring bearer, use GET with a bounded timeout, and reject redirects. No service
+binding bypasses the public route. Verify the deployed configuration and a fresh
+stored monitoring cycle after release; local tests cannot establish Cloudflare's
+live account routing.

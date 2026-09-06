@@ -73,6 +73,13 @@ describe('operational-control wrangler contract', () => {
     }
   });
 
+  it('routes readiness probes through public Worker routes in every deployment environment', () => {
+    for (const environment of environments) {
+      expect(environment.compatibility_flags).toContain('global_fetch_strictly_public');
+      expect(environment.compatibility_flags).not.toContain('global_fetch_private_origin');
+    }
+  });
+
   it('binds the SQLite Durable Object and an R2 evidence bucket in every environment', () => {
     expect(config.migrations).toEqual([{ tag: 'v1', new_sqlite_classes: ['Coordinator'] }]);
     const buckets = new Set<string>();

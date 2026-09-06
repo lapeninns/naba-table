@@ -8,6 +8,10 @@ export const resolveCookieDomain = (rootDomain?: string | null): string | undefi
   const trimmed = rootDomain?.trim();
   if (!trimmed || trimmed === "localhost") return undefined;
   const withoutWildcard = trimmed.startsWith(".") ? trimmed.slice(1) : trimmed;
+  // Vercel aliases share a platform suffix, not a tenant cookie domain. Keep both
+  // auth and CSRF cookies on the serving host, including separate staging aliases.
+  const hostname = withoutWildcard.toLowerCase();
+  if (hostname === "vercel.app" || hostname.endsWith(".vercel.app")) return undefined;
   return `.${withoutWildcard}`;
 };
 
