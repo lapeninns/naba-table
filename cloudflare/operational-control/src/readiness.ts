@@ -154,7 +154,9 @@ export async function probeTarget(input: {
     ) {
       headers.set('x-vercel-protection-bypass', input.vercelAutomationBypassSecret);
     }
-    const response = await input.fetcher(input.target.url, {
+    // Workers fetch rejects an arbitrary object receiver with Illegal invocation.
+    const fetcher = input.fetcher;
+    const response = await fetcher(input.target.url, {
       method: 'GET',
       headers,
       redirect: 'manual',

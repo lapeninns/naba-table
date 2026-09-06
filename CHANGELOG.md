@@ -37,6 +37,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Return per-job outcomes from the authenticated email-processing callback so the Cloudflare consumer can complete successful jobs. Call monitoring fetch without an object receiver so native Cloudflare requests reach their targets.
+
 - Record verified staging short-link D1 and dedicated KV resources and the Cloudflare Worker subdomain. Placeholder-rejection tests now use explicit fixtures so provisioning cannot remove their coverage.
 
 - CI evidence collection now records unsupported object names before upload and includes operational-control Worker reports, preserving the strict R2 key policy and complete Worker results.

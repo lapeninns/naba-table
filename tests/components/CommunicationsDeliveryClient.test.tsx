@@ -55,29 +55,36 @@ describe('CommunicationsDeliveryClient', () => {
       defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
     });
 
+    let releaseSummary: () => void = () => undefined;
+    const summaryReady = new Promise<void>((resolve) => {
+      releaseSummary = resolve;
+    });
     const bookingService = {
-      getRestaurantEmailDeliverySummary: vi.fn().mockResolvedValue({
-        ok: true,
-        restaurantId: 'rest-1',
-        range: '7d',
-        summary: {
-          total: 10,
-          sent: 0,
-          delivered: 9,
-          deliveryDelayed: 1,
-          bounced: 0,
-          complained: 0,
-          failed: 1,
-          deliveredRate: 0.9,
-          failureRate: 0.1,
-          uniqueRecipients: 8,
-          uniqueBookings: 7,
-          p50DeliverySeconds: 30,
-          p95DeliverySeconds: 90,
-          topFailedTemplates: [],
-          topFailedEmailTypes: [],
-          stuckInFlight: 1,
-        },
+      getRestaurantEmailDeliverySummary: vi.fn().mockImplementation(async () => {
+        await summaryReady;
+        return {
+          ok: true,
+          restaurantId: 'rest-1',
+          range: '7d',
+          summary: {
+            total: 10,
+            sent: 0,
+            delivered: 9,
+            deliveryDelayed: 1,
+            bounced: 0,
+            complained: 0,
+            failed: 1,
+            deliveredRate: 0.9,
+            failureRate: 0.1,
+            uniqueRecipients: 8,
+            uniqueBookings: 7,
+            p50DeliverySeconds: 30,
+            p95DeliverySeconds: 90,
+            topFailedTemplates: [],
+            topFailedEmailTypes: [],
+            stuckInFlight: 1,
+          },
+        };
       }),
       getRestaurantSmsDeliveryFeed: vi.fn().mockResolvedValue({
         ok: true,
@@ -105,9 +112,9 @@ describe('CommunicationsDeliveryClient', () => {
     } as unknown as BookingService;
 
     const restaurantService = {
-      listRestaurants: vi.fn().mockResolvedValue([
-        { id: 'rest-1', name: 'Test Restaurant', timezone: 'Europe/London' },
-      ]),
+      listRestaurants: vi
+        .fn()
+        .mockResolvedValue([{ id: 'rest-1', name: 'Test Restaurant', timezone: 'Europe/London' }]),
       getProfile: vi.fn().mockResolvedValue({
         id: 'rest-1',
         name: 'Test Restaurant',
@@ -133,7 +140,8 @@ describe('CommunicationsDeliveryClient', () => {
     );
 
     expect(await screen.findByText('Communications Delivery')).toBeInTheDocument();
-    expect(screen.getByText('Email delivered')).toBeInTheDocument();
+    releaseSummary();
+    expect(await screen.findByText('Email delivered')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open email delivery/i })).toHaveAttribute(
       'href',
       '/app/communications-delivery/email',

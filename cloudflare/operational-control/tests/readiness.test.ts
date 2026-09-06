@@ -116,6 +116,23 @@ describe('probe target parsing', () => {
 describe('readiness probes', () => {
   const target: ProbeTarget = { name: 'web', environment: 'production', url: WEB_URL };
 
+  it('calls an injected Workers fetch without an object receiver', async () => {
+    let outboundCalls = 0;
+    const fetcher: typeof fetch = async function (this: unknown) {
+      if (this !== undefined) throw new TypeError('Illegal invocation');
+      outboundCalls += 1;
+      return new Response('ok');
+    };
+    const result = await probeTarget({
+      target,
+      monitoringToken: MONITORING_TOKEN,
+      fetcher,
+      now: () => NOW_MS,
+    });
+    expect(result).toMatchObject({ healthy: true, status: 200, failureClass: null });
+    expect(outboundCalls).toBe(1);
+  });
+
   it.each([
     ['https://app.example.test', WEB_URL, 'staging', true],
     ['https://app.example.test/', WEB_URL, 'staging', true],

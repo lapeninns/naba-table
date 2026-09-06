@@ -412,6 +412,40 @@ describe('cron route authentication', () => {
     expect(drainMobileReviewIntentsMock).toHaveBeenCalledWith({ maxJobs: 100 });
   });
 
+  it('returns per-job results required by the Cloudflare queue consumer @contract', async () => {
+    const results = [{ jobId: 'synthetic-skipped-job', success: true, skipped: true }];
+    processEmailJobsMock.mockResolvedValue({
+      processed: 1,
+      stats: { sent: 0, skipped: 1, failed: 0 },
+      results,
+    });
+    const response = await processEmailsPOST(
+      cronRequest('/api/cron/process-emails', CURRENT_SECRET, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jobs: [
+            {
+              id: 'synthetic-skipped-job',
+              payload: {
+                bookingId: 'nonexistent-booking',
+                restaurantId: null,
+                type: 'confirmation',
+              },
+            },
+          ],
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      processed: 1,
+      stats: { sent: 0, skipped: 1, failed: 0 },
+      results,
+    });
+  });
+
   it('caps large email drain limits', async () => {
     const response = await processEmailsGET(cronRequest('/api/cron/process-emails?maxJobs=999999'));
 

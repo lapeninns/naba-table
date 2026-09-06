@@ -102,9 +102,169 @@ test.describe('email/SMS/WhatsApp delivery through staging sinks', () => {
     expect(await absent.json()).toMatchObject({ removed: false });
   });
 
-  test.fixme('email retry, idempotency and DLQ are observable through the sink @staging @worker', async () => {
-    // Requires STAGING_DELIVERY_SINK_URL exposing captured Resend/Twilio calls for the synthetic
-    // booking (retry count, idempotency key reuse, DLQ arrival). Sink service not provisioned.
+  test('email consumer completes a nonexistent booking without delivery @staging @worker', async ({
+    request,
+  }) => {
+    const origin = staging.optional.STAGING_EMAIL_GATEWAY_URL;
+    const token = staging.optional.STAGING_EMAIL_GATEWAY_INTERNAL_TOKEN;
+    test.skip(
+      !origin || !token || staging.optional.STAGING_EMAIL_MOCK_VERIFIED !== 'true',
+      'Requires gateway credentials and independently verified STAGING_EMAIL_MOCK_VERIFIED=true',
+    );
+    const headers = { authorization: `Bearer ${token ?? ''}` };
+    type Snapshot = {
+      queue: { counts: { completed: number }; jobs: Record<string, Array<{ id: string }>> };
+    };
+    const status = async () => {
+      const response = await request.get(`${origin}/status?includeJobs=true&jobLimit=all`, {
+        headers,
+      });
+      expect(response.status()).toBe(200);
+      return (await response.json()) as Snapshot;
+    };
+    const before = await status();
+    const jobId = `staging-consume-${randomUUID()}`;
+    const data = {
+      jobId,
+      delayMs: 1000,
+      attempts: 3,
+      payload: {
+        bookingId: randomUUID(),
+        restaurantId: staging.tenantA.id,
+        type: 'confirmation',
+      },
+    };
+    try {
+      const enqueued = await request.post(`${origin}/messages`, { headers, data });
+      expect(enqueued.status()).toBe(201);
+      await expect
+        .poll(
+          async () => {
+            const drain = await request.post(`${origin}/drain`, {
+              headers,
+              data: { types: ['confirmation'], maxJobs: 1 },
+            });
+            expect(drain.status()).toBe(200);
+            const batch = (await drain.json()) as {
+              results?: Array<{ jobId: string; success: boolean; skipped?: boolean }>;
+            };
+            const own = batch.results?.find((result) => result.jobId === jobId);
+            if (own) expect(own).toMatchObject({ success: true, skipped: true });
+            const after = await status();
+            const stillPresent = Object.values(after.queue.jobs)
+              .flat()
+              .some((job) => job.id === jobId);
+            return !stillPresent && after.queue.counts.completed > before.queue.counts.completed;
+          },
+          { timeout: 45_000, intervals: [500, 1000, 2000] },
+        )
+        .toBe(true);
+    } finally {
+      await request.delete(`${origin}/messages/${jobId}`, { headers });
+    }
+  });
+
+  test('invalid email type retries and persists in the DLQ without delivery @staging @worker', async ({
+    request,
+  }) => {
+    const origin = staging.optional.STAGING_EMAIL_GATEWAY_URL;
+    const token = staging.optional.STAGING_EMAIL_GATEWAY_INTERNAL_TOKEN;
+    test.skip(!origin || !token, 'Requires staging email gateway credentials');
+    const headers = { authorization: `Bearer ${token ?? ''}` };
+    const jobId = `staging-dlq-${randomUUID()}`;
+    const type = `staging-invalid-${randomUUID()}`;
+    const data = {
+      jobId,
+      attempts: 2,
+      backoff: { type: 'fixed', delay: 5000 },
+      payload: { bookingId: randomUUID(), restaurantId: staging.tenantA.id, type },
+    };
+    const enqueue = await request.post(`${origin}/messages`, { headers, data });
+    expect(enqueue.status()).toBe(201);
+    let retryObserved = false;
+    await expect
+      .poll(
+        async () => {
+          const drain = await request.post(`${origin}/drain`, {
+            headers,
+            data: { types: [type], maxJobs: 1 },
+          });
+          expect(drain.status()).toBe(200);
+          const response = await request.get(`${origin}/status?includeJobs=true&jobLimit=all`, {
+            headers,
+          });
+          expect(response.status()).toBe(200);
+          const snapshot = (await response.json()) as {
+            queue: {
+              jobs: Record<
+                string,
+                Array<{
+                  id: string;
+                  status: string;
+                  payload: { cronAttemptsMade?: number; failedReason?: string };
+                }>
+              >;
+            };
+          };
+          const delayed = snapshot.queue.jobs.delayed?.find((job) => job.id === jobId);
+          if (delayed) {
+            expect(delayed.payload.cronAttemptsMade).toBe(1);
+            retryObserved = true;
+          }
+          const failed = snapshot.queue.jobs.dlq?.find((job) => job.id === jobId);
+          return failed?.status === 'failed';
+        },
+        { timeout: 30_000, intervals: [250, 500, 1000] },
+      )
+      .toBe(true);
+    expect(retryObserved, 'first failed attempt must be observed before terminal DLQ state').toBe(
+      true,
+    );
+    const duplicate = await request.post(`${origin}/messages`, { headers, data });
+    expect(duplicate.status()).toBe(409);
+    // Keep this one synthetic terminal record as DLQ audit evidence. The public delete
+    // endpoint intentionally deletes queued jobs only, not failed audit records.
+  });
+
+  test('SMS sink queue consumes a real queued job with no provider message @staging @worker', async ({
+    request,
+  }) => {
+    const origin = staging.optional.STAGING_SMS_GATEWAY_URL;
+    const token = staging.optional.STAGING_SMS_GATEWAY_INTERNAL_TOKEN;
+    const date = staging.optional.STAGING_SMS_PROOF_DATE;
+    test.skip(
+      !origin || !token || !date || staging.optional.STAGING_SMS_SINK_VERIFIED !== 'true',
+      'Requires gateway credentials, fresh STAGING_SMS_PROOF_DATE and independently verified STAGING_SMS_SINK_VERIFIED=true',
+    );
+    expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+    const headers = { authorization: `Bearer ${token ?? ''}` };
+    const read = async () => {
+      const response = await request.post(`${origin}/internal/dispatch-daily-summary`, {
+        headers,
+        data: { restaurantId: staging.tenantB.id, date, dryRun: true, force: false },
+      });
+      expect(response.status()).toBe(200);
+      const result = (await response.json()) as {
+        idempotency: { status: string; sentAt: string | null; providerMessageId: string | null };
+      };
+      return result.idempotency;
+    };
+    expect(
+      (await read()).status,
+      'use a fresh synthetic date; never reset an existing summary',
+    ).toBe('idle');
+    const queued = await request.post(`${origin}/internal/dispatch-daily-summary`, {
+      headers,
+      data: { restaurantId: staging.tenantB.id, date, dryRun: false, force: false },
+    });
+    expect(queued.status()).toBe(202);
+    expect(await queued.json()).toMatchObject({ queued: true, payload: { dryRun: false } });
+    await expect
+      .poll(async () => (await read()).status, { timeout: 45_000, intervals: [1000, 2000, 5000] })
+      .toBe('sent');
+    const completed = await read();
+    expect(completed.providerMessageId).toBeNull();
+    expect(Number.isFinite(Date.parse(completed.sentAt ?? ''))).toBe(true);
   });
 
   test.fixme('WhatsApp-first summary falls back to SMS via the sink @staging @worker', async () => {
