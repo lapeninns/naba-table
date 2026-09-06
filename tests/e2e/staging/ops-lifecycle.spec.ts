@@ -4,12 +4,14 @@ import { randomUUID } from 'node:crypto';
 import { stagingEnv } from './env';
 import { expect, test } from './test';
 
+import type { APIRequestContext, Page } from '@playwright/test';
+
 const staging = stagingEnv();
 
-test('authenticated ops assignment, check-in and checkout preserve terminal state @staging @p0', async ({
-  request,
-  page,
-}) => {
+async function runOpsProof(
+  { request, page }: { request: APIRequestContext; page: Page },
+  mode: 'lifecycle' | 'manual-reassignment',
+) {
   const rawCookies = staging.optional.STAGING_TENANT_B_SESSION_COOKIES;
   test.skip(!rawCookies, 'STAGING_TENANT_B_SESSION_COOKIES not provided');
   expect(staging.optional.STAGING_EMAIL_MOCK_VERIFIED).toBe('true');
@@ -118,10 +120,10 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
     );
     for (const initialId of initialTableIds)
       expect(knownSyntheticTableIds.has(initialId)).toBe(true);
-    // Create can allocate automatically. Exercise a real manual assignment by releasing
-    // only this new booking's synthetic allocation, then assigning that table again.
-    const assignmentTableId = initialTableIds[0] ?? table!.id;
-    if (initialTableIds.length > 0) {
+    expect(initialTableIds.length).toBeGreaterThan(0);
+    if (mode === 'manual-reassignment') {
+      // Retain this regression independently: stale allocation idempotency must not
+      // prevent assigning the released table set under a fresh request key.
       const unassigned = await request.delete(
         `${origin}/api/ops/bookings/${bookingId}/assign-tables`,
         {
@@ -131,14 +133,47 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
         },
       );
       expect(unassigned.status()).toBe(200);
+      expect(await unassigned.json()).toMatchObject({
+        success: true,
+        removedCount: initialTableIds.length,
+      });
+      const released = await request.get(`${origin}/api/ops/bookings/${bookingId}`, {
+        headers,
+        maxRedirects: 0,
+      });
+      expect(released.status()).toBe(200);
+      const releasedBody = (await released.json()) as {
+        status?: string;
+        tableAssignments?: unknown[];
+      };
+      expect(releasedBody.status).toBe('pending');
+      expect(releasedBody.tableAssignments).toEqual([]);
+      const assigned = await request.post(`${origin}/api/ops/bookings/${bookingId}/assign-tables`, {
+        headers,
+        maxRedirects: 0,
+        data: { tableIds: initialTableIds, idempotencyKey: randomUUID() },
+      });
+      const assignmentResult = (await assigned.json()) as { code?: string };
+      expect(assigned.status(), `assignment code: ${assignmentResult.code ?? 'none'}`).toBe(200);
+      const reassigned = await request.get(`${origin}/api/ops/bookings/${bookingId}`, {
+        headers,
+        maxRedirects: 0,
+      });
+      expect(reassigned.status()).toBe(200);
+      const finalAssignment = (await reassigned.json()) as {
+        status?: string;
+        tableAssignments?: Array<{ members: Array<{ tableId: string }> }>;
+      };
+      expect(finalAssignment.status).toBe('confirmed');
+      expect(
+        finalAssignment.tableAssignments
+          ?.flatMap((group) => group.members.map((member) => member.tableId))
+          .sort(),
+      ).toEqual([...initialTableIds].sort());
+      return;
     }
-    const assigned = await request.post(`${origin}/api/ops/bookings/${bookingId}/assign-tables`, {
-      headers,
-      maxRedirects: 0,
-      data: { tableIds: [assignmentTableId], idempotencyKey: randomUUID() },
-    });
-    const assignmentResult = (await assigned.json()) as { code?: string };
-    expect(assigned.status(), `assignment code: ${assignmentResult.code ?? 'none'}`).toBe(200);
+    // This lifecycle uses the actual automatic allocation verified above; it does
+    // not depend on manual reassignment and does not hide that separate regression.
     const checkIn = await request.post(`${origin}/api/ops/bookings/${bookingId}/check-in`, {
       headers,
       maxRedirects: 0,
@@ -180,7 +215,11 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
     expect(rendered?.status()).toBeLessThan(400);
     expect(new URL(page.url()).origin).toBe(origin);
     expect(new URL(page.url()).pathname).not.toContain('/auth/');
-    await expect(page.getByRole('heading', { name: /today.?s bookings/iu })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Operations', exact: true })).toBeVisible();
+    await expect(
+      page.getByText('STAGING — synthetic bookings only', { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('ops-dashboard.png'), fullPage: true });
   } finally {
     if (bookingId && !completed) {
       await request
@@ -188,4 +227,18 @@ test('authenticated ops assignment, check-in and checkout preserve terminal stat
         .catch(() => undefined);
     }
   }
+}
+
+test('authenticated ops automatic assignment, check-in and checkout preserve terminal state @staging @p0', async ({
+  request,
+  page,
+}) => {
+  await runOpsProof({ request, page }, 'lifecycle');
+});
+
+test('manual unassignment allows the same tables to be reassigned with a fresh key @staging @p0', async ({
+  request,
+  page,
+}) => {
+  await runOpsProof({ request, page }, 'manual-reassignment');
 });
