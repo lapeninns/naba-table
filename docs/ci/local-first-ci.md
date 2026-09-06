@@ -1,5 +1,11 @@
 # Local-first CI/CD
 
+> **This page describes the intended design, not what is running.** Verified 2026-09-06: production
+> is deployed automatically and **ungated** by Vercel's Git integration on every push to `main`;
+> `Protected delivery` has never run successfully, and the release gate, CodeQL, backups, the restore
+> drill and the hourly verifier have never run at all. See [current state](current-state.md) for what is
+> actually operating and what it would take to commission the rest.
+
 Operationally complete, local-first CI/CD for Nabatable: pull requests and `main` are tested by a Mac controller in disposable VMs, a hosted release gate that runs only from protected `main` turns evidence into merge and deploy decisions, an operational-control Worker keeps the pieces honest, and delivery to staging and production is scripted, evidenced and reversible. This page is the entry point; every part links to its own runbook.
 
 Companion documents: `docs/ci/release-gate.md` (gate semantics, required checks), `docs/ci/governance.md` (GitHub Apps, environments, transfer checklist), `docs/runbooks/local-ci.md` (the Mac), `docs/runbooks/staging-release.md` (delivery), `docs/runbooks/monitoring.md`, `docs/runbooks/recovery.md`, `docs/DATABASE_MIGRATIONS.md` (promotion safety), `cloudflare/operational-control/README.md`.

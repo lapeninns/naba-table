@@ -1,5 +1,11 @@
 # Monitoring runbook
 
+> **This page describes the intended design, not what is running.** Verified 2026-09-06: production
+> is deployed automatically and **ungated** by Vercel's Git integration on every push to `main`;
+> `Protected delivery` has never run successfully, and the release gate, CodeQL, backups, the restore
+> drill and the hourly verifier have never run at all. See [current state](../ci/current-state.md) for what is
+> actually operating and what it would take to commission the rest.
+
 Owner: platform-engineering. Contract: `config/observability/monitoring.yaml`. Verifier: `pnpm ops:verify` (`scripts/monitoring/verify.ts`). Evidence: `pnpm ops:slo-evidence` (`scripts/observability/slo-evidence.ts`).
 
 ## Three sources of truth

@@ -1,5 +1,11 @@
 # CI/CD governance
 
+> **This page describes the intended design, not what is running.** Verified 2026-09-06: production
+> is deployed automatically and **ungated** by Vercel's Git integration on every push to `main`;
+> `Protected delivery` has never run successfully, and the release gate, CodeQL, backups, the restore
+> drill and the hourly verifier have never run at all. See [current state](current-state.md) for what is
+> actually operating and what it would take to commission the rest.
+
 This document records the GitHub-side configuration that the workflows under `.github/workflows/` assume, and the checklist to run when the repository, its GitHub Apps, or its environments change. `pnpm ci:contracts:validate` enforces the parts that can be checked from the repository; the rest must be verified by an administrator.
 
 ## Workflows and identities
