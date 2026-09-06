@@ -1,6 +1,7 @@
 // src/app/api/webhook/resend/route.ts
 import { NextResponse } from 'next/server';
-import { Resend, type WebhookEvent } from 'resend';
+import { Webhook } from 'svix';
+
 
 import { captureServerException } from '@/lib/posthog/server';
 import {
@@ -15,11 +16,11 @@ import { recordReviewRequestEvent, type ReviewEventType } from '@/server/reviews
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import type { NextRequest } from 'next/server';
+import type { WebhookEvent } from 'resend';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const resendWebhookVerifier = new Resend();
 const MAX_RESEND_WEBHOOK_BODY_BYTES = 256 * 1024;
 
 type ResendWebhookEvent = {
@@ -119,14 +120,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const event = resendWebhookVerifier.webhooks.verify({
-      payload,
-      headers: {
-        id: svixId,
-        timestamp: svixTimestamp,
-        signature: svixSignature,
-      },
-      webhookSecret: resendWebhookSecret,
+    // Signature verification is local and requires only the endpoint signing secret.
+    const event = new Webhook(resendWebhookSecret).verify(payload, {
+      'svix-id': svixId,
+      'svix-timestamp': svixTimestamp,
+      'svix-signature': svixSignature,
     }) as ResendWebhookEvent;
 
     const recipients = event.data.to ?? [];

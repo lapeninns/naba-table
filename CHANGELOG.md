@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Added
 
+- Verify Resend webhook signatures locally without requiring an email-sending API key at build time. Preserve raw-body and timestamp verification for isolated staging.
+
 - Record the isolated Vercel staging project and custom environment, enabling full environment-separation validation. Document the owner's choice to use provider health checks without an external alert service.
 
 - Disposable Lima instance names now fit macOS socket limits under longer current-user CI paths, retaining deterministic retry identity and the private CI home.

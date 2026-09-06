@@ -101,7 +101,9 @@ verified on 2026-09-05. The D1 migration and queue bindings are applied.
 Vercel staging uses project `prj_Tcr3HKMSJLo66DXNh5nUc8ggIUrl`, separate from
 production `prj_nz9GF5uWIsfmilFeIuyMIYzfPx3s`. Its custom environment is
 `env_wFNfYzdHzzgxeKNHnxXGv8LtdRNn` (`staging`); both documented staging domains
-are verified and attached to it. The project uses Node 22. Its environment contains
+are verified and attached to it. The project setting is Node 22; the existing
+`engines.node >=22.0.0` range makes Vercel select Node 24 for deployment, as it does
+in production. No engine or hosted CI runtime policy was changed. Its environment contains
 only staging Supabase credentials and Worker tokens, with `RESEND_USE_MOCK=true`
 and `GBP_WRITE_ROLLOUT_MODE=off`. Provisioned configuration alone does not prove
 a deployed web journey; retain the deployment and browser evidence separately.
