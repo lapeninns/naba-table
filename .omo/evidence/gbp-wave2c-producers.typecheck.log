@@ -1,3 +1,0 @@
-Invocation: ./node_modules/.bin/tsc --noEmit --pretty false
-Exit: 0
-Observable: no TypeScript diagnostics

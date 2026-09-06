@@ -1,3 +1,0 @@
-Invocation: ./node_modules/.bin/prettier --check <28 scoped producer and test files> .omo/evidence/gbp-wave2c-producers.driver.ts .omo/evidence/gbp-wave2c-producers.manual.json
-Exit: 0
-Observable: All matched files use Prettier code style!

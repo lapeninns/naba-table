@@ -98,3 +98,9 @@ ds-bundle/
 
 # Phase 2 visual baseline images (large, regenerable via the capture-routes tooling)
 .design-sync/baseline-phase2/
+
+# Agent tooling scratch output (plans, evidence logs, research).
+# Untracked deliberately: 1,153 files / 18 MB of generated evidence that no
+# product code references, and whose synthetic credential sentinels were the
+# only findings the gitleaks baseline existed to suppress for this tree.
+.omo/

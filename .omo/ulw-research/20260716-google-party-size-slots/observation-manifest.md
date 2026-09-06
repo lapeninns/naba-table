@@ -1,3 +1,0 @@
-# Observation manifest
-
-Pending.

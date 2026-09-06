@@ -1,3 +1,0 @@
-SCENARIO: TypeScript compilation for Wave4 logging runtime and focused tests
-INVOCATION: ./node_modules/.bin/tsc --noEmit
-EXIT_CODE: 0

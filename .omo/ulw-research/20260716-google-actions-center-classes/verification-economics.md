@@ -1,3 +1,0 @@
-# Verification Economics
-
-Pending.

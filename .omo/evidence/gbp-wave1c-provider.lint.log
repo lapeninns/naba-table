@@ -1,3 +1,0 @@
-PASS exit=0
-Invocation: ./node_modules/.bin/eslint --max-warnings=0 server/google-business-profile plus focused Wave 1C provider tests
-Observable: no ESLint diagnostics or warnings

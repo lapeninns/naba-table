@@ -1,9 +1,7 @@
 name: CodeQL security review
 
 on:
-  # No pull_request trigger: CodeQL cost ~20 min on every PR for findings that
-  # are rarely commit-specific. It runs on main and weekly instead. It also
-  # stays on GitHub-hosted x86_64 - the CodeQL bundle has no linux-arm64 build.
+  pull_request:
   push:
     branches: [main]
   schedule:

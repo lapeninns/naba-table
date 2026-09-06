@@ -1,9 +1,0 @@
-TYPECHECK
-TYPECHECK_EXIT_CODE: 0
-LINT
-LINT_EXIT_CODE: 0
-PRETTIER
-Checking formatting...
-All matched files use Prettier code style!
-PRETTIER_EXIT_CODE: 0
-STATIC_OVERALL_EXIT_CODE: 0

@@ -2,56 +2,6 @@
   "schemaVersion": 1,
   "baselineReview": [
     {
-      "ruleId": "generic-api-key",
-      "file": ".omo/evidence/gbp-wave1a-schema-driver.sql",
-      "startLine": 2479,
-      "endLine": 2479,
-      "sourceSha256": "c4c15abd107ef7e32094c69f2b54f6d82beaf6fecdd917559353d08586667e2c",
-      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
-      "reviewedAt": "2026-09-05",
-      "reason": "Schema-driver assertion compares a synthetic dotted encryption-format sentinel with literal IV/cipher/tag labels; used in synthetic OAuth completion calls, not real encrypted provider credentials."
-    },
-    {
-      "ruleId": "generic-api-key",
-      "file": ".omo/evidence/gbp-wave2c-producers.broad.log",
-      "startLine": 237,
-      "endLine": 237,
-      "sourceSha256": "299a627e6b08411b0f57da001c638d93be811e823dc787709b7a5298865cc739",
-      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
-      "reviewedAt": "2026-09-05",
-      "reason": "Pre-existing operating-hours domain field identifier in captured test-diff output; not authentication material."
-    },
-    {
-      "ruleId": "generic-api-key",
-      "file": ".omo/evidence/gbp-wave2c-producers.broad.log",
-      "startLine": 245,
-      "endLine": 245,
-      "sourceSha256": "299a627e6b08411b0f57da001c638d93be811e823dc787709b7a5298865cc739",
-      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
-      "reviewedAt": "2026-09-05",
-      "reason": "Pre-existing operating-hours domain field identifier in captured test-diff output; not authentication material."
-    },
-    {
-      "ruleId": "generic-api-key",
-      "file": ".omo/evidence/gbp-wave2c-runtime-controls-red.log",
-      "startLine": 236,
-      "endLine": 236,
-      "sourceSha256": "f9893ec427a2ded4feee41b797119f443cd95501a9d741d7668ef9ede9b23253",
-      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
-      "reviewedAt": "2026-09-05",
-      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
-    },
-    {
-      "ruleId": "generic-api-key",
-      "file": ".omo/evidence/gbp-wave2c-runtime-controls-red.log",
-      "startLine": 244,
-      "endLine": 244,
-      "sourceSha256": "f9893ec427a2ded4feee41b797119f443cd95501a9d741d7668ef9ede9b23253",
-      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
-      "reviewedAt": "2026-09-05",
-      "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
-    },
-    {
       "ruleId": "curl-auth-header",
       "file": "docs/diagnostics/FINAL-PRODUCTION-DIAGNOSTIC.md",
       "startLine": 146,

@@ -1,9 +1,0 @@
-[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides", "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
-Scope: all 4 workspace projects
-Lockfile is up to date, resolution step is skipped
-Progress: resolved 1, reused 0, downloaded 0, added 0
-Packages: +4 -20
-++++--------------------
-Progress: resolved 4, reused 4, downloaded 0, added 4, done
-
-Done in 868ms using pnpm v10.34.5
