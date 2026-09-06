@@ -55,6 +55,16 @@ test('unlinked Google settings render without requesting dual-sync state @stagin
   await expect(page.locator('#gbp-sync-review')).toHaveCount(0);
   expect(dualSyncRequests).toBe(0);
   expect(pageErrors).toHaveLength(0);
+  await expect
+    .poll(async () =>
+      page.getByRole('button', { name: 'Connect Google', exact: true }).evaluate((element) => {
+        for (let current: Element | null = element; current; current = current.parentElement) {
+          if (Number(getComputedStyle(current).opacity) < 0.99) return false;
+        }
+        return true;
+      }),
+    )
+    .toBe(true);
   await page.screenshot({
     path: test.info().outputPath('gbp-unlinked-settings.png'),
     fullPage: true,

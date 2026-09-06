@@ -216,7 +216,7 @@ export function OpsRestaurantSettingsClient({
     'google-business-profile': ({ restaurantId }) => (
       <GoogleBusinessProfileSection
         restaurantId={restaurantId}
-        hasSyncWorkspace={hasSyncWorkspace}
+        hasSyncWorkspace={shouldRenderSyncWorkspace}
       />
     ),
     availability: ({ restaurantId }) => (

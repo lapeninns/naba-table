@@ -334,6 +334,10 @@ describe('OpsRestaurantSettingsClient', () => {
       renderWithOpsSession(<OpsRestaurantSettingsClient view="google-business-profile" />);
 
       expect(screen.getByTestId('settings-view-google-business-profile')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-view-google-business-profile')).toHaveAttribute(
+        'data-has-sync-workspace',
+        'false',
+      );
       expect(screen.queryByTestId('settings-view-dual-sync')).not.toBeInTheDocument();
       expect(
         screen.queryByText('Compare Google vs saved Nabatable fields.'),
