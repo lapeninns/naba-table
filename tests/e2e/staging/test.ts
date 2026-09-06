@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 
 import { stagingEnv } from './env';
-import { withStagingProtection } from './protection';
+import { safeStagingTransport, withStagingProtection } from './protection';
 
 export { expect };
 export const test = base.extend({
@@ -29,11 +29,13 @@ export const test = base.extend({
         }
         // Fetch one hop, then let the browser navigate the response's redirect through
         // this origin guard again. This prevents forwarding the bypass to another host.
-        const response = await route.fetch({
-          headers: { ...route.request().headers(), 'x-vercel-protection-bypass': secret },
-          maxRedirects: 0,
+        await safeStagingTransport(route.request().method(), url.origin, async () => {
+          const response = await route.fetch({
+            headers: { ...route.request().headers(), 'x-vercel-protection-bypass': secret },
+            maxRedirects: 0,
+          });
+          await route.fulfill({ response });
         });
-        await route.fulfill({ response });
       });
     }
     await runFixture(page);

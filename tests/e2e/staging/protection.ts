@@ -2,6 +2,20 @@ import type { APIRequestContext } from '@playwright/test';
 
 const METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'head', 'fetch']);
 
+/** Playwright transport errors include full headers and URLs even when tracing is off. */
+export async function safeStagingTransport<T>(
+  method: string,
+  origin: string,
+  operation: () => T | Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch {
+    // Never retain the original exception, stack or cause: each may contain credentials.
+    throw new Error(`Staging ${method} request to ${origin} failed; transport details suppressed.`);
+  }
+}
+
 /** Header credentials never follow redirects or leave the two configured Vercel origins. */
 export function withStagingProtection(
   context: APIRequestContext,
@@ -22,12 +36,16 @@ export function withStagingProtection(
         if (secret && allowed.has(destination.origin)) {
           headers['x-vercel-protection-bypass'] = secret;
           // Playwright otherwise forwards custom headers to redirected origins.
-          return Reflect.apply(value, target, [
-            destination.href,
-            { ...options, headers, maxRedirects: 0 },
-          ]);
+          return safeStagingTransport(property.toUpperCase(), destination.origin, () =>
+            Reflect.apply(value, target, [
+              destination.href,
+              { ...options, headers, maxRedirects: 0 },
+            ]),
+          );
         }
-        return Reflect.apply(value, target, [destination.href, { ...options, headers }]);
+        return safeStagingTransport(property.toUpperCase(), destination.origin, () =>
+          Reflect.apply(value, target, [destination.href, { ...options, headers }]),
+        );
       };
     },
   });

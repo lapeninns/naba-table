@@ -74,13 +74,22 @@ describe('deploy:vercel:prebuilt', () => {
   it('uses skip-domain only for production and selects the target environment @deploy @contract', () => {
     expect(pullArgs('staging')).toEqual(['pull', '--yes', '--environment=staging']);
     expect(buildArgs('staging')).toEqual(['build', '--yes', '--target=staging']);
-    expect(deployArgs('staging')).toEqual(['deploy', '--prebuilt', '--yes', '--target=staging']);
-    expect(deployArgs('production')).toEqual([
+    expect(deployArgs('staging', SHA)).toEqual([
+      'deploy',
+      '--prebuilt',
+      '--yes',
+      '--target=staging',
+      '--env',
+      `NABATABLE_SOURCE_REVISION=${SHA}`,
+    ]);
+    expect(deployArgs('production', SHA)).toEqual([
       'deploy',
       '--prebuilt',
       '--skip-domain',
       '--yes',
       '--prod',
+      '--env',
+      `NABATABLE_SOURCE_REVISION=${SHA}`,
     ]);
     expect(parseDeploymentUrl('x https://nabatable-abc.vercel.app y')).toBe(
       'https://nabatable-abc.vercel.app',
@@ -130,10 +139,50 @@ describe('deploy:vercel:prebuilt', () => {
       commands: string[];
     };
     expect(written.target).toBe('staging');
-    expect(written.commands[2]).toBe('vercel deploy --prebuilt --yes --target=staging');
+    expect(written.commands[2]).toBe(
+      `vercel deploy --prebuilt --yes --target=staging --env NABATABLE_SOURCE_REVISION=${SHA}`,
+    );
     expect(JSON.stringify(written)).not.toContain('fake-monitoring-token');
     expect(JSON.stringify(written)).not.toContain('bypass-fake');
   });
+
+  it.each(['staging', 'production'] as const)(
+    'binds the build SHA into the deployed %s runtime instead of relying on CLI process env @deploy @contract',
+    async (target) => {
+      const dir = tempDir();
+      const fake = fakeVercel();
+      let runtimeRevision: string | null = null;
+      const runner: CommandRunner = (command, args, options) => {
+        if (args[0] === 'build') expect(options?.env?.NABATABLE_SOURCE_REVISION).toBe(SHA);
+        if (args[0] === 'deploy') {
+          // Model the provider boundary: a CLI's ambient process env is not a runtime
+          // binding. Only an explicit deployment --env value reaches the deployed app.
+          const envIndex = args.indexOf('--env');
+          const binding = envIndex < 0 ? undefined : args[envIndex + 1];
+          runtimeRevision = binding?.startsWith('NABATABLE_SOURCE_REVISION=')
+            ? binding.slice('NABATABLE_SOURCE_REVISION='.length)
+            : null;
+        }
+        return fake.runner(command, args, options);
+      };
+      const evidence = await deployVercelPrebuilt({
+        target,
+        sourceRevision: SHA,
+        monitoringToken: 'fake-monitoring-token',
+        rootDir: dir,
+        evidencePath: path.join(dir, 'deployment.json'),
+        runner,
+        env: { NABATABLE_SOURCE_REVISION: OTHER_SHA },
+        readinessAttempts: 1,
+        fetchImpl: async () => jsonResponse({ revision: runtimeRevision }),
+      });
+      expect(evidence.sourceRevision).toBe(SHA);
+      expect(evidence.readiness.revision).toBe(SHA);
+      expect(fake.calls.find((call) => call[1] === 'deploy')).toContain(
+        `NABATABLE_SOURCE_REVISION=${SHA}`,
+      );
+    },
+  );
 
   it('refuses to write evidence when readiness reports a different revision @deploy @security', async () => {
     const dir = tempDir();

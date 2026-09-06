@@ -37,6 +37,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Bind the public source SHA explicitly into the Vercel deployment runtime so readiness can verify prebuilt artifacts; retain exact-revision rejection. Sanitize Playwright transport errors before authenticated staging requests reach reports.
+
 - Return per-job outcomes from the authenticated email-processing callback so the Cloudflare consumer can complete successful jobs. Call monitoring fetch without an object receiver so native Cloudflare requests reach their targets.
 
 - Record verified staging short-link D1 and dedicated KV resources and the Cloudflare Worker subdomain. Placeholder-rejection tests now use explicit fixtures so provisioning cannot remove their coverage.

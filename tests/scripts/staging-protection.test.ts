@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { withStagingProtection } from '@/tests/e2e/staging/protection';
+import { safeStagingTransport, withStagingProtection } from '@/tests/e2e/staging/protection';
 
 import type { APIRequestContext } from '@playwright/test';
 
@@ -60,6 +60,53 @@ describe('staging deployment protection transport', () => {
     });
     await request.dispose();
     expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it.each([publicUrl, 'https://staging-worker.workers.dev', 'https://staging-db.supabase.co'])(
+    'suppresses transport call logs and token-bearing URLs for %s',
+    async (origin) => {
+      const get = vi.fn(async () => {
+        throw new Error(
+          'Call log: authorization: Bearer synthetic-token x-vercel-protection-bypass: synthetic-secret ?access_token=synthetic-query',
+        );
+      });
+      const request = withStagingProtection(
+        { get } as unknown as APIRequestContext,
+        publicUrl,
+        opsUrl,
+        'synthetic-secret',
+      );
+      let failure: unknown;
+      try {
+        await request.get(`${origin}/ready?access_token=synthetic-query`, {
+          headers: { authorization: 'Bearer synthetic-token', apikey: 'synthetic-apikey' },
+        });
+      } catch (error) {
+        failure = error;
+      }
+      expect(failure).toBeInstanceOf(Error);
+      const error = failure as Error;
+      expect(error.message).toContain(`GET request to ${origin} failed`);
+      expect(error.cause).toBeUndefined();
+      for (const secret of [
+        'synthetic-token',
+        'synthetic-secret',
+        'synthetic-query',
+        'synthetic-apikey',
+        'Call log:',
+      ]) {
+        expect(`${error.message}\n${error.stack}`).not.toContain(secret);
+      }
+    },
+  );
+
+  it('sanitizes browser route transport failures without retaining the original error', async () => {
+    const original = new Error('route.fetch: x-vercel-protection-bypass: synthetic-secret');
+    await expect(
+      safeStagingTransport('GET', publicUrl, async () => {
+        throw original;
+      }),
+    ).rejects.toThrow(`Staging GET request to ${publicUrl} failed; transport details suppressed.`);
   });
 
   it('does not invent credentials when no bypass is configured', async () => {
