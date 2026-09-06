@@ -18,7 +18,7 @@ type Quote = {
   reason?: string;
 };
 
-test('concurrent staff table holds permit exactly one booking to confirm on one synthetic table @staging @p0', async ({
+test('concurrent staff table holds produce exactly one assignment on one synthetic table @staging @p0', async ({
   request,
 }) => {
   const rawCookies = staging.optional.STAGING_TENANT_B_SESSION_COOKIES;
@@ -188,15 +188,23 @@ test('concurrent staff table holds permit exactly one booking to confirm on one 
       },
     });
     expect(confirmed.status()).toBe(200);
+    expect(await confirmed.json()).toMatchObject({
+      holdId: winner.quote.holdId,
+      bookingId: bookingIds[winner.index],
+    });
     const readbacks = await Promise.all(bookingIds.map(readBooking));
-    expect(readbacks.filter((booking) => booking.status === 'confirmed')).toHaveLength(1);
-    expect(readbacks[winner.index]?.status).toBe('confirmed');
+    // Staff auto/confirm converts a hold to assignments without requesting a
+    // booking status transition. atomicConfirmAndTransition is the separate
+    // booking-confirmation flow; this route must preserve the pending statuses.
+    expect(readbacks.filter((booking) => assignedIds(booking).length > 0)).toHaveLength(1);
+    expect(readbacks[winner.index]?.status).toBe('pending');
     expect(assignedIds(readbacks[winner.index]!)).toEqual([targetId]);
     expect(readbacks[loserIndex]?.status).toBe('pending');
     expect(assignedIds(readbacks[loserIndex]!)).toEqual([]);
   } finally {
     // Runner uses only these exact synthetic IDs for residual hold cleanup, including
-    // failed quote/confirm attempts. The shipped cancel API does not release holds.
+    // failed quote/confirm attempts. Cancellation now releases holds atomically;
+    // the runner independently verifies there are no residual fixture holds.
     await test.info().attach('synthetic-hold-fixtures', {
       body: Buffer.from(JSON.stringify({ restaurantId: staging.tenantB.id, bookingIds })),
       contentType: 'application/json',
