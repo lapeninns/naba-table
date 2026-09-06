@@ -1,9 +1,0 @@
-
- RUN  v4.1.0 /Users/amankumarshrestha/LapenInns Project/nabatableLP
-
-
- Test Files  202 passed (202)
-      Tests  1155 passed (1155)
-   Start at  20:53:02
-   Duration  11.74s (transform 8.62s, setup 16.91s, import 21.68s, tests 3.00s, environment 128.08s)
-

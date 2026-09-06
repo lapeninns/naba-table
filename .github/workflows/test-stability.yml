@@ -8,12 +8,9 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '**/*.test.ts'
-      - '**/*.test.tsx'
-      - 'vitest.config.ts'
-      - 'cloudflare/*/vitest.config.ts'
+# The pull_request trigger was removed: three full-suite matrix legs per PR is
+# the single most expensive item in the old PR lane, and order-dependence is a
+# trend to watch nightly, not a per-commit merge gate.
 
 permissions:
   contents: read
@@ -21,7 +18,7 @@ permissions:
 jobs:
   repeat:
     name: Shuffle seed ${{ matrix.seed }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nabatable]
     timeout-minutes: 30
     strategy:
       fail-fast: false

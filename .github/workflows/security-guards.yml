@@ -12,10 +12,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: security-guards-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   service-role-routes:
     name: Service-role route authorization
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nabatable]
     timeout-minutes: 20
 
     steps:
@@ -53,16 +57,54 @@ jobs:
           set -euo pipefail
           scanner_dir="$(mktemp -d "$RUNNER_TEMP/secret-scanners.XXXXXX")"
           cd "$scanner_dir"
+
+          # Architecture-aware: GitHub-hosted runners are x86_64, the
+          # self-hosted runner VM is aarch64. Every archive is still pinned to
+          # a committed SHA-256, so adding an architecture means reviewing its
+          # digest exactly like adding a version does.
+          case "$(uname -m)" in
+            x86_64)
+              gitleaks_asset='gitleaks_8.28.0_linux_x64.tar.gz'
+              trufflehog_asset='trufflehog_3.90.8_linux_amd64.tar.gz'
+              ;;
+            aarch64|arm64)
+              gitleaks_asset='gitleaks_8.28.0_linux_arm64.tar.gz'
+              trufflehog_asset='trufflehog_3.90.8_linux_arm64.tar.gz'
+              ;;
+            *)
+              echo "unsupported runner architecture: $(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+
           curl --fail --silent --show-error --location --retry 3 \
-            https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/${gitleaks_asset}" \
             --output gitleaks.tar.gz
           curl --fail --silent --show-error --location --retry 3 \
-            https://github.com/trufflesecurity/trufflehog/releases/download/v3.90.8/trufflehog_3.90.8_linux_amd64.tar.gz \
+            "https://github.com/trufflesecurity/trufflehog/releases/download/v3.90.8/${trufflehog_asset}" \
             --output trufflehog.tar.gz
-          sha256sum --check --strict <<'CHECKSUMS'
+
+          # Digests stay literal, one committed block per architecture, so they
+          # remain greppable and reviewable exactly as before. Adding an
+          # architecture means reviewing its digests, same as adding a version.
+          # The heredoc bodies and terminators sit at the block scalar's own
+          # indentation (10), not the `case` arm's: YAML strips that common
+          # indent, so bash sees them at column 0 as a heredoc requires.
+          # Indenting them to match the case arm terminates the YAML block.
+          case "$(uname -m)" in
+            x86_64)
+              sha256sum --check --strict <<'CHECKSUMS'
           a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb  gitleaks.tar.gz
           aa2258dc4e76d93518730331e69ca01a638c365ab862a828c566e025f6c8150c  trufflehog.tar.gz
           CHECKSUMS
+              ;;
+            *)
+              sha256sum --check --strict <<'CHECKSUMS'
+          eff65261156100e5d94a6b3dec313d532fddfe19ae1590bf7a2b4f2699128356  gitleaks.tar.gz
+          f49e1e795b349198a026f6e56622eb227c73f8038edddc1c48d5e8c244bebe71  trufflehog.tar.gz
+          CHECKSUMS
+              ;;
+          esac
           mkdir bin
           tar -xzf gitleaks.tar.gz -C bin gitleaks
           tar -xzf trufflehog.tar.gz -C bin trufflehog

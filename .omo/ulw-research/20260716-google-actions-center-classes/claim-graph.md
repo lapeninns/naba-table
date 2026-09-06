@@ -1,3 +1,0 @@
-# Claim Graph
-
-Pending.

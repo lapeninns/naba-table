@@ -1,2 +1,0 @@
-[dotenv@17.2.3] injecting env (70) from .env.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
-GBP_LEGACY_GOOGLE_WRITE_RETIRED: FoodMenus publish proof is retired.

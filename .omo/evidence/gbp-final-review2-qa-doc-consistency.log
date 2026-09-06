@@ -1,7 +1,0 @@
-Invocation:
-node -e 'const fs=require("fs"); const doc=fs.readFileSync("docs/ops/gbp-route-map.md","utf8"); const src=fs.readFileSync("src/services/ops/restaurants.ts","utf8"); console.log(JSON.stringify({docClaimsLegacyCaller:doc.includes("getGoogleBusinessProfileAvailableLocations"),sourceUsesCanonical:src.includes("google-business-profile/locations"),sourceUsesLegacy:src.includes("google-business/locations")}));'
-
-Output:
-{"docClaimsLegacyCaller":true,"sourceUsesCanonical":true,"sourceUsesLegacy":false}
-
-Result: FAIL. The route map's legacy caller row is stale and contradicts the shipped canonical caller; this makes route-retirement/caller evidence unreliable until the document is corrected.

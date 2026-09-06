@@ -1,3 +1,0 @@
-PASS exit=0
-Invocation: ./node_modules/.bin/tsc --noEmit
-Observable: no TypeScript diagnostics

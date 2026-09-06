@@ -1,0 +1,279 @@
+# Nabatable GitHub Actions self-hosted runner VM (Lima, Virtualization.framework).
+#
+# WHY THIS EXISTS, SEPARATELY FROM nabatable-ci.yaml
+# --------------------------------------------------
+# `nabatable-ci.yaml` builds the golden image for the bespoke executor
+# (scripts/ci/executor/**). It enforces default-deny egress through tinyproxy
+# using infra/local-ci/network/proxy/allowlist.txt, which does NOT contain
+# `*.actions.githubusercontent.com` — the control channel a stock GitHub
+# Actions runner long-polls for work. It also enables `userns-remap` and
+# `icc: false`, which the runner's own container steps do not expect.
+# Pointing a stock runner at that image fails closed, and loosening the
+# allowlist there would weaken the executor it was written for.
+#
+# So this is a second, purpose-built VM whose only job is to host the stock
+# GitHub Actions runner agent. It deliberately reuses the security decisions
+# from nabatable-ci.yaml that still apply, and deliberately drops the ones
+# that only make sense for the bespoke executor.
+#
+# THREAT MODEL
+# ------------
+# Kept from nabatable-ci.yaml:
+#   - No host filesystem is shared with the guest (`mounts: []`). Repository
+#     source arrives via actions/checkout cloning from GitHub inside the VM,
+#     never from a host mount.
+#   - No guest port is forwarded to the host (portForwards ignore-all).
+#   - The SSH agent and X11 are never forwarded; host proxy/env vars are not
+#     propagated into the guest; host SSH public keys are not loaded.
+#   - Lima's containerd/nerdctl is disabled; Docker Engine only, version-pinned.
+#
+# Deliberately NOT applied here (and why):
+#   - No tinyproxy/nftables default-deny egress. The runner agent requires
+#     outbound access to github.com, api.github.com, *.actions.githubusercontent.com
+#     and results-receiver.actions.githubusercontent.com, plus whatever the
+#     workflow itself fetches (npm, Playwright CDN). This matches the egress
+#     posture of the GitHub-hosted `ubuntu-latest` runners being replaced, so
+#     it is not a regression against the status quo — but it IS weaker than
+#     the executor's job sandbox. Tracked as hardening follow-up.
+#   - No `userns-remap`. It breaks uid mapping for actions that write to the
+#     runner work directory.
+#
+# WHAT THIS VM IS NOT TRUSTED WITH
+# --------------------------------
+#   - Untrusted code. `.github/workflows/fork-profile.yml` must stay on
+#     `ubuntu-latest`. Never add a fork-triggered job to a self-hosted label.
+#   - Production release artifacts. This VM is aarch64; production builds on
+#     x86_64. The release/delivery lane stays on GitHub-hosted runners so the
+#     promoted artifact matches the production architecture.
+#   - Production secrets. Only PR-validation workflows target this runner.
+
+vmType: vz
+os: Linux
+arch: aarch64
+
+images:
+  # Ubuntu 24.04 LTS (Noble) ARM64 cloud image — same pinned release and
+  # digest qualified for nabatable-ci.yaml. Keep the two in lock-step.
+  - location: 'https://cloud-images.ubuntu.com/releases/noble/release-20260826/ubuntu-24.04-server-cloudimg-arm64.img'
+    arch: aarch64
+    digest: 'sha256:afa139bac6f2629c1e1f2f8f34215f3a9ad9779801bcb945521ba1a45016743f'
+
+# Sized to coexist with other Lima instances on an 18-core / 64 GiB host.
+# The runner executes one job at a time (see RUNNER_JOB_CONCURRENCY in
+# bin/runner-install.sh); these numbers are the ceiling for that one job.
+cpus: 6
+memory: '12GiB'
+disk: '100GiB'
+
+# No host directory is ever mounted into the guest.
+mounts: []
+
+# Virtualization.framework NAT instead of Lima's default user-mode networking.
+#
+# Measured on the same 56 MB file: user-mode 413 KB/s, vzNAT 535 KB/s, and the
+# macOS host itself 641 KB/s. So vzNAT recovers most of the virtualization
+# overhead (64% -> 84% of host throughput) and is worth having, but it is a
+# tuning improvement, not a fix: the dominant constraint is the host's own
+# ~0.6 MB/s link, which no guest network setting can change.
+#
+# The consequence for CI is real and is handled elsewhere in this file and in
+# the runner setup: a 56 MB download takes ~100s here, past the ~40s socket
+# timeout in @actions/tool-cache, so `Setup Node` aborted on every job until
+# the tool cache was pre-populated below. Anything that must download tens of
+# MB per job will fail on this link; caches have to be warm, not refetched.
+#
+# The guest sits behind a NAT and is not reachable from outside the host, and
+# the ignore-all portForwards rule below still prevents Lima from exposing any
+# guest port on the host.
+networks:
+  - vzNAT: true
+
+ssh:
+  localPort: 0
+  loadDotSSHPubKeys: false
+  forwardAgent: false
+  forwardX11: false
+  forwardX11Trusted: false
+
+# Lima forwards every guest port to localhost by default. Disable that for the
+# whole range: the runner makes only outbound connections and needs no inbound.
+portForwards:
+  - guestIP: '0.0.0.0'
+    guestPortRange: [1, 65535]
+    ignore: true
+
+# Do not propagate host HTTP_PROXY/HTTPS_PROXY/NO_PROXY or any host env.
+propagateProxyEnv: false
+env: {}
+
+containerd:
+  system: false
+  user: false
+
+hostResolver:
+  enabled: true
+  ipv6: false
+
+rosetta:
+  enabled: false
+  binfmt: false
+
+video:
+  display: 'none'
+audio:
+  device: 'none'
+
+firmware:
+  legacyBIOS: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # Pinned Docker Engine version, same pin as nabatable-ci.yaml.
+      DOCKER_CE_VERSION='5:29.7.2-1~ubuntu.24.04~noble'
+
+      export DEBIAN_FRONTEND=noninteractive
+      install -d -m 0755 /etc/apt/keyrings
+      if [ ! -f /etc/apt/keyrings/docker.asc ]; then
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+      fi
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update
+
+      # Runner prerequisites. `actions/checkout` needs git; setup-node fetches
+      # its own Node, but needs curl/tar/xz. jq is used by the runner scripts.
+      # libicu is a hard requirement of the .NET-based runner agent.
+      apt-get install -y --no-install-recommends \
+        "docker-ce=${DOCKER_CE_VERSION}" \
+        "docker-ce-cli=${DOCKER_CE_VERSION}" \
+        containerd.io \
+        ca-certificates \
+        curl \
+        git \
+        jq \
+        tar \
+        unzip \
+        xz-utils \
+        libicu74 \
+        python3 \
+        build-essential
+      apt-mark hold docker-ce docker-ce-cli containerd.io
+
+      # Baseline Node toolchain, pinned and checksum-verified.
+      #
+      # This is NOT redundant with actions/setup-node. Every workflow here runs
+      # `corepack enable` as its own step BEFORE setup-node, because
+      # setup-node's `cache: pnpm` needs pnpm resolvable to locate the store.
+      # GitHub-hosted images ship Node preinstalled so that ordering works; a
+      # bare VM has no node at all, and every job would fail on its second step.
+      # setup-node still selects the exact version each workflow requests --
+      # this only guarantees node/npm/corepack exist before it runs.
+      NODE_VERSION='v22.23.2'
+      NODE_SHA256='fff4078c5def658577f92c88db7db3bc0072924bfb93fe52c1e744a54e94abb8'
+      if [ ! -x /usr/local/bin/node ]; then
+        node_tmp="$(mktemp -d)"
+        curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-arm64.tar.xz" \
+          -o "${node_tmp}/node.tar.xz"
+        echo "${NODE_SHA256}  ${node_tmp}/node.tar.xz" | sha256sum -c -
+        tar -xJf "${node_tmp}/node.tar.xz" -C /usr/local --strip-components=1 \
+          --exclude='CHANGELOG.md' --exclude='LICENSE' --exclude='README.md'
+        rm -rf "${node_tmp}"
+      fi
+      corepack enable
+      node --version
+
+      # Pre-populate the Actions tool cache with the same Node build.
+      #
+      # Without this, actions/setup-node downloads a 56 MB tarball on every
+      # job. On this host's ~0.6 MB/s link that takes ~100s and exceeds the
+      # socket timeout in @actions/tool-cache, so the step fails with a bare
+      # "aborted" after trying both actions/node-versions and nodejs.org.
+      # A populated tool cache makes setup-node resolve locally and download
+      # nothing. The `<arch>.complete` marker is what signals a usable entry.
+      TOOL_CACHE='/opt/actions-runner/_work/_tool/node/22.23.2/arm64'
+      if [ ! -f "${TOOL_CACHE}.complete" ]; then
+        install -d -m 0755 "$TOOL_CACHE"
+        tc_tmp="$(mktemp -d)"
+        curl -fsSL --retry 3 \
+          "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-arm64.tar.xz" \
+          -o "${tc_tmp}/node.tar.xz"
+        echo "${NODE_SHA256}  ${tc_tmp}/node.tar.xz" | sha256sum -c -
+        tar -xJf "${tc_tmp}/node.tar.xz" -C "$TOOL_CACHE" --strip-components=1
+        rm -rf "${tc_tmp}"
+        touch "${TOOL_CACHE}.complete"
+      fi
+      chown -R runner:runner /opt/actions-runner/_work/_tool
+
+      install -d -m 0755 /etc/docker
+      cat > /etc/docker/daemon.json <<'JSON'
+      {
+        "no-new-privileges": true,
+        "ipv6": false,
+        "ip6tables": false,
+        "live-restore": false,
+        "log-driver": "local",
+        "log-opts": { "max-size": "20m", "max-file": "3" },
+        "default-ulimits": { "nofile": { "Name": "nofile", "Hard": 65536, "Soft": 65536 } }
+      }
+      JSON
+      systemctl enable docker
+      systemctl restart docker
+
+      # Dedicated unprivileged account for the runner agent. It is NOT the
+      # Lima user, so a compromised job cannot trivially drive `limactl`'s
+      # side of the SSH channel.
+      if ! id runner >/dev/null 2>&1; then
+        useradd --create-home --shell /bin/bash --uid 1100 runner
+      fi
+      usermod -aG docker runner
+      install -d -m 0755 -o runner -g runner /opt/actions-runner
+
+      # Passwordless sudo, matching GitHub-hosted runner semantics (their
+      # `runner` user has exactly this). Required because five workflows call
+      # `playwright install chromium --with-deps`, which shells out to
+      # `sudo apt-get`; without it those steps fail outright.
+      #
+      # The blast radius is this VM: no host filesystem is mounted, no host
+      # credential is present, and the GitHub App key never leaves the Mac.
+      # Untrusted code never runs here (fork-profile.yml stays hosted), so the
+      # code holding this sudo is the same code that already runs the test
+      # suite. Revisit if untrusted workloads are ever routed here.
+      printf 'runner ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/90-actions-runner
+      chmod 0440 /etc/sudoers.d/90-actions-runner
+      visudo -c -f /etc/sudoers.d/90-actions-runner
+
+      # Playwright Chromium system dependencies, installed once at build time.
+      # The per-job `--with-deps` then finds them already present instead of
+      # re-resolving apt on a 0.6 MB/s link.
+      sudo -u runner env PATH="/usr/local/bin:$PATH" \
+        npx --yes playwright@1.58.1 install-deps chromium || true
+
+      # Cap journal growth so a chatty job cannot fill the guest disk.
+      install -d -m 0755 /etc/systemd/journald.conf.d
+      printf '[Journal]\nSystemMaxUse=512M\n' > /etc/systemd/journald.conf.d/90-cap.conf
+      systemctl restart systemd-journald || true
+
+probes:
+  - mode: readiness
+    description: 'docker daemon ready'
+    script: |
+      #!/bin/bash
+      set -eu
+      if ! timeout 120s bash -c 'until sudo docker info >/dev/null 2>&1; do sleep 3; done'; then
+        echo >&2 'docker is not running yet'
+        exit 1
+      fi
+  - mode: readiness
+    description: 'runner account and prerequisites present'
+    script: |
+      #!/bin/bash
+      set -eu
+      id runner >/dev/null 2>&1 || { echo >&2 'runner user missing'; exit 1; }
+      command -v git >/dev/null || { echo >&2 'git missing'; exit 1; }
+      test -d /opt/actions-runner || { echo >&2 '/opt/actions-runner missing'; exit 1; }
