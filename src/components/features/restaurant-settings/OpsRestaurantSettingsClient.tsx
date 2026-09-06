@@ -8,6 +8,7 @@ import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmpty
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { opsHref } from '@/lib/url/opsHref';
 
 import { AVAILABILITY_ANCHORS, availabilityHash } from './availabilityAnchors';
@@ -166,6 +167,9 @@ export function OpsRestaurantSettingsClient({
     restaurantId: selectedRestaurantId,
     setActiveRestaurantId,
   } = useRestaurantSettingsContext();
+  const googleBusinessProfileConnectionQuery = useOpsGoogleBusinessProfileConnection(
+    view === 'google-business-profile' ? selectedRestaurantId : null,
+  );
 
   useEffect(() => {
     if (activeRestaurantId) {
@@ -193,6 +197,13 @@ export function OpsRestaurantSettingsClient({
 
   const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
   const hasSyncWorkspace = Boolean(dualSyncSections && selectedRestaurantId);
+  const hasMappedGoogleLocation = Boolean(
+    googleBusinessProfileConnectionQuery.data?.status === 'linked' &&
+    googleBusinessProfileConnectionQuery.data.externalAccountId &&
+    googleBusinessProfileConnectionQuery.data.externalLocationId,
+  );
+  const shouldRenderSyncWorkspace =
+    hasSyncWorkspace && (view !== 'google-business-profile' || hasMappedGoogleLocation);
 
   const renderByView: Record<
     RestaurantSettingsView,
@@ -222,7 +233,7 @@ export function OpsRestaurantSettingsClient({
   return (
     <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
-      {dualSyncSections && selectedRestaurantId ? (
+      {dualSyncSections && selectedRestaurantId && shouldRenderSyncWorkspace ? (
         <div id="gbp-sync-review" className="scroll-mt-24">
           {view === 'google-business-profile' ? (
             <Alert className="mb-3 border-border/70 bg-muted/30">

@@ -71,6 +71,55 @@ BEGIN
     WHEN insufficient_privilege THEN NULL;
   END;
 
+  -- Reject terminal bookings before attempting to consume the live lease.
+  BEGIN
+    PERFORM public.confirm_hold_assignment_tx(h,terminal_b,'unbound-terminal-rejected',false,NULL,start_time,end_time);
+    RAISE EXCEPTION 'Terminal booking confirmed an unbound hold' USING ERRCODE = 'NB001';
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN check_violation THEN NULL;
+  END;
+
+  -- A synthetic receipt failure happens after assignment and must roll it all back.
+  CREATE FUNCTION pg_temp.reject_synthetic_confirmation() RETURNS trigger LANGUAGE plpgsql AS $trigger$
+  BEGIN
+    IF NEW.restaurant_id='00000000-0000-4000-8000-00000000a001' THEN
+      RAISE EXCEPTION 'Synthetic receipt failure' USING ERRCODE='23514';
+    END IF;
+    RETURN NEW;
+  END;
+  $trigger$;
+  CREATE TRIGGER synthetic_confirmation_failure BEFORE INSERT ON public.booking_confirmation_results
+  FOR EACH ROW EXECUTE FUNCTION pg_temp.reject_synthetic_confirmation();
+
+  BEGIN
+    PERFORM public.confirm_hold_assignment_tx(h,b,'unbound-receipt-rejected',false,NULL,start_time,end_time);
+    RAISE EXCEPTION 'Synthetic receipt failure was ignored' USING ERRCODE = 'NB001';
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN check_violation THEN NULL;
+  END;
+  DROP TRIGGER synthetic_confirmation_failure ON public.booking_confirmation_results;
+  IF NOT EXISTS(SELECT 1 FROM public.table_holds WHERE id=h AND booking_id IS NULL)
+     OR NOT EXISTS(SELECT 1 FROM public.table_hold_members WHERE hold_id=h AND table_id=t)
+     OR NOT EXISTS(SELECT 1 FROM public.table_hold_windows WHERE hold_id=h AND table_id=t)
+     OR EXISTS(SELECT 1 FROM public.booking_table_assignments WHERE booking_id=b) THEN
+    RAISE EXCEPTION 'Failed confirmation did not restore the unbound lease' USING ERRCODE = 'NB001';
+  END IF;
+
+  -- Confirmation may consume the selected unbound hold, but direct writers above
+  -- must still treat that same hold as a conflict.
+  SELECT count(*) INTO n FROM public.confirm_hold_assignment_tx(h,b,'unbound-hold-confirm',false,NULL,start_time,end_time);
+  IF n<>1 OR EXISTS(SELECT 1 FROM public.table_holds WHERE id=h)
+     OR EXISTS(SELECT 1 FROM public.table_hold_windows WHERE hold_id=h)
+     OR NOT EXISTS(SELECT 1 FROM public.booking_table_assignments WHERE booking_id=b AND table_id=t) THEN
+    RAISE EXCEPTION 'Unbound hold confirmation did not atomically consume its lease' USING ERRCODE='NB001';
+  END IF;
+  DELETE FROM public.booking_table_assignments WHERE booking_id=b;
+  DELETE FROM public.allocations WHERE booking_id=b;
+  DELETE FROM public.booking_assignment_idempotency WHERE booking_id=b;
+  SELECT id INTO h FROM public.create_table_hold_atomic(NULL,v_restaurant_id,z,ARRAY[t],start_time,end_time,clock_timestamp()+interval '120 seconds');
+
   -- Expiry is checked using the database clock; no sweep or status mutation required.
   UPDATE public.table_holds SET expires_at=created_at+interval '1 microsecond' WHERE id=h;
   SELECT id INTO h2 FROM public.create_table_hold_atomic(NULL,v_restaurant_id,z,ARRAY[t],start_time,end_time,clock_timestamp()+interval '120 seconds');

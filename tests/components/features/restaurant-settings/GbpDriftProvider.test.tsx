@@ -1,21 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { makeDualSyncHookState } from './testUtils';
-
 const connectionState = vi.hoisted(() => ({
   data: null as unknown,
   isLoading: false,
   error: null as Error | null,
 }));
 const dualSyncState = { current: makeDualSyncHookState() };
+const useOpsDualSync = vi.hoisted(() => vi.fn(() => dualSyncState.current));
 
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionState,
 }));
 
 vi.mock('@/hooks/ops/useOpsDualSync', () => ({
-  useOpsDualSync: () => dualSyncState.current,
+  useOpsDualSync,
 }));
 
 vi.mock('@/components/features/restaurant-settings/shell/useRestaurantSettingsContext', () => ({
@@ -35,6 +34,8 @@ import {
 } from '@/components/features/restaurant-settings/GbpDriftProvider';
 import { deriveGbpDriftStatus } from '@/components/features/restaurant-settings/gbpDriftStatus';
 
+import { makeDualSyncHookState } from './testUtils';
+
 const sectionStatus = {
   fieldCount: 3,
   inSyncCount: 1,
@@ -51,6 +52,7 @@ describe('GbpDriftProvider', () => {
     connectionState.isLoading = false;
     connectionState.error = null;
     dualSyncState.current = makeDualSyncHookState();
+    useOpsDualSync.mockClear();
   });
 
   it('@smoke renders children within the drift providers', () => {
@@ -85,6 +87,26 @@ describe('GbpDriftProvider', () => {
       expect.stringContaining('/settings/restaurant/google-business-profile#gbp-sync-review'),
     );
   });
+
+  it.each([
+    { status: 'authorized', externalAccountId: null, externalLocationId: null },
+    { status: 'linked', externalAccountId: 'account-1', externalLocationId: null },
+    { status: 'linked', externalAccountId: null, externalLocationId: 'location-1' },
+    { status: 'unlinked', externalAccountId: 'account-1', externalLocationId: 'location-1' },
+  ])(
+    '@contract skips dual-sync state until a Google location is linked ($status/$externalAccountId/$externalLocationId)',
+    (connection) => {
+      connectionState.data = connection;
+
+      render(
+        <GbpDriftProvider restaurantId="rest-1">
+          <p>Drift-aware content</p>
+        </GbpDriftProvider>,
+      );
+
+      expect(useOpsDualSync).toHaveBeenCalledWith({ restaurantId: null });
+    },
+  );
 
   it('@contract maps drift status kinds to nav badges', () => {
     expect(
