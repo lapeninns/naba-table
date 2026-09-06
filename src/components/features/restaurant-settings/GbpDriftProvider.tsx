@@ -60,7 +60,14 @@ export function GbpDriftProvider({
   const settingsContext = useRestaurantSettingsContext();
   const restaurantId = explicitRestaurantId ?? settingsContext.restaurantId;
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
-  const { stateQuery } = useOpsDualSync({ restaurantId });
+  const hasMappedGoogleLocation = Boolean(
+    connectionQuery.data?.status === 'linked' &&
+    connectionQuery.data.externalAccountId &&
+    connectionQuery.data.externalLocationId,
+  );
+  const { stateQuery } = useOpsDualSync({
+    restaurantId: hasMappedGoogleLocation ? restaurantId : null,
+  });
 
   const status = useMemo(
     () =>

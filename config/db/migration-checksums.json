@@ -743,6 +743,12 @@
       "recordedAt": "2026-09-06T12:32:07.373Z",
       "reviewed": true
     },
+    "20260906150000_confirm_unbound_table_hold.sql": {
+      "sha256": "598506a962aa5a17b9f36a03c0a5a109e17d2f11b1b24a82fd99a899e3d6b4f2",
+      "bytes": 10575,
+      "recordedAt": "2026-09-06T13:42:55.775258+00:00",
+      "reviewed": true
+    },
     "CONSOLIDATED_ALL_MIGRATIONS.sql": {
       "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
       "bytes": 31275,

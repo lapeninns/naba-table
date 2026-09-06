@@ -25,6 +25,14 @@ const prefetchState = vi.hoisted(() => ({
   prefetchIfStale: vi.fn(({ queryFn }: { queryFn: () => unknown }) => queryFn()),
 }));
 
+const googleBusinessProfileConnectionState = vi.hoisted(() => ({
+  data: {
+    status: 'linked',
+    externalAccountId: 'account-1',
+    externalLocationId: 'location-1',
+  },
+}));
+
 vi.mock('next/navigation', () => ({
   usePathname: () => navigationState.pathname,
   useRouter: () => ({
@@ -53,6 +61,10 @@ vi.mock('next/dynamic', () => ({
 
 vi.mock('@/lib/prefetchers', () => ({
   prefetchIfStale: prefetchState.prefetchIfStale,
+}));
+
+vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
+  useOpsGoogleBusinessProfileConnection: () => googleBusinessProfileConnectionState,
 }));
 
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
@@ -217,6 +229,11 @@ function renderPageShell(
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
   prefetchState.prefetchIfStale.mockClear();
+  googleBusinessProfileConnectionState.data = {
+    status: 'linked',
+    externalAccountId: 'account-1',
+    externalLocationId: 'location-1',
+  };
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -303,6 +320,30 @@ describe('OpsRestaurantSettingsClient', () => {
       'gbp-sync-review',
     );
   });
+
+  it.each([
+    { status: 'authorized', externalAccountId: null, externalLocationId: null },
+    { status: 'linked', externalAccountId: 'account-1', externalLocationId: null },
+    { status: 'linked', externalAccountId: null, externalLocationId: 'location-1' },
+    { status: 'unlinked', externalAccountId: 'account-1', externalLocationId: 'location-1' },
+  ])(
+    'does not render the dual-sync workspace before a Google location is mapped ($status/$externalAccountId/$externalLocationId)',
+    (connection) => {
+      googleBusinessProfileConnectionState.data = connection;
+
+      renderWithOpsSession(<OpsRestaurantSettingsClient view="google-business-profile" />);
+
+      expect(screen.getByTestId('settings-view-google-business-profile')).toBeInTheDocument();
+      expect(screen.getByTestId('settings-view-google-business-profile')).toHaveAttribute(
+        'data-has-sync-workspace',
+        'false',
+      );
+      expect(screen.queryByTestId('settings-view-dual-sync')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Compare Google vs saved Nabatable fields.'),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe('RestaurantSettingsSubnav', () => {

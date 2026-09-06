@@ -2352,6 +2352,18 @@ select id from public.create_gbp_oauth_attempt_v1(
   '/settings/restaurant/google-business-profile',
   timezone('utc', now()) + interval '10 minutes', null, null, null, null, 1, 1
 );
+do $$
+begin
+  if not exists (
+    select 1 from public.restaurant_external_profile_oauth_states
+    where state_hash = repeat('3', 64) and consumed_at is not null
+      and invalidated_at is null and invalidation_reason is null
+  ) then
+    raise exception 'New attempt changed an already consumed OAuth state';
+  end if;
+  raise notice 'probe=oauth_consumed_state_preserved result=pass';
+end;
+$$;
 reset role;
 update public.restaurant_external_profile_oauth_states
 set expires_at = created_at
