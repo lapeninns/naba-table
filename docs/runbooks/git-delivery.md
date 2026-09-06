@@ -37,6 +37,27 @@ authorized provider path, and has produced successful scheduled evidence within 
 Workers Free CPU limit. The operational-control Worker now has a protected-main Git-build connection with its monitoring
 secret, but its first successful build and observation remain commissioning requirements.
 
+### Production qualification and disabling the observer
+
+The reviewed qualification release explicitly sets `POST_DEPLOY_OBSERVER_ENABLED=true` in
+both top-level production vars and the mirrored `env.production` block. `env.staging` stays
+false. In this repository `deploy:workers --env production` deliberately invokes Wrangler
+without `--env`, so **top-level configuration is the deployed production configuration**.
+Changing only the mirrored block does not enable or disable the served observer.
+
+The first scheduled observation is runtime qualification, not a prior promise of success.
+After the exact hourly cron slot, inspect the cached four-target report, timestamps, token
+cleanup diagnostics, invocation result and CPU usage. Also confirm the legacy cycle still runs.
+The observer shares that invocation's CPU budget: settled promises isolate normal failures,
+but cannot protect the legacy cycle from whole-invocation CPU exhaustion. The Workers Free
+limit is 10 ms, and baseline control-plane samples already occasionally exceed it.
+
+If qualification fails or disrupts the control plane, set both production declarations to
+false through a checked PR, updating the production configuration assertion as part of that
+rollback. Retain staging false. That is a further Git release and is not instantaneous recovery.
+Do not perform a partial bindings-array PATCH: it can remove existing provider bindings. No
+customer Worker, database or application rollback is implied by disabling this observer.
+
 ### Optional hosted executor
 
 `.github/workflows/post-deployment-verification.yml` runs the standalone

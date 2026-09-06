@@ -19,8 +19,9 @@ GitHub Actions; the account remains capped at $0 with all included minutes consu
 credentials must not move onto the shared PR runner.
 
 An hourly observer in the existing operational-control Worker is being qualified as the
-independent executor. It remains disabled pending reviewed code, provider deployment, CPU-limit
-qualification, and successful scheduled evidence. See the [Git delivery runbook](../runbooks/git-delivery.md).
+independent executor. The reviewed production configuration explicitly enables it for a controlled
+qualification release; staging remains disabled. It is not yet commissioned: provider deployment,
+real token-response compatibility, CPU-limit evidence and successful hourly evidence are still required. See the [Git delivery runbook](../runbooks/git-delivery.md).
 Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
 
 ## What actually deploys production
