@@ -544,7 +544,7 @@ with status 2 before any child process starts.
 | -------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm db:link`                         | `staging` or `production` | Runs `supabase link --project-ref <expected ref for DB_TARGET_ENV>` (production requires `CONFIRM_PRODUCTION=true`) and refuses afterwards unless `supabase/.temp/project-ref` names that ref. The committed link state is staging, so `Protected delivery` runs it before `db:plan-remote` on both targets. |
 | `pnpm db:plan-remote`                  | `staging` or `production` | Linked project ref, DB host/user and API URL match the target; migration versions are unique; recorded migrations are immutable; the remote ledger reconciles with local files; then `supabase db push --dry-run --linked`.                                                                                  |
-| `pnpm db:sql-regression`               | `staging` only            | Runs the four SQL regression files with synthetic fixtures inside `BEGIN ... ROLLBACK`, verifies the rollback by row counts, and fails on any SQL error.                                                                                                                                                     |
+| `pnpm db:sql-regression`               | `staging` only            | Runs the five SQL regression files with synthetic fixtures inside `BEGIN ... ROLLBACK`, verifies the rollback by row counts, and fails on any SQL error.                                                                                                                                                     |
 | `pnpm db:check-migration-immutability` | local (target optional)   | Compares sha256 of every file in `supabase/migrations` with `config/db/migration-checksums.json`. `--record --reviewed` appends new files only.                                                                                                                                                              |
 | `pnpm db:backup`                       | `staging` or `production` | Delegates to `scripts/db/backup/run.ts --target <env> --identity-env DB_BACKUP_ROLE_URL --bucket $DB_BACKUP_BUCKET` only under the dedicated read-only identity; service-role and deploy credentials are refused and scrubbed.                                                                               |
 | `pnpm db:restore-verify`               | scratch project only      | Delegates to `scripts/db/restore/verify.ts --backup-id $RESTORE_VERIFY_BACKUP_ID --project-ref $RESTORE_VERIFY_PROJECT_REF --source <env>`; the staging and production refs are refused as the restore destination.                                                                                          |
@@ -578,6 +578,7 @@ command line. `--include-all` is only accepted by `migrate`/`push` under the exi
 
 Files: `tests/db/terminal-booking-table-release.sql`,
 `tests/db/manual-table-unassignment.sql`,
+`tests/db/atomic-table-hold-enforcement.sql`,
 `supabase/tests/mobile_sms_attempt_finalization.sql`,
 `supabase/tests/whatsapp_review_notification_ledger.sql`.
 
@@ -627,7 +628,7 @@ Files: `tests/db/terminal-booking-table-release.sql`,
 - `tests/scripts/db-promotion-safety.test.ts` unit-tests the helper modules under
   `scripts/db/migrations/**`, the extended drift inventory, and asserts that
   `config/db/migration-checksums.json` still matches the working tree.
-- `tests/scripts/db-sql-regression.test.ts` parses the four SQL files (no `LIMIT 1` or
+- `tests/scripts/db-sql-regression.test.ts` parses the five SQL files (no `LIMIT 1` or
   `gen_random_uuid()` selection, fixture identifiers referenced, `NB001` re-raised ahead of every
   negative-test handler, final re-raise) and runs the regression runner against a fake database
   to prove rollback verification and the any-SQL-error-fails rule.

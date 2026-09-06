@@ -8155,6 +8155,20 @@ export type Database = {
           table_id: string;
         }[];
       };
+      create_table_hold_atomic: {
+        Args: {
+          p_booking_id: string | null;
+          p_restaurant_id: string;
+          p_zone_id: string;
+          p_table_ids: string[];
+          p_start_at: string;
+          p_end_at: string;
+          p_expires_at: string;
+          p_created_by?: string | null;
+          p_metadata?: Json | null;
+        };
+        Returns: Database['public']['Tables']['table_holds']['Row'][];
+      };
       cleanup_expired_soft_holds: {
         Args: { p_batch_size?: number };
         Returns: number;

@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Create staff table holds through one atomic RPC and enforce live hold conflicts in database mutation paths. Keep the hold-window projection synchronized and release booking holds during terminal cleanup. Add deployed contention and persisted out-of-order SMS callback proofs.
+
 - Release manual table assignments atomically with their allocation and idempotency state, allowing fresh-key reassignment while preserving partial merge groups, tenant boundaries and service-role-only RPC access. Add rollback SQL coverage for partial, final, repeated and legacy-wrapper releases.
 - Recognize authenticated Supabase CLI temporary pooler roles in exact-project database safety validation.
 

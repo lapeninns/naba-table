@@ -91,41 +91,6 @@ class StaticQuery {
   }
 }
 
-class InsertHoldQuery {
-  public payload: Record<string, unknown> | null = null;
-
-  insert(payload: Record<string, unknown>) {
-    this.payload = payload;
-    return this;
-  }
-
-  select() {
-    return this;
-  }
-
-  single() {
-    const payload = this.payload ?? {};
-    const members = payload.table_hold_members as
-      | { data?: Array<{ table_id: string }> }
-      | undefined;
-    return Promise.resolve({
-      data: {
-        id: 'hold-1',
-        booking_id: payload.booking_id ?? null,
-        restaurant_id: payload.restaurant_id,
-        zone_id: payload.zone_id,
-        start_at: payload.start_at,
-        end_at: payload.end_at,
-        expires_at: payload.expires_at,
-        created_by: payload.created_by ?? null,
-        metadata: payload.metadata ?? null,
-        table_hold_members: members?.data ?? [],
-      },
-      error: null,
-    });
-  }
-}
-
 type AssignmentClientOptions = {
   assignmentReloadRows?: unknown[];
   assignmentUpdateError?: { message: string };
@@ -226,15 +191,25 @@ describe('table-assignment guardrails', () => {
   it('does not extend table-hold expiry to the future booking window end', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-16T10:00:00.000Z'));
-    const insertQuery = new InsertHoldQuery();
     const client = {
-      from: vi.fn((table: string) => {
-        expect(table).toBe('table_holds');
-        return insertQuery;
+      from: vi.fn(),
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'hold-1',
+            booking_id: 'booking-1',
+            restaurant_id: 'restaurant-1',
+            zone_id: 'zone-1',
+            start_at: '2026-06-01T12:00:00.000Z',
+            end_at: '2026-06-01T13:00:00.000Z',
+            expires_at: '2026-05-16T10:03:00.000Z',
+            created_by: null,
+            metadata: null,
+          },
+        ],
+        error: null,
       }),
-      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
-
     const hold = await createTableHold({
       bookingId: 'booking-1',
       restaurantId: 'restaurant-1',
@@ -245,33 +220,24 @@ describe('table-assignment guardrails', () => {
       expiresAt: '2026-05-16T10:03:00.000Z',
       client: client as unknown as Parameters<typeof createTableHold>[0]['client'],
     });
-
     expect(hold.expiresAt).toBe('2026-05-16T10:03:00.000Z');
-    expect(insertQuery.payload?.expires_at).toBe('2026-05-16T10:03:00.000Z');
+    expect(client.rpc).toHaveBeenCalledExactlyOnceWith(
+      'create_table_hold_atomic',
+      expect.objectContaining({ p_expires_at: hold.expiresAt }),
+    );
+    expect(client.from).not.toHaveBeenCalled();
   });
 
-  it('does not report structural hold insert failures as table conflicts', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-16T10:00:00.000Z'));
+  it('does not report structural hold RPC failures as table conflicts', async () => {
     const client = {
-      from: vi.fn(() => ({
-        insert: () => ({
-          select: () => ({
-            single: () =>
-              Promise.resolve({
-                data: null,
-                error: {
-                  code: '23514',
-                  message:
-                    'new row for relation "table_holds" violates check constraint "th_times_consistent"',
-                },
-              }),
-          }),
+      from: vi.fn(),
+      rpc: vi
+        .fn()
+        .mockResolvedValue({
+          data: null,
+          error: { code: '23514', message: 'Invalid hold window' },
         }),
-      })),
-      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
-
     await expect(
       createTableHold({
         bookingId: 'booking-1',
@@ -284,21 +250,11 @@ describe('table-assignment guardrails', () => {
         client: client as unknown as Parameters<typeof createTableHold>[0]['client'],
       }),
     ).rejects.toBeInstanceOf(HoldPersistenceError);
+    expect(client.from).not.toHaveBeenCalled();
   });
 
-  it('fails closed when strict hold conflict session verification fails', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-05-16T10:00:00.000Z'));
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const insertQuery = new InsertHoldQuery();
-    const client = {
-      from: vi.fn(() => insertQuery),
-      rpc: vi
-        .fn()
-        .mockResolvedValueOnce({ data: null, error: null })
-        .mockResolvedValueOnce({ data: false, error: null }),
-    };
-
+  it('fails closed when the atomic hold RPC is unavailable', async () => {
+    const client = { from: vi.fn() };
     await expect(
       createTableHold({
         bookingId: 'booking-1',
@@ -310,10 +266,8 @@ describe('table-assignment guardrails', () => {
         expiresAt: '2026-05-16T10:03:00.000Z',
         client: client as unknown as Parameters<typeof createTableHold>[0]['client'],
       }),
-    ).rejects.toThrow(/Strict hold conflict enforcement not honored/);
-
+    ).rejects.toBeInstanceOf(HoldPersistenceError);
     expect(client.from).not.toHaveBeenCalled();
-    consoleError.mockRestore();
   });
 
   it('fails closed when hold conflict evaluation cannot query strict windows', async () => {

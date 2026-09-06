@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  HoldPersistenceError,
-  releaseTableHold,
-  sweepExpiredHolds,
-} from '@/server/capacity/holds';
+import { HoldPersistenceError, releaseTableHold, sweepExpiredHolds } from '@/server/capacity/holds';
 
 type DeleteCall = { table: string };
 
@@ -21,12 +17,15 @@ type TableHoldsState = {
  */
 function createClient(options: {
   releaseReturn?: boolean | null;
+  parentDeleteError?: boolean;
+  enforceMembersRequireParentDeletion?: boolean;
   deleteCalls: DeleteCall[];
   holdsState?: TableHoldsState;
   sweepRows?: Array<{ id: string }>;
 }) {
   const { releaseReturn = false, deleteCalls, holdsState, sweepRows = [] } = options;
 
+  let parentDeleted = false;
   const rpc = async (name: string) => {
     if (name === 'is_holds_strict_conflicts_enabled') {
       return { data: true, error: null };
@@ -62,6 +61,18 @@ function createClient(options: {
       const deleteBuilder: Record<string, unknown> = {};
       const record = () => {
         deleteCalls.push({ table });
+        if (table === 'table_holds') {
+          if (options.parentDeleteError)
+            return { error: { code: '42501', message: 'Parent deletion denied' } };
+          parentDeleted = true;
+        }
+        if (
+          table === 'table_hold_members' &&
+          options.enforceMembersRequireParentDeletion &&
+          !parentDeleted
+        ) {
+          return { error: { code: '23514', message: 'Active hold must retain members' } };
+        }
         return { error: null };
       };
       deleteBuilder.eq = async () => record();
@@ -89,6 +100,22 @@ describe('hold release verification (#16)', () => {
     // Manual delete must remove members and the hold row.
     expect(deleteCalls.map((call) => call.table)).toContain('table_hold_members');
     expect(deleteCalls.map((call) => call.table)).toContain('table_holds');
+  });
+
+  it('releases the parent before member cleanup to preserve the no-orphan constraint', async () => {
+    const deleteCalls: DeleteCall[] = [];
+    const client = createClient({ deleteCalls, enforceMembersRequireParentDeletion: true });
+    await expect(releaseTableHold({ holdId: 'hold-1', client })).resolves.toBeUndefined();
+    expect(deleteCalls.map((call) => call.table)).toEqual(['table_holds', 'table_hold_members']);
+  });
+
+  it('never deletes members when the parent deletion fails', async () => {
+    const deleteCalls: DeleteCall[] = [];
+    const client = createClient({ deleteCalls, parentDeleteError: true });
+    await expect(releaseTableHold({ holdId: 'hold-1', client })).rejects.toBeInstanceOf(
+      HoldPersistenceError,
+    );
+    expect(deleteCalls).toEqual([{ table: 'table_holds' }]);
   });
 
   it('does NOT fall back when the RPC confirms deletion (returns true)', async () => {
