@@ -256,9 +256,25 @@ describe('hourly production deployment observation', () => {
     const result = objects.get(DEPLOYMENT_LATEST_KEY)!.value;
     expect(JSON.parse(result)).toMatchObject({
       ok: false,
-      failures: ['main_unavailable', 'github_token_revoke_failed'],
+      failures: ['invalid_main', 'github_token_revoke_failed'],
     });
     expect(result).not.toContain(token);
+  });
+  it('separates an unreadable main from a main that is not protected', async () => {
+    const { storage, objects } = bucket();
+    await runDeploymentObservation({
+      env: env(storage),
+      scheduledTime: NOW_MS,
+      now: () => NOW_MS,
+      fetcher: vi.fn<typeof fetch>(async (input, init) => {
+        if (String(input).endsWith('/branches/main')) return new Response(null, { status: 500 });
+        return network()(input, init);
+      }),
+    });
+    expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value)).toMatchObject({
+      expectedSha: null,
+      failures: ['main_unavailable'],
+    });
   });
   it('attributes an unusable dispatch configuration without any external call', async () => {
     const { storage, objects } = bucket();
