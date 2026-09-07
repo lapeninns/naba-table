@@ -37,6 +37,7 @@ const FAILURES = [
   'github_jwt_failed',
   'github_token_mint_failed',
   'github_token_absent',
+  'invalid_main',
   'invalid_token_scope',
   'github_observation_failed',
   'github_token_revoke_failed',
@@ -268,6 +269,7 @@ const OBSERVATION_FAILURES = new Map<string, Failure>([
   ['github_token_absent', 'github_token_absent'],
   ['invalid_token_scope', 'invalid_token_scope'],
   ['main_unavailable', 'main_unavailable'],
+  ['invalid_main', 'invalid_main'],
 ]);
 function observationFailure(error: unknown): Failure {
   return (
@@ -348,9 +350,15 @@ export async function runDeploymentObservation(input: {
     if (!token) throw new Error('github_token_absent');
     if (!validMintedScope(minted, now())) throw new Error('invalid_token_scope');
     // Only the first read is attributed here; a failed readback below stays generic so the two
-    // protected-main reads remain distinguishable.
-    evidence.expectedSha = await mainSha(fetcher, token).catch(() => {
-      throw new Error('main_unavailable');
+    // protected-main reads remain distinguishable. A transport or status failure is reported
+    // separately from a response that arrived but did not describe protected main, because the
+    // two have different causes and different fixes.
+    evidence.expectedSha = await mainSha(fetcher, token).catch((cause: unknown) => {
+      throw new Error(
+        cause instanceof Error && cause.message === 'invalid_main'
+          ? 'invalid_main'
+          : 'main_unavailable',
+      );
     });
     const result = await observePostDeployment({
       expectedRepository: REPOSITORY,
