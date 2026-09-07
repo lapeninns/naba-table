@@ -34,6 +34,9 @@ const FAILURES = [
   'http_error',
   'invalid_readiness',
   'revision_mismatch',
+  'github_jwt_failed',
+  'github_token_mint_failed',
+  'invalid_token_scope',
   'github_observation_failed',
   'github_token_revoke_failed',
 ] as const;
@@ -254,6 +257,24 @@ function validMintedScope(minted: unknown, nowMs: number): boolean {
   return true;
 }
 
+// Each observation step throws a fixed marker so a failed run records which step failed.
+// Only these enum values are stored: no error text, URL, header or credential reaches the evidence,
+// and anything unrecognised still falls back to the original generic reason.
+const OBSERVATION_FAILURES = new Map<string, Failure>([
+  ['invalid_config', 'invalid_config'],
+  ['github_jwt_failed', 'github_jwt_failed'],
+  ['github_token_mint_failed', 'github_token_mint_failed'],
+  ['missing_token', 'missing_token'],
+  ['invalid_token_scope', 'invalid_token_scope'],
+  ['main_unavailable', 'main_unavailable'],
+]);
+function observationFailure(error: unknown): Failure {
+  return (
+    (error instanceof Error ? OBSERVATION_FAILURES.get(error.message) : undefined) ??
+    'github_observation_failed'
+  );
+}
+
 export async function runDeploymentObservation(input: {
   env: OperationalControlEnv;
   scheduledTime: number;
@@ -304,6 +325,8 @@ export async function runDeploymentObservation(input: {
       appId: env.GITHUB_DISPATCH_APP_ID,
       privateKeyPem: env.GITHUB_DISPATCH_APP_PRIVATE_KEY,
       nowMs: now(),
+    }).catch(() => {
+      throw new Error('github_jwt_failed');
     });
     const minted = await githubRequest(
       fetcher,
@@ -314,12 +337,19 @@ export async function runDeploymentObservation(input: {
         repository_ids: [REPOSITORY_ID],
         permissions: { contents: 'read' },
       },
-    );
+    ).catch(() => {
+      throw new Error('github_token_mint_failed');
+    });
     // Capture the token before validating scope so even rejected credentials are revoked.
     if (isRecord(minted) && typeof minted.token === 'string' && minted.token.trim())
       token = minted.token;
-    if (!token || !validMintedScope(minted, now())) throw new Error('invalid_token_scope');
-    evidence.expectedSha = await mainSha(fetcher, token);
+    if (!token) throw new Error('missing_token');
+    if (!validMintedScope(minted, now())) throw new Error('invalid_token_scope');
+    // Only the first read is attributed here; a failed readback below stays generic so the two
+    // protected-main reads remain distinguishable.
+    evidence.expectedSha = await mainSha(fetcher, token).catch(() => {
+      throw new Error('main_unavailable');
+    });
     const result = await observePostDeployment({
       expectedRepository: REPOSITORY,
       expectedSha: evidence.expectedSha,
@@ -332,8 +362,8 @@ export async function runDeploymentObservation(input: {
     evidence.failures = result.failures.filter((failure) => failure !== 'ok');
     if ((await mainSha(fetcher, token)) !== evidence.expectedSha)
       evidence.failures.push('main_changed');
-  } catch {
-    evidence.failures.push('github_observation_failed');
+  } catch (error) {
+    evidence.failures.push(observationFailure(error));
   } finally {
     if (token) {
       try {

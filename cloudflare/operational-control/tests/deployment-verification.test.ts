@@ -7,6 +7,7 @@ import {
   runDeploymentObservation,
   writeDeploymentEvidence,
 } from '../src/deployment-verification';
+import { createAppJwt } from '../src/github';
 import worker, { handleRequest } from '../src/index';
 import { runScheduledCycle } from '../src/readiness';
 
@@ -238,7 +239,7 @@ describe('hourly production deployment observation', () => {
     expect(fetcher.mock.calls).toHaveLength(2);
     expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value)).toMatchObject({
       ok: false,
-      failures: ['github_observation_failed'],
+      failures: ['invalid_token_scope'],
     });
   });
   it('fails closed if branch is unprotected and records redacted revoke failures', async () => {
@@ -255,9 +256,80 @@ describe('hourly production deployment observation', () => {
     const result = objects.get(DEPLOYMENT_LATEST_KEY)!.value;
     expect(JSON.parse(result)).toMatchObject({
       ok: false,
-      failures: ['github_observation_failed', 'github_token_revoke_failed'],
+      failures: ['main_unavailable', 'github_token_revoke_failed'],
     });
     expect(result).not.toContain(token);
+  });
+  it('attributes an unusable dispatch configuration without any external call', async () => {
+    const { storage, objects } = bucket();
+    const fetcher = network();
+    await runDeploymentObservation({
+      env: { ...env(storage), GITHUB_DISPATCH_APP_ID: 'not-numeric' },
+      scheduledTime: NOW_MS,
+      now: () => NOW_MS,
+      fetcher,
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value)).toMatchObject({
+      ok: false,
+      expectedSha: null,
+      failures: ['invalid_config'],
+    });
+  });
+  it('attributes a JWT signing failure before the mint request', async () => {
+    const { storage, objects } = bucket();
+    const fetcher = network();
+    vi.mocked(createAppJwt).mockRejectedValueOnce(new Error('bad private key material'));
+    await runDeploymentObservation({
+      env: env(storage),
+      scheduledTime: NOW_MS,
+      now: () => NOW_MS,
+      fetcher,
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    const stored = objects.get(DEPLOYMENT_LATEST_KEY)!.value;
+    expect(JSON.parse(stored).failures).toEqual(['github_jwt_failed']);
+    // The thrown message must never reach stored evidence.
+    expect(stored).not.toContain('bad private key material');
+  });
+  it('attributes a mint response that carries no token, with nothing to revoke', async () => {
+    const { storage, objects } = bucket();
+    const fetcher = network({
+      mint: {
+        expires_at: new Date(NOW_MS + 3600000).toISOString(),
+        permissions: { contents: 'read', metadata: 'read' },
+        repositories: [{ id: 1105219228, full_name: 'lapeninns/nabatable' }],
+      },
+    });
+    await runDeploymentObservation({
+      env: env(storage),
+      scheduledTime: NOW_MS,
+      now: () => NOW_MS,
+      fetcher,
+    });
+    expect(fetcher.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
+    expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value).failures).toEqual([
+      'missing_token',
+    ]);
+  });
+  it('keeps the generic reason for a failed readback so the two main reads stay distinct', async () => {
+    const { storage, objects } = bucket();
+    let branchReads = 0;
+    const base = network();
+    const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+      if (String(input).endsWith('/branches/main') && ++branchReads === 2)
+        return new Response(null, { status: 500 });
+      return base(input, init);
+    });
+    await runDeploymentObservation({
+      env: env(storage),
+      scheduledTime: NOW_MS,
+      now: () => NOW_MS,
+      fetcher,
+    });
+    const stored = JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value);
+    expect(stored.expectedSha).toBe(sha);
+    expect(stored.failures).toEqual(['github_observation_failed']);
   });
 });
 
@@ -409,7 +481,7 @@ describe('bounded transport and current main', () => {
       await vi.advanceTimersByTimeAsync(5001);
       await pending;
       expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value).failures).toEqual([
-        'github_observation_failed',
+        'github_token_mint_failed',
       ]);
     } finally {
       vi.useRealTimers();
