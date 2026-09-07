@@ -37,9 +37,11 @@ authorized provider path, and has produced successful scheduled evidence within 
 Workers Free CPU limit. The operational-control Worker now has a protected-main Git-build connection with its monitoring
 secret. Its first successful build and authenticated readiness are recorded in
 [the current-state record](../ci/current-state.md); successful hourly observation remains a separate
-runtime qualification requirement. The first scheduled observation has now run and failed with the
-generic `github_observation_failed` reason before any target was probed, so that record is the
-current qualification blocker.
+runtime qualification requirement. The first scheduled observations failed before any target was
+probed. Per-step attribution identified the installation-token mint, and the cause was a shared
+engine that issued every request with a redirect mode the Workers runtime refuses, so no request
+could ever succeed there. Both are recorded in that page. Qualification still requires a successful
+scheduled observation and combined CPU evidence after the corrected engine is released.
 
 ### Production qualification and disabling the observer
 

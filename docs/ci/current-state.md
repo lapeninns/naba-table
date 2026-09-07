@@ -57,9 +57,26 @@ Each step now records a distinct redacted reason: `invalid_config`, `github_jwt_
 unrecognised throw still falls back to the generic reason. The last two are deliberately separate: a
 protected-main read that never completed has a different cause and a different fix from one that
 returned but did not describe protected main. Elapsed time in the failed evidence was about nineteen
-seconds, and because Cloudflare freezes the clock between I/O operations that is real network time,
-which is consistent with either. The attribution is not yet deployed, so the first observation after
-it reaches production is the one that names the failing step.
+seconds, and because Cloudflare freezes the clock between I/O operations that is real network time.
+
+That attribution deployed at **08:32 BST** as version `548542b4`. The **09:00 BST** observation named
+the step: `github_token_mint_failed`.
+
+The cause is a runtime incompatibility in the shared observation engine, confirmed by running the
+call in `workerd` rather than inferred. `requestPostDeployJson` issued every request with
+`redirect: 'error'`, which Cloudflare refuses outright: _"won't be implemented since it does not make
+sense at the edge; use `manual` and check the response status code"_. The refusal throws, and
+`requestPostDeployJson` catches everything and returns `null`, so **every** request through that
+engine failed in the Workers runtime. The installation-token mint is simply the first one, which is
+why no observation ever got further and why `expectedSha` was always null.
+
+Node's `fetch` accepts `redirect: 'error'`, and the tests run under Node with a mocked fetcher, so
+neither the suite nor the hosted script could ever have caught this. The engine works under Node and
+fails entirely under Workers.
+
+The fix sets `redirect: 'manual'` and refuses redirects by status instead. That fails closed on both
+runtimes and still never follows a `Location` header, which an existing test already pins. A test now
+asserts the option value so the Workers-incompatible one cannot return unnoticed.
 
 Retrieval behavior itself is correct and fails closed: unauthenticated requests return HTTP 401, and
 the failed observation is served as HTTP 503 with `status: failed` rather than as success. Normal
