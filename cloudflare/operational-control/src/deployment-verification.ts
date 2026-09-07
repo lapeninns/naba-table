@@ -36,6 +36,7 @@ const FAILURES = [
   'revision_mismatch',
   'github_jwt_failed',
   'github_token_mint_failed',
+  'github_token_absent',
   'invalid_token_scope',
   'github_observation_failed',
   'github_token_revoke_failed',
@@ -264,7 +265,7 @@ const OBSERVATION_FAILURES = new Map<string, Failure>([
   ['invalid_config', 'invalid_config'],
   ['github_jwt_failed', 'github_jwt_failed'],
   ['github_token_mint_failed', 'github_token_mint_failed'],
-  ['missing_token', 'missing_token'],
+  ['github_token_absent', 'github_token_absent'],
   ['invalid_token_scope', 'invalid_token_scope'],
   ['main_unavailable', 'main_unavailable'],
 ]);
@@ -343,7 +344,8 @@ export async function runDeploymentObservation(input: {
     // Capture the token before validating scope so even rejected credentials are revoked.
     if (isRecord(minted) && typeof minted.token === 'string' && minted.token.trim())
       token = minted.token;
-    if (!token) throw new Error('missing_token');
+    // Distinct from the shared missing_token diagnostic, which reports an absent monitoring token.
+    if (!token) throw new Error('github_token_absent');
     if (!validMintedScope(minted, now())) throw new Error('invalid_token_scope');
     // Only the first read is attributed here; a failed readback below stays generic so the two
     // protected-main reads remain distinguishable.
