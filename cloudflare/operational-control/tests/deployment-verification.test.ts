@@ -116,6 +116,71 @@ describe('hourly production deployment observation', () => {
     });
     expect(fetcher).not.toHaveBeenCalled();
   });
+  it.each([2000, 59999])(
+    'observes the hourly UTC minute with a %ims delivery offset',
+    async (offset) => {
+      const { storage, objects } = bucket();
+      const scheduledTime = NOW_MS + offset;
+      const fetcher = network();
+      await runDeploymentObservation({
+        env: env(storage),
+        scheduledTime,
+        now: () => scheduledTime,
+        fetcher,
+      });
+      expect(fetcher).toHaveBeenCalled();
+      expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value)).toMatchObject({
+        ok: true,
+        scheduledAt: new Date(scheduledTime).toISOString(),
+      });
+    },
+  );
+  it('uses the scheduled minute for a delivery delayed into minute 05', async () => {
+    const { storage, objects } = bucket();
+    const scheduledTime = NOW_MS + 2000;
+    const observedTime = scheduledTime + 300000;
+    await runDeploymentObservation({
+      env: env(storage),
+      scheduledTime,
+      now: () => observedTime,
+      fetcher: network(),
+    });
+    expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value)).toMatchObject({
+      ok: true,
+      scheduledAt: new Date(scheduledTime).toISOString(),
+      observedAt: new Date(observedTime).toISOString(),
+    });
+  });
+  it.each([60000, 300000, -1000])(
+    'skips outside UTC minute 00 at an offset of %ims',
+    async (offset) => {
+      const { storage, objects } = bucket();
+      const fetcher = network();
+      await runDeploymentObservation({
+        env: env(storage),
+        scheduledTime: NOW_MS + offset,
+        now: () => NOW_MS,
+        fetcher,
+      });
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(objects.size).toBe(0);
+    },
+  );
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'skips nonfinite scheduled time %s',
+    async (scheduledTime) => {
+      const { storage, objects } = bucket();
+      const fetcher = network();
+      await runDeploymentObservation({
+        env: env(storage),
+        scheduledTime,
+        now: () => NOW_MS,
+        fetcher,
+      });
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(objects.size).toBe(0);
+    },
+  );
   it('mints only contents read for the sole repository, checks main twice and revokes', async () => {
     const { storage, objects } = bucket();
     const fetcher = network();

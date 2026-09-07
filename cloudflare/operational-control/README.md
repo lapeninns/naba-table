@@ -40,7 +40,9 @@ The full schema is in [`openapi.yaml`](./openapi.yaml).
 ### Optional hourly deployment observation
 
 `POST_DEPLOY_OBSERVER_ENABLED=true` and `DEPLOYMENT_ENVIRONMENT=production` enable an independent
-observation at the exact hourly slot of the existing five-minute cron. The production configuration is explicitly enabled for qualification; staging stays disabled.
+observation when the existing five-minute cron's scheduled timestamp falls in UTC minute `00`.
+Eligibility ignores seconds and milliseconds because the provider does not guarantee an exact
+second-zero timestamp; evidence preserves the original scheduled timestamp. The production configuration is explicitly enabled for qualification; staging stays disabled.
 Missing enablement or a non-production environment disables the observer. It probes the four fixed production customer services against one protected-main
 SHA, rechecks main, and stores redacted results under `post-deploy/v1/` in the existing evidence
 bucket. The dedicated GitHub installation token grants only repository-scoped contents read and
