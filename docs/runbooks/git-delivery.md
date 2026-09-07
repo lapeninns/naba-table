@@ -35,7 +35,9 @@ There is no new heartbeat or incident mutation.
 Do not call this alternative commissioned until its code is reviewed, deployed through an
 authorized provider path, and has produced successful scheduled evidence within the existing
 Workers Free CPU limit. The operational-control Worker now has a protected-main Git-build connection with its monitoring
-secret, but its first successful build and observation remain commissioning requirements.
+secret. Its first successful build and authenticated readiness are recorded in
+[the current-state record](../ci/current-state.md); successful hourly observation remains a separate
+runtime qualification requirement.
 
 ### Production qualification and disabling the observer
 
@@ -123,13 +125,17 @@ semantics and is not substituted for strict deployment acceptance.
    runtime binding. Never replace the existing deploy command blindly: the booking wrapper
    also applies D1 migrations. The Vercel explicit `NABATABLE_SOURCE_REVISION`, if set, must not
    shadow the correct `VERCEL_GIT_COMMIT_SHA` with a stale value.
-7. Resolve any provider deployment failures, then dispatch `Git deployment verification` from
-   main. Inspect its redacted artifact and establish a successful observation of all four
-   current source identities. Confirm one automatic main-push run and a later scheduled
-   run before moving the workflow into the operating table in `docs/ci/current-state.md`.
+7. Resolve provider deployment failures and verify actual served revisions. For the Cloudflare
+   observer, wait for a real UTC minute-`00` invocation, inspect authenticated cached evidence
+   and runtime metrics, and apply the qualification criteria above before moving it into the
+   operating table in `docs/ci/current-state.md`. This observer is hourly; it does not run on
+   every push. For a separately authorized hosted executor, dispatch `Git deployment verification`
+   from main and establish one automatic main-push run and a later scheduled run. Inspect its
+   redacted artifact and require all four current source identities.
 
 The owner explicitly declined heartbeat implementation. No external heartbeat is emitted by
-this workflow. Review failures in Actions; there is no newly commissioned out-of-band alert.
+either executor. Inspect authenticated cached evidence for the Cloudflare observer, or Actions
+for a separately enabled hosted executor; there is no newly commissioned out-of-band alert.
 Do not add this post-deployment job as a required PR check: it runs after the production release.
 
 ## Review, recovery and rollback
