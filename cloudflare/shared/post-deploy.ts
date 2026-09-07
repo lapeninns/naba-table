@@ -59,7 +59,12 @@ export async function requestPostDeployJson(
       (async () => {
         const response = await fetcher(url, {
           method: 'GET',
-          redirect: 'error',
+          // Cloudflare Workers refuses redirect: 'error' outright ("won't be implemented since it
+          // does not make sense at the edge; use \"manual\" and check the response status code")
+          // and that refusal throws on every request, which made this engine fail for all callers
+          // in the Workers runtime while still working under Node. Redirects are refused below by
+          // status instead, so both runtimes fail closed and neither follows a Location header.
+          redirect: 'manual',
           cache: 'no-store',
           signal: controller.signal,
           headers: {
@@ -70,8 +75,10 @@ export async function requestPostDeployJson(
             'x-github-api-version': '2022-11-28',
           },
         });
-        if (response.status !== 200 || response.redirected)
-          return { status: response.redirected ? 302 : response.status, body: null };
+        const redirected =
+          response.redirected || (response.status >= 300 && response.status < 400);
+        if (response.status !== 200 || redirected)
+          return { status: redirected ? 302 : response.status, body: null };
         const length = response.headers.get('content-length');
         if (length !== null && (!/^\d+$/u.test(length) || Number(length) > MAX_RESPONSE_BYTES)) {
           controller.abort();

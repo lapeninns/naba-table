@@ -94,7 +94,8 @@ describe('post-deployment verification', () => {
   it('uses bounded GET without redirects or cache and ignores base URL overrides', async () => {
     const inner = fixture();
     const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
-      expect(init).toMatchObject({ method: 'GET', redirect: 'error', cache: 'no-store' });
+      // Must stay 'manual': the Workers runtime rejects 'error' and throws on every request.
+      expect(init).toMatchObject({ method: 'GET', redirect: 'manual', cache: 'no-store' });
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       expect(url).not.toContain('evil.example');
       return inner();
