@@ -78,6 +78,51 @@ The fix sets `redirect: 'manual'` and refuses redirects by status instead. That 
 runtimes and still never follows a `Location` header, which an existing test already pins. A test now
 asserts the option value so the Workers-incompatible one cannot return unnoticed.
 
+### First successful scheduled observation
+
+The corrected engine deployed at **11:28 BST** as version `53816da1`. Two hourly observations have
+run on it.
+
+| Scheduled (BST) | Result | Detail                                                               |
+| --------------- | ------ | -------------------------------------------------------------------- |
+| 12:00:31        | failed | `email-queue-gateway` returned `invalid_readiness`; other three `ok` |
+| 13:00:31        | **ok** | All four targets `ok` on `f35e243c`, no failures                     |
+
+The 13:00 run is the first successful scheduled observation. `expectedSha` matched `f35e243c` and
+every target reported that same revision, so an independent executor has now confirmed the web app
+and all three customer Workers serve current protected main.
+
+The 12:00 `email-queue-gateway` failure was transient, not a schema or naming defect. That target's
+`observedSha` was already correct, and its own authenticated readiness at 12:02 BST reported
+`status: ok` with both `email-queue-state` and `capacity-version-state` healthy, which satisfies
+every validator rule. It recovered without intervention by the next run.
+
+**The observer probes each target once, with no retry.** The hosted executor it replaces makes up to
+six observations with 30-second waits after transient failures. With four independent targets probed
+once an hour, a single momentary failure in any one of them fails the whole hourly observation and
+the next attempt is an hour away. Occasional red runs should therefore be expected even when the
+platform is healthy. Adding retries costs CPU inside the same invocation, which is in direct tension
+with the measurement below, so this is a deliberate open decision rather than an oversight.
+
+### Measured CPU
+
+Measured from `wrangler tail --format json` against version `53816da1`, reading `cpuTime` per
+invocation:
+
+| Invocation                       | CPU   | Wall    | Outcome | Exceptions |
+| -------------------------------- | ----- | ------- | ------- | ---------- |
+| Routine five-minute cron (12:55) | 8 ms  | 2632 ms | `ok`    | 0          |
+| Hourly observation (13:00)       | 28 ms | 3416 ms | `ok`    | 0          |
+
+The observer adds roughly 20 ms of CPU on top of the legacy cycle's 8 ms baseline.
+
+**This contradicts the Workers Free limit assumed elsewhere on this page.** A 28 ms invocation
+completed with outcome `ok` and no exceptions rather than being terminated, so the documented 10 ms
+per-invocation ceiling did not apply to this scheduled invocation. Do not treat either figure as
+settled: confirm the actual enforced limit for scheduled handlers on this account before using a CPU
+number as a commissioning gate in either direction. The measurements above are reproducible; the
+policy behind them is not yet established.
+
 Retrieval behavior itself is correct and fails closed: unauthenticated requests return HTTP 401, and
 the failed observation is served as HTTP 503 with `status: failed` rather than as success. Normal
 five-minute invocations on the new version are successful; the hourly combined CPU cost remains a
@@ -100,9 +145,10 @@ credentials must not move onto the shared PR runner.
 An hourly observer in the existing operational-control Worker is being qualified as the
 independent executor. The reviewed production configuration explicitly enables it for a controlled
 qualification release; staging remains disabled. Deployment and authenticated readiness are verified.
-It is not yet commissioned. The first scheduled observation ran and failed on the GitHub side, so a
-successful observation, token-mint and revocation behavior, and combined CPU-limit evidence all
-remain required. The generic failure reason must be narrowed before that cause can be fixed. See the [Git delivery runbook](../runbooks/git-delivery.md).
+It has now produced a successful scheduled observation of all four targets, and token mint,
+revocation and CPU are all exercised and measured. It is still not declared commissioned here: the
+enforced CPU limit for scheduled handlers on this account is not established, and the single-shot
+probing described above makes occasional transient failures expected. Both are owner decisions. See the [Git delivery runbook](../runbooks/git-delivery.md).
 Live cron analytics show scheduled timestamps with a two-second offset. Hourly eligibility therefore
 uses UTC minute `00`, without assuming zero seconds or milliseconds; evidence retains the original
 scheduled timestamp. Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
@@ -181,18 +227,18 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 
 ## What is not operating
 
-| Capability                    | State             | Why                                                                           |
-| ----------------------------- | ----------------- | ----------------------------------------------------------------------------- |
-| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured               |
-| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`                 |
-| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                           |
-| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets                    |
-| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                        |
-| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                           |
-| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                                     |
-| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A         |
-| Git deployment verification   | Prepared          | Hosted opt-in disabled; Cloudflare observer ran and failed on the GitHub step |
-| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                        |
+| Capability                    | State             | Why                                                                             |
+| ----------------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured                 |
+| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`                   |
+| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                             |
+| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets                      |
+| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                          |
+| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                             |
+| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                                       |
+| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A           |
+| Git deployment verification   | Prepared          | Hosted opt-in disabled; Cloudflare observer now observing, not yet commissioned |
+| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                          |
 
 **No independent backup of this database has ever been taken, and no restore has ever been timed.**
 

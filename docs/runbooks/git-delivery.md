@@ -40,8 +40,14 @@ secret. Its first successful build and authenticated readiness are recorded in
 runtime qualification requirement. The first scheduled observations failed before any target was
 probed. Per-step attribution identified the installation-token mint, and the cause was a shared
 engine that issued every request with a redirect mode the Workers runtime refuses, so no request
-could ever succeed there. Both are recorded in that page. Qualification still requires a successful
-scheduled observation and combined CPU evidence after the corrected engine is released.
+could ever succeed there. After that correction the observer produced a fully successful scheduled
+observation of all four targets, and CPU was measured directly. All of this is recorded in that page.
+
+Two questions remain open before commissioning, and both are owner decisions rather than defects.
+The enforced CPU limit for scheduled handlers on this account is not established: an invocation
+measured at 28 ms completed normally, which the documented 10 ms ceiling would not allow. The
+observer also probes each target once with no retry, unlike the hosted executor's six bounded
+attempts, so a single transient failure fails that hour's observation.
 
 ### Production qualification and disabling the observer
 
