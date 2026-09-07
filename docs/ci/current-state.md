@@ -2,36 +2,46 @@
 
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This
 page records what is actually running, verified against the GitHub API and this repository on
-**2026-09-07** (latest deployment readback approximately **01:39 BST**). Where the two disagree, this page is correct.
+**2026-09-07** (latest deployment readback approximately **02:32 BST**). Where the two disagree, this page is correct.
 
 ## Latest Option A release
 
-PR #147 was rebase-merged at **01:24:51 BST** after all seven required checks passed on
-`83afe56cfafbc2cc8e45f81e78867abd4dcffc80`. The resulting main commit is
-`e29625c41b468d25c065aa50e3b0a3c543c25bab`; its Git tree exactly matches the tested PR tree.
-The active ruleset still requires the same seven checks and has no bypass actors.
-The authorized `amanshresthaa` review is explicitly agent-performed technical review, not
-independent human approval.
+PR #148 was rebase-merged at **02:06:38 BST** after all seven required checks passed on
+`c600bcfe34316e9699fdbbdfbdd2870b38ddc3f6`. The resulting main commit is
+`983a27eb48c65d9cb7f612cfe4f274011ce5b527`; its Git tree exactly matches the tested PR tree
+(`a57279aad13c66f27fe9b255118f1f77a7d16bfb`). The active ruleset still requires the same seven
+checks and has no bypass actors. The authorized `amanshresthaa` reviews of PRs #147 and #148
+are explicitly agent-performed technical reviews, not independent human approval.
 
-Vercel production deployment `dpl_AeAqNDNC453oQvbgvP8EJGrSJYrA` is assigned to
+Vercel production deployment `dpl_GA2D8v4cSaQXNhJRNFhyN7MWoQ9f` is READY and assigned to
 `app.nabatable.com`. Its actual commit author is the existing confirmed owner, `lapeninns`.
-Authenticated readiness confirms the web and all three customer Workers serve `e29625c4...`,
-with their complete expected dependency inventories healthy and protected main unchanged
-before and after the probes. Their three Cloudflare Builds succeeded. No additional Vercel
-seat or paid Actions capacity was enabled. Future commits authored as `amanshresthaa` still
-have the separate, unconfirmed Vercel membership limitation described below.
+Authenticated readiness at **02:14:18 BST** confirmed the web and all three customer Workers
+serve `983a27eb...`, with their complete expected dependency inventories healthy and protected
+main unchanged before and after the probes. No additional Vercel seat or paid Actions capacity
+was enabled. Future commits authored as `amanshresthaa` still have the separate, unconfirmed
+Vercel membership limitation described below.
 
-Operational-control did not deploy: its first Git build and one exact-commit retry failed
-before upload at the existing oversized-evidence coverage test (7,849 ms and 6,511 ms against
-the unchanged 5,000 ms timeout). The previously deployed version
-`da8733c9-3941-4456-afee-7a03403fefbe`, source
-`db55a4d2351d5bcae29182ffae6f367359f32a0a`, remains healthy. Local profiling identified the
-email regex's failed search over a 64 KiB no-`@` string as the expensive operation. The reviewed
-follow-up skips only that impossible match, retaining bearer/email/phone order, regexes,
-the oversized fixture, size limit and timeout. Local profiling dropped from about 2,061 ms
-to 0.031 ms for that case; this is not a general linear-time or production CPU guarantee.
-The corrected provider build, first real hourly observation and runtime CPU evidence remain
-required before commissioning. There is no further retry of the unchanged failed build planned.
+All four Cloudflare Builds succeeded on the resulting main revision:
+
+| Worker              | Build ID                               | Completed (BST) |
+| ------------------- | -------------------------------------- | --------------- |
+| SMS summary         | `5d301da2-7793-4224-9301-0ee63e437706` | 02:08:40        |
+| Email queue         | `6be5e2c7-e366-4117-af06-65cced683ac4` | 02:10:14        |
+| Booking links       | `4fe4f631-f38f-4cbc-8c62-b37bf76243a7` | 02:11:55        |
+| Operational control | `c0674d3c-7185-4f4e-8749-290f23bfb965` | 02:13:52        |
+
+Operational-control version `757b0658-5bfb-42c7-bc1d-ad9b7a4f89ec` serves 100% of traffic and
+reports the same source revision. Its configuration, coordinator and evidence bucket checks
+passed. All four Workers retained their pre-release secret-binding name inventories.
+PR #148 resolved the two earlier pre-upload test failures by skipping the email regex only
+when the bearer-scrubbed string contains no `@`; regexes, filtering order, the 64 KiB oversized
+fixture, size limit and five-second timeout remain unchanged. This is not a general linear-time
+or production CPU guarantee.
+
+The observer is deployed and enabled, but its first real hourly execution remains pending.
+Unauthenticated evidence retrieval returned HTTP 401; authenticated retrieval returned HTTP 503
+with `status: unavailable` before any scheduled evidence existed. Normal five-minute invocations
+on the new version are successful; the hourly combined CPU cost remains a qualification criterion.
 
 Update this page whenever a row moves between tables.
 
@@ -49,8 +59,9 @@ credentials must not move onto the shared PR runner.
 
 An hourly observer in the existing operational-control Worker is being qualified as the
 independent executor. The reviewed production configuration explicitly enables it for a controlled
-qualification release; staging remains disabled. It is not yet commissioned: provider deployment,
-real token-response compatibility, CPU-limit evidence and successful hourly evidence are still required. See the [Git delivery runbook](../runbooks/git-delivery.md).
+qualification release; staging remains disabled. Deployment and authenticated readiness are verified.
+It is not yet commissioned: the first real hourly observation, token-mint/revocation behavior and
+combined CPU-limit evidence remain required. See the [Git delivery runbook](../runbooks/git-delivery.md).
 Live cron analytics show scheduled timestamps with a two-second offset. Hourly eligibility therefore
 uses UTC minute `00`, without assuming zero seconds or milliseconds; evidence retains the original
 scheduled timestamp. Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
@@ -60,7 +71,7 @@ scheduled timestamp. Observation cannot stop a deployment, make multi-provider r
 **Vercel's Git integration attempts production deployment on every push to `main`.** GitHub deployment
 records show `vercel[bot]` creating `Production` deployments for recent `main` commits, including the
 two `[skip ci]` commits that carried no CI evidence at all. Cloudflare Workers Builds deploys the
-three customer-facing Workers on push.
+three customer-facing Workers and operational-control from protected main on push.
 
 Neither provider path consults the inactive release gate, a deployment approval, a staging soak,
 or a smoke test. The existing main ruleset is the pre-merge control for option A.
@@ -90,8 +101,8 @@ checks for all four customer services using the existing matching token. The web
 `0e9ada467e4449a9a4b5f7ac0ce534c4606a32cf`, while all three Workers served
 `b2f1611442456f4167f4c9e7cf1b63cb5b9e8cfe`. This is a source mismatch, not a verified current-main release.
 PR #147's actual `lapeninns`-authored head received a READY Vercel preview, supporting a legitimate
-owner rebase merge without purchasing an additional Vercel seat. Production remains unverified
-until the resulting Git build and authenticated served revision pass.
+owner rebase merge without purchasing an additional Vercel seat. That preview did not establish production liveness; the subsequent production release and
+authenticated readback are recorded above.
 
 At approximately 00:11 BST on 2026-09-07, owner-dashboard readback confirmed all three customer
 Workers build `lapeninns/nabatable` from `main`, root `/`, include path `*`, no exclusions, and
@@ -101,7 +112,7 @@ correct production URL. Existing build secrets supply `MONITORING_TOKEN`; no com
 were changed. Operational-control was subsequently connected through the Builds API to the same protected-main,
 all-path repository source (trigger `7ae8d730-6c18-4325-988b-db83a47ac4b2`), with its package verification,
 separation check, revision-aware deploy command and encrypted monitoring build secret. This is
-configuration evidence; it still serves the preceding manual Wrangler release until a build succeeds. The existing Cloudflare account is on Workers Free (10 ms CPU per invocation);
+configuration evidence; the later successful Git build and served revision are recorded above. The existing Cloudflare account is on Workers Free (10 ms CPU per invocation);
 low request usage alone does not establish that the new observer fits that limit.
 
 The dispatch App `4841783` installation `159307594` was granted the required read-only contents
@@ -116,16 +127,16 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 
 ## What is operating
 
-| Capability                  | State      | Notes                                                                                 |
-| --------------------------- | ---------- | ------------------------------------------------------------------------------------- |
-| PR and `main` test lanes    | ✅ live    | Self-hosted `nabatable` runner; 7 checks, ~0 hosted Actions minutes                   |
-| `main` branch protection    | ✅ live    | Ruleset: PR required, linear history, no force-push, no deletion, 7 checks            |
-| CI contract validation      | ✅ live    | `pnpm ci:contracts:validate` runs inside `Security guards`                            |
-| Secret scanning             | ✅ live    | gitleaks + trufflehog, SHA-256 pinned, architecture-aware                             |
-| Local runner crash recovery | ✅ live    | launchd supervisor restarts the VM and the agent                                      |
-| Vercel production deploy    | ✅ live    | Owner-authored production release and alias/readiness verified — see latest release   |
-| Cloudflare customer deploys | ✅ live    | Three sanctioned main Builds and authenticated source convergence verified            |
-| Operational-control deploy  | ⚠️ blocked | Git build stopped at oversized-evidence test; reviewed performance correction pending |
+| Capability                  | State   | Notes                                                                               |
+| --------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| PR and `main` test lanes    | ✅ live | Self-hosted `nabatable` runner; 7 checks, ~0 hosted Actions minutes                 |
+| `main` branch protection    | ✅ live | Ruleset: PR required, linear history, no force-push, no deletion, 7 checks          |
+| CI contract validation      | ✅ live | `pnpm ci:contracts:validate` runs inside `Security guards`                          |
+| Secret scanning             | ✅ live | gitleaks + trufflehog, SHA-256 pinned, architecture-aware                           |
+| Local runner crash recovery | ✅ live | launchd supervisor restarts the VM and the agent                                    |
+| Vercel production deploy    | ✅ live | Owner-authored production release and alias/readiness verified — see latest release |
+| Cloudflare customer deploys | ✅ live | Three sanctioned main Builds and authenticated source convergence verified          |
+| Operational-control deploy  | ✅ live | Protected-main Git build and authenticated source/configuration checks passed       |
 
 ## What is not operating
 
