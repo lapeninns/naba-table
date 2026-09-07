@@ -38,10 +38,23 @@ when the bearer-scrubbed string contains no `@`; regexes, filtering order, the 6
 fixture, size limit and five-second timeout remain unchanged. This is not a general linear-time
 or production CPU guarantee.
 
-The observer is deployed and enabled, but its first real hourly execution remains pending.
-Unauthenticated evidence retrieval returned HTTP 401; authenticated retrieval returned HTTP 503
-with `status: unavailable` before any scheduled evidence existed. Normal five-minute invocations
-on the new version are successful; the hourly combined CPU cost remains a qualification criterion.
+The observer is deployed and enabled, and it has now executed. Authenticated retrieval at
+**05:52 BST** returned the scheduled observation for `04:00:51Z`, so hourly eligibility against the
+five-minute cron fires correctly. That observation **failed**: `ok` is false with the single failure
+`github_observation_failed`, and `expectedSha` is `null`.
+
+Because `expectedSha` is null, the run aborted on the GitHub side before any target was probed. The
+four `request_failed` target entries in that evidence are the initialized placeholder values, not
+four real probe results; they are not evidence that the web app or any Worker was unavailable.
+`runDeploymentObservation` wraps configuration validation, JWT creation, token mint, minted-scope
+validation and the protected-main read in one `catch` that records a single generic reason, so the
+stored evidence cannot distinguish which of those five steps failed. Identifying the cause needs
+either the Worker's runtime logs or a change that records a specific redacted reason.
+
+Retrieval behavior itself is correct and fails closed: unauthenticated requests return HTTP 401, and
+the failed observation is served as HTTP 503 with `status: failed` rather than as success. Normal
+five-minute invocations on the new version are successful; the hourly combined CPU cost remains a
+separate qualification criterion.
 
 Update this page whenever a row moves between tables.
 
@@ -60,8 +73,9 @@ credentials must not move onto the shared PR runner.
 An hourly observer in the existing operational-control Worker is being qualified as the
 independent executor. The reviewed production configuration explicitly enables it for a controlled
 qualification release; staging remains disabled. Deployment and authenticated readiness are verified.
-It is not yet commissioned: the first real hourly observation, token-mint/revocation behavior and
-combined CPU-limit evidence remain required. See the [Git delivery runbook](../runbooks/git-delivery.md).
+It is not yet commissioned. The first scheduled observation ran and failed on the GitHub side, so a
+successful observation, token-mint and revocation behavior, and combined CPU-limit evidence all
+remain required. The generic failure reason must be narrowed before that cause can be fixed. See the [Git delivery runbook](../runbooks/git-delivery.md).
 Live cron analytics show scheduled timestamps with a two-second offset. Hourly eligibility therefore
 uses UTC minute `00`, without assuming zero seconds or milliseconds; evidence retains the original
 scheduled timestamp. Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
@@ -140,18 +154,18 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 
 ## What is not operating
 
-| Capability                    | State             | Why                                                                     |
-| ----------------------------- | ----------------- | ----------------------------------------------------------------------- |
-| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured         |
-| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`           |
-| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                     |
-| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets              |
-| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                  |
-| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                     |
-| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                               |
-| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A   |
-| Git deployment verification   | Prepared          | Hosted version opt-in disabled; Cloudflare observer under qualification |
-| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                  |
+| Capability                    | State             | Why                                                                           |
+| ----------------------------- | ----------------- | ----------------------------------------------------------------------------- |
+| `Protected delivery`          | ❌ never ran      | `ubuntu-latest` + exhausted minutes; 0 of 21 secrets configured               |
+| `Release gate`                | ❌ never ran      | `ubuntu-latest`; also `allowedImageDigests` is a `REPLACE_ME`                 |
+| CodeQL                        | ❌ never ran      | `ubuntu-latest` + exhausted minutes                                           |
+| Hourly operational verifier   | ❌ never ran      | `ubuntu-latest`; `Monitoring` environment holds no secrets                    |
+| Database backup (12-hourly)   | ❌ never ran      | `ubuntu-latest`; `Backup` environment holds no secrets                        |
+| Restore drill                 | ❌ never ran      | Also blocked by a placeholder backup bucket (below)                           |
+| DAST                          | ❌ never ran      | `ubuntu-latest`; `DAST_*` variables unset                                     |
+| External alerting / heartbeat | Deferred by owner | Explicitly skipped on 2026-09-06; no heartbeat activation in option A         |
+| Git deployment verification   | Prepared          | Hosted opt-in disabled; Cloudflare observer ran and failed on the GitHub step |
+| Local-first CI controller     | ❌ not built      | Superseded in practice by the stock self-hosted runner                        |
 
 **No independent backup of this database has ever been taken, and no restore has ever been timed.**
 
