@@ -309,7 +309,7 @@ describe('hourly production deployment observation', () => {
     });
     expect(fetcher.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false);
     expect(JSON.parse(objects.get(DEPLOYMENT_LATEST_KEY)!.value).failures).toEqual([
-      'missing_token',
+      'github_token_absent',
     ]);
   });
   it('keeps the generic reason for a failed readback so the two main reads stay distinct', async () => {
