@@ -4,10 +4,12 @@ const SENSITIVE_KEY_PATTERN =
   /authorization|cookie|email|phone|recipient|password|secret|token|api[-_]?key/iu;
 
 function scrubString(value: string): string {
-  return value
-    .replace(/Bearer\s+[^\s]+/giu, 'Bearer [REDACTED]')
-    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/gu, '[REDACTED]')
-    .replace(/\+?\d[\d\s().-]{8,}\d/gu, '[REDACTED]');
+  const bearerScrubbed = value.replace(/Bearer\s+[^\s]+/giu, 'Bearer [REDACTED]');
+  // The email pattern cannot match without ASCII @; skip its expensive failed search.
+  const emailScrubbed = bearerScrubbed.includes('@')
+    ? bearerScrubbed.replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/gu, '[REDACTED]')
+    : bearerScrubbed;
+  return emailScrubbed.replace(/\+?\d[\d\s().-]{8,}\d/gu, '[REDACTED]');
 }
 
 function redactValue(value: unknown, key = ''): unknown {

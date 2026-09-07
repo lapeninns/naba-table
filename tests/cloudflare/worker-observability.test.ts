@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { resolveWorkerActorContext } from '@/cloudflare/shared/error-context';
 import {
   buildErrorInsightRequest,
   observeWorkerRequest,
   redactLogFields,
 } from '@/cloudflare/shared/observability';
-import { resolveWorkerActorContext } from '@/cloudflare/shared/error-context';
 import { buildPostHogCaptureRequest, capturePostHogEvent } from '@/cloudflare/shared/posthog';
 
 describe('Cloudflare Worker observability', () => {
@@ -95,6 +95,42 @@ describe('Cloudflare Worker observability', () => {
       authorization: '[REDACTED]',
       customer: { email: '[REDACTED]', phone: '[REDACTED]' },
     });
+  });
+
+  it.each([
+    ['Contact guest@example.com today', 'Contact [REDACTED] today'],
+    [
+      'first+booking@example.com and second.person+offer@sub.example.org',
+      '[REDACTED] and [REDACTED]',
+    ],
+    ['Bearer token+guest@example.com outside@example.org', 'Bearer [REDACTED] [REDACTED]'],
+    ['Call +44 (7700) 900123 today', 'Call [REDACTED] today'],
+    ['guest＠example.com', 'guest＠example.com'],
+  ])('preserves string redaction semantics for %s', (input, expected) => {
+    expect(redactLogFields({ message: input })).toEqual({ message: expected });
+  });
+
+  it('keeps sensitive keys and nested arrays redacted without an email marker', () => {
+    expect(
+      redactLogFields({
+        details: [
+          { message: 'Call +447700900123', nested: { api_key: 'test-private-value', count: 2 } },
+        ],
+        authorization: 'Bearer test-private-value',
+        password: 'test-private-value',
+        plain: null,
+      }),
+    ).toEqual({
+      details: [{ message: 'Call [REDACTED]', nested: { api_key: '[REDACTED]', count: 2 } }],
+      authorization: '[REDACTED]',
+      password: '[REDACTED]',
+      plain: null,
+    });
+  });
+
+  it('preserves a 64 KiB string with no email marker', () => {
+    const value = 'x'.repeat(64 * 1024);
+    expect(redactLogFields({ payload: value })).toEqual({ payload: value });
   });
 
   it('propagates trace context and emits a structured completion record', async () => {

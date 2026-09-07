@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Skip impossible email-pattern matches when Worker evidence strings contain no ASCII `@`, preserving redaction behavior and the existing oversized-evidence size limit and test timeout.
+
 - Confirm unbound table holds atomically while retaining conflict locks and restoring the lease on failure. Show Google Business drift and dual-sync controls only for a linked account and location; preserve consumed OAuth states in regression coverage without rewriting applied migration history.
 
 - Qualify the review scheduler hash function and persist booking-completion scheduling jobs with fenced retries, truthful cron failures and review-email deduplication. Add tenant-scoped historical recovery without automatic backfill.

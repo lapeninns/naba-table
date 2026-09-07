@@ -2,7 +2,36 @@
 
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This
 page records what is actually running, verified against the GitHub API and this repository on
-**2026-09-07**. Where the two disagree, this page is correct.
+**2026-09-07** (latest deployment readback approximately **01:39 BST**). Where the two disagree, this page is correct.
+
+## Latest Option A release
+
+PR #147 was rebase-merged at **01:24:51 BST** after all seven required checks passed on
+`83afe56cfafbc2cc8e45f81e78867abd4dcffc80`. The resulting main commit is
+`e29625c41b468d25c065aa50e3b0a3c543c25bab`; its Git tree exactly matches the tested PR tree.
+The active ruleset still requires the same seven checks and has no bypass actors.
+The authorized `amanshresthaa` review is explicitly agent-performed technical review, not
+independent human approval.
+
+Vercel production deployment `dpl_AeAqNDNC453oQvbgvP8EJGrSJYrA` is assigned to
+`app.nabatable.com`. Its actual commit author is the existing confirmed owner, `lapeninns`.
+Authenticated readiness confirms the web and all three customer Workers serve `e29625c4...`,
+with their complete expected dependency inventories healthy and protected main unchanged
+before and after the probes. Their three Cloudflare Builds succeeded. No additional Vercel
+seat or paid Actions capacity was enabled. Future commits authored as `amanshresthaa` still
+have the separate, unconfirmed Vercel membership limitation described below.
+
+Operational-control did not deploy: its first Git build and one exact-commit retry failed
+before upload at the existing oversized-evidence coverage test (7,849 ms and 6,511 ms against
+the unchanged 5,000 ms timeout). The previously deployed version
+`da8733c9-3941-4456-afee-7a03403fefbe`, source
+`db55a4d2351d5bcae29182ffae6f367359f32a0a`, remains healthy. Local profiling identified the
+email regex's failed search over a 64 KiB no-`@` string as the expensive operation. The reviewed
+follow-up skips only that impossible match, retaining bearer/email/phone order, regexes,
+the oversized fixture, size limit and timeout. Local profiling dropped from about 2,061 ms
+to 0.031 ms for that case; this is not a general linear-time or production CPU guarantee.
+The corrected provider build, first real hourly observation and runtime CPU evidence remain
+required before commissioning. There is no further retry of the unchanged failed build planned.
 
 Update this page whenever a row moves between tables.
 
@@ -87,15 +116,16 @@ runs are eleven `startup_failure`, one `skipped`, zero successes.
 
 ## What is operating
 
-| Capability                  | State   | Notes                                                                      |
-| --------------------------- | ------- | -------------------------------------------------------------------------- |
-| PR and `main` test lanes    | ✅ live | Self-hosted `nabatable` runner; 7 checks, ~0 hosted Actions minutes        |
-| `main` branch protection    | ✅ live | Ruleset: PR required, linear history, no force-push, no deletion, 7 checks |
-| CI contract validation      | ✅ live | `pnpm ci:contracts:validate` runs inside `Security guards`                 |
-| Secret scanning             | ✅ live | gitleaks + trufflehog, SHA-256 pinned, architecture-aware                  |
-| Local runner crash recovery | ✅ live | launchd supervisor restarts the VM and the agent                           |
-| Vercel production deploy    | ⚠️ live | Sanctioned Git integration; latest attempt blocked — see above             |
-| Cloudflare Workers deploy   | ⚠️ live | Sanctioned Workers Builds; main/all-path settings verified                 |
+| Capability                  | State      | Notes                                                                                 |
+| --------------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| PR and `main` test lanes    | ✅ live    | Self-hosted `nabatable` runner; 7 checks, ~0 hosted Actions minutes                   |
+| `main` branch protection    | ✅ live    | Ruleset: PR required, linear history, no force-push, no deletion, 7 checks            |
+| CI contract validation      | ✅ live    | `pnpm ci:contracts:validate` runs inside `Security guards`                            |
+| Secret scanning             | ✅ live    | gitleaks + trufflehog, SHA-256 pinned, architecture-aware                             |
+| Local runner crash recovery | ✅ live    | launchd supervisor restarts the VM and the agent                                      |
+| Vercel production deploy    | ✅ live    | Owner-authored production release and alias/readiness verified — see latest release   |
+| Cloudflare customer deploys | ✅ live    | Three sanctioned main Builds and authenticated source convergence verified            |
+| Operational-control deploy  | ⚠️ blocked | Git build stopped at oversized-evidence test; reviewed performance correction pending |
 
 ## What is not operating
 
