@@ -46,10 +46,20 @@ five-minute cron fires correctly. That observation **failed**: `ok` is false wit
 Because `expectedSha` is null, the run aborted on the GitHub side before any target was probed. The
 four `request_failed` target entries in that evidence are the initialized placeholder values, not
 four real probe results; they are not evidence that the web app or any Worker was unavailable.
-`runDeploymentObservation` wraps configuration validation, JWT creation, token mint, minted-scope
-validation and the protected-main read in one `catch` that records a single generic reason, so the
-stored evidence cannot distinguish which of those five steps failed. Identifying the cause needs
-either the Worker's runtime logs or a change that records a specific redacted reason.
+`runDeploymentObservation` wrapped configuration validation, JWT creation, token mint, minted-scope
+validation and the protected-main read in one `catch` that recorded a single generic reason, so that
+stored evidence cannot say which step failed. That `catch` bound no error and logged nothing, so the
+Worker's runtime logs are equally silent and cannot resolve it either.
+
+Each step now records a distinct redacted reason: `invalid_config`, `github_jwt_failed`,
+`github_token_mint_failed`, `github_token_absent`, `invalid_token_scope`, `main_unavailable` and
+`invalid_main`. Only fixed enum values are stored, never error text or credentials, and an
+unrecognised throw still falls back to the generic reason. The last two are deliberately separate: a
+protected-main read that never completed has a different cause and a different fix from one that
+returned but did not describe protected main. Elapsed time in the failed evidence was about nineteen
+seconds, and because Cloudflare freezes the clock between I/O operations that is real network time,
+which is consistent with either. The attribution is not yet deployed, so the first observation after
+it reaches production is the one that names the failing step.
 
 Retrieval behavior itself is correct and fails closed: unauthenticated requests return HTTP 401, and
 the failed observation is served as HTTP 503 with `status: failed` rather than as success. Normal
