@@ -22,7 +22,9 @@ An hourly observer in the existing operational-control Worker is being qualified
 independent executor. The reviewed production configuration explicitly enables it for a controlled
 qualification release; staging remains disabled. It is not yet commissioned: provider deployment,
 real token-response compatibility, CPU-limit evidence and successful hourly evidence are still required. See the [Git delivery runbook](../runbooks/git-delivery.md).
-Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
+Live cron analytics show scheduled timestamps with a two-second offset. Hourly eligibility therefore
+uses UTC minute `00`, without assuming zero seconds or milliseconds; evidence retains the original
+scheduled timestamp. Observation cannot stop a deployment, make multi-provider releases atomic, or roll back a failed release.
 
 ## What actually deploys production
 

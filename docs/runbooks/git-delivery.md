@@ -46,7 +46,7 @@ without `--env`, so **top-level configuration is the deployed production configu
 Changing only the mirrored block does not enable or disable the served observer.
 
 The first scheduled observation is runtime qualification, not a prior promise of success.
-After the exact hourly cron slot, inspect the cached four-target report, timestamps, token
+After the hourly cron slot (UTC minute `00`, allowing provider seconds/milliseconds), inspect the cached four-target report, timestamps, token
 cleanup diagnostics, invocation result and CPU usage. Also confirm the legacy cycle still runs.
 The observer shares that invocation's CPU budget: settled promises isolate normal failures,
 but cannot protect the legacy cycle from whole-invocation CPU exhaustion. The Workers Free

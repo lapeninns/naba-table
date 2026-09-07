@@ -261,7 +261,13 @@ export async function runDeploymentObservation(input: {
   fetcher?: typeof fetch;
 }): Promise<void> {
   const { env, scheduledTime } = input;
-  if (!enabled(env) || !Number.isFinite(scheduledTime) || scheduledTime % 3_600_000 !== 0) return;
+  // Cron timestamps can include seconds; eligibility follows the intended UTC minute.
+  if (
+    !enabled(env) ||
+    !Number.isFinite(scheduledTime) ||
+    new Date(scheduledTime).getUTCMinutes() !== 0
+  )
+    return;
   const now = input.now ?? Date.now;
   const fetcher = input.fetcher ?? fetch;
   const evidence: DeploymentEvidence = {
