@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // re-reads it BETWEEN failed attempts, so an admin manual-assign/confirm between
 // scheduling and the first quote (attempt 0) still wastes a 180s hold. The job
 // must re-check status immediately before attempt 0 and short-circuit if the
-// booking is already confirmed (or otherwise terminal).
+// booking is already assigned or otherwise terminal.
 
 const quoteTablesForBookingMock = vi.hoisted(() => vi.fn());
 const atomicConfirmAndTransitionMock = vi.hoisted(() => vi.fn());
@@ -75,7 +75,13 @@ const pendingBookingRow = {
  * Supabase stub whose `.maybeSingle()` returns queued results in FIFO order.
  * The job reads via `from('bookings').select(...).eq('id', id).maybeSingle()`.
  */
-function makeSupabaseStub(maybeSingleResults: Array<{ data: unknown; error: unknown }>) {
+function makeSupabaseStub(
+  maybeSingleResults: Array<{ data: unknown; error: unknown }>,
+  assignmentResults: Array<{
+    data: { id: string } | null;
+    error: { message: string } | null;
+  }> = [{ data: { id: 'assignment-1' }, error: null }],
+) {
   const queue = [...maybeSingleResults];
   const maybeSingle = vi.fn(async () => queue.shift() ?? { data: null, error: null });
   // Support both `.eq(...).maybeSingle()` and the pending-admin update chain
@@ -87,8 +93,17 @@ function makeSupabaseStub(maybeSingleResults: Array<{ data: unknown; error: unkn
   chain.is = vi.fn(ret);
   chain.update = vi.fn(ret);
   chain.maybeSingle = maybeSingle;
-  const from = vi.fn(() => chain);
-  return { stub: { from } as never, maybeSingle };
+  const assignmentsQueue = [...assignmentResults];
+  const assignments = {
+    select: vi.fn(() => assignments),
+    eq: vi.fn(() => assignments),
+    limit: vi.fn(() => assignments),
+    maybeSingle: vi.fn(async () => assignmentsQueue.shift() ?? { data: null, error: null }),
+  };
+  const from = vi.fn((table: string) =>
+    table === 'booking_table_assignments' ? assignments : chain,
+  );
+  return { stub: { from }, maybeSingle, assignments };
 }
 
 describe('auto-assign pre-attempt-0 status re-check (#20)', () => {
@@ -154,10 +169,8 @@ describe('auto-assign pre-attempt-0 status re-check (#20)', () => {
     expect(atomicConfirmAndTransitionMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not short-circuit when the pre-attempt re-check errors (fails safe to running the attempt)', async () => {
-    // The re-check returns an error; the job must NOT skip work and must NOT
-    // treat the error as "still actionable/available" — it falls through to the
-    // attempt using the already-successful start-of-job snapshot.
+  it('does not allocate when the pre-attempt status lookup fails', async () => {
+    // A stale snapshot cannot establish whether another flow has already assigned tables.
     const { stub } = makeSupabaseStub([
       { data: pendingBookingRow, error: null }, // start-of-job lookup
       { data: null, error: { message: 'transient read error' } }, // pre-attempt-0 re-check fails
@@ -176,7 +189,115 @@ describe('auto-assign pre-attempt-0 status re-check (#20)', () => {
 
     await autoAssignAndConfirmIfPossible(BOOKING_ID);
 
-    // Fail-safe: the attempt still ran despite the re-check error.
+    expect(quoteTablesForBookingMock).not.toHaveBeenCalled();
+  });
+  it('recovers a confirmed booking without assignments through atomic confirmation', async () => {
+    const confirmed = { ...pendingBookingRow, status: 'confirmed' };
+    const { stub, assignments } = makeSupabaseStub(
+      [
+        { data: confirmed, error: null },
+        { data: confirmed, error: null },
+        { data: confirmed, error: null },
+      ],
+      [
+        { data: null, error: null },
+        { data: null, error: null },
+      ],
+    );
+    getServiceSupabaseClientMock.mockReturnValue(stub);
+    quoteTablesForBookingMock.mockResolvedValue({ hold: { id: 'recovery-hold' } });
+    await autoAssignAndConfirmIfPossible(BOOKING_ID);
+    expect(atomicConfirmAndTransitionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: BOOKING_ID,
+        holdId: 'recovery-hold',
+        idempotencyKey: `inline-${BOOKING_ID}`,
+      }),
+    );
+    expect(assignments.select).toHaveBeenCalledWith('id, bookings!inner(restaurant_id)');
+    expect(assignments.eq).toHaveBeenCalledWith('bookings.restaurant_id', 'rest-1');
+    expect(assignments.eq).not.toHaveBeenCalledWith('restaurant_id', expect.anything());
+  });
+
+  it('does not quote for an already assigned confirmed booking', async () => {
+    const { stub } = makeSupabaseStub([
+      { data: { ...pendingBookingRow, status: 'confirmed' }, error: null },
+    ]);
+    getServiceSupabaseClientMock.mockReturnValue(stub);
+    await autoAssignAndConfirmIfPossible(BOOKING_ID);
+    expect(quoteTablesForBookingMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when assignment lookup fails', async () => {
+    const { stub } = makeSupabaseStub(
+      [{ data: { ...pendingBookingRow, status: 'confirmed' }, error: null }],
+      [{ data: null, error: { message: 'lookup unavailable' } }],
+    );
+    getServiceSupabaseClientMock.mockReturnValue(stub);
+    await autoAssignAndConfirmIfPossible(BOOKING_ID);
+    expect(quoteTablesForBookingMock).not.toHaveBeenCalled();
+    expect(atomicConfirmAndTransitionMock).not.toHaveBeenCalled();
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'auto_assign.summary',
+        context: expect.objectContaining({ result: 'error' }),
+      }),
+    );
+  });
+
+  it.each(['cancelled', 'checked_in', 'completed', 'no_show'])(
+    'stops if booking becomes %s between attempts',
+    async (status) => {
+      const { stub } = makeSupabaseStub([
+        { data: pendingBookingRow, error: null },
+        { data: { status: 'pending' }, error: null },
+        { data: { status }, error: null },
+      ]);
+      getServiceSupabaseClientMock.mockReturnValue(stub);
+      quoteTablesForBookingMock.mockResolvedValue({ hold: null, reason: 'temporary timeout' });
+      await autoAssignAndConfirmIfPossible(BOOKING_ID);
+      expect(quoteTablesForBookingMock).toHaveBeenCalledTimes(1);
+      expect(atomicConfirmAndTransitionMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('retries a confirmed booking while it remains unassigned', async () => {
+    const confirmed = { ...pendingBookingRow, status: 'confirmed' };
+    const { stub } = makeSupabaseStub(
+      Array.from({ length: 4 }, () => ({ data: confirmed, error: null })),
+      Array.from({ length: 3 }, () => ({ data: null, error: null })),
+    );
+    getServiceSupabaseClientMock.mockReturnValue(stub);
+    quoteTablesForBookingMock
+      .mockResolvedValueOnce({ hold: null, reason: 'temporary timeout' })
+      .mockResolvedValueOnce({ hold: { id: 'retry-hold' } });
+    await autoAssignAndConfirmIfPossible(BOOKING_ID);
+    expect(quoteTablesForBookingMock).toHaveBeenCalledTimes(2);
+    expect(atomicConfirmAndTransitionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        holdId: 'retry-hold',
+      }),
+    );
+  });
+
+  it('stops when another flow assigns the confirmed booking between attempts', async () => {
+    const confirmed = { ...pendingBookingRow, status: 'confirmed' };
+    const { stub } = makeSupabaseStub(
+      [
+        { data: confirmed, error: null },
+        { data: confirmed, error: null },
+        { data: confirmed, error: null },
+      ],
+      [
+        { data: null, error: null },
+        { data: null, error: null },
+        { data: { id: 'new-assignment' }, error: null },
+      ],
+    );
+    getServiceSupabaseClientMock.mockReturnValue(stub);
+    quoteTablesForBookingMock.mockResolvedValue({ hold: null, reason: 'temporary timeout' });
+    await autoAssignAndConfirmIfPossible(BOOKING_ID);
     expect(quoteTablesForBookingMock).toHaveBeenCalledTimes(1);
+    expect(atomicConfirmAndTransitionMock).not.toHaveBeenCalled();
   });
 });

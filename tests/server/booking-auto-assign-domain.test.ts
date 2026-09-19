@@ -148,13 +148,13 @@ describe('booking auto-assign domain helpers', () => {
     ).toBe(false);
   });
 
-  it('does not schedule background retry for confirmed bookings', () => {
+  it('schedules an allocation check for confirmed bookings because status does not prove assignment', () => {
     expect(
       shouldScheduleBookingAutoAssignRetry({
         autoAssignEnabled: true,
         bookingStatus: 'confirmed',
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('schedules the background retry through the provided scheduler', async () => {
@@ -187,7 +187,7 @@ describe('booking auto-assign domain helpers', () => {
     expect(scheduler).not.toHaveBeenCalled();
   });
 
-  it('does not call the scheduler for confirmed bookings', async () => {
+  it('calls the scheduler for confirmed bookings so an inline timeout can recover', async () => {
     const scheduler = vi.fn();
 
     await expect(
@@ -197,10 +197,28 @@ describe('booking auto-assign domain helpers', () => {
         bookingStatus: 'confirmed',
         scheduler,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBe(true);
 
-    expect(scheduler).not.toHaveBeenCalled();
+    expect(scheduler).toHaveBeenCalledWith('booking-1');
   });
+
+  it.each(['cancelled', 'completed', 'no_show', 'checked_in', null, undefined])(
+    'does not schedule assignment for an inactive or unknown status: %s',
+    async (bookingStatus) => {
+      const scheduler = vi.fn();
+
+      await expect(
+        scheduleBookingCreateAutoAssignRetry({
+          autoAssignEnabled: true,
+          bookingId: 'booking-1',
+          bookingStatus,
+          scheduler,
+        }),
+      ).resolves.toBe(false);
+
+      expect(scheduler).not.toHaveBeenCalled();
+    },
+  );
 
   it('propagates scheduler failures so the route can log them', async () => {
     const schedulerError = new Error('scheduler failed');

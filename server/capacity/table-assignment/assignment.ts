@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import { logger } from '@/lib/logger';
 import { AssignTablesRpcError, HoldNotFoundError } from '@/server/capacity/holds';
 import { getVenuePolicy } from '@/server/capacity/policy';
 import { getRestaurantServiceWindows } from '@/server/capacity/service-windows';
@@ -15,7 +16,7 @@ import { getTenantServiceSupabaseClient } from '@/server/supabase';
 
 import { synchronizeAssignments } from './assignment-sync';
 import { resolveRequireAdjacency } from './availability';
-import { fetchBookingAssignmentState, reconcileOrphanedAssignments } from './booking-state';
+import { fetchBookingAssignmentState } from './booking-state';
 import { computeBookingWindowWithFallback } from './booking-window';
 import { loadCachedConfirmationResult } from './confirmation-cache';
 import {
@@ -105,9 +106,7 @@ function isHeldTableBookable(
  * resolve them. Transient errors (lock/serialization/timeout and transport
  * errors with no PG code) are worth a bounded retry. (#1)
  */
-function isRetryableTransitionError(
-  error: { code?: string | null } | null | undefined,
-): boolean {
+function isRetryableTransitionError(error: { code?: string | null } | null | undefined): boolean {
   if (!error) {
     return false;
   }
@@ -139,9 +138,7 @@ async function readBookingStatus(
     if (error || !data) {
       return null;
     }
-    return (
-      (data as { status?: Tables<'bookings'>['status'] | null }).status ?? null
-    );
+    return (data as { status?: Tables<'bookings'>['status'] | null }).status ?? null;
   } catch {
     return null;
   }
@@ -250,8 +247,7 @@ export async function applyConfirmStatusTransition(params: {
             context: {
               holdId,
               targetStatus,
-              error:
-                rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+              error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
             },
           }).catch(() => {});
         }
@@ -273,8 +269,7 @@ export async function applyConfirmStatusTransition(params: {
       }).catch(() => {});
 
       throw new AssignTablesRpcError({
-        message:
-          transitionError.message ?? 'Failed to transition booking status after assignment',
+        message: transitionError.message ?? 'Failed to transition booking status after assignment',
         code: transitionError.code ?? 'BOOKING_STATUS_TRANSITION_FAILED',
         details: serializeDetails(transitionError.details ?? null),
         hint: transitionError.hint ?? null,
@@ -287,9 +282,7 @@ export async function applyConfirmStatusTransition(params: {
     (transitionRow?.status as Tables<'bookings'>['status'] | undefined) ?? targetStatus;
   if ('checked_in_at' in booking) {
     (booking as BookingRow).checked_in_at =
-      (transitionRow?.checked_in_at as string | null | undefined) ??
-      booking.checked_in_at ??
-      null;
+      (transitionRow?.checked_in_at as string | null | undefined) ?? booking.checked_in_at ?? null;
   }
   if ('checked_out_at' in booking) {
     (booking as BookingRow).checked_out_at =
@@ -596,7 +589,10 @@ export async function confirmHoldAssignment(
     throw new AssignTablesRpcError({
       message: 'Hold has expired; re-quote the booking before confirming',
       code: 'HOLD_EXPIRED',
-      details: serializeDetails({ expiresAt: holdExpiresAtRaw, now: new Date(nowMs).toISOString() }),
+      details: serializeDetails({
+        expiresAt: holdExpiresAtRaw,
+        now: new Date(nowMs).toISOString(),
+      }),
       hint: 'The hold TTL lapsed before confirmation. Re-quote to obtain a fresh hold.',
     });
   }
@@ -1087,16 +1083,9 @@ export async function atomicConfirmAndTransition(
     const postState = await fetchBookingAssignmentState({ bookingId, client: supabase, signal });
 
     if (postState.bookingState !== 'confirmed' || postState.assignmentCount === 0) {
-      await reconcileOrphanedAssignments({
-        bookingId,
-        holdId: policyContext.currentHoldId,
-        client: supabase,
-        signal,
-      });
-
       recordObservabilityEvent({
         source: 'capacity.atomic_confirm',
-        eventType: 'transaction.reconciled_mismatch',
+        eventType: 'transaction.state_mismatch',
         restaurantId: postState.restaurantId ?? undefined,
         bookingId,
         context: {
@@ -1109,7 +1098,7 @@ export async function atomicConfirmAndTransition(
       });
 
       throw new AssignTablesRpcError({
-        message: 'Atomic confirmation completed but reconciliation failed',
+        message: 'Atomic confirmation completed but assignment state could not be verified',
         code: 'STATE_RECONCILIATION_FAILED',
         details: serializeDetails({
           bookingState: postState.bookingState,
@@ -1137,12 +1126,27 @@ export async function atomicConfirmAndTransition(
 
     return assignments;
   } catch (error) {
-    await reconcileOrphanedAssignments({
-      bookingId,
-      holdId: policyContext.currentHoldId,
-      client: supabase,
-      signal,
-    });
+    // Atomic RPC failures roll back; ambiguous responses and legacy fallback errors can
+    // leave committed assignments. Cleanup here must never delete a concurrent winner.
+    try {
+      await releaseHoldWithRetry({ holdId: policyContext.currentHoldId, client: supabase });
+    } catch (releaseError) {
+      await recordObservabilityEvent({
+        source: 'capacity.atomic_confirm',
+        eventType: 'transaction.hold_release_failed',
+        restaurantId: preState.restaurantId ?? undefined,
+        bookingId,
+        context: {
+          holdId: policyContext.currentHoldId,
+          error: releaseError instanceof Error ? releaseError.message : String(releaseError),
+        },
+        severity: 'warning',
+      }).catch((telemetryError) => {
+        logger.warn('[capacity.atomic_confirm] failed to record hold release error', {
+          error: telemetryError instanceof Error ? telemetryError.message : String(telemetryError),
+        });
+      });
+    }
 
     recordObservabilityEvent({
       source: 'capacity.atomic_confirm',
@@ -1155,6 +1159,10 @@ export async function atomicConfirmAndTransition(
         error: error instanceof Error ? error.message : String(error),
       },
       severity: 'error',
+    }).catch((telemetryError) => {
+      logger.warn('[capacity.atomic_confirm] failed to record transaction failure', {
+        error: telemetryError instanceof Error ? telemetryError.message : String(telemetryError),
+      });
     });
 
     throw error;

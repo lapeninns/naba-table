@@ -10,6 +10,15 @@ import { recordObservabilityEvent } from '@/server/observability';
 import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+type InlineAutoAssignStage =
+  | 'quote'
+  | 'quote_telemetry'
+  | 'confirm'
+  | 'confirm_telemetry'
+  | 'booking_reload'
+  | 'completion_telemetry'
+  | 'result_persistence';
+
 type DbClient = SupabaseClient<Database, 'public'>;
 
 function stringifyError(error: unknown): string {
@@ -115,6 +124,8 @@ export async function runInlineAutoAssign(
   const emailVariant = 'standard';
   let timeoutPersisted = false;
   let timedOut = false;
+  let stage: InlineAutoAssignStage = 'quote';
+  let timeoutStage: InlineAutoAssignStage | null = null;
   let currentBooking: BookingRecord | null = null;
   const successPlanResultRef: { current: PendingSuccessPlanResult | null } = { current: null };
 
@@ -143,6 +154,7 @@ export async function runInlineAutoAssign(
       emailVariant: params.emailVariant,
     });
     try {
+      if (!timedOut) stage = 'result_persistence';
       const updated = await updateBookingRecord(supabase, bookingId, {
         auto_assign_last_result: inlineResult,
       });
@@ -172,6 +184,7 @@ export async function runInlineAutoAssign(
 
     const handleInlineTimeout = async () => {
       timedOut = true;
+      timeoutStage = stage;
       const elapsedMs = attemptStartedAt > 0 ? Date.now() - attemptStartedAt : undefined;
       await recordObservabilityEvent({
         source: observabilitySource,
@@ -182,6 +195,7 @@ export async function runInlineAutoAssign(
           timeoutMs,
           elapsedMs,
           attemptId,
+          stage: timeoutStage,
         },
         severity: 'warning',
       });
@@ -212,6 +226,7 @@ export async function runInlineAutoAssign(
         quoteDurationMs = Date.now() - quoteStartedAt;
         throwIfAutoAssignAborted(signal, timedOut);
         const classification = classifyPlannerReason(quote?.reason ?? null);
+        stage = 'quote_telemetry';
         await recordPlannerQuoteTelemetry({
           restaurantId,
           bookingId,
@@ -240,6 +255,7 @@ export async function runInlineAutoAssign(
           emailSent: false,
           emailVariant,
         });
+        stage = 'quote_telemetry';
         await recordPlannerQuoteTelemetry({
           restaurantId,
           bookingId,
@@ -284,6 +300,7 @@ export async function runInlineAutoAssign(
         alternates: quote?.alternates?.length ?? 0,
       });
 
+      stage = 'quote_telemetry';
       await recordObservabilityEvent({
         source: observabilitySource,
         eventType: 'inline_auto_assign.quote_result',
@@ -316,6 +333,7 @@ export async function runInlineAutoAssign(
           attemptId,
           durationMs: quoteDurationMs,
         });
+        stage = 'quote_telemetry';
         await recordObservabilityEvent({
           source: observabilitySource,
           eventType: 'inline_auto_assign.no_hold',
@@ -335,6 +353,7 @@ export async function runInlineAutoAssign(
       const confirmStartedAt = Date.now();
       try {
         throwIfAutoAssignAborted(signal, timedOut);
+        stage = 'confirm';
         await atomicConfirmAndTransition({
           bookingId,
           holdId: quote.hold.id,
@@ -356,6 +375,7 @@ export async function runInlineAutoAssign(
           durationMs: confirmDurationMs,
           error: stringifyError(confirmError),
         });
+        stage = 'confirm_telemetry';
         await recordObservabilityEvent({
           source: observabilitySource,
           eventType: 'inline_auto_assign.confirm_failed',
@@ -379,6 +399,7 @@ export async function runInlineAutoAssign(
         durationMs: confirmDurationMs,
       });
 
+      stage = 'confirm_telemetry';
       await recordObservabilityEvent({
         source: observabilitySource,
         eventType: 'inline_auto_assign.confirm_succeeded',
@@ -392,6 +413,7 @@ export async function runInlineAutoAssign(
       });
       throwIfAutoAssignAborted(signal, timedOut);
 
+      stage = 'booking_reload';
       // Reload booking to get updated status
       const { data: reloaded } = await supabase
         .from('bookings')
@@ -415,6 +437,7 @@ export async function runInlineAutoAssign(
         emailVariant,
       };
 
+      stage = 'completion_telemetry';
       await recordObservabilityEvent({
         source: observabilitySource,
         eventType: 'inline_auto_assign.succeeded',
@@ -472,6 +495,7 @@ export async function runInlineAutoAssign(
           attemptId,
           durationMs,
           timeoutMs,
+          stage: timeoutStage ?? stage,
         },
         severity: 'warning',
       });

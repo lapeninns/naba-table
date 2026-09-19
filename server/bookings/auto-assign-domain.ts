@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+
 import type { BookingRecord } from '@/server/bookings';
 import type { InlineAutoAssignOptions } from '@/services/inline-auto-assign';
 
@@ -69,7 +71,12 @@ export function shouldScheduleBookingAutoAssignRetry({
   autoAssignEnabled: boolean;
   bookingStatus: string | null | undefined;
 }): boolean {
-  return autoAssignEnabled && bookingStatus !== 'confirmed';
+  return (
+    autoAssignEnabled &&
+    (bookingStatus === 'pending' ||
+      bookingStatus === 'pending_allocation' ||
+      bookingStatus === 'confirmed')
+  );
 }
 
 export type BookingCreateAutoAssignRetryScheduler = (bookingId: string) => void | Promise<void>;
@@ -99,8 +106,10 @@ export async function scheduleBookingCreateAutoAssignRetry({
 }
 
 async function scheduleWithAutoAssignJob(bookingId: string): Promise<void> {
-  const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
-  void autoAssignAndConfirmIfPossible(bookingId);
+  after(async () => {
+    const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
+    await autoAssignAndConfirmIfPossible(bookingId);
+  });
 }
 
 async function runWithInlineAutoAssignService(
