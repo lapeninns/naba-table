@@ -18,7 +18,7 @@ permissions:
 jobs:
   vitest:
     name: Full Vitest suite
-    runs-on: [self-hosted, nabatable]
+    runs-on: ubuntu-latest
     env:
       # Sanitized offline env only. Tests must never receive real credentials;
       # tests/setup.ts fallbacks align with these values.

@@ -14,7 +14,7 @@ permissions:
 jobs:
   primitives:
     name: Primitive coverage
-    runs-on: [self-hosted, nabatable]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout

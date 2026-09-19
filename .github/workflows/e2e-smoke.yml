@@ -25,7 +25,7 @@ jobs:
     name: Browser smoke packs
     # Functional smoke only (no pixel comparison), so aarch64 Chromium is fine.
     # Pixel-comparing specs stay hosted - see quality-gates.yml visual-routes.
-    runs-on: [self-hosted, nabatable]
+    runs-on: ubuntu-latest
     # A hung dev server must not burn hours of CI.
     timeout-minutes: 30
     env:

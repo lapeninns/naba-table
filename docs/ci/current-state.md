@@ -1,5 +1,11 @@
 # CI/CD current state
 
+The booking-assignment recovery release moves the seven required PR checks to GitHub-hosted
+`ubuntu-latest` runners after the self-hosted runner became unavailable. Check names, commands,
+Node 22 and sanitized test environments remain unchanged. The owner authorized public repository
+visibility to make hosted Actions available; confirm live visibility and successful runs before merge.
+The historical snapshot below describes the earlier self-hosted setup.
+
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This
 page records what is actually running, verified against the GitHub API and this repository on
 **2026-09-07** (latest deployment readback approximately **02:32 BST**). Where the two disagree, this page is correct.

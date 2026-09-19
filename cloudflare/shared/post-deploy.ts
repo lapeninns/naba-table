@@ -75,8 +75,7 @@ export async function requestPostDeployJson(
             'x-github-api-version': '2022-11-28',
           },
         });
-        const redirected =
-          response.redirected || (response.status >= 300 && response.status < 400);
+        const redirected = response.redirected || (response.status >= 300 && response.status < 400);
         if (response.status !== 200 || redirected)
           return { status: redirected ? 302 : response.status, body: null };
         const length = response.headers.get('content-length');

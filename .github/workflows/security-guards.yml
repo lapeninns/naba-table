@@ -19,7 +19,7 @@ concurrency:
 jobs:
   service-role-routes:
     name: Service-role route authorization
-    runs-on: [self-hosted, nabatable]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
