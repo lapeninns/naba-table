@@ -1,10 +1,11 @@
 # CI/CD current state
 
-The booking-assignment recovery release moves the seven required PR checks to GitHub-hosted
-`ubuntu-latest` runners after the self-hosted runner became unavailable. Check names, commands,
-Node 22 and sanitized test environments remain unchanged. The owner authorized public repository
-visibility to make hosted Actions available; confirm live visibility and successful runs before merge.
-The historical snapshot below describes the earlier self-hosted setup.
+The booking-assignment recovery release uses an explicitly authorized current-user isolated
+Lima runner with the `nabatable-release` label. Each job receives a disposable VM cloned from
+a credential-free, prewarmed base. The seven required checks retain their commands, Node 22,
+and sanitized test environments; fork pull requests cannot enter these self-hosted jobs.
+Repository visibility remains private because retained history includes sensitive data.
+The historical snapshot below describes the earlier persistent self-hosted setup.
 
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This
 page records what is actually running, verified against the GitHub API and this repository on

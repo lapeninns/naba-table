@@ -101,7 +101,7 @@ Do not broaden a bug fix into cleanup, rewrite unrelated user changes, or claim 
 - Branches use a descriptive prefix such as `codex/`, `fix/`, or `feat/`; never force-push `main`.
 - PRs must describe intent, risk, test evidence, observability impact, and rollback.
 - Keep release notes in `CHANGELOG.md`; Release Please owns release PRs and tags.
-- The `main` ruleset requires seven status checks today, all published by GitHub-hosted `ubuntu-latest` runner lanes: `Fast static gates`, `Coverage and performance evidence`, `Build performance and bundle budgets`, `Full Vitest suite`, `Service-role route authorization`, `Browser smoke packs`, `Primitive coverage`. `Release gate`, `Local CI / pr` and `CodeQL JavaScript and TypeScript` are **not** required because nothing currently publishes them. The full intended list lives in `docs/ci/release-gate.md`; current reality is in `docs/ci/current-state.md`.
+- The `main` ruleset requires seven status checks today, all published by isolated self-hosted `nabatable-release` runner lanes: `Fast static gates`, `Coverage and performance evidence`, `Build performance and bundle budgets`, `Full Vitest suite`, `Service-role route authorization`, `Browser smoke packs`, `Primitive coverage`. `Release gate`, `Local CI / pr` and `CodeQL JavaScript and TypeScript` are **not** required because nothing currently publishes them. The full intended list lives in `docs/ci/release-gate.md`; current reality is in `docs/ci/current-state.md`.
 
 ## Source-of-truth documentation
 

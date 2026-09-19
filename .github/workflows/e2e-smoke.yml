@@ -23,9 +23,10 @@ concurrency:
 jobs:
   smoke:
     name: Browser smoke packs
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # Functional smoke only (no pixel comparison), so aarch64 Chromium is fine.
     # Pixel-comparing specs stay hosted - see quality-gates.yml visual-routes.
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, nabatable-release]
     # A hung dev server must not burn hours of CI.
     timeout-minutes: 30
     env:
