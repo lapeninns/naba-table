@@ -21,6 +21,7 @@ import {
   inferMealTypeFromTime,
   logAuditEvent,
 } from '@/server/bookings';
+import { scheduleBookingCreateAutoAssignRetry } from '@/server/bookings/auto-assign-domain';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { normalizeEmail, upsertCustomer } from '@/server/customers';
 import {
@@ -984,15 +985,14 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
         emailProvided,
       });
 
-      // If inline attempt did not confirm and retries are configured, run background job
-      // This matches public booking behavior for resilience
-      if (isAutoAssignOnBookingEnabled() && booking.status !== 'confirmed') {
-        try {
-          const { autoAssignAndConfirmIfPossible } = await import('@/server/jobs/auto-assign');
-          void autoAssignAndConfirmIfPossible(booking.id);
-        } catch (autoError) {
-          console.error('[ops/bookings] background auto-assign scheduling failed', autoError);
-        }
+      try {
+        await scheduleBookingCreateAutoAssignRetry({
+          autoAssignEnabled: isAutoAssignOnBookingEnabled(),
+          bookingId: booking.id,
+          bookingStatus: booking.status,
+        });
+      } catch (autoError) {
+        console.error('[ops/bookings] background auto-assign scheduling failed', autoError);
       }
     }
 

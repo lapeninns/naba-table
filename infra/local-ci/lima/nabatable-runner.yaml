@@ -165,6 +165,15 @@ provision:
         build-essential
       apt-mark hold docker-ce docker-ce-cli containerd.io
 
+      # Dedicated unprivileged account for the runner agent. It is NOT the
+      # Lima user, so a compromised job cannot trivially drive `limactl`'s
+      # side of the SSH channel.
+      if ! id runner >/dev/null 2>&1; then
+        useradd --create-home --shell /bin/bash --uid 1100 runner
+      fi
+      usermod -aG docker runner
+      install -d -m 0755 -o runner -g runner /opt/actions-runner
+
       # Baseline Node toolchain, pinned and checksum-verified.
       #
       # This is NOT redundant with actions/setup-node. Every workflow here runs
@@ -224,15 +233,6 @@ provision:
       JSON
       systemctl enable docker
       systemctl restart docker
-
-      # Dedicated unprivileged account for the runner agent. It is NOT the
-      # Lima user, so a compromised job cannot trivially drive `limactl`'s
-      # side of the SSH channel.
-      if ! id runner >/dev/null 2>&1; then
-        useradd --create-home --shell /bin/bash --uid 1100 runner
-      fi
-      usermod -aG docker runner
-      install -d -m 0755 -o runner -g runner /opt/actions-runner
 
       # Passwordless sudo, matching GitHub-hosted runner semantics (their
       # `runner` user has exactly this). Required because five workflows call

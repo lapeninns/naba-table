@@ -25,7 +25,8 @@ env:
 jobs:
   fast-gates:
     name: Fast static gates
-    runs-on: [self-hosted, nabatable]
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -60,7 +61,8 @@ jobs:
 
   tests:
     name: Coverage and performance evidence
-    runs-on: [self-hosted, nabatable]
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -95,7 +97,8 @@ jobs:
 
   build:
     name: Build performance and bundle budgets
-    runs-on: [self-hosted, nabatable]
+    runs-on: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}
     timeout-minutes: 30
     steps:
       - name: Checkout

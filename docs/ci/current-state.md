@@ -1,5 +1,12 @@
 # CI/CD current state
 
+The booking-assignment recovery release uses an explicitly authorized current-user isolated
+Lima runner with the `nabatable-release` label. Each job receives a disposable VM cloned from
+a credential-free, prewarmed base. The seven required checks retain their commands, Node 22,
+and sanitized test environments; fork pull requests cannot enter these self-hosted jobs.
+Repository visibility remains private because retained history includes sensitive data.
+The historical snapshot below describes the earlier persistent self-hosted setup.
+
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This
 page records what is actually running, verified against the GitHub API and this repository on
 **2026-09-07** (latest deployment readback approximately **02:32 BST**). Where the two disagree, this page is correct.

@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateBookingRecordMock = vi.hoisted(() => vi.fn());
@@ -24,6 +25,12 @@ vi.mock('@/server/observability', () => ({
 }));
 
 import { runInlineAutoAssign } from '@/services/inline-auto-assign';
+
+import type { Database } from '@/types/supabase';
+
+const client = createClient<Database>('https://supabase.test', 'test-key', {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 function makeBooking(overrides: Record<string, unknown> = {}) {
   return {
@@ -77,7 +84,7 @@ describe('runInlineAutoAssign timeout cancellation', () => {
       createdBy: 'ops-walk-in',
       historyReason: 'ops_walk_in_inline_auto_assign',
       observabilitySource: 'api.ops.bookings.inline_auto_assign',
-      client: {} as never,
+      client,
     });
 
     await vi.advanceTimersByTimeAsync(20);
@@ -107,4 +114,50 @@ describe('runInlineAutoAssign timeout cancellation', () => {
       }),
     );
   });
+
+  it.each(['quote', 'confirm'] as const)(
+    'identifies the %s stage when assignment times out without persisting late success',
+    async (stage) => {
+      // Given a pending operation that ignores cancellation until it resolves later.
+      const lateResult = new Promise((resolve) => {
+        setTimeout(() => resolve({ hold: { id: 'hold-1' }, reason: null }), 30);
+      });
+      if (stage === 'quote') {
+        quoteTablesForBookingMock.mockReturnValue(lateResult);
+      } else {
+        quoteTablesForBookingMock.mockResolvedValue({ hold: { id: 'hold-1' }, reason: null });
+        atomicConfirmAndTransitionMock.mockReturnValue(lateResult);
+      }
+
+      // When the inline deadline expires before that operation completes.
+      const resultPromise = runInlineAutoAssign({
+        bookingId: 'booking-1',
+        restaurantId: 'rest-1',
+        timeoutMs: 10,
+        createdBy: 'ops-walk-in',
+        historyReason: 'ops_walk_in_inline_auto_assign',
+        observabilitySource: 'api.ops.bookings.inline_auto_assign',
+        client,
+      });
+      await vi.advanceTimersByTimeAsync(20);
+      expect(await resultPromise).toBeNull();
+      await vi.advanceTimersByTimeAsync(20);
+
+      // Then both incident events retain the timed-out stage after the late resolution.
+      for (const eventType of [
+        'inline_auto_assign.timeout',
+        'inline_auto_assign.operation_aborted',
+      ]) {
+        expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+          expect.objectContaining({ eventType, context: expect.objectContaining({ stage }) }),
+        );
+      }
+      expect(
+        updateBookingRecordMock.mock.calls.map((call) => call[2]?.auto_assign_last_result),
+      ).not.toContainEqual(expect.objectContaining({ success: true }));
+      expect(recordObservabilityEventMock).not.toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'inline_auto_assign.succeeded' }),
+      );
+    },
+  );
 });

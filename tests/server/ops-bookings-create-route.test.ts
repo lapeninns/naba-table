@@ -14,6 +14,14 @@ const createWithEnforcementMock = vi.hoisted(() => vi.fn());
 const enqueueBookingCreatedSideEffectsMock = vi.hoisted(() => vi.fn());
 const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
+const autoAssignEnabledMock = vi.hoisted(() => vi.fn(() => false));
+const retrySchedulerMock = vi.hoisted(() => vi.fn());
+const inlineAutoAssignMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/server/bookings/auto-assign-domain', () => ({
+  scheduleBookingCreateAutoAssignRetry: retrySchedulerMock,
+}));
+vi.mock('@/services/inline-auto-assign', () => ({ runInlineAutoAssign: inlineAutoAssignMock }));
 
 const maybeSingleMock = vi.hoisted(() => vi.fn());
 const fromMock = vi.hoisted(() => {
@@ -84,7 +92,7 @@ vi.mock('@/server/booking/http', () => ({
 vi.mock('@/server/runtime-policy', () => ({
   getBookingPastTimeGraceMinutes: vi.fn(() => 5),
   getInlineAutoAssignTimeoutMs: vi.fn(() => 4_000),
-  isAutoAssignOnBookingEnabled: vi.fn(() => false),
+  isAutoAssignOnBookingEnabled: autoAssignEnabledMock,
   isBookingPastTimeBlockingEnabled: vi.fn(() => false),
 }));
 
@@ -106,8 +114,8 @@ vi.mock('@/server/security/request', () => ({
   extractClientIp: vi.fn(() => '203.0.113.10'),
 }));
 
-import { POST } from '@/src/app/api/ops/bookings/route';
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import { POST } from '@/src/app/api/ops/bookings/route';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
 const CSRF_TOKEN = 'ops-bookings-create-csrf-token';
@@ -134,6 +142,9 @@ function makeBooking(overrides: Record<string, unknown> = {}) {
 
 describe('POST /api/ops/bookings', () => {
   beforeEach(() => {
+    autoAssignEnabledMock.mockReturnValue(false);
+    retrySchedulerMock.mockReset();
+    inlineAutoAssignMock.mockReset();
     getUserMock.mockResolvedValue({
       data: { user: { id: 'user-1', email: 'ops@example.com' } },
       error: null,
@@ -166,6 +177,47 @@ describe('POST /api/ops/bookings', () => {
     });
     recordObservabilityEventMock.mockResolvedValue(undefined);
     insertBookingRecordMock.mockReset();
+  });
+
+  it('schedules recovery for a confirmed walk-in when inline assignment times out', async () => {
+    autoAssignEnabledMock.mockReturnValue(true);
+    inlineAutoAssignMock.mockResolvedValue(null);
+    createWithEnforcementMock.mockResolvedValue({
+      booking: makeBooking({ status: 'confirmed' }),
+      response: { ok: true, overridden: false, overrideCodes: [] },
+      duplicate: false,
+    });
+
+    const response = await POST(
+      new NextRequest('https://app.nabatable.com/api/ops/bookings', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          [CSRF_HEADER_NAME]: CSRF_TOKEN,
+          cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
+        },
+        body: JSON.stringify({
+          restaurantId: RESTAURANT_ID,
+          date: '2026-07-01',
+          time: '19:30',
+          party: 4,
+          bookingType: 'dinner',
+          seating: 'any',
+          name: 'Alex Guest',
+          email: 'alex@example.com',
+          phone: null,
+          marketingOptIn: false,
+          whatsappOptIn: false,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(retrySchedulerMock).toHaveBeenCalledWith({
+      autoAssignEnabled: true,
+      bookingId: 'booking-1',
+      bookingStatus: 'confirmed',
+    });
   });
 
   it('uses capacity-enforced creation', async () => {

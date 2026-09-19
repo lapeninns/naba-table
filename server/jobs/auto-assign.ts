@@ -91,6 +91,7 @@ async function maybeNotifyAdminPending(params: {
     .from('bookings')
     .update({ details: nextDetails })
     .eq('id', params.booking.id)
+    .eq('restaurant_id', params.booking.restaurant_id)
     .eq('status', 'pending')
     .is('details->>pending_admin_notified_at', null)
     .select('*')
@@ -203,7 +204,7 @@ export async function autoAssignAndConfirmIfPossible(
     const inlineIsRecent = isInlineResultRecent(inlineLastResult);
 
     // Skip non-actionable states
-    if (['cancelled', 'no_show', 'completed'].includes(String(booking.status))) {
+    if (['cancelled', 'no_show', 'completed', 'checked_in'].includes(String(booking.status))) {
       logJob('skipped.status', { status: booking.status });
       return;
     }
@@ -230,8 +231,20 @@ export async function autoAssignAndConfirmIfPossible(
       });
     };
 
-    // If already confirmed (e.g., manual/other flow), ensure guest receives the ticket.
-    if (booking.status === 'confirmed') {
+    const hasAssignments = async () => {
+      const { data, error } = await supabase
+        .from('booking_table_assignments')
+        .select('id, bookings!inner(restaurant_id)')
+        .eq('booking_id', bookingId)
+        .eq('bookings.restaurant_id', booking.restaurant_id)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data !== null;
+    };
+
+    // Confirmation status does not prove allocation succeeded: inline assignment can time out.
+    if (booking.status === 'confirmed' && (await hasAssignments())) {
       if (!SUPPRESS_EMAILS) {
         if (inlineEmailAlreadySent) {
           logJob('email.skipped_inline_success', {
@@ -339,52 +352,34 @@ export async function autoAssignAndConfirmIfPossible(
     while (attempt < maxAttempts) {
       logJob('attempt.start', { attempt, maxAttempts });
 
-      // Re-check status immediately before the first quote. The status snapshot
-      // taken at job start can go stale if an admin manually assigns/confirms (or
-      // cancels) the booking between scheduling and this attempt; without this we
-      // would waste a 180s hold on a booking that no longer needs one. Subsequent
-      // attempts already re-read status between retries (see end of loop), so this
-      // only guards attempt 0.
-      if (attempt === 0) {
-        const { data: preAttempt, error: preAttemptError } = await supabase
-          .from('bookings')
-          .select('status')
-          .eq('id', bookingId)
-          .maybeSingle();
-
-        if (preAttemptError) {
-          // Fail safe: a transient lookup error must not skip needed work, and
-          // must never be read as "still actionable". Log and fall through to the
-          // attempt (the original start-of-job lookup already succeeded).
-          console.warn('[auto-assign] pre-attempt status re-check failed', {
-            bookingId,
-            error: preAttemptError.message ?? preAttemptError,
-          });
-          logJob('attempt.precheck_lookup_failed', {
-            attempt,
-            error: preAttemptError.message ?? preAttemptError,
-          });
-        } else {
-          const latestStatus = String(preAttempt?.status ?? '');
-          if (latestStatus === 'confirmed') {
-            await recordObservabilityEvent({
-              source: 'auto_assign',
-              eventType: 'auto_assign.exited_already_confirmed',
-              restaurantId: booking.restaurant_id,
-              bookingId: booking.id,
-              context: { attempt_index: attempt, trigger: reason, stage: 'pre_attempt' },
-            });
-            if (emitAutoAssignSummary) {
-              await emitAutoAssignSummary('already_confirmed', attempt);
-            }
-            logJob('attempt.precheck_already_confirmed', { attempt, status: latestStatus });
-            return;
-          }
-          if (['cancelled', 'no_show', 'completed'].includes(latestStatus)) {
-            logJob('attempt.precheck_skipped_status', { attempt, status: latestStatus });
-            return;
-          }
-        }
+      // Re-read before every quote so manual assignments and terminal transitions stop retries.
+      const { data: preAttempt, error: preAttemptError } = await supabase
+        .from('bookings')
+        .select('status')
+        .eq('id', bookingId)
+        .eq('restaurant_id', booking.restaurant_id)
+        .maybeSingle();
+      if (preAttemptError) throw preAttemptError;
+      if (!preAttempt) {
+        logJob('attempt.precheck_booking_missing', { attempt });
+        return;
+      }
+      const latestStatus = String(preAttempt.status ?? '');
+      if (['cancelled', 'no_show', 'completed', 'checked_in'].includes(latestStatus)) {
+        logJob('attempt.precheck_skipped_status', { attempt, status: latestStatus });
+        return;
+      }
+      if (latestStatus === 'confirmed' && (await hasAssignments())) {
+        await recordObservabilityEvent({
+          source: 'auto_assign',
+          eventType: 'auto_assign.exited_already_confirmed',
+          restaurantId: booking.restaurant_id,
+          bookingId: booking.id,
+          context: { attempt_index: attempt, trigger: reason, stage: 'pre_attempt' },
+        });
+        await emitAutoAssignSummary('already_confirmed', attempt);
+        logJob('attempt.precheck_already_confirmed', { attempt, status: latestStatus });
+        return;
       }
 
       if (attempt > 0 && withinCutoff()) {
@@ -621,7 +616,10 @@ export async function autoAssignAndConfirmIfPossible(
               }
             }
           } else {
-            const idempotencyKey = booking.auto_assign_idempotency_key ?? `auto-${bookingId}`;
+            const idempotencyKey =
+              reason === 'creation'
+                ? `inline-${bookingId}`
+                : (booking.auto_assign_idempotency_key ?? `auto-${bookingId}`);
 
             await atomicConfirmAndTransition({
               bookingId,
@@ -636,6 +634,7 @@ export async function autoAssignAndConfirmIfPossible(
               .from('bookings')
               .select('*')
               .eq('id', bookingId)
+              .eq('restaurant_id', booking.restaurant_id)
               .maybeSingle();
             if (updated && !SUPPRESS_EMAILS) {
               if (inlineEmailAlreadySent) {
@@ -739,25 +738,6 @@ export async function autoAssignAndConfirmIfPossible(
       if (toSleep > 0) {
         await sleep(toSleep);
       }
-      const { data: latest } = await supabase
-        .from('bookings')
-        .select('status')
-        .eq('id', bookingId)
-        .maybeSingle();
-      if (latest?.status === 'confirmed') {
-        if (emitAutoAssignSummary) {
-          await emitAutoAssignSummary('already_confirmed', attempt);
-        }
-        await recordObservabilityEvent({
-          source: 'auto_assign',
-          eventType: 'auto_assign.exited_already_confirmed',
-          restaurantId: booking.restaurant_id,
-          bookingId: booking.id,
-          context: { attempt_index: attempt, trigger: reason },
-        });
-        logJob('attempt.success_race', { attempt });
-        return;
-      }
     }
 
     await recordObservabilityEvent({
@@ -777,6 +757,7 @@ export async function autoAssignAndConfirmIfPossible(
       .from('bookings')
       .select('*')
       .eq('id', bookingId)
+      .eq('restaurant_id', booking.restaurant_id)
       .maybeSingle();
 
     const bookingForNotification = (latestBooking ?? booking) as Tables<'bookings'>;
