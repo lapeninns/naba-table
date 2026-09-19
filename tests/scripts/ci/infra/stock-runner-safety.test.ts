@@ -10,7 +10,10 @@ const templateSchema = z.object({
   provision: z.array(z.object({ mode: z.string(), script: z.string() })),
 });
 const workflowSchema = z.object({
-  jobs: z.record(z.string(), z.object({ name: z.string(), if: z.string().optional() })),
+  jobs: z.record(
+    z.string(),
+    z.object({ name: z.string(), if: z.string().optional(), 'runs-on': z.string() }),
+  ),
 });
 
 describe('isolated stock runner safety', () => {
@@ -24,7 +27,7 @@ describe('isolated stock runner safety', () => {
   });
 
   it.each(['test-suite', 'security-guards', 'quality-gates', 'shadcn-primitives', 'e2e-smoke'])(
-    'excludes fork pull requests from local jobs in %s',
+    'routes fork pull requests to hosted validation in %s',
     (name) => {
       const source = readFileSync(
         path.join(repositoryRoot, '.github/workflows', `${name}.yml`),
@@ -33,8 +36,9 @@ describe('isolated stock runner safety', () => {
       const workflow = workflowSchema.parse(parse(source));
       for (const job of Object.values(workflow.jobs)) {
         if (job.name === 'UI visual routes') continue;
-        expect(job.if).toBe(
-          "github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository",
+        expect(job.if).toBeUndefined();
+        expect(job['runs-on']).toBe(
+          `\${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}`,
         );
       }
     },
