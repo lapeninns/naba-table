@@ -1,5 +1,15 @@
 # Auth Pages Design System Quick Reference
 
+> [!WARNING]
+> **Historical reference — superseded by Radix Luma.** The raw `blue-*` / `slate-*` utilities,
+> gradients and shadows below describe the pre-Luma auth pages and are **not** the current
+> contract; the auth routes now render through the shared semantic tokens and primitives, and
+> the `guard:luma` ratchet blocks new hardcoded palette utilities. For current values read
+> [`docs/DESIGN_TOKENS.md`](DESIGN_TOKENS.md) and the brand spec
+> [`GUEST_FACING_DESIGN_SYSTEM.md`](../GUEST_FACING_DESIGN_SYSTEM.md); for decisions read
+> [`docs/design/luma-2.0-spec.md`](design/luma-2.0-spec.md). Kept only so older task notes
+> that cite it still resolve.
+
 ## Color Tokens
 
 ### Primary Actions

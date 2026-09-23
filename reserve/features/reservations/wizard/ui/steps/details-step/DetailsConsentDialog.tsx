@@ -107,7 +107,7 @@ function ConsentContent({
       <Button
         type="button"
         size="lg"
-        className="min-h-12 w-full shadow-[var(--guest-shadow-sm)]"
+        className="min-h-12 w-full shadow-[var(--pg-shadow-sm)]"
         disabled={controller.isSubmitting}
         onClick={controller.handleAcceptAllAndContinue}
       >
