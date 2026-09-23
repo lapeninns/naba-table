@@ -28,6 +28,17 @@ describe('restaurant config clone/triple script integrity', () => {
     );
   });
 
+  it('replaces copied Barley Mow and Prince tables only with production confirmation and guarded deletes', () => {
+    const source = readScript('scripts/update-copied-venue-tables.ts');
+
+    expect(source).toContain('CONFIRM_PRODUCTION=true is required to modify production data.');
+    expect(source).toContain("process.env.APPLY === 'true'");
+    expect(source).toContain("rpc('delete_table_inventory_guarded'");
+    expect(source).toContain('COPIED_VENUE_TABLE_SPECS');
+    expect(source).toContain('assertExactSupabaseApiProjectRef');
+    expect(source).not.toContain('cleanupTargetBySlug');
+  });
+
   it('preserves table mobility and fails closed on adjacency mismatch when tripling tables', () => {
     const source = readScript('scripts/triple-old-school-house-production-tables.ts');
     const mainBody = source.slice(source.indexOf('async function main()'));
