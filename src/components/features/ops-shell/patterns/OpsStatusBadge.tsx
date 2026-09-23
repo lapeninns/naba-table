@@ -20,12 +20,17 @@ export type OpsStatusBadgeProps = {
 const resolveTone = (tone: OpsStatusBadgeProps['tone']): OpsStatusTone =>
   tone === 'default' ? 'neutral' : (tone as OpsStatusTone);
 
-export function OpsStatusBadge({ label, tone = 'default', icon: Icon, className }: OpsStatusBadgeProps) {
+export function OpsStatusBadge({
+  label,
+  tone = 'default',
+  icon: Icon,
+  className,
+}: OpsStatusBadgeProps) {
   return (
     <Badge
       variant="outline"
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border text-xs font-medium',
+        'inline-flex items-center gap-1 rounded-full border text-xs font-medium',
         OPS_STATUS_TONE_CLASSES[resolveTone(tone)],
         className,
       )}

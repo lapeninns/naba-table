@@ -82,13 +82,12 @@ NOT sync into that one; it's hand-authored and would be clobbered.
 
 ## Known warns (triaged — not new)
 
-- `[TOKENS_MISSING]` `--radius-full, --pg-shadow-floating, --pg-shadow-soft, --tw` — referenced but
-  not in any shipped stylesheet; runtime/Tailwind-internal, non-blocking.
-- `[TOKENS_MISSING]` `--pg-radius-full` (new 2026-07-20) — dead reference from
-  `reserve/features/reservations/wizard/ui/WizardSkeletons.tsx` (`rounded-[var(--pg-radius-full)]`);
-  the var is defined NOWHERE in the repo, so it's an app-side cosmetic bug (skeleton corners render
-  square), not a DS-sync issue. Flagged as a background-task chip for the app; if fixed by defining
-  the var, this warn disappears; if fixed by switching to `--pg-radius-pill`, ditto.
+- `[TOKENS_MISSING]` `--tw` — Tailwind-internal, non-blocking. (`--radius-full`,
+  `--pg-shadow-floating`, `--pg-shadow-soft` are now defined in the token file; the
+  `--pg-radius-full` dead reference is gone — 2026-09-21.)
+- 2026-09-21 token revision: the `--guest-*` alias block was retired, `--pg-space-*` /
+  `--pg-hero-y` / nav + sidebar layout tokens were added, display type is fluid (`clamp()`), and
+  `docs/tokens.json` is generated (`pnpm design:tokens-json`). Recompile `ds.css` before re-sync.
 
 ## Overlays & card modes
 

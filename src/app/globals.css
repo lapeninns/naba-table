@@ -72,8 +72,9 @@
   h6 {
     scroll-margin-top: 5rem;
     font-weight: 600;
-    /* Design system rule: no negative letter-spacing. */
-    letter-spacing: 0;
+    /* Tracking is owned by the type tokens (--pg-tracking-display / -tight /
+       -wide) via the <Heading> / <Text> primitives and the .pg-* recipes;
+       raw headings inherit normal tracking. */
   }
 
   p {
@@ -512,6 +513,13 @@
   --font-serif: var(--pg-font-display);
   --font-mono: var(--pg-font-mono);
 
+  /* Brand tracking tiers as utilities (tracking-display / -headline / -eyebrow
+     / -button), backed by the --pg-tracking-* tokens. */
+  --tracking-display: var(--pg-tracking-display);
+  --tracking-headline: var(--pg-tracking-tight);
+  --tracking-eyebrow: var(--pg-tracking-wide);
+  --tracking-button: var(--pg-tracking-button);
+
   /* Restrained radius scale. The sm–xl steps mirror
      styles/design-system/public-guest.tokens.css (controls ≤ 8px, cards ≤ 12px,
      containers ≤ 16px) and must stay in sync with it. The 2xl–4xl steps are
@@ -528,7 +536,7 @@
   /* Luma 2.0 radius identity — DECIDED: keep the restrained scale. The steps
      above are the whole vocabulary (defined ceiling 1.25rem/20px; components
      use ≤ rounded-2xl / 14px in practice, no rounded-[3-9]xl sprawl). Guest and
-     ops share it — the --guest-radius-* aliases map back into these steps.
+     ops share it; the --pg-radius-* steps in the token file are the same values.
 
      Luma 2.0 motion easings live in the token layer as --pg-ease-out / -spring /
      -snap (public-guest.tokens.css) and compose into the --pg-transition-hover /

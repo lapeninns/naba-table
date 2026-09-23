@@ -55,7 +55,7 @@ export function OpsCancelBookingAlertDialog({
           <AlertDialogCancel disabled={isPending}>Keep booking</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => void onConfirm()}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15 dark:hover:bg-destructive/20"
             disabled={isPending}
           >
             {isPending ? (

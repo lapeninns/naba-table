@@ -149,7 +149,9 @@ function RenameDeviceDialog({ session }: { session: AccountSession }) {
               autoFocus
             />
             {renameMutation.isError ? (
-              <Text variant="caption" className="text-destructive">Couldn’t rename this device. Try again.</Text>
+              <Text variant="caption" className="text-destructive">
+                Couldn’t rename this device. Try again.
+              </Text>
             ) : null}
           </div>
           <DialogFooter>
@@ -234,7 +236,7 @@ function LogOutOtherSessions({ sessionCount }: { sessionCount: number }) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={logOutMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15 dark:hover:bg-destructive/20"
               disabled={logOutMutation.isPending}
               onClick={handleConfirm}
             >
@@ -276,9 +278,7 @@ function SessionRow({ session }: { session: AccountSession }) {
           ) : null}
         </div>
 
-        {session.device.name ? (
-          <Text variant="caption">{session.device.label}</Text>
-        ) : null}
+        {session.device.name ? <Text variant="caption">{session.device.label}</Text> : null}
 
         <dl className="grid gap-x-6 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
           <div className="flex min-w-0 items-center gap-2">

@@ -53,6 +53,8 @@
     "agents:validate": "tsx scripts/governance/validate-agents.ts",
     "openapi:validate": "tsx scripts/governance/validate-openapi.ts",
     "docs:generate": "typedoc",
+    "design:tokens-json": "node scripts/design-system/generate-tokens-json.mjs",
+    "design:tokens-json:check": "node scripts/design-system/generate-tokens-json.mjs --check",
     "quality:dead-code": "tsx scripts/quality/check-knip-ratchet.ts",
     "quality:duplicates": "jscpd app components hooks lib reserve server src cloudflare --config .jscpd.json",
     "quality:bundles": "pnpm build:workspaces && size-limit",

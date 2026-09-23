@@ -59,7 +59,7 @@ Everything below serves one of those three.
 **Decision:** promote **one** primitive — `OpsStatusBadge` — to be **icon-capable** (optional `icon?: LucideIcon` + `showIcon`), keep the single `OpsStatusTone` vocabulary, and refactor the five others into **domain mappers** (`status → { tone, label, icon }`) that feed it. This is exactly the two-layer model `status-tones.ts` already documents ("Never map an arbitrary status string directly to styling"). The google-business `verified/drift/error/pending` vocabulary collapses cleanly onto `success/info/danger/pending→info`; dual-sync's already routes through domain constants.
 
 - **No new colors** — reuses the existing calm palette, so it is not a rebrand and can land pre-merge.
-- **Shape reconciliation is the one small aesthetic sub-call:** `rounded-md` (ops) vs `rounded-full` (settings). Recommend **`rounded-full` for status pills everywhere** (a pill reads as a status; a slightly-rounded rect reads as a tag). Flagged in §5.
+- **Shape reconciliation — DECIDED (2026-09-21): `rounded-full` for status pills everywhere** (a pill reads as a status; a slightly-rounded rect reads as a tag). This matches the brand spec's "Badges/Chips: rounded-full" rule; `OpsStatusBadge` and the base `Badge` now share it.
 - Net: 6 components → 1 primitive + 4 mappers; ~5 files simplified, every status looks like every other status.
 
 ### 3.2 Empty states — **DONE, verify only**
@@ -107,7 +107,9 @@ Safe-set — verifiable by local typecheck/test/guard even while CI billing is b
 - [x] **`subheading` coverage**: 16 mini-titles migrated.
 - [x] **Serif reach ratified** (§4.2): ops stays all-sans; no change needed.
 
-Remaining open aesthetic forks (§4.3–4.5: density, motion, radius) and the reserve/legacy-root items (§3.4, §3.5) are **out** of this pass and tracked for later.
+The §4.3–4.5 forks (density, motion, radius) were subsequently decided and shipped (see §4); only the reserve/legacy-root items (§3.4, §3.5) remain open.
+
+- [x] **Brand type + shape alignment (2026-09-21).** The token layer was reconciled with the brand spec's type scale and interaction rules: display/headline tiers are fluid (`clamp()`, 32→48 / 28→36 / 20→24px) with the spec's inverse tracking (−0.02em display, −0.01em headline, +0.08em eyebrow, +0.01em button); buttons are 14px/600 with the tactile press; cards carry no resting shadow; badges and status pills are `rounded-full`; destructive buttons are the 10 % tint, never filled; focus rings are 3px at 30 %. The dead `--guest-*` alias block and dark-only legacy leftovers were retired, `--pg-space-*` / `--pg-hero-y` / nav + sidebar layout tokens were added, and `docs/tokens.json` is now generated (`pnpm design:tokens-json`) with a contract test guarding drift.
 
 ---
 

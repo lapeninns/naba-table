@@ -22,7 +22,11 @@ type DeleteRestaurantDialogProps = {
   restaurant: RestaurantDTO | null;
 };
 
-export function DeleteRestaurantDialog({ open, onOpenChange, restaurant }: DeleteRestaurantDialogProps) {
+export function DeleteRestaurantDialog({
+  open,
+  onOpenChange,
+  restaurant,
+}: DeleteRestaurantDialogProps) {
   const deleteMutation = useDeleteRestaurant();
 
   const handleConfirm = async () => {
@@ -52,7 +56,8 @@ export function DeleteRestaurantDialog({ open, onOpenChange, restaurant }: Delet
           </div>
           <AlertDialogDescription className="space-y-3 pt-3">
             <p>
-              Are you sure you want to delete <span className="font-semibold text-foreground">"{restaurant.name}"</span>
+              Are you sure you want to delete{' '}
+              <span className="font-semibold text-foreground">&ldquo;{restaurant.name}&rdquo;</span>
               ?
             </p>
             <p>This will permanently delete:</p>
@@ -72,7 +77,7 @@ export function DeleteRestaurantDialog({ open, onOpenChange, restaurant }: Delet
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={deleteMutation.isPending}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15 dark:hover:bg-destructive/20"
           >
             {deleteMutation.isPending ? 'Deleting…' : 'Delete Restaurant'}
           </AlertDialogAction>
