@@ -107,3 +107,6 @@ ds-bundle/
 
 # Stray local pnpm content-addressable store (pnpm uses the global store)
 .pnpm-store/
+
+# Real environment values must never be committed
+docs/prod.env
