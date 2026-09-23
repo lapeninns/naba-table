@@ -104,3 +104,6 @@ ds-bundle/
 # product code references, and whose synthetic credential sentinels were the
 # only findings the gitleaks baseline existed to suppress for this tree.
 .omo/
+
+# Stray local pnpm content-addressable store (pnpm uses the global store)
+.pnpm-store/
