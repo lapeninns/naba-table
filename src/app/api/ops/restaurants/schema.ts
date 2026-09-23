@@ -217,28 +217,28 @@ export const updateRestaurantSchema = z.object({
     .trim()
     .regex(EMAIL_REGEX, 'Invalid email format')
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
   contactPhone: z
     .string()
     .trim()
     .min(5, 'Phone number must be at least 5 characters')
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
   address: z
     .string()
     .trim()
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
   businessDescription: z
     .string()
     .trim()
     .max(4096, 'Business description must be 4096 characters or fewer')
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
   managerDailySummaryEnabled: z.boolean().optional(),
   managerWhatsappEnabled: z.boolean().optional(),
   managerNotificationPhone: z
@@ -246,8 +246,8 @@ export const updateRestaurantSchema = z.object({
     .trim()
     .regex(E164_REGEX, 'Manager notification phone must be in E.164 format')
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
   googleMapUrl: googleUrlSchema(
     safeGoogleMapsUrl,
     'Google Map link must be an HTTPS Google Maps URL',
@@ -260,8 +260,8 @@ export const updateRestaurantSchema = z.object({
     .string()
     .trim()
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
   emailSendReminder24h: z.boolean().optional(),
   emailSendReminderShort: z.boolean().optional(),
   emailSendReviewRequest: z.boolean().optional(),
@@ -278,8 +278,8 @@ export const updateRestaurantSchema = z.object({
       message: 'Manager name cannot contain line breaks or control characters',
     })
     .nullable()
-    .optional()
-    .transform((val) => val || null),
+    .transform((val) => val || null)
+    .optional(),
 });
 
 export type UpdateRestaurantInput = z.infer<typeof updateRestaurantSchema>;
