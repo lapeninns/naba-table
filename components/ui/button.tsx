@@ -5,7 +5,9 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive",
+  // Brand button tier: Inter 14px / 600 / +0.01em tracking, tactile press
+  // (scale 0.98 + 1px drop), 3px focus ring at 30% (GUEST_FACING_DESIGN_SYSTEM.md).
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold tracking-[var(--pg-tracking-button)] transition-all active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
@@ -16,11 +18,14 @@ const buttonVariants = cva(
           'rounded-[var(--pg-radius-pill)] border-[color:var(--pg-border)] bg-[color:var(--pg-bg)] text-[color:var(--pg-text)] shadow-none hover:bg-[color:var(--pg-bg-muted)]',
         'guest-ghost':
           'rounded-[var(--pg-radius-pill)] border border-transparent bg-transparent text-[color:var(--pg-action)] shadow-none hover:bg-[color:color-mix(in_srgb,var(--pg-action)_10%,transparent)]',
+        // Tinted, never filled: destructive actions must not take the most
+        // prominent style (brand doc + Apple HIG).
         destructive:
-          'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 dark:bg-destructive/60',
+          'bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15 dark:hover:bg-destructive/20',
         outline:
           'border bg-background shadow-xs hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
-        secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
+        secondary:
+          'bg-secondary text-secondary-foreground shadow-xs hover:bg-[color:var(--pg-secondary-hover)]',
         ghost: 'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50',
         link: 'text-primary underline-offset-4 hover:underline',
       },

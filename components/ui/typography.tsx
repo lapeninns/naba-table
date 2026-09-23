@@ -8,27 +8,29 @@ import { cn } from '@/lib/utils';
  *
  * These bind directly to the `--pg-*` type tokens (font family, the responsive
  * `--pg-text-*` size steps, leading, tracking) rather than the `.pg-*` utility
- * classes, which are scoped to `[data-theme='guest'|'app']` / `.guest-theme`.
+ * classes, which are scoped to `[data-theme='guest'|'app']` and the guest
+ * compatibility class.
  * Binding to the tokens — which resolve at `:root` and every theme selector —
  * means a `<Heading>` / `<Text>` renders identically on guest, ops, and the
  * design-system preview cards, with no theme wrapper required.
  *
  * The scale mirrors the roles the app already uses (hero/section/card,
  * lead/body/caption/eyebrow) and fills the gaps the `.pg-*` layer left open
- * (`label`, `mono`). Sizes are unchanged from today's rendered look — this is
- * codification, not a restyle.
+ * (`label`, `mono`). Sizes, leading and tracking follow the brand type scale
+ * in GUEST_FACING_DESIGN_SYSTEM.md (display/headline tiers are fluid via
+ * clamp(); body is fixed at 16px).
  */
 
 const headingVariants = cva('text-[color:var(--pg-text)] [text-wrap:balance]', {
   variants: {
     variant: {
       display:
-        'font-[family-name:var(--pg-font-display)] text-[length:var(--pg-text-hero)] font-bold leading-[1.1667] tracking-[var(--pg-tracking-display)]',
+        'font-[family-name:var(--pg-font-display)] text-[length:var(--pg-text-hero)] font-bold leading-[var(--pg-leading-tight)] tracking-[var(--pg-tracking-display)]',
       section:
-        'font-[family-name:var(--pg-font-display)] text-[length:var(--pg-text-section)] font-bold leading-[1.22] tracking-[var(--pg-tracking-tight)]',
-      card: 'font-[family-name:var(--pg-font-display)] text-[length:var(--pg-text-card-title)] font-semibold leading-[1.22]',
+        'font-[family-name:var(--pg-font-display)] text-[length:var(--pg-text-section)] font-bold leading-[var(--pg-leading-snug)] tracking-[var(--pg-tracking-tight)]',
+      card: 'font-[family-name:var(--pg-font-display)] text-[length:var(--pg-text-card-title)] font-bold leading-[var(--pg-leading-heading)]',
       title:
-        'font-[family-name:var(--pg-font-body)] text-[1.25rem] font-semibold leading-[1.4] [text-wrap:pretty]',
+        'font-[family-name:var(--pg-font-body)] text-[length:var(--pg-text-title)] font-semibold leading-[var(--pg-leading-title)] [text-wrap:pretty]',
     },
   },
   defaultVariants: { variant: 'section' },
@@ -68,18 +70,19 @@ Heading.displayName = 'Heading';
 const textVariants = cva('', {
   variants: {
     variant: {
-      lead: 'text-[color:var(--pg-text-muted)] text-[length:var(--pg-text-lead)] leading-[var(--pg-leading-body)] [text-wrap:pretty]',
+      lead: 'text-[color:var(--pg-text-muted)] text-[length:var(--pg-text-lead)] leading-[var(--pg-leading-lead)] [text-wrap:pretty]',
       body: 'text-[color:var(--pg-text-muted)] text-[length:var(--pg-text-body)] leading-[var(--pg-leading-body)]',
-      caption: 'text-[color:var(--pg-text-subtle)] text-[length:var(--pg-text-caption)] leading-[1.45]',
+      caption:
+        'text-[color:var(--pg-text-subtle)] text-[length:var(--pg-text-caption)] leading-[var(--pg-leading-compact)]',
       eyebrow:
-        'text-[color:var(--pg-text-muted)] text-[length:var(--pg-text-kicker)] font-semibold uppercase leading-[1.333] tracking-[var(--pg-tracking-wide)]',
+        'text-[color:var(--pg-text-muted)] text-[length:var(--pg-text-kicker)] font-semibold uppercase leading-[var(--pg-leading-heading)] tracking-[var(--pg-tracking-wide)]',
       label:
-        'text-[color:var(--pg-text)] text-[length:var(--pg-text-caption)] font-medium leading-[1.45]',
+        'text-[color:var(--pg-text)] text-[length:var(--pg-text-caption)] font-medium leading-[var(--pg-leading-compact)]',
       /** Compact emphasized title — the sans, semibold, foreground role used for
        *  card sub-headers and inline section labels (below the Heading scale). */
       subheading:
-        'text-[color:var(--pg-text)] text-[length:var(--pg-text-caption)] font-semibold leading-[1.35]',
-      mono: 'font-[family-name:var(--pg-font-mono)] text-[length:var(--pg-text-caption)] leading-[1.333] tabular-nums',
+        'text-[color:var(--pg-text)] text-[length:var(--pg-text-caption)] font-semibold leading-[var(--pg-leading-compact)]',
+      mono: 'font-[family-name:var(--pg-font-mono)] text-[length:var(--pg-text-caption)] leading-[var(--pg-leading-heading)] tabular-nums',
     },
   },
   defaultVariants: { variant: 'body' },

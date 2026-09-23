@@ -4,6 +4,10 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ## Unreleased
 
+### Changed
+
+- Align the design-token layer with the Radix Luma brand spec: fluid display/headline type with inverse tracking, 14px/600 buttons with tactile press and 30% focus rings, tinted (never filled) destructive buttons, shadow-free resting cards, pill badges and status pills, plus new spacing, hero-rhythm and layout tokens. Retire the dead `--guest-*` and dark-only legacy aliases, regenerate `docs/tokens.json` from the stylesheet, and rewrite the token reference.
+
 ### Fixed
 
 - Skip impossible email-pattern matches when Worker evidence strings contain no ASCII `@`, preserving redaction behavior and the existing oversized-evidence size limit and test timeout.

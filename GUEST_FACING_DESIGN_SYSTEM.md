@@ -133,13 +133,15 @@ typography:
     fontWeight: '400'
     lineHeight: 16px
 rounded:
-  sm: 0.525rem
-  DEFAULT: 0.7rem
-  lg: 0.875rem
-  xl: 1.225rem
-  2xl: 1.575rem
-  3xl: 1.925rem
-  4xl: 2.275rem
+  # Restrained scale ratified in docs/design/luma-2.0-spec.md §4.5 (ceiling 20px).
+  sm: 0.375rem
+  DEFAULT: 0.5rem
+  lg: 0.625rem
+  xl: 0.75rem
+  2xl: 0.875rem
+  3xl: 1rem
+  4xl: 1.25rem
+  pill: 9999px
   full: 9999px
 spacing:
   base: 8px
@@ -194,7 +196,7 @@ components:
     backgroundColor: '{colors.primary}'
     textColor: '{colors.on-primary}'
     typography: '{typography.button}'
-    rounded: '{rounded.4xl}'
+    rounded: '{rounded.pill}'
     height: 36px
     padding: 0 12px
   button-primary-hover:
@@ -203,7 +205,7 @@ components:
     backgroundColor: '{colors.secondary}'
     textColor: '{colors.secondary-foreground}'
     typography: '{typography.button}'
-    rounded: '{rounded.4xl}'
+    rounded: '{rounded.pill}'
     height: 36px
     padding: 0 12px
   button-secondary-hover:
@@ -212,21 +214,21 @@ components:
     backgroundColor: '{colors.background}'
     textColor: '{colors.foreground}'
     typography: '{typography.button}'
-    rounded: '{rounded.4xl}'
+    rounded: '{rounded.pill}'
     height: 36px
     padding: 0 12px
   button-ghost:
     backgroundColor: transparent
     textColor: '{colors.foreground}'
     typography: '{typography.button}'
-    rounded: '{rounded.4xl}'
+    rounded: '{rounded.pill}'
   button-ghost-hover:
     backgroundColor: '{colors.muted}'
   button-destructive:
     backgroundColor: '#fef2f2'
     textColor: '#c10007'
     typography: '{typography.button}'
-    rounded: '{rounded.4xl}'
+    rounded: '{rounded.pill}'
   button-link:
     backgroundColor: transparent
     textColor: '{colors.primary}'
@@ -449,12 +451,17 @@ An 8-tier shadow scale from `sm` (1px offset, barely visible) to `popover` (deep
 
 The shape language follows Apple's continuous corner radius ("squircle") approach — generously rounded corners that feel organic and approachable. Each component category uses a consistent radius level to create a predictable visual rhythm.
 
-- **Buttons:** rounded-4xl (2.275rem) — fully-pillowed capsule shape. The signature interactive element.
-- **Cards:** rounded-lg (0.875rem) — standard containers. Soft enough to feel modern, structured enough to contain dense content.
-- **Popovers/Dropdowns:** rounded-DEFAULT (0.7rem) — slightly tighter, communicating precision.
-- **Inputs:** rounded-DEFAULT (0.7rem) — matches popovers for visual consistency in form contexts.
+> The radius scale is the **restrained** identity ratified in
+> [`docs/design/luma-2.0-spec.md`](docs/design/luma-2.0-spec.md) §4.5: `sm` 6px · `DEFAULT` 8px ·
+> `lg` 10px · `xl` 12px · `2xl` 14px · `3xl` 16px · `4xl` 20px (the ceiling) · `pill` 9999px.
+> Controls stay ≤ 8px, cards ≤ 12px, containers ≤ 16px; components use ≤ `rounded-2xl` in practice.
+
+- **Buttons:** guest/marketing buttons are the capsule (`pill`) — the signature interactive element. The ops console keeps the compact `rounded-md` (8px) shadcn control so dense toolbars stay aligned with inputs.
+- **Cards:** rounded-xl (0.75rem) — standard containers. Soft enough to feel modern, structured enough to contain dense content.
+- **Popovers/Dropdowns:** rounded-DEFAULT (0.5rem) — slightly tighter, communicating precision.
+- **Inputs:** rounded-DEFAULT (0.5rem) — matches popovers for visual consistency in form contexts.
 - **Badges/Chips:** rounded-full (9999px) — status indicators and tags.
-- **Consistency Rule:** Never mix radius profiles within the same component category. Buttons are always capsule. Cards are always rounded-lg. Mixing radii creates visual noise that Apple specifically warns against.
+- **Consistency Rule:** Never mix radius profiles within the same component category. Guest buttons are always capsule. Cards are always rounded-xl. Mixing radii creates visual noise that Apple specifically warns against.
 
 ## Motion & Interaction
 
@@ -491,7 +498,7 @@ All animations must defer to simple opacity fades (or no animation at all) when 
 
 The button system follows Apple's button style hierarchy: use style — not size — to distinguish the preferred action. A single prominent (filled) button per view draws attention to the most likely action. Supporting actions use less prominent styles.
 
-Six variants share the capsule shape (rounded-4xl). Height: 36px (9 × 4px). Padding: 12px horizontal.
+Six variants share one shape per surface (capsule on guest, `rounded-md` on ops). Height: 36px (9 × 4px). Padding: 12px horizontal.
 
 - **Primary (filled):** Cobalt blue fill with near-white text. Hover darkens to #1240CF. The `button-glow` shadow adds a colored aura. Limit to one or two per view.
 - **Secondary (tinted):** Zinc-100 fill with Zinc-950 text. For supporting actions that need visual weight without competing with primary.
