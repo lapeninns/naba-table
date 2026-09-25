@@ -148,6 +148,7 @@ export function useTableInventoryController() {
     zoneDeleteMutation,
     zoneUpdateMutation,
   } = useTableInventoryMutations({
+    restaurantId: activeRestaurantId,
     tablesQueryKey,
     zonesQueryKey,
     onTableSaved: (table) => {
