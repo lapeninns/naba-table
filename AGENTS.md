@@ -154,6 +154,7 @@ Do not broaden a bug fix into cleanup, rewrite unrelated user changes, or claim 
 - Setup and environment safety: `README.md`, `docs/environments.md`
 - Security boundaries: `docs/security.md`
 - Booking and business rules: `docs/BUSINESS_LOGIC.md`
+- Design system and brand: `DESIGN.md` (Radix Luma, both surfaces), `BRAND.md`, `docs/design/luma-2.0-spec.md`, `docs/DESIGN_TOKENS.md`
 - Review scheduling retries and historical recovery: `docs/runbooks/review-scheduling-recovery.md`
 - Routes: `docs/current-routes.md`
 - Database baseline: `docs/db/supabase-baseline-migrations.md`

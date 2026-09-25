@@ -6,13 +6,7 @@
   "tsconfig": "./.design-sync/tsconfig.dsync.json",
   "entry": "./.design-sync/entry.tsx",
   "cssEntry": "./.design-sync/compiled/ds.css",
-  "guidelinesGlob": [
-    "GUEST_FACING_DESIGN_SYSTEM.md",
-    "docs/design-system.md",
-    "docs/DESIGN_TOKENS.md",
-    "docs/design-notes.md",
-    "docs/auth-design-system.md"
-  ],
+  "guidelinesGlob": ["DESIGN.md", "BRAND.md", "docs/DESIGN_TOKENS.md", "docs/design-notes.md"],
   "overrides": {
     "Table": {
       "cardMode": "column"

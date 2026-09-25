@@ -128,7 +128,8 @@ Pull requests and `main` are tested today by the self-hosted `nabatable` runner 
 
 ## Design-system invariants (CI-enforced)
 
-The UI is a single Radix Luma design system. Four guards keep it from drifting; all
+The UI is a single Radix Luma design system, specified in [`DESIGN.md`](DESIGN.md) (brand identity:
+[`BRAND.md`](BRAND.md)). Four guards keep it from drifting; all
 run on every PR (`shadcn-primitives.yml`, and `quality-gates.yml` via `pnpm lint`):
 
 - **One primitive root.** shadcn primitives live only in `components/ui/*`. App code must

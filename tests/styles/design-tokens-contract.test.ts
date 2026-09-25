@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 /**
  * Design-token contract.
  *
- * Pins the token layer to the brand spec (GUEST_FACING_DESIGN_SYSTEM.md) and
+ * Pins the token layer to the brand spec (DESIGN.md) and
  * the Luma 2.0 decision register so the stylesheet cannot silently drift from
  * the documents that define it — and so retired aliases cannot creep back.
  */
@@ -79,7 +79,7 @@ function channelDistance(a: string, b: string): number {
   return Math.max(Math.abs(ar - br), Math.abs(ag - bg), Math.abs(ab - bb));
 }
 
-describe('design tokens — brand palette (GUEST_FACING_DESIGN_SYSTEM.md)', () => {
+describe('design tokens — brand palette (DESIGN.md)', () => {
   const brand: Array<[string, string, string]> = [
     // token, light hex, dark hex
     ['--background', '#ffffff', '#09090b'],

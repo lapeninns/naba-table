@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
  * The scale mirrors the roles the app already uses (hero/section/card,
  * lead/body/caption/eyebrow) and fills the gaps the `.pg-*` layer left open
  * (`label`, `mono`). Sizes, leading and tracking follow the brand type scale
- * in GUEST_FACING_DESIGN_SYSTEM.md (display/headline tiers are fluid via
+ * in DESIGN.md (display/headline tiers are fluid via
  * clamp(); body is fixed at 16px).
  */
 

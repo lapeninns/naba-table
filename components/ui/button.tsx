@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
   // Brand button tier: Inter 14px / 600 / +0.01em tracking, tactile press
-  // (scale 0.98 + 1px drop), 3px focus ring at 30% (GUEST_FACING_DESIGN_SYSTEM.md).
+  // (scale 0.98 + 1px drop), 3px focus ring at 30% (DESIGN.md).
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold tracking-[var(--pg-tracking-button)] transition-all active:translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 aria-invalid:border-destructive",
   {
     variants: {
