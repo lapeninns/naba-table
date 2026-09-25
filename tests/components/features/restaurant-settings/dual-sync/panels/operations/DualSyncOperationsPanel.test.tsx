@@ -32,18 +32,17 @@ describe('DualSyncOperationsPanel', () => {
     const query = makeQuery({ isError: true, error: new Error('Operations fetch failed') });
     render(<DualSyncOperationsPanel operationsQuery={query} />);
 
-    expect(screen.getByText('Operations fetch failed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Publish operations could not be loaded. Reason code: unknown_error.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Operations fetch failed')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Retry/ }));
     expect(query.refetch).toHaveBeenCalledTimes(1);
   });
 
   it('@contract shows the empty state when the response has no operations', () => {
-    render(
-      <DualSyncOperationsPanel
-        operationsQuery={makeQuery({ data: { operations: [] } })}
-      />,
-    );
+    render(<DualSyncOperationsPanel operationsQuery={makeQuery({ data: { operations: [] } })} />);
 
     expect(
       screen.getByText('No publish operations recorded for this restaurant yet.'),

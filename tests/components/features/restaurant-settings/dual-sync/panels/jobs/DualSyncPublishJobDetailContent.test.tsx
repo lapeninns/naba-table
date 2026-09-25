@@ -51,7 +51,10 @@ describe('DualSyncPublishJobDetailContent', () => {
     const query = makeDetailQuery({ isError: true, error: new Error('Detail fetch failed') });
     render(<DualSyncPublishJobDetailContent jobId="publish-job-1" publishJobDetailQuery={query} />);
 
-    expect(screen.getByText('Detail fetch failed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Publish job detail could not be loaded. Reason code: unknown_error.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Detail fetch failed')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(query.refetch).toHaveBeenCalledTimes(1);
   });

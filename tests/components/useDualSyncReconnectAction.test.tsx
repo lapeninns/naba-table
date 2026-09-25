@@ -112,7 +112,7 @@ describe('useDualSyncReconnectAction', () => {
     expect(redirectToAuthorizationUrl).toHaveBeenCalledWith('https://accounts.google.test/oauth');
   });
 
-  it('shows the authorization error message when reconnect fails', () => {
+  it('shows fixed copy, not the raw error, when reconnect fails', () => {
     const mutate = vi.fn();
     mocks.useOpsStartGoogleBusinessProfileAuthorization.mockReturnValue({
       isPending: false,
@@ -133,6 +133,8 @@ describe('useDualSyncReconnectAction', () => {
 
     act(() => options.onError(new Error('Reconnect failed')));
 
-    expect(mocks.toast.error).toHaveBeenCalledWith('Reconnect failed');
+    expect(mocks.toast.error).toHaveBeenCalledWith(
+      'Google reconnect failed. Reason code: unknown_error.',
+    );
   });
 });

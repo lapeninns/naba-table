@@ -1,4 +1,5 @@
 import { formatDualSyncTimestamp } from '../../dualSyncFormattingDomain';
+import { getDualSyncErrorToastIntent } from '../../dualSyncShellActionDomain';
 
 import type { DualSyncToastIntent } from '../../dualSyncShellActionDomain';
 import type { DualSyncOutboundCandidate, DualSyncOutboundStatus } from '@/server/dual-sync';
@@ -109,8 +110,5 @@ export function getDualSyncPendingCandidateCancelSuccessToastIntent(): DualSyncT
 export function getDualSyncPendingCandidateCancelErrorToastIntent(
   error: unknown,
 ): DualSyncToastIntent {
-  return {
-    kind: 'error',
-    message: error instanceof Error ? error.message : 'Pending change cancellation failed.',
-  };
+  return getDualSyncErrorToastIntent(error, 'Pending change cancellation failed.');
 }

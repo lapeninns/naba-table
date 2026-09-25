@@ -11,6 +11,7 @@ import {
 } from './DualSyncPublishJobDetailStates';
 import { DualSyncPublishOperationGroupsTable } from './DualSyncPublishOperationGroupsTable';
 import { DualSyncPublishOperationsTable } from './DualSyncPublishOperationsTable';
+import { getDualSyncErrorMessage } from '../../dualSyncShellActionDomain';
 
 import type { GetDualSyncPublishJobDetailResponse } from '@/services/ops/dual-sync';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -36,7 +37,10 @@ export function DualSyncPublishJobDetailContent({
   if (publishJobDetailQuery.isError) {
     return (
       <DualSyncPublishJobDetailErrorState
-        message={publishJobDetailQuery.error?.message ?? 'Unknown error.'}
+        message={getDualSyncErrorMessage(
+          publishJobDetailQuery.error,
+          'Publish job detail could not be loaded.',
+        )}
         onRetry={() => publishJobDetailQuery.refetch()}
       />
     );

@@ -109,9 +109,11 @@ describe('dualSyncShellActionDomain', () => {
 
   it('normalizes unknown errors to the supplied fallback', () => {
     expect(getDualSyncErrorMessage(new Error('Specific failure'), 'Fallback')).toBe(
-      'Specific failure',
+      'Fallback Reason code: unknown_error.',
     );
-    expect(getDualSyncErrorMessage('unknown', 'Fallback')).toBe('Fallback');
+    expect(getDualSyncErrorMessage('unknown', 'Fallback')).toBe(
+      'Fallback Reason code: unknown_error.',
+    );
   });
 
   it('builds refresh, paused, and error toast intents', () => {
@@ -125,11 +127,11 @@ describe('dualSyncShellActionDomain', () => {
     });
     expect(getDualSyncErrorToastIntent(new Error('Specific failure'), 'Fallback')).toEqual({
       kind: 'error',
-      message: 'Specific failure',
+      message: 'Fallback Reason code: unknown_error.',
     });
     expect(getDualSyncErrorToastIntent('unknown', 'Fallback')).toEqual({
       kind: 'error',
-      message: 'Fallback',
+      message: 'Fallback Reason code: unknown_error.',
     });
   });
 

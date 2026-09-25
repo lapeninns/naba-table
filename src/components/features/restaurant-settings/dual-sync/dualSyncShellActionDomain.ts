@@ -1,3 +1,5 @@
+import { getSafeSettingsErrorMessage } from '../shared/settingsErrorCopy';
+
 import type { DualSyncPublishResponse, RunAutoExportResponse } from '@/services/ops/dual-sync';
 
 export type DualSyncToastIntentKind = 'error' | 'info' | 'success' | 'warning';
@@ -7,8 +9,9 @@ export interface DualSyncToastIntent {
   readonly message: string;
 }
 
+/** Fixed copy plus a safe reason code; raw error text can echo database or provider internals. */
 export function getDualSyncErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
+  return getSafeSettingsErrorMessage(error, fallback);
 }
 
 export function getDualSyncErrorToastIntent(error: unknown, fallback: string): DualSyncToastIntent {

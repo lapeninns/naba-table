@@ -19,6 +19,7 @@ import {
   DualSyncPublishJobsErrorState,
   DualSyncPublishJobsLoadingState,
 } from './DualSyncPublishJobsStates';
+import { getDualSyncErrorMessage } from '../../dualSyncShellActionDomain';
 
 import type {
   GetDualSyncPublishJobDetailResponse,
@@ -59,7 +60,10 @@ export function DualSyncPublishJobsPanel({
     return (
       <DualSyncPublishJobsErrorState
         className={className}
-        message={publishJobsQuery.error?.message ?? 'Unknown error.'}
+        message={getDualSyncErrorMessage(
+          publishJobsQuery.error,
+          'Recent publishes could not be loaded.',
+        )}
         onRetry={() => publishJobsQuery.refetch()}
       />
     );

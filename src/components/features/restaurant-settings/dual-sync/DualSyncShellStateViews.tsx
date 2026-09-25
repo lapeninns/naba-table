@@ -3,8 +3,8 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HttpError } from '@/lib/http/errors';
 
+import { getDualSyncErrorMessage } from './dualSyncShellActionDomain';
 import { GbpStepCard } from '../google-business-profile/components/GbpStepCard';
 
 const REVIEW_TITLE = 'Review differences';
@@ -29,7 +29,6 @@ export function DualSyncShellErrorState({
   readonly error: unknown;
   readonly onRetry?: () => void;
 }) {
-  const code = error instanceof HttpError ? error.code : null;
   return (
     <GbpStepCard
       step={3}
@@ -41,10 +40,9 @@ export function DualSyncShellErrorState({
         <AlertTitle>Couldn&apos;t load the differences.</AlertTitle>
         <AlertDescription className="flex flex-col gap-1">
           <span>
-            {error instanceof Error ? error.message : 'Unknown error.'} Your saved settings are
-            unchanged.
+            {getDualSyncErrorMessage(error, 'The differences could not be loaded.')} Your saved
+            settings are unchanged.
           </span>
-          {code ? <span className="font-mono text-xs">Reason code {code}</span> : null}
           {onRetry ? (
             <Button
               type="button"
