@@ -180,6 +180,30 @@ const PII_PREFETCHES: ReadonlyArray<{ name: string; queryKey: QueryKey; data: un
     queryKey: queryKeys.opsRestaurants.list({ page: 1 }),
     data: RESTAURANTS_LIST,
   },
+  {
+    // useOpsRoutePrefetch prefetches today's timeline for the tables route without meta.
+    name: 'ops table timeline',
+    queryKey: queryKeys.opsTables.timeline('rest-1', { service: 'all', includeSummary: true }),
+    data: {
+      tables: [
+        {
+          id: 'table-1',
+          segments: [
+            {
+              state: 'reserved',
+              booking: {
+                id: 'booking-1',
+                customerName: GUEST_NAME,
+                customerEmail: GUEST_EMAIL,
+                customerPhone: GUEST_PHONE,
+                notes: null,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 describe('PII-bearing query caches are marked non-persistent', () => {

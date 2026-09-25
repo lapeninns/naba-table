@@ -111,6 +111,11 @@ export function isPiiQueryKey(queryKey: QueryKey): boolean {
     return true;
   }
 
+  // ['ops', 'tables', restaurantId, 'timeline', params]: segments[].booking guest contacts and notes.
+  if (queryKey[1] === 'tables' && queryKey[3] === 'timeline') {
+    return true;
+  }
+
   if (queryKey[1] === 'restaurants') {
     // ['ops', 'restaurants', 'detail' | 'list', ...]: manager name/phone, contact email/phone.
     if (queryKey[2] === 'detail' || queryKey[2] === 'list') return true;

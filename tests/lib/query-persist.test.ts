@@ -73,6 +73,9 @@ describe('query persistence filter', () => {
       // RestaurantDTO: contactEmail, contactPhone, managerName, managerNotificationPhone.
       queryKeys.opsRestaurants.list(),
       queryKeys.opsRestaurants.list({ page: 1, search: 'x' }),
+      // TableTimelineSegment.booking: customerName, customerEmail, customerPhone, notes.
+      queryKeys.opsTables.timeline('rest-1', { service: 'all', includeSummary: true }),
+      queryKeys.opsTables.timeline('rest-1'),
     ].map((queryKey) => [queryKey] as const),
   )('excludes guest booking and restaurant list query %# even without meta', (queryKey) => {
     expect(isPiiQueryKey(queryKey)).toBe(true);
