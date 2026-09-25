@@ -341,12 +341,21 @@ class SettingsApiFixture {
   state = initialState();
   readonly log: LoggedRequest[] = [];
   readonly unexpectedWrites: LoggedRequest[] = [];
-  private readonly failures = new Map<string, FailureSpec>();
+  private readonly failures = new Map<string, FailureSpec & { remaining: number }>();
   private readonly gates = new Map<string, Promise<void>>();
 
-  /** The next `method path` request is answered with this error instead of the fixture. */
-  failNext(method: string, path: string, failure: FailureSpec) {
-    this.failures.set(`${method} ${path}`, failure);
+  /** The next `times` `method path` requests are answered with this error instead of the fixture. */
+  failNext(method: string, path: string, failure: FailureSpec, times = 1) {
+    this.failures.set(`${method} ${path}`, { ...failure, remaining: times });
+  }
+
+  /** Every `method path` request fails until `stopFailing` is called. */
+  failAll(method: string, path: string, failure: FailureSpec) {
+    this.failNext(method, path, failure, Number.POSITIVE_INFINITY);
+  }
+
+  stopFailing(method: string, path: string) {
+    this.failures.delete(`${method} ${path}`);
   }
 
   /** Holds every GET of `path` until the returned release function is called. */
@@ -380,7 +389,8 @@ class SettingsApiFixture {
 
     const failure = this.failures.get(`${method} ${path}`);
     if (failure) {
-      this.failures.delete(`${method} ${path}`);
+      failure.remaining -= 1;
+      if (failure.remaining <= 0) this.failures.delete(`${method} ${path}`);
       await route.fulfill({ status: failure.status, json: failure.body });
       return;
     }
@@ -568,6 +578,8 @@ const PERIODS = `${BASE}/service-periods`;
 const TURN_BANDS = `${BASE}/turn-bands`;
 const BUSINESS_CONTEXT = `${BASE}/business-context`;
 const DUAL_SYNC_STATE = `${BASE}/dual-sync/state`;
+const DUAL_SYNC_REFRESH = `${BASE}/dual-sync/refresh`;
+const GBP_DETAILS = `${BASE}/google-business-profile/details`;
 
 const CONFLICT_COPY =
   'Someone else changed these settings. Reload to see the latest, then reapply your edits.';
@@ -837,5 +849,54 @@ test.describe('restaurant settings data hooks browser proof', () => {
     await expect(saveBar(page)).toContainText(CONFLICT_COPY);
     await expectSafeFailure(page, 'Categories', 'CONFLICT');
     await screenshot(page, 'discovery-c-409-save-bar');
+  });
+
+  // ---------------------------------------------------------------- raw error copy
+  test('google business profile: a 500 on the details load shows fixed copy, never the server text @local-only', async ({
+    context,
+  }) => {
+    const { page, api } = await openSession(context);
+
+    // The shell prefetch and the section query (with its retries) all fail, so the blocking
+    // error state is shown.
+    api.failAll('GET', GBP_DETAILS, { status: 500, body: { error: SERVER_SENTINEL } });
+    await page.goto('/settings/restaurant/google-business-profile', {
+      waitUntil: 'domcontentloaded',
+      timeout: 240_000,
+    });
+    const alert = page
+      .getByRole('alert')
+      .filter({ hasText: 'Unable to load Google Business Profile' });
+    await expect(alert).toBeVisible({ timeout: 120_000 });
+    await expect(alert).toContainText(
+      'Google Business Profile could not be loaded. Reason code: HTTP_500. Your saved settings are unchanged.',
+    );
+    await expect(alert.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('qa_sentinel_internal');
+    expect(api.count('GET', GBP_DETAILS)).toBeGreaterThanOrEqual(3);
+    await screenshot(page, 'followup-a1-gbp-details-500');
+
+    // Once the endpoint recovers, Try again loads the page.
+    api.stopFailing('GET', GBP_DETAILS);
+    await alert.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByText(/differences? between Nabatable and Google/).first()).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('qa_sentinel_internal');
+  });
+
+  test('google business profile: a failed dual-sync refresh shows fixed copy, never the server text @local-only', async ({
+    context,
+  }) => {
+    const { page, api } = await openSession(context);
+
+    await gotoSettings(page, '/settings/restaurant/google-business-profile');
+    const refresh = page.locator('[data-dual-sync-action="refresh"]');
+    await expect(refresh).toBeEnabled();
+    api.failNext('POST', DUAL_SYNC_REFRESH, { status: 500, body: { error: SERVER_SENTINEL } });
+    await refresh.click();
+    // The app layout mounts two sonner Toasters, so each toast renders twice.
+    await expect(page.getByText('Refresh failed. Reason code: HTTP_500.').first()).toBeVisible();
+    expect(api.count('POST', DUAL_SYNC_REFRESH)).toBe(1);
+    await expect(page.locator('body')).not.toContainText('qa_sentinel_internal');
+    await screenshot(page, 'followup-b1-dual-sync-refresh-500');
   });
 });
