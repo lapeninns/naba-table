@@ -18,7 +18,7 @@ import type ZoneService from '@/services/ops/zones';
 import type { Zone } from '@/services/ops/zones';
 import type { ReactNode } from 'react';
 
-const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), dismiss: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastMocks }));
 
 const RESTAURANT_A = 'rest-a';
