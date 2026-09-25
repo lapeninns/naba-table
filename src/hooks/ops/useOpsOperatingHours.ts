@@ -10,6 +10,7 @@ import {
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -33,7 +34,7 @@ export function useOpsOperatingHours(
       return restaurantService.getOperatingHours(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: OPS_SETTINGS_STALE_TIME.operatingHours,
   });
 }
 

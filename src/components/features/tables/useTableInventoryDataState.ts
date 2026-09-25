@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import {
   buildTableInventoryZoneOptions,
@@ -39,7 +40,7 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
       return tableService.list(activeRestaurantId);
     },
     enabled: Boolean(activeRestaurantId),
-    staleTime: 30_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.tables,
   });
 
   const tables = useMemo(() => tableQueryResult?.tables ?? [], [tableQueryResult?.tables]);

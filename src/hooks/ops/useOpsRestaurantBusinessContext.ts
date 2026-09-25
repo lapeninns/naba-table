@@ -10,6 +10,7 @@ import {
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -33,7 +34,7 @@ export function useOpsRestaurantBusinessContext(
       return restaurantService.getBusinessContext(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 30_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.businessContext,
   });
 }
 
