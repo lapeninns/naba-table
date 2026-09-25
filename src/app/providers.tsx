@@ -1,6 +1,6 @@
 'use client';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
@@ -8,7 +8,7 @@ import { SessionActivityReporter } from '@/components/features/account-sessions/
 import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
 import { PostHogProvider } from '@/lib/posthog/provider';
-import { appQueryClientDefaultOptions } from '@/lib/query/clientDefaults';
+import { createAppQueryClient } from '@/lib/query/client';
 import {
   buildQueryStorageKey,
   clearPersistedQueryCache,
@@ -31,9 +31,7 @@ type AppProvidersProps = {
 function QueryLayer({ children }: { children: ReactNode }) {
   const { user, status } = useSupabaseSession();
   useClientErrorReporter();
-  const [queryClient] = useState(
-    () => new QueryClient({ defaultOptions: appQueryClientDefaultOptions }),
-  );
+  const [queryClient] = useState(createAppQueryClient);
   const [showDevtools, setShowDevtools] = useState(false);
   const persistenceCleanupRef = useRef<(() => void) | null>(null);
   const storageKeyRef = useRef<string>(buildQueryStorageKey(user?.id ?? null));

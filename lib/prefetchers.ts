@@ -1,6 +1,5 @@
 import { type QueryKey, type QueryFunction } from '@tanstack/react-query';
 
-import type { BeforeQueryOptions } from '@/lib/query/clientDefaults';
 import type { QueryClient } from '@tanstack/react-query';
 
 type PrefetchOptions<TQueryFnData> = {
@@ -25,18 +24,18 @@ export async function prefetchSafely<TQueryFnData>({
 }: PrefetchOptions<TQueryFnData>): Promise<void> {
   if (!enabled) return;
   try {
-    await queryClient.prefetchQuery({ queryKey, queryFn, staleTime, gcTime });
+    // Only pass explicit timings: an own `undefined` would override the client's per-key defaults.
+    await queryClient.prefetchQuery({
+      queryKey,
+      queryFn,
+      ...(staleTime !== undefined ? { staleTime } : {}),
+      ...(gcTime !== undefined ? { gcTime } : {}),
+    });
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[prefetch] failed', { queryKey, error });
     }
   }
-}
-
-type BeforeQueryHook = (options: BeforeQueryOptions) => void;
-
-function isBeforeQueryHook(value: unknown): value is BeforeQueryHook {
-  return typeof value === 'function';
 }
 
 function toMilliseconds(staleTime: unknown): number {
@@ -48,8 +47,8 @@ function toMilliseconds(staleTime: unknown): number {
 /**
  * Resolves the staleTime/gcTime a prefetch should honour exactly as useQuery does
  * on mount: caller options (normally the hook's shared constant) over the client's
- * defaults, then the client's `_experimental_beforeQuery` hook, which the app uses
- * to override per-key freshness. Prefetch and page mount therefore always agree.
+ * per-key `setQueryDefaults` rules (lib/query/staleTimes.ts) over its global
+ * defaults. Prefetch and page mount therefore always agree.
  */
 function resolvePrefetchTiming(
   queryClient: QueryClient,
@@ -62,20 +61,9 @@ function resolvePrefetchTiming(
     ...(staleTime === undefined ? {} : { staleTime }),
     ...(gcTime === undefined ? {} : { gcTime }),
   });
-  const options: BeforeQueryOptions = {
-    queryKey: defaulted.queryKey,
-    staleTime: defaulted.staleTime,
-    gcTime: defaulted.gcTime,
-  };
-  const queryDefaults = queryClient.getDefaultOptions().queries;
-  const beforeQuery =
-    queryDefaults && '_experimental_beforeQuery' in queryDefaults
-      ? queryDefaults._experimental_beforeQuery
-      : undefined;
-  if (isBeforeQueryHook(beforeQuery)) beforeQuery(options);
   return {
-    staleTime: toMilliseconds(options.staleTime),
-    gcTime: typeof options.gcTime === 'number' ? options.gcTime : undefined,
+    staleTime: toMilliseconds(defaulted.staleTime),
+    gcTime: typeof defaulted.gcTime === 'number' ? defaulted.gcTime : undefined,
   };
 }
 
