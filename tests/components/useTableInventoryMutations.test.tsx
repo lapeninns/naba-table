@@ -154,6 +154,39 @@ function renderMutations(options: {
   );
 }
 
+/** Like `renderMutations`, but the active restaurant can be switched with `rerender`. */
+function renderSwitchableMutations(options: {
+  queryClient: QueryClient;
+  tableService: TableInventoryService;
+  zoneService: ZoneService;
+}) {
+  const { queryClient, tableService, zoneService } = options;
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <OpsServicesProvider
+        factories={{ tableInventoryService: () => tableService, zoneService: () => zoneService }}
+      >
+        {children}
+      </OpsServicesProvider>
+    </QueryClientProvider>
+  );
+  return renderHook(
+    ({ rid }: { rid: string }) => {
+      const listKey = queryKeys.opsTables.list(rid);
+      const zoneKey = queryKeys.opsTables.zones(rid);
+      useQuery({ queryKey: listKey, queryFn: () => tableService.list(rid) });
+      useQuery({ queryKey: zoneKey, queryFn: () => zoneService.list(rid) });
+      return useTableInventoryMutations({
+        restaurantId: rid,
+        tablesQueryKey: listKey,
+        zonesQueryKey: zoneKey,
+        ...callbacks,
+      });
+    },
+    { wrapper, initialProps: { rid: RESTAURANT_A } },
+  );
+}
+
 function cachedTable(queryClient: QueryClient, id: string) {
   return queryClient.getQueryData<ListTablesResult>(tablesKey)?.tables.find((t) => t.id === id);
 }
@@ -351,5 +384,112 @@ describe('useTableInventoryMutations', () => {
     await flush();
     expect(serverActive).toBe(true);
     await waitFor(() => expect(cachedZoneActive(queryClient)).toBe(true));
+  });
+
+  it('rolls back and refetches the restaurant a quick fix started on after a switch', async () => {
+    const queryClient = createAppQueryClient();
+    const save = deferred<TableInventory>();
+    const tableService = createTableService({ update: vi.fn(() => save.promise) });
+    const { result, rerender } = renderSwitchableMutations({
+      queryClient,
+      tableService,
+      zoneService: createZoneService(),
+    });
+    await waitFor(() => expect(cachedTable(queryClient, 'table-1')).toBeDefined());
+
+    act(() => {
+      result.current.quickFixMutation.mutate({
+        table: { id: 'table-1', tableNumber: '1' },
+        patch: { active: true },
+        undo: { active: false },
+        message: 'Table 1 can be booked again.',
+      });
+    });
+    await waitFor(() => expect(cachedTable(queryClient, 'table-1')?.active).toBe(true));
+    rerender({ rid: RESTAURANT_B });
+
+    await act(async () => {
+      save.reject(new HttpError({ message: 'Failed', status: 500, code: 'HTTP_500' }));
+    });
+    await waitFor(() => expect(toastMocks.error).toHaveBeenCalled());
+    await flush();
+
+    expect(cachedTable(queryClient, 'table-1')?.active).toBe(false);
+    expect(queryClient.getQueryState(tablesKey)?.isInvalidated).toBe(true);
+  });
+
+  it('refetches the restaurant a table save started on after a switch', async () => {
+    const queryClient = createAppQueryClient();
+    const save = deferred<TableInventory>();
+    const tableService = createTableService({ update: vi.fn(() => save.promise) });
+    const { result, rerender } = renderSwitchableMutations({
+      queryClient,
+      tableService,
+      zoneService: createZoneService(),
+    });
+    await waitFor(() => expect(cachedTable(queryClient, 'table-1')).toBeDefined());
+
+    act(() => {
+      result.current.updateMutation.mutate({
+        tableId: 'table-1',
+        payload: { tableNumber: '1', capacity: 6 },
+      });
+    });
+    rerender({ rid: RESTAURANT_B });
+    await waitFor(() =>
+      expect(queryClient.getQueryState(queryKeys.opsTables.list(RESTAURANT_B))?.status).toBe(
+        'success',
+      ),
+    );
+
+    await act(async () => {
+      save.resolve(makeTable({ id: 'table-1', capacity: 6 }));
+    });
+    await waitFor(() => expect(toastMocks.success).toHaveBeenCalled());
+
+    expect(queryClient.getQueryState(tablesKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(queryKeys.opsTables.list(RESTAURANT_B))?.isInvalidated).toBe(
+      false,
+    );
+  });
+
+  it('rolls a zone switch back to the saved value when two queued toggles both fail', async () => {
+    const queryClient = createAppQueryClient();
+    const failures: Array<Deferred<Zone>> = [];
+    const zoneService = createZoneService({
+      update: vi.fn(() => {
+        const done = deferred<Zone>();
+        failures.push(done);
+        return done.promise;
+      }),
+    });
+    // After the first load, refetches never answer, so the cache shows only what the rollback wrote.
+    const tableService = createTableService({
+      list: vi
+        .fn()
+        .mockResolvedValueOnce(tablesResult(true))
+        .mockImplementation(() => new Promise<ListTablesResult>(() => undefined)),
+    });
+    const { result } = renderMutations({ queryClient, tableService, zoneService });
+    await waitFor(() => expect(cachedZoneActive(queryClient)).toBe(true));
+
+    act(() => {
+      result.current.zoneUpdateMutation.mutate({ zoneId: 'zone-main', active: false });
+    });
+    act(() => {
+      result.current.zoneUpdateMutation.mutate({ zoneId: 'zone-main', active: true });
+    });
+    await flush();
+
+    for (let step = 0; step < 2; step += 1) {
+      await waitFor(() => expect(failures.length).toBe(step + 1));
+      await act(async () => {
+        failures[step]?.reject(new HttpError({ message: 'Failed', status: 500 }));
+      });
+      await flush();
+    }
+
+    await waitFor(() => expect(toastMocks.error).toHaveBeenCalledTimes(2));
+    expect(cachedZoneActive(queryClient)).toBe(true);
   });
 });
