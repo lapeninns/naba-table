@@ -1,6 +1,7 @@
 import { type QueryKey, type QueryFunction } from '@tanstack/react-query';
 
-import type { QueryClient} from '@tanstack/react-query';
+import type { BeforeQueryOptions } from '@/lib/query/clientDefaults';
+import type { QueryClient } from '@tanstack/react-query';
 
 type PrefetchOptions<TQueryFnData> = {
   queryClient: QueryClient;
@@ -32,6 +33,52 @@ export async function prefetchSafely<TQueryFnData>({
   }
 }
 
+type BeforeQueryHook = (options: BeforeQueryOptions) => void;
+
+function isBeforeQueryHook(value: unknown): value is BeforeQueryHook {
+  return typeof value === 'function';
+}
+
+function toMilliseconds(staleTime: unknown): number {
+  if (typeof staleTime === 'number') return staleTime;
+  // Unknown shapes (e.g. a staleTime function) resolve to 0: always fetch.
+  return staleTime === 'static' ? Number.POSITIVE_INFINITY : 0;
+}
+
+/**
+ * Resolves the staleTime/gcTime a prefetch should honour exactly as useQuery does
+ * on mount: caller options (normally the hook's shared constant) over the client's
+ * defaults, then the client's `_experimental_beforeQuery` hook, which the app uses
+ * to override per-key freshness. Prefetch and page mount therefore always agree.
+ */
+function resolvePrefetchTiming(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+  staleTime: number | undefined,
+  gcTime: number | undefined,
+): { staleTime: number; gcTime: number | undefined } {
+  const defaulted = queryClient.defaultQueryOptions({
+    queryKey,
+    ...(staleTime === undefined ? {} : { staleTime }),
+    ...(gcTime === undefined ? {} : { gcTime }),
+  });
+  const options: BeforeQueryOptions = {
+    queryKey: defaulted.queryKey,
+    staleTime: defaulted.staleTime,
+    gcTime: defaulted.gcTime,
+  };
+  const queryDefaults = queryClient.getDefaultOptions().queries;
+  const beforeQuery =
+    queryDefaults && '_experimental_beforeQuery' in queryDefaults
+      ? queryDefaults._experimental_beforeQuery
+      : undefined;
+  if (isBeforeQueryHook(beforeQuery)) beforeQuery(options);
+  return {
+    staleTime: toMilliseconds(options.staleTime),
+    gcTime: typeof options.gcTime === 'number' ? options.gcTime : undefined,
+  };
+}
+
 /**
  * Prefetch helper that no-ops when key is already fresh according to cache state.
  */
@@ -44,9 +91,26 @@ export async function prefetchIfStale<TQueryFnData>({
   enabled = true,
 }: PrefetchOptions<TQueryFnData>): Promise<void> {
   if (!enabled) return;
+  const { staleTime: effectiveStaleTime, gcTime: effectiveGcTime } = resolvePrefetchTiming(
+    queryClient,
+    queryKey,
+    staleTime,
+    gcTime,
+  );
   const state = queryClient.getQueryState(queryKey);
-  const effectiveStaleTime = staleTime ?? 0;
-  const isFresh = Boolean(state && effectiveStaleTime > 0 && Date.now() - state.dataUpdatedAt < effectiveStaleTime);
+  const isFresh = Boolean(
+    state &&
+    state.data !== undefined &&
+    !state.isInvalidated &&
+    Date.now() - state.dataUpdatedAt < effectiveStaleTime,
+  );
   if (isFresh) return;
-  return prefetchSafely({ queryClient, queryKey, queryFn, staleTime, gcTime, enabled });
+  return prefetchSafely({
+    queryClient,
+    queryKey,
+    queryFn,
+    staleTime: effectiveStaleTime,
+    gcTime: effectiveGcTime,
+    enabled,
+  });
 }

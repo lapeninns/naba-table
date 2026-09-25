@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 import {
   getGbpConnectionStateV1,
   getGbpTerminalNoticesV1,
@@ -123,7 +124,7 @@ export function useOpsGoogleBusinessProfileConnection(
       return restaurantService.getGoogleBusinessProfileConnection(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 30_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.googleBusinessProfile,
     meta: { persist: false },
   });
 }

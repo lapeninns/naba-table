@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRef, type MouseEvent } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,8 +35,6 @@ import {
   isRestaurantSettingsNavItemActive,
   type SettingsHref,
 } from './useRestaurantSettingsNav';
-
-import type { MouseEvent } from 'react';
 
 const NAV_ICONS: Record<SettingsHref, LucideIcon> = {
   '/app/settings/restaurant': ClipboardCheck,
@@ -63,6 +62,9 @@ export function RestaurantSettingsSidebarNav({
   onLinkClick,
 }: RestaurantSettingsSidebarNavProps) {
   const { entries } = useOpsUnsavedChanges();
+  // Href of a link that just received pointerdown: the focus that follows a mouse
+  // click must not prefetch again (hover already did). Keyboard focus still does.
+  const pointerFocusHrefRef = useRef<SettingsHref | null>(null);
 
   return (
     <SidebarContent role="navigation" aria-label="Restaurant settings" className="gap-0">
@@ -90,8 +92,21 @@ export function RestaurantSettingsSidebarNav({
                         href={href}
                         aria-current={active ? 'page' : undefined}
                         onMouseEnter={() => prefetchSettingsView(href)}
-                        onFocus={() => prefetchSettingsView(href)}
-                        onClick={onLinkClick}
+                        onPointerDown={() => {
+                          pointerFocusHrefRef.current = href;
+                        }}
+                        onPointerCancel={() => {
+                          pointerFocusHrefRef.current = null;
+                        }}
+                        onFocus={() => {
+                          const fromPointer = pointerFocusHrefRef.current === href;
+                          pointerFocusHrefRef.current = null;
+                          if (!fromPointer) prefetchSettingsView(href);
+                        }}
+                        onClick={(event) => {
+                          pointerFocusHrefRef.current = null;
+                          onLinkClick(event);
+                        }}
                         className={cn(badge && 'pr-20')}
                       >
                         <Icon aria-hidden />
