@@ -92,7 +92,14 @@ export function isPiiQueryKey(queryKey: QueryKey): boolean {
   }
 
   // ['ops', 'customers', ...]: customer names, emails and phones.
-  if (queryKey[1] === 'customers') {
+  // ['ops', 'email-delivery' | 'email-queue', restaurantId, ...]: recipient emails and guest names.
+  // ['ops', 'manual-assign', 'context', bookingId]: hold creators' names and emails.
+  if (
+    queryKey[1] === 'customers' ||
+    queryKey[1] === 'email-delivery' ||
+    queryKey[1] === 'email-queue' ||
+    queryKey[1] === 'manual-assign'
+  ) {
     return true;
   }
 

@@ -76,6 +76,12 @@ describe('query persistence filter', () => {
       // TableTimelineSegment.booking: customerName, customerEmail, customerPhone, notes.
       queryKeys.opsTables.timeline('rest-1', { service: 'all', includeSummary: true }),
       queryKeys.opsTables.timeline('rest-1'),
+      // OpsEmailDeliveryAttemptDTO: recipientEmail and booking.customerName; the key embeds search terms.
+      ['ops', 'email-delivery', 'rest-1', '7d', 1, 25, 'all', 'guest@example.com'],
+      // Email queue rows: customerName and customerEmail.
+      ['ops', 'email-queue', 'rest-1', 1],
+      // Manual assignment holds: createdByName and createdByEmail (staff).
+      queryKeys.manualAssign.context('booking-1'),
     ].map((queryKey) => [queryKey] as const),
   )('excludes guest booking and restaurant list query %# even without meta', (queryKey) => {
     expect(isPiiQueryKey(queryKey)).toBe(true);
