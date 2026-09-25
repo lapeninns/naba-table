@@ -1,0 +1,155 @@
+/* =============================================================================
+   Radix Luma — source-exact tokens (light + dark, guest + app surfaces)
+   Measured from context/input-DESIGN.md and naba-table
+   styles/design-system/public-guest.tokens.css (commit 34821bed8, 25 Sep 2026).
+   Hand-authored: `od brand finalize` does not touch this file. The engine's
+   system/variables*.css derive dark mode algorithmically and do NOT match
+   the source dark palette — use this file for real work.
+   Load fonts first:  <link rel="stylesheet" href="fonts/radix-luma-latin.css">
+   ============================================================================= */
+
+:root,
+[data-theme='guest'],
+[data-theme='app'] {
+  color-scheme: light;
+
+  /* Seven brand roles */
+  --bg: #ffffff; /* background, card, popover */
+  --surface: #f4f4f5; /* secondary / muted / accent fills (Zinc-100) */
+  --fg: #09090b; /* foreground (Zinc-950) */
+  --muted: #71717b; /* muted-foreground (Zinc-500) */
+  --border: #e4e4e7; /* border = input */
+  --accent: #1447e6; /* primary — cobalt */
+  --accent-2: #18181b; /* secondary-foreground (Zinc-900) */
+
+  /* Supporting values */
+  --card: #ffffff; /* card, popover */
+  --surface-soft: #fafafa; /* sidebar, raised header strips */
+  --input: #e4e4e7;
+  --ring: #9f9fa9;
+  --on-accent: #eff6ff;
+  --accent-hover: #1240cf;
+  --accent-text: #1447e6; /* cobalt that carries text or focus */
+  --accent-tint: rgb(20 71 230 / 0.08);
+  --secondary-hover: #e8e8ea;
+  --sidebar-accent: #155dfc;
+
+  --destructive: #e7000b;
+  --destructive-soft: #fef2f2;
+  --destructive-text: #c10007;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --success-text: #15803d;
+  --warning: #f59e0b;
+  --warning-soft: #fffbeb;
+  --warning-text: #b45309;
+  --info: #0ea5e9;
+
+  --chart-1: #8ec5ff;
+  --chart-2: #2b7fff;
+  --chart-3: #155dfc;
+  --chart-4: #1447e6;
+  --chart-5: #193cb8;
+
+  /* Type */
+  --font-display: Merriweather, Georgia, 'Times New Roman', serif;
+  --font-body: Inter, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-display: clamp(32px, 5vw, 48px);
+  --text-headline-lg: clamp(28px, 4vw, 36px);
+  --text-headline-md: clamp(20px, 3vw, 24px);
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
+  --radius-4xl: 20px;
+  --radius-pill: 9999px;
+  --radius-button: var(--radius-pill); /* guest default; app overrides */
+
+  /* Space */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 128px;
+  --control-h: 36px;
+  --hit: 44px;
+
+  /* Depth — Zinc-950 tinted, never pure black */
+  --shadow-sm: 0 1px 2px rgb(9 9 11 / 0.05);
+  --shadow: 0 1px 3px rgb(9 9 11 / 0.1), 0 1px 2px rgb(9 9 11 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(9 9 11 / 0.1), 0 2px 4px -2px rgb(9 9 11 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(9 9 11 / 0.1), 0 4px 6px -4px rgb(9 9 11 / 0.1);
+  --shadow-nav: 0 8px 30px rgb(9 9 11 / 0.04);
+  --shadow-popover: 0 10px 38px -10px rgb(9 9 11 / 0.35), 0 10px 20px -15px rgb(9 9 11 / 0.2);
+  --shadow-glow: 0 10px 15px -3px rgb(20 71 230 / 0.15);
+
+  /* Motion */
+  --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 150ms;
+  --dur: 250ms;
+  --dur-slow: 500ms;
+  --dur-reveal: 800ms;
+}
+
+/* Ops console: compact controls align with inputs */
+[data-theme='app'] {
+  --radius-button: var(--radius);
+}
+
+.dark,
+.dark [data-theme='guest'],
+.dark [data-theme='app'],
+[data-theme='guest'].dark,
+[data-theme='app'].dark {
+  color-scheme: dark;
+
+  --bg: #09090b;
+  --surface: #27272a;
+  --fg: #fafafa;
+  --muted: #9f9fa9;
+  --border: rgb(255 255 255 / 0.1);
+  --accent: #193cb8; /* filled primary; #eff6ff label = 8.1:1 */
+  --accent-2: #fafafa;
+
+  --card: #18181b;
+  --surface-soft: #18181b; /* sidebar */
+  --input: #3f3f46;
+  --ring: #71717b;
+  --accent-hover: #1447e6;
+  --accent-text: #2b7fff; /* #193cb8 is 2.3:1 on #09090b — too dark for text */
+  --accent-tint: rgb(43 127 255 / 0.12);
+  --secondary-hover: #3f3f46;
+  --sidebar-accent: #2b7fff;
+
+  --destructive: #ff6467;
+  --destructive-soft: rgb(255 100 103 / 0.12);
+  --destructive-text: #ff6467;
+  --success: #22c55e;
+  --success-soft: rgb(34 197 94 / 0.12);
+  --success-text: #22c55e;
+  --warning-soft: rgb(245 158 11 / 0.12);
+  --warning-text: #f59e0b;
+
+  --shadow-glow: 0 10px 15px -3px rgb(43 127 255 / 0.2);
+  --shadow-popover: 0 10px 38px -10px rgb(0 0 0 / 0.6), 0 10px 20px -15px rgb(0 0 0 / 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property: opacity !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

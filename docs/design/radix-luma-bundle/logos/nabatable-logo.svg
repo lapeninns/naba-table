@@ -1,0 +1,197 @@
+<svg viewBox="0 0 512 512" width="512" height="512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Brand gradient - original blue palette -->
+    <linearGradient id="brandPinGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    
+    <!-- Accent gradient for badge - darker blue for contrast -->
+    <linearGradient id="badgeGradient" x1="230" y1="200" x2="282" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E40AF" />
+    </linearGradient>
+    
+    <!-- Metallic cutlery gradient -->
+    <linearGradient id="silverGradient" x1="200" y1="199" x2="312" y2="249" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#94A3B8" />
+      <stop offset="50%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#64748B" />
+    </linearGradient>
+    
+    <!-- Plate subtle gradient for depth -->
+    <radialGradient id="plateGradient" cx="256" cy="224" r="62">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="70%" stop-color="#F9FAFB" />
+      <stop offset="100%" stop-color="#E5E7EB" />
+    </radialGradient>
+    
+    <!-- Enhanced drop shadow for pin -->
+    <filter id="pinDropShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="12"/>
+      <feOffset dx="0" dy="10" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.4"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Soft shadow for plate -->
+    <filter id="plateSoftShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="3" result="offsetblur"/>
+      <feFlood flood-color="#1E3A8A" flood-opacity="0.15"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Inner shadow for plate rim -->
+    <filter id="plateInnerShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feComponentTransfer in="SourceAlpha">
+        <feFuncA type="table" tableValues="1 0" />
+      </feComponentTransfer>
+      <feGaussianBlur stdDeviation="2" />
+      <feOffset dx="0" dy="2" result="offsetblur" />
+      <feFlood flood-color="#1E40AF" flood-opacity="0.3" />
+      <feComposite in2="offsetblur" operator="in" />
+      <feComposite in2="SourceAlpha" operator="in" />
+      <feMerge>
+        <feMergeNode in="SourceGraphic" />
+        <feMergeNode />
+      </feMerge>
+    </filter>
+    
+    <!-- Glow effect for badge -->
+    <filter id="badgeGlow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="0" result="offsetblur"/>
+      <feFlood flood-color="#1E40AF" flood-opacity="0.5"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Location pin with brand gradient -->
+  <path d="M256 32C150 32 64 118 64 224c0 85 60 180 176 252a32 32 0 0 0 32 0c116-72 176-167 176-252C448 118 362 32 256 32z" 
+        fill="url(#brandPinGradient)" 
+        filter="url(#pinDropShadow)" />
+  
+  <!-- Subtle inner highlight on pin for depth -->
+  <path d="M256 48C164 48 88 124 88 216c0 78 54 164 160 230a24 24 0 0 0 16 0c106-66 160-152 160-230C424 124 348 48 256 48z" 
+        fill="none" 
+        stroke="url(#brandPinGradient)" 
+        stroke-width="2" 
+        opacity="0.3" />
+  
+  <!-- White circle background with subtle shadow -->
+  <circle cx="256" cy="224" r="112" fill="white" opacity="0.3" filter="url(#plateSoftShadow)"/>
+  <circle cx="256" cy="224" r="110" fill="white" />
+  
+  <!-- Dinner plate with enhanced realism -->
+  <!-- Outer rim -->
+  <circle cx="256" cy="224" r="64" fill="url(#plateGradient)" filter="url(#plateSoftShadow)"/>
+  
+  <!-- Plate rim detail -->
+  <circle cx="256" cy="224" r="63" fill="none" stroke="#E5E7EB" stroke-width="1.5"/>
+  
+  <!-- Inner plate surface -->
+  <circle cx="256" cy="224" r="52" fill="#FEFEFE"/>
+  
+  <!-- Subtle plate edge/rim -->
+  <circle cx="256" cy="224" r="51" fill="none" stroke="#F3F4F6" stroke-width="2" filter="url(#plateInnerShadow)"/>
+  <circle cx="256" cy="224" r="49" fill="none" stroke="#E5E7EB" stroke-width="0.5" opacity="0.5"/>
+  
+  <!-- Fork on left - enhanced with metallic look -->
+  <g transform="translate(198, 224)">
+    <!-- Fork handle -->
+    <rect x="-2" y="-30" width="4" height="60" rx="2" fill="url(#silverGradient)"/>
+    
+    <!-- Fork tines -->
+    <rect x="-6" y="-30" width="2.5" height="18" rx="1" fill="url(#silverGradient)"/>
+    <rect x="-2" y="-30" width="2.5" height="20" rx="1" fill="url(#silverGradient)"/>
+    <rect x="2" y="-30" width="2.5" height="18" rx="1" fill="url(#silverGradient)"/>
+    
+    <!-- Shine highlight -->
+    <line x1="0" y1="-25" x2="0" y2="20" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.4"/>
+  </g>
+  
+  <!-- Knife on right - enhanced with metallic look -->
+  <g transform="translate(314, 224)">
+    <!-- Knife handle -->
+    <rect x="-2" y="5" width="4" height="25" rx="2" fill="url(#silverGradient)"/>
+    
+    <!-- Knife blade -->
+    <path d="M -2 5 L -2 -25 Q -2 -30 0 -32 Q 2 -30 2 -25 L 2 5" fill="#CBD5E1"/>
+    <path d="M -1.5 5 L -1.5 -26 Q -1.5 -30 0 -31 Q 1.5 -30 1.5 -26 L 1.5 5" fill="url(#silverGradient)"/>
+    
+    <!-- Blade edge -->
+    <line x1="-2" y1="-28" x2="0" y2="-32" stroke="#94A3B8" stroke-width="0.5"/>
+    <line x1="0" y1="-32" x2="2" y2="-28" stroke="#94A3B8" stroke-width="0.5"/>
+    
+    <!-- Shine highlight -->
+    <line x1="0" y1="-28" x2="0" y2="25" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.5"/>
+  </g>
+  
+  <!-- Spoon at top for completeness -->
+  <g transform="translate(256, 170)">
+    <!-- Spoon bowl -->
+    <ellipse cx="0" cy="-6" rx="6" ry="8" fill="url(#silverGradient)"/>
+    <ellipse cx="0" cy="-6" rx="4.5" ry="6" fill="#E2E8F0"/>
+    
+    <!-- Spoon handle -->
+    <rect x="-1.5" y="2" width="3" height="20" rx="1.5" fill="url(#silverGradient)"/>
+    
+    <!-- Shine -->
+    <ellipse cx="-1" cy="-6" rx="2" ry="3" fill="white" opacity="0.4"/>
+  </g>
+  
+  <!-- "Reserved" badge with enhanced styling -->
+  <g transform="translate(256, 224)" filter="url(#badgeGlow)">
+    <!-- Outer glow ring -->
+    <circle r="28" fill="#93C5FD" opacity="0.3"/>
+    
+    <!-- Badge background with gradient -->
+    <circle r="26" fill="url(#badgeGradient)"/>
+    <circle r="24" fill="#1E40AF"/>
+    
+    <!-- Inner highlight for depth -->
+    <circle cx="-4" cy="-4" r="18" fill="white" opacity="0.15"/>
+    
+    <!-- Checkmark with enhanced styling -->
+    <path d="M -9 -1 L -4 5 L 11 -10" 
+          stroke="white" 
+          stroke-width="5" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none"
+          opacity="0.3"/>
+    
+    <path d="M -9 -1 L -4 5 L 11 -10" 
+          stroke="white" 
+          stroke-width="4" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none"/>
+  </g>
+  
+  <!-- Subtle brand initial "N" watermark on plate (optional, very subtle) -->
+  <text x="256" y="268" 
+        font-family="'Georgia', serif" 
+        font-size="12" 
+        font-weight="300" 
+        font-style="italic"
+        fill="#CBD5E1" 
+        text-anchor="middle"
+        opacity="0.2">
+    n
+  </text>
+</svg>
