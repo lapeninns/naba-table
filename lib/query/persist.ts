@@ -11,7 +11,11 @@ import type { DehydratedState, Query, QueryClient, QueryKey } from '@tanstack/re
 
 const STORAGE_PREFIX = 'query-cache';
 const DEFAULT_MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
-const DEFAULT_BUSTER = 'v1';
+/**
+ * Bump to discard every cache persisted by an older build. 'v2': v1 caches predate the PII
+ * deny-list and can hold staff contact details, invitee emails and guest bookings.
+ */
+const DEFAULT_BUSTER = 'v2';
 /** Trailing throttle window: at most one localStorage write per window. */
 export const PERSIST_THROTTLE_MS = 1000;
 
@@ -64,10 +68,11 @@ export function isVolatileOpsIntegrationQueryKey(queryKey: QueryKey): boolean {
 }
 
 /**
- * Query families that carry staff, invitee or customer PII (or email templates) and must
- * never be written to localStorage. Their hooks also set `meta.persist: false`, but route
- * prefetchers (lib/prefetchers.ts, ops-shell/useOpsRoutePrefetch.ts) insert the same keys
- * without meta, so the key itself has to be denied.
+ * Query families that carry staff, invitee, customer or guest PII (or email templates) and
+ * must never be written to localStorage. Some hooks also set `meta.persist: false`, but route
+ * prefetchers (lib/prefetchers.ts, ops-shell/useOpsRoutePrefetch.ts) and setQueryData calls
+ * (OpsBookingCard, useOpsBookingDialogBundle, booking mutations) insert the same keys without
+ * meta, so the key itself has to be denied.
  */
 export function isPiiQueryKey(queryKey: QueryKey): boolean {
   const first = keyPart(queryKey[0]);
@@ -75,6 +80,11 @@ export function isPiiQueryKey(queryKey: QueryKey): boolean {
   // ['team', 'invitations', restaurantId, status]: invitee emails.
   if (first === 'team') {
     return queryKey[1] === 'invitations';
+  }
+
+  // ['bookings', 'list' | 'detail', ...]: BookingDTO guest name, email and phone.
+  if (first === 'bookings') {
+    return queryKey[1] === 'list' || queryKey[1] === 'detail';
   }
 
   if (first !== 'ops') {
@@ -86,9 +96,24 @@ export function isPiiQueryKey(queryKey: QueryKey): boolean {
     return true;
   }
 
+  if (queryKey[1] === 'bookings') {
+    // ['ops', 'bookings', 'list' | 'detail' | 'dialog', ...]: guest name, email and phone.
+    // 'assignment-context' carries only times, party size and tables, so it may persist.
+    if (queryKey[2] === 'list' || queryKey[2] === 'detail' || queryKey[2] === 'dialog') {
+      return true;
+    }
+    // ['ops', 'bookings', id, 'email-delivery', limit]: recipient emails.
+    if (queryKey[3] === 'email-delivery') return true;
+  }
+
+  // ['ops', 'dashboard', restaurantId, 'summary', date]: the day's bookings with guest contacts.
+  if (queryKey[1] === 'dashboard' && queryKey[3] === 'summary') {
+    return true;
+  }
+
   if (queryKey[1] === 'restaurants') {
-    // ['ops', 'restaurants', 'detail', id]: manager name/phone, contact email/phone.
-    if (queryKey[2] === 'detail') return true;
+    // ['ops', 'restaurants', 'detail' | 'list', ...]: manager name/phone, contact email/phone.
+    if (queryKey[2] === 'detail' || queryKey[2] === 'list') return true;
     // ['ops', 'restaurants', id, 'email-templates'].
     if (queryKey[3] === 'email-templates') return true;
   }

@@ -44,6 +44,10 @@ const MANAGER_PHONE = '+440000sentinel';
 const CONTACT_EMAIL = 'contact-sentinel@example.test';
 const TEMPLATE_BODY = 'template-body-sentinel';
 const CUSTOMER_EMAIL = 'customer-sentinel@example.test';
+const GUEST_NAME = 'Guest Sentinel';
+const GUEST_EMAIL = 'guest-sentinel@example.test';
+const GUEST_PHONE = '+440000guest';
+const STAFF_CONTACT_EMAIL = 'staff-contact-sentinel@example.test';
 
 const INVITES = [{ id: 'invite-1', email: INVITEE_EMAIL, role: 'host', status: 'pending' }];
 const PROFILE = {
@@ -58,6 +62,28 @@ const TEMPLATES = {
   restaurantId: 'rest-1',
   canEdit: true,
   groups: [{ body: TEMPLATE_BODY }],
+};
+const GUEST_BOOKING = {
+  id: 'booking-1',
+  restaurantId: 'rest-1',
+  restaurantName: 'Test Restaurant',
+  partySize: 2,
+  customerName: GUEST_NAME,
+  customerEmail: GUEST_EMAIL,
+  customerPhone: GUEST_PHONE,
+};
+const RESTAURANTS_LIST = {
+  items: [
+    {
+      id: 'rest-1',
+      name: 'Test Restaurant',
+      contactEmail: STAFF_CONTACT_EMAIL,
+      contactPhone: MANAGER_PHONE,
+      managerName: 'Manager Sentinel',
+      managerNotificationPhone: MANAGER_PHONE,
+    },
+  ],
+  pageInfo: { page: 1, pageSize: 20, total: 1, hasNext: false },
 };
 const CUSTOMERS_PAGE = {
   items: [{ id: 'customer-1', email: CUSTOMER_EMAIL }],
@@ -89,7 +115,7 @@ function appWrapper(queryClient: QueryClient) {
   };
 }
 
-/** Every staff/invitee/template family, as the ops prefetchers insert them (no meta). */
+/** Every staff/invitee/template/guest family, as prefetchers and cache writes insert them (no meta). */
 const PII_PREFETCHES: ReadonlyArray<{ name: string; queryKey: QueryKey; data: unknown }> = [
   {
     name: 'team invitations (pending)',
@@ -111,6 +137,48 @@ const PII_PREFETCHES: ReadonlyArray<{ name: string; queryKey: QueryKey; data: un
     name: 'customers list',
     queryKey: queryKeys.opsCustomers.list({ restaurantId: 'rest-1' }),
     data: { pages: [CUSTOMERS_PAGE], pageParams: [1] },
+  },
+  // Guest booking families, as OpsBookingCard / useOpsBookingDialogBundle / mutations
+  // insert them (prefetchQuery or setQueryData, never with meta).
+  {
+    name: 'guest booking detail',
+    queryKey: queryKeys.bookings.detail('booking-1'),
+    data: GUEST_BOOKING,
+  },
+  {
+    name: 'guest bookings list',
+    queryKey: queryKeys.bookings.list({ page: '1' }),
+    data: { items: [GUEST_BOOKING], pageInfo: { page: 1, pageSize: 10, total: 1, hasNext: false } },
+  },
+  {
+    name: 'ops booking detail',
+    queryKey: queryKeys.opsBookings.detail('booking-1'),
+    data: GUEST_BOOKING,
+  },
+  {
+    name: 'ops booking dialog bundle',
+    queryKey: ['ops', 'bookings', 'dialog', 'booking-1'],
+    data: { booking: GUEST_BOOKING, assignmentContext: { tables: [] } },
+  },
+  {
+    name: 'ops bookings list',
+    queryKey: queryKeys.opsBookings.list({ restaurantId: 'rest-1' }),
+    data: { pages: [{ items: [GUEST_BOOKING] }], pageParams: [1] },
+  },
+  {
+    name: 'ops booking email delivery log',
+    queryKey: ['ops', 'bookings', 'booking-1', 'email-delivery', 20],
+    data: { ok: true, bookingId: 'booking-1', events: [{ recipientEmail: GUEST_EMAIL }] },
+  },
+  {
+    name: 'ops dashboard summary',
+    queryKey: queryKeys.opsDashboard.summary('rest-1', null),
+    data: { restaurantId: 'rest-1', bookings: [GUEST_BOOKING] },
+  },
+  {
+    name: 'ops restaurants list',
+    queryKey: queryKeys.opsRestaurants.list({ page: 1 }),
+    data: RESTAURANTS_LIST,
   },
 ];
 
@@ -227,7 +295,7 @@ describe('PII-bearing queries never reach the persisted cache', () => {
     vi.useRealTimers();
   });
 
-  it('writes an unrelated settings key but none of the staff, invitee, template or customer families', async () => {
+  it('writes an unrelated settings key but none of the staff, invitee, template, customer or guest families', async () => {
     const hoursKey = queryKeys.opsRestaurants.hours('rest-1');
     await queryClient.prefetchQuery({
       queryKey: hoursKey,
@@ -253,6 +321,10 @@ describe('PII-bearing queries never reach the persisted cache', () => {
       CONTACT_EMAIL,
       TEMPLATE_BODY,
       CUSTOMER_EMAIL,
+      GUEST_NAME,
+      GUEST_EMAIL,
+      GUEST_PHONE,
+      STAFF_CONTACT_EMAIL,
     ]) {
       expect(raw).not.toContain(sentinel);
     }
