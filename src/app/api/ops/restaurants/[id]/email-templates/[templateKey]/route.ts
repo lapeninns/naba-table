@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   restaurantEmailTemplateKeySchema,
   updateRestaurantEmailTemplateSchema,
   type RestaurantEmailTemplateResponse,
 } from '@/app/api/ops/restaurants/schema';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import {
   resetRestaurantEmailTemplate,
   upsertRestaurantEmailTemplate,
@@ -69,13 +70,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops][restaurants][email-templates][PATCH] failed', error);
+    logger.error('ops.restaurants.email-templates.patch failed', {
+      route: 'ops.restaurants.email-templates',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-email-templates' },
     });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to save template' },
+      { error: 'Unable to save template.', code: 'INTERNAL_ERROR' },
       { status: 500 },
     );
   }
@@ -109,13 +114,17 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops][restaurants][email-templates][DELETE] failed', error);
+    logger.error('ops.restaurants.email-templates.delete failed', {
+      route: 'ops.restaurants.email-templates',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-email-templates' },
     });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to reset template' },
+      { error: 'Unable to reset template.', code: 'INTERNAL_ERROR' },
       { status: 500 },
     );
   }

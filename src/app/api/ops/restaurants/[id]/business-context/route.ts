@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { logger } from '@/lib/logger';
 import { RESTAURANT_EDITABLE_LINK_TYPES } from '@/lib/ops/restaurant-link-types';
+import { captureServerException } from '@/lib/posthog/server';
 import {
   getRestaurantBusinessContext,
   updateRestaurantBusinessContext,
@@ -167,13 +168,17 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     const snapshot = await getRestaurantBusinessContext(restaurantId);
     return NextResponse.json(snapshot);
   } catch (error) {
-    console.error('[ops][restaurants][business-context][GET] failed', error);
+    logger.error('ops.restaurants.business-context.get failed', {
+      route: 'ops.restaurants.business-context',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-restaurant-business-context' },
     });
     return NextResponse.json(
-      { error: 'Unable to load restaurant business context' },
+      { error: 'Unable to load restaurant business context', code: 'INTERNAL_ERROR' },
       { status: 500 },
     );
   }
@@ -221,12 +226,15 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     );
     return NextResponse.json(snapshot);
   } catch (error) {
-    console.error('[ops][restaurants][business-context][PUT] failed', error);
+    // Domain validation and database failures both arrive as plain Errors here, so the 400
+    // status is kept, but the message is never echoed: it can carry database internals.
+    logger.error('ops.restaurants.business-context.put failed', {
+      route: 'ops.restaurants.business-context',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : 'Unable to update restaurant business context',
-      },
+      { error: 'Unable to update restaurant business context.', code: 'SETTINGS_REQUEST_FAILED' },
       { status: 400 },
     );
   }

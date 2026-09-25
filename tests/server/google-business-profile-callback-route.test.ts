@@ -191,7 +191,7 @@ describe('google business profile callback route', () => {
 
   it('redirects safely and clears state when OAuth completion rejects the stored state', async () => {
     completeGoogleBusinessProfileAuthorizationMock.mockRejectedValue(
-      new Error('Google authorization state expired or belongs to a different restaurant.'),
+      new Error('Google authorization state has expired.'),
     );
 
     const response = await GET(
@@ -207,7 +207,7 @@ describe('google business profile callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+state+expired+or+belongs+to+a+different+restaurant.',
+      'https://app.nabatable.com/app/settings/restaurant/google-business-profile?gbp=error&message=Google+authorization+state+has+expired.',
     );
     expect(response.headers.get('set-cookie')).toContain('sr-gbp-oauth-state=');
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0');

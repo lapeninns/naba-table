@@ -5,6 +5,7 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import { logger } from '@/lib/logger';
 import { captureRestaurantServerEvent } from '@/lib/posthog/server';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
@@ -54,11 +55,11 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     setGoogleBusinessProfileOAuthStateCookie(response, authorization.stateToken, restaurantId);
     return response;
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Unable to start Google Business Profile authorization.';
-
+    logger.error('ops.restaurants.google-business-profile.connect failed', {
+      route: 'ops.restaurants.google-business-profile.connect',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     captureRestaurantServerEvent('gbp_authorization_failed', {
       restaurantId,
       distinctId: access.userId,
@@ -72,6 +73,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         path: '/api/ops/restaurants/[id]/google-business-profile/connect',
       },
     });
-    return gbpNoStoreJson({ error: message }, { status: 500 });
+    return gbpNoStoreJson(
+      {
+        error: 'Unable to start Google Business Profile authorization.',
+        code: 'GBP_AUTHORIZATION_START_FAILED',
+      },
+      { status: 500 },
+    );
   }
 }
