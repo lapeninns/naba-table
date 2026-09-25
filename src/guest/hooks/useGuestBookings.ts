@@ -39,7 +39,8 @@ export const useGuestBookings = (
     queryKey: queryKeys.bookings.list(queryKeyParams),
     queryFn: () => services.bookings.list(filters),
     placeholderData: keepPreviousData,
-    staleTime: options.staleTime,
+    // Omit when unset so the client's `['bookings']` default applies (an own `undefined` overrides it).
+    ...(options.staleTime !== undefined ? { staleTime: options.staleTime } : {}),
     refetchOnWindowFocus: options.refetchOnWindowFocus ?? true,
     refetchOnReconnect: options.refetchOnReconnect ?? true,
     refetchInterval:

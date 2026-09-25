@@ -11,6 +11,7 @@ import {
 
 import { useMenuHierarchyService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -52,7 +53,7 @@ export function useOpsMenuHierarchy(
       return menuHierarchyService.listMenus(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 60_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.menuHierarchy,
     placeholderData: keepPreviousData,
   });
 }

@@ -9,6 +9,7 @@ import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { prefetchIfStale } from '@/lib/prefetchers';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 import { normalizeOpsPathname } from '@/lib/url/opsHref';
 
 import {
@@ -179,6 +180,7 @@ export function useRestaurantSettingsNav() {
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsRestaurants.detail(id),
+          staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
           queryFn: () => restaurantService.getProfile(id),
           enabled: true,
         }),
@@ -187,6 +189,7 @@ export function useRestaurantSettingsNav() {
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsRestaurants.detail(id),
+          staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
           queryFn: () => restaurantService.getProfile(id),
           enabled: true,
         }),
@@ -194,6 +197,7 @@ export function useRestaurantSettingsNav() {
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsRestaurants.businessContext(id),
+          staleTime: OPS_SETTINGS_STALE_TIME.businessContext,
           queryFn: () => restaurantService.getBusinessContext(id),
           enabled: true,
         }),
@@ -201,6 +205,7 @@ export function useRestaurantSettingsNav() {
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsRestaurants.googleBusinessProfile(id),
+          staleTime: OPS_SETTINGS_STALE_TIME.googleBusinessProfile,
           queryFn: () => restaurantService.getGoogleBusinessProfileConnection(id),
           enabled: true,
         }),
@@ -209,24 +214,28 @@ export function useRestaurantSettingsNav() {
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsRestaurants.hours(id),
+            staleTime: OPS_SETTINGS_STALE_TIME.operatingHours,
             queryFn: () => restaurantService.getOperatingHours(id),
             enabled: true,
           }),
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsRestaurants.servicePeriods(id),
+            staleTime: OPS_SETTINGS_STALE_TIME.servicePeriods,
             queryFn: () => restaurantService.getServicePeriods(id),
             enabled: true,
           }),
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsOccasions.list(),
+            staleTime: OPS_SETTINGS_STALE_TIME.occasions,
             queryFn: () => occasionService.listOccasions(),
             enabled: true,
           }),
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsRestaurants.turnBands(id),
+            staleTime: OPS_SETTINGS_STALE_TIME.turnBands,
             queryFn: () => restaurantService.getTurnBands(id),
             enabled: true,
           }),
@@ -235,6 +244,7 @@ export function useRestaurantSettingsNav() {
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsMenuHierarchy.list(id),
+          staleTime: OPS_SETTINGS_STALE_TIME.menuHierarchy,
           queryFn: () => menuHierarchyService.listMenus(id),
           enabled: true,
         }),

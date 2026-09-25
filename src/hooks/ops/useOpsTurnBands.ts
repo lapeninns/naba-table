@@ -1,9 +1,16 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { TurnBandsPayload, TurnBandsSnapshot } from '@/services/ops/restaurants';
@@ -14,7 +21,9 @@ export function useOpsTurnBands(
   const restaurantService = useRestaurantService();
 
   return useQuery<TurnBandsSnapshot, HttpError | Error>({
-    queryKey: restaurantId ? queryKeys.opsRestaurants.turnBands(restaurantId) : queryKeys.opsRestaurants.turnBands('none'),
+    queryKey: restaurantId
+      ? queryKeys.opsRestaurants.turnBands(restaurantId)
+      : queryKeys.opsRestaurants.turnBands('none'),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -22,17 +31,27 @@ export function useOpsTurnBands(
       return restaurantService.getTurnBands(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: OPS_SETTINGS_STALE_TIME.turnBands,
   });
 }
 
 export function useOpsUpdateTurnBands(
   restaurantId?: string | null,
-): UseMutationResult<TurnBandsSnapshot, HttpError | Error, TurnBandsPayload, { previous?: TurnBandsSnapshot }> {
+): UseMutationResult<
+  TurnBandsSnapshot,
+  HttpError | Error,
+  TurnBandsPayload,
+  { previous?: TurnBandsSnapshot }
+> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
 
-  return useMutation<TurnBandsSnapshot, HttpError | Error, TurnBandsPayload, { previous?: TurnBandsSnapshot }>({
+  return useMutation<
+    TurnBandsSnapshot,
+    HttpError | Error,
+    TurnBandsPayload,
+    { previous?: TurnBandsSnapshot }
+  >({
     mutationFn: (payload) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -41,7 +60,9 @@ export function useOpsUpdateTurnBands(
     },
     onMutate: async (payload) => {
       if (!restaurantId) return { previous: undefined };
-      await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.turnBands(restaurantId) });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opsRestaurants.turnBands(restaurantId),
+      });
       const previous = queryClient.getQueryData<TurnBandsSnapshot>(
         queryKeys.opsRestaurants.turnBands(restaurantId),
       );
@@ -63,7 +84,9 @@ export function useOpsUpdateTurnBands(
     },
     onSettled: () => {
       if (!restaurantId) return;
-      void queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.turnBands(restaurantId) });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.turnBands(restaurantId),
+      });
     },
   });
 }

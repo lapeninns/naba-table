@@ -77,6 +77,15 @@ export function formatSaveScopeMessage(scope: SettingsSaveScope | string) {
 
 export const SETTINGS_COMMAND_CENTER_LAYOUT_CLASS = 'flex min-w-0 flex-col gap-4';
 
+/**
+ * Entrance fade for settings content (tw-animate-css `enter` keyframes). Pure CSS, so there is no
+ * inline `opacity: 0` to strand content before hydration; the keyframes only define `from` with
+ * fill mode `none`, so the animation always ends on the element's own visible styles; and every
+ * utility is `motion-safe:` gated, so `prefers-reduced-motion` users get no animation at all.
+ */
+export const SETTINGS_ENTER_FADE_CLASS =
+  'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 motion-safe:ease-out';
+
 /** Docked below settings chrome; does not scroll with page content. */
 export const SETTINGS_COMMAND_CENTER_DOCKED_NAV_CLASS =
   'shrink-0 border-b border-border/60 bg-background';

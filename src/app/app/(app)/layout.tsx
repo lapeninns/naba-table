@@ -1,7 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { AppProviders } from '@/app/providers';
 import { OpsShell } from '@/components/features/ops-shell/OpsShell';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
@@ -10,8 +9,8 @@ import {
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
+import { getRequestUser } from '@/server/auth/request-user';
 import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
-import { getServerComponentSupabaseClient } from '@/server/supabase';
 import {
   fetchUserMembershipsCached,
   type RestaurantMembershipWithDetails,
@@ -66,8 +65,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     host: headerStore.get('host'),
   });
 
-  const supabase = await getServerComponentSupabaseClient();
-
   let supabaseUser: OpsUser | null = null;
   let memberships: RestaurantMembershipWithDetails[] = [];
   let qaOpsMemberships: OpsMembership[] | null = null;
@@ -77,10 +74,8 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     qaOpsMemberships = qaOpsFixture.memberships;
   } else {
     try {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      // React cache(): nested layouts (e.g. restaurant settings) reuse this result.
+      const { user, error } = await getRequestUser();
 
       if (error) {
         console.error('[app/layout] failed to load user', error.message);
@@ -134,11 +129,11 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       initialRestaurantId={initialRestaurantId}
     >
       <OpsServicesProvider>
-        <AppProviders>
-          <OpsShell defaultSidebarOpen={defaultOpen} envBanner={opsEnvBanner}>
-            {children}
-          </OpsShell>
-        </AppProviders>
+        {/* Query, session and analytics providers come from the root layout; mounting
+            AppProviders here again created a second QueryClient, persister and PostHog. */}
+        <OpsShell defaultSidebarOpen={defaultOpen} envBanner={opsEnvBanner}>
+          {children}
+        </OpsShell>
       </OpsServicesProvider>
     </OpsSessionProvider>
   );

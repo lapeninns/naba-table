@@ -97,8 +97,16 @@ const publishJobsKey = (restaurantId: string, request: ListDualSyncPublishJobsRe
 const publishJobDetailKey = (restaurantId: string, jobId: string) =>
   ['dual-sync-publish-job-detail', restaurantId, jobId] as const;
 
+/** Dual-sync state is a multi-query server read; reuse it across settings navigation. */
+export const DUAL_SYNC_STATE_STALE_TIME_MS = 2 * 60_000;
+
 export interface UseOpsDualSyncArgs {
   readonly restaurantId: string | null;
+  /**
+   * Set `false` to read cached dual-sync state without fetching it (routes that only show
+   * badges). Mutations still target `restaurantId`. Defaults to `true`.
+   */
+  readonly stateEnabled?: boolean;
   /**
    * When provided, the hook lazily fetches a window of recent operations
    * for the operations dashboard panel. Pass `undefined` to skip this
@@ -135,6 +143,7 @@ export interface UseOpsDualSyncArgs {
 
 export function useOpsDualSync({
   restaurantId,
+  stateEnabled = true,
   operationsRequest,
   jobsRequest,
   candidatesRequest,
@@ -153,11 +162,12 @@ export function useOpsDualSync({
     enabled && typeof publishJobDetailId === 'string' && publishJobDetailId.length > 0;
 
   const stateQuery = useQuery<GetDualSyncStateResponse>({
-    enabled,
+    enabled: enabled && stateEnabled,
     queryKey: enabled
       ? dualSyncQueryKeys.state(restaurantId as string)
       : ['dual-sync-state', 'noop'],
     queryFn: () => getDualSyncState(restaurantId as string),
+    staleTime: DUAL_SYNC_STATE_STALE_TIME_MS,
     meta: { persist: false },
   });
 

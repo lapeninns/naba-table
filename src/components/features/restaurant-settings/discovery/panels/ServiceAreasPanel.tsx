@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
-import { useState, type KeyboardEvent } from 'react';
+import { memo, useState, type KeyboardEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,23 +16,30 @@ import { getServiceAreaChipLabel } from './serviceAreasPanelDomain';
 import { DiscoveryDisclosure, useDiscoveryForm } from '../DiscoveryFormContext';
 import { DISCOVERY_DISCLOSURE_IDS, DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
+import type { BusinessDetailsEditor } from '../../businessContextModel';
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-type ServiceAreasPanelEditor = Pick<
+export type ServiceAreasPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   | 'serviceAreas'
   | 'addServiceArea'
   | 'updateServiceArea'
   | 'removeServiceArea'
-  | 'businessDetails'
   | 'updateBusinessDetails'
->;
+> & {
+  /** Only the service-location switch, so business status edits leave this panel alone. */
+  businessDetails: Pick<BusinessDetailsEditor, 'isServiceAreaBusiness'>;
+};
 
 /**
  * Section 6: whether the restaurant serves customers away from the venue, and the towns or
  * areas it serves. Turning the switch off never removes saved areas; staff remove them here.
  */
-export function ServiceAreasPanel({ editor }: { editor: ServiceAreasPanelEditor }) {
+export const ServiceAreasPanel = memo(function ServiceAreasPanel({
+  editor,
+}: {
+  editor: ServiceAreasPanelEditor;
+}) {
   const { requestFocus } = useDiscoveryForm();
   const [newArea, setNewArea] = useState('');
   const servesAway = editor.businessDetails.isServiceAreaBusiness;
@@ -148,4 +155,4 @@ export function ServiceAreasPanel({ editor }: { editor: ServiceAreasPanelEditor 
       ) : null}
     </>
   );
-}
+});

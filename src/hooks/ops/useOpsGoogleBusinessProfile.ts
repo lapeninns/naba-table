@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 import {
   getGbpConnectionStateV1,
   getGbpTerminalNoticesV1,
@@ -109,6 +110,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
 
 export function useOpsGoogleBusinessProfileConnection(
   restaurantId?: string | null,
+  { enabled = true }: { readonly enabled?: boolean } = {},
 ): UseQueryResult<GoogleBusinessProfileConnection, HttpError> {
   const restaurantService = useRestaurantService();
 
@@ -122,8 +124,9 @@ export function useOpsGoogleBusinessProfileConnection(
       }
       return restaurantService.getGoogleBusinessProfileConnection(restaurantId);
     },
-    enabled: Boolean(restaurantId),
-    staleTime: 30_000,
+    // Disabled callers keep the real key so they still read a cached connection.
+    enabled: enabled && Boolean(restaurantId),
+    staleTime: OPS_SETTINGS_STALE_TIME.googleBusinessProfile,
     meta: { persist: false },
   });
 }

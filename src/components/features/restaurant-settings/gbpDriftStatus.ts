@@ -83,6 +83,10 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
     });
   }
 
+  if (input.fetchDeferred && input.connection === undefined) {
+    return emptyStatus({});
+  }
+
   if (input.connectionError) {
     return emptyStatus({
       label: 'Google status unavailable',
@@ -101,6 +105,10 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
       detail: 'Connect Google Business Profile to compare public fields.',
       badgeTone: 'outline',
     });
+  }
+
+  if (input.fetchDeferred && input.dualSyncState === undefined && !input.dualSyncError) {
+    return emptyStatus({ isLinked: true });
   }
 
   const fields = input.dualSyncState?.fields ?? [];

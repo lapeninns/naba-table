@@ -72,6 +72,38 @@ describe('RestaurantSettingsSidebarNav', () => {
     expect(props.onLinkClick).toHaveBeenCalled();
   });
 
+  it('@contract does not prefetch again when focus comes from a mouse click', async () => {
+    const user = userEvent.setup();
+    const props = renderNav();
+
+    const availabilityLink = screen.getByRole('link', { name: 'Availability & Booking types' });
+    await user.hover(availabilityLink);
+    await user.click(availabilityLink);
+
+    expect(availabilityLink).toHaveFocus();
+    expect(props.prefetchSettingsView).toHaveBeenCalledTimes(1);
+    expect(props.onLinkClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('@contract @a11y still prefetches when a link receives keyboard focus', async () => {
+    const user = userEvent.setup();
+    const props = renderNav();
+
+    // A mouse click elsewhere must not suppress a later keyboard focus.
+    await user.click(screen.getByRole('link', { name: 'Restaurant profile' }));
+    props.prefetchSettingsView.mockClear();
+
+    await user.tab();
+
+    expect(document.activeElement).not.toBe(
+      screen.getByRole('link', { name: 'Restaurant profile' }),
+    );
+    expect(props.prefetchSettingsView).toHaveBeenCalledTimes(1);
+    expect(props.prefetchSettingsView).toHaveBeenCalledWith(
+      document.activeElement?.getAttribute('href'),
+    );
+  });
+
   it('@contract renders nav badges supplied by the badge lookup', () => {
     renderNav({
       getNavBadge: vi.fn((href: string) =>

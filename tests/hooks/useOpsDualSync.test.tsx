@@ -36,6 +36,7 @@ vi.mock('@/services/ops/dual-sync', () => ({
 }));
 
 const restaurantId = 'restaurant-1';
+const stateQueryKey = ['dual-sync-state', restaurantId] as const;
 
 function stateResponse() {
   return {
@@ -198,6 +199,48 @@ describe('useOpsDualSync', () => {
 
     expect(dualSyncQueries).toHaveLength(7);
     expect(dualSyncQueries.every((query) => query.meta?.persist === false)).toBe(true);
+  });
+
+  it('keeps dual-sync state fresh for two minutes instead of refetching on every mount', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+    await waitFor(() => expect(result.current.stateQuery.isSuccess).toBe(true));
+
+    const stateQuery = queryClient.getQueryCache().find({ queryKey: stateQueryKey, exact: true });
+    expect(stateQuery?.options).toMatchObject({ staleTime: 2 * 60_000 });
+
+    renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+    expect(getDualSyncState).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves cached dual-sync state without fetching when stateEnabled is false', () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const cached = stateResponse();
+    // Stale cache entry: an enabled query would refetch it on mount.
+    queryClient.setQueryData(stateQueryKey, cached, { updatedAt: 0 });
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId, stateEnabled: false }), {
+      wrapper,
+    });
+
+    expect(result.current.stateQuery.data).toEqual(cached);
+    expect(getDualSyncState).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch dual-sync state when stateEnabled is false and nothing is cached', () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId, stateEnabled: false }), {
+      wrapper,
+    });
+
+    expect(result.current.stateQuery.data).toBeUndefined();
+    expect(result.current.stateQuery.isLoading).toBe(false);
+    expect(getDualSyncState).not.toHaveBeenCalled();
   });
 
   it('invalidates cached restaurant profile details after dual-sync publish', async () => {
