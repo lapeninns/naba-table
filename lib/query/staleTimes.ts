@@ -57,8 +57,10 @@ export function getQueryGcTime(query: QueryKeyLike): number {
 
 /**
  * Per-hook staleTimes for the restaurant settings queries. The hooks and the
- * settings-nav prefetchers both read these, so a hover prefetch counts as
- * fresh for the page that mounts after the click.
+ * settings-nav prefetchers both pass these. Note: the app QueryClient's
+ * `_experimental_beforeQuery` (lib/query/clientDefaults.ts) replaces them with
+ * STALE_TIME_RULES above at runtime; prefetchIfStale applies the same hook, so
+ * prefetch and page mount agree either way.
  */
 export const OPS_SETTINGS_STALE_TIME = {
   restaurantDetail: 2 * MINUTE,
