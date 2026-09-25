@@ -33,6 +33,26 @@ export type SettingsSaveOutcome =
 
 const SAFE_CODE_PATTERN = /^[A-Za-z0-9_.:-]{1,64}$/;
 
+/** Reason code for a save rejected because the stored settings changed since they were loaded. */
+export const SETTINGS_SAVE_CONFLICT_CODE = 'CONFLICT';
+
+const CONFLICT_ERROR_CODES = new Set([SETTINGS_SAVE_CONFLICT_CODE, 'STALE_WRITE']);
+
+/**
+ * The reason code for a failed save step. A 409, or a conflict code from the API, becomes the
+ * stable {@link SETTINGS_SAVE_CONFLICT_CODE} so the save bar can explain it; the settings routes
+ * send `{ error }`, so a bare 409 otherwise arrives only as `HTTP_409`.
+ */
+export function getSettingsSaveFailureReasonCode(error: unknown): string {
+  if (
+    error instanceof HttpError &&
+    (error.status === 409 || CONFLICT_ERROR_CODES.has(error.code))
+  ) {
+    return SETTINGS_SAVE_CONFLICT_CODE;
+  }
+  return getSettingsSaveReasonCode(error);
+}
+
 /** The safe reason code for a failed save: the API error code, never its message. */
 export function getSettingsSaveReasonCode(error: unknown): string {
   if (error instanceof HttpError) {
@@ -71,7 +91,7 @@ export async function runSettingsSaveSequence(
           failedSection: step.name,
           saved,
           notAttempted: steps.slice(index + 1).map((item) => item.name),
-          reasonCode: getSettingsSaveReasonCode(error),
+          reasonCode: getSettingsSaveFailureReasonCode(error),
         },
       };
     }

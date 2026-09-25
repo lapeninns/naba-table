@@ -86,9 +86,10 @@ describe('createAppQueryClient per-key defaults', () => {
     expect(client.defaultQueryOptions({ queryKey: key })).toMatchObject({
       staleTime: 30_000,
       gcTime: 5 * MINUTE,
-      retry: 2,
       refetchOnWindowFocus: false,
     });
+    // The retry policy is status-aware; its behaviour is covered in query-client-retry.test.ts.
+    expect(typeof client.defaultQueryOptions({ queryKey: key }).retry).toBe('function');
   });
 
   it('does not register prefix defaults for content-matched hours/service-period keys', () => {

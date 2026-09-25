@@ -12,6 +12,7 @@ import { SETTINGS_SAVE_COPY } from './compactSettingsClasses';
 import {
   formatSettingsSectionList,
   pluralise,
+  SETTINGS_SAVE_CONFLICT_CODE,
   type SettingsSaveFailure,
   type SettingsSaveProgress,
 } from './settingsSaveSequence';
@@ -39,6 +40,10 @@ export type SettingsSaveBarProps = {
   onShowFirstIssue: () => void;
   onReview?: () => void;
 };
+
+/** Fixed copy for a conflicting save. The server's own error text is never shown. */
+export const SETTINGS_SAVE_CONFLICT_MESSAGE =
+  'Someone else changed these settings. Reload to see the latest, then reapply your edits.';
 
 const BAR_CLASS =
   'z-20 flex shrink-0 flex-col gap-2 border-t border-border/60 bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between sm:gap-4';
@@ -131,7 +136,12 @@ function SettingsSaveBarRegion({
       <>
         <p className="flex items-start gap-1.5 text-sm font-medium text-foreground">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
-          <span>{failure.failedSection} not saved. Your edits are still here.</span>
+          <span>
+            {failure.failedSection} not saved.{' '}
+            {failure.reasonCode === SETTINGS_SAVE_CONFLICT_CODE
+              ? SETTINGS_SAVE_CONFLICT_MESSAGE
+              : 'Your edits are still here.'}
+          </span>
         </p>
         <p className="text-xs text-muted-foreground">
           {failure.saved.length > 0 ? `Saved: ${formatSettingsSectionList(failure.saved)}. ` : null}
