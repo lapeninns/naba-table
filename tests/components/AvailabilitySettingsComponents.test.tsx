@@ -30,6 +30,7 @@ const availabilityState = vi.hoisted(() => ({
     refetch: vi.fn(),
   },
   occasionService: {
+    listOccasions: vi.fn(),
     createOccasion: vi.fn(),
     updateOccasion: vi.fn(),
     deleteOccasion: vi.fn(),
@@ -291,6 +292,10 @@ describe('AvailabilitySettingsPage', () => {
     for (const service of Object.values(availabilityState.occasionService)) {
       service.mockReset();
     }
+    // The save re-reads the catalog before writing; the page's own list query is mocked above.
+    availabilityState.occasionService.listOccasions.mockImplementation(
+      async () => availabilityState.occasionsQuery.data,
+    );
     availabilityState.occasionService.createOccasion.mockImplementation(async (input) =>
       buildOccasion({ key: input.key, label: input.label }),
     );
