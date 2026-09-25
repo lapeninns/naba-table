@@ -87,18 +87,30 @@ export function isPiiQueryKey(queryKey: QueryKey): boolean {
     return queryKey[1] === 'list' || queryKey[1] === 'detail';
   }
 
+  // ['reservation', id]: the guest's booking with name, email, phone and notes.
+  if (first === 'reservation') {
+    return true;
+  }
+
+  // ['owner', 'restaurants', id, 'details']: contact email and phone.
+  if (first === 'owner') {
+    return queryKey[1] === 'restaurants' && queryKey[3] === 'details';
+  }
+
   if (first !== 'ops') {
     return false;
   }
 
   // ['ops', 'customers', ...]: customer names, emails and phones.
-  // ['ops', 'email-delivery' | 'email-queue', restaurantId, ...]: recipient emails and guest names.
+  // ['ops', 'email-delivery*' | 'email-queue', restaurantId, ...]: recipient emails and guest
+  // names, and the keys embed the recipient search term (so even the summary is denied).
   // ['ops', 'manual-assign', 'context', bookingId]: hold creators' names and emails.
+  const second = keyPart(queryKey[1]);
   if (
-    queryKey[1] === 'customers' ||
-    queryKey[1] === 'email-delivery' ||
-    queryKey[1] === 'email-queue' ||
-    queryKey[1] === 'manual-assign'
+    second === 'customers' ||
+    second === 'email-queue' ||
+    second === 'manual-assign' ||
+    second?.startsWith('email-delivery')
   ) {
     return true;
   }

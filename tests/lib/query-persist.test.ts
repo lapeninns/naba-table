@@ -82,6 +82,12 @@ describe('query persistence filter', () => {
       ['ops', 'email-queue', 'rest-1', 1],
       // Manual assignment holds: createdByName and createdByEmail (staff).
       queryKeys.manualAssign.context('booking-1'),
+      // Summary counts only, but the key embeds the staff recipient search term.
+      ['ops', 'email-delivery-summary', 'rest-1', '7d', 'guest@example.com'],
+      // Guest reservation: customerName, customerEmail, customerPhone and notes.
+      ['reservation', 'booking-1'],
+      // Owner restaurant details: contactEmail and contactPhone.
+      queryKeys.ownerRestaurants.details('rest-1'),
     ].map((queryKey) => [queryKey] as const),
   )('excludes guest booking and restaurant list query %# even without meta', (queryKey) => {
     expect(isPiiQueryKey(queryKey)).toBe(true);
@@ -99,6 +105,10 @@ describe('query persistence filter', () => {
     ).toBe(true);
     expect(
       shouldPersistQuery(queryWithKey(queryKeys.opsDashboard.heatmap('rest-1', 'a', 'b'))),
+    ).toBe(true);
+    // The guest schedule has no contact details; only ['reservation', id] is denied.
+    expect(
+      shouldPersistQuery(queryWithKey(['reservations', 'schedule', 'slug', '2026-09-26'])),
     ).toBe(true);
   });
 
