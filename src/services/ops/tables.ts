@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 
 import type { OpsServiceError, TableTimelineResponse } from '@/types/ops';
 import type { Tables } from '@/types/supabase';
@@ -108,7 +108,11 @@ export type TableTimelineParams = {
 };
 
 export interface TableInventoryService {
-  list(restaurantId: string, params?: ListTablesParams): Promise<ListTablesResult>;
+  list(
+    restaurantId: string,
+    params?: ListTablesParams,
+    options?: RequestSignalOptions,
+  ): Promise<ListTablesResult>;
   create(restaurantId: string, payload: CreateTablePayload): Promise<TableInventory>;
   update(tableId: string, payload: UpdateTablePayload): Promise<TableInventory>;
   remove(tableId: string): Promise<void>;
@@ -250,7 +254,7 @@ function buildUpdateTablePayload(payload: UpdateTablePayload): Record<string, un
 
 export function createBrowserTableInventoryService(): TableInventoryService {
   return {
-    async list(restaurantId, params = {}) {
+    async list(restaurantId, params = {}, options) {
       const searchParams = new URLSearchParams({ restaurantId });
       if (params.section) {
         searchParams.set('section', params.section);
@@ -267,6 +271,7 @@ export function createBrowserTableInventoryService(): TableInventoryService {
 
       const response = await fetchJson<ListTablesResponseDto>(
         `${OPS_TABLES_BASE}?${searchParams.toString()}`,
+        options,
       );
       return {
         tables: (response.tables ?? []).map(mapTableInventory),

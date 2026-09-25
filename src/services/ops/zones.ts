@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 
 const OPS_ZONES_BASE = '/api/ops/zones';
 
@@ -37,12 +37,20 @@ export type ListZonesResponse = {
 };
 
 export default class ZoneService {
-  async list(restaurantId: string): Promise<Zone[]> {
-    const response = await fetchJson<ListZonesResponse>(`${OPS_ZONES_BASE}?restaurantId=${restaurantId}`);
+  async list(restaurantId: string, options?: RequestSignalOptions): Promise<Zone[]> {
+    const response = await fetchJson<ListZonesResponse>(
+      `${OPS_ZONES_BASE}?restaurantId=${restaurantId}`,
+      options,
+    );
     return (response.zones ?? []).map(mapZone);
   }
 
-  async create(restaurantId: string, name: string, sortOrder?: number, active?: boolean): Promise<Zone> {
+  async create(
+    restaurantId: string,
+    name: string,
+    sortOrder?: number,
+    active?: boolean,
+  ): Promise<Zone> {
     const response = await fetchJson<{ zone: ZoneDto }>(OPS_ZONES_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,7 +59,10 @@ export default class ZoneService {
     return mapZone(response.zone);
   }
 
-  async update(zoneId: string, payload: { name?: string; sortOrder?: number; active?: boolean }): Promise<Zone> {
+  async update(
+    zoneId: string,
+    payload: { name?: string; sortOrder?: number; active?: boolean },
+  ): Promise<Zone> {
     const response = await fetchJson<{ zone: ZoneDto }>(`${OPS_ZONES_BASE}/${zoneId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

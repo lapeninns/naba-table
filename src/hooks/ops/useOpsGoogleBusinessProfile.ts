@@ -49,7 +49,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
   const connectionQuery = useQuery<GbpConnectionStateResponseV1, Error>({
     enabled,
     queryKey: gbpOperatorQueryKeys.connection(queryRestaurantId),
-    queryFn: () => getGbpConnectionStateV1(queryRestaurantId),
+    queryFn: ({ signal }) => getGbpConnectionStateV1(queryRestaurantId, { signal }),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
@@ -58,7 +58,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
   const terminalNoticesQuery = useQuery<GbpTerminalNoticesResponseV1, Error>({
     enabled,
     queryKey: gbpOperatorQueryKeys.terminalNotices(queryRestaurantId),
-    queryFn: () => getGbpTerminalNoticesV1(queryRestaurantId),
+    queryFn: ({ signal }) => getGbpTerminalNoticesV1(queryRestaurantId, { signal }),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
@@ -118,11 +118,11 @@ export function useOpsGoogleBusinessProfileConnection(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.googleBusinessProfile(restaurantId)
       : queryKeys.opsRestaurants.googleBusinessProfile('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getGoogleBusinessProfileConnection(restaurantId);
+      return restaurantService.getGoogleBusinessProfileConnection(restaurantId, { signal });
     },
     // Disabled callers keep the real key so they still read a cached connection.
     enabled: enabled && Boolean(restaurantId),
@@ -141,11 +141,11 @@ export function useOpsGoogleBusinessProfileAvailableLocations(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId)
       : queryKeys.opsRestaurants.googleBusinessProfileLocations('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getGoogleBusinessProfileAvailableLocations(restaurantId);
+      return restaurantService.getGoogleBusinessProfileAvailableLocations(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId) && enabled,
     staleTime: 10 * 60_000,

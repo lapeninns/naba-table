@@ -25,11 +25,11 @@ export function useOpsTeamInvitations(params: {
     queryKey: restaurantId
       ? queryKeys.team.invitations(restaurantId, status)
       : queryKeys.team.invitations('none', status),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return teamService.listInvites(restaurantId, status);
+      return teamService.listInvites(restaurantId, status, { signal });
     },
     enabled: Boolean(restaurantId),
     // Invitee emails are PII; keep them out of the localStorage query cache

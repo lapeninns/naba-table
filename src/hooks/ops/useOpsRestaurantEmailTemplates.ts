@@ -34,11 +34,11 @@ export function useOpsRestaurantEmailTemplates(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.emailTemplates(restaurantId)
       : queryKeys.opsRestaurants.emailTemplates('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getEmailTemplates(restaurantId);
+      return restaurantService.getEmailTemplates(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: 60_000,

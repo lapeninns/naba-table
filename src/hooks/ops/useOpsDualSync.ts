@@ -166,7 +166,7 @@ export function useOpsDualSync({
     queryKey: enabled
       ? dualSyncQueryKeys.state(restaurantId as string)
       : ['dual-sync-state', 'noop'],
-    queryFn: () => getDualSyncState(restaurantId as string),
+    queryFn: ({ signal }) => getDualSyncState(restaurantId as string, { signal }),
     staleTime: DUAL_SYNC_STATE_STALE_TIME_MS,
     meta: { persist: false },
   });

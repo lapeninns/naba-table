@@ -61,7 +61,9 @@ describe('useOpsMenuHierarchy', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual({ menus });
-    expect(menuHierarchyService.listMenus).toHaveBeenCalledWith(restaurantId);
+    expect(menuHierarchyService.listMenus).toHaveBeenCalledWith(restaurantId, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('@contract surfaces service errors', async () => {

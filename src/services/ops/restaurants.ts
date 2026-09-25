@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
@@ -957,8 +957,11 @@ export type SendTestEmailTemplateInput = PreviewEmailTemplateInput & {
 
 export interface RestaurantService {
   listRestaurants(): Promise<Array<OpsRestaurantOption & { role: RestaurantRole }>>;
-  getProfile(restaurantId: string): Promise<RestaurantProfile>;
-  getBusinessContext(restaurantId: string): Promise<RestaurantBusinessContextSnapshot>;
+  getProfile(restaurantId: string, options?: RequestSignalOptions): Promise<RestaurantProfile>;
+  getBusinessContext(
+    restaurantId: string,
+    options?: RequestSignalOptions,
+  ): Promise<RestaurantBusinessContextSnapshot>;
   updateProfile(
     restaurantId: string,
     profile: Partial<RestaurantProfile>,
@@ -971,7 +974,10 @@ export interface RestaurantService {
     restaurantId: string,
     payload: GoogleBusinessProfileProfileSyncPayload,
   ): Promise<RestaurantProfile>;
-  getOperatingHours(restaurantId: string): Promise<OperatingHoursSnapshot>;
+  getOperatingHours(
+    restaurantId: string,
+    options?: RequestSignalOptions,
+  ): Promise<OperatingHoursSnapshot>;
   updateOperatingHours(
     restaurantId: string,
     snapshot: OperatingHoursSnapshot,
@@ -980,15 +986,21 @@ export interface RestaurantService {
     restaurantId: string,
     payload: GoogleBusinessProfileOperatingHoursSyncPayload,
   ): Promise<OperatingHoursSnapshot>;
-  getServicePeriods(restaurantId: string): Promise<ServicePeriodRow[]>;
+  getServicePeriods(
+    restaurantId: string,
+    options?: RequestSignalOptions,
+  ): Promise<ServicePeriodRow[]>;
   updateServicePeriods(restaurantId: string, rows: ServicePeriodRow[]): Promise<ServicePeriodRow[]>;
   syncServicePeriodsWithGoogleBusinessProfile(
     restaurantId: string,
     payload: GoogleBusinessProfileServicePeriodsSyncPayload,
   ): Promise<ServicePeriodRow[]>;
-  getTurnBands(restaurantId: string): Promise<TurnBandsSnapshot>;
+  getTurnBands(restaurantId: string, options?: RequestSignalOptions): Promise<TurnBandsSnapshot>;
   updateTurnBands(restaurantId: string, payload: TurnBandsPayload): Promise<TurnBandsSnapshot>;
-  getEmailTemplates(restaurantId: string): Promise<RestaurantEmailTemplatesSnapshot>;
+  getEmailTemplates(
+    restaurantId: string,
+    options?: RequestSignalOptions,
+  ): Promise<RestaurantEmailTemplatesSnapshot>;
   updateEmailTemplate(
     restaurantId: string,
     templateKey: RestaurantBookingEmailTemplateKey,
@@ -1010,9 +1022,11 @@ export interface RestaurantService {
   ): Promise<SendTestEmailTemplateResponse>;
   getGoogleBusinessProfileConnection(
     restaurantId: string,
+    options?: RequestSignalOptions,
   ): Promise<GoogleBusinessProfileConnection>;
   getGoogleBusinessProfileAvailableLocations(
     restaurantId: string,
+    options?: RequestSignalOptions,
   ): Promise<GoogleBusinessProfileAvailableLocation[]>;
   startGoogleBusinessProfileAuthorization(
     restaurantId: string,
@@ -1261,16 +1275,18 @@ export function createBrowserRestaurantService(): RestaurantService {
       }));
     },
 
-    async getProfile(restaurantId: string) {
+    async getProfile(restaurantId: string, options?: RequestSignalOptions) {
       const { restaurant } = await fetchJson<RestaurantResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}`,
+        options,
       );
       return mapRestaurant(restaurant);
     },
 
-    async getBusinessContext(restaurantId: string) {
+    async getBusinessContext(restaurantId: string, options?: RequestSignalOptions) {
       return fetchJson<RestaurantBusinessContextSnapshot>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/business-context`,
+        options,
       );
     },
 
@@ -1315,8 +1331,11 @@ export function createBrowserRestaurantService(): RestaurantService {
       return mapRestaurant(restaurant);
     },
 
-    async getOperatingHours(restaurantId: string) {
-      return fetchJson<OperatingHoursSnapshot>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`);
+    async getOperatingHours(restaurantId: string, options?: RequestSignalOptions) {
+      return fetchJson<OperatingHoursSnapshot>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/hours`,
+        options,
+      );
     },
 
     async updateOperatingHours(restaurantId: string, snapshot: OperatingHoursSnapshot) {
@@ -1338,9 +1357,10 @@ export function createBrowserRestaurantService(): RestaurantService {
       });
     },
 
-    async getServicePeriods(restaurantId: string) {
+    async getServicePeriods(restaurantId: string, options?: RequestSignalOptions) {
       const response = await fetchJson<ServicePeriodsResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/service-periods`,
+        options,
       );
       return response.periods;
     },
@@ -1372,8 +1392,11 @@ export function createBrowserRestaurantService(): RestaurantService {
       return response.periods;
     },
 
-    async getTurnBands(restaurantId: string) {
-      return fetchJson<TurnBandsResponse>(`${OPS_RESTAURANTS_BASE}/${restaurantId}/turn-bands`);
+    async getTurnBands(restaurantId: string, options?: RequestSignalOptions) {
+      return fetchJson<TurnBandsResponse>(
+        `${OPS_RESTAURANTS_BASE}/${restaurantId}/turn-bands`,
+        options,
+      );
     },
 
     async updateTurnBands(restaurantId: string, payload: TurnBandsPayload) {
@@ -1384,9 +1407,10 @@ export function createBrowserRestaurantService(): RestaurantService {
       });
     },
 
-    async getEmailTemplates(restaurantId: string) {
+    async getEmailTemplates(restaurantId: string, options?: RequestSignalOptions) {
       return fetchJson<EmailTemplatesResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates`,
+        options,
       );
     },
 
@@ -1447,15 +1471,20 @@ export function createBrowserRestaurantService(): RestaurantService {
       );
     },
 
-    async getGoogleBusinessProfileConnection(restaurantId: string) {
+    async getGoogleBusinessProfileConnection(restaurantId: string, options?: RequestSignalOptions) {
       return fetchJson<GoogleBusinessProfileConnection>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/details`,
+        options,
       );
     },
 
-    async getGoogleBusinessProfileAvailableLocations(restaurantId: string) {
+    async getGoogleBusinessProfileAvailableLocations(
+      restaurantId: string,
+      options?: RequestSignalOptions,
+    ) {
       const response = await fetchJson<{ locations: GoogleBusinessProfileAvailableLocation[] }>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/google-business-profile/locations`,
+        options,
       );
       return response.locations;
     },

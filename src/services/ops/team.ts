@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 import {
   invitationCreateResponseSchema,
   invitationListResponseSchema,
@@ -28,7 +28,11 @@ export type RevokeInviteInput = {
 };
 
 export interface TeamService {
-  listInvites(restaurantId: string, status?: TeamInviteStatus): Promise<TeamInvite[]>;
+  listInvites(
+    restaurantId: string,
+    status?: TeamInviteStatus,
+    options?: RequestSignalOptions,
+  ): Promise<TeamInvite[]>;
   createInvite(input: CreateInviteInput): Promise<{ invite: TeamInvite }>;
   revokeInvite(input: RevokeInviteInput): Promise<TeamInvite>;
 }
@@ -68,9 +72,13 @@ export type TeamServiceError = OpsServiceError | Error;
 
 export function createBrowserTeamService(): TeamService {
   return {
-    async listInvites(restaurantId: string, status: TeamInviteStatus = 'pending') {
+    async listInvites(
+      restaurantId: string,
+      status: TeamInviteStatus = 'pending',
+      options?: RequestSignalOptions,
+    ) {
       const params = new URLSearchParams({ restaurantId, status });
-      const data = await fetchJson<unknown>(`${TEAM_INVITES_BASE}?${params.toString()}`);
+      const data = await fetchJson<unknown>(`${TEAM_INVITES_BASE}?${params.toString()}`, options);
       const parsed = invitationListResponseSchema.parse(data);
       return parsed.invites;
     },

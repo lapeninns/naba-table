@@ -29,11 +29,11 @@ export function useOpsTurnBands(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.turnBands(restaurantId)
       : queryKeys.opsRestaurants.turnBands('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getTurnBands(restaurantId);
+      return restaurantService.getTurnBands(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.turnBands,
