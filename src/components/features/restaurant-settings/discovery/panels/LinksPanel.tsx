@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { memo } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/typography';
@@ -12,13 +13,13 @@ import { DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-type LinksPanelEditor = Pick<
+export type LinksPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   'links' | 'addLink' | 'updateLink' | 'removeLink'
 >;
 
 /** Section 3: website and social links. */
-export function LinksPanel({ editor }: { editor: LinksPanelEditor }) {
+export const LinksPanel = memo(function LinksPanel({ editor }: { editor: LinksPanelEditor }) {
   const { requestFocus } = useDiscoveryForm();
 
   return (
@@ -53,4 +54,4 @@ export function LinksPanel({ editor }: { editor: LinksPanelEditor }) {
       </div>
     </>
   );
-}
+});

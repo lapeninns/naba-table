@@ -3,11 +3,12 @@
 import { AlertCircle, ChevronRight } from 'lucide-react';
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 
@@ -18,10 +19,7 @@ import { cn } from '@/lib/utils';
 import type { DiscoveryIssue } from './discoveryValidation';
 
 type DiscoveryFormContextValue = {
-  /** The issue shown for a field: after a save attempt, or once staff have left the field. */
-  getFieldIssue: (fieldId: string) => string | null;
   markTouched: (fieldId: string) => void;
-  isDisclosureOpen: (id: string) => boolean;
   setDisclosureOpen: (id: string, open: boolean) => void;
   /** Focuses an element after the next render, e.g. a row just added. */
   requestFocus: (elementId: string) => void;
@@ -29,13 +27,80 @@ type DiscoveryFormContextValue = {
   showIssue: (issue: DiscoveryIssue) => void;
 };
 
-const DiscoveryFormContext = createContext<DiscoveryFormContextValue | null>(null);
+type DiscoveryFormState = {
+  issueByField: ReadonlyMap<string, string>;
+  showAllIssues: boolean;
+  touched: ReadonlySet<string>;
+  openDisclosures: ReadonlySet<string>;
+};
+
+/**
+ * Issues, touched fields and open disclosures live in a small store rather than in the context
+ * value, so the context value never changes. Each field and disclosure subscribes to its own
+ * slice: an edit in one panel re-renders only the fields whose issue actually changed.
+ */
+type DiscoveryFormStore = {
+  getState: () => DiscoveryFormState;
+  update: (updater: (current: DiscoveryFormState) => DiscoveryFormState) => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+function createDiscoveryFormStore(initial: DiscoveryFormState): DiscoveryFormStore {
+  let state = initial;
+  const listeners = new Set<() => void>();
+  return {
+    getState: () => state,
+    update: (updater) => {
+      const next = updater(state);
+      if (next === state) {
+        return;
+      }
+      state = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+type DiscoveryFormContextInternal = DiscoveryFormContextValue & { store: DiscoveryFormStore };
+
+const DiscoveryFormContext = createContext<DiscoveryFormContextInternal | null>(null);
 
 function prefersReducedMotion() {
   return (
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
+}
+
+function buildIssueByField(issues: readonly DiscoveryIssue[]): ReadonlyMap<string, string> {
+  const map = new Map<string, string>();
+  for (const issue of issues) {
+    if (!map.has(issue.fieldId)) {
+      map.set(issue.fieldId, issue.message);
+    }
+  }
+  return map;
+}
+
+function toggleInSet(current: ReadonlySet<string>, id: string, present: boolean) {
+  if (current.has(id) === present) {
+    return current;
+  }
+  const next = new Set(current);
+  if (present) {
+    next.add(id);
+  } else {
+    next.delete(id);
+  }
+  return next;
 }
 
 export function DiscoveryFormProvider({
@@ -47,9 +112,25 @@ export function DiscoveryFormProvider({
   showAllIssues: boolean;
   children: ReactNode;
 }) {
-  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
-  const [openDisclosures, setOpenDisclosures] = useState<ReadonlySet<string>>(() => new Set());
+  const issueByField = useMemo(() => buildIssueByField(issues), [issues]);
+  const [store] = useState(() =>
+    createDiscoveryFormStore({
+      issueByField,
+      showAllIssues,
+      touched: new Set(),
+      openDisclosures: new Set(),
+    }),
+  );
   const [pendingFocus, setPendingFocus] = useState<{ id: string; scroll: boolean } | null>(null);
+
+  // Publishes new issues to subscribed fields before paint.
+  useLayoutEffect(() => {
+    store.update((current) =>
+      current.issueByField === issueByField && current.showAllIssues === showAllIssues
+        ? current
+        : { ...current, issueByField, showAllIssues },
+    );
+  }, [issueByField, showAllIssues, store]);
 
   useEffect(() => {
     if (!pendingFocus) {
@@ -71,68 +152,66 @@ export function DiscoveryFormProvider({
     return () => window.cancelAnimationFrame(frame);
   }, [pendingFocus]);
 
-  const issueByField = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const issue of issues) {
-      if (!map.has(issue.fieldId)) {
-        map.set(issue.fieldId, issue.message);
-      }
-    }
-    return map;
-  }, [issues]);
-
-  const getFieldIssue = useCallback(
-    (fieldId: string) =>
-      showAllIssues || touched.has(fieldId) ? (issueByField.get(fieldId) ?? null) : null,
-    [issueByField, showAllIssues, touched],
-  );
-  const markTouched = useCallback((fieldId: string) => {
-    setTouched((current) => (current.has(fieldId) ? current : new Set(current).add(fieldId)));
-  }, []);
-  const isDisclosureOpen = useCallback((id: string) => openDisclosures.has(id), [openDisclosures]);
-  const setDisclosureOpen = useCallback((id: string, open: boolean) => {
-    setOpenDisclosures((current) => {
-      if (current.has(id) === open) {
-        return current;
-      }
-      const next = new Set(current);
-      if (open) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  }, []);
-  const requestFocus = useCallback((elementId: string) => {
-    setPendingFocus({ id: elementId, scroll: false });
-  }, []);
-  const showIssue = useCallback((issue: DiscoveryIssue) => {
-    setOpenDisclosures((current) => new Set([...current, ...issue.disclosures]));
-    setPendingFocus({ id: issue.fieldId, scroll: true });
-  }, []);
-
-  const value = useMemo(
+  const value = useMemo<DiscoveryFormContextInternal>(
     () => ({
-      getFieldIssue,
-      markTouched,
-      isDisclosureOpen,
-      setDisclosureOpen,
-      requestFocus,
-      showIssue,
+      store,
+      markTouched: (fieldId) =>
+        store.update((current) => {
+          const touched = toggleInSet(current.touched, fieldId, true);
+          return touched === current.touched ? current : { ...current, touched };
+        }),
+      setDisclosureOpen: (id, open) =>
+        store.update((current) => {
+          const openDisclosures = toggleInSet(current.openDisclosures, id, open);
+          return openDisclosures === current.openDisclosures
+            ? current
+            : { ...current, openDisclosures };
+        }),
+      requestFocus: (elementId) => setPendingFocus({ id: elementId, scroll: false }),
+      showIssue: (issue) => {
+        store.update((current) => ({
+          ...current,
+          openDisclosures: new Set([...current.openDisclosures, ...issue.disclosures]),
+        }));
+        setPendingFocus({ id: issue.fieldId, scroll: true });
+      },
     }),
-    [getFieldIssue, isDisclosureOpen, markTouched, requestFocus, setDisclosureOpen, showIssue],
+    [store],
   );
 
   return <DiscoveryFormContext.Provider value={value}>{children}</DiscoveryFormContext.Provider>;
 }
 
-export function useDiscoveryForm(): DiscoveryFormContextValue {
+function useDiscoveryFormInternal(): DiscoveryFormContextInternal {
   const context = useContext(DiscoveryFormContext);
   if (!context) {
     throw new Error('useDiscoveryForm must be used inside DiscoveryFormProvider');
   }
   return context;
+}
+
+/** Stable form actions. Reading them never re-renders the caller when issues change. */
+export function useDiscoveryForm(): DiscoveryFormContextValue {
+  return useDiscoveryFormInternal();
+}
+
+function useDiscoveryFormSelector<T>(select: (state: DiscoveryFormState) => T): T {
+  const { store } = useDiscoveryFormInternal();
+  const getSnapshot = () => select(store.getState());
+  return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+}
+
+/** The issue shown for a field: after a save attempt, or once staff have left the field. */
+export function useDiscoveryFieldIssue(fieldId: string | null): string | null {
+  return useDiscoveryFormSelector((state) =>
+    fieldId !== null && (state.showAllIssues || state.touched.has(fieldId))
+      ? (state.issueByField.get(fieldId) ?? null)
+      : null,
+  );
+}
+
+export function useDiscoveryDisclosureOpen(id: string): boolean {
+  return useDiscoveryFormSelector((state) => state.openDisclosures.has(id));
 }
 
 export function discoveryFieldErrorId(fieldId: string): string {
@@ -144,8 +223,8 @@ export function discoveryFieldErrorId(fieldId: string): string {
  * field's issue. Spread `fieldProps` onto the input.
  */
 export function useDiscoveryField(fieldId: string, describedBy?: string) {
-  const { getFieldIssue, markTouched } = useDiscoveryForm();
-  const issue = getFieldIssue(fieldId);
+  const { markTouched } = useDiscoveryForm();
+  const issue = useDiscoveryFieldIssue(fieldId);
   const describedByIds = [describedBy, issue ? discoveryFieldErrorId(fieldId) : null]
     .filter(Boolean)
     .join(' ');
@@ -191,8 +270,8 @@ export function DiscoveryDisclosure({
   className?: string;
   contentClassName?: string;
 }) {
-  const { isDisclosureOpen, setDisclosureOpen } = useDiscoveryForm();
-  const open = isDisclosureOpen(id);
+  const { setDisclosureOpen } = useDiscoveryForm();
+  const open = useDiscoveryDisclosureOpen(id);
 
   return (
     <Collapsible

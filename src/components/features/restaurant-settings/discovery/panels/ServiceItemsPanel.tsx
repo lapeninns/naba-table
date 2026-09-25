@@ -1,6 +1,7 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import { memo } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -11,13 +12,17 @@ import { DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-type ServiceItemsPanelEditor = Pick<
+export type ServiceItemsPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   'serviceItems' | 'addServiceItem' | 'updateServiceItem' | 'removeServiceItem'
 >;
 
 /** Section 5: services beyond the menu. */
-export function ServiceItemsPanel({ editor }: { editor: ServiceItemsPanelEditor }) {
+export const ServiceItemsPanel = memo(function ServiceItemsPanel({
+  editor,
+}: {
+  editor: ServiceItemsPanelEditor;
+}) {
   const { requestFocus } = useDiscoveryForm();
 
   return (
@@ -59,4 +64,4 @@ export function ServiceItemsPanel({ editor }: { editor: ServiceItemsPanelEditor 
       </div>
     </>
   );
-}
+});
