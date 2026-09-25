@@ -1,4 +1,4 @@
-import { QueryClient, type Query } from '@tanstack/react-query';
+import { dehydrate, QueryClient, type Query } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { queryKeys } from '@/lib/query/keys';
@@ -54,17 +54,69 @@ describe('query persistence filter', () => {
     expect(shouldPersistQuery(queryWithKey(queryKey))).toBe(false);
   });
 
+  it.each(
+    [
+      // BookingDTO: customerName, customerEmail, customerPhone (guest and ops flows).
+      queryKeys.bookings.detail('booking-1'),
+      queryKeys.bookings.list({ page: 1 }),
+      // OpsBookingListItem / OpsBookingsPage: customerName, customerEmail, customerPhone.
+      queryKeys.opsBookings.detail('booking-1'),
+      queryKeys.opsBookings.list({ restaurantId: 'rest-1' }),
+      ['ops', 'bookings', 'list'],
+      // OpsBookingDialogBundle.booking is an OpsBookingListItem.
+      ['ops', 'bookings', 'dialog', 'booking-1'],
+      // EmailDeliveryEventDTO.recipientEmail.
+      ['ops', 'bookings', 'booking-1', 'email-delivery', 20],
+      // OpsDashboardData.bookings[]: customerName, customerEmail, customerPhone.
+      queryKeys.opsDashboard.summary('rest-1', null),
+      queryKeys.opsDashboard.summary('rest-1', '2026-09-25'),
+      // RestaurantDTO: contactEmail, contactPhone, managerName, managerNotificationPhone.
+      queryKeys.opsRestaurants.list(),
+      queryKeys.opsRestaurants.list({ page: 1, search: 'x' }),
+      // TableTimelineSegment.booking: customerName, customerEmail, customerPhone, notes.
+      queryKeys.opsTables.timeline('rest-1', { service: 'all', includeSummary: true }),
+      queryKeys.opsTables.timeline('rest-1'),
+      // OpsEmailDeliveryAttemptDTO: recipientEmail and booking.customerName; the key embeds search terms.
+      ['ops', 'email-delivery', 'rest-1', '7d', 1, 25, 'all', 'guest@example.com'],
+      // Email queue rows: customerName and customerEmail.
+      ['ops', 'email-queue', 'rest-1', 1],
+      // Manual assignment holds: createdByName and createdByEmail (staff).
+      queryKeys.manualAssign.context('booking-1'),
+      // Summary counts only, but the key embeds the staff recipient search term.
+      ['ops', 'email-delivery-summary', 'rest-1', '7d', 'guest@example.com'],
+      // Guest reservation: customerName, customerEmail, customerPhone and notes.
+      ['reservation', 'booking-1'],
+      // Owner restaurant details: contactEmail and contactPhone.
+      queryKeys.ownerRestaurants.details('rest-1'),
+    ].map((queryKey) => [queryKey] as const),
+  )('excludes guest booking and restaurant list query %# even without meta', (queryKey) => {
+    expect(isPiiQueryKey(queryKey)).toBe(true);
+    expect(shouldPersistQuery(queryWithKey(queryKey))).toBe(false);
+  });
+
   it('allows stable unrelated query keys to persist', () => {
-    // The restaurant detail record used to be the example here; it carries manager and
-    // contact phone numbers/emails, so it is now in the PII deny-list above.
+    // The restaurant detail record and booking detail used to be examples here; both carry
+    // phone numbers/emails, so they are now in the PII deny-list above.
     expect(shouldPersistQuery(queryWithKey(queryKeys.opsRestaurants.hours('rest-1')))).toBe(true);
     expect(shouldPersistQuery(queryWithKey(queryKeys.team.memberships()))).toBe(true);
-    expect(shouldPersistQuery(queryWithKey(queryKeys.bookings.detail('booking-1')))).toBe(true);
+    // Assignment context carries booking times, party size and tables only.
+    expect(
+      shouldPersistQuery(queryWithKey(queryKeys.opsBookings.assignmentContext('booking-1'))),
+    ).toBe(true);
+    expect(
+      shouldPersistQuery(queryWithKey(queryKeys.opsDashboard.heatmap('rest-1', 'a', 'b'))),
+    ).toBe(true);
+    // The guest schedule has no contact details; only ['reservation', id] is denied.
+    expect(
+      shouldPersistQuery(queryWithKey(['reservations', 'schedule', 'slug', '2026-09-26'])),
+    ).toBe(true);
   });
 
   it('honors explicit persist false metadata', () => {
     expect(
-      shouldPersistQuery(queryWithKey(queryKeys.bookings.detail('booking-1'), { persist: false })),
+      shouldPersistQuery(
+        queryWithKey(queryKeys.opsRestaurants.hours('rest-1'), { persist: false }),
+      ),
     ).toBe(false);
   });
 });
@@ -198,5 +250,73 @@ describe('throttled query persistence', () => {
     queryClient.setQueryData(['restaurants', 'r-3'], { name: 'C' });
     await vi.advanceTimersByTimeAsync(1000);
     expect(window.localStorage.getItem(storageKey)).toContain('"r-3"');
+  });
+});
+
+describe('persisted cache restore', () => {
+  const storageKey = buildQueryStorageKey('user-restore');
+  const hoursKey = queryKeys.opsRestaurants.hours('rest-1');
+  const HOURS = { weekly: [{ dayOfWeek: 1, opensAt: '09:00' }] };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  /** Writes a cache with the current buster through the real persister. */
+  async function persistHoursCache(): Promise<void> {
+    const source = new QueryClient();
+    const stop = configureQueryPersistence(source, { storageKey });
+    await vi.advanceTimersByTimeAsync(0);
+    source.setQueryData(hoursKey, HOURS);
+    await vi.advanceTimersByTimeAsync(1000);
+    stop();
+    source.clear();
+    expect(window.localStorage.getItem(storageKey)).toContain('"hours"');
+  }
+
+  async function restoreInto(queryClient: QueryClient): Promise<() => void> {
+    const stop = configureQueryPersistence(queryClient, { storageKey });
+    await vi.advanceTimersByTimeAsync(0);
+    return stop;
+  }
+
+  it('restores a cache written with the current buster', async () => {
+    await persistHoursCache();
+
+    const target = new QueryClient();
+    const stop = await restoreInto(target);
+
+    expect(target.getQueryData(hoursKey)).toEqual(HOURS);
+    stop();
+    target.clear();
+  });
+
+  it('discards a cache persisted with buster v1, written before the PII deny-list existed', async () => {
+    // A v1 cache as it could be written before the deny-list: unfiltered, including the
+    // restaurant detail record with manager and contact phone numbers.
+    const legacySource = new QueryClient();
+    const detailKey = queryKeys.opsRestaurants.detail('rest-1');
+    legacySource.setQueryData(hoursKey, HOURS);
+    legacySource.setQueryData(detailKey, { managerNotificationPhone: '+44legacy-sentinel' });
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ buster: 'v1', timestamp: Date.now(), clientState: dehydrate(legacySource) }),
+    );
+    legacySource.clear();
+
+    const target = new QueryClient();
+    const stop = await restoreInto(target);
+
+    expect(target.getQueryData(hoursKey)).toBeUndefined();
+    expect(target.getQueryData(detailKey)).toBeUndefined();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+    stop();
+    target.clear();
   });
 });
