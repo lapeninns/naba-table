@@ -5,10 +5,10 @@
 > gradients and shadows below describe the pre-Luma auth pages and are **not** the current
 > contract; the auth routes now render through the shared semantic tokens and primitives, and
 > the `guard:luma` ratchet blocks new hardcoded palette utilities. For current values read
-> [`docs/DESIGN_TOKENS.md`](DESIGN_TOKENS.md) and the brand spec
-> [`GUEST_FACING_DESIGN_SYSTEM.md`](../GUEST_FACING_DESIGN_SYSTEM.md); for decisions read
-> [`docs/design/luma-2.0-spec.md`](design/luma-2.0-spec.md). Kept only so older task notes
-> that cite it still resolve.
+> [`docs/DESIGN_TOKENS.md`](../../DESIGN_TOKENS.md) and the design system
+> [`DESIGN.md`](../../../DESIGN.md); for decisions read
+> [`docs/design/luma-2.0-spec.md`](../luma-2.0-spec.md). Archived from
+> `docs/auth-design-system.md` for history only.
 
 ## Color Tokens
 

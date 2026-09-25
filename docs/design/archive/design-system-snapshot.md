@@ -1,4 +1,8 @@
-# Design System — Nab a Table
+# Design System — Nab a Table (archived snapshot)
+
+> [!CAUTION]
+> **Archived.** This file was moved from `docs/design-system.md` and is kept for history only.
+> The current design system is [`DESIGN.md`](../../../DESIGN.md).
 
 > Reverse-engineered from the [SajiloReserveX](https://github.com/lapeninns/nabatable) repository.
 > All claims cite source files. "Unknown" is used where evidence is absent.
@@ -13,7 +17,7 @@
 > - **`styles/design-system/public-guest.tokens.css`** — the `--pg-*` palette/type/shape tokens and per-surface (`[data-theme='guest'|'app']`) + `.dark` overrides
 > - **`styles/design-system/public-guest.utilities.css`** — the `.pg-*` utility bridge
 >
-> For the current state and the forward plan, read **[`design/luma-2.0-spec.md`](design/luma-2.0-spec.md)**.
+> For the current state and the forward plan, read **[`luma-2.0-spec.md`](../luma-2.0-spec.md)**.
 > The colour/type/shape _values_ below are mostly still accurate; the _file map_ is not.
 
 ---
@@ -417,7 +421,7 @@ Default icon size in buttons: `size-4` (16px) via `[&_svg:not([class*='size-'])]
 
 ## Components
 
-See [component-inventory.md](component-inventory.md) for the full catalog.
+See [component-inventory.md](../../component-inventory.md) for the full catalog.
 
 ### Primitives (`components/ui/`) — 31 components
 

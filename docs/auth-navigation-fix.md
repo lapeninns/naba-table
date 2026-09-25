@@ -143,7 +143,7 @@ URL construction respects `NEXT_PUBLIC_ROOT_DOMAIN` environment variable.
 ## Related Documentation
 
 - [Auth Revamp Summary](./auth-revamp-summary.md)
-- [Auth Design System](./auth-design-system.md)
+- [Auth Design System (archived)](./design/archive/auth-design-system.md)
 - [Auth Testing Guide](./auth-testing-guide.md)
 
 ---

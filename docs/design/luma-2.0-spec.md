@@ -1,6 +1,6 @@
 # Luma 2.0 — design-system specification
 
-> Status: **draft for review** · Author: design-system upgrade (Phase 3) · Supersedes the reverse-engineered snapshot in [`docs/design-system.md`](../design-system.md), which predates the Phase 1 token consolidation and is now stale.
+> Status: **draft for review** · Author: design-system upgrade (Phase 3) · Supersedes the reverse-engineered snapshot now archived at [`docs/design/archive/design-system-snapshot.md`](archive/design-system-snapshot.md), which predates the Phase 1 token consolidation. The canonical design system is [`DESIGN.md`](../../DESIGN.md).
 
 Luma 2.0 is **not a re-skin**. Phases 1–2 already hardened the foundation, systematised typography, fixed the token layer, shipped dark mode, and gated drift in CI. 2.0 is the step that turns "a consistent system" into "a _codified_ system": one status vocabulary, one set of pattern primitives, one documented source of truth, and a small, deliberate set of aesthetic decisions that only the product owner can sign off.
 
@@ -33,7 +33,7 @@ Three sentences:
 
 1. **One vocabulary per concept.** A status is a `(tone, label, icon?)` triple resolved through exactly one component and one tone set — never a per-feature reinvention.
 2. **Primitives over instances.** Repeated shells (empty states, page headers, status pills) are DS primitives; feature code composes them and never re-implements them.
-3. **The system documents itself.** The canonical spec (this file + a refreshed `design-system.md`) matches the code, and CI keeps them from diverging.
+3. **The system documents itself.** The canonical spec ([`DESIGN.md`](../../DESIGN.md) + this decision register) matches the code, and CI keeps them from diverging.
 
 Everything below serves one of those three.
 
@@ -104,6 +104,7 @@ Safe-set — verifiable by local typecheck/test/guard even while CI billing is b
 
 - [x] **Semantic palette + status consolidation** (§3.1, §4.1): icon-capable `OpsStatusBadge` routed to semantic tones; google-business badge folded onto it; dual-sync operation icon inherits its tone; booking lifecycle recoloured. Verified in-browser (light + dark).
 - [x] **Doc refresh** (§3.6): `design-system.md` / `DESIGN_TOKENS.md` bannered and pointed at the real sources + this spec.
+- [x] **Doc consolidation**: the brand spec became the root `DESIGN.md`; the stale snapshot and the pre-Luma auth reference moved to `docs/design/archive/`; the ops settings contract moved to `docs/design/ops-settings-contract.md`.
 - [x] **`subheading` coverage**: 16 mini-titles migrated.
 - [x] **Serif reach ratified** (§4.2): ops stays all-sans; no change needed.
 

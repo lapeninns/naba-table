@@ -41,7 +41,7 @@ use these, not raw hex:
 
 - Stylesheet: `_ds_bundle.css` (reached from `styles.css`) — every token + utility.
 - Per component: its `.prompt.md` (usage) and `.d.ts` (props).
-- Brand, voice, motion, spacing: the `guidelines/` cards (esp. `GUEST_FACING_DESIGN_SYSTEM.md`).
+- Brand, voice, motion, spacing: the `guidelines/` cards (esp. `DESIGN.md`).
 
 ## Idiomatic snippet
 
